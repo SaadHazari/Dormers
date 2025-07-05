@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { useState, useEffect, useRef } from 'react';
-import ChatWindow from './ChatWindow';
-import Menu from '@/app/components/Menu';
-import { motion, AnimatePresence } from 'framer-motion';
+import Image from "next/image";
+import { useState, useEffect, useRef } from "react";
+import ChatWindow from "./ChatWindow";
+import Menu from "@/app/components/Menu";
+import { motion, AnimatePresence } from "framer-motion";
 // import { IoIosArrowDown } from 'react-icons/io';
-import FormModal from '@/app/components/FormModal';
-import OrderForm from '@/app/components/OrderForm';
-import { useTheme } from 'next-themes';
-import TestimonialsBubbles from '@/app/components/TestimonialsBubbles';
+import FormModal from "@/app/components/FormModal";
+import OrderForm from "@/app/components/OrderForm";
+import { useTheme } from "next-themes";
+import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 
 interface FAQ {
   id: number;
@@ -30,6 +30,10 @@ export default function Home() {
   const subscribeCardRef = useRef<HTMLDivElement>(null);
   const feastCardRef = useRef<HTMLDivElement>(null);
   const [showAll, setShowAll] = useState(false);
+  const [isQualifyFlipped, setIsQualifyFlipped] = useState(false);
+  const [isSubscribeFlipped, setIsSubscribeFlipped] = useState(false);
+  // const [isFeastFlipped, setIsFeastFlipped] = useState(false);
+
   // const lastScrollY = useRef(0);
 
   // Check if device is mobile
@@ -38,25 +42,25 @@ export default function Home() {
       setIsMobile(window.innerWidth <= 768);
     };
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Add chat event listener
   useEffect(() => {
     const handleChatOpen = () => setIsChatOpen(true);
-    window.addEventListener('open-chat', handleChatOpen);
-    return () => window.removeEventListener('open-chat', handleChatOpen);
+    window.addEventListener("open-chat", handleChatOpen);
+    return () => window.removeEventListener("open-chat", handleChatOpen);
   }, []);
 
   // Handle scroll-based card flips on mobile
 
-//   const handleCardClick = (id: string) => {
-//   setFlippedCard(id);
-//   setTimeout(() => {
-//     setFlippedCard(null);
-//   }, 1500);
-// };
+  //   const handleCardClick = (id: string) => {
+  //   setFlippedCard(id);
+  //   setTimeout(() => {
+  //     setFlippedCard(null);
+  //   }, 1500);
+  // };
   // useEffect(() => {
   //   if (!isMobile) return;
 
@@ -75,7 +79,7 @@ export default function Home() {
   //       if (!ref.current) return;
   //       const rect = ref.current.getBoundingClientRect();
   //       const isInView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-        
+
   //       if (isInView) {
   //         if (scrollingDown) {
   //           setFlippedCard(id);
@@ -90,17 +94,20 @@ export default function Home() {
   // }, [isMobile]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('section-visible');
-        }
-      });
-    }, {
-      threshold: 0.1
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("section-visible");
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+      }
+    );
 
-    const aboutSection = document.querySelector('.about-section');
+    const aboutSection = document.querySelector(".about-section");
     if (aboutSection) {
       observer.observe(aboutSection);
     }
@@ -114,77 +121,85 @@ export default function Home() {
 
   // Testimonial image filenames
   const testimonialImages = [
-    'screenshot1.jpg',
-    'screenshot2.jpg',
-    'screenshot3.png',
-    'screenshot4.png',
-    'screenshot5.png',
-    'screenshot6.png',
-    'screenshot7.png',
-    'screenshot8.png',
-    'screenshot9.png',
-    'screenshot10.png',
-    'screenshot11.png',
-    'screenshot12.png',
-    'screenshot13.png',
-    'screenshot14.png',
-    'screenshot15.png',
-    'screenshot16.png',
-    'screenshot17.png',
-    'screenshot18.png',
-    'screenshot19.png',
-    'screenshot20.png',
-    'screenshot21.png',
-    'screenshot22.png',
-    'screenshot23.png',
-    'screenshot24.png',
-    'screenshot25.png',
-    'ss1.png',
-    'ss2.png',
-    'ss3.png',
-    'ss4.png'
+    "screenshot1.jpg",
+    "screenshot2.jpg",
+    "screenshot3.png",
+    "screenshot4.png",
+    "screenshot5.png",
+    "screenshot6.png",
+    "screenshot7.png",
+    "screenshot8.png",
+    "screenshot9.png",
+    "screenshot10.png",
+    "screenshot11.png",
+    "screenshot12.png",
+    "screenshot13.png",
+    "screenshot14.png",
+    "screenshot15.png",
+    "screenshot16.png",
+    "screenshot17.png",
+    "screenshot18.png",
+    "screenshot19.png",
+    "screenshot20.png",
+    "screenshot21.png",
+    "screenshot22.png",
+    "screenshot23.png",
+    "screenshot24.png",
+    "screenshot25.png",
+    "ss1.png",
+    "ss2.png",
+    "ss3.png",
+    "ss4.png",
   ];
 
   const faqs: FAQ[] = [
     {
       id: 1,
       question: "What is Dormer's?",
-      answer: "Dormer&apos;s is your friendly dorm meal savior, designed to keep you alive, full, and thriving without resorting to instant noodles and regret. We deliver tasty, healthy, and affordable meals straight to your dorm so you can focus on acing exams (or just binge-watching in peace)."
+      answer:
+        "Dormer's is your friendly dorm meal savior, designed to keep you alive, full, and thriving without resorting to instant noodles and regret. We deliver tasty, healthy, and affordable meals straight to your dorm so you can focus on acing exams (or just binge-watching in peace).",
     },
     {
       id: 2,
       question: "What kind of food do you serve?",
-      answer: "Everything except disappointment. Our menu is packed with dishes from around the world—biryani, beef stroganoff, jollof rice, peri-peri chicken, butter chicken, shawarma, burrito bowls—basically, if it&apos;s good, it&apos;s on our menu. Oh, and it changes daily, so no, you won&apos;t be stuck eating the same thing every week. Food fatigue? Never heard of it."
+      answer:
+        "Everything except disappointment. Our menu is packed with dishes from around the world—biryani, beef stroganoff, jollof rice, peri-peri chicken, butter chicken, shawarma, burrito bowls—basically, if it’s good, it’s on our menu. Oh, and it changes daily, so no, you won’t be stuck eating the same thing every week. Food fatigue? Never heard of it.",
     },
     {
       id: 3,
       question: "Do you have vegetarian options?",
-      answer: "Yes! We love our veggie lovers. We have a separate vegetarian meal plan, and our dishes aren&apos;t just &quot;side salads pretending to be meals.&quot; We actually put effort into them. Paneer, lentils, chickpeas, mushrooms—you name it, we make it delicious."
+      answer:
+        "Yes! We love our veggie lovers. We have a separate vegetarian meal plan, and our dishes aren’t just “side salads pretending to be meals.” We actually put effort into them. Paneer, lentils, chickpeas, mushrooms—you name it, we make it delicious.",
     },
     {
       id: 4,
       question: "Can I customize my meals?",
-      answer: "We&apos;re not a &quot;Build-a-Biryani&quot; workshop, but we do allow some customization! Don&apos;t like spicy food? We can tone it down. Allergic to something? We&apos;ve got you. Just let us know your preferences, and we&apos;ll make sure your meal won&apos;t try to assassinate you."
+      answer:
+        "We’re not a “Build-a-Biryani” workshop, but we do allow some customization! Don’t like spicy food? We can tone it down. Allergic to something? We’ve got you. Just let us know your preferences, and we’ll make sure your meal won’t try to assassinate you.",
     },
     {
       id: 5,
       question: "How does the subscription work?",
       answer: (
         <div>
-          <p className="mb-4">It&apos;s Netflix, but for food. You can pick:</p>
+          <p className="mb-4">It’s Netflix, but for food. You can pick:</p>
           <ul className="list-disc pl-6 mb-4 space-y-2">
             <li>Daily Plan – One meal at a time, for the commitment-phobes.</li>
             <li>Weekly Plan – 6 days of meals.</li>
             <li>Monthly Plan – 24 meals across 4 weeks.</li>
           </ul>
-          <p>Want to pause a meal? You get 3 skips per month—just let us know a day before and we&apos;ll move it forward.</p>
+          <p>
+            Want to pause a meal? You get 3 skips per month—just let us know a
+            day before and we’ll move it forward.
+          </p>
         </div>
-      )
+      ),
     },
     {
       id: 6,
       question: "How much does it cost?",
-      answer: "Cheaper than eating out, healthier than junk food, and saner than cooking after an 8 AM lecture. The exact price? Just slide into our WhatsApp DMs, and we&apos;ll give you the details."
+      answer:
+        "Cheaper than eating out, healthier than junk food, and saner than cooking after an 8 AM lecture. The exact price? Just slide into our WhatsApp DMs, and we’ll give you the details.",
     },
     {
       id: 7,
@@ -199,27 +214,31 @@ export default function Home() {
             <li>Cash on Delivery (for those who still trust paper money)</li>
           </ul>
         </div>
-      )
+      ),
     },
     {
       id: 8,
       question: "How do you deliver?",
-      answer: "Our drivers are basically food ninjas—fast, precise, and undetected. We deliver 6 days a week, straight to your dorm, while the food is still warm. And yes, we text you when it&apos;s on the way, because ghosting is for bad relationships, not meal deliveries."
+      answer:
+        "Our drivers are basically food ninjas—fast, precise, and undetected. We deliver 6 days a week, straight to your dorm, while the food is still warm. And yes, we text you when it’s on the way, because ghosting is for bad relationships, not meal deliveries.",
     },
     {
       id: 9,
       question: "What if I'm not home when the food arrives?",
-      answer: "No problem! Just let us know ahead of time where to drop it (a friend, reception, or a designated food guardian). If you ghost us, though, your meal will just… wait for you to return like a sad puppy."
+      answer:
+        "No problem! Just let us know ahead of time where to drop it (a friend, reception, or a designated food guardian). If you ghost us, though, your meal will just… wait for you to return like a sad puppy.",
     },
     {
       id: 10,
       question: "Is your packaging eco-friendly?",
-      answer: "Yep! Our meal boxes are biodegradable and recyclable. Plus, we don&apos;t drown our food in plastic like a crime scene—your sauces and gravies come in separate, spill-proof containers to keep things fresh and crispy."
+      answer:
+        "Yep! Our meal boxes are biodegradable and recyclable. Plus, we don’t drown our food in plastic like a crime scene—your sauces and gravies come in separate, spill-proof containers to keep things fresh and crispy.",
     },
     {
       id: 11,
       question: "Can I cancel my subscription?",
-      answer: "We&apos;d be heartbroken, but yes. If you need to cancel, just let us know at least 3 days before your subscription ends, and we won&apos;t hold any grudges (okay, maybe a tiny one)."
+      answer:
+        "We’d be heartbroken, but yes. If you need to cancel, just let us know at least 3 days before your subscription ends, and we won’t hold any grudges (okay, maybe a tiny one).",
     },
     {
       id: 12,
@@ -227,275 +246,367 @@ export default function Home() {
       answer: (
         <div>
           <p className="mb-4">Easy!</p>
-          <p className="mb-4">Just click on the subscribe now button, & you&apos;ll be onboarded before you can say &quot;Instant Ramen&quot;.</p>
+          <p className="mb-4">
+            Just click on the subscribe now button, & you’ll be onboarded before
+            you can say “Instant Ramen”.
+          </p>
           <p className="mb-4">OR</p>
-          <p>Just WhatsApp us, click the link in our bio, or scan the QR code on our meal bags & menus. Takes less than a minute, and you&apos;ll be on your way to better meals and a better life.</p>
+          <p>
+            Just WhatsApp us, click the link in our bio, or scan the QR code on
+            our meal bags & menus. Takes less than a minute, and you’ll be on
+            your way to better meals and a better life.
+          </p>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const toggleFAQ = (id: number) => {
     setOpenFAQ(openFAQ === id ? null : id);
   };
 
+  const renderFaqCard = (
+    faq: FAQ,
+    index: number,
+    openFAQ: number | null,
+    toggleFAQ: (id: number) => void
+    // theme: string | undefined
+  ) => {
+    const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
+    const color = colorSet[index % colorSet.length];
+    const isOpen = openFAQ === faq.id;
+    const isLight = color === "#EEE9DA";
 
-const renderFaqCard = (
-  faq: FAQ,
-  index: number,
-  openFAQ: number | null,
-  toggleFAQ: (id: number) => void,
-  // theme: string | undefined
-) => {
-  const colorSet = ['#EEE9DA', '#FF8A00', '#0A1B26'];
-  const color = colorSet[index % colorSet.length];
-  const isOpen = openFAQ === faq.id;
-  const isLight = color === '#EEE9DA';
+    return (
+      <div
+        key={faq.id}
+        className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto"
+        style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
+      >
+        <button
+          onClick={() => toggleFAQ(faq.id)}
+          className="w-full px-6 py-4 flex items-center justify-between text-left"
+        >
+          <span
+            className={`font-bold text-base sm:text-lg ${
+              isOpen
+                ? "text-[#22394A]"
+                : isLight
+                ? "text-[#22394A]"
+                : "text-white"
+            }`}
+            style={{
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            {faq.question}
+          </span>
+          <span
+            className={`text-xl font-bold ${
+              isOpen
+                ? "text-[#22394A]"
+                : isLight
+                ? "text-[#22394A]"
+                : "text-white"
+            }`}
+          >
+            {isOpen ? "−" : "+"}
+          </span>
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="px-6 pb-4"
+            >
+              <div
+                className="text-[#22394A]"
+                style={{
+                  fontFamily: "Poppins, sans-serif",
+                  fontWeight: 300,
+                  lineHeight: "130%",
+                  letterSpacing: "0.5px",
+                  fontSize: "12px",
+                }}
+              >
+                {faq.answer}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
   return (
     <div
-      key={faq.id}
-      className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto"
-      style={{ backgroundColor: isOpen ? '#EEE9DA' : color }}
+      className={`min-h-screen ${
+        theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+      }`}
     >
-      <button
-        onClick={() => toggleFAQ(faq.id)}
-        className="w-full px-6 py-4 flex items-center justify-between text-left"
-      >
-        <span
-          className={`font-bold text-base sm:text-lg ${
-            isOpen ? 'text-[#22394A]' : isLight ? 'text-[#22394A]' : 'text-white'
-          }`}
-          style={{
-            fontFamily: 'Montserrat, sans-serif',
-            fontWeight: 600,
-            fontSize: '14px',
-          }}
-        >
-          {faq.question}
-        </span>
-        <span
-          className={`text-xl font-bold ${
-            isOpen ? 'text-[#22394A]' : isLight ? 'text-[#22394A]' : 'text-white'
-          }`}
-        >
-          {isOpen ? '−' : '+'}
-        </span>
-      </button>
+      {/* Hero Section */}
+      <div id="hero" className="container mx-auto px-2 sm:px-4 pt-28 pb-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="space-y-4">
+            {/* First Section */}
+            <div className="text-center">
+              <h1
+                className={`${
+                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                style={{
+                  fontFamily: "'Typo Round Bold Demo', sans-serif",
+                  lineHeight: "1",
+                }}
+              >
+                DORMERS&apos; IS FOR
+              </h1>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="px-6 pb-4"
-          >
-            <div
-              className="text-[#22394A]"
+              <div className="relative inline-flex items-center gap-2 sm:gap-4">
+                <h2
+                  className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0"
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    color: "#213c4c",
+                    textShadow:
+                      "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
+                    lineHeight: "1",
+                    letterSpacing: "0",
+                  }}
+                >
+                  STUDENTS
+                </h2>
+                <span
+                  className="bg-[#EEE9DA] text-[#1E3A4F] top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12"
+                  style={{ width: "33%" }}
+                >
+                  ONLY
+                </span>
+              </div>
+            </div>
+
+            {/* Second Section */}
+            <div className="relative text-center mt-2 sm:mt-4">
+              <span
+                className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg]"
+                style={{
+                  padding: "0 6px",
+                  height: "20px",
+                  top: "-38%",
+                  left: "1%",
+                  width: "15%",
+                  borderRadius: "16px",
+                  fontFamily: "Typo Round Bold Demo",
+                  fontWeight: 700,
+                  fontSize: "10px",
+                  lineHeight: "100%",
+                  textAlign: "center",
+                }}
+              >
+                NO
+              </span>
+
+              <h1
+                className={`${
+                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                style={{
+                  fontFamily: "'Typo Round Bold Demo', sans-serif",
+                  textTransform: "uppercase",
+                  lineHeight: "1",
+                }}
+              >
+                Overpriced Takeouts
+              </h1>
+            </div>
+
+            {/* Third Section */}
+            <div className="relative text-center mt-2 sm:mt-4">
+              <h2
+                className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  color: "#213c4c",
+                  textShadow:
+                    "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
+                  lineHeight: "1",
+                  letterSpacing: "0",
+                }}
+              >
+                NO TIME WASTED
+              </h2>
+              <span
+                className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
+                style={{
+                  fontFamily: "Typo Round Bold Demo",
+                  fontWeight: 700,
+                }}
+              >
+                COOKING
+              </span>
+            </div>
+
+            {/* Bottom Text */}
+            <p
+              className={`text-[16px] sm:text-[24px] md:text-lg lg:text-xl ${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              } text-center mt-3`}
               style={{
-                fontFamily: 'Poppins, sans-serif',
-                fontWeight: 300,
-                lineHeight: '130%',
-                letterSpacing: '0.5px',
-                fontSize: '12px',
+                fontFamily: "Typo Round Bold Demo",
+                fontWeight: 700,
               }}
             >
-              {faq.answer}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-
-
-  return (
-    <div className={`min-h-screen ${theme === 'light' ? 'bg-[#EEE9DA]' : 'bg-[#1E3A4F]'}`}>
-      {/* Hero Section */}
-<div id="hero" className="container mx-auto px-2 sm:px-4 pt-28 pb-16">
-  <div className="max-w-4xl mx-auto">
-    <div className="space-y-4">
-      
-      {/* First Section */}
-      <div className="text-center">
-        <h1 className={`${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`} style={{ 
-          fontFamily: "'Typo Round Bold Demo', sans-serif",
-          lineHeight: '1',
-        }}>
-          DORMERS&apos; IS FOR
-        </h1>
-
-        <div className="relative inline-flex items-center gap-2 sm:gap-4">
-          <h2 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0" style={{ 
-            fontFamily: 'Montserrat',
-            fontWeight: 900,
-            textTransform: 'uppercase',
-            color: '#213c4c',
-            textShadow: '-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA',
-            lineHeight: '1',
-            letterSpacing: '0'
-          }}>
-            STUDENTS
-          </h2>
-          <span className="bg-[#EEE9DA] text-[#1E3A4F] top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12"
-          style={{width: '33%',}}>
-            ONLY
-          </span>
+              Just good, affordable food, delivered to your dorm
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Second Section */}
-      <div className="relative text-center mt-2 sm:mt-4">
-        <span
-          className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg]"
-          style={{
-            padding: '0 6px',
-            height: '20px',
-            top: '-38%',
-            left: '1%',
-            width: '15%',
-            borderRadius: '16px',
-            fontFamily: 'Typo Round Bold Demo',
-            fontWeight: 700,
-            fontSize: '10px',
-            lineHeight: '100%',
-            textAlign: 'center',
-          }}
-        >
-          NO
-        </span>
-
-        <h1 className={`${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`} style={{ 
-          fontFamily: "'Typo Round Bold Demo', sans-serif",
-          textTransform: 'uppercase',
-          lineHeight: '1',
-        }}>
-          Overpriced Takeouts
-        </h1>
-      </div>
-
-      {/* Third Section */}
-      <div className="relative text-center mt-2 sm:mt-4">
-        <h2 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]" style={{ 
-          fontFamily: 'Montserrat',
-          fontWeight: 900,
-          textTransform: 'uppercase',
-          color: '#213c4c',
-          textShadow: '-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA',
-          lineHeight: '1',
-          letterSpacing: '0'
-        }}>
-          NO TIME WASTED
-        </h2>
-        <span className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
-          style={{ 
-            fontFamily: 'Typo Round Bold Demo',
-            fontWeight: 700,
-          }}>
-          COOKING
-        </span>
-      </div>
-
-      {/* Bottom Text */}
-      <p className={`text-[16px] sm:text-[24px] md:text-lg lg:text-xl ${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-center mt-3`}
-        style={{ 
-          fontFamily: 'Typo Round Bold Demo',
-          fontWeight: 700,
-        }}>
-        Just good, affordable food, delivered to your dorm
-      </p>
-    </div>
-  </div>
-</div>
-
-
       {/* Repeating Text Banner */}
-      <div className={`relative w-full h-18 overflow-hidden ${theme === 'light' ? 'bg-[#1E3A4F]' : 'bg-[#EEE9DA]'}`}>
+      <div
+        className={`relative w-full h-18 overflow-hidden ${
+          theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+        }`}
+      >
         <div className="flex flex-col gap-3 w-full h-full py-3">
           {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
 
           {/* Row 2 */}
           <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: '-7s' }}>
+            <div className="marquee" style={{ animationDelay: "-7s" }}>
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
 
           {/* Row 3 (Half visible) */}
           <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: '-3s' }}>
+            <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
@@ -503,16 +614,20 @@ const renderFaqCard = (
       </div>
 
       {/* How It Works Section */}
-      <div className={`relative w-full py-16 ${theme === 'light' ? 'bg-[#EEE9DA]' : 'bg-[#1E3A4F]'} overflow-hidden`}>
+      <div
+        className={`relative w-full py-16 ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        } overflow-hidden`}
+      >
         {/* Background Image */}
         <div className="absolute inset-0 w-full h-full">
-          <Image 
-            src="/images/sec2bg.png" 
-            alt="Background Pattern" 
+          <Image
+            src="/images/sec2bg.png"
+            alt="Background Pattern"
             className="w-full h-full object-cover md:object-fill opacity-[0.4] md:scale-100"
             style={{
-              imageRendering: 'crisp-edges',
-              backgroundRepeat: 'repeat',
+              imageRendering: "crisp-edges",
+              backgroundRepeat: "repeat",
             }}
             fill
             priority
@@ -521,222 +636,310 @@ const renderFaqCard = (
         {/* Content */}
         <div className="relative container mx-auto px-4">
           <div className="flex items-center justify-center gap-4 mb-10">
-            <h2 className={`${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-3xl sm:text-4xl font-bold text-center`} style={{
-    fontFamily: "'Montserrat', sans-serif",
-    fontWeight: 500,
-    fontSize: '20px',
-    lineHeight: '100%',
-    letterSpacing: '0',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  }}>HOW IT WORKS</h2>
+            <h2
+              className={`${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              } text-3xl sm:text-4xl font-bold text-center`}
+              style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 500,
+                fontSize: "20px",
+                lineHeight: "100%",
+                letterSpacing: "0",
+                textAlign: "center",
+                textTransform: "uppercase",
+              }}
+            >
+              HOW IT WORKS
+            </h2>
           </div>
           <div className="max-w-md mx-auto space-y-6">
-           {/* Qualify Card */}
-<div 
-  ref={qualifyCardRef}
-  className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative" 
-  onClick={() => setFlippedCard(flippedCard === 'qualify' ? null : 'qualify')}
->
-  <div className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-    flippedCard === 'qualify' ? '[transform:rotateY(180deg)]' : ''
-  } ${!isMobile && 'hover:scale-105'}`}>
-    {/* Front */}
-    <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-      <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3"
-      >1</span>
-      <h3 className="text-[#FFFFFF] text-2xl font-bold text-center" style={{
-        fontFamily: 'Montserrat',
-        fontWeight: 900,
-        lineHeight: '100%',
-        letterSpacing: '0%',
-        fontSize:'20px'
-      }}>QUALIFY</h3>
-    </div>
-
-   {/* Back - Tell us about yourself card */}
-<div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-  <div className="flex flex-col justify-between h-full">
-    
-    {/* Top Spacer */}
-    <div className="h-[24px]"></div>
-
-    {/* Icon + Text Block */}
-    <div className="flex flex-col items-start space-y-3">
-      {/* Icon */}
-<Image
-  src="/images/iconinfo1.svg" 
-  alt="Info Icon" 
-  width={47.84} 
-  height={34.28} 
-  className="object-contain"
-/>
-
-      {/* Text */}
-      <h4 className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-      style={{
-        fontFamily: 'Montserrat',
-        fontWeight: 900,
-        lineHeight: '100%',
-        letterSpacing: '0%',
-        fontSize:'16px'
-      }}>
-        Tell us about<br />yourself
-      </h4>
-    </div>
-
-    {/* Bottom Spacer */}
-    <div className="h-[24px]"></div>
-  </div>
-</div>
-
-{!isMobile && (
-  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-)}
-</div>
-</div>
-            {/* Subscribe Card */}
-            <div 
-  ref={subscribeCardRef}
-  className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-  onClick={() => setFlippedCard(flippedCard === 'subscribe' ? null : 'subscribe')}
->
-              <div className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                flippedCard === 'subscribe' ? '[transform:rotateY(180deg)]' : ''
-              } ${!isMobile && 'hover:scale-105'}`}>
+            {/* Qualify Card */}
+            <div
+              ref={qualifyCardRef}
+              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
+              // onClick={() =>
+              //   setFlippedCard(flippedCard === "qualify" ? null : "qualify")
+              // }
+              onClick={() => setIsQualifyFlipped((prev) => !prev)}
+            >
+              <div
+                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                  isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
+                }
+                } ${!isMobile && "hover:scale-105"}`}
+              >
                 {/* Front */}
-                <div className={`absolute inset-0 ${theme === 'light' ? 'bg-[#1E3A4F]' : 'bg-[#EEE9DA]'} rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}>
+                <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                  <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3">
+                    1
+                  </span>
+                  <h3
+                    className="text-[#FFFFFF] text-2xl font-bold text-center"
+                    style={{
+                      fontFamily: "Montserrat",
+                      fontWeight: 900,
+                      lineHeight: "100%",
+                      letterSpacing: "0%",
+                      fontSize: "20px",
+                    }}
+                  >
+                    QUALIFY
+                  </h3>
+                </div>
+
+                {/* Back - Tell us about yourself card */}
+                <div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                  <div className="flex flex-col justify-between h-full">
+                    {/* Top Spacer */}
+                    <div className="h-[24px]"></div>
+
+                    {/* Icon + Text Block */}
+                    <div className="flex flex-col items-start space-y-3">
+                      {/* Icon */}
+                      <Image
+                        src="/images/iconinfo1.svg"
+                        alt="Info Icon"
+                        width={47.84}
+                        height={34.28}
+                        className="object-contain"
+                      />
+
+                      {/* Text */}
+                      <h4
+                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 900,
+                          lineHeight: "100%",
+                          letterSpacing: "0%",
+                          fontSize: "16px",
+                        }}
+                      >
+                        Tell us about
+                        <br />
+                        yourself
+                      </h4>
+                    </div>
+
+                    {/* Bottom Spacer */}
+                    <div className="h-[24px]"></div>
+                  </div>
+                </div>
+
+                {!isMobile && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                )}
+              </div>
+            </div>
+            {/* Subscribe Card */}
+            <div
+              ref={subscribeCardRef}
+              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
+              // onClick={() =>
+              //   setFlippedCard(flippedCard === "subscribe" ? null : "subscribe")
+              // }
+              onClick={() => setIsSubscribeFlipped((prev) => !prev)}
+            >
+              <div
+                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                  isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
+                }
+                } ${!isMobile && "hover:scale-105"}`}
+              >
+                {/* Front */}
+                <div
+                  className={`absolute inset-0 ${
+                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                  } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                >
                   <span
-  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
-    theme === 'light' ? 'bg-[#EEE9DA] text-[#1E3A4F]' : 'bg-[#1E3A4F] text-white'
-  }`}
->
-  2
-</span>
-                  <h3 className={`${theme === 'light' ? 'text-white' : 'text-[#1E3A4F]'} text-3xl sm:text-4xl font-bold`} style={{
-  fontFamily: 'Montserrat',
-  fontWeight: 900,
-  lineHeight: '100%',
-  letterSpacing: '0%',
-  textAlign: 'center',
-  fontSize:'20px'
-}}>SUBSCRIBE</h3>
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
+                      theme === "light"
+                        ? "bg-[#EEE9DA] text-[#1E3A4F]"
+                        : "bg-[#1E3A4F] text-white"
+                    }`}
+                  >
+                    2
+                  </span>
+                  <h3
+                    className={`${
+                      theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                    } text-3xl sm:text-4xl font-bold`}
+                    style={{
+                      fontFamily: "Montserrat",
+                      fontWeight: 900,
+                      lineHeight: "100%",
+                      letterSpacing: "0%",
+                      textAlign: "center",
+                      fontSize: "20px",
+                    }}
+                  >
+                    SUBSCRIBE
+                  </h3>
                   {/* Click indicator */}
                   <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                     <span>Click to flip</span>
-                    <svg className="w-4 h-4 animate-bounce" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 4V20M12 20L6 14M12 20L18 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg
+                      className="w-4 h-4 animate-bounce"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 4V20M12 20L6 14M12 20L18 14"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
                 </div>
                 {/* Back - Pick your perfect plan */}
-<div className={`absolute inset-0 ${theme === 'light' ? 'bg-[#1E3A4F]' : 'bg-[#EEE9DA]'} rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}>
-  <div className="flex flex-col justify-between h-full">
-    
-    {/* Top Spacer */}
-    <div className="h-[24px]"></div>
+                <div
+                  className={`absolute inset-0 ${
+                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                  } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                >
+                  <div className="flex flex-col justify-between h-full">
+                    {/* Top Spacer */}
+                    <div className="h-[24px]"></div>
 
-    {/* Icon + Text Block */}
-    <div className="flex flex-col items-start space-y-3">
-      <Image
-  src="/images/iconbell.svg" 
-  alt="Info Icon" 
-  width={27.16} 
-  height={24} 
-  className={`object-contain ${
-    theme === 'light' ? 'filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105' : ''
-  }`}
-/>
+                    {/* Icon + Text Block */}
+                    <div className="flex flex-col items-start space-y-3">
+                      <Image
+                        src="/images/iconbell.svg"
+                        alt="Info Icon"
+                        width={27.16}
+                        height={24}
+                        className={`object-contain ${
+                          theme === "light"
+                            ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
+                            : ""
+                        }`}
+                      />
 
-      <h4 className={`${theme === 'light' ? 'text-white' : 'text-[#1E3A4F]'} text-[16px] font-extrabold font-[Montserrat] leading-snug`}
-      style={{
-        fontFamily: 'Montserrat',
-        fontWeight: 900,
-        lineHeight: '100%',
-        letterSpacing: '0%',
-        fontSize:'16px'
-      }}>
-        Pick your perfect<br />plan
-      </h4>
-    </div>
+                      <h4
+                        className={`${
+                          theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                        } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 900,
+                          lineHeight: "100%",
+                          letterSpacing: "0%",
+                          fontSize: "16px",
+                        }}
+                      >
+                        Pick your perfect
+                        <br />
+                        plan
+                      </h4>
+                    </div>
 
-    {/* Bottom Spacer */}
-    <div className="h-[24px]"></div>
-  </div>
-</div>
+                    {/* Bottom Spacer */}
+                    <div className="h-[24px]"></div>
+                  </div>
+                </div>
 
-{!isMobile && (
-  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-)}
- </div>
+                {!isMobile && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                )}
+              </div>
             </div>
 
             {/* Feast Card */}
-            <div 
-  ref={feastCardRef}
-  className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-  onClick={() => setFlippedCard(flippedCard === 'feast' ? null : 'feast')}
->
-              <div className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                flippedCard === 'feast' ? '[transform:rotateY(180deg)]' : ''
-              } ${!isMobile && 'hover:scale-105'}`}>
+            <div
+              ref={feastCardRef}
+              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
+              onClick={() =>
+                setFlippedCard(flippedCard === "feast" ? null : "feast")
+              }
+            >
+              <div
+                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                  flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
+                } ${!isMobile && "hover:scale-105"}`}
+              >
                 {/* Front */}
                 <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">3</span>
-                  <h3 className="text-white text-3xl sm:text-4xl font-bold" style={{
-  fontFamily: 'Montserrat',
-  fontWeight: 900,
-  lineHeight: '100%',
-  letterSpacing: '0%',
-  textAlign: 'center',
-  fontSize:'20px'
-}}>FEAST</h3>
+                  <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">
+                    3
+                  </span>
+                  <h3
+                    className="text-white text-3xl sm:text-4xl font-bold"
+                    style={{
+                      fontFamily: "Montserrat",
+                      fontWeight: 900,
+                      lineHeight: "100%",
+                      letterSpacing: "0%",
+                      textAlign: "center",
+                      fontSize: "20px",
+                    }}
+                  >
+                    FEAST
+                  </h3>
                   {/* Click indicator */}
                   <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                     <span>Click to flip</span>
-                    <svg className="w-4 h-4 animate-bounce" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 4V20M12 20L6 14M12 20L18 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg
+                      className="w-4 h-4 animate-bounce"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 4V20M12 20L6 14M12 20L18 14"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
                 </div>
                 {/* Back - Enjoy stress-free meals */}
-<div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-  <div className="flex flex-col justify-between h-full">
-    
-    {/* Top Spacer */}
-    <div className="h-[24px]"></div>
+                <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                  <div className="flex flex-col justify-between h-full">
+                    {/* Top Spacer */}
+                    <div className="h-[24px]"></div>
 
-    {/* Icon + Text Block */}
-    <div className="flex flex-col items-start space-y-3">
-      <Image
-  src="/images/iconfeast.svg" 
-  alt="Info Icon" 
-  width={27.16} 
-  height={24} 
-  className="object-contain"
-/>
+                    {/* Icon + Text Block */}
+                    <div className="flex flex-col items-start space-y-3">
+                      <Image
+                        src="/images/iconfeast.svg"
+                        alt="Info Icon"
+                        width={27.16}
+                        height={24}
+                        className="object-contain"
+                      />
 
-      <h4 className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-      style={{
-        fontFamily: 'Montserrat',
-        fontWeight: 900,
-        lineHeight: '100%',
-        letterSpacing: '0%',
-        fontSize:'16px'
-      }}>
-        Enjoy stress-free<br />meals
-      </h4>
-    </div>
+                      <h4
+                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 900,
+                          lineHeight: "100%",
+                          letterSpacing: "0%",
+                          fontSize: "16px",
+                        }}
+                      >
+                        Enjoy stress-free
+                        <br />
+                        meals
+                      </h4>
+                    </div>
 
-    {/* Bottom Spacer */}
-    <div className="h-[24px]"></div>
-  </div>
-</div>
+                    {/* Bottom Spacer */}
+                    <div className="h-[24px]"></div>
+                  </div>
+                </div>
 
-{!isMobile && (
-  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-)}
-</div>
+                {!isMobile && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                )}
+              </div>
             </div>
 
             {/* Qualify Button */}
@@ -746,12 +949,11 @@ const renderFaqCard = (
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-[#031624] text-[#FFFFFF] font-bold py-1 px-3 rounded-full text-lg transition-all hover:scale-105"
-                style={{ 
-                  fontFamily: 'Montserrat, sans-serif',
+                style={{
+                  fontFamily: "Montserrat, sans-serif",
                   fontWeight: 500,
-                  boxShadow: '1px 2px 0px 0px #EEE9DA',
-                  fontSize:'12px'
-                  
+                  boxShadow: "1px 2px 0px 0px #EEE9DA",
+                  fontSize: "12px",
                 }}
               >
                 SEE IF YOU QUALIFY
@@ -762,99 +964,150 @@ const renderFaqCard = (
       </div>
 
       {/* Menu Section */}
-      <div id="menu" className={`relative w-full py-0 px-0 ${theme === 'light' ? 'bg-[#EEE9DA]' : 'bg-[#1E3A4F]'}`}
+      <div
+        id="menu"
+        className={`relative w-full py-0 px-0 ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        }`}
       >
         <Menu />
       </div>
 
       {/* Repeating Text Banner (after menu) */}
       <div
-  className={`relative w-full h-18 overflow-hidden ${
-    theme === 'light' ? 'bg-[#1E3A4F] mt-8 sm:mt-4' : 'bg-[#EEE9DA]'
-  }`}
->
-
+        className={`relative w-full h-18 overflow-hidden ${
+          theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
+        }`}
+      >
         <div className="flex flex-col gap-3 w-full h-full py-3">
           {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
 
           {/* Row 2 */}
           <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: '-7s' }}>
+            <div className="marquee" style={{ animationDelay: "-7s" }}>
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
 
           {/* Row 3 (Half visible) */}
           <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: '-3s' }}>
+            <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
-                <span key={i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
               {[...Array(12)].map((_, i) => (
-                <span key={12 + i} className={`inline-block ${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#1E3A4F]'} mx-2`} style={{
-  fontFamily: "'Typo Round Bold Demo', sans-serif",
-  fontSize: '18px',
-  fontWeight: 700,
-  lineHeight: '100%',
-  letterSpacing: '0',
-  transform: 'rotate(-8.84deg)',
-  opacity: 0.54,
-}}>DORMERS&apos;</span>
+                <span
+                  key={12 + i}
+                  className={`inline-block ${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                  } mx-2`}
+                  style={{
+                    fontFamily: "'Typo Round Bold Demo', sans-serif",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    transform: "rotate(-8.84deg)",
+                    opacity: 0.54,
+                  }}
+                >
+                  DORMERS&apos;
+                </span>
               ))}
             </div>
           </div>
@@ -866,20 +1119,19 @@ const renderFaqCard = (
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between max-w-4xl mx-auto mb-8">
             <h2
-  className={`text-3xl sm:text-4xl font-bold ${
-    theme === 'light' ? 'text-[1E3A4F]' : 'text-white'
-  }`}
-  style={{
-    fontFamily: 'Montserrat',
-    fontWeight: 500,
-    lineHeight: '100%',
-    letterSpacing: '0',
-    fontSize: '18px',
-  }}
->
-  VOICES OF DELIGHT
-</h2>
-
+              className={`text-3xl sm:text-4xl font-bold ${
+                theme === "light" ? "text-[1E3A4F]" : "text-white"
+              }`}
+              style={{
+                fontFamily: "Montserrat",
+                fontWeight: 500,
+                lineHeight: "100%",
+                letterSpacing: "0",
+                fontSize: "18px",
+              }}
+            >
+              VOICES OF DELIGHT
+            </h2>
           </div>
 
           {/* New Testimonials Component */}
@@ -890,331 +1142,429 @@ const renderFaqCard = (
       </div>
 
       {/* FAQ Section */}
-<div id="faq" ref={faqRef} className={`relative w-full ${theme === 'light' ? 'bg-[#EEE9DA]' : 'bg-[#22394A]'} pb-8`}>
-  <div className="container mx-auto px-0">
-    <div className="w-full rounded-b-[60px] shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8"
-      style={{
-        backgroundColor: theme === 'light' ? '#EEE9DA' : '#22394A',
-      }}>
-      
-      <div className="max-w-6xl mx-auto">
-        <h2 className={`${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-3xl sm:text-4xl font-bold mb-8 text-left`}
-          style={{
-            fontFamily: "Montserrat, sans-serif",
-            fontWeight: 500,
-            lineHeight: "100%",
-            letterSpacing: "0",
-            fontSize: '20px', 
-          }}>
-          FAQ&apos;S
-        </h2>
-
-        <AnimatePresence mode="wait">
-  {showAll ? (
-    <motion.div
-      key="expanded"
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      className="relative"
-    >
-      {/* Close button */}
-      <button
-        onClick={() => {
-          setShowAll(false);
-          setTimeout(() => {
-            faqRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 200); // slight delay so collapse animation completes
-        }}
-        className={`absolute top-0 right-0 z-10 p-2 rounded-full ${
-          theme === 'light' ? 'bg-[#1E3A4F] text-white' : 'bg-[#EEE9DA] text-[#1E3A4F]'
-        } hover:opacity-80 transition-opacity`}
+      <div
+        id="faq"
+        ref={faqRef}
+        className={`relative w-full ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
+        } pb-8`}
       >
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+        <div className="container mx-auto px-0">
+          <div
+            className="w-full rounded-b-[60px] shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8"
+            style={{
+              backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
+            }}
+          >
+            <div className="max-w-6xl mx-auto">
+              <h2
+                className={`${
+                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-3xl sm:text-4xl font-bold mb-8 text-left`}
+                style={{
+                  fontFamily: "Montserrat, sans-serif",
+                  fontWeight: 500,
+                  lineHeight: "100%",
+                  letterSpacing: "0",
+                  fontSize: "20px",
+                }}
+              >
+                FAQ&apos;S
+              </h2>
 
-      {/* Scrollable FAQ list */}
-      <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {faqs.map((faq, index) => renderFaqCard(faq, index, openFAQ, toggleFAQ))}
+              <AnimatePresence mode="wait">
+                {showAll ? (
+                  <motion.div
+                    key="expanded"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="relative"
+                  >
+                    {/* Close button */}
+                    <button
+                      onClick={() => {
+                        setShowAll(false);
+                        setTimeout(() => {
+                          faqRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }, 200); // slight delay so collapse animation completes
+                      }}
+                      className={`absolute top-0 right-0 z-10 p-2 rounded-full ${
+                        theme === "light"
+                          ? "bg-[#1E3A4F] text-white"
+                          : "bg-[#EEE9DA] text-[#1E3A4F]"
+                      } hover:opacity-80 transition-opacity`}
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* Scrollable FAQ list */}
+                    <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {faqs.map((faq, index) =>
+                          renderFaqCard(faq, index, openFAQ, toggleFAQ)
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="collapsed"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                  >
+                    {faqs
+                      .slice(0, 3)
+                      .map((faq, index) =>
+                        renderFaqCard(faq, index, openFAQ, toggleFAQ)
+                      )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {!showAll && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => {
+                      setShowAll(true);
+                      setTimeout(() => {
+                        faqRef.current?.scrollIntoView({ behavior: "smooth" });
+                      }, 100);
+                    }}
+                    className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${
+                      theme === "light" ? "text-[#22394A]" : "text-white/80"
+                    }`}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 600,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        marginLeft: "0.3rem",
+                        fontSize: "12px",
+                      }}
+                    >
+                      View All
+                    </span>
+                    <svg
+                      className="w-4 h-4 animate-bounce"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M6 9l6 6 6-6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </motion.div>
-  ) : (
-    <motion.div
-      key="collapsed"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-    >
-      {faqs.slice(0, 3).map((faq, index) => renderFaqCard(faq, index, openFAQ, toggleFAQ))}
-    </motion.div>
-  )}
-</AnimatePresence>
 
-        {!showAll && (
-  <div className="mt-6 flex justify-center">
-    <button
-      onClick={() => {
-        setShowAll(true);
-        setTimeout(() => {
-          faqRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      }}
-      className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${
-        theme === 'light' ? 'text-[#22394A]' : 'text-white/80'
-      }`}
-    >
-      <span
-        style={{
-          fontFamily: 'Montserrat',
-          fontWeight: 600,
-          lineHeight: '100%',
-          letterSpacing: '0%',
-          marginLeft: '0.3rem',
-          fontSize: '12px'
-        }}
+      {/* About Us Section */}
+      <div
+        id="about"
+        className={`px-5 w-full ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
+        }`}
       >
-        View All
-      </span>
-      <svg
-        className="w-4 h-4 animate-bounce"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M6 9l6 6 6-6"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
-  </div>
-)}
-
-
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-
-     {/* About Us Section */}
-<div id="about" className={`px-5 w-full ${theme === 'light' ? 'bg-[#EEE9DA]' : 'bg-[#22394A]'}`} >
-  <div className="container mx-auto  py-1">
-    <h2 className={`${theme === 'light' ? 'text-[#1E3A4F]' : 'text-white'} text-3xl sm:text-4xl font-bold mb-5 text-left`} 
-      style={{
-        fontFamily: "Montserrat, sans-serif",
-        fontWeight: 500,
-        lineHeight: "100%",
-        letterSpacing: "0",
-        fontSize: '20px'
-      }}>
-      ABOUT US
-    </h2>
-
-    {/* Top two cards: Vision and Mission */}
-    <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
-      {/* Vision Card */}
-      <div className={`${theme === 'light' ? 'bg-[#1E3A4F]' : 'bg-[#EEE9DA]'} rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative`}>
-        <div>
-          <h3 className={`${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#22394A]'} text-xl font-bold mb-4 sm:mb-5`}
+        <div className="container mx-auto  py-1">
+          <h2
+            className={`${
+              theme === "light" ? "text-[#1E3A4F]" : "text-white"
+            } text-3xl sm:text-4xl font-bold mb-5 text-left`}
             style={{
               fontFamily: "Montserrat, sans-serif",
-              fontWeight: 900,
+              fontWeight: 500,
               lineHeight: "100%",
-              // letterSpacing: "0",
-              fontSize: '16px'
-            }}>OUR <br /> VISION</h3>
-          <p className={`${theme === 'light' ? 'text-[#EEE9DA]' : 'text-[#22394A]'} text-sm leading-snug`}
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              fontWeight: 300,
-              // letterSpacing: "0.5px",
-              fontSize: '8px'
-            }}>
-            To become the leading provider of student-focused meal solutions, making everyday life convenient, healthy, and affordable for students. We envision a world where every student can enjoy nutritious meals without stress, fostering community, unity, and well-being through food.
-          </p>
+              letterSpacing: "0",
+              fontSize: "20px",
+            }}
+          >
+            ABOUT US
+          </h2>
+
+          {/* Top two cards: Vision and Mission */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
+            {/* Vision Card */}
+            <div
+              className={`${
+                theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+              } rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative`}
+            >
+              <div>
+                <h3
+                  className={`${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
+                  } text-xl font-bold mb-4 sm:mb-5`}
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 900,
+                    lineHeight: "100%",
+                    // letterSpacing: "0",
+                    fontSize: "16px",
+                  }}
+                >
+                  OUR <br /> VISION
+                </h3>
+                <p
+                  className={`${
+                    theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
+                  } text-sm leading-snug`}
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 300,
+                    // letterSpacing: "0.5px",
+                    fontSize: "8px",
+                  }}
+                >
+                  To become the leading provider of student-focused meal
+                  solutions, making everyday life convenient, healthy, and
+                  affordable for students. We envision a world where every
+                  student can enjoy nutritious meals without stress, fostering
+                  community, unity, and well-being through food.
+                </p>
+              </div>
+              <Image
+                src="/images/about1.svg"
+                alt="Vision Icon"
+                width={80}
+                height={64}
+                className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[120px] opacity-55 select-none transition-all duration-300 ${
+                  theme === "light" ? "invert brightness-0" : ""
+                }`}
+              />
+            </div>
+
+            {/* Mission Card */}
+            <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative">
+              <div>
+                <h3
+                  className="text-[#EEE9DA] font-bold mb-4 sm:mb-5"
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 900,
+                    lineHeight: "100%",
+                    // letterSpacing: "0",
+                    fontSize: "16px",
+                  }}
+                >
+                  OUR <br /> MISSION
+                </h3>
+                <p
+                  className="text-white text-sm leading-snug"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 300,
+                    // letterSpacing: "0.5px",
+                    fontSize: "8px",
+                  }}
+                >
+                  To simplify & deliver tasty, healthy, and affordable meals to
+                  the student community. From hassle-free ordering to on-time
+                  deliveries, Dormer&rsquo;s helps students enjoy more, stress
+                  less, and thrive every day.
+                </p>
+              </div>
+              <Image
+                src="/images/about2.svg"
+                alt="Mission Icon"
+                width={80}
+                height={52}
+                className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[100px] opacity-55 select-none"
+              />
+
+              <Image
+                src="/images/about4.svg"
+                alt="Mission Icon"
+                width={60}
+                height={35}
+                className="absolute bottom-4 right-5 sm:bottom-[90px] sm:right-[120px] sm:w-[80px] opacity-55 select-none"
+              />
+
+              <Image
+                src="/images/about5.svg"
+                alt="Mission Icon"
+                width={30}
+                height={10}
+                className="absolute bottom-6 right-9 sm:bottom-[120px] sm:right-[170px] sm:w-[70px] opacity-55 select-none"
+              />
+
+              <Image
+                src="/images/about6.svg"
+                alt="Mission Icon"
+                width={50}
+                height={25}
+                className="absolute bottom-1 right-16 sm:bottom-[150px] sm:right-[230px] sm:w-[60px] opacity-55 select-none"
+              />
+            </div>
+          </div>
+
+          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8 relative text-white">
+            {/* First Row: Title + 2 values */}
+            <div className="flex flex-wrap gap-4 items-start justify-start mb-6">
+              {/* OUR VALUES title */}
+              <div className="flex-shrink-0 w-[100px] mt-2">
+                <h3
+                  className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 900,
+                  }}
+                >
+                  OUR <br /> VALUES
+                </h3>
+              </div>
+
+              {/* CUSTOMER - CENTRICITY */}
+              <div className="max-w-[200px]">
+                <p
+                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                    fontSize: "8px",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> CUSTOMER -
+                  CENTRICITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
+                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                >
+                  Every meal is crafted with students in mind, ensuring it’s not
+                  just food, but a moment of comfort and satisfaction.
+                </p>
+              </div>
+
+              {/* QUALITY FIRST */}
+              <div className="max-w-[200px]">
+                <p
+                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                    fontSize: "8px",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> QUALITY FIRST
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
+                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                >
+                  We never compromise on the quality of our ingredients or
+                  preparation, delivering meals that are safe, nutritious &
+                  delicious.
+                </p>
+              </div>
+            </div>
+
+            {/* Second Row: 3 more values */}
+            <div className="flex flex-wrap items-start justify-start gap-4">
+              {/* AFFORDABILITY */}
+              <div className="w-[calc(33%-10px)] max-w-[160px]">
+                <p
+                  className="font-bold flex items-start gap-1 text-[10px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                    fontSize: "8px",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> AFFORDABILITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[10px]"
+                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                >
+                  Great food should be accessible. We strive to keep our meals
+                  budget-friendly without sacrificing taste or value.
+                </p>
+              </div>
+
+              {/* DIVERSITY & INCLUSION */}
+              <div className="w-[calc(33%-10px)] max-w-[160px]">
+                <p
+                  className="font-bold flex items-start gap-1 text-[10px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                    fontSize: "8px",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> DIVERSITY &
+                  INCLUSION
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[10px]"
+                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                >
+                  Our menu celebrates the diverse cultures and cuisines of our
+                  students, ensuring there’s something for everyone.
+                </p>
+              </div>
+
+              {/* SUSTAINABILITY + Image aligned inside */}
+              <div className="w-[calc(33%-10px)] max-w-[160px] relative">
+                <p
+                  className="font-bold flex items-start gap-1 text-[10px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                    fontSize: "8px",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[10px]"
+                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                >
+                  Our menu celebrates the diverse cultures and cuisines of our
+                  students, ensuring there’s something for everyone.
+                </p>
+
+                {/* Icon aligned to bottom right of the section */}
+                <Image
+                  src="/images/about3.svg"
+                  alt="Values Icon"
+                  width={76.54}
+                  height={60}
+                  className="absolute bottom-0 right-0 opacity-55 select-none"
+                />
+              </div>
+            </div>
+          </div>
         </div>
-       <Image
-  src="/images/about1.svg"
-  alt="Vision Icon"
-  width={80}
-  height={64}
-  className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[120px] opacity-55 select-none transition-all duration-300 ${
-    theme === 'light' ? 'invert brightness-0' : ''
-  }`}
-/>
       </div>
-
-      {/* Mission Card */}
-      <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative">
-        <div>
-          <h3 className="text-[#EEE9DA] font-bold mb-4 sm:mb-5"
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-              fontWeight: 900,
-              lineHeight: "100%",
-              // letterSpacing: "0",
-              fontSize: '16px'
-            }}>OUR <br/> MISSION</h3>
-          <p className="text-white text-sm leading-snug"
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              fontWeight: 300,
-              // letterSpacing: "0.5px",
-              fontSize: '8px'
-            }}>
-            To simplify & deliver tasty, healthy, and affordable meals to the student community. From hassle-free ordering to on-time deliveries, Dormer&rsquo;s helps students enjoy more, stress less, and thrive every day.
-          </p>
-        </div>
-        <Image
-  src="/images/about2.svg"
-  alt="Mission Icon"
-  width={80}
-  height={52}
-  className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[100px] opacity-55 select-none"
-/>
-
-<Image
-  src="/images/about4.svg"
-  alt="Mission Icon"
-  width={60}
-  height={35}
-  className="absolute bottom-4 right-5 sm:bottom-[90px] sm:right-[120px] sm:w-[80px] opacity-55 select-none"
-/>
-
-<Image
-  src="/images/about5.svg"
-  alt="Mission Icon"
-  width={30}
-  height={10}
-  className="absolute bottom-6 right-9 sm:bottom-[120px] sm:right-[170px] sm:w-[70px] opacity-55 select-none"
-/>
-
-<Image
-  src="/images/about6.svg"
-  alt="Mission Icon"
-  width={50}
-  height={25}
-  className="absolute bottom-1 right-16 sm:bottom-[150px] sm:right-[230px] sm:w-[60px] opacity-55 select-none"
-/>
-
-      </div>
-    </div>
-
-   <div className="bg-[#031624] rounded-2xl p-4 sm:p-8 relative text-white">
-  {/* First Row: Title + 2 values */}
-  <div className="flex flex-wrap gap-4 items-start justify-start mb-6">
-    {/* OUR VALUES title */}
-    <div className="flex-shrink-0 w-[100px] mt-2">
-      <h3 className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
-        style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}>
-        OUR <br /> VALUES
-      </h3>
-    </div>
-
-    {/* CUSTOMER - CENTRICITY */}
-    <div className="max-w-[200px]">
-      <p className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
-        style={{ fontFamily: "Typo Round Bold Demo", fontSize: '8px' }}>
-        <span className="text-[#FF7F00]">|</span> CUSTOMER - CENTRICITY
-      </p>
-      <p className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: '8px' }}>
-        Every meal is crafted with students in mind, ensuring it’s not just food, but a moment of comfort and satisfaction.
-      </p>
-    </div>
-
-    {/* QUALITY FIRST */}
-    <div className="max-w-[200px]">
-      <p className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
-        style={{ fontFamily: "Typo Round Bold Demo", fontSize: '8px' }}>
-        <span className="text-[#FF7F00]">|</span> QUALITY FIRST
-      </p>
-      <p className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: '8px' }}>
-        We never compromise on the quality of our ingredients or preparation, delivering meals that are safe, nutritious & delicious.
-      </p>
-    </div>
-  </div>
-
-  {/* Second Row: 3 more values */}
-  <div className="flex flex-wrap items-start justify-start gap-4">
-    {/* AFFORDABILITY */}
-    <div className="w-[calc(33%-10px)] max-w-[160px]">
-      <p className="font-bold flex items-start gap-1 text-[10px]"
-        style={{ fontFamily: "Typo Round Bold Demo", fontSize: '8px' }}>
-        <span className="text-[#FF7F00]">|</span> AFFORDABILITY
-      </p>
-      <p className="mt-1 font-light leading-snug text-[10px]"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: '8px' }}>
-        Great food should be accessible. We strive to keep our meals budget-friendly without sacrificing taste or value.
-      </p>
-    </div>
-
-    {/* DIVERSITY & INCLUSION */}
-    <div className="w-[calc(33%-10px)] max-w-[160px]">
-      <p className="font-bold flex items-start gap-1 text-[10px]"
-        style={{ fontFamily: "Typo Round Bold Demo", fontSize: '8px' }}>
-        <span className="text-[#FF7F00]">|</span> DIVERSITY & INCLUSION
-      </p>
-      <p className="mt-1 font-light leading-snug text-[10px]"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: '8px' }}>
-        Our menu celebrates the diverse cultures and cuisines of our students, ensuring there’s something for everyone.
-      </p>
-    </div>
-
-    {/* SUSTAINABILITY + Image aligned inside */}
-    <div className="w-[calc(33%-10px)] max-w-[160px] relative">
-      <p className="font-bold flex items-start gap-1 text-[10px]"
-        style={{ fontFamily: "Typo Round Bold Demo", fontSize: '8px' }}>
-        <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
-      </p>
-      <p className="mt-1 font-light leading-snug text-[10px]"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: '8px' }}>
-        Our menu celebrates the diverse cultures and cuisines of our students, ensuring there’s something for everyone.
-      </p>
-
-      {/* Icon aligned to bottom right of the section */}
-      <Image
-        src="/images/about3.svg"
-        alt="Values Icon"
-        width={76.54}
-        height={60}
-        className="absolute bottom-0 right-0 opacity-55 select-none"
-      />
-    </div>
-  </div>
-</div>
-
-</div>
-</div>
-
-
-
-
 
       {/* Chat Window */}
-      <ChatWindow 
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-      />
+      <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
       {/* Form Modal */}
-      <FormModal
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-      />
+      <FormModal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
 
       {/* Order Form */}
       <OrderForm

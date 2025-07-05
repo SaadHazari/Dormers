@@ -15,6 +15,7 @@ export default function Footer() {
     'KSK Homes',
     'Yugo',
     'DSOA Residences',
+    'Studo World'
   ];
 
   const quickLinks = [

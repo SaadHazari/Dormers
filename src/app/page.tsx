@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { FaArrowDown } from 'react-icons/fa';
-import Image from 'next/image';
-import { useEffect } from 'react';
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { FaArrowDown } from "react-icons/fa";
+import Image from "next/image";
+import { useEffect } from "react";
 
 export default function WelcomePage() {
   const router = useRouter();
 
   useEffect(() => {
     // Check if there's a redirect path stored
-    const redirectPath = sessionStorage.getItem('redirectPath');
+    const redirectPath = sessionStorage.getItem("redirectPath");
     if (redirectPath) {
       // Clear the stored path
-      sessionStorage.removeItem('redirectPath');
+      sessionStorage.removeItem("redirectPath");
       // Navigate to the stored path
       router.push(redirectPath);
     }
@@ -26,9 +26,9 @@ export default function WelcomePage() {
       opacity: 1,
       transition: {
         duration: 1,
-        staggerChildren: 0.3
-      }
-    }
+        staggerChildren: 0.3,
+      },
+    },
   };
 
   const itemVariants = {
@@ -37,9 +37,9 @@ export default function WelcomePage() {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.8
-      }
-    }
+        duration: 0.8,
+      },
+    },
   };
 
   const arrowVariants = {
@@ -49,41 +49,41 @@ export default function WelcomePage() {
       transition: {
         duration: 1.5,
         repeat: Infinity,
-        ease: "easeInOut"
-      }
-    }
+        ease: "easeInOut",
+      },
+    },
   };
 
   const handleContinue = () => {
-    router.push('/home');
+    router.push("/home");
   };
 
   return (
-    <div className="h-screen w-full relative overflow-hidden" style={{ backgroundColor: '#1E3A4F' }}>
+    <div
+      className="h-screen w-full relative overflow-hidden"
+      style={{ backgroundColor: "#1E3A4F" }}
+    >
       <motion.div
         className="w-full h-full flex flex-col items-center justify-center"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-       {/* Logo */}
-<motion.div 
-  variants={itemVariants} 
-  className="absolute top-10 left-3 md:relative md:top-0 md:left-0 md:-mt-32"
->
-  <div className="relative w-[195px] h-[195px] md:w-[275px] md:h-[275px]">
-    <Image
-      src="/logo.png"
-      alt="Dormer's Logo"
-      fill
-      className="object-contain"
-      priority
-    />
-  </div>
-</motion.div>
-
-
-
+        {/* Logo */}
+        <motion.div
+          variants={itemVariants}
+          className="absolute top-10 left-3 md:relative md:top-0 md:left-0 md:-mt-32"
+        >
+          <div className="relative w-[195px] h-[195px] md:w-[275px] md:h-[275px]">
+            <Image
+              src="/logo.png"
+              alt="Dormer's Logo"
+              fill
+              className="object-contain"
+              priority
+            />
+          </div>
+        </motion.div>
 
         {/* Text Elements Container */}
         <div className="relative w-full md:flex md:flex-col md:items-center">
@@ -94,12 +94,12 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] pl-[33px]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                color: '#213c4c;',
-                fontSize: '55px',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
-               
+                color: "#213c4c;",
+                fontSize: "55px",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               MEALS
@@ -110,46 +110,56 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] pl-[33px] text-[#213c4c]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                fontSize: '55px',
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
+                fontSize: "55px",
+                color: "#213c4c;",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               THAT
             </motion.p>
-              
+
             {/* DON'T */}
             <motion.div
               variants={itemVariants}
               className="text-[64px] leading-[78px] pl-[34px] flex text-[#213c4c]"
             >
-              <span style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-                color: '#213c4c;',
-                fontSize: '55px',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
-              }}>
+              <span
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  color: "#213c4c;",
+                  fontSize: "55px",
+                  textShadow:
+                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                }}
+              >
                 DON
               </span>
-              <span className="text-[#FF6B00]" style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-                fontSize: '55px',
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #FF6B00, 1px -1px 0 #FF6B00, -1px 1px 0 #FF6B00, 1px 1px 0 #FF6B00',
-              }}>
+              <span
+                className="text-[#FF6B00]"
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  fontSize: "55px",
+                  color: "#213c4c;",
+                  textShadow:
+                    "-1px -1px 0 #FF6B00, 1px -1px 0 #FF6B00, -1px 1px 0 #FF6B00, 1px 1px 0 #FF6B00",
+                }}
+              >
                 &apos;
               </span>
-              <span style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-                fontSize: '55px',
-                WebkitTextStroke: '1px #fff',
-                WebkitTextFillColor: 'transparent'
-              }}>
+              <span
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  fontSize: "55px",
+                  WebkitTextStroke: "1px #fff",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 T
               </span>
             </motion.div>
@@ -159,26 +169,28 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] pl-[33px] text-[#213c4c]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                color: '#213c4c;',
-                fontSize: '55px',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
-                
+                color: "#213c4c;",
+                fontSize: "55px",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               SUCK
             </motion.p>
 
             {/* Bottom Section for Mobile */}
-            <div className="flex flex-row items-center gap-x-4 mt-10 w-full pl-[33px]">
-              <motion.p
-                variants={itemVariants}
-                className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
-                style={{ fontFamily: 'Montserrat' }}
-              >
-                WELCOME TO DORMERS&apos;
-              </motion.p>
+            <div className="flex flex-row items-center gap-x-10 mt-10 w-full pl-[33px]">
+              <div>
+                <motion.p
+                  variants={itemVariants}
+                  className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
+                  style={{ fontFamily: "Montserrat" }}
+                >
+                  WELCOME TO DORMERS&apos;
+                </motion.p>
+              </div>
               <motion.div
                 variants={itemVariants}
                 className="cursor-pointer"
@@ -189,11 +201,11 @@ export default function WelcomePage() {
                   initial="initial"
                   animate="animate"
                   className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
-                  style={{ backgroundColor: '#EEE9DA' }}
+                  style={{ backgroundColor: "#EEE9DA" }}
                 >
-                  <FaArrowDown 
+                  <FaArrowDown
                     className="w-3 h-3"
-                    style={{ color: '#1E3A4F' }}
+                    style={{ color: "#1E3A4F" }}
                   />
                 </motion.div>
               </motion.div>
@@ -207,10 +219,11 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] text-[#213c4c]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
+                color: "#213c4c;",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               MEALS
@@ -221,10 +234,11 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] text-[#213c4c]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
+                color: "#213c4c;",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               THAT
@@ -235,26 +249,34 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] flex justify-center text-[#213c4c]"
             >
-              <span style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
-              }}>
+              <span
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  color: "#213c4c;",
+                  textShadow:
+                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                }}
+              >
                 DON
               </span>
-              <span className="text-[#FF6B00]" style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-              }}>
+              <span
+                className="text-[#FF6B00]"
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                }}
+              >
                 &apos;
               </span>
-              <span style={{
-                fontFamily: 'Montserrat',
-                fontWeight: 900,
-                WebkitTextStroke: '1px #fff',
-                WebkitTextFillColor: 'transparent'
-              }}>
+              <span
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  WebkitTextStroke: "1px #fff",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 T
               </span>
             </motion.div>
@@ -264,10 +286,11 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] text-[#213c4c]"
               style={{
-                fontFamily: 'Montserrat',
+                fontFamily: "Montserrat",
                 fontWeight: 900,
-                color: '#213c4c;',
-                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
+                color: "#213c4c;",
+                textShadow:
+                  "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
               }}
             >
               SUCK
@@ -281,7 +304,7 @@ export default function WelcomePage() {
         <motion.p
           variants={itemVariants}
           className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
-          style={{ fontFamily: 'Montserrat' }}
+          style={{ fontFamily: "Montserrat" }}
         >
           WELCOME TO DORMERS&apos;
         </motion.p>
@@ -295,16 +318,12 @@ export default function WelcomePage() {
             initial="initial"
             animate="animate"
             className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
-            style={{ backgroundColor: '#EEE9DA' }}
+            style={{ backgroundColor: "#EEE9DA" }}
           >
-            <FaArrowDown 
-              className="w-3 h-3"
-              style={{ color: '#1E3A4F' }}
-            />
+            <FaArrowDown className="w-3 h-3" style={{ color: "#1E3A4F" }} />
           </motion.div>
         </motion.div>
       </div>
     </div>
   );
 }
-                

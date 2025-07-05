@@ -325,6 +325,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
                         <option value="ksk" className="text-gray-900">KSK Homes</option>
                         <option value="yugo" className="text-gray-900">Yugo</option>
                         <option value="dsoa" className="text-gray-900">DSOA Residences</option>
+                           <option value="dsoa" className="text-gray-900">Studo World</option>
                       </select>
                     </div>
                     <div>
