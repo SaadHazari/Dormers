@@ -133,7 +133,7 @@ export default function Footer() {
     <div className="flex items-center space-x-4">
 
       <a
-        href=""
+        href="https://www.facebook.com/profile.php?id=61567276984641"
         target="_blank"
         rel="noopener noreferrer"
         className={`inline-flex items-center space-x-2 ${theme === 'light' ? 'text-[#1E3A4F] hover:text-[#FF6B00]' : 'text-gray-300 hover:text-orange-400'} transition-colors`}
@@ -141,7 +141,7 @@ export default function Footer() {
         <FaFacebook className="w-4 h-4"/>
       </a>
       <a
-        href="https://instagram.com/dormers"
+        href="https://www.instagram.com/dormers.ae"
         target="_blank"
         rel="noopener noreferrer"
         className={`inline-flex items-center space-x-2 ${theme === 'light' ? 'text-[#1E3A4F] hover:text-[#FF6B00]' : 'text-gray-300 hover:text-orange-400'} transition-colors`}

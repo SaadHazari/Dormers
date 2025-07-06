@@ -2,9 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 
-interface TestimonialsBubblesProps {
-  testimonialImages: string[];
-}
 
 const messages = [
   {
@@ -34,7 +31,7 @@ const messages = [
   },
 ];
 
-export default function TestimonialsBubbles({ testimonialImages }: TestimonialsBubblesProps) {
+export default function TestimonialsBubbles() {
   const { theme } = useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
 

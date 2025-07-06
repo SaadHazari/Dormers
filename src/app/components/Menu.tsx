@@ -36,7 +36,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
-    image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
+    // image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
+    image:"https://iili.io/Fl2Sj8N.md.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
     nutrients: {
@@ -59,7 +60,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
-    image: "/images/Week1/NonVeg/dormers chicken with zeera rice.jpg",
+    // image: "/images/Week1/NonVeg/Dormers_chicken_with zeera_rice.jpg",
+    image:"https://iili.io/Fl2SOut.md.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -82,7 +84,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
-    image: "/images/Week1/NonVeg/Peri peri chicken.jpg",
+    // image: "/images/Week1/NonVeg/Peri_peri_chicken.jpg",
+    image:"https://iili.io/Fl2SDMb.md.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
     nutrients: {
@@ -105,7 +108,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
-    image: "/images/Week1/NonVeg/Meatballs_Mashed_Potatoes_Mushroom_sauce.jpg",
+    // image: "/images/Week1/NonVeg/Meatballs_Mashed_Potatoes_Mushroom_sauce.jpg",
+    image:"https://iili.io/Fl2SLN9.md.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
     nutrients: {
@@ -128,7 +132,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
-    image: "/images/Week1/NonVeg/Chicken Fried Rice.jpg",
+    // image: "/images/Week1/NonVeg/Chicken_Fried_Rice.jpg",
+    image: "https://iili.io/Fl2Sktn.md.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
     nutrients: {
@@ -151,7 +156,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
-    image: "/images/Week1/NonVeg/Chicken_Biryani_2.jpg",
+    // image: "/images/Week1/NonVeg/Chicken_Biryani_2.jpg",
+    image:"https://iili.io/Fl2SN9I.md.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
     nutrients: {
@@ -339,7 +345,7 @@ const MENU_DATA = [
     week: "week2",
     description:
       "Juicy, marinated chicken simmered in a creamy, spiced tomato gravy, served with fluffy peas & carrots rice.",
-    image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.jpg",
+    image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.png",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -408,7 +414,7 @@ const MENU_DATA = [
     week: "week2",
     description:
       "Creamy, coconut-infused rice paired with crispy, golden fried chicken for a perfect blend of flavors.",
-    image: "/images/Week2/NonVeg/African coconut rice with fried chicken.jpg",
+    image: "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
     nutrients: {
@@ -1131,7 +1137,7 @@ const MENU_DATA = [
     week: "week4",
     description:
       "Classic Italian spaghetti tossed in a fresh tomato sauce, topped with tender grilled paneer.",
-      image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
+    image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
     nutrients: {
