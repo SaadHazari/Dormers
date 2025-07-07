@@ -37,7 +37,7 @@ const MENU_DATA = [
     description:
       "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
     // image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
-    image:"https://iili.io/Fl2Sj8N.md.jpg",
+    image: "https://iili.io/Fl2Sj8N.md.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
     nutrients: {
@@ -61,7 +61,7 @@ const MENU_DATA = [
     description:
       "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
     // image: "/images/Week1/NonVeg/Dormers_chicken_with zeera_rice.jpg",
-    image:"https://iili.io/Fl2SOut.md.jpg",
+    image: "https://iili.io/Fl2SOut.md.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -85,7 +85,7 @@ const MENU_DATA = [
     description:
       "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
     // image: "/images/Week1/NonVeg/Peri_peri_chicken.jpg",
-    image:"https://iili.io/Fl2SDMb.md.jpg",
+    image: "https://iili.io/Fl2SDMb.md.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
     nutrients: {
@@ -109,7 +109,7 @@ const MENU_DATA = [
     description:
       "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
     // image: "/images/Week1/NonVeg/Meatballs_Mashed_Potatoes_Mushroom_sauce.jpg",
-    image:"https://iili.io/Fl2SLN9.md.jpg",
+    image: "https://iili.io/Fl2SLN9.md.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
     nutrients: {
@@ -157,7 +157,7 @@ const MENU_DATA = [
     description:
       "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
     // image: "/images/Week1/NonVeg/Chicken_Biryani_2.jpg",
-    image:"https://iili.io/Fl2SN9I.md.jpg",
+    image: "https://iili.io/Fl2SN9I.md.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
     nutrients: {
@@ -1279,7 +1279,21 @@ export default function Menu() {
       ${isVegOnly ? "translate-x-7" : "translate-x-0"}
     `}
               >
-                <span className="text-[16px]">{isVegOnly ? "🥬" : "🍖"}</span>
+                <span className="text-[16px]">
+                  {isVegOnly ? (
+                    <img
+                      src="/images/VegIcon.svg"
+                      className="w-[16px]"
+                      alt=""
+                    />
+                  ) : (
+                    <img
+                      src="/images/NonVeg.svg"
+                      className="w-[16px]"
+                      alt=""
+                    />
+                  )}
+                </span>
               </div>
             </button>
           </div>
