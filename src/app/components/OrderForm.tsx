@@ -92,26 +92,26 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateStep(3)) return;
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!validateStep(3)) return;
 
-    try {
-      console.log("Form submitted:", formData);
+  //   try {
+  //     console.log("Form submitted:", formData);
 
-      // Format WhatsApp message
-      const text = encodeURIComponent(
-        `👋 Hey Dormer's! I want to join the club! 🍛🔥\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.countryCode}${formData.phone}\nLocation: ${formData.location}\nMeal Type: ${formData.mealType}\nDuration: ${formData.duration}\nDietary Restrictions: ${formData.dietaryRestrictions}\nStart Date: ${formData.startDate}`
-      );
+  //     // Format WhatsApp message
+  //     const text = encodeURIComponent(
+  //       `👋 Hey Dormer's! I want to join the club! 🍛🔥\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.countryCode}${formData.phone}\nLocation: ${formData.location}\nMeal Type: ${formData.mealType}\nDuration: ${formData.duration}\nDietary Restrictions: ${formData.dietaryRestrictions}\nStart Date: ${formData.startDate}`
+  //     );
 
-      // Redirect to WhatsApp
-      window.location.href = `https://wa.me/+971585556707?text=${text}`;
+  //     // Redirect to WhatsApp
+  //     window.location.href = `https://wa.me/+971585556707?text=${text}`;
 
-      onClose();
-    } catch (error) {
-      console.error("Error submitting form:", error);
-    }
-  };
+  //     onClose();
+  //   } catch (error) {
+  //     console.error("Error submitting form:", error);
+  //   }
+  // };
 
   const handleNext = () => {
     if (validateStep(step)) {

@@ -66,8 +66,14 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
-        console.error('Stripe error:', error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            console.error('Stripe error:', error.message);
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        } else {
+            console.error('Unexpected error', error);
+            return NextResponse.json({ error: 'Unknown error occurred' }, { status: 500 });
+        }
     }
+
 }
