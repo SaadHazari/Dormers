@@ -1,17 +1,13 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
-console.log("🔐 Stripe Secret Key:", process.env.STRIPE_SECRET_KEY); // Check if key exists
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-06-30.basil' as any, // <-- bypass type check
+  apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion,
 });
-
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("✅ Received payload:", body);
 
     const {
       amount,
@@ -23,6 +19,16 @@ export async function POST(req: Request) {
       duration,
       dietaryRestrictions,
       startDate,
+    }: {
+      amount: number;
+      name: string;
+      email: string;
+      phone: string;
+      location: string;
+      mealType: string;
+      duration: string;
+      dietaryRestrictions: string;
+      startDate: string;
     } = body;
 
     if (!amount || amount < 100) {
@@ -38,7 +44,7 @@ export async function POST(req: Request) {
       duration,
       dietaryRestrictions,
       startDate,
-    } as Record<string, string>); // force type
+    });
 
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
@@ -74,8 +80,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
 
-  } catch (error: any) {
-    console.error('❌ Stripe error:', error?.message || error);
-    return NextResponse.json({ error: error?.message || 'Unknown error' }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    console.error('❌ Stripe error:', err?.message || error);
+    return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 });
   }
 }
