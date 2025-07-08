@@ -1,13 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
   images: {
-    unoptimized: true,
+    unoptimized: true, // Optional: disables built-in image optimization
     remotePatterns: [
-      { protocol: 'https', hostname: '**' },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
     ],
   },
 };
-
 
 export default nextConfig;
