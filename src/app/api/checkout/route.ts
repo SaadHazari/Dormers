@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   }
 
   const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2024-08-01' as Stripe.LatestApiVersion // <-- Replace with latest valid version
+     apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion // <-- Replace with latest valid version
   });
 
   try {
