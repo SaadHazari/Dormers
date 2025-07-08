@@ -1,13 +1,27 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion,
+console.log('🔐 Starting Stripe Checkout handler');
+
+// ✅ Add this log to check if secret key is loaded
+console.log("🟡 process.env.STRIPE_SECRET_KEY exists:", !!process.env.STRIPE_SECRET_KEY);
+console.log("🟡 process.env.NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecretKey) {
+  console.error("❌ Stripe secret key missing in environment!");
+  throw new Error("Missing Stripe secret key");
+}
+
+const stripe = new Stripe(stripeSecretKey, {
+  // ✅ Use a valid public Stripe API version (don't use `.basil`)
+  apiVersion: '2024-08-01' as Stripe.LatestApiVersion,
 });
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log("✅ Received body:", JSON.stringify(body));
 
     const {
       amount,
@@ -32,6 +46,7 @@ export async function POST(req: Request) {
     } = body;
 
     if (!amount || amount < 100) {
+      console.warn("⚠️ Invalid amount received:", amount);
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
@@ -46,6 +61,7 @@ export async function POST(req: Request) {
       startDate,
     });
 
+    console.log("🧾 Creating Stripe Checkout session...");
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
       payment_method_types: ['card'],
@@ -78,6 +94,7 @@ export async function POST(req: Request) {
       },
     });
 
+    console.log("✅ Stripe session created:", session.id);
     return NextResponse.json({ url: session.url });
 
   } catch (error: unknown) {
