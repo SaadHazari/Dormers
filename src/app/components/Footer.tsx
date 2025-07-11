@@ -5,7 +5,6 @@ import Link from "next/link";
 import { FaInstagram, FaFacebook } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import AboutUs from "./AboutUs";
 
 export default function Footer() {
   const router = useRouter();
