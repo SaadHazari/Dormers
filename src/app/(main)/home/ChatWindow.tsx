@@ -71,8 +71,8 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1E3A4F] rounded-2xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 z-50 p-4">
+      <div className="absolute top-[56%] left-1/2  transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[364px]">
         {/* Chat Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
