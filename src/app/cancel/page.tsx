@@ -1,17 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react"; // or any icon library you prefer
 
 export default function CancelPage() {
   const router = useRouter();
   const buttonStyle = {
-    backgroundColor: "#1e3b50", // Dark navy blue
+    backgroundColor: "#1e3b50",
     color: "#ffffff",
     fontWeight: "600",
     fontSize: "16px",
     padding: "12px 24px",
-    borderRadius: "999px", // pill shape
+    borderRadius: "999px",
     border: "none",
     cursor: "pointer",
     outline: "none",
@@ -27,7 +26,7 @@ export default function CancelPage() {
               width: "80px",
               height: "80px",
               borderRadius: "50%",
-              backgroundColor: "#ff8a8a", // light red outer
+              backgroundColor: "#ff8a8a",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -38,7 +37,7 @@ export default function CancelPage() {
                 width: "50px",
                 height: "50px",
                 borderRadius: "50%",
-                backgroundColor: "#f92828", // bright red inner
+                backgroundColor: "#f92828",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -85,7 +84,7 @@ export default function CancelPage() {
             lineHeight: "14px",
           }}
         >
-          If this wasn't intentional, you can try
+          If this wasn&rsquo;t intentional, you can try
           <br />
           the payment again or go back to the
           <br />

@@ -1,12 +1,9 @@
 "use client";
-
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 export default function SuccessContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-
   const name = searchParams.get("name") || "Guest";
   const email = searchParams.get("email") || "";
   const phone = searchParams.get("phone") || "";
