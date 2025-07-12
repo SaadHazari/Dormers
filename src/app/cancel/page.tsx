@@ -1,24 +1,101 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { X } from "lucide-react"; // or any icon library you prefer
 
 export default function CancelPage() {
   const router = useRouter();
+  const buttonStyle = {
+    backgroundColor: "#1e3b50", // Dark navy blue
+    color: "#ffffff",
+    fontWeight: "600",
+    fontSize: "16px",
+    padding: "12px 24px",
+    borderRadius: "999px", // pill shape
+    border: "none",
+    cursor: "pointer",
+    outline: "none",
+    display: "inline-block",
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-      <h2 className="text-red-600 text-2xl font-bold mb-4">
-        {"❌ Payment was cancelled."}
-      </h2>
-      <p className="text-gray-600 mb-6 text-center max-w-md">
-        {"If this wasn't intentional, you can try the payment again or go back to the home page."}
-      </p>
-      <button
-        onClick={() => router.push('/')}
-        className="bg-[#FF6B00] text-white font-semibold px-6 py-2 rounded-full hover:bg-[#e55f00] transition"
-      >
-        🔁 Go Back Home
-      </button>
+    <div className="h-screen bg-[#1E3A4F] flex flex-col justify-center">
+      <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm mx-auto text-center space-y-4">
+        <div className="flex justify-center">
+          <div
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              backgroundColor: "#ff8a8a", // light red outer
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "50px",
+                height: "50px",
+                borderRadius: "50%",
+                backgroundColor: "#f92828", // bright red inner
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        <h2
+          style={{
+            color: "#FF2623",
+            fontFamily: "Montserrat, sans-serif",
+            fontSize: "16px",
+            fontStyle: "normal",
+            fontWeight: 600,
+            lineHeight: "normal",
+            marginBottom: "8px",
+          }}
+        >
+          Payment was cancelled
+        </h2>
+
+        <p
+          style={{
+            color: "#878787",
+            textAlign: "center",
+            fontFamily: "Montserrat, sans-serif",
+            fontSize: "14px",
+            fontStyle: "normal",
+            fontWeight: 400,
+            lineHeight: "14px",
+          }}
+        >
+          If this wasn't intentional, you can try
+          <br />
+          the payment again or go back to the
+          <br />
+          home page
+        </p>
+
+        <button onClick={() => router.push("/")} style={buttonStyle}>
+          Go Back Home
+        </button>
+      </div>
     </div>
   );
 }

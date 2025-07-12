@@ -9,7 +9,7 @@ const AboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full ${
+        className={`px-5 w-full mt-[100px] ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >

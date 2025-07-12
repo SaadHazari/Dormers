@@ -1145,13 +1145,27 @@ export default function Home() {
       <div
         id="faq"
         ref={faqRef}
-        className={`relative w-full ${
+        className={`relative w-full  ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
-        } pb-8`}
+        }`}
       >
-        <div className="container mx-auto px-0">
+        <div
+          className="container mx-auto px-0  relative"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: "100%",
+            height: "351px",
+            backgroundColor: "#22394A",
+            borderTopLeftRadius: "60px",
+            borderTopRightRadius: "60px",
+            zIndex: 0,
+            pointerEvents: "none",
+          }}
+        >
           <div
-            className="w-full rounded-b-[60px] shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8"
+            className="w-full shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8 rounded-bl-[60px] rounded-br-[60px] overflow-hidden"
             style={{
               backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
             }}
@@ -1287,7 +1301,6 @@ export default function Home() {
       </div>
 
       {/* About Us Section */}
-   
 
       {/* Chat Window */}
       <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
