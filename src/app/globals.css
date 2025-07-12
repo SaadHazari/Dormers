@@ -176,7 +176,7 @@ body {
 
 #footer {
   position: sticky;
-  bottom: 0px;
+  bottom: -12px;
   z-index: 0;
   animation: slideInUp 1s ease-out forwards;
 }
