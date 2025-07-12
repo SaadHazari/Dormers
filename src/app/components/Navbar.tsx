@@ -97,7 +97,7 @@ export default function Navbar() {
           <div className="flex justify-between h-16 sm:h-20 items-center">
             {/* Logo */}
             <Link href="/home" className="flex-shrink-0 flex items-center">
-              <div className="relative w-13 h-13 sm:w-16 md:w-24 sm:h-16 md:h-24">
+              <div className="relative w-[65px] h-[65px] sm:w-16 md:w-24 sm:h-16 md:h-24">
                 <Image
                   src={theme === "light" ? "/logo-light.png" : "/logo.png"}
                   alt="Dormer's Logo"
