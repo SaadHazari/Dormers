@@ -1152,11 +1152,10 @@ export default function Home() {
         <div
           className="container mx-auto px-0  relative"
           style={{
-            position: "absolute",
             bottom: 0,
             left: 0,
             width: "100%",
-            height: "351px",
+            height: theme === "light" ? "321px" : "351px",
             backgroundColor: "#22394A",
             borderTopLeftRadius: "60px",
             borderTopRightRadius: "60px",

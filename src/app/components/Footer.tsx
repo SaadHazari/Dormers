@@ -71,6 +71,7 @@ export default function Footer() {
                   lineHeight: "100%",
                   fontSize: "13px",
                   letterSpacing: "0",
+                  color:"white"
                 }}
               >
                 Delivery Locations
@@ -90,6 +91,7 @@ export default function Footer() {
                       lineHeight: "100%",
                       fontSize: "12px",
                       letterSpacing: "0.5px",
+                        color:"white"
                     }}
                   >
                     {location}
@@ -122,6 +124,7 @@ export default function Footer() {
                         fontSize: "12px",
                         fontWeight: 700,
                         lineHeight: "2px",
+                          color:"white"
                       }}
                     >
                       {link.name}
@@ -143,6 +146,7 @@ export default function Footer() {
                   lineHeight: "100%",
                   fontSize: "13px",
                   letterSpacing: "0",
+                    color:"white"
                 }}
               >
                 Follow Us
@@ -158,7 +162,7 @@ export default function Footer() {
                       : "text-gray-300 hover:text-orange-400"
                   } transition-colors`}
                 >
-                  <FaFacebook className="w-4 h-4" />
+                  <FaFacebook className="w-4 h-4 text-white" />
                 </a>
                 <a
                   href="https://www.instagram.com/dormers.ae"
@@ -170,7 +174,7 @@ export default function Footer() {
                       : "text-gray-300 hover:text-orange-400"
                   } transition-colors`}
                 >
-                  <FaInstagram className="w-4 h-4" />
+                  <FaInstagram className="w-4 h-4 text-white" />
                 </a>
               </div>
             </div>
@@ -188,13 +192,13 @@ export default function Footer() {
             }}
           >
             <div className="flex flex-row justify-center items-center gap-6 flex-wrap">
-              <Link href="/cookies-policy" className="hover:text-orange-400">
+              <Link href="/cookies-policy" className="hover:text-orange-400 text-white">
                 Cookies Policy
               </Link>
-              <Link href="/legal-terms" className="hover:text-orange-400">
+              <Link href="/legal-terms" className="hover:text-orange-400 text-white">
                 Legal Terms
               </Link>
-              <Link href="/privacy" className="hover:text-orange-400">
+              <Link href="/privacy" className="hover:text-orange-400 text-white">
                 Privacy Policy
               </Link>
             </div>
