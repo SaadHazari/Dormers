@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Box, Modal } from "@mui/material";
+import { useTheme } from "next-themes";
 
 // interface Nutrient {
 //   name: string;
@@ -1162,6 +1163,7 @@ export default function Menu() {
     const day = new Date().getDay();
     return day === 0 ? null : day - 1;
   });
+  const { theme } = useTheme();
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
@@ -1225,12 +1227,18 @@ export default function Menu() {
 
   return (
     <>
-      <div className="bg-[#1E3A4F] w-full py-8">
+      <div
+        className={`relative w-full py-8   ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        } overflow-hidden`}
+      >
         <div className="container mx-auto px-4">
           {/* Menu Header */}
           <div className="mb-5 mt-0 flex items-center justify-between max-w-4xl mx-auto">
             <h2
-              className="text-white text-[32px] font-medium"
+              className={` text-[32px] font-medium  ${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
@@ -1268,15 +1276,17 @@ export default function Menu() {
                 const jsDay = new Date().getDay();
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
-              className="relative w-15 h-7 rounded-full border-2 border-white flex items-center bg-transparent transition-colors duration-300 px-1"
+              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
+    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
               <span className="sr-only">Toggle veg/non-veg</span>
 
               {/* Toggle knob */}
               <div
-                className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full bg-[#FAF6EB] shadow-md flex items-center justify-center transition-transform duration-300
+                className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full  shadow-md flex items-center justify-center transition-transform duration-300
       ${isVegOnly ? "translate-x-7" : "translate-x-0"}
+       ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB] "}
     `}
               >
                 <span className="text-[16px]">
@@ -1287,11 +1297,7 @@ export default function Menu() {
                       alt=""
                     />
                   ) : (
-                    <img
-                      src="/images/NonVeg.svg"
-                      className="w-[16px]"
-                      alt=""
-                    />
+                    <img src="/images/NonVeg.svg" className="w-[16px]" alt="" />
                   )}
                 </span>
               </div>

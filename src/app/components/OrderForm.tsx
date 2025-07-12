@@ -71,22 +71,27 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
   //   setFormData((prev) => ({ ...prev, [name]: value }));
   // };
 
-  const validateStep = (currentStep: number) => {
+  const validateStep = (currentStep: number): boolean => {
+    const isValidEmail = (email: string): boolean =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     switch (currentStep) {
       case 1:
         return (
           formData.name.trim() !== "" &&
-          formData.email.trim() !== "" &&
+          isValidEmail(formData.email.trim()) &&
           formData.phone.trim() !== ""
         );
+
       case 2:
         return (
-          formData.location !== "" &&
-          formData.mealType !== "" &&
-          formData.duration !== ""
+          formData.location.trim() !== "" &&
+          formData.mealType.trim() !== "" &&
+          formData.duration.trim() !== ""
         );
+
       case 3:
         return formData.startDate !== "";
+
       default:
         return false;
     }
