@@ -97,9 +97,9 @@ export default function Navbar() {
           <div className="flex justify-between h-16 sm:h-20 items-center">
             {/* Logo */}
             <Link href="/home" className="flex-shrink-0 flex items-center">
-              <div className="relative w-[65px] h-[65px] sm:w-16 md:w-24 sm:h-16 md:h-24">
+              <div className="relative w-[55px] h-[55px] sm:w-16 md:w-24 sm:h-16 md:h-24">
                 <Image
-                  src={theme === "light" ? "/logo-light.png" : "/logo.png"}
+                  src={theme === "light" ? "/logo-light.png" : "/logo-dark.svg"}
                   alt="Dormer's Logo"
                   fill
                   className="object-contain"
@@ -138,18 +138,18 @@ export default function Navbar() {
                 type="button"
                 onClick={handleOrderFormOpen}
                 className={`text-[10px] border rounded-[8px] px-3 py-3 transition-colors
-    ${
-      theme === "light"
-        ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
-        : "text-white border-white hover:bg-white hover:text-[#031624]"
-    }
-  `}
+                  ${
+                    theme === "light"
+                      ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
+                      : "text-white border-white hover:bg-white hover:text-[#031624]"
+                  }
+                `}
                 style={{
                   fontFamily: "Montserrat, sans-serif",
                   fontWeight: 600,
                   lineHeight: "100%",
                   letterSpacing: "0",
-                  marginLeft: "40%",
+                  marginLeft: "38%",
                 }}
               >
                 Join the club
