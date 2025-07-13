@@ -30,7 +30,7 @@ const AboutUs = () => {
           </h2>
 
           {/* Top two cards: Vision and Mission */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8 h-[300px]">
             {/* Vision Card */}
             <div
               className={`${
@@ -64,10 +64,12 @@ const AboutUs = () => {
                   }}
                 >
                   To become the leading provider of student-focused meal
-                  solutions, making everyday life convenient, healthy, and
-                  affordable for students. We envision a world where every
-                  student can enjoy nutritious meals without stress, fostering
-                  community, unity, and well-being through food.
+                  solutions, recognized for our innovation, cultural
+                  inclusivity, and unwavering commitment to quality. We envision
+                  a future where every student, no matter where they are, enjoys
+                  meals that are not only delicious and healthy but also bring
+                  comfort and connection, creating a community united through
+                  food
                 </p>
               </div>
               <Image
@@ -75,7 +77,7 @@ const AboutUs = () => {
                 alt="Vision Icon"
                 width={80}
                 height={64}
-                className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[120px] opacity-55 select-none transition-all duration-300 ${
+                className={`absolute bottom-0 right-4 sm:bottom-0 sm:right-6 sm:w-[120px] opacity-55 select-none transition-all duration-300 ${
                   theme === "light" ? "invert brightness-0" : ""
                 }`}
               />
