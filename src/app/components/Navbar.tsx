@@ -137,7 +137,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={handleOrderFormOpen}
-                className={`text-[10px] border rounded-[8px] px-3 py-3 transition-colors
+                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 transition-colors
                   ${
                     theme === "light"
                       ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
@@ -149,7 +149,6 @@ export default function Navbar() {
                   fontWeight: 600,
                   lineHeight: "100%",
                   letterSpacing: "0",
-                  marginLeft: "38%",
                 }}
               >
                 Join the club
