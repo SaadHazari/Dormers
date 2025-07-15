@@ -463,7 +463,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
                           DSOA Residences
                         </option>
                         <option value="dsoa" className="text-gray-900">
-                          Studo World
+                          Study World
                         </option>
                       </select>
                     </div>

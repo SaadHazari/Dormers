@@ -1204,7 +1204,7 @@ export default function Home() {
                           });
                         }, 200); // slight delay so collapse animation completes
                       }}
-                      className={`absolute top-0 right-0 z-10 p-2 rounded-full ${
+                      className={`absolute top-[-48px] right-0 z-10 p-2 rounded-full ${
                         theme === "light"
                           ? "bg-[#1E3A4F] text-white"
                           : "bg-[#EEE9DA] text-[#1E3A4F]"

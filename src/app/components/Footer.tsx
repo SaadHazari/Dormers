@@ -15,13 +15,13 @@ export default function Footer() {
     "KSK Homes",
     "Yugo",
     "DSOA Residences",
-    "Studo World",
+    "Study World",
   ];
 
   const quickLinks = [
     { name: "MENU", href: "/home#menu" },
     { name: "FAQ’S", href: "/home#faq" },
-    { name: "About US", href: "/home#about" },
+    { name: "ABOUT US", href: "/home#about" },
     { name: "TESTIMONIALS", href: "/home#testimonials" },
   ];
 
