@@ -1,6 +1,7 @@
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import AboutUs from "../components/AboutUs";
+import CurtleAboutUs from "@/app/components/CurtleAboutUs";
 
 export default function MainLayout({
   children,
@@ -18,10 +19,11 @@ export default function MainLayout({
       </div>
       <div id="footer">
         <div className="slide-in-section">
-          <AboutUs />
+          <CurtleAboutUs />
         </div>
       </div>
       <div className="slide-in-section" id="sidefotter">
+        <AboutUs />
         <Footer />
       </div>
     </div>

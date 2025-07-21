@@ -20,37 +20,108 @@ export default function TestimonialsBubbles({
   }
 
   const messages = [
-    {
-      id: 1,
-      from: "bot",
-      text: "Some of the best homemade food! Both delicious and healthy",
-    },
-    {
-      id: 2,
-      from: "user",
-      text: "I got my free meal today! 🎉",
-    },
-    {
-      id: 3,
-      from: "bot",
-      text: "Okay so, I loved the food. It was amazing and everything simply balanced 🎉",
-    },
-    {
-      id: 4,
-      from: "user",
-      text: "Mann, It's Soooo Gooooodddddd. I shared it with my friends. They all loved 🎉",
-    },
-    {
-      id: 5,
-      from: "bot",
-      text: "Thanks for sharing the love! 😊",
-    },
-    ...Array.from({ length: 15 }, (_, i) => ({
-      id: 6 + i,
-      from: i % 2 === 0 ? "bot" : "user",
-      text: `This is a dummy message #${i + 1}`,
-    })),
-  ];
+  {
+    id: 1,
+    from: "bot",
+    text: "Some of the best homemade food! Both delicious and healthy.",
+  },
+  {
+    id: 2,
+    from: "user",
+    text: "I got my free meal today! 🎉",
+  },
+  {
+    id: 3,
+    from: "bot",
+    text: "Okay so, I loved the food. It was amazing and everything simply balanced 🎉",
+  },
+  {
+    id: 4,
+    from: "user",
+    text: "Mann, It's Soooo Gooooodddddd. I shared it with my friends. They all loved it 🎉",
+  },
+  {
+    id: 5,
+    from: "bot",
+    text: "Thanks for sharing the love! 😊",
+  },
+  {
+    id: 6,
+    from: "user",
+    text: "I was a bit skeptical, but wow—this exceeded my expectations!",
+  },
+  {
+    id: 7,
+    from: "bot",
+    text: "That's great to hear! We love surprising people with quality 🥗",
+  },
+  {
+    id: 8,
+    from: "user",
+    text: "My mom tried it too and she was impressed 😍",
+  },
+  {
+    id: 9,
+    from: "bot",
+    text: "Mom-approved? That's the ultimate compliment! 🏆",
+  },
+  {
+    id: 10,
+    from: "user",
+    text: "Is there a way to schedule meals in advance?",
+  },
+  {
+    id: 11,
+    from: "bot",
+    text: "Absolutely! You can schedule up to a week ahead through the app 📅",
+  },
+  {
+    id: 12,
+    from: "user",
+    text: "Perfect! That'll save me a lot of time every morning.",
+  },
+  {
+    id: 13,
+    from: "bot",
+    text: "Exactly the plan — good food, no hassle 😉",
+  },
+  {
+    id: 14,
+    from: "user",
+    text: "Do you offer vegan options too?",
+  },
+  {
+    id: 15,
+    from: "bot",
+    text: "Yes! We have an entire section dedicated to vegan-friendly meals 🌱",
+  },
+  {
+    id: 16,
+    from: "user",
+    text: "Love that. The variety is honestly impressive.",
+  },
+  {
+    id: 17,
+    from: "bot",
+    text: "We're so glad you're enjoying it! More exciting dishes coming soon 🍽️",
+  },
+  {
+    id: 18,
+    from: "user",
+    text: "Keep ‘em coming! My lunch breaks are happier now 😄",
+  },
+  {
+    id: 19,
+    from: "bot",
+    text: "We’re here to make every meal feel like home ❤️",
+  },
+  {
+    id: 20,
+    from: "user",
+    text: "Appreciate the support and service. Keep it up!",
+  },
+];
+
 
   // Auto-scroll effect when expanded
   useEffect(() => {

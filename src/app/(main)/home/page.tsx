@@ -1174,6 +1174,7 @@ export default function Home() {
             borderTopLeftRadius: "60px",
             borderTopRightRadius: "60px",
             zIndex: 0,
+            height: theme === "light" ? "321px" : "351px",
           }}
         >
           <div

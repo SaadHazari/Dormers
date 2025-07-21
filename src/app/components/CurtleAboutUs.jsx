@@ -1,11 +1,15 @@
-import React from "react";
+"use client";
+
+import { useTheme } from "next-themes";
+import Image from "next/image";
 
 const CurtleAboutUs = () => {
+  const { theme } = useTheme();
   return (
     <>
       <div
         id="about"
-        className={`px-5 w-full mt-[100px] md:mt-[350px] ${
+        className={`px-5 w-full mt-[30px] md:mt-[100px]  ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >
@@ -25,7 +29,6 @@ const CurtleAboutUs = () => {
             >
               ABOUT US
             </h2>
-
             {/* Top two cards: Vision and Mission */}
             <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-[40px] md:flex md:justify-center md:gap-[57px]">
               {/* Vision Card */}
@@ -43,7 +46,6 @@ const CurtleAboutUs = () => {
                       fontFamily: "Montserrat, sans-serif",
                       fontWeight: 900,
                       lineHeight: "100%",
-                      // letterSpacing: "0",
                       fontSize: "16px",
                     }}
                   >
@@ -80,8 +82,6 @@ const CurtleAboutUs = () => {
                   }`}
                 />
               </div>
-
-              {/* Mission Card */}
               <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative md:max-w-[548px]">
                 <div>
                   <h3
