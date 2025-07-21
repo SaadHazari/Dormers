@@ -97,7 +97,7 @@ export default function Navbar() {
           <div className="flex justify-between h-16 sm:h-20 items-center">
             {/* Logo */}
             <Link href="/home" className="flex-shrink-0 flex items-center">
-              <div className="relative w-[55px] h-[55px] sm:w-16 md:w-24 sm:h-16 md:h-24">
+              <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                 <Image
                   src={theme === "light" ? "/logo-light.png" : "/logo-dark.svg"}
                   alt="Dormer's Logo"
@@ -108,7 +108,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
+            {/* <div className="hidden md:flex items-center space-x-8">
               {navLinks.map((link) => (
                 <a
                   key={link.name}
@@ -129,15 +129,14 @@ export default function Navbar() {
                   {link.name}
                 </a>
               ))}
-            </div>
+            </div> */}
 
-            {/* Mobile Navbar Container */}
-            <div className="md:hidden flex items-center justify-between w-full px-3 py-1">
+            <div className="flex items-center justify-between md:justify-end w-full px-3 py-1">
               {/* Join the Club Button */}
               <button
                 type="button"
                 onClick={handleOrderFormOpen}
-                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 transition-colors
+                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors
                   ${
                     theme === "light"
                       ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
@@ -155,30 +154,51 @@ export default function Navbar() {
               </button>
 
               {/* Theme Toggle & Menu Button Wrapper */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 md:gap-4">
                 {/* Theme Toggle */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleOrderFormOpen}
+                    className={`Join_the_club md:block hidden
+                  ${
+                    theme === "light"
+                      ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
+                      : "text-white border-white hover:bg-white hover:text-[#031624]"
+                  }
+                `}
+                    style={{
+                      fontFamily: "Montserrat, sans-serif",
+                      fontWeight: 600,
+                      lineHeight: "100%",
+                      letterSpacing: "0",
+                    }}
+                  >
+                    Join the club
+                  </button>
+                </div>
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${
                     theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
                   }`}
                 >
                   {theme === "light" ? (
-                    <MoonIcon className="h-3 w-3 text-[#031624]" />
+                    <MoonIcon className="h-3 w-3 text-[#031624] md:w-[24px]" />
                   ) : (
-                    <SunIcon className="h-3 w-3 text-[#031624]" />
+                    <SunIcon className="h-3 w-3 text-[#031624] md:w-[24px] md:h-[24px]" />
                   )}
                 </button>
 
                 {/* Hamburger Menu */}
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${
                     theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
                   }`}
                 >
                   <svg
-                    className="h-4 w-4 text-[#031624]"
+                    className="h-4 w-4 text-[#031624] md:w-[18px] md:h-[20px]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -204,7 +224,7 @@ export default function Navbar() {
             </div>
 
             {/* Desktop Theme Toggle & CTA */}
-            <div className="hidden md:flex items-center space-x-4">
+            {/* <div className="hidden md:flex items-center space-x-4">
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none bg-transparent border-2 ${
@@ -245,7 +265,7 @@ export default function Navbar() {
               >
                 Join the club
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
 

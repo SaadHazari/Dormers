@@ -1228,15 +1228,15 @@ export default function Menu() {
   return (
     <>
       <div
-        className={`relative w-full py-8   ${
+        className={`relative w-full py-8 lg:py-[40px]  ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
         } overflow-hidden`}
       >
         <div className="container mx-auto px-4">
           {/* Menu Header */}
-          <div className="mb-5 mt-0 flex items-center justify-between max-w-4xl mx-auto">
+          <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[1155px] mx-auto">
             <h2
-              className={` text-[32px] font-medium  ${
+              className={` text-[32px] font-medium lg:hidden block  ${
                 theme === "light" ? "text-[#1E3A4F]" : "text-white"
               }`}
               style={{
@@ -1249,34 +1249,20 @@ export default function Menu() {
             >
               MENU
             </h2>
-
-            {/* Diet Toggle */}
-            {/* <button
-              onClick={() => {
-                setIsVegOnly((v) => !v);
-                setSelectedDay(new Date().getDay());
-              }}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none bg-transparent border-2 border-white"
-              aria-label="Toggle veg/non-veg"
+            <h2
+              className={`menu-heading_icon lg:block hidden  ${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              }`}
             >
-              <span className="sr-only">Toggle veg/non-veg</span>
-              <div
-                className={`${
-                  isVegOnly ? "translate-x-7" : "translate-x-1"
-                } inline-block h-3 w-3 transform rounded-full transition-transform duration-200 ease-in-out bg-white`}
-              >
-                <span className="absolute inset-0 flex items-center justify-center text-xs text-[#1E3A4F]">
-                  {isVegOnly ? "🥬" : "🍖"}
-                </span>
-              </div>
-            </button> */}
+              MENU
+            </h2>
             <button
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
-              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
+              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden block
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
@@ -1302,10 +1288,35 @@ export default function Menu() {
                 </span>
               </div>
             </button>
+
+            <button
+              onClick={() => {
+                setIsVegOnly((v) => !v);
+                const jsDay = new Date().getDay();
+                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+              }}
+              className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
+    lg:flex lg:h-[40px] lg:w-[100px]
+    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+              aria-label="Toggle veg/non-veg"
+            >
+              {/* Toggle knob */}
+              <div
+                className={`absolute top-[4px] left-[4px] h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
+      ${isVegOnly ? "translate-x-[56px]" : "translate-x-0"}
+      ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
+              >
+                <img
+                  src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
+                  className="w-[20px] h-[20px]"
+                  alt=""
+                />
+              </div>
+            </button>
           </div>
 
           {/* Menu Card */}
-          <div className="max-w-4xl mx-auto">
+          <div className="lg:max-w-[1155px] mx-auto">
             <div
               className="bg-[#1E3A4F] rounded-xl p-5 perspective-1000"
               style={{
@@ -1320,8 +1331,8 @@ export default function Menu() {
                 >
                   {/* Front of Card */}
                   <div>
-                    <div className="flex justify-between">
-                      <div className="flex justify-center gap-1 mb-3">
+                    <div className="flex justify-between items-center">
+                      <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
                         {[
                           // { day: "S", index: 0 },
                           { day: "M", index: 0 },
@@ -1334,7 +1345,7 @@ export default function Menu() {
                           <button
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
-                            className={`w-4 h-4 mt-2 rounded-full border flex items-center justify-center text-[12px] font-bold transition-colors ${
+                            className={`w-4 h-4 mt-2 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
                               selectedDay === item.index
                                 ? "bg-white text-[#1E3A4F] border-white"
                                 : "bg-transparent text-white border-white hover:bg-white/20"
@@ -1342,7 +1353,6 @@ export default function Menu() {
                             style={{
                               fontFamily: "Montserrat",
                               lineHeight: "100%",
-                              fontSize: "7px",
                             }}
                           >
                             {item.day}
@@ -1353,7 +1363,7 @@ export default function Menu() {
                         <select
                           value={selectedWeek}
                           onChange={(e) => setSelectedWeek(e.target.value)}
-                          className="bg-white text-[#1E3A4F] font-medium rounded-full  py-1 text-[8px] cursor-pointer focus:outline-none border-r-4 border-transparent uppercase"
+                          className="bg-white text-[#1E3A4F] font-medium rounded-full  py-1 text-[8px] cursor-pointer focus:outline-none border-r-4 border-transparent uppercase selectboxmenuweekwise"
                         >
                           <option value="week1">Week One</option>
                           <option value="week2">Week Two</option>
@@ -1362,9 +1372,9 @@ export default function Menu() {
                         </select>
                       </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">
                       {/* Dish Image */}
-                      <div className="relative w-35 h-[130px] rounded-2xl overflow-hidden bg-[#EEE9DA]">
+                      <div className="relative w-35 h-[130px] rounded-2xl overflow-hidden bg-[#EEE9DA] lg:h-[300px] lg:w-[336px]">
                         <Image
                           src={currentDish.image}
                           alt={currentDish.name}
@@ -1374,7 +1384,7 @@ export default function Menu() {
                       </div>
                       <div className="flex-1 flex flex-col  min-w-0 overflow-visible">
                         <h3
-                          className="text-white text-base font-bold uppercase mb-1 break-words "
+                          className="text-white text-base font-bold uppercase mb-1 break-words lg:hidden block"
                           style={{
                             fontFamily: "Montserrat",
                             fontWeight: 700,
@@ -1384,9 +1394,8 @@ export default function Menu() {
                         >
                           {currentDish.name}
                         </h3>
-
                         <p
-                          className="text-white text-xs mb-2 mt-2"
+                          className="text-white text-xs mb-2 mt-2 lg:hidden block"
                           style={{
                             fontFamily: "Poppins",
                             fontWeight: 300,
@@ -1396,74 +1405,44 @@ export default function Menu() {
                         >
                           {currentDish.description}
                         </p>
+                        <div className="flex flex-col h-full justify-between">
+                          <div>
+                            <h3 className="currentdish_name_title lg:block hidden">
+                              {currentDish.name}
+                            </h3>
 
-                        {/* <button
-                        onClick={() => setIsFlipped(!isFlipped)}
-                        className={`flex items-center gap-1 text-white/80 text-xs transition-opacity ${
-                          showNutritionHint ? "animate-pulse" : ""
-                        }`}
-                      >
-                        <span
-                          style={{
-                            fontFamily: "Montserrat",
-                            fontWeight: 600,
-                            fontSize: "8px",
-                          }}
-                          className="mt-1"
-                        >
-                          Nutrition Info
-                        </span>
-                        <svg
-                          className={`w-3 h-3 mt-1 transform transition-transform ${
-                            showNutritionHint ? "animate-bounce" : ""
-                          }`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M6 9l6 6 6-6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button> */}
+                            <p className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden">
+                              {currentDish.description}
+                            </p>
+                          </div>
 
-                        <button
-                          onClick={() => setIsFlipped(true)}
-                          className={`flex items-center gap-1 text-white/80 text-xs transition-opacity ${
-                            isFlipped ? "animate-pulse" : ""
-                          }`}
-                        >
-                          <span
-                            style={{
-                              fontFamily: "Montserrat",
-                              fontWeight: 600,
-                              fontSize: "8px",
-                            }}
-                            className="mt-1"
-                          >
-                            Nutrition Info
-                          </span>
-                          <svg
-                            className={`w-3 h-3 mt-1 transform transition-transform ${
-                              isFlipped ? "animate-bounce" : ""
+                          <button
+                            onClick={() => setIsFlipped(true)}
+                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${
+                              isFlipped ? "animate-pulse" : ""
                             }`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
                           >
-                            <path
-                              d="M6 9l6 6 6-6"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
+                            <span className="mt-1 buttonNutrition_info">
+                              Nutrition Info
+                            </span>
+                            <svg
+                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${
+                                isFlipped ? "animate-bounce" : ""
+                              }`}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M6 9l6 6 6-6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1477,7 +1456,7 @@ export default function Menu() {
                   >
                     <Box sx={style}>
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white mmd:max-w-[420px] lg:max-w-[500px]  max-h-[90vh] overflow-y-auto w-[358px]">
+                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white md:max-w-[420px] lg:max-w-[700px] lg:w-[700px]  max-h-[90vh] overflow-y-auto w-[358px]">
                           {/* Modal Header */}
                           <div className="flex justify-between items-start mb-6">
                             <h3

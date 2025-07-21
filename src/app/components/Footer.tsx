@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FaInstagram, FaFacebook } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import Image from "next/image";
 
 export default function Footer() {
   const router = useRouter();
@@ -56,12 +57,10 @@ export default function Footer() {
           theme === "light"
             ? "bg-[#031624] text-[#1E3A4F]"
             : "bg-[#031624] text-white"
-        } py-10`}
+        } py-10 lg:hidden block`}
       >
-        <div className="container mx-auto px-4">
-          {/* Force 2 columns always */}
+        <div className="container mx-auto px-4 lg:max-w-[1155px] ">
           <div className="grid grid-cols-2 gap-6">
-            {/* Delivery Locations */}
             <div>
               <h3
                 className="font-semibold mb-4"
@@ -71,7 +70,7 @@ export default function Footer() {
                   lineHeight: "100%",
                   fontSize: "13px",
                   letterSpacing: "0",
-                  color:"white"
+                  color: "white",
                 }}
               >
                 Delivery Locations
@@ -91,7 +90,7 @@ export default function Footer() {
                       lineHeight: "100%",
                       fontSize: "12px",
                       letterSpacing: "0.5px",
-                        color:"white"
+                      color: "white",
                     }}
                   >
                     {location}
@@ -99,20 +98,8 @@ export default function Footer() {
                 ))}
               </ul>
             </div>
-
-            {/* Menu / Quick Links */}
             <div>
-              {/* <h3 className="font-semibold mb-4"
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-              fontWeight: 700,
-              lineHeight: "100%",
-              fontSize:'15px',
-              letterSpacing: "0",
-            }}>
-          Menu
-        </h3> */}
-              <ul className="space-y-2">
+              <ul className="space-y-2 lg:flex lg:gap-[52px]">
                 {quickLinks.map((link) => (
                   <li key={link.name}>
                     <a
@@ -124,7 +111,7 @@ export default function Footer() {
                         fontSize: "12px",
                         fontWeight: 700,
                         lineHeight: "2px",
-                          color:"white"
+                        color: "white",
                       }}
                     >
                       {link.name}
@@ -135,7 +122,6 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Follow Us */}
           <div className="mt-10 md:justify-start">
             <div>
               <h3
@@ -146,7 +132,7 @@ export default function Footer() {
                   lineHeight: "100%",
                   fontSize: "13px",
                   letterSpacing: "0",
-                    color:"white"
+                  color: "white",
                 }}
               >
                 Follow Us
@@ -179,8 +165,6 @@ export default function Footer() {
               </div>
             </div>
           </div>
-
-          {/* Footer Bottom */}
           <div
             className="mt-8 pt-8 border-t border-white/30 text-sm text-center"
             style={{
@@ -192,13 +176,176 @@ export default function Footer() {
             }}
           >
             <div className="flex flex-row justify-center items-center gap-6 flex-wrap">
-              <Link href="/cookies-policy" className="hover:text-orange-400 text-white">
+              <Link
+                href="/cookies-policy"
+                className="hover:text-orange-400 text-white"
+              >
                 Cookies Policy
               </Link>
-              <Link href="/legal-terms" className="hover:text-orange-400 text-white">
+              <Link
+                href="/legal-terms"
+                className="hover:text-orange-400 text-white"
+              >
                 Legal Terms
               </Link>
-              <Link href="/privacy" className="hover:text-orange-400 text-white">
+              <Link
+                href="/privacy"
+                className="hover:text-orange-400 text-white"
+              >
+                Privacy Policy
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+      <footer
+        className={`${
+          theme === "light"
+            ? "bg-[#031624] text-[#1E3A4F]"
+            : "bg-[#031624] text-white"
+        } py-10 lg:block hidden`}
+      >
+        <div className="container mx-auto lg:max-w-[1155px] ">
+          <div className="">
+            <div>
+              <div className="flex justify-between">
+                <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
+                  <Image
+                    src={
+                      theme === "light" ? "/logo-light.png" : "/logo-dark.svg"
+                    }
+                    alt="Dormer's Logo"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <div>
+                  <ul className="space-y-2 lg:flex lg:gap-[52px]">
+                    {quickLinks.map((link) => (
+                      <li key={link.name}>
+                        <a
+                          href={link.href}
+                          onClick={(e) => handleNavClick(e, link.href)}
+                          className="hover:text-orange-400 transition-colors"
+                          style={{
+                            fontFamily: "Montserrat, sans-serif",
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            lineHeight: "2px",
+                            color: "white",
+                          }}
+                        >
+                          {link.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="flex justify-between items-end">
+                <div>
+                  <h3
+                    className="font-semibold mb-4 pt-[28px]"
+                    style={{
+                      fontFamily: "Montserrat, sans-serif",
+                      fontWeight: 700,
+                      lineHeight: "100%",
+                      fontSize: "16px",
+                      letterSpacing: "0",
+                      color: "white",
+                    }}
+                  >
+                    Delivery Locations
+                  </h3>
+                  <div className="flex flex-col gap-[16px]">
+                    <div className="flex gap-[28px]">
+                      <p className="location_footer_desktop">The Myriad</p>
+                      <p className="location_footer_desktop">DSOA Residence</p>
+                    </div>
+                    <div className="flex gap-[28px]">
+                      <p className="location_footer_desktop">KSK Homes</p>
+                      <p className="location_footer_desktop">Studo World</p>
+                    </div>
+                    <div className="flex gap-[28px]">
+                      <p className="location_footer_desktop">Yugo</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-10 md:justify-start">
+                  <div>
+                    <h3
+                      className="text-left font-semibold mb-4"
+                      style={{
+                        fontFamily: "Montserrat, sans-serif",
+                        fontWeight: 700,
+                        lineHeight: "100%",
+                        fontSize: "13px",
+                        letterSpacing: "0",
+                        color: "white",
+                      }}
+                    >
+                      Follow Us
+                    </h3>
+                    <div className="flex items-center space-x-4">
+                      <a
+                        href="https://www.facebook.com/profile.php?id=61567276984641"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center space-x-2 ${
+                          theme === "light"
+                            ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                            : "text-gray-300 hover:text-orange-400"
+                        } transition-colors`}
+                      >
+                        <FaFacebook className="w-4 h-4 text-white" />
+                      </a>
+                      <a
+                        href="https://www.instagram.com/dormers.ae"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center space-x-2 ${
+                          theme === "light"
+                            ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                            : "text-gray-300 hover:text-orange-400"
+                        } transition-colors`}
+                      >
+                        <FaInstagram className="w-4 h-4 text-white" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          className="mt-8 pt-8 border-t border-dashed border-white text-sm text-center"
+          style={{
+            fontFamily: "Poppins, sans-serif",
+            fontWeight: 400,
+            lineHeight: "100%",
+            letterSpacing: "0.5px",
+            fontSize: "11px",
+          }}
+        >
+          <div className="lg:max-w-[1155px]  mx-auto">
+            <div className="flex gap-[54px]">
+              <Link
+                href="/cookies-policy"
+                className="hover:text-orange-400 text-white text-[14px]"
+              >
+                Cookies Policy
+              </Link>
+              <Link
+                href="/legal-terms"
+                className="hover:text-orange-400 text-white text-[14px]"
+              >
+                Legal Terms
+              </Link>
+              <Link
+                href="/privacy"
+                className="hover:text-orange-400 text-white text-[14px]"
+              >
                 Privacy Policy
               </Link>
             </div>

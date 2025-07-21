@@ -142,6 +142,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -166,6 +167,7 @@ body {
   animation: gradient-x 3s ease infinite;
 }
 
+
 .main_content {
   min-height: 100vh;
   position: relative;
@@ -181,7 +183,6 @@ body {
   animation: slideInUp 1s ease-out forwards;
 }
 .sidefotter {
-  position: sticky;
   bottom: 0px;
   z-index: 0;
   animation: slideInUp 1s ease-out forwards;
@@ -230,8 +231,71 @@ body {
   line-height: 14px; /* 116.667% */
 }
 
+.badge-label {
+  padding: 0 6px;
+  height: 20px;
+  top: -38%;
+  left: 1%;
+  width: 15%;
+  border-radius: 16px;
+  font-family: "Typo Round Bold Demo", sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 100%;
+  text-align: center;
+}
+
 @media screen and (max-width: 365px) {
   .Join_the_club {
     margin-left: 33%;
+  }
+}
+
+@media (min-width: 768px) {
+  .Join_the_club {
+    border-radius: 8px;
+    border: 0.5px solid #eee9da;
+    /* width: 113px; */
+    padding-left: 15px;
+    padding-right: 15px;
+    height: 38px;
+    flex-shrink: 0;
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+  }
+  .badge-label {
+    padding: 0 6px;
+    width: 80.653px;
+    height: 32px;
+    top: -19%;
+    left: 10%;
+    border-radius: 16px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 100%;
+    text-align: center;
+  }
+  .HowItWorksCardContainer {
+    max-width: 371px;
+    margin: 0;
+  }
+  .location_footer_desktop {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 100%;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+  .para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 100%;
+    font-size: 12px;
+    letter-spacing: 0.5px;
   }
 }

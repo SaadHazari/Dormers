@@ -120,37 +120,37 @@ export default function Home() {
   }, []);
 
   // Testimonial image filenames
-  // const testimonialImages = [
-  //   "screenshot1.jpg",
-  //   "screenshot2.jpg",
-  //   "screenshot3.png",
-  //   "screenshot4.png",
-  //   "screenshot5.png",
-  //   "screenshot6.png",
-  //   "screenshot7.png",
-  //   "screenshot8.png",
-  //   "screenshot9.png",
-  //   "screenshot10.png",
-  //   "screenshot11.png",
-  //   "screenshot12.png",
-  //   "screenshot13.png",
-  //   "screenshot14.png",
-  //   "screenshot15.png",
-  //   "screenshot16.png",
-  //   "screenshot17.png",
-  //   "screenshot18.png",
-  //   "screenshot19.png",
-  //   "screenshot20.png",
-  //   "screenshot21.png",
-  //   "screenshot22.png",
-  //   "screenshot23.png",
-  //   "screenshot24.png",
-  //   "screenshot25.png",
-  //   "ss1.png",
-  //   "ss2.png",
-  //   "ss3.png",
-  //   "ss4.png",
-  // ];
+  const testimonialImages = [
+    "screenshot1.jpg",
+    "screenshot2.jpg",
+    "screenshot3.png",
+    "screenshot4.png",
+    "screenshot5.png",
+    "screenshot6.png",
+    "screenshot7.png",
+    "screenshot8.png",
+    "screenshot9.png",
+    "screenshot10.png",
+    "screenshot11.png",
+    "screenshot12.png",
+    "screenshot13.png",
+    "screenshot14.png",
+    "screenshot15.png",
+    "screenshot16.png",
+    "screenshot17.png",
+    "screenshot18.png",
+    "screenshot19.png",
+    "screenshot20.png",
+    "screenshot21.png",
+    "screenshot22.png",
+    "screenshot23.png",
+    "screenshot24.png",
+    "screenshot25.png",
+    "ss1.png",
+    "ss2.png",
+    "ss3.png",
+    "ss4.png",
+  ];
 
   const faqs: FAQ[] = [
     {
@@ -280,7 +280,7 @@ export default function Home() {
     return (
       <div
         key={faq.id}
-        className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto"
+        className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto lg:w-[100%]"
         style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
       >
         <button
@@ -355,7 +355,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           <div className="space-y-4">
             {/* First Section */}
-            <div className="text-center">
+            <div className="text-center mb-[4px] md:pt-[44px]">
               <h1
                 className={`${
                   theme === "light" ? "text-[#1E3A4F]" : "text-white"
@@ -394,23 +394,8 @@ export default function Home() {
             </div>
 
             {/* Second Section */}
-            <div className="relative text-center mt-2 sm:mt-4">
-              <span
-                className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg]"
-                style={{
-                  padding: "0 6px",
-                  height: "20px",
-                  top: "-38%",
-                  left: "1%",
-                  width: "15%",
-                  borderRadius: "16px",
-                  fontFamily: "Typo Round Bold Demo",
-                  fontWeight: 700,
-                  fontSize: "10px",
-                  lineHeight: "100%",
-                  textAlign: "center",
-                }}
-              >
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
+              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label">
                 NO
               </span>
 
@@ -429,7 +414,7 @@ export default function Home() {
             </div>
 
             {/* Third Section */}
-            <div className="relative text-center mt-2 sm:mt-4">
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
               <h2
                 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
                 style={{
@@ -458,9 +443,9 @@ export default function Home() {
 
             {/* Bottom Text */}
             <p
-              className={`text-[16px] sm:text-[24px] md:text-lg lg:text-xl ${
+              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${
                 theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              } text-center mt-3`}
+              } text-center`}
               style={{
                 fontFamily: "Typo Round Bold Demo",
                 fontWeight: 700,
@@ -478,7 +463,7 @@ export default function Home() {
           theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
         }`}
       >
-        <div className="flex flex-col gap-3 w-full h-full py-3">
+        <div className="flex flex-col gap-2 w-full h-full py-1">
           {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
@@ -634,7 +619,7 @@ export default function Home() {
           />
         </div>
         {/* Content */}
-        <div className="relative container mx-auto px-4">
+        <div className="relative container mx-auto px-4 top-[-14px]">
           <div className="flex items-center justify-center gap-4 mb-10">
             <h2
               className={`${
@@ -653,292 +638,294 @@ export default function Home() {
               HOW IT WORKS
             </h2>
           </div>
-          <div className="max-w-md mx-auto space-y-6">
-            {/* Qualify Card */}
-            <div
-              ref={qualifyCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              // onClick={() =>
-              //   setFlippedCard(flippedCard === "qualify" ? null : "qualify")
-              // }
-              onClick={() => setIsQualifyFlipped((prev) => !prev)}
-            >
+          <div className="max-w-md mx-auto space-y-6 md:max-w-full">
+            <div className="flex flex-col md:flex-row gap-5 md:justify-center">
+              {/* Qualify Card */}
               <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
-                }
-                } ${!isMobile && "hover:scale-105"}`}
+                ref={qualifyCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                // onClick={() =>
+                //   setFlippedCard(flippedCard === "qualify" ? null : "qualify")
+                // }
+                onClick={() => setIsQualifyFlipped((prev) => !prev)}
               >
-                {/* Front */}
-                <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3">
-                    1
-                  </span>
-                  <h3
-                    className="text-[#FFFFFF] text-2xl font-bold text-center"
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      fontSize: "20px",
-                    }}
-                  >
-                    QUALIFY
-                  </h3>
-                </div>
-
-                {/* Back - Tell us about yourself card */}
-                <div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
-
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      {/* Icon */}
-                      <Image
-                        src="/images/iconinfo1.svg"
-                        alt="Info Icon"
-                        width={47.84}
-                        height={34.28}
-                        className="object-contain"
-                      />
-
-                      {/* Text */}
-                      <h4
-                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
-                      >
-                        Tell us about
-                        <br />
-                        yourself
-                      </h4>
-                    </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
-                  </div>
-                </div>
-
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
-              </div>
-            </div>
-            {/* Subscribe Card */}
-            <div
-              ref={subscribeCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              // onClick={() =>
-              //   setFlippedCard(flippedCard === "subscribe" ? null : "subscribe")
-              // }
-              onClick={() => setIsSubscribeFlipped((prev) => !prev)}
-            >
-              <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
-                }
-                } ${!isMobile && "hover:scale-105"}`}
-              >
-                {/* Front */}
                 <div
-                  className={`absolute inset-0 ${
-                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
-                >
-                  <span
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
-                      theme === "light"
-                        ? "bg-[#EEE9DA] text-[#1E3A4F]"
-                        : "bg-[#1E3A4F] text-white"
-                    }`}
-                  >
-                    2
-                  </span>
-                  <h3
-                    className={`${
-                      theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                    } text-3xl sm:text-4xl font-bold`}
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      textAlign: "center",
-                      fontSize: "20px",
-                    }}
-                  >
-                    SUBSCRIBE
-                  </h3>
-                  {/* Click indicator */}
-                  <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Click to flip</span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 4V20M12 20L6 14M12 20L18 14"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                {/* Back - Pick your perfect plan */}
-                <div
-                  className={`absolute inset-0 ${
-                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
-                >
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
-
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      <Image
-                        src="/images/iconbell.svg"
-                        alt="Info Icon"
-                        width={27.16}
-                        height={24}
-                        className={`object-contain ${
-                          theme === "light"
-                            ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
-                            : ""
-                        }`}
-                      />
-
-                      <h4
-                        className={`${
-                          theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                        } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
-                      >
-                        Pick your perfect
-                        <br />
-                        plan
-                      </h4>
-                    </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
-                  </div>
-                </div>
-
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
-              </div>
-            </div>
-
-            {/* Feast Card */}
-            <div
-              ref={feastCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              onClick={() =>
-                setFlippedCard(flippedCard === "feast" ? null : "feast")
-              }
-            >
-              <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                    isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
+                  }
                 } ${!isMobile && "hover:scale-105"}`}
-              >
-                {/* Front */}
-                <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">
-                    3
-                  </span>
-                  <h3
-                    className="text-white text-3xl sm:text-4xl font-bold"
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      textAlign: "center",
-                      fontSize: "20px",
-                    }}
-                  >
-                    FEAST
-                  </h3>
-                  {/* Click indicator */}
-                  <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Click to flip</span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
+                >
+                  {/* Front */}
+                  <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3">
+                      1
+                    </span>
+                    <h3
+                      className="text-[#FFFFFF] text-2xl font-bold text-center"
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        fontSize: "20px",
+                      }}
                     >
-                      <path
-                        d="M12 4V20M12 20L6 14M12 20L18 14"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                      QUALIFY
+                    </h3>
                   </div>
-                </div>
-                {/* Back - Enjoy stress-free meals */}
-                <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
 
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      <Image
-                        src="/images/iconfeast.svg"
-                        alt="Info Icon"
-                        width={27.16}
-                        height={24}
-                        className="object-contain"
-                      />
+                  {/* Back - Tell us about yourself card */}
+                  <div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
 
-                      <h4
-                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
-                      >
-                        Enjoy stress-free
-                        <br />
-                        meals
-                      </h4>
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        {/* Icon */}
+                        <Image
+                          src="/images/iconinfo1.svg"
+                          alt="Info Icon"
+                          width={47.84}
+                          height={34.28}
+                          className="object-contain"
+                        />
+
+                        {/* Text */}
+                        <h4
+                          className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Tell us about
+                          <br />
+                          yourself
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
                     </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
                   </div>
-                </div>
 
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
+              </div>
+              {/* Subscribe Card */}
+              <div
+                ref={subscribeCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                // onClick={() =>
+                //   setFlippedCard(flippedCard === "subscribe" ? null : "subscribe")
+                // }
+                onClick={() => setIsSubscribeFlipped((prev) => !prev)}
+              >
+                <div
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                    isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
+                  }
+                } ${!isMobile && "hover:scale-105"}`}
+                >
+                  {/* Front */}
+                  <div
+                    className={`absolute inset-0 ${
+                      theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                    } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
+                        theme === "light"
+                          ? "bg-[#EEE9DA] text-[#1E3A4F]"
+                          : "bg-[#1E3A4F] text-white"
+                      }`}
+                    >
+                      2
+                    </span>
+                    <h3
+                      className={`${
+                        theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                      } text-3xl sm:text-4xl font-bold`}
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        textAlign: "center",
+                        fontSize: "20px",
+                      }}
+                    >
+                      SUBSCRIBE
+                    </h3>
+                    {/* Click indicator */}
+                    <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span>Click to flip</span>
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  {/* Back - Pick your perfect plan */}
+                  <div
+                    className={`absolute inset-0 ${
+                      theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                    } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                  >
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
+
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        <Image
+                          src="/images/iconbell.svg"
+                          alt="Info Icon"
+                          width={27.16}
+                          height={24}
+                          className={`object-contain ${
+                            theme === "light"
+                              ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
+                              : ""
+                          }`}
+                        />
+
+                        <h4
+                          className={`${
+                            theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                          } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Pick your perfect
+                          <br />
+                          plan
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
+                    </div>
+                  </div>
+
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Feast Card */}
+              <div
+                ref={feastCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                onClick={() =>
+                  setFlippedCard(flippedCard === "feast" ? null : "feast")
+                }
+              >
+                <div
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
+                    flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
+                  } ${!isMobile && "hover:scale-105"}`}
+                >
+                  {/* Front */}
+                  <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">
+                      3
+                    </span>
+                    <h3
+                      className="text-white text-3xl sm:text-4xl font-bold"
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        textAlign: "center",
+                        fontSize: "20px",
+                      }}
+                    >
+                      FEAST
+                    </h3>
+                    {/* Click indicator */}
+                    <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span>Click to flip</span>
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  {/* Back - Enjoy stress-free meals */}
+                  <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
+
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        <Image
+                          src="/images/iconfeast.svg"
+                          alt="Info Icon"
+                          width={27.16}
+                          height={24}
+                          className="object-contain"
+                        />
+
+                        <h4
+                          className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Enjoy stress-free
+                          <br />
+                          meals
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
+                    </div>
+                  </div>
+
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -979,7 +966,7 @@ export default function Home() {
           theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
         }`}
       >
-        <div className="flex flex-col gap-3 w-full h-full py-3">
+        <div className="flex flex-col gap-2 w-full h-full py-1">
           {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
@@ -1115,7 +1102,7 @@ export default function Home() {
       </div>
 
       {/* Testimonials Section */}
-      <div id="testimonials" className="relative w-full py-8 ">
+      {/* <div id="testimonials" className="relative w-full py-8 pb-[0px]">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between max-w-4xl mx-auto mb-8">
             <h2
@@ -1134,9 +1121,35 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* New Testimonials Component */}
           <div className="max-w-4xl mx-auto">
             <TestimonialsBubbles />
+          </div>
+        </div>
+      </div> */}
+      <div id="testimonials" className="relative w-full py-8 pb-0">
+        <div className="">
+          <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto mb-8  px-6">
+            <h2
+              className={`text-3xl sm:text-4xl font-bold ${
+                theme === "light" ? "text-[1E3A4F]" : "text-white"
+              }`}
+              style={{
+                fontFamily: "Montserrat",
+                fontWeight: 500,
+                lineHeight: "100%",
+                letterSpacing: "0",
+                fontSize: "18px",
+              }}
+            >
+              VOICES OF DELIGHT
+            </h2>
+          </div>
+
+          {/* New Testimonials Component */}
+          <div className="mx-auto bg-[#031624] py-6">
+            <div className="lg:max-w-[1155px] mx-auto">
+              <TestimonialsBubbles testimonialImages={testimonialImages} />
+            </div>
           </div>
         </div>
       </div>
@@ -1150,12 +1163,13 @@ export default function Home() {
         }`}
       >
         <div
-          className="container mx-auto px-0  relative"
+          className={`container mx-auto px-0 relative 
+              h-[${theme === "light" ? "321px" : "351px"}] 
+              md:h-[199px]`}
           style={{
             bottom: 0,
             left: 0,
             width: "100%",
-            height: theme === "light" ? "321px" : "351px",
             backgroundColor: "#22394A",
             borderTopLeftRadius: "60px",
             borderTopRightRadius: "60px",
@@ -1163,7 +1177,7 @@ export default function Home() {
           }}
         >
           <div
-            className="w-full shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8 rounded-bl-[60px] rounded-br-[60px] overflow-hidden"
+            className="w-full shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden"
             style={{
               backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
             }}
@@ -1227,7 +1241,7 @@ export default function Home() {
 
                     {/* Scrollable FAQ list */}
                     <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                         {faqs.map((faq, index) =>
                           renderFaqCard(faq, index, openFAQ, toggleFAQ)
                         )}
@@ -1240,7 +1254,7 @@ export default function Home() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
                   >
                     {faqs
                       .slice(0, 3)

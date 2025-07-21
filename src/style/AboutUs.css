@@ -1,0 +1,169 @@
+@import url("https://fonts.cdnfonts.com/css/typo-round");
+@media (min-width: 768px) {
+  .container_aboutUs_box {
+    max-width: 1155px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .ourvalues-para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 167%;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    max-width: 406px;
+  }
+  .OurValues_headingtitle {
+    color: #fff;
+    font-family: "Typo Round Bold Demo";
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .OurVisionAboutUs_title {
+    color: #1e3a4f;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurmissionAboutUs_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurVisionAboutUs_para {
+    color: #373737;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 19px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .OurmissionAboutUs_para {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 19px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .menu-heading_icon {
+    color: #fff;
+    text-align: center;
+    font-family: "Montserrat", sans-serif;
+    font-size: 30px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .currentdish_name_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 36px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+    max-width: 585px;
+  }
+  .currentDish_paramenu {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 300;
+    line-height: normal;
+    max-width: 417px;
+  }
+  .buttonNutrition_info {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .selectboxmenuweekwise {
+    border-radius: 23px;
+    background: #eee9da;
+    width: 125.464px;
+    height: 36px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ourvalues-para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 167%;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    max-width: 406px;
+  }
+  .OurValues_headingtitle {
+    color: #fff;
+    font-family: "Typo Round Bold Demo";
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .OurVisionAboutUs_title {
+    color: #1e3a4f;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurmissionAboutUs_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurVisionAboutUs_para {
+    color: #373737;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .OurmissionAboutUs_para {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .buttonNutrition_info {
+    font-size: 8px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600;
+  }
+}
