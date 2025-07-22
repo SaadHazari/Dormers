@@ -90,6 +90,7 @@ export default function TestimonialsBubbles() {
                 <div className="flex gap-0.5">
                   {[...Array(msg.rating)].map((_, i) => (
                     <Image
+                      key={i}
                       src="/images/starticon.svg"
                       alt=""
                       width={12}
