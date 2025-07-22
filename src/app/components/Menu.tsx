@@ -1158,15 +1158,15 @@ const MENU_DATA = [
 ];
 
 export default function Menu() {
+  const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(() => {
     const day = new Date().getDay();
     return day === 0 ? null : day - 1;
   });
-  const { theme } = useTheme();
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
-  const [selectedWeek] = useState("week1");
+  const [selectedWeek, setSelectedWeek] = useState("week1");
 
   // Filter dishes based on veg/non-veg selection
   // const availableDishes = MENU_DATA.filter((dish) => dish.isVeg === isVegOnly);
@@ -1355,7 +1355,10 @@ export default function Menu() {
                         ))}
                       </div>
                       <div className="select-wrapper">
-                        <select className="custom-select">
+                        <select
+                          className="custom-select"
+                          onChange={(e) => setSelectedWeek(e.target.value)}
+                        >
                           <option value="week1">Week One</option>
                           <option value="week2">Week Two</option>
                           <option value="week3">Week Three</option>
