@@ -1130,7 +1130,7 @@ export default function Home() {
         <div className="">
           <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto mb-8  px-6">
             <h2
-              className={`text-3xl sm:text-4xl font-bold lg:text-[30px] ${
+              className={`text-[12px] sm:text-4xl font-bold lg:text-[30px] ${
                 theme === "light" ? "text-[1E3A4F]" : "text-white"
               }`}
               style={{
