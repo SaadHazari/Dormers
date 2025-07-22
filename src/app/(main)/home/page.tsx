@@ -389,7 +389,9 @@ export default function Home() {
                   STUDENTS
                 </h2>
                 <span
-                  className="bg-[#EEE9DA] text-[#1E3A4F] top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12"
+                  className={`${
+                    theme ===  "light" ? "bg-[#1E3A4F] text-white" : "bg-[#EEE9DA] text-[#1E3A4F]"
+                  }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
                   style={{ width: "33%" }}
                 >
                   ONLY
@@ -1229,17 +1231,13 @@ export default function Home() {
                           });
                         }, 200); // slight delay so collapse animation completes
                       }}
-                      className={`absolute top-[-48px] right-0 z-10 p-2 rounded-full ${
-                        theme === "light"
-                          ? "bg-[#1E3A4F] text-white"
-                          : "bg-[#EEE9DA] text-[#1E3A4F]"
-                      } hover:opacity-80 transition-opacity`}
+                      className={`absolute top-[-48px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
                     >
                       <svg
                         className="w-6 h-6"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke="currentColor"
+                        stroke="white"
                       >
                         <path
                           strokeLinecap="round"
@@ -1251,7 +1249,7 @@ export default function Home() {
                     </button>
 
                     {/* Scrollable FAQ list */}
-                    <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8">
+                    <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                         {faqs.map((faq, index) =>
                           renderFaqCard(faq, index, openFAQ, toggleFAQ)

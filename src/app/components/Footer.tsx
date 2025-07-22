@@ -60,7 +60,7 @@ export default function Footer() {
         } py-[24px] lg:hidden block`}
       >
         <div className="container mx-auto px-5 lg:max-w-[987px] ">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="flex justify-between items-center">
             <div>
               <h3
                 className="font-semibold mb-4"
@@ -175,7 +175,7 @@ export default function Footer() {
               fontSize: "11px",
             }}
           >
-            <div className="flex flex-row justify-center items-center gap-6 flex-wrap">
+            <div className="flex flex-row justify-between items-center gap-6 flex-wrap">
               <Link
                 href="/cookies-policy"
                 className="hover:text-orange-400 text-white"
@@ -271,11 +271,17 @@ export default function Footer() {
                       </p>
                     </div>
                     <div className="flex gap-[28px]">
-                      <p className={`location_footer_desktop text-white`}>KSK Homes</p>
-                      <p className={`location_footer_desktop text-white`}>Studo World</p>
+                      <p className={`location_footer_desktop text-white`}>
+                        KSK Homes
+                      </p>
+                      <p className={`location_footer_desktop text-white`}>
+                        Studo World
+                      </p>
                     </div>
                     <div className="flex gap-[28px]">
-                      <p className={`location_footer_desktop text-white`}>Yugo</p>
+                      <p className={`location_footer_desktop text-white`}>
+                        Yugo
+                      </p>
                     </div>
                   </div>
                 </div>

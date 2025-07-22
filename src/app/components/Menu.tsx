@@ -1340,7 +1340,7 @@ export default function Menu() {
                           <button
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
-                            className={`w-4 h-4 mt-2 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
                               selectedDay === item.index
                                 ? "bg-white text-[#1E3A4F] border-white"
                                 : "bg-transparent text-white border-white hover:bg-white/20"
@@ -1354,7 +1354,7 @@ export default function Menu() {
                           </button>
                         ))}
                       </div>
-                      <div className="select-wrapper">
+                      <div className="select-wrapper relative">
                         <select
                           className="custom-select"
                           onChange={(e) => setSelectedWeek(e.target.value)}
@@ -1364,6 +1364,22 @@ export default function Menu() {
                           <option value="week3">Week Three</option>
                           <option value="week4">Week Four</option>
                         </select>
+                        <span>
+                          <svg
+                            className={` absolute top-[3px] right-[3px] w-4 h-4 text-[#1e3a4f] mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] md:right-[14px]`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M6 9l6 6 6-6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">

@@ -88,9 +88,7 @@ export default function Navbar() {
   return (
     <>
       <nav
-        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-[12px] md:rounded-[14px] mx-auto left-0 right-0 mt-4 transition-colors duration-300 ${
-          theme === "light" ? "bg-white" : "bg-[#031624]"
-        }`}
+        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-[12px] md:rounded-[14px] mx-auto left-0 right-0 mt-4 transition-colors duration-300 bg-[#031624] `}
       >
         <div className="w-full px-2 sm:px-4">
           <div className="flex justify-between h-16 sm:h-20 items-center">
@@ -98,7 +96,7 @@ export default function Navbar() {
             <Link href="/home" className="flex-shrink-0 flex items-center">
               <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                 <Image
-                  src={theme === "light" ? "/logo-light.png" : "/logo-dark.svg"}
+                  src={"/logo-dark.svg"}
                   alt="Dormer's Logo"
                   fill
                   className="object-contain"
@@ -135,12 +133,8 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={handleOrderFormOpen}
-                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors
-                  ${
-                    theme === "light"
-                      ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
-                      : "text-white border-white hover:bg-white hover:text-[#031624]"
-                  }
+                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors text-white border-white hover:bg-white hover:text-[#031624]
+                 
                 `}
                 style={{
                   fontFamily: "Montserrat, sans-serif",
@@ -159,12 +153,8 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={handleOrderFormOpen}
-                    className={`Join_the_club md:block hidden
-                  ${
-                    theme === "light"
-                      ? "!text-[#031624] !border-[#031624] !hover:bg-[#031624] !hover:text-white"
-                      : "!text-white !border-white !hover:bg-white !hover:text-[#031624]"
-                  }
+                    className={`Join_the_club !text-white !border-white !hover:bg-white !hover:text-[#031624] md:block hidden
+                  
                 `}
                     style={{
                       fontFamily: "Montserrat, sans-serif",

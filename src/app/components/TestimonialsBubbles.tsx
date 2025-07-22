@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
+import Image from "next/image";
 
 const messages = [
   {
@@ -88,9 +89,18 @@ export default function TestimonialsBubbles() {
                 </div>
                 <div className="flex gap-0.5">
                   {[...Array(msg.rating)].map((_, i) => (
-                    <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#facc15" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 17.3l6.18 3.7-1.64-7.03L21 9.24l-7.19-.61L12 2 10.19 8.63 3 9.24l5.46 4.73L6.82 21z"/>
-                    </svg>
+                    <Image
+                      src="/images/starticon.svg"
+                      alt=""
+                      width={12}
+                      height={12}
+                      className="w-[8px] h-[8px]"
+                      style={{
+                        imageRendering: "crisp-edges",
+                        backgroundRepeat: "repeat",
+                      }}
+                      priority
+                    />
                   ))}
                 </div>
               </div>

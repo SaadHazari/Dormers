@@ -138,7 +138,7 @@
     cursor: pointer;
     font-size: 12px;
   }
-
+/* 
   .select-wrapper::after {
     content: "▼";
     font-size: 10px;
@@ -148,7 +148,7 @@
     top: 6%;
     transform: translateY(-50%);
     pointer-events: none;
-  }
+  } */
 
   .custom-select:focus {
     outline: none;
@@ -236,7 +236,7 @@
     height: 272px;
   }
   .OurvisionCard {
-    height: 230px;
+    height: 212px;
   }
   .MenuCardBoxConatiner {
     border-radius: 6px;
@@ -265,7 +265,7 @@
     cursor: pointer;
   }
 
-  .select-wrapper::after {
+  /* .select-wrapper::after {
     content: "▼";
     font-size: 10px;
     color: #1e3a4f;
@@ -274,10 +274,31 @@
     top: 43%;
     transform: translateY(-50%);
     pointer-events: none;
-  }
+  } */
 
   .custom-select:focus {
     outline: none;
     box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
   }
 }
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(107, 114, 128, 0.5); /* Tailwind gray-500 */
+    border-radius: 9999px;
+  }
+
+  .custom-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(107, 114, 128, 0.8); /* darker on hover */
+  }
+
+  .custom-scroll {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
+  }
