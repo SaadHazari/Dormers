@@ -39,7 +39,7 @@
     line-height: 16px; /* 44.444% */
   }
   .OurVisionAboutUs_para {
-    color: #373737;
+    /* color: #373737; */
     text-align: justify;
     font-family: "Montserrat", sans-serif;
     font-size: 19px;
@@ -105,6 +105,19 @@
     padding-right: 12px;
     font-size: 12px;
   }
+  .curtleheightfaq{
+    height: 279px;
+  }
+  .aboutUsocntianercustle{
+    padding-top: 40px;
+  }
+  .curtleLightheight{
+    height: 212px;
+  }
+  .aboutUsocntianercustlelight{
+    padding-top: 118px;
+  }
+
 }
 
 @media (max-width: 768px) {
@@ -165,5 +178,17 @@
     font-size: 8px;
     font-family: "Montserrat", sans-serif;
     font-weight: 600;
+  }
+   .curtleheightfaq{
+    height: 355px;
+  }
+  .aboutUsocntianercustle{
+    padding-top: 40px;
+  }
+  .curtleLightheight{
+    height: 286px;
+  }
+  .aboutUsocntianercustlelight{
+    padding-top: 86px;
   }
 }

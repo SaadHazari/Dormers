@@ -120,37 +120,37 @@ export default function Home() {
   }, []);
 
   // Testimonial image filenames
-  const testimonialImages = [
-    "screenshot1.jpg",
-    "screenshot2.jpg",
-    "screenshot3.png",
-    "screenshot4.png",
-    "screenshot5.png",
-    "screenshot6.png",
-    "screenshot7.png",
-    "screenshot8.png",
-    "screenshot9.png",
-    "screenshot10.png",
-    "screenshot11.png",
-    "screenshot12.png",
-    "screenshot13.png",
-    "screenshot14.png",
-    "screenshot15.png",
-    "screenshot16.png",
-    "screenshot17.png",
-    "screenshot18.png",
-    "screenshot19.png",
-    "screenshot20.png",
-    "screenshot21.png",
-    "screenshot22.png",
-    "screenshot23.png",
-    "screenshot24.png",
-    "screenshot25.png",
-    "ss1.png",
-    "ss2.png",
-    "ss3.png",
-    "ss4.png",
-  ];
+  // const testimonialImages = [
+  //   "screenshot1.jpg",
+  //   "screenshot2.jpg",
+  //   "screenshot3.png",
+  //   "screenshot4.png",
+  //   "screenshot5.png",
+  //   "screenshot6.png",
+  //   "screenshot7.png",
+  //   "screenshot8.png",
+  //   "screenshot9.png",
+  //   "screenshot10.png",
+  //   "screenshot11.png",
+  //   "screenshot12.png",
+  //   "screenshot13.png",
+  //   "screenshot14.png",
+  //   "screenshot15.png",
+  //   "screenshot16.png",
+  //   "screenshot17.png",
+  //   "screenshot18.png",
+  //   "screenshot19.png",
+  //   "screenshot20.png",
+  //   "screenshot21.png",
+  //   "screenshot22.png",
+  //   "screenshot23.png",
+  //   "screenshot24.png",
+  //   "screenshot25.png",
+  //   "ss1.png",
+  //   "ss2.png",
+  //   "ss3.png",
+  //   "ss4.png",
+  // ];
 
   const faqs: FAQ[] = [
     {
@@ -1130,7 +1130,7 @@ export default function Home() {
         <div className="">
           <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto mb-8  px-6">
             <h2
-              className={`text-3xl sm:text-4xl font-bold ${
+              className={`text-3xl sm:text-4xl font-bold lg:text-[30px] ${
                 theme === "light" ? "text-[1E3A4F]" : "text-white"
               }`}
               style={{
@@ -1138,7 +1138,7 @@ export default function Home() {
                 fontWeight: 500,
                 lineHeight: "100%",
                 letterSpacing: "0",
-                fontSize: "18px",
+              
               }}
             >
               VOICES OF DELIGHT
@@ -1148,7 +1148,7 @@ export default function Home() {
           {/* New Testimonials Component */}
           <div className="mx-auto bg-[#031624] py-6">
             <div className="lg:max-w-[1155px] mx-auto">
-              <TestimonialsBubbles testimonialImages={testimonialImages} />
+              <TestimonialsBubbles />
             </div>
           </div>
         </div>
@@ -1163,9 +1163,9 @@ export default function Home() {
         }`}
       >
         <div
-          className={`container mx-auto px-0 relative 
-              h-[${theme === "light" ? "321px" : "351px"}] 
-              md:h-[199px]`}
+          className={`container mx-auto px-0 relative  ${
+          theme === "light" ? "curtleLightheight" : "curtleheightfaq"
+        } `}
           style={{
             bottom: 0,
             left: 0,
@@ -1174,7 +1174,7 @@ export default function Home() {
             borderTopLeftRadius: "60px",
             borderTopRightRadius: "60px",
             zIndex: 0,
-            height: theme === "light" ? "321px" : "351px",
+            
           }}
         >
           <div

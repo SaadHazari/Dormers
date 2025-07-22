@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -9,7 +8,7 @@ import OrderForm from "@/app/components/OrderForm";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
-  const [mounted, setMounted] = useState(false);
+  const [, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
@@ -163,8 +162,8 @@ export default function Navbar() {
                     className={`Join_the_club md:block hidden
                   ${
                     theme === "light"
-                      ? "text-[#031624] border-[#031624] hover:bg-[#031624] hover:text-white"
-                      : "text-white border-white hover:bg-white hover:text-[#031624]"
+                      ? "!text-[#031624] !border-[#031624] !hover:bg-[#031624] !hover:text-white"
+                      : "!text-white !border-white !hover:bg-white !hover:text-[#031624]"
                   }
                 `}
                     style={{

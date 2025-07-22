@@ -13,7 +13,13 @@ const CurtleAboutUs = () => {
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >
-        <div className="container mx-auto  mb-[40px]">
+        <div
+          className={`container mx-auto     ${
+            theme === "light"
+              ? "aboutUsocntianercustlelight"
+              : "aboutUsocntianercustle"
+          }`}
+        >
           <div className="container_aboutUs_box">
             <h2
               className={`${
@@ -30,7 +36,7 @@ const CurtleAboutUs = () => {
               ABOUT US
             </h2>
             {/* Top two cards: Vision and Mission */}
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-[40px] md:flex md:justify-center md:gap-[57px]">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6  md:flex md:justify-center md:gap-[57px]">
               {/* Vision Card */}
               <div
                 className={`${
@@ -60,7 +66,7 @@ const CurtleAboutUs = () => {
                   </h3>
                   <p
                     className={`${
-                      theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
+                      theme === "light" ? "!text-[#EEE9DA]" : "text-[#22394A]"
                     } OurVisionAboutUs_para`}
                   >
                     To become the leading provider of student-focused meal

@@ -1,23 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
+// import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 
-interface TestimonialsBubblesProps {
-  testimonialImages: string[];
-}
+// interface TestimonialsBubblesProps {
+//   testimonialImages: string[];
+// }
 
-export default function TestimonialsBubbles({
-  testimonialImages,
-}: TestimonialsBubblesProps) {
+export default function TestimonialsBubbles() {
   const [isExpanded, setIsExpanded] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const [scrollPosition, setScrollPosition] = useState(0);
 
-  interface TestimonialsBubblesProps {
-    testimonialImages: string[];
-  }
+  // interface TestimonialsBubblesProps {
+  //   testimonialImages: string[];
+  // }
 
   const messages = [
   {

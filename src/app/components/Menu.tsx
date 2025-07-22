@@ -1251,7 +1251,7 @@ export default function Menu() {
             </h2>
             <h2
               className={`menu-heading_icon lg:block hidden  ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
               }`}
             >
               MENU

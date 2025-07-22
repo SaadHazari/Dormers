@@ -11,11 +11,11 @@ const AboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full  ${
+        className={`px-5 w-full py-[40px]  ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >
-        <div className="container mx-auto  mb-[40px]">
+        <div className="container mx-auto  ">
           <div className="container_aboutUs_box">
             {/* <h2
               className={`${

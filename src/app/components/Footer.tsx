@@ -259,15 +259,23 @@ export default function Footer() {
                   </h3>
                   <div className="flex flex-col gap-[16px]">
                     <div className="flex gap-[28px]">
-                      <p className="location_footer_desktop">The Myriad</p>
-                      <p className="location_footer_desktop">DSOA Residence</p>
+                      <p
+                        className={`location_footer_desktop ${
+                          theme === "light" ? " text-white" : "text-white"
+                        }`}
+                      >
+                        The Myriad
+                      </p>
+                      <p className={`location_footer_desktop text-white`}>
+                        DSOA Residence
+                      </p>
                     </div>
                     <div className="flex gap-[28px]">
-                      <p className="location_footer_desktop">KSK Homes</p>
-                      <p className="location_footer_desktop">Studo World</p>
+                      <p className={`location_footer_desktop text-white`}>KSK Homes</p>
+                      <p className={`location_footer_desktop text-white`}>Studo World</p>
                     </div>
                     <div className="flex gap-[28px]">
-                      <p className="location_footer_desktop">Yugo</p>
+                      <p className={`location_footer_desktop text-white`}>Yugo</p>
                     </div>
                   </div>
                 </div>
