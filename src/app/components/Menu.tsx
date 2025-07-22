@@ -1331,7 +1331,7 @@ export default function Menu() {
                 >
                   {/* Front of Card */}
                   <div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
                       <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
                         {[
                           // { day: "S", index: 0 },

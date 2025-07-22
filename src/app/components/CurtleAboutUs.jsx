@@ -36,7 +36,7 @@ const CurtleAboutUs = () => {
               ABOUT US
             </h2>
             {/* Top two cards: Vision and Mission */}
-            <div className="grid grid-cols-2 gap-4 sm:gap-6  md:flex md:justify-center md:gap-[57px]">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6  md:flex md:justify-center md:gap-[57px]">
               {/* Vision Card */}
               <div
                 className={`${
