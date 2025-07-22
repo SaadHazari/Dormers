@@ -116,7 +116,7 @@ const CurtleAboutUs = () => {
                   alt="Vision Icon"
                   width={80}
                   height={64}
-                  className={`absolute bottom-0 right-4 sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-12px] lg:bottom-[-12px] ${
+                  className={`absolute bottom-0 right-[-8px] sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-12px] lg:bottom-[-12px] ${
                     theme === "light" ? "invert brightness-0" : ""
                   }`}
                 />
