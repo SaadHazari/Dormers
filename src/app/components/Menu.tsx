@@ -1166,7 +1166,7 @@ export default function Menu() {
   const { theme } = useTheme();
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState("week1");
+  const [selectedWeek] = useState("week1");
 
   // Filter dishes based on veg/non-veg selection
   // const availableDishes = MENU_DATA.filter((dish) => dish.isVeg === isVegOnly);
