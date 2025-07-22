@@ -57,9 +57,9 @@ export default function Footer() {
           theme === "light"
             ? "bg-[#031624] text-[#1E3A4F]"
             : "bg-[#031624] text-white"
-        } py-10 lg:hidden block`}
+        } py-[24px] lg:hidden block`}
       >
-        <div className="container mx-auto px-4 lg:max-w-[1155px] ">
+        <div className="container mx-auto px-5 lg:max-w-[1155px] ">
           <div className="grid grid-cols-2 gap-6">
             <div>
               <h3

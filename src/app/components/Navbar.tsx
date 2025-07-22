@@ -88,7 +88,7 @@ export default function Navbar() {
   return (
     <>
       <nav
-        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-3xl mx-auto left-0 right-0 mt-4 transition-colors duration-300 ${
+        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-[12px] md:rounded-[14px] mx-auto left-0 right-0 mt-4 transition-colors duration-300 ${
           theme === "light" ? "bg-white" : "bg-[#031624]"
         }`}
       >

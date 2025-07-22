@@ -41,7 +41,7 @@ const CurtleAboutUs = () => {
               <div
                 className={`${
                   theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                } rounded-2xl p-6 sm:p-8 flex flex-col justify-between   relative md:max-w-[548px] `}
+                } rounded-2xl p-6 sm:p-8 flex flex-col justify-between   relative md:max-w-[548px] OurMissionCard`}
               >
                 <div>
                   <h3
@@ -55,7 +55,7 @@ const CurtleAboutUs = () => {
                       fontSize: "16px",
                     }}
                   >
-                    OUR <br /> VISION
+                    OUR VISION
                   </h3>
                   <h3
                     className={`${
@@ -83,12 +83,12 @@ const CurtleAboutUs = () => {
                   alt="Vision Icon"
                   width={80}
                   height={64}
-                  className={`absolute bottom-0 right-4 sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-9px] lg:bottom-[-12px] ${
+                  className={`absolute bottom-[-4px] right-[0] sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-9px] lg:bottom-[-12px] ${
                     theme === "light" ? "invert brightness-0" : ""
                   }`}
                 />
               </div>
-              <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative md:max-w-[548px]">
+              <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative md:max-w-[548px] OurvisionCard">
                 <div>
                   <h3
                     className="text-[#EEE9DA] font-bold mb-4 sm:mb-5 lg:hidden block"
@@ -99,7 +99,7 @@ const CurtleAboutUs = () => {
                       fontSize: "16px",
                     }}
                   >
-                    OUR <br /> MISSION
+                    OUR MISSION
                   </h3>
                   <h3 className="OurmissionAboutUs_title lg:block hidden">
                     OUR MISSION
@@ -116,7 +116,7 @@ const CurtleAboutUs = () => {
                   alt="Vision Icon"
                   width={80}
                   height={64}
-                  className={`absolute bottom-0 right-[-8px] sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-12px] lg:bottom-[-12px] ${
+                  className={`absolute bottom-[-4px]  right-[-8px] sm:w-[120px] opacity-55 select-none transition-all duration-300 lg:right-[-12px] lg:bottom-[-12px] ${
                     theme === "light" ? "invert brightness-0" : ""
                   }`}
                 />

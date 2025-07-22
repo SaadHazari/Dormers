@@ -11,7 +11,7 @@ const AboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full py-[40px]  ${
+        className={`px-5 w-full py-[24px] lg:py-[40px] ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >
@@ -31,12 +31,10 @@ const AboutUs = () => {
             >
               ABOUT US
             </h2> */}
-
-         
           </div>
           {/* Mobile View */}
-          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8 relative text-white md:w-[1155px] md:mx-auto lg:hidden block">
-            <div className="flex flex-wrap gap-4 items-start justify-start mb-6">
+          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8  text-white h-[570px] md:mx-auto lg:hidden block relative">
+            <div className="flex flex-col gap-4 items-start justify-start mb-6">
               <div className="flex-shrink-0 w-[100px] mt-2">
                 <h3
                   className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
@@ -45,25 +43,24 @@ const AboutUs = () => {
                     fontWeight: 900,
                   }}
                 >
-                  OUR <br /> VALUES
+                  OUR VALUES
                 </h3>
               </div>
 
               {/* CUSTOMER - CENTRICITY */}
-              <div className="max-w-[200px]">
+              <div className="">
                 <p
-                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
+                  className="font-bold flex items-start gap-1 text-[14px] sm:text-sm"
                   style={{
                     fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
                   }}
                 >
                   <span className="text-[#FF7F00]">|</span> CUSTOMER -
                   CENTRICITY
                 </p>
                 <p
-                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                  className="mt-1 font-light leading-snug text-[12px] sm:text-sm"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   Every meal is crafted with students in mind, ensuring it’s not
                   just food, but a moment of comfort and satisfaction.
@@ -71,19 +68,18 @@ const AboutUs = () => {
               </div>
 
               {/* QUALITY FIRST */}
-              <div className="max-w-[200px]">
+              <div className="">
                 <p
-                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
+                  className="font-bold flex items-start gap-1 text-[14px] sm:text-sm"
                   style={{
                     fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
                   }}
                 >
                   <span className="text-[#FF7F00]">|</span> QUALITY FIRST
                 </p>
                 <p
-                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   We never compromise on the quality of our ingredients or
                   preparation, delivering meals that are safe, nutritious &
@@ -93,21 +89,20 @@ const AboutUs = () => {
             </div>
 
             {/* Second Row: 3 more values */}
-            <div className="flex flex-wrap items-start justify-start gap-4">
+            <div className="flex flex-col items-start justify-start gap-4">
               {/* AFFORDABILITY */}
-              <div className="w-[calc(33%-10px)] max-w-[160px]">
+              <div className="">
                 <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
+                  className="font-bold flex items-start gap-1 text-[14px]"
                   style={{
                     fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
                   }}
                 >
                   <span className="text-[#FF7F00]">|</span> AFFORDABILITY
                 </p>
                 <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   Great food should be accessible. We strive to keep our meals
                   budget-friendly without sacrificing taste or value.
@@ -115,20 +110,19 @@ const AboutUs = () => {
               </div>
 
               {/* DIVERSITY & INCLUSION */}
-              <div className="w-[calc(33%-10px)] max-w-[160px]">
+              <div className="">
                 <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
+                  className="font-bold flex items-start gap-1 text-[14px]"
                   style={{
                     fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
                   }}
                 >
                   <span className="text-[#FF7F00]">|</span> DIVERSITY &
                   INCLUSION
                 </p>
                 <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   Our menu celebrates the diverse cultures and cuisines of our
                   students, ensuring there’s something for everyone.
@@ -136,34 +130,32 @@ const AboutUs = () => {
               </div>
 
               {/* SUSTAINABILITY + Image aligned inside */}
-              <div className="w-[calc(33%-10px)] max-w-[160px] relative">
+              <div className=" relative">
                 <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
+                  className="font-bold flex items-start gap-1 text-[14px]"
                   style={{
                     fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
                   }}
                 >
                   <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
                 </p>
                 <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   Our menu celebrates the diverse cultures and cuisines of our
                   students, ensuring there’s something for everyone.
                 </p>
-
-                {/* Icon aligned to bottom right of the section */}
-                <Image
-                  src="/images/about3.svg"
-                  alt="Values Icon"
-                  width={76.54}
-                  height={60}
-                  className="absolute bottom-0 right-0 opacity-55 select-none"
-                />
               </div>
+              {/* Icon aligned to bottom right of the section */}
             </div>
+            <Image
+              src="/images/about3.svg"
+              alt="Values Icon"
+              width={76.54}
+              height={60}
+              className="absolute bottom-0 right-0 opacity-55 select-none"
+            />
           </div>
           {/* Desktop View */}
           <div className="bg-[#031624] rounded-2xl p-[48px] relative text-white md:w-[1155px] md:mx-auto lg:block hidden">

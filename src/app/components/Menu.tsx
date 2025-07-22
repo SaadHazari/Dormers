@@ -1228,7 +1228,7 @@ export default function Menu() {
   return (
     <>
       <div
-        className={`relative w-full py-8 lg:py-[40px]  ${
+        className={`relative w-full py-[24px] lg:py-[40px]  ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
         } overflow-hidden`}
       >
@@ -1317,12 +1317,7 @@ export default function Menu() {
 
           {/* Menu Card */}
           <div className="lg:max-w-[1155px] mx-auto">
-            <div
-              className="bg-[#1E3A4F] rounded-xl p-5 perspective-1000"
-              style={{
-                boxShadow: "0px 0px 24.2px 1px #000000B5",
-              }}
-            >
+            <div className="bg-[#1E3A4F] perspective-1000 MenuCardBoxConatiner">
               {currentDish ? (
                 <div
                   className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${
@@ -1359,12 +1354,8 @@ export default function Menu() {
                           </button>
                         ))}
                       </div>
-                      <div className="">
-                        <select
-                          value={selectedWeek}
-                          onChange={(e) => setSelectedWeek(e.target.value)}
-                          className="bg-white text-[#1E3A4F] font-medium rounded-full  py-1 text-[8px] cursor-pointer focus:outline-none border-r-4 border-transparent uppercase selectboxmenuweekwise"
-                        >
+                      <div className="select-wrapper">
+                        <select className="custom-select">
                           <option value="week1">Week One</option>
                           <option value="week2">Week Two</option>
                           <option value="week3">Week Three</option>

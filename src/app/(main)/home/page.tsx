@@ -280,7 +280,7 @@ export default function Home() {
     return (
       <div
         key={faq.id}
-        className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto lg:w-[100%]"
+        className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
         style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
       >
         <button
@@ -351,7 +351,7 @@ export default function Home() {
       }`}
     >
       {/* Hero Section */}
-      <div id="hero" className="container mx-auto px-2 sm:px-4 pt-28 pb-16">
+      <div id="hero" className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px]">
         <div className="max-w-4xl mx-auto">
           <div className="space-y-4">
             {/* First Section */}
@@ -567,7 +567,7 @@ export default function Home() {
                     fontWeight: 700,
                     lineHeight: "100%",
                     letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
+                    transform: "rotate(-4.84deg)",
                     opacity: 0.54,
                   }}
                 >
@@ -600,7 +600,7 @@ export default function Home() {
 
       {/* How It Works Section */}
       <div
-        className={`relative w-full py-16 ${
+        className={`relative w-full lg:py-16 py-[48px] ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
         } overflow-hidden`}
       >
@@ -620,7 +620,7 @@ export default function Home() {
         </div>
         {/* Content */}
         <div className="relative container mx-auto px-4 top-[-14px]">
-          <div className="flex items-center justify-center gap-4 mb-10">
+          <div className="flex items-center justify-center gap-4 mb-6">
             <h2
               className={`${
                 theme === "light" ? "text-[#1E3A4F]" : "text-white"
@@ -1126,11 +1126,11 @@ export default function Home() {
           </div>
         </div>
       </div> */}
-      <div id="testimonials" className="relative w-full py-8 pb-0">
+      <div id="testimonials" className="relative w-full lg:py-[40px] py-[24px] pb-0">
         <div className="">
-          <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto mb-8  px-6">
+          <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto  px-6">
             <h2
-              className={`text-[12px] sm:text-4xl font-bold lg:text-[30px] ${
+              className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${
                 theme === "light" ? "text-[1E3A4F]" : "text-white"
               }`}
               style={{
@@ -1178,7 +1178,7 @@ export default function Home() {
           }}
         >
           <div
-            className="w-full shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden"
+            className="w-full shadow-2xl py-[24px] px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden"
             style={{
               backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
             }}

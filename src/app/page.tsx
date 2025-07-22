@@ -88,7 +88,7 @@ export default function WelcomePage() {
         {/* Text Elements Container */}
         <div className="relative w-full md:flex md:flex-col md:items-center">
           {/* Mobile Layout */}
-          <div className="md:hidden absolute top-[-170px] left-0 w-full flex flex-col gap-6">
+          <div className="md:hidden absolute top-[-170px] left-0 w-full flex flex-col gap-[8px]">
             {/* MEALS */}
             <motion.p
               variants={itemVariants}
@@ -126,42 +126,42 @@ export default function WelcomePage() {
               variants={itemVariants}
               className="text-[64px] leading-[78px] pl-[34px] flex text-[#213c4c]"
             >
-              <span
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  fontSize: "55px",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                DON
-              </span>
-              <span
-                className="text-[#FF6B00]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  fontSize: "55px",
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #FF6B00, 1px -1px 0 #FF6B00, -1px 1px 0 #FF6B00, 1px 1px 0 #FF6B00",
-                }}
-              >
-                &apos;
-              </span>
-              <span
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  fontSize: "55px",
-                  WebkitTextStroke: "1px #fff",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                T
-              </span>
+              <div className="flex items-center space-x-1">
+                <span
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 900,
+                    color: "#213c4c",
+                    fontSize: "55px",
+                    textShadow:
+                      "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                  }}
+                >
+                  DON
+                </span>
+
+                <span className="relative w-[20px] h-[40px] top-[-18px]">
+                  <Image
+                    src="/images/Icon_main_page.svg" // Adjust path as per your public folder
+                    alt="'"
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                </span>
+
+                <span
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 900,
+                    fontSize: "55px",
+                    WebkitTextStroke: "1px #fff",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  T
+                </span>
+              </div>
             </motion.div>
 
             {/* SUCK */}

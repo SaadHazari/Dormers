@@ -105,19 +105,18 @@
     padding-right: 12px;
     font-size: 12px;
   }
-  .curtleheightfaq{
+  .curtleheightfaq {
     height: 279px;
   }
-  .aboutUsocntianercustle{
+  .aboutUsocntianercustle {
     padding-top: 40px;
   }
-  .curtleLightheight{
+  .curtleLightheight {
     height: 212px;
   }
-  .aboutUsocntianercustlelight{
+  .aboutUsocntianercustlelight {
     padding-top: 118px;
   }
-
 }
 
 @media (max-width: 768px) {
@@ -179,16 +178,64 @@
     font-family: "Montserrat", sans-serif;
     font-weight: 600;
   }
-   .curtleheightfaq{
-    height: 355px;
+  .curtleheightfaq {
+    height: 334px;
   }
-  .aboutUsocntianercustle{
+  .aboutUsocntianercustle {
     padding-top: 40px;
   }
-  .curtleLightheight{
+  .curtleLightheight {
     height: 286px;
   }
-  .aboutUsocntianercustlelight{
+  .aboutUsocntianercustlelight {
     padding-top: 86px;
+  }
+  .OurMissionCard {
+    height: 272px;
+  }
+  .OurvisionCard {
+    height: 230px;
+  }
+  .MenuCardBoxConatiner {
+    border-radius: 6px;
+    background: #1e3a4f;
+    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
+    padding: 13px;
+  }
+  .select-wrapper {
+    position: relative;
+    display: inline-block;
+    font-family: "Montserrat", sans-serif;
+  }
+
+  .custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #f5f2e9;
+    color: #1e3a4f;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 8px;
+    padding: 6px 12px 4px 11px;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .select-wrapper::after {
+    content: "▼";
+    font-size: 10px;
+    color: #1e3a4f;
+    position: absolute;
+    right: 8px;
+    top: 43%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .custom-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
   }
 }
