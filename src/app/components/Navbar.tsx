@@ -269,7 +269,26 @@ export default function Navbar() {
         </div>
 
         {/* Mobile menu */}
-        <div className={`md:hidden ${isMenuOpen ? "block" : "hidden"}`}>
+        {/* <div className={`md:hidden  ${isMenuOpen ? "block" : "hidden"}`}>
+          <div className="px-2 pt-1 pb-2 space-y-0.5 sm:px-3">
+            {navLinks.map((link) => (
+              <a
+                key={link.name}
+                href={link.href}
+                onClick={(e) => handleNavClick(e, link.href)}
+                className={`block px-3 py-1.5 text-sm transition-colors ${
+                  theme === "light"
+                    ? "text-gray-700 hover:text-orange-500"
+                    : "text-gray-300 hover:text-orange-400"
+                }`}
+              >
+                {link.name}
+              </a>
+            ))}
+          </div>
+        </div> */}
+        {/* Shared Menu for All Devices */}
+        <div className={`${isMenuOpen ? "block" : "hidden"}`}>
           <div className="px-2 pt-1 pb-2 space-y-0.5 sm:px-3">
             {navLinks.map((link) => (
               <a
