@@ -158,7 +158,7 @@ const AboutUs = () => {
             />
           </div>
           {/* Desktop View */}
-          <div className="bg-[#031624] rounded-2xl p-[48px] relative text-white md:w-[1155px] md:mx-auto lg:block hidden">
+          <div className="bg-[#031624] rounded-2xl p-[48px] relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
             <div className="">
               <h3
                 className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"

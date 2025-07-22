@@ -59,7 +59,7 @@ export default function Footer() {
             : "bg-[#031624] text-white"
         } py-[24px] lg:hidden block`}
       >
-        <div className="container mx-auto px-5 lg:max-w-[1155px] ">
+        <div className="container mx-auto px-5 lg:max-w-[987px] ">
           <div className="grid grid-cols-2 gap-6">
             <div>
               <h3
@@ -205,7 +205,7 @@ export default function Footer() {
             : "bg-[#031624] text-white"
         } py-10 lg:block hidden`}
       >
-        <div className="container mx-auto lg:max-w-[1155px] ">
+        <div className="container mx-auto lg:max-w-[987px] ">
           <div className="">
             <div>
               <div className="flex justify-between">
@@ -336,7 +336,7 @@ export default function Footer() {
             fontSize: "11px",
           }}
         >
-          <div className="lg:max-w-[1155px]  mx-auto">
+          <div className="lg:max-w-[987px]  mx-auto">
             <div className="flex gap-[54px]">
               <Link
                 href="/cookies-policy"

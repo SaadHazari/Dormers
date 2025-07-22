@@ -10,6 +10,7 @@ import FormModal from "@/app/components/FormModal";
 import OrderForm from "@/app/components/OrderForm";
 import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
+import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 
 interface FAQ {
   id: number;
@@ -351,11 +352,14 @@ export default function Home() {
       }`}
     >
       {/* Hero Section */}
-      <div id="hero" className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px]">
+      <div
+        id="hero"
+        className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px] md:pt-[137px] md:pb-[40px]"
+      >
         <div className="max-w-4xl mx-auto">
           <div className="space-y-4">
             {/* First Section */}
-            <div className="text-center mb-[4px] md:pt-[44px]">
+            <div className="text-center mb-[4px]">
               <h1
                 className={`${
                   theme === "light" ? "text-[#1E3A4F]" : "text-white"
@@ -1126,9 +1130,12 @@ export default function Home() {
           </div>
         </div>
       </div> */}
-      <div id="testimonials" className="relative w-full lg:py-[40px] py-[24px] pb-0">
+      <div
+        id="testimonials"
+        className="relative w-full lg:pt-[40px] py-[24px] pb-0"
+      >
         <div className="">
-          <div className="flex items-center justify-between lg:max-w-[1155px] mx-auto  px-6">
+          <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-6">
             <h2
               className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${
                 theme === "light" ? "text-[1E3A4F]" : "text-white"
@@ -1138,7 +1145,6 @@ export default function Home() {
                 fontWeight: 500,
                 lineHeight: "100%",
                 letterSpacing: "0",
-              
               }}
             >
               VOICES OF DELIGHT
@@ -1146,9 +1152,14 @@ export default function Home() {
           </div>
 
           {/* New Testimonials Component */}
-          <div className="mx-auto bg-[#031624] py-6">
-            <div className="lg:max-w-[1155px] mx-auto">
+          <div className="mx-auto bg-[#031624] py-6 lg:hidden block">
+            <div className="lg:max-w-[987px] mx-auto">
               <TestimonialsBubbles />
+            </div>
+          </div>
+          <div className="mx-auto bg-[#031624] py-6 lg:block hidden">
+            <div className="lg:max-w-[987px] mx-auto">
+              <TestmonialsDesktop />
             </div>
           </div>
         </div>
@@ -1164,8 +1175,8 @@ export default function Home() {
       >
         <div
           className={`container mx-auto px-0 relative  ${
-          theme === "light" ? "curtleLightheight" : "curtleheightfaq"
-        } `}
+            theme === "light" ? "curtleLightheight" : "curtleheightfaq"
+          } `}
           style={{
             bottom: 0,
             left: 0,
@@ -1174,16 +1185,15 @@ export default function Home() {
             borderTopLeftRadius: "60px",
             borderTopRightRadius: "60px",
             zIndex: 0,
-            
           }}
         >
           <div
-            className="w-full shadow-2xl py-[24px] px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden"
+            className="w-full py-[24px] px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden BoxContainer_FAQBOX"
             style={{
               backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
             }}
           >
-            <div className="max-w-6xl mx-auto">
+            <div className="md:max-w-[987px] md:mx-auto">
               <h2
                 className={`${
                   theme === "light" ? "text-[#1E3A4F]" : "text-white"

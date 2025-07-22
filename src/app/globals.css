@@ -281,7 +281,8 @@ body {
     text-align: center;
   }
   .HowItWorksCardContainer {
-    max-width: 371px;
+    max-width: 311px;
+    height: 245px;
     margin: 0;
   }
   .location_footer_desktop {

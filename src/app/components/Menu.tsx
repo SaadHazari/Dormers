@@ -1234,7 +1234,7 @@ export default function Menu() {
       >
         <div className="container mx-auto px-4">
           {/* Menu Header */}
-          <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[1155px] mx-auto">
+          <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[987px] mx-auto">
             <h2
               className={` text-[32px] font-medium lg:hidden block  ${
                 theme === "light" ? "text-[#1E3A4F]" : "text-white"
@@ -1262,7 +1262,7 @@ export default function Menu() {
                 const jsDay = new Date().getDay();
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
-              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden block
+              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden 
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
@@ -1316,7 +1316,7 @@ export default function Menu() {
           </div>
 
           {/* Menu Card */}
-          <div className="lg:max-w-[1155px] mx-auto">
+          <div className="lg:max-w-[987px] mx-auto">
             <div className="bg-[#1E3A4F] perspective-1000 MenuCardBoxConatiner">
               {currentDish ? (
                 <div
