@@ -189,9 +189,9 @@
     color: #1e3a4f;
   }
   .BoxContainer_FAQBOX {
-    border-radius: 0px 0px 113px 113px;
+    border-radius: 0 0 70px 70px;
     background: #1e3a4f;
-    box-shadow: 0px 14px 48.8px 0px rgba(0, 0, 0, 0.59);
+    box-shadow: 0 14px 48.8px #00000096;
   }
 }
 

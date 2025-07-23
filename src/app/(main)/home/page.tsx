@@ -390,7 +390,9 @@ export default function Home() {
                 </h2>
                 <span
                   className={`${
-                    theme ===  "light" ? "bg-[#1E3A4F] text-white" : "bg-[#EEE9DA] text-[#1E3A4F]"
+                    theme === "light"
+                      ? "bg-[#1E3A4F] text-white"
+                      : "bg-[#EEE9DA] text-[#1E3A4F]"
                   }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
                   style={{ width: "33%" }}
                 >
@@ -1176,7 +1178,7 @@ export default function Home() {
         }`}
       >
         <div
-          className={`container mx-auto px-0 relative  ${
+          className={` ${
             theme === "light" ? "curtleLightheight" : "curtleheightfaq"
           } `}
           style={{
@@ -1237,7 +1239,7 @@ export default function Home() {
                         className="w-6 h-6"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke="white"
+                        stroke={`${theme === "light" ? "black" : "white"}`}
                       >
                         <path
                           strokeLinecap="round"
