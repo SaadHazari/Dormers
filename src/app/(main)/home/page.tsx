@@ -261,7 +261,7 @@ export default function Home() {
       ),
     },
   ];
-
+   
   const toggleFAQ = (id: number) => {
     setOpenFAQ(openFAQ === id ? null : id);
   };
@@ -273,7 +273,7 @@ export default function Home() {
     toggleFAQ: (id: number) => void
     // theme: string | undefined
   ) => {
-    const { theme } = useTheme();
+ 
     // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
     // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
     const colorSet =
