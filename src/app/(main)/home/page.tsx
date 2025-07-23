@@ -1190,7 +1190,7 @@ export default function Home() {
           }}
         >
           <div
-            className="w-full py-[24px] px-4 sm:px-6 md:px-8 rounded-bl-[60px] lg:pt-[40px] rounded-br-[60px] overflow-hidden BoxContainer_FAQBOX"
+            className="w-full py-[24px] px-4 sm:px-6 md:px-8  lg:pt-[40px]  overflow-hidden BoxContainer_FAQBOX"
             style={{
               backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
             }}
