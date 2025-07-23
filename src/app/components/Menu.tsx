@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
+import CustomSelect from "@/app/components/CustomSelect";
 
 // interface Nutrient {
 //   name: string;
@@ -1354,7 +1355,7 @@ export default function Menu() {
                           </button>
                         ))}
                       </div>
-                      <div className="select-wrapper relative">
+                      <div className="select-wrapper relative md:hidden block">
                         <select
                           className="custom-select"
                           onChange={(e) => setSelectedWeek(e.target.value)}
@@ -1380,6 +1381,13 @@ export default function Menu() {
                             />
                           </svg>
                         </span>
+                      </div>
+                      <div className="md:block hidden">
+                        {" "}
+                        <CustomSelect
+                          setSelectedWeek={setSelectedWeek}
+                          selectedWeek={selectedWeek}
+                        />
                       </div>
                     </div>
                     <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">

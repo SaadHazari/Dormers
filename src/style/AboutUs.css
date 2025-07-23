@@ -124,7 +124,7 @@
     padding: 34px;
   }
 
-  .custom-select {
+  /* .custom-select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -138,21 +138,55 @@
     cursor: pointer;
     font-size: 12px;
   }
-/* 
-  .select-wrapper::after {
-    content: "▼";
-    font-size: 10px;
-    color: #1e3a4f;
-    position: absolute;
-    right: 26px;
-    top: 6%;
-    transform: translateY(-50%);
-    pointer-events: none;
-  } */
-
   .custom-select:focus {
     outline: none;
     box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
+  } */
+  .select-wrapper {
+    position: relative;
+    /* display: inline-block; */
+    font-family: "Montserrat", sans-serif;
+    min-width: 140px;
+  }
+
+  .custom-select {
+    appearance: none;
+    background-color: #f5f2e9;
+    color: #1e3a4f;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    padding: 10px 16px;
+    border-radius: 9999px;
+    border: 1px solid rgba(30, 58, 79, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .custom-select:hover {
+    border-color: rgba(30, 58, 79, 0.3);
+  }
+
+  .custom-select:focus {
+    outline: none;
+    border-color: rgba(30, 58, 79, 0.5);
+    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.1);
+  }
+
+  /* For the dropdown options */
+  .select-wrapper ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #1e3a4f;
   }
   .BoxContainer_FAQBOX {
     border-radius: 0px 0px 113px 113px;
@@ -246,7 +280,7 @@
   }
   .select-wrapper {
     position: relative;
-    display: inline-block;
+    /* display: inline-block; */
     font-family: "Montserrat", sans-serif;
   }
 
@@ -282,23 +316,23 @@
   }
 }
 .custom-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
+  width: 6px;
+}
 
-  .custom-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-  .custom-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(107, 114, 128, 0.5); /* Tailwind gray-500 */
-    border-radius: 9999px;
-  }
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.5); /* Tailwind gray-500 */
+  border-radius: 9999px;
+}
 
-  .custom-scroll:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(107, 114, 128, 0.8); /* darker on hover */
-  }
+.custom-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.8); /* darker on hover */
+}
 
-  .custom-scroll {
-    scrollbar-width: thin; /* Firefox */
-    scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
-  }
+.custom-scroll {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
+}

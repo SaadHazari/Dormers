@@ -122,48 +122,13 @@ const TestimonialsDesktop = () => {
                     className={`absolute -bottom-2 ${
                       msg.from === "user" ? "right-4" : "left-4"
                     } w-4 h-4 transform rotate-45 ${
-                      theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                      theme === "light" ? "bg-[#EEE9DA]" : "bg-[#EEE9DA]"
                     }`}
                   />
                 </div>
               </motion.div>
             );
           })}
-          {/* <motion.div
-            key={currentGroup}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.6 }}
-            className="absolute inset-0"
-          >
-            {groupedMessages[currentGroup].map((msg, index) => {
-              const position = positions[index % positions.length];
-              const isLight = theme === "light";
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`absolute ${position} ${
-                    isLight ? "bg-[#EEE9DA]" : "bg-[#F4F1EC]"
-                  } rounded-lg p-4 shadow-lg max-w-[280px]`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="bg-[#1e3b50] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">
-                      {msg.name[0]}
-                    </div>
-                    <p className="text-sm font-semibold">{msg.name}</p>
-                    <div className="flex ml-auto text-yellow-500">
-                      {[...Array(msg.rating)].map((_, i) => (
-                        <FaStar key={i} className="text-sm" />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-800">{msg.text}</p>
-                </div>
-              );
-            })}
-          </motion.div> */}
         </AnimatePresence>
       </div>
     </div>

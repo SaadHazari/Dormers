@@ -7,39 +7,61 @@ const messages = [
   {
     id: 1,
     from: "bot",
-    name: "Angela",
+    name: "Zaid",
     rating: 5,
-    text: "Some of the best homemade food! Both delicious and healthy",
+    text: "The food reminded me of home. Fresh, tasty, and perfectly spiced!",
   },
   {
     id: 2,
     from: "user",
-    name: "You",
+    name: "Ahmed",
     rating: 5,
     text: "I got my free meal today! 🎉",
   },
   {
     id: 3,
     from: "bot",
-    name: "Ramesh",
+    name: "Noor",
     rating: 4,
-    text: "Okay so, I loved the food. It was amazing and everything simply balanced 🎉",
+    text: "Loved the flavor! Authentic and healthy – will definitely order again.",
   },
   {
     id: 4,
     from: "user",
-    name: "You",
+    name: "Samira",
     rating: 5,
-    text: "Mann, It's Soooo Gooooodddddd. I shared it with my friends. They all loved 🎉",
+    text: "Shared it with my family — they were impressed! So good! 😍",
   },
   {
     id: 5,
     from: "bot",
-    name: "Priya",
+    name: "Layla",
+    rating: 5,
+    text: "Delicious food and amazing service. Highly recommended!",
+  },
+  {
+    id: 6,
+    from: "user",
+    name: "Omar",
+    rating: 5,
+    text: "Honestly, one of the best meals I’ve had in a long time.",
+  },
+  {
+    id: 7,
+    from: "bot",
+    name: "Fatima",
     rating: 4,
-    text: "Thanks for sharing the love! 😊",
+    text: "Everything tasted fresh and homemade. I really enjoyed it.",
+  },
+  {
+    id: 8,
+    from: "user",
+    name: "Khalid",
+    rating: 5,
+    text: "I’m recommending this to all my friends. So worth it!",
   },
 ];
+
 
 export default function TestimonialsBubbles() {
   const { theme } = useTheme();
