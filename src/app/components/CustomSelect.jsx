@@ -61,7 +61,7 @@ const CustomSelect = ({selectedWeek , setSelectedWeek}) => {
             <li
               key={week.value}
               className={`px-4 py-2 cursor-pointer hover:bg-[#e8e4d8] transition-colors ${
-                selectedWeek === week.value ? "bg-[#e8e4d8] font-semibold" : ""
+                selectedWeek === week.value ? "bg-[#e8e4d8]" : ""
               }`}
               onClick={() => handleSelect(week.value)}
             >

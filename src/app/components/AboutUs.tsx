@@ -170,7 +170,7 @@ const AboutUs = () => {
                 OUR VALUES
               </h3>
             </div>
-            <div className="flex relative gap-[210px]">
+            <div className="flex relative gap-[61px]">
               <div className="flex flex-col gap-[30px] mt-[20px]">
                 {/* CUSTOMER - CENTRICITY */}
                 <div className="">
@@ -242,7 +242,7 @@ const AboutUs = () => {
     absolute bottom-0 right-0 opacity-55 select-none
     w-[50px] h-[40px]          
     lg:w-[200px] lg:h-[160px]    
-    lg:bottom-[-60px]
+    lg:bottom-[-48px]
     lg:right-[-50px] 
   "
                   />

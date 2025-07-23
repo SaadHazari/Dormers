@@ -41,7 +41,7 @@ const CurtleAboutUs = () => {
               <div
                 className={`${
                   theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                } rounded-2xl p-6 sm:p-8 flex flex-col justify-between   relative md:max-w-[548px] OurMissionCard`}
+                } rounded-2xl p-6 sm:p-8 flex flex-col justify-between   relative md:max-w-[457px] OurMissionCard`}
               >
                 <div>
                   <h3
@@ -88,7 +88,7 @@ const CurtleAboutUs = () => {
                   }`}
                 />
               </div>
-              <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative md:max-w-[548px] OurvisionCard">
+              <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative md:max-w-[457px] OurvisionCard">
                 <div>
                   <h3
                     className="text-[#EEE9DA] font-bold mb-4 sm:mb-5 lg:hidden block"

@@ -93,15 +93,7 @@ export default function WelcomePage() {
               {/* MEALS */}
               <motion.p
                 variants={itemVariants}
-                className="text-[64px] leading-[78px] pl-[33px]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  fontSize: "55px",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
+                className="text-[64px] leading-[78px] pl-[33px] main_page_meal"
               >
                 MEALS
               </motion.p>
@@ -204,10 +196,15 @@ export default function WelcomePage() {
                     className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
                     style={{ backgroundColor: "#EEE9DA" }}
                   >
-                    <FaArrowDown
-                      className="w-3 h-3"
-                      style={{ color: "#1E3A4F" }}
-                    />
+                    <span className="relative w-[12px] h-[12px]">
+                      <Image
+                        src="/images/ArrowDownmain.svg"
+                        alt="'"
+                        fill
+                        className="object-contain"
+                        priority
+                      />
+                    </span>
                   </motion.div>
                 </motion.div>
               </div>
@@ -326,9 +323,9 @@ export default function WelcomePage() {
           </motion.div>
         </div>
       </div>
-      <div className="hidden md:flex flex-col items-center justify-center min-h-screen bg-[#1E3A4F] text-white px-4">
+      <div className="hidden md:flex flex-col items-center justify-start min-h-screen bg-[#1E3A4F] text-white px-4">
         {/* Logo */}
-        <div className="relative  md:w-[275px] md:h-[235px] mb-6">
+        <div className="relative  md:w-[240px] md:h-[212px] mb-6">
           <Image
             src="/logo.png"
             alt="Dormer's Logo"
@@ -342,22 +339,10 @@ export default function WelcomePage() {
         <div className="text-center leading-tight">
           <motion.p
             variants={itemVariants}
-            className="text-[64px] leading-[78px] pl-[33px]"
-            style={{
-              fontFamily: "Montserrat",
-              fontWeight: 900,
-              color: "#213c4c;",
-              fontSize: "55px",
-              textShadow:
-                "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-            }}
+            className="text-[64px] leading-[78px] pl-[33px] mealsthattext_box"
           >
             MEALS THAT
           </motion.p>
-          {/* <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-white/80 tracking-tight">
-            DON
-            <span className="text-[#F89D3D]">'</span>T SUCK
-          </h1> */}
           <motion.div
             variants={itemVariants}
             className="text-[64px] leading-[78px] pl-[34px] flex text-[#213c4c]"
@@ -378,7 +363,7 @@ export default function WelcomePage() {
 
               <span className="relative w-[20px] h-[40px] top-[-18px]">
                 <Image
-                  src="/images/Icon_main_page.svg"
+                  src="/images/main_page_icon.svg"
                   alt="'"
                   fill
                   className="object-contain"
@@ -402,12 +387,8 @@ export default function WelcomePage() {
         </div>
 
         {/* Bottom Text + Icon */}
-        <div className="hidden md:fixed md:bottom-12 md:left-0 md:right-0 md:flex md:items-center md:justify-center md:gap-3">
-          <motion.p
-            variants={itemVariants}
-            className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
-            style={{ fontFamily: "Montserrat" }}
-          >
+        <div className="hidden md:flex items-center gap-[24px] mt-[80px]">
+          <motion.p variants={itemVariants} className="WelcomtextMessage">
             WELCOME TO DORMERS&apos;
           </motion.p>
           <motion.div
@@ -422,7 +403,16 @@ export default function WelcomePage() {
               className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
               style={{ backgroundColor: "#EEE9DA" }}
             >
-              <FaArrowDown className="w-3 h-3" style={{ color: "#1E3A4F" }} />
+              {/* <FaArrowDown className="w-3 h-3" style={{ color: "#1E3A4F" }} /> */}
+              <span className="relative w-[12px] h-[12px]">
+                <Image
+                  src="/images/ArrowDownmain.svg"
+                  alt="'"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </span>
             </motion.div>
           </motion.div>
         </div>

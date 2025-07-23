@@ -212,7 +212,7 @@ export default function Footer() {
                 <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                   <Image
                     src={
-                      theme === "light" ? "/logo-light.png" : "/logo-dark.svg"
+                      theme === "light" ? "/logo-dark.svg" : "/logo-dark.svg"
                     }
                     alt="Dormer's Logo"
                     fill

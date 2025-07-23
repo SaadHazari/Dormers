@@ -273,7 +273,14 @@ export default function Home() {
     toggleFAQ: (id: number) => void
     // theme: string | undefined
   ) => {
-    const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
+    const { theme } = useTheme();
+    // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
+    // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
+    const colorSet =
+      theme === "light"
+        ? ["#1E3A4F", "#FF8A00", "#0A1B26"]
+        : ["#EEE9DA", "#FF8A00", "#0A1B26"];
+
     const color = colorSet[index % colorSet.length];
     const isOpen = openFAQ === faq.id;
     const isLight = color === "#EEE9DA";
@@ -403,7 +410,7 @@ export default function Home() {
 
             {/* Second Section */}
             <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label">
+              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:text-[14px]">
                 NO
               </span>
 
@@ -680,6 +687,23 @@ export default function Home() {
                     >
                       QUALIFY
                     </h3>
+                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke={`${theme === "light" ? "white" : "white"}`}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
                   </div>
 
                   {/* Back - Tell us about yourself card */}
@@ -772,8 +796,8 @@ export default function Home() {
                       SUBSCRIBE
                     </h3>
                     {/* Click indicator */}
-                    <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span>Click to flip</span>
+                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
                       <svg
                         className="w-4 h-4 animate-bounce"
                         viewBox="0 0 24 24"
@@ -782,7 +806,7 @@ export default function Home() {
                       >
                         <path
                           d="M12 4V20M12 20L6 14M12 20L18 14"
-                          stroke="currentColor"
+                          stroke={`${theme === "light" ? "white" : "black"}`}
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -875,8 +899,8 @@ export default function Home() {
                       FEAST
                     </h3>
                     {/* Click indicator */}
-                    <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span>Click to flip</span>
+                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
                       <svg
                         className="w-4 h-4 animate-bounce"
                         viewBox="0 0 24 24"
@@ -885,7 +909,7 @@ export default function Home() {
                       >
                         <path
                           d="M12 4V20M12 20L6 14M12 20L18 14"
-                          stroke="currentColor"
+                          stroke={`${theme === "light" ? "white" : "black"}`}
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"

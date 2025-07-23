@@ -1297,7 +1297,7 @@ export default function Menu() {
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
-    lg:flex lg:h-[40px] lg:w-[100px]
+    lg:flex lg:h-[43px] lg:w-[100px]
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
@@ -1367,7 +1367,7 @@ export default function Menu() {
                         </select>
                         <span>
                           <svg
-                            className={` absolute top-[3px] right-[3px] w-4 h-4 text-[#1e3a4f] mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] md:right-[14px]`}
+                            className={`absolute top-[7px] right-[8px] w-4 h-4 text-[#1e3a4f] transform transition-transform`}
                             viewBox="0 0 24 24"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"

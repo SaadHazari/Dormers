@@ -167,7 +167,6 @@ body {
   animation: gradient-x 3s ease infinite;
 }
 
-
 .main_content {
   min-height: 100vh;
   position: relative;
@@ -244,6 +243,23 @@ body {
   line-height: 100%;
   text-align: center;
 }
+.mealsthattext_box {
+  font-family: "Montserrat";
+  font-weight: 900;
+  color: #213c4c;
+  font-size: 55px;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+    1px 1px 0 #fff;
+}
+.WelcomtextMessage {
+  color: #fff;
+  font-family: "Montserrat";
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  text-transform: uppercase;
+}
 
 @media screen and (max-width: 365px) {
   .Join_the_club {
@@ -298,5 +314,15 @@ body {
     line-height: 100%;
     font-size: 12px;
     letter-spacing: 0.5px;
+  }
+}
+@media (max-width: 768px) {
+  .main_page_meal {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 900;
+    color: #213c4c;
+    font-size: 55px;
+    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+      1px 1px 0 #fff;
   }
 }
