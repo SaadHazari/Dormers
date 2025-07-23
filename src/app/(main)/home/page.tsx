@@ -261,7 +261,7 @@ export default function Home() {
       ),
     },
   ];
-   
+
   const toggleFAQ = (id: number) => {
     setOpenFAQ(openFAQ === id ? null : id);
   };
@@ -273,7 +273,6 @@ export default function Home() {
     toggleFAQ: (id: number) => void
     // theme: string | undefined
   ) => {
- 
     // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
     // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
     const colorSet =
@@ -620,11 +619,24 @@ export default function Home() {
         } overflow-hidden`}
       >
         {/* Background Image */}
-        <div className="absolute inset-0 w-full h-full">
+        <div className="absolute inset-0 w-full h-full block md:hidden">
           <Image
             src="/images/sec2bg.png"
             alt="Background Pattern"
             className="w-full h-full object-cover md:object-fill opacity-[0.4] md:scale-100"
+            style={{
+              imageRendering: "crisp-edges",
+              backgroundRepeat: "repeat",
+            }}
+            fill
+            priority
+          />
+        </div>
+        <div className="absolute inset-0 w-full h-full md:block hidden">
+          <Image
+            src="/images/howit'sworkbackgroundimage.svg"
+            alt="Background Pattern"
+            className="w-full h-full object-cover  opacity-[0.7] md:scale-100"
             style={{
               imageRendering: "crisp-edges",
               backgroundRepeat: "repeat",
