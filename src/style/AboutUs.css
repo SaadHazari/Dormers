@@ -146,7 +146,7 @@
     position: relative;
     /* display: inline-block; */
     font-family: "Montserrat", sans-serif;
-    min-width: 140px;
+    min-width: 126px;
   }
 
   .custom-select {
@@ -156,7 +156,7 @@
     font-weight: 600;
     text-transform: uppercase;
     font-size: 12px;
-    padding: 10px 21px;
+    padding: 10px 17px;
     border-radius: 9999px;
     border: 1px solid rgba(30, 58, 79, 0.1);
     cursor: pointer;
@@ -166,7 +166,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 0px;
   }
 
   .custom-select:hover {

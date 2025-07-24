@@ -1297,14 +1297,14 @@ export default function Menu() {
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
-    lg:flex lg:h-[43px] lg:w-[100px]
+    lg:flex lg:h-[43px] lg:w-[90px]
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
               {/* Toggle knob */}
               <div
                 className={`absolute top-[4px] left-[4px] h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
-      ${isVegOnly ? "translate-x-[56px]" : "translate-x-0"}
+      ${isVegOnly ? "translate-x-[45px]" : "translate-x-0"}
       ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
               >
                 <img

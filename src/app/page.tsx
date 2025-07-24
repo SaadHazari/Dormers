@@ -89,11 +89,11 @@ export default function WelcomePage() {
           {/* Text Elements Container */}
           <div className="relative w-full md:flex md:flex-col md:items-center">
             {/* Mobile Layout */}
-            <div className="md:hidden absolute top-[-170px] left-0 w-full flex flex-col gap-[8px]">
+            <div className="md:hidden absolute top-[-170px] left-0 w-full flex flex-col gap-[1px]">
               {/* MEALS */}
               <motion.p
                 variants={itemVariants}
-                className="text-[64px] leading-[78px] pl-[33px] main_page_meal"
+                className="text-[64px] leading-[77px] pl-[33px] main_page_meal"
               >
                 MEALS
               </motion.p>
@@ -133,9 +133,9 @@ export default function WelcomePage() {
                     DON
                   </span>
 
-                  <span className="relative w-[20px] h-[40px] top-[-18px]">
+                  <span className="relative w-[20px] h-[40px] top-[-8px]">
                     <Image
-                      src="/images/Icon_main_page.svg"
+                      src="/images/main_page_icon.svg"
                       alt="'"
                       fill
                       className="object-contain"
@@ -193,7 +193,7 @@ export default function WelcomePage() {
                     variants={arrowVariants}
                     initial="initial"
                     animate="animate"
-                    className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
+                    className="relative w-7 h-7 rounded-full border border-white flex items-center justify-center"
                     style={{ backgroundColor: "#EEE9DA" }}
                   >
                     <span className="relative w-[12px] h-[12px]">

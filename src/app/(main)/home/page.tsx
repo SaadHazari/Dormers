@@ -292,7 +292,7 @@ export default function Home() {
       >
         <button
           onClick={() => toggleFAQ(faq.id)}
-          className="w-full px-6 py-4 flex items-center justify-between text-left"
+          className="w-full px-6 py-4 flex items-center justify-between text-left md:!pb-[8px]"
         >
           <span
             className={`font-bold text-base sm:text-lg ${
@@ -400,7 +400,7 @@ export default function Home() {
                       ? "bg-[#1E3A4F] text-white"
                       : "bg-[#EEE9DA] text-[#1E3A4F]"
                   }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
-                  style={{ width: "33%" }}
+                  style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
                   ONLY
                 </span>
@@ -409,7 +409,7 @@ export default function Home() {
 
             {/* Second Section */}
             <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:text-[14px]">
+              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]">
                 NO
               </span>
 
@@ -478,7 +478,6 @@ export default function Home() {
         }`}
       >
         <div className="flex flex-col gap-2 w-full h-full py-1">
-          {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
               {[...Array(12)].map((_, i) => (
@@ -521,8 +520,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* Row 2 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee" style={{ animationDelay: "-7s" }}>
               {[...Array(12)].map((_, i) => (
@@ -565,9 +562,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* Row 3 (Half visible) */}
-          <div className="relative flex whitespace-nowrap">
+          <div className="relative flex whitespace-nowrap LastDomers">
             <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
                 <span
@@ -699,7 +694,7 @@ export default function Home() {
                     >
                       QUALIFY
                     </h3>
-                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                       {/* <span>Click to flip</span> */}
                       <svg
                         className="w-4 h-4 animate-bounce"
@@ -808,7 +803,7 @@ export default function Home() {
                       SUBSCRIBE
                     </h3>
                     {/* Click indicator */}
-                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                       {/* <span>Click to flip</span> */}
                       <svg
                         className="w-4 h-4 animate-bounce"
@@ -911,7 +906,7 @@ export default function Home() {
                       FEAST
                     </h3>
                     {/* Click indicator */}
-                    <div className="absolute bottom-4 right-[50%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                       {/* <span>Click to flip</span> */}
                       <svg
                         className="w-4 h-4 animate-bounce"
@@ -1100,7 +1095,7 @@ export default function Home() {
           </div>
 
           {/* Row 3 (Half visible) */}
-          <div className="relative flex whitespace-nowrap">
+          <div className="relative flex whitespace-nowrap LastDomers">
             <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
                 <span
@@ -1269,7 +1264,7 @@ export default function Home() {
                           });
                         }, 200); // slight delay so collapse animation completes
                       }}
-                      className={`absolute top-[-48px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
+                      className={`absolute top-[-66px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
                     >
                       <svg
                         className="w-6 h-6"

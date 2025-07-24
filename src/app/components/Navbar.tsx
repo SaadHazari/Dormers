@@ -93,7 +93,7 @@ export default function Navbar() {
         <div className="w-full px-2 sm:px-4">
           <div className="flex justify-between h-16 sm:h-20 items-center">
             {/* Logo */}
-            <Link href="/home" className="flex-shrink-0 flex items-center">
+            <Link href="/home" className="flex-shrink-0 flex items-center MobileNavbarlogo">
               <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                 <Image
                   src={"/logo-dark.svg"}
@@ -128,26 +128,25 @@ export default function Navbar() {
               ))}
             </div> */}
 
-            <div className="flex items-center justify-between md:justify-end w-full px-3 py-1">
-              {/* Join the Club Button */}
-              <button
-                type="button"
-                onClick={handleOrderFormOpen}
-                className={`Join_the_club ml-[38%] text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors text-white border-white hover:bg-white hover:text-[#031624]
-                 
-                `}
-                style={{
-                  fontFamily: "Montserrat, sans-serif",
-                  fontWeight: 600,
-                  lineHeight: "100%",
-                  letterSpacing: "0",
-                }}
-              >
-                Join the club
-              </button>
-
+            <div className="flex items-center justify-end md:justify-end w-full px-3 py-1">
               {/* Theme Toggle & Menu Button Wrapper */}
               <div className="flex items-center gap-2 md:gap-4">
+                {/* Join the Club Button */}
+                <button
+                  type="button"
+                  onClick={handleOrderFormOpen}
+                  className={`Join_the_club text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors text-white border-white hover:bg-white hover:text-[#031624]
+                 
+                `}
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 600,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                  }}
+                >
+                  Join the club
+                </button>
                 {/* Theme Toggle */}
                 <div>
                   <button

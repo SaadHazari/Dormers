@@ -72,7 +72,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 p-4">
-      <div className="absolute top-[56%] left-1/2  transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[364px]">
+      <div className="absolute top-[60%] left-1/2  transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px]">
         {/* Chat Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         </div>
 
         {/* Chat Messages Area */}
-        <div className="h-[400px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
+        <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
           {messages.map((msg, idx) => (
             <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl w-fit max-w-full"
             style={{
