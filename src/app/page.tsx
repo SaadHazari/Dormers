@@ -361,7 +361,7 @@ export default function WelcomePage() {
                 DON
               </span>
 
-              <span className="relative w-[20px] h-[40px] top-[-18px]">
+              <span className="relative w-[20px] h-[40px] top-[-8px]">
                 <Image
                   src="/images/main_page_icon.svg"
                   alt="'"
