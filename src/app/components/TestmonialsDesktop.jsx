@@ -97,7 +97,9 @@ const TestimonialsDesktop = () => {
                     <div className="bg-[#1e3b50] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">
                       {msg.name[0]}
                     </div>
-                    <p className="text-sm font-semibold">{msg.name}</p>
+                    <p className="text-sm font-semibold text-black">
+                      {msg.name}
+                    </p>
                     <div className="flex ml-auto text-yellow-500 gap-[3px]">
                       {[...Array(msg.rating)].map((_, i) => (
                         // <FaStar key={i} className="text-sm" />

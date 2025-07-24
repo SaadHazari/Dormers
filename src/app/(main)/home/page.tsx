@@ -1173,7 +1173,7 @@ export default function Home() {
           <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-6">
             <h2
               className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${
-                theme === "light" ? "text-[1E3A4F]" : "text-white"
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
               }`}
               style={{
                 fontFamily: "Montserrat",
