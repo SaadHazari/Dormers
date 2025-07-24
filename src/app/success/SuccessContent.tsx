@@ -23,7 +23,7 @@ export default function SuccessContent() {
   return (
     <div className="h-screen bg-[#1E3A4F] flex flex-col justify-center relative px-[12px]">
       <Link
-        href="/home"
+        href="/"
         className="flex-shrink-0 flex items-center MobileNavbarlogo absolute top-[27px] left-[13px] md:top-[50px] md:left-[100px]"
       >
         <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">

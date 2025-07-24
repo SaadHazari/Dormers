@@ -93,7 +93,7 @@ export default function Navbar() {
         <div className="w-full px-2 sm:px-4">
           <div className="flex justify-between h-16 sm:h-20 items-center">
             {/* Logo */}
-            <Link href="/home" className="flex-shrink-0 flex items-center MobileNavbarlogo">
+            <Link href="/" className="flex-shrink-0 flex items-center MobileNavbarlogo">
               <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                 <Image
                   src={"/logo-dark.svg"}
