@@ -1,6 +1,7 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function SuccessContent() {
   const searchParams = useSearchParams();
@@ -20,7 +21,20 @@ export default function SuccessContent() {
   const whatsappLink = `https://wa.me/+971585556707?text=${message}`;
 
   return (
-    <div className="h-screen bg-[#1E3A4F] flex flex-col justify-center">
+    <div className="h-screen bg-[#1E3A4F] flex flex-col justify-center relative px-[12px]">
+      <Link
+        href="/home"
+        className="flex-shrink-0 flex items-center MobileNavbarlogo absolute top-[27px] left-[13px] md:top-[50px] md:left-[100px]"
+      >
+        <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
+          <Image
+            src={"/logo-dark.svg"}
+            alt="Dormer's Logo"
+            fill
+            className="object-contain"
+          />
+        </div>
+      </Link>
       <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm mx-auto text-center space-y-4">
         {/* Check Circle SVG */}
         <div className="flex justify-center items-center">
