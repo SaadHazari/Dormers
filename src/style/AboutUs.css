@@ -123,6 +123,12 @@
     box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
     padding: 34px;
   }
+  .MenuCardBoxConatinerlight {
+    border-radius: 55px;
+    background: #1e3a4f;
+    /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
+    padding: 34px;
+  }
 
   /* .custom-select {
     appearance: none;
@@ -278,6 +284,12 @@
     box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
     padding: 13px;
   }
+  .MenuCardBoxConatinerlight {
+    border-radius: 6px;
+    background: #1e3a4f;
+    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
+    padding: 13px;
+  }
   .select-wrapper {
     position: relative;
     /* display: inline-block; */
@@ -308,7 +320,6 @@
     background: #1e3a4f;
     box-shadow: 0px 14px 14.7px 0px rgba(0, 0, 0, 0.59);
   }
- 
 }
 .custom-scroll::-webkit-scrollbar {
   width: 6px;

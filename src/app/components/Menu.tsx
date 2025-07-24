@@ -1318,7 +1318,7 @@ export default function Menu() {
 
           {/* Menu Card */}
           <div className="lg:max-w-[987px] mx-auto">
-            <div className="bg-[#1E3A4F] perspective-1000 MenuCardBoxConatiner">
+            <div className={`bg-[#1E3A4F] perspective-1000 ${theme === 'light' ? 'MenuCardBoxConatinerlight' :'MenuCardBoxConatiner'}`}>
               {currentDish ? (
                 <div
                   className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${

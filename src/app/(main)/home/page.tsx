@@ -11,6 +11,7 @@ import OrderForm from "@/app/components/OrderForm";
 import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
+import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
 
 interface FAQ {
   id: number;
@@ -266,90 +267,90 @@ export default function Home() {
     setOpenFAQ(openFAQ === id ? null : id);
   };
 
-  const renderFaqCard = (
-    faq: FAQ,
-    index: number,
-    openFAQ: number | null,
-    toggleFAQ: (id: number) => void
-    // theme: string | undefined
-  ) => {
-    // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
-    // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
-    const colorSet =
-      theme === "light"
-        ? ["#1E3A4F", "#FF8A00", "#0A1B26"]
-        : ["#EEE9DA", "#FF8A00", "#0A1B26"];
+  // const renderFaqCard = (
+  //   faq: FAQ,
+  //   index: number,
+  //   openFAQ: number | null,
+  //   toggleFAQ: (id: number) => void
+  //   // theme: string | undefined
+  // ) => {
+  //   // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
+  //   // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
+  //   const colorSet =
+  //     theme === "light"
+  //       ? ["#1E3A4F", "#FF8A00", "#0A1B26"]
+  //       : ["#EEE9DA", "#FF8A00", "#0A1B26"];
 
-    const color = colorSet[index % colorSet.length];
-    const isOpen = openFAQ === faq.id;
-    const isLight = color === "#EEE9DA";
+  //   const color = colorSet[index % colorSet.length];
+  //   const isOpen = openFAQ === faq.id;
+  //   const isLight = color === "#EEE9DA";
 
-    return (
-      <div
-        key={faq.id}
-        className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
-        style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
-      >
-        <button
-          onClick={() => toggleFAQ(faq.id)}
-          className="w-full px-6 py-4 flex items-center justify-between text-left md:!pb-[8px]"
-        >
-          <span
-            className={`font-bold text-base sm:text-lg ${
-              isOpen
-                ? "text-[#22394A]"
-                : isLight
-                ? "text-[#22394A]"
-                : "text-white"
-            }`}
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-              fontWeight: 600,
-              fontSize: "14px",
-            }}
-          >
-            {faq.question}
-          </span>
-          <span
-            className={`text-xl font-bold ${
-              isOpen
-                ? "text-[#22394A]"
-                : isLight
-                ? "text-[#22394A]"
-                : "text-white"
-            }`}
-          >
-            {isOpen ? "−" : "+"}
-          </span>
-        </button>
+  //   return (
+  //     <div
+  //       key={faq.id}
+  //       className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
+  //       style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
+  //     >
+  //       <button
+  //         onClick={() => toggleFAQ(faq.id)}
+  //         className="w-full px-6 py-4 flex items-center justify-between text-left md:!pb-[8px]"
+  //       >
+  //         <span
+  //           className={`font-bold text-base sm:text-lg ${
+  //             isOpen
+  //               ? "text-[#22394A]"
+  //               : isLight
+  //               ? "text-[#22394A]"
+  //               : "text-white"
+  //           }`}
+  //           style={{
+  //             fontFamily: "Montserrat, sans-serif",
+  //             fontWeight: 600,
+  //             fontSize: "14px",
+  //           }}
+  //         >
+  //           {faq.question}
+  //         </span>
+  //         <span
+  //           className={`text-xl font-bold ${
+  //             isOpen
+  //               ? "text-[#22394A]"
+  //               : isLight
+  //               ? "text-[#22394A]"
+  //               : "text-white"
+  //           }`}
+  //         >
+  //           {isOpen ? "−" : "+"}
+  //         </span>
+  //       </button>
 
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="px-6 pb-4"
-            >
-              <div
-                className="text-[#22394A]"
-                style={{
-                  fontFamily: "Poppins, sans-serif",
-                  fontWeight: 300,
-                  lineHeight: "130%",
-                  letterSpacing: "0.5px",
-                  fontSize: "12px",
-                }}
-              >
-                {faq.answer}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
+  //       <AnimatePresence>
+  //         {isOpen && (
+  //           <motion.div
+  //             initial={{ height: 0, opacity: 0 }}
+  //             animate={{ height: "auto", opacity: 1 }}
+  //             exit={{ height: 0, opacity: 0 }}
+  //             transition={{ duration: 0.2 }}
+  //             className="px-6 pb-4"
+  //           >
+  //             <div
+  //               className="text-[#22394A]"
+  //               style={{
+  //                 fontFamily: "Poppins, sans-serif",
+  //                 fontWeight: 300,
+  //                 lineHeight: "130%",
+  //                 letterSpacing: "0.5px",
+  //                 fontSize: "12px",
+  //               }}
+  //             >
+  //               {faq.answer}
+  //             </div>
+  //           </motion.div>
+  //         )}
+  //       </AnimatePresence>
+  //     </div>
+  //   );
+  // };
 
   return (
     <div
@@ -1285,7 +1286,7 @@ export default function Home() {
                     <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                         {faqs.map((faq, index) =>
-                          renderFaqCard(faq, index, openFAQ, toggleFAQ)
+                          renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
                         )}
                       </div>
                     </div>
@@ -1301,7 +1302,7 @@ export default function Home() {
                     {faqs
                       .slice(0, 3)
                       .map((faq, index) =>
-                        renderFaqCard(faq, index, openFAQ, toggleFAQ)
+                        renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
                       )}
                   </motion.div>
                 )}
