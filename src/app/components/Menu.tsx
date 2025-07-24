@@ -1392,7 +1392,7 @@ export default function Menu() {
                     </div>
                     <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">
                       {/* Dish Image */}
-                      <div className="relative w-35 h-[147px] rounded-2xl overflow-hidden bg-[#EEE9DA] lg:h-[300px] lg:w-[336px]">
+                      <div className="relative w-35 h-[147px] rounded-2xl overflow-hidden bg-[#EEE9DA] lg:h-[300px] lg:w-[336px] md:rounded-[33px]">
                         <Image
                           src={currentDish.image}
                           alt={currentDish.name}
