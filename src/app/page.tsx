@@ -371,7 +371,7 @@ export default function WelcomePage() {
                 />
               </span>
 
-              <span
+              {/* <span
                 style={{
                   fontFamily: "Montserrat",
                   fontWeight: 900,
@@ -381,7 +381,21 @@ export default function WelcomePage() {
                 }}
               >
                 T SUCK
-              </span>
+              </span> */}
+              <motion.p
+                variants={itemVariants}
+                className="text-[64px] leading-[78px] text-[#213c4c]"
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  fontSize: "55px",
+                  color: "#213c4c;",
+                  textShadow:
+                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                }}
+              >
+                T SUCK
+              </motion.p>
             </div>
           </motion.div>
         </div>
