@@ -252,7 +252,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
                     </div>
                     {num < 3 && (
                       <div
-                        className={`h-1 w-24 ${
+                        className={`h-1 w-24 md:w-[258px] ${
                           step > num ? "bg-[#FF6B00]" : "bg-gray-400"
                         } transition-colors`}
                       />
