@@ -140,7 +140,16 @@ const TestimonialsDesktop = () => {
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-800">{msg.text}</p>
+                  <p
+                    className="text-sm text-gray-800 font-medium"
+                    style={{
+                      fontFamily: "Montserrat",
+                      fontWeight: 600,
+                      lineHeight: "120%",
+                    }}
+                  >
+                    {msg.text}
+                  </p>
                   <div
                     className={`absolute -bottom-2 ${
                       msg.from === "user" ? "right-4" : "left-4"
