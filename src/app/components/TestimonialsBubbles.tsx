@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 import Image from "next/image";
+import { useSwipeable } from "react-swipeable";
 
 const messages = [
   {
@@ -84,12 +85,35 @@ export default function TestimonialsBubbles() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
-    }, 5000);
+    }, 16000);
     return () => clearInterval(interval);
   }, [groupedMessages.length]);
+  const handleDotClick = (index: number) => setCurrentGroup(index);
+  const handleSwipe = (dir: "LEFT" | "RIGHT") => {
+    setCurrentGroup((prev) => {
+      if (dir === "LEFT") return (prev + 1) % groupedMessages.length;
+      if (dir === "RIGHT")
+        return prev === 0 ? groupedMessages.length - 1 : prev - 1;
+      return prev;
+    });
+  };
+const swipeHandlers = useSwipeable({
+  onSwipedLeft: () =>
+    setCurrentGroup((prev) => (prev + 1) % groupedMessages.length),
+  onSwipedRight: () =>
+    setCurrentGroup((prev) =>
+      prev === 0 ? groupedMessages.length - 1 : prev - 1
+    ),
+  trackTouch: true,
+  trackMouse: true, // <---- change this
+  preventScrollOnSwipe: true,
+  delta: 50,
+});
+
 
   return (
-    <div className="relative bg-[#031624] py-6 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)]">
+    <div   className="relative bg-[#031624] py-6 pb-0 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)] touch-pan-y"
+  {...swipeHandlers}>
       <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center">
         <AnimatePresence mode="wait">
           {groupedMessages[currentGroup].map((msg) => (
@@ -157,6 +181,19 @@ export default function TestimonialsBubbles() {
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
+      <div className="flex justify-center mt-6 gap-2">
+        {groupedMessages.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => handleDotClick(index)}
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+              index === currentGroup
+                ? "bg-white scale-110 w-[60px] h-[8px]"
+                : "bg-white/30"
+            }`}
+          />
+        ))}
       </div>
     </div>
   );

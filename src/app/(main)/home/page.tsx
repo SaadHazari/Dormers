@@ -32,7 +32,7 @@ export default function Home() {
   const subscribeCardRef = useRef<HTMLDivElement>(null);
   const feastCardRef = useRef<HTMLDivElement>(null);
   const [showAll, setShowAll] = useState(false);
-  const [isQualifyFlipped, setIsQualifyFlipped] = useState(false);
+  const [isQualifyFlipped, setIsQualifyFlipped] = useState(true);
   const [isSubscribeFlipped, setIsSubscribeFlipped] = useState(false);
   // const [isFeastFlipped, setIsFeastFlipped] = useState(false);
 
