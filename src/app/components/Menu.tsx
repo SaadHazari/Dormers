@@ -1161,10 +1161,13 @@ const MENU_DATA = [
 export default function Menu() {
   const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<number | null>(() => {
-    const day = new Date().getDay();
-    return day === 0 ? null : day - 1;
-  });
+  // const [selectedDay, setSelectedDay] = useState<number | null>(() => {
+  //   const day = new Date().getDay();
+  //   return day === 0 ? null : day - 1;
+  // });
+  const [selectedDay, setSelectedDay] = useState<number>(() =>
+    new Date().getDay()
+  );
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
@@ -1261,7 +1264,8 @@ export default function Menu() {
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
-                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+                setSelectedDay(jsDay);
+                // setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden 
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
@@ -1294,7 +1298,8 @@ export default function Menu() {
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
-                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+                setSelectedDay(jsDay);
+                // setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
     lg:flex lg:h-[43px] lg:w-[90px]
@@ -1578,18 +1583,6 @@ export default function Menu() {
                   </Modal>
                 </div>
               ) : (
-                // <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
-                //   <div className="relative h-[280px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
-                //     <p className="text-white/60 text-center px-4">
-                //       Select a day to view the menu
-                //     </p>
-                //   </div>
-                //   <div className="flex-grow flex items-center justify-center">
-                //     <p className="text-white/60 text-center">
-                //       Select a day to view the menu details
-                //     </p>
-                //   </div>
-                // </div>
                 <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
                   <div className="relative h-[280px] md:h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
                     <p className="text-white/60 text-center px-4">
