@@ -1318,7 +1318,13 @@ export default function Menu() {
 
           {/* Menu Card */}
           <div className="lg:max-w-[987px] mx-auto">
-            <div className={`bg-[#1E3A4F] perspective-1000 ${theme === 'light' ? 'MenuCardBoxConatinerlight' :'MenuCardBoxConatiner'}`}>
+            <div
+              className={`bg-[#1E3A4F] perspective-1000 ${
+                theme === "light"
+                  ? "MenuCardBoxConatinerlight"
+                  : "MenuCardBoxConatiner"
+              }`}
+            >
               {currentDish ? (
                 <div
                   className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${
@@ -1572,15 +1578,28 @@ export default function Menu() {
                   </Modal>
                 </div>
               ) : (
+                // <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
+                //   <div className="relative h-[280px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
+                //     <p className="text-white/60 text-center px-4">
+                //       Select a day to view the menu
+                //     </p>
+                //   </div>
+                //   <div className="flex-grow flex items-center justify-center">
+                //     <p className="text-white/60 text-center">
+                //       Select a day to view the menu details
+                //     </p>
+                //   </div>
+                // </div>
                 <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
-                  <div className="relative h-[280px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
+                  <div className="relative h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
                     <p className="text-white/60 text-center px-4">
-                      Select a day to view the menu
+                      Menu service is closed on Sundays.
                     </p>
                   </div>
                   <div className="flex-grow flex items-center justify-center">
                     <p className="text-white/60 text-center">
-                      Select a day to view the menu details
+                      Please check back tomorrow. We serve menus from Monday to
+                      Saturday.
                     </p>
                   </div>
                 </div>
