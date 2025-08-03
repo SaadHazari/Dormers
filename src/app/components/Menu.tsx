@@ -1591,7 +1591,7 @@ export default function Menu() {
                 //   </div>
                 // </div>
                 <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
-                  <div className="relative h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
+                  <div className="relative h-[280px] md:h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
                     <p className="text-white/60 text-center px-4">
                       Menu service is closed on Sundays.
                     </p>
