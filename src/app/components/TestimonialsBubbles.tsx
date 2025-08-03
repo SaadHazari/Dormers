@@ -89,14 +89,6 @@ export default function TestimonialsBubbles() {
     return () => clearInterval(interval);
   }, [groupedMessages.length]);
   const handleDotClick = (index: number) => setCurrentGroup(index);
-  const handleSwipe = (dir: "LEFT" | "RIGHT") => {
-    setCurrentGroup((prev) => {
-      if (dir === "LEFT") return (prev + 1) % groupedMessages.length;
-      if (dir === "RIGHT")
-        return prev === 0 ? groupedMessages.length - 1 : prev - 1;
-      return prev;
-    });
-  };
 const swipeHandlers = useSwipeable({
   onSwipedLeft: () =>
     setCurrentGroup((prev) => (prev + 1) % groupedMessages.length),
