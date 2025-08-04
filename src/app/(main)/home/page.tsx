@@ -32,13 +32,14 @@ export default function Home() {
   const subscribeCardRef = useRef<HTMLDivElement>(null);
   const feastCardRef = useRef<HTMLDivElement>(null);
   const [showAll, setShowAll] = useState(false);
-  const [isQualifyFlipped, setIsQualifyFlipped] = useState(true);
+  const [isQualifyFlipped, setIsQualifyFlipped] = useState(false);
   const [isSubscribeFlipped, setIsSubscribeFlipped] = useState(false);
   // const [isFeastFlipped, setIsFeastFlipped] = useState(false);
 
   // const lastScrollY = useRef(0);
 
   // Check if device is mobile
+  const [hasUserScrolled, setHasUserScrolled] = useState(false);
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -54,6 +55,35 @@ export default function Home() {
     window.addEventListener("open-chat", handleChatOpen);
     return () => window.removeEventListener("open-chat", handleChatOpen);
   }, []);
+  useEffect(() => {
+    const handleScroll = () => {
+      setHasUserScrolled(true);
+    };
+
+    window.addEventListener("scroll", handleScroll, { once: true }); // run only once
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasUserScrolled) {
+          setIsQualifyFlipped(true);
+        }
+      },
+      {
+        threshold: 0.5,
+      }
+    );
+
+    if (qualifyCardRef.current) {
+      observer.observe(qualifyCardRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (qualifyCardRef.current) {
+        observer.unobserve(qualifyCardRef.current);
+      }
+    };
+  }, [hasUserScrolled]);
 
   // Handle scroll-based card flips on mobile
 
