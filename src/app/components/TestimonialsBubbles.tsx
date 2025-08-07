@@ -281,7 +281,7 @@ export default function TestimonialsBubbles() {
       </div>
 
       <div className="flex justify-center mt-6 gap-2">
-        {groupedMessages.map((_, index) => (
+        {groupedMessages.slice(0, 5 ).map((_, index) => (
           <button
             key={index}
             onClick={() => handleDotClick(index)}
