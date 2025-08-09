@@ -384,9 +384,8 @@ export default function Home() {
 
   return (
     <div
-      className={`min-h-screen ${
-        theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-      }`}
+      className={`min-h-screen ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        }`}
     >
       {/* Hero Section */}
       <div
@@ -398,9 +397,8 @@ export default function Home() {
             {/* First Section */}
             <div className="text-center mb-[4px]">
               <h1
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
                 style={{
                   fontFamily: "'Typo Round Bold Demo', sans-serif",
                   lineHeight: "1",
@@ -426,11 +424,10 @@ export default function Home() {
                   STUDENTS
                 </h2>
                 <span
-                  className={`${
-                    theme === "light"
+                  className={`${theme === "light"
                       ? "bg-[#1E3A4F] text-white"
                       : "bg-[#EEE9DA] text-[#1E3A4F]"
-                  }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
+                    }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
                   style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
                   ONLY
@@ -445,9 +442,8 @@ export default function Home() {
               </span>
 
               <h1
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
                 style={{
                   fontFamily: "'Typo Round Bold Demo', sans-serif",
                   textTransform: "uppercase",
@@ -488,9 +484,8 @@ export default function Home() {
 
             {/* Bottom Text */}
             <p
-              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              } text-center`}
+              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-center`}
               style={{
                 fontFamily: "Typo Round Bold Demo",
                 fontWeight: 700,
@@ -504,9 +499,8 @@ export default function Home() {
 
       {/* Repeating Text Banner */}
       <div
-        className={`relative w-full h-18 overflow-hidden ${
-          theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-        }`}
+        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+          }`}
       >
         <div className="flex flex-col gap-2 w-full h-full py-1">
           <div className="relative flex whitespace-nowrap">
@@ -514,9 +508,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -533,9 +526,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -556,9 +548,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -575,9 +566,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -598,9 +588,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -617,9 +606,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -640,9 +628,8 @@ export default function Home() {
 
       {/* How It Works Section */}
       <div
-        className={`relative w-full lg:py-16 py-[48px] ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        } overflow-hidden`}
+        className={`relative w-full lg:py-16 py-[48px] ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          } overflow-hidden`}
       >
         {/* Background Image */}
         <div className="absolute inset-0 w-full h-full block md:hidden">
@@ -675,9 +662,8 @@ export default function Home() {
         <div className="relative container mx-auto px-4 top-[-14px]">
           <div className="flex items-center justify-center gap-4 mb-6">
             <h2
-              className={`${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              } text-3xl sm:text-4xl font-bold text-center`}
+              className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-3xl sm:text-4xl font-bold text-center`}
               style={{
                 fontFamily: "'Montserrat', sans-serif",
                 fontWeight: 500,
@@ -703,9 +689,8 @@ export default function Home() {
                 onClick={() => setIsQualifyFlipped((prev) => !prev)}
               >
                 <div
-                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                    isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
-                  }
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
+                    }
                 } ${!isMobile && "hover:scale-105"}`}
                 >
                   {/* Front */}
@@ -798,30 +783,26 @@ export default function Home() {
                 onClick={() => setIsSubscribeFlipped((prev) => !prev)}
               >
                 <div
-                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                    isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
-                  }
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
+                    }
                 } ${!isMobile && "hover:scale-105"}`}
                 >
                   {/* Front */}
                   <div
-                    className={`absolute inset-0 ${
-                      theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                    } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                    className={`absolute inset-0 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                      } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
-                        theme === "light"
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${theme === "light"
                           ? "bg-[#EEE9DA] text-[#1E3A4F]"
                           : "bg-[#1E3A4F] text-white"
-                      }`}
+                        }`}
                     >
                       2
                     </span>
                     <h3
-                      className={`${
-                        theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                      } text-3xl sm:text-4xl font-bold`}
+                      className={`${theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                        } text-3xl sm:text-4xl font-bold`}
                       style={{
                         fontFamily: "Montserrat",
                         fontWeight: 900,
@@ -854,9 +835,8 @@ export default function Home() {
                   </div>
                   {/* Back - Pick your perfect plan */}
                   <div
-                    className={`absolute inset-0 ${
-                      theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                    } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                    className={`absolute inset-0 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                      } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
                   >
                     <div className="flex flex-col justify-between h-full">
                       {/* Top Spacer */}
@@ -869,17 +849,15 @@ export default function Home() {
                           alt="Info Icon"
                           width={27.16}
                           height={24}
-                          className={`object-contain ${
-                            theme === "light"
+                          className={`object-contain ${theme === "light"
                               ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
                               : ""
-                          }`}
+                            }`}
                         />
 
                         <h4
-                          className={`${
-                            theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                          } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
+                          className={`${theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                            } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
                           style={{
                             fontFamily: "Montserrat",
                             fontWeight: 900,
@@ -914,9 +892,8 @@ export default function Home() {
                 }
               >
                 <div
-                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                    flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
-                  } ${!isMobile && "hover:scale-105"}`}
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
+                    } ${!isMobile && "hover:scale-105"}`}
                 >
                   {/* Front */}
                   <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
@@ -1023,18 +1000,16 @@ export default function Home() {
       {/* Menu Section */}
       <div
         id="menu"
-        className={`relative w-full py-0 px-0 ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        }`}
+        className={`relative w-full py-0 px-0 ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          }`}
       >
         <Menu />
       </div>
 
       {/* Repeating Text Banner (after menu) */}
       <div
-        className={`relative w-full h-18 overflow-hidden ${
-          theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
-        }`}
+        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
+          }`}
       >
         <div className="flex flex-col gap-2 w-full h-full py-1">
           {/* Row 1 */}
@@ -1043,9 +1018,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1062,9 +1036,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1087,9 +1060,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1106,9 +1078,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1131,9 +1102,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1150,9 +1120,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1203,9 +1172,8 @@ export default function Home() {
         <div className="">
           <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-6">
             <h2
-              className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              }`}
+              className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
@@ -1232,158 +1200,156 @@ export default function Home() {
       </div>
 
       {/* FAQ Section */}
-      <div
-        id="faq"
-        ref={faqRef}
-        className={`relative w-full  ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
-        }`}
-      >
+      <section id="faq">
         <div
-          className={` ${
-            theme === "light" ? "curtleLightheight" : "curtleheightfaq"
-          } `}
-          style={{
-            bottom: 0,
-            left: 0,
-            width: "100%",
-            backgroundColor: "#22394A",
-            borderTopLeftRadius: "60px",
-            borderTopRightRadius: "60px",
-            zIndex: 0,
-          }}
+
+          ref={faqRef}
+          className={`relative w-full  ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
+            }`}
         >
           <div
-            className="w-full py-[24px] px-4 sm:px-6 md:px-8  lg:pt-[40px]  overflow-hidden BoxContainer_FAQBOX"
+            className={` ${theme === "light" ? "curtleLightheight" : "curtleheightfaq"
+              } `}
             style={{
-              backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              backgroundColor: "#22394A",
+              borderTopLeftRadius: "60px",
+              borderTopRightRadius: "60px",
+              zIndex: 0,
             }}
           >
-            <div className="md:max-w-[987px] md:mx-auto">
-              <h2
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-3xl sm:text-4xl font-bold mb-8 text-left`}
-                style={{
-                  fontFamily: "Montserrat, sans-serif",
-                  fontWeight: 500,
-                  lineHeight: "100%",
-                  letterSpacing: "0",
-                  fontSize: "20px",
-                }}
-              >
-                FAQ&apos;S
-              </h2>
+            <div
+              className="w-full py-[24px] px-4 sm:px-6 md:px-8  lg:pt-[40px]  overflow-hidden BoxContainer_FAQBOX"
+              style={{
+                backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
+              }}
+            >
+              <div className="md:max-w-[987px] md:mx-auto">
+                <h2
+                  className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                    } text-3xl sm:text-4xl font-bold mb-8 text-left`}
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 500,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    fontSize: "20px",
+                  }}
+                >
+                  FAQ&apos;S
+                </h2>
 
-              <AnimatePresence mode="wait">
-                {showAll ? (
-                  <motion.div
-                    key="expanded"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="relative"
-                  >
-                    {/* Close button */}
+                <AnimatePresence mode="wait">
+                  {showAll ? (
+                    <motion.div
+                      key="expanded"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="relative"
+                    >
+                      {/* Close button */}
+                      <button
+                        onClick={() => {
+                          setShowAll(false);
+                          setTimeout(() => {
+                            faqRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 200); // slight delay so collapse animation completes
+                        }}
+                        className={`absolute top-[-66px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
+                      >
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke={`${theme === "light" ? "black" : "white"}`}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Scrollable FAQ list */}
+                      <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                          {faqs.map((faq, index) =>
+                            renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="collapsed"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
+                    >
+                      {faqs
+                        .slice(0, 3)
+                        .map((faq, index) =>
+                          renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
+                        )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {!showAll && (
+                  <div className="mt-6 flex justify-center">
                     <button
                       onClick={() => {
-                        setShowAll(false);
+                        setShowAll(true);
                         setTimeout(() => {
-                          faqRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }, 200); // slight delay so collapse animation completes
+                          faqRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }, 100);
                       }}
-                      className={`absolute top-[-66px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
+                      className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${theme === "light" ? "text-[#22394A]" : "text-white/80"
+                        }`}
                     >
+                      <span
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 600,
+                          lineHeight: "100%",
+                          letterSpacing: "0%",
+                          marginLeft: "0.3rem",
+                          fontSize: "12px",
+                        }}
+                      >
+                        View All
+                      </span>
                       <svg
-                        className="w-6 h-6"
-                        fill="none"
+                        className="w-4 h-4 animate-bounce"
                         viewBox="0 0 24 24"
-                        stroke={`${theme === "light" ? "black" : "white"}`}
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
                         <path
+                          d="M6 9l6 6 6-6"
+                          stroke="currentColor"
+                          strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
                         />
                       </svg>
                     </button>
-
-                    {/* Scrollable FAQ list */}
-                    <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
-                        {faqs.map((faq, index) =>
-                          renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="collapsed"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
-                  >
-                    {faqs
-                      .slice(0, 3)
-                      .map((faq, index) =>
-                        renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
-                      )}
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
-
-              {!showAll && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => {
-                      setShowAll(true);
-                      setTimeout(() => {
-                        faqRef.current?.scrollIntoView({ behavior: "smooth" });
-                      }, 100);
-                    }}
-                    className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${
-                      theme === "light" ? "text-[#22394A]" : "text-white/80"
-                    }`}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "Montserrat",
-                        fontWeight: 600,
-                        lineHeight: "100%",
-                        letterSpacing: "0%",
-                        marginLeft: "0.3rem",
-                        fontSize: "12px",
-                      }}
-                    >
-                      View All
-                    </span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M6 9l6 6 6-6"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* About Us Section */}
 

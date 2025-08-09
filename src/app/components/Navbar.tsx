@@ -56,30 +56,28 @@ export default function Navbar() {
   //   }
   //   setIsMenuOpen(false);
   // };
-  const handleNavClick = async (
+const handleNavClick = async (
     e: React.MouseEvent<HTMLAnchorElement>,
     href: string
   ) => {
     e.preventDefault();
     const [basePath, hash] = href.split("#");
 
-    if (window.location.pathname === basePath) {
-      // Already on the page, scroll to element
-      const element = document.getElementById(hash);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth" });
+    const scrollToSection = (id: string) => {
+      const section = document.getElementById(id);
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth" });
+        window.history.pushState(null, "", `#${id}`); // ✅ Update URL hash without reload
       }
-    } else {
-      // Navigate first, then scroll manually after route change
-      router.push(basePath, { scroll: false }); // 👈 prevent default scroll behavior
+    };
 
-      // Delay scroll to element after navigation
-      setTimeout(() => {
-        const element = document.getElementById(hash);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth" });
-        }
-      }, 300); // delay to wait for page to mount
+    if (window.location.pathname === basePath) {
+      // Already on page
+      scrollToSection(hash);
+    } else {
+      // Navigate without automatic scroll
+      router.push(basePath, { scroll: false });
+      setTimeout(() => scrollToSection(hash), 300);
     }
 
     setIsMenuOpen(false);
