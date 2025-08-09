@@ -1166,28 +1166,21 @@ export default function Menu() {
   //   return day === 0 ? null : day - 1;
   // });
   const [selectedDay, setSelectedDay] = useState<number>(() =>
-    new Date().getDay()
+    new Date().getDay() - 1 
   );
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
-
-  // Filter dishes based on veg/non-veg selection
-  // const availableDishes = MENU_DATA.filter((dish) => dish.isVeg === isVegOnly);
-
-  // // Get current dish based on selected day
-  // const currentDish =
-  //   selectedDay !== null
-  //     ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay)
-  //     : null;
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
 
-  const currentDish =
-    selectedDay !== null
-      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay)
-      : null;
+const currentDish =
+  selectedDay !== null
+    ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[0] || null
+    : null;
+
+      
   // Show nutrition hint when day is selected
   useEffect(() => {
     if (selectedDay !== null) {
@@ -1196,11 +1189,6 @@ export default function Menu() {
       return () => clearTimeout(timer);
     }
   }, [selectedDay]);
-
-  // Reset flip state when changing days or diet type
-  // useEffect(() => {
-  //   setIsFlipped(false);
-  // }, [selectedDay, isVegOnly]);
 
   const [isFlipped, setIsFlipped] = useState(false);
   // const modalRef = useRef(null);
@@ -1228,21 +1216,21 @@ export default function Menu() {
     left: "50%",
     transform: "translate(-50%, -50%)",
   };
+  console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay-1), "selected day");
+
 
   return (
     <>
       <div
-        className={`relative w-full py-[24px] lg:py-[40px]  ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        } overflow-hidden`}
+        className={`relative w-full py-[24px] lg:py-[40px]  ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          } overflow-hidden`}
       >
         <div className="container mx-auto px-4">
           {/* Menu Header */}
           <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[987px] mx-auto">
             <h2
-              className={` text-[32px] font-medium lg:hidden block  ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              }`}
+              className={` text-[32px] font-medium lg:hidden block  ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
@@ -1254,9 +1242,8 @@ export default function Menu() {
               MENU
             </h2>
             <h2
-              className={`menu-heading_icon lg:block hidden  ${
-                theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
-              }`}
+              className={`menu-heading_icon lg:block hidden  ${theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
+                }`}
             >
               MENU
             </h2>
@@ -1324,19 +1311,16 @@ export default function Menu() {
           {/* Menu Card */}
           <div className="lg:max-w-[987px] mx-auto">
             <div
-              className={`bg-[#1E3A4F] perspective-1000 ${
-                theme === "light"
-                  ? "MenuCardBoxConatinerlight"
-                  : "MenuCardBoxConatiner"
-              }`}
+              className={`bg-[#1E3A4F] perspective-1000 ${theme === "light"
+                ? "MenuCardBoxConatinerlight"
+                : "MenuCardBoxConatiner"
+                }`}
             >
               {currentDish ? (
                 <div
-                  className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${
-                    isFlipped ? "" : ""
-                  }`}
+                  className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${isFlipped ? "" : ""
+                    }`}
                 >
-                  {/* Front of Card */}
                   <div>
                     <div className="flex justify-between">
                       <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
@@ -1352,11 +1336,10 @@ export default function Menu() {
                           <button
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
-                              selectedDay === item.index
-                                ? "bg-white text-[#1E3A4F] border-white"
-                                : "bg-transparent text-white border-white hover:bg-white/20"
-                            }`}
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${selectedDay === item.index
+                              ? "bg-white text-[#1E3A4F] border-white"
+                              : "bg-transparent text-white border-white hover:bg-white/20"
+                              }`}
                             style={{
                               fontFamily: "Montserrat",
                               lineHeight: "100%",
@@ -1447,17 +1430,15 @@ export default function Menu() {
 
                           <button
                             onClick={() => setIsFlipped(true)}
-                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${
-                              isFlipped ? "animate-pulse" : ""
-                            }`}
+                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${isFlipped ? "animate-pulse" : ""
+                              }`}
                           >
                             <span className="mt-1 buttonNutrition_info">
                               Nutrition Info
                             </span>
                             <svg
-                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${
-                                isFlipped ? "animate-bounce" : ""
-                              }`}
+                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${isFlipped ? "animate-bounce" : ""
+                                }`}
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
