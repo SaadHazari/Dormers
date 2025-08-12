@@ -152,6 +152,76 @@ const messages =
       "name": "Adriel Almeida",
       "city": "Yugo",
       "text": "...and Ive tried a few meal plans before but nothing compares to this..."
+    },
+     {
+      "id": 22,
+      "from": "user",
+      "name": "Jessica Dsouza",
+      "city": "The Myriad",
+      "text": "Really good, I’ve been enjoying the variety in cuisines & flavors."
+    },
+    {
+      "id": 23,
+      "from": "bot",
+      "name": "Ketsia Uwayo",
+      "city": "Yugo",
+      "text": "Good evening, just wanted to update you that the last 3 meals have been fantastic, I really enjoyed them and it brought back my excitement about the meals again. I appreciate the consideration and thought put into the meals."
+    },
+    {
+      "id": 24,
+      "from": "user",
+      "name": "Rishabh Jain",
+      "city": "Yugo",
+      "text": "It's been great. Hence I continued and will do so in the future too."
+    },
+    {
+      "id": 25,
+      "from": "bot",
+      "name": "Anninditha Menon",
+      "city": "The Myriad",
+      "text": "I really loved the kebab, meatballs with mash, and the fried rice!"
+    },
+    {
+      "id": 26,
+      "from": "user",
+      "name": "Shivani Vedre",
+      "city": "Yugo",
+      "text": "I missed dormers food so much. Can’t wait to eat dormers again 🫵👑."
+    },
+    {
+      "id": 27,
+      "from": "bot",
+      "name": "Abhishek Ingale",
+      "city": "Study World",
+      "text": "I am athlete and you're just fascinating, believe me ❤️."
+    },
+    {
+      "id": 28,
+      "from": "user",
+      "name": "Bhargav Raj",
+      "city": "Yugo",
+      "text": "Thanks guys for keeping track of my meal preferences. Appreciate it 🙏🏻."
+    },
+    {
+      "id": 29,
+      "from": "bot",
+      "name": "Arkaydios Ali",
+      "city": "Yugo",
+      "text": "The food is perfect. Today was very good."
+    },
+    {
+      "id": 30,
+      "from": "user",
+      "name": "Aisha Zarewa",
+      "city": "Yugo",
+      "text": "I got my food today, and I absolutely love it, great service so far!"
+    },
+    {
+      "id": 31,
+      "from": "bot",
+      "name": "Yousaf Khan Yaldram",
+      "city": "Yugo",
+      "text": "Damn, you guys are way better than the other meal plans. Hats off!!!"
     }
   ]
 
