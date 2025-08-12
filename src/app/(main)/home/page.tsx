@@ -425,8 +425,8 @@ export default function Home() {
                 </h2>
                 <span
                   className={`${theme === "light"
-                      ? "bg-[#1E3A4F] text-white"
-                      : "bg-[#EEE9DA] text-[#1E3A4F]"
+                    ? "bg-[#1E3A4F] text-white"
+                    : "bg-[#EEE9DA] text-[#1E3A4F]"
                     }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
                   style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
@@ -794,8 +794,8 @@ export default function Home() {
                   >
                     <span
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${theme === "light"
-                          ? "bg-[#EEE9DA] text-[#1E3A4F]"
-                          : "bg-[#1E3A4F] text-white"
+                        ? "bg-[#EEE9DA] text-[#1E3A4F]"
+                        : "bg-[#1E3A4F] text-white"
                         }`}
                     >
                       2
@@ -850,8 +850,8 @@ export default function Home() {
                           width={27.16}
                           height={24}
                           className={`object-contain ${theme === "light"
-                              ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
-                              : ""
+                            ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
+                            : ""
                             }`}
                         />
 
@@ -979,7 +979,7 @@ export default function Home() {
             {/* Qualify Button */}
             <div className="flex justify-center mb-[-35px] mt-2">
               <a
-                href="https://forms.dormers.ae"
+                href="https://vip.dormers.ae"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-[#031624] text-[#FFFFFF] font-bold py-1 px-3 rounded-full text-lg transition-all hover:scale-105"
@@ -990,7 +990,7 @@ export default function Home() {
                   fontSize: "12px",
                 }}
               >
-                SEE IF YOU QUALIFY
+                🔥 Secure My Spot
               </a>
             </div>
           </div>

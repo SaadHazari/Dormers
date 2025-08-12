@@ -158,6 +158,7 @@ const messages =
 const TestimonialsDesktop = () => {
   const { theme } = useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   const groupedMessages = useMemo(() => {
     const result = [];
@@ -168,18 +169,24 @@ const TestimonialsDesktop = () => {
   }, []);
 
   useEffect(() => {
+    if (isHovered) return; // Don't run interval when hovered
+
     const interval = setInterval(() => {
       setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
     }, 5000);
+
     return () => clearInterval(interval);
-  }, [groupedMessages.length]);
+  }, [groupedMessages.length, isHovered]);
 
   const positions = ["top-0 left-0", "top-10 right-0", "bottom-0 left-1/3"];
   const handleDotClick = (index) => setCurrentGroup(index);
   return (
     <div>
       <div className="w-full py-12 flex justify-center bg-[#031624]">
-        <div className="relative max-w-[987px] w-full h-[340px] overflow-hidden">
+        <div className="relative max-w-[987px] w-full h-[340px] overflow-hidden"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           <AnimatePresence mode="wait">
             {groupedMessages[currentGroup].map((msg, index) => {
               const position = positions[index % positions.length];
@@ -207,25 +214,7 @@ const TestimonialsDesktop = () => {
                         <p className="text-sm font-semibold text-black">
                           {msg.name}
                         </p>
-                        <p className="text-xs font-normal">{msg.city}</p>                      </div>
-                      {/* <div className="flex ml-auto text-yellow-500 gap-[3px]">
-                        {[...Array(msg.rating)].map((_, i) => (
-                          // <FaStar key={i} className="text-sm" />
-                          <Image
-                            key={i}
-                            src="/images/starticon.svg"
-                            alt=""
-                            width={16}
-                            height={16}
-                            className=""
-                            style={{
-                              imageRendering: "crisp-edges",
-                              backgroundRepeat: "repeat",
-                            }}
-                            priority
-                          />
-                        ))}
-                      </div> */}
+                        <p className="text-xs font-normal text-[#686766]">{msg.city}</p> </div>
                     </div>
                     <p
                       className="text-sm text-gray-800 font-medium"
