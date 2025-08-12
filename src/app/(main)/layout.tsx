@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import AboutUs from "../components/AboutUs";
-import CurtleAboutUs from "@/app/components/CurtleAboutUs";
+// import CurtleAboutUs from "@/app/components/CurtleAboutUs";
 import 'lenis/dist/lenis.css'
 import Lenis from 'lenis'
 
