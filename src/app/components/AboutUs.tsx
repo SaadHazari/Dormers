@@ -12,7 +12,7 @@ const AboutUs = () => {
       <div
         id="about"
         className={`px-5 w-full py-[24px] lg:py-[40px] ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#DBD7FF]"
         }`}
       >
         <div className="container mx-auto  ">
@@ -33,7 +33,7 @@ const AboutUs = () => {
             </h2> */}
           </div>
           {/* Mobile View */}
-          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8  text-white h-[570px] md:mx-auto lg:hidden block relative">
+          <div className="bg-[#DBD7FF] rounded-2xl p-4 sm:p-8  text-white h-[570px] md:mx-auto lg:hidden block relative">
             <div className="flex flex-col gap-4 items-start justify-start mb-6">
               <div className="flex-shrink-0 w-[100px] mt-2">
                 <h3
@@ -158,7 +158,7 @@ const AboutUs = () => {
             />
           </div>
           {/* Desktop View */}
-          <div className="bg-[#031624] rounded-2xl p-[48px] relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
+          <div className="bg-[#DBD7FF] rounded-2xl p-[48px] relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
             <div className="">
               <h3
                 className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"

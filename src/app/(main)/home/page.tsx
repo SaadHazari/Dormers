@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
+import CurtleAboutUs from "@/app/components/CurtleAboutUs";
 
 interface FAQ {
   id: number;
@@ -1346,6 +1347,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              <CurtleAboutUs />
             </div>
           </div>
         </div>

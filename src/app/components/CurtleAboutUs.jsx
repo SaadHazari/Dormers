@@ -9,7 +9,7 @@ const CurtleAboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full mt-[30px] md:mt-[100px]  ${
+        className={`px-5 w-full   ${
           theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
         }`}
       >

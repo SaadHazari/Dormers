@@ -91,6 +91,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Poppins";
   src: url("/fonts/Poppins-Medium.ttf") format("truetype");
@@ -98,6 +99,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Poppins";
   src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");
@@ -105,6 +107,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Poppins";
   src: url("/fonts/Poppins-Bold.ttf") format("truetype");
@@ -152,11 +155,13 @@ body {
 }
 
 @keyframes gradient-x {
+
   0%,
   100% {
     background-size: 200% 100%;
     background-position: left center;
   }
+
   50% {
     background-size: 200% 100%;
     background-position: right center;
@@ -196,7 +201,8 @@ body {
     opacity: 1;
   }
 } */
- .main_content {
+
+.main_content {
   min-height: 100vh;
   position: relative;
   z-index: 1;
@@ -208,8 +214,16 @@ body {
   position: sticky;
   bottom: -12px;
   z-index: 0;
-  animation: struggleSlideInUp 1.4s ease-out forwards;
-  opacity: 0;
+  /* animation: struggleSlideInUp 1.4s ease-out forwards; */
+  /* opacity: 0; */
+  -webkit-user-select: none;
+  flex: none;
+  height: 100vh;
+  /* overflow: hidden; */
+  pointer-events: none;
+  /* position: relative; */
+  user-select: none;
+  width: 100%;
 }
 
 @keyframes struggleSlideInUp {
@@ -217,21 +231,26 @@ body {
     transform: translateY(100px);
     opacity: 0;
   }
+
   30% {
     transform: translateY(40px);
     opacity: 0.4;
   }
+
   50% {
     transform: translateY(60px);
     opacity: 0.6;
   }
+
   70% {
     transform: translateY(20px);
     opacity: 0.8;
   }
+
   85% {
     transform: translateY(30px);
   }
+
   100% {
     transform: translateY(0);
     opacity: 1;
@@ -258,7 +277,8 @@ body {
   font-size: 16px;
   font-style: normal;
   font-weight: 400;
-  line-height: 14px; /* 140% */
+  line-height: 14px;
+  /* 140% */
 }
 
 .paymentstripeheading {
@@ -268,7 +288,8 @@ body {
   font-size: 12px;
   font-style: normal;
   font-weight: 600;
-  line-height: 14px; /* 116.667% */
+  line-height: 14px;
+  /* 116.667% */
 }
 
 .badge-label {
@@ -284,6 +305,7 @@ body {
   line-height: 100%;
   text-align: center;
 }
+
 .mealsthattext_box {
   font-family: "Montserrat";
   font-weight: 900;
@@ -292,6 +314,7 @@ body {
   text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
     1px 1px 0 #fff;
 }
+
 .WelcomtextMessage {
   color: #fff;
   font-family: "Montserrat";
@@ -301,6 +324,7 @@ body {
   line-height: normal;
   text-transform: uppercase;
 }
+
 .socialmediaiconbox {
   width: 26px;
   height: 26px;
@@ -334,6 +358,7 @@ body {
     font-weight: 700;
     line-height: normal;
   }
+
   .badge-label {
     padding: 0 6px;
     width: 80.653px;
@@ -347,11 +372,13 @@ body {
     line-height: 100%;
     text-align: center;
   }
+
   .HowItWorksCardContainer {
     max-width: 311px;
     height: 245px;
     margin: 0;
   }
+
   .location_footer_desktop {
     font-family: "Montserrat", sans-serif;
     font-weight: 400;
@@ -359,6 +386,7 @@ body {
     font-size: 12px;
     letter-spacing: 0.5px;
   }
+
   .para_info {
     font-family: "Montserrat", sans-serif;
     font-weight: 400;
@@ -367,6 +395,7 @@ body {
     letter-spacing: 0.5px;
   }
 }
+
 @media (max-width: 768px) {
   .main_page_meal {
     font-family: "Montserrat", sans-serif;
@@ -376,18 +405,22 @@ body {
     text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
       1px 1px 0 #fff;
   }
+
   .LastDomers {
     transform: rotate(-2deg);
     margin-left: 46px;
   }
+
   .MobileNavbarlogo {
     padding-left: 8px;
   }
 }
+
 .LastDomers {
   /* transform: rotate(0deg);
      margin-left: 23px; */
 }
+
 .slick-dots li.slick-active {
   background-color: #fff !important;
   border-radius: 20px;
@@ -395,6 +428,7 @@ body {
   height: 8px !important;
   width: 60px !important;
 }
+
 .slick-dots li.slick-active button {
   color: #fff !important;
   height: 100% !important;
@@ -402,6 +436,7 @@ body {
   text-indent: -9999px;
   width: 100% !important;
 }
+
 .slick-dots li button:before {
   color: #fff !important;
   height: 10px !important;

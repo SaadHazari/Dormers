@@ -55,8 +55,8 @@ export default function Footer() {
       <footer
         className={`${
           theme === "light"
-            ? "bg-[#031624] text-[#1E3A4F]"
-            : "bg-[#031624] text-white"
+            ? "bg-[#DBD7FF] text-[#1E3A4F]"
+            : "bg-[#DBD7FF] text-white"
         } py-[24px] lg:hidden block`}
       >
         <div className="container mx-auto px-5 lg:max-w-[987px] ">
@@ -201,8 +201,8 @@ export default function Footer() {
       <footer
         className={`${
           theme === "light"
-            ? "bg-[#031624] text-[#1E3A4F]"
-            : "bg-[#031624] text-white"
+            ? "bg-[#DBD7FF] text-[#1E3A4F]"
+            : "bg-[#DBD7FF] text-white"
         } py-10 lg:block hidden`}
       >
         <div className="container mx-auto lg:max-w-[987px] ">
