@@ -51,7 +51,7 @@ export default function MainLayout({
       <div id="footer"  className={`${
           theme === "light"
             ? "md:mt-[600px] mt-[684px]"
-            : "md:mt-[460px] mt-[588px]"
+            : "md:mt-[450px] mt-[588px]"
         } `}>
         <div className="slide-in-section">
           {/* <CurtleAboutUs /> */}
