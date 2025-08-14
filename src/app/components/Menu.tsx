@@ -39,7 +39,7 @@ const MENU_DATA = [
     description:
       "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
     // image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
-    image: "/images/Week1/NonVeg/ChickenAfghan.jpg",
+    image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.png",
     isVeg: false,
     dayOfWeek: 0, // Monday
     nutrients: {
