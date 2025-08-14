@@ -5,12 +5,12 @@ import Image from "next/image";
 import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
 import CustomSelect from "@/app/components/CustomSelect";
-import ChickenAfghani from '../../../public/images/Week1/NonVeg/ChickenAfghan.jpg';
-import DormersChicken from '../../../public/images/Week1/NonVeg/DormersChicken.png';
-import PeriPeri from '../../../public/images/Week1/NonVeg/PeriPeri.png';
-import Meatballs from '../../../public/images/Week1/NonVeg/MeatballsMashe.png';
-import ChickenFried from '../../../public/images/Week1/NonVeg/ChickenFried.png';
-import ChickenBiryani from '../../../public/images/Week1/NonVeg/ChickenBiryani.png';
+import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
+import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
+import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
+import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
+import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
+import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 // interface Nutrient {
 //   name: string;
