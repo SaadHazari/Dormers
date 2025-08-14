@@ -36,8 +36,8 @@ export default function MainLayout({
   //     lenis.destroy();
   //   }
   // }, []);
-   const { theme } = useTheme();
-// className='md:mt-[460px] mt-[588px]'
+  const { theme } = useTheme();
+  // className='md:mt-[460px] mt-[588px]'
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -48,20 +48,19 @@ export default function MainLayout({
         <main className="flex-grow">{children}</main>
       </div>
 
-      <div id="footer"  className={`${
-          theme === "light"
-            ? "md:mt-[600px] mt-[684px]"
-            : "md:mt-[450px] mt-[588px]"
+      <div id="footer" className={`${theme === "light"
+          ? "md:mt-[600px] mt-[684px]"
+          : "md:mt-[450px] mt-[588px]"
         } `}>
         <div className="slide-in-section">
           {/* <CurtleAboutUs /> */}
           <AboutUs />
-
+          <Footer />
         </div>
       </div>
-      <div className="slide-in-section" id="sidefotter">
-        <Footer />
-      </div>
+      {/* <div className="slide-in-section" id="sidefotter">
+      
+      </div> */}
     </div>
   );
 }

@@ -11,7 +11,7 @@ const AboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full py-[24px] lg:py-[40px] ${
+        className={`px-5 w-full py-[0px] lg:pb-[12px] md:pt-[68px] ${
           theme === "light" ? "bg-[#031624]" : "bg-[#031624]"
         }`}
       >
@@ -33,7 +33,7 @@ const AboutUs = () => {
             </h2> */}
           </div>
           {/* Mobile View */}
-          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8  text-white h-[570px] md:mx-auto lg:hidden block relative">
+          <div className="bg-[#031624] rounded-2xl py-3  text-white md:mx-auto lg:hidden block relative">
             <div className="flex flex-col gap-4 items-start justify-start mb-6">
               <div className="flex-shrink-0 w-[100px] mt-2">
                 <h3
@@ -149,16 +149,16 @@ const AboutUs = () => {
               </div>
               {/* Icon aligned to bottom right of the section */}
             </div>
-            <Image
+            {/* <Image
               src="/images/about3.svg"
               alt="Values Icon"
               width={76.54}
               height={60}
               className="absolute bottom-0 right-0 opacity-55 select-none"
-            />
+            /> */}
           </div>
           {/* Desktop View */}
-          <div className="bg-[#031624] rounded-2xl p-[48px] relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
+          <div className="bg-[#031624] rounded-2xl relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
             <div className="">
               <h3
                 className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
@@ -233,7 +233,7 @@ const AboutUs = () => {
                 {/* SUSTAINABILITY + Image aligned inside */}
                 <div className="">
                   {/* Icon aligned to bottom right of the section */}
-                  <Image
+                  {/* <Image
                     src="/images/Ourvlaues.svg"
                     alt="Values Icon"
                     width={76.54}
@@ -245,7 +245,7 @@ const AboutUs = () => {
     lg:bottom-[-48px]
     lg:right-[-50px] 
   "
-                  />
+                  /> */}
                 </div>
               </div>
             </div>
