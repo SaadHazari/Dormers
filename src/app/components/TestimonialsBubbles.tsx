@@ -296,14 +296,14 @@ export default function TestimonialsBubbles() {
 
   return (
     <div
-      className="relative bg-[#031624] py-6 pb-0 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)] touch-pan-y"
+      className="relative bg-[#031624] pt-[20px] pb-0 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)] touch-pan-y"
       {...swipeHandlers}
       onTouchStart={pauseAutoScroll}
       onTouchEnd={resumeAutoScroll}
       onMouseEnter={pauseAutoScroll}
       onMouseLeave={resumeAutoScroll}
     >
-      <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center">
+      <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center h-[23rem]">
         <AnimatePresence mode="wait">
           {groupedMessages[currentGroup].map((msg) => (
             <motion.div

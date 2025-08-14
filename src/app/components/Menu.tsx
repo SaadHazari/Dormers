@@ -39,7 +39,7 @@ const MENU_DATA = [
     description:
       "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
     // image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
-    image: "https://iili.io/Fl2Sj8N.md.jpg",
+    image: "/images/Week1/NonVeg/ChickenAfghan.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
     nutrients: {
@@ -63,7 +63,7 @@ const MENU_DATA = [
     description:
       "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
     // image: "/images/Week1/NonVeg/Dormers_chicken_with zeera_rice.jpg",
-    image: "https://iili.io/Fl2SOut.md.jpg",
+    image: "/images/Week1/NonVeg/DormersChicken.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -87,7 +87,7 @@ const MENU_DATA = [
     description:
       "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
     // image: "/images/Week1/NonVeg/Peri_peri_chicken.jpg",
-    image: "https://iili.io/Fl2SDMb.md.jpg",
+    image: "/images/Week1/NonVeg/PeriPeri.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
     nutrients: {
@@ -110,8 +110,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
-    // image: "/images/Week1/NonVeg/Meatballs_Mashed_Potatoes_Mushroom_sauce.jpg",
-    image: "https://iili.io/Fl2SLN9.md.jpg",
+    // image: "/images/Week1/NonVeg/MeatballsMashe.jpg",
+    image: "/images/Week1/NonVeg/MeatballsMashe.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
     nutrients: {
@@ -134,8 +134,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
-    // image: "/images/Week1/NonVeg/Chicken_Fried_Rice.jpg",
-    image: "https://iili.io/Fl2Sktn.md.jpg",
+    // image: "/images/Week1/NonVeg/ChickenFried.jpg",
+    image: "/images/Week1/NonVeg/ChickenFried.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
     nutrients: {
@@ -158,8 +158,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
-    // image: "/images/Week1/NonVeg/Chicken_Biryani_2.jpg",
-    image: "https://iili.io/Fl2SN9I.md.jpg",
+    // image: "/images/Week1/NonVeg/ChickenBiryani.jpg",
+    image: "/images/Week1/NonVeg/ChickenBiryani.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
     nutrients: {
@@ -1166,7 +1166,7 @@ export default function Menu() {
   //   return day === 0 ? null : day - 1;
   // });
   const [selectedDay, setSelectedDay] = useState<number>(() =>
-    new Date().getDay() - 1 
+    new Date().getDay() - 1
   );
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
@@ -1175,12 +1175,12 @@ export default function Menu() {
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
 
-const currentDish =
-  selectedDay !== null
-    ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[0] || null
-    : null;
+  const currentDish =
+    selectedDay !== null
+      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[0] || null
+      : null;
 
-      
+
   // Show nutrition hint when day is selected
   useEffect(() => {
     if (selectedDay !== null) {
@@ -1216,7 +1216,7 @@ const currentDish =
     left: "50%",
     transform: "translate(-50%, -50%)",
   };
-  console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay-1), "selected day");
+  console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay - 1), "selected day");
 
 
   return (

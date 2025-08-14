@@ -171,7 +171,7 @@ const AboutUs = () => {
               </h3>
             </div>
             <div className="flex relative gap-[61px]">
-              <div className="flex flex-col gap-[30px] mt-[20px]">
+              <div className="flex flex-col gap-[14px] mt-[20px]">
                 {/* CUSTOMER - CENTRICITY */}
                 <div className="">
                   <p className="flex items-start gap-1 OurValues_headingtitle">
@@ -207,7 +207,7 @@ const AboutUs = () => {
               </div>
 
               {/* Second Row: 3 more values */}
-              <div className="flex flex-col gap-[30px]  mt-[20px]">
+              <div className="flex flex-col gap-[14px]  mt-[20px]">
                 {/* QUALITY FIRST */}
                 <div className="">
                   <p className="flex items-start gap-1 OurValues_headingtitle">

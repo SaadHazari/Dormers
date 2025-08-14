@@ -203,7 +203,7 @@ export default function Footer() {
           theme === "light"
             ? "bg-[#031624] text-[#1E3A4F]"
             : "bg-[#031624] text-white"
-        } py-10 lg:block hidden`}
+        } py-[14px] lg:block hidden`}
       >
         <div className="container mx-auto lg:max-w-[987px] ">
           <div className="">

@@ -202,7 +202,7 @@ body {
   }
 } */
 
-.main_content {
+/* .main_content {
   min-height: 100vh;
   position: relative;
   z-index: 1;
@@ -214,17 +214,14 @@ body {
   position: sticky;
   bottom: -12px;
   z-index: 0;
-  /* animation: struggleSlideInUp 1.4s ease-out forwards; */
-  /* opacity: 0; */
+
   -webkit-user-select: none;
   flex: none;
-  /* height: 100vh; */
-  /* overflow: hidden; */
   pointer-events: none;
-  /* position: relative; */
+  
   user-select: none;
   width: 100%;
-}
+} */
 
 @keyframes struggleSlideInUp {
   0% {
