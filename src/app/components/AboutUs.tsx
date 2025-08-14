@@ -1,6 +1,6 @@
 "use client";
 import { useTheme } from "next-themes";
-import Image from "next/image";
+// import Image from "next/image";
 import React from "react";
 import "@/style/AboutUs.css";
 
