@@ -59,7 +59,7 @@ const CurtleAboutUs = () => {
                   </h3>
                   <h3
                     className={`${
-                      theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
+                      theme === "light" ? "!text-[#EEE9DA]" : "text-[#22394A]"
                     } OurVisionAboutUs_title lg:block hidden`}
                   >
                     OUR VISION
