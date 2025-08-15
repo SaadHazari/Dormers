@@ -117,7 +117,7 @@ const MENU_DATA = [
     description:
       "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
     // image: "/images/Week1/NonVeg/MeatballsMashe.jpg",
-    image:Meatballs,
+    image: Meatballs,
     isVeg: false,
     dayOfWeek: 3, // Thursday
     nutrients: {
@@ -1167,13 +1167,13 @@ const MENU_DATA = [
 export default function Menu() {
   const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
-  // const [selectedDay, setSelectedDay] = useState<number | null>(() => {
-  //   const day = new Date().getDay();
-  //   return day === 0 ? null : day - 1;
-  // });
-  const [selectedDay, setSelectedDay] = useState<number>(() =>
-    new Date().getDay() - 1
-  );
+  const [selectedDay, setSelectedDay] = useState<number | null>(() => {
+    const day = new Date().getDay();
+    return day === 0 ? null : day - 1;
+  });
+  // const [selectedDay, setSelectedDay] = useState<number>(() =>
+  //   new Date().getDay() - 1
+  // );
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
@@ -1183,7 +1183,7 @@ export default function Menu() {
 
   const currentDish =
     selectedDay !== null
-      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[0] || null
+      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[availableDishes.length - 1] || null
       : null;
 
 
@@ -1222,7 +1222,7 @@ export default function Menu() {
     left: "50%",
     transform: "translate(-50%, -50%)",
   };
-  console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay - 1), "selected day");
+  // console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay - 1), "selected day");
 
 
   return (
@@ -1257,8 +1257,8 @@ export default function Menu() {
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
-                setSelectedDay(jsDay);
-                // setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+              
+                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden 
     ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
@@ -1291,8 +1291,8 @@ export default function Menu() {
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
-                setSelectedDay(jsDay);
-                // setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+                // setSelectedDay(jsDay);
+                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
               className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
     lg:flex lg:h-[43px] lg:w-[90px]

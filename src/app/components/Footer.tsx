@@ -53,11 +53,10 @@ export default function Footer() {
   return (
     <>
       <footer
-        className={`${
-          theme === "light"
-            ? "bg-[#031624] text-[#1E3A4F]"
-            : "bg-[#031624] text-white"
-        } py-[24px] lg:hidden block`}
+        className={`${theme === "light"
+          ? "bg-[#031624] text-[#1E3A4F]"
+          : "bg-[#031624] text-white"
+          } py-[24px] lg:hidden block`}
       >
         <div className="container mx-auto px-5 lg:max-w-[987px] ">
           <div className="flex justify-between items-center">
@@ -79,11 +78,10 @@ export default function Footer() {
                 {deliveryLocations.map((location) => (
                   <li
                     key={location}
-                    className={`${
-                      theme === "light"
-                        ? "text-[#1E3A4F] hover:text-[#FF6B00]"
-                        : "text-gray-300 hover:text-orange-400"
-                    } transition-colors`}
+                    className={`${theme === "light"
+                      ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                      : "text-gray-300 hover:text-orange-400"
+                      } transition-colors`}
                     style={{
                       fontFamily: "Poppins, sans-serif",
                       fontWeight: 400,
@@ -142,11 +140,10 @@ export default function Footer() {
                   href="https://www.facebook.com/profile.php?id=61567276984641"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex items-center space-x-2 ${
-                    theme === "light"
-                      ? "text-[#1E3A4F] hover:text-[#FF6B00]"
-                      : "text-gray-300 hover:text-orange-400"
-                  } transition-colors`}
+                  className={`inline-flex items-center space-x-2 ${theme === "light"
+                    ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                    : "text-gray-300 hover:text-orange-400"
+                    } transition-colors`}
                 >
                   <FaFacebook className="w-4 h-4 text-white" />
                 </a>
@@ -154,11 +151,10 @@ export default function Footer() {
                   href="https://www.instagram.com/dormers.ae"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex items-center space-x-2 ${
-                    theme === "light"
-                      ? "text-[#1E3A4F] hover:text-[#FF6B00]"
-                      : "text-gray-300 hover:text-orange-400"
-                  } transition-colors`}
+                  className={`inline-flex items-center space-x-2 ${theme === "light"
+                    ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                    : "text-gray-300 hover:text-orange-400"
+                    } transition-colors`}
                 >
                   <FaInstagram className="w-4 h-4 text-white" />
                 </a>
@@ -166,7 +162,7 @@ export default function Footer() {
             </div>
           </div>
           <div
-            className="mt-8 pt-8 border-t border-white/30 text-sm text-center"
+            className="mt-8 pt-7 border-t border-white/30 text-sm text-center"
             style={{
               fontFamily: "Poppins, sans-serif",
               fontWeight: 400,
@@ -195,15 +191,22 @@ export default function Footer() {
                 Privacy Policy
               </Link>
             </div>
+            <div className="mt-2">
+              <div className="flex flex-row justify-between">
+                <p className="text-white text-[10px]">
+                  © {new Date().getFullYear()} Dormer&apos;s All rights reserved
+                </p>
+                <a className="hover:text-orange-400 text-white text-[10px]" href="https://www.Najah.io" target="_blank" rel="noopener noreferrer">Developed By @Najah media </a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
       <footer
-        className={`${
-          theme === "light"
-            ? "bg-[#031624] text-[#1E3A4F]"
-            : "bg-[#031624] text-white"
-        } py-[14px] lg:block hidden`}
+        className={`${theme === "light"
+          ? "bg-[#031624] text-[#1E3A4F]"
+          : "bg-[#031624] text-white"
+          } py-[14px] lg:block hidden`}
       >
         <div className="container mx-auto lg:max-w-[987px] ">
           <div className="">
@@ -261,9 +264,8 @@ export default function Footer() {
                   <div className="flex flex-col gap-[16px]">
                     <div className="flex gap-[28px]">
                       <p
-                        className={`location_footer_desktop ${
-                          theme === "light" ? " text-white" : "text-white"
-                        }`}
+                        className={`location_footer_desktop ${theme === "light" ? " text-white" : "text-white"
+                          }`}
                       >
                         The Myriad
                       </p>
@@ -307,11 +309,10 @@ export default function Footer() {
                         href="https://www.facebook.com/profile.php?id=61567276984641"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center  socialmediaiconbox ${
-                          theme === "light"
-                            ? "text-[#1E3A4F] hover:text-[#FF6B00]"
-                            : "text-gray-300 hover:text-orange-400"
-                        } transition-colors`}
+                        className={`inline-flex items-center  socialmediaiconbox ${theme === "light"
+                          ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                          : "text-gray-300 hover:text-orange-400"
+                          } transition-colors`}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -330,11 +331,10 @@ export default function Footer() {
                         href="https://www.instagram.com/dormers.ae"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center socialmediaiconbox ${
-                          theme === "light"
-                            ? "text-[#1E3A4F] hover:text-[#FF6B00]"
-                            : "text-gray-300 hover:text-orange-400"
-                        } transition-colors`}
+                        className={`inline-flex items-center socialmediaiconbox ${theme === "light"
+                          ? "text-[#1E3A4F] hover:text-[#FF6B00]"
+                          : "text-gray-300 hover:text-orange-400"
+                          } transition-colors`}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -367,25 +367,35 @@ export default function Footer() {
           }}
         >
           <div className="lg:max-w-[987px]  mx-auto">
-            <div className="flex gap-[54px]">
-              <Link
-                href="/cookies-policy"
-                className="hover:text-orange-400 text-white text-[14px]"
-              >
-                Cookies Policy
-              </Link>
-              <Link
-                href="/legal-terms"
-                className="hover:text-orange-400 text-white text-[14px]"
-              >
-                Legal Terms
-              </Link>
-              <Link
-                href="/privacy"
-                className="hover:text-orange-400 text-white text-[14px]"
-              >
-                Privacy Policy
-              </Link>
+            <div className="flex justify-between">
+              <div className="flex gap-[54px]">
+                <Link
+                  href="/cookies-policy"
+                  className="hover:text-orange-400 text-white text-[14px]"
+                >
+                  Cookies Policy
+                </Link>
+                <Link
+                  href="/legal-terms"
+                  className="hover:text-orange-400 text-white text-[14px]"
+                >
+                  Legal Terms
+                </Link>
+                <Link
+                  href="/privacy"
+                  className="hover:text-orange-400 text-white text-[14px]"
+                >
+                  Privacy Policy
+                </Link>
+              </div>
+              <div className="">
+                <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer&apos;s All rights reserved</p>
+                {/* <a className="hover:text-orange-400 text-white text-[14px]" href="https://www.Najah.io" target="_blank" rel="noopener noreferrer">Developed By @Najah media </a> */}
+              </div>
+              <div className="">
+                {/* <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer's All rights reserved</p> */}
+                <a className="hover:text-orange-400 text-white text-[14px]" href="https://www.Najah.io" target="_blank" rel="noopener noreferrer">Developed By @Najah media </a>
+              </div>
             </div>
           </div>
         </div>

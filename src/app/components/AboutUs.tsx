@@ -33,9 +33,9 @@ const AboutUs = () => {
             </h2> */}
           </div>
           {/* Mobile View */}
-          <div className="bg-[#031624] rounded-2xl py-3  text-white md:mx-auto lg:hidden block relative">
-            <div className="flex flex-col gap-4 items-start justify-start mb-6">
-              <div className="flex-shrink-0 w-[100px] mt-2">
+          <div className="bg-[#031624] rounded-2xl py-1  text-white md:mx-auto lg:hidden block relative">
+            <div className="flex flex-col gap-4 items-start justify-start mb-4">
+              <div className="min-w-[100px] mt-1">
                 <h3
                   className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
                   style={{
@@ -171,7 +171,7 @@ const AboutUs = () => {
               </h3>
             </div>
             <div className="flex relative gap-[61px]">
-              <div className="flex flex-col gap-[14px] mt-[20px]">
+              <div className="flex flex-col gap-[16px] mt-[20px]">
                 {/* CUSTOMER - CENTRICITY */}
                 <div className="">
                   <p className="flex items-start gap-1 OurValues_headingtitle">
@@ -207,7 +207,7 @@ const AboutUs = () => {
               </div>
 
               {/* Second Row: 3 more values */}
-              <div className="flex flex-col gap-[14px]  mt-[20px]">
+              <div className="flex flex-col gap-[16px]  mt-[20px]">
                 {/* QUALITY FIRST */}
                 <div className="">
                   <p className="flex items-start gap-1 OurValues_headingtitle">

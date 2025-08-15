@@ -106,11 +106,11 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         {/* Chat Messages Area */}
         <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
           {messages.map((msg, idx) => (
-            <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl w-fit max-w-full"
+            <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl max-w-full w-full"
             style={{
       fontFamily: "Montserrat, sans-serif",
       fontWeight: 700,
-      lineHeight: "100%",
+      lineHeight: "normal",
       letterSpacing: "0",
     }}>
               {msg}
@@ -147,11 +147,11 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             </div>
           )}
           
-          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 w-[308px]">
             <input
               type="text"
               placeholder="Please write your message and press the send button"
-              className="flex-1 outline-none text-sm text-gray-800 placeholder-gray-500"
+              className="flex-1 max-w-[198px] outline-none text-sm text-gray-800 placeholder-gray-500"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
