@@ -84,8 +84,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       <div id="footer" className={`${theme === "light"
-        ? "md:mt-[600px] mt-[626px]"
-        : "md:mt-[450px] mt-[582px]"
+        ? "md:mt-[600px] mt-[641px]"
+        : "md:mt-[450px] mt-[588px]"
         }`}>
         <div ref={slideSectionRef} className="slide-in-section">
           <AboutUs />

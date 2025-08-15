@@ -1171,7 +1171,7 @@ export default function Home() {
         className="relative w-full lg:pt-[40px] py-[24px] pb-0"
       >
         <div className="">
-          <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-6">
+          <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-4">
             <h2
               className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
                 }`}

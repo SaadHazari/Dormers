@@ -315,7 +315,7 @@ export default function TestimonialsBubbles() {
               className={`max-w-[250px] p-4 rounded-2xl ${theme === "light"
                 ? "bg-[#1E3A4F] text-white"
                 : "bg-[#EEE9DA] text-[#1E3A4F]"
-                } ${msg.from === "user" ? "self-end mr-8" : "self-start ml-8"
+                } ${msg.from === "user" ? "self-end mr-4" : "self-start ml-4"
                 } relative`}
             >
               <div className="flex items-center justify-between mb-2">

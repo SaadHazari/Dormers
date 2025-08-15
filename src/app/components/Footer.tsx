@@ -162,7 +162,7 @@ export default function Footer() {
             </div>
           </div>
           <div
-            className="mt-8 pt-7 border-t border-white/30 text-sm text-center"
+            className="mt-4 pt-7 border-t border-white/30 text-sm text-center"
             style={{
               fontFamily: "Poppins, sans-serif",
               fontWeight: 400,
