@@ -284,7 +284,7 @@ const handleNavClick = async (
                 onClick={(e) => handleNavClick(e, link.href)}
                 className={`block px-3 py-1.5 text-sm transition-colors ${
                   theme === "light"
-                    ? "text-gray-700 hover:text-orange-500"
+                    ? "text-white hover:text-orange-500"
                     : "text-gray-300 hover:text-orange-400"
                 }`}
               >
