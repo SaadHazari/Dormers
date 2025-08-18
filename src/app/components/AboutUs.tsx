@@ -33,7 +33,7 @@ const AboutUs = () => {
             </h2> */}
           </div>
           {/* Mobile View */}
-          <div className="bg-[#031624] rounded-2xl py-7  text-white md:mx-auto lg:hidden block relative">
+          <div className="bg-[#031624] rounded-2xl pt-7 pb-[3px]  text-white md:mx-auto lg:hidden block relative">
             <div className="flex flex-col gap-4 items-start justify-start mb-4">
               <div className="min-w-[100px] mt-1">
                 <h3
