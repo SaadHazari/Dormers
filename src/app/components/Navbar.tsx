@@ -19,8 +19,9 @@ export default function Navbar() {
   }, []);
 
   const handleOrderFormOpen = () => {
-    console.log("Opening order form...");
-    setIsOrderFormOpen(true);
+    // console.log("Opening order form...");
+    // setIsOrderFormOpen(true);
+    window.open("https://vip.dormers.ae/", "_blank");
   };
 
   const handleOrderFormClose = () => {
@@ -56,7 +57,7 @@ export default function Navbar() {
   //   }
   //   setIsMenuOpen(false);
   // };
-const handleNavClick = async (
+  const handleNavClick = async (
     e: React.MouseEvent<HTMLAnchorElement>,
     href: string
   ) => {
@@ -165,9 +166,8 @@ const handleNavClick = async (
                 </div>
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${
-                    theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
-                  }`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
+                    }`}
                 >
                   {theme === "light" ? (
                     <MoonIcon className="h-3 w-3 text-[#031624] md:w-[24px]" />
@@ -179,9 +179,8 @@ const handleNavClick = async (
                 {/* Hamburger Menu */}
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${
-                    theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
-                  }`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
+                    }`}
                 >
                   <svg
                     className="h-4 w-4 text-[#031624] md:w-[18px] md:h-[20px]"
@@ -282,11 +281,10 @@ const handleNavClick = async (
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleNavClick(e, link.href)}
-                className={`block px-3 py-1.5 text-sm transition-colors ${
-                  theme === "light"
+                className={`block px-3 py-1.5 text-sm transition-colors ${theme === "light"
                     ? "text-white hover:text-orange-500"
                     : "text-gray-300 hover:text-orange-400"
-                }`}
+                  }`}
               >
                 {link.name}
               </a>
