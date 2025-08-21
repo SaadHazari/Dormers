@@ -142,9 +142,8 @@ const AboutUs = () => {
                   className="mt-1 font-light leading-snug text-[12px]"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                  We aim to minimize waste and use eco-friendly practices,
-                  caring for the environment as
-                  much as we care for our customers
+                     We aim to minimize waste and use eco-friendly practices, caring for the environment as
+                    much as we care for our customers
                 </p>
               </div>
               {/* Icon aligned to bottom right of the section */}
@@ -188,8 +187,7 @@ const AboutUs = () => {
                     <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
                   </p>
                   <p className="mt-1 font-light leading-snug  ourvalues-para_info">
-                    We aim to minimize waste and use eco-friendly practices,
-                    caring for the environment as
+                    We aim to minimize waste and use eco-friendly practices, caring for the environment as
                     much as we care for our customers
                   </p>
                 </div>
