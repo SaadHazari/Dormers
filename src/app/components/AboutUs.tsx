@@ -11,9 +11,8 @@ const AboutUs = () => {
     <>
       <div
         id="about"
-        className={`px-5 w-full py-[0px] lg:pb-[12px] md:pt-[68px] ${
-          theme === "light" ? "bg-[#031624]" : "bg-[#031624]"
-        }`}
+        className={`px-5 w-full py-[0px] lg:pb-[12px] md:pt-[68px] ${theme === "light" ? "bg-[#031624]" : "bg-[#031624]"
+          }`}
       >
         <div className="container mx-auto  ">
           <div className="container_aboutUs_box">
@@ -143,8 +142,9 @@ const AboutUs = () => {
                   className="mt-1 font-light leading-snug text-[12px]"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                  Our menu celebrates the diverse cultures and cuisines of our
-                  students, ensuring there’s something for everyone.
+                  We aim to minimize waste and use eco-friendly practices,
+                  caring for the environment as
+                  much as we care for our customers
                 </p>
               </div>
               {/* Icon aligned to bottom right of the section */}
@@ -188,8 +188,9 @@ const AboutUs = () => {
                     <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
                   </p>
                   <p className="mt-1 font-light leading-snug  ourvalues-para_info">
-                    Our menu celebrates the diverse cultures and cuisines of our
-                    students, ensuring there’s something for everyone.
+                    We aim to minimize waste and use eco-friendly practices,
+                    caring for the environment as
+                    much as we care for our customers
                   </p>
                 </div>
 
