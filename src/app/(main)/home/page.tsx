@@ -152,39 +152,7 @@ export default function Home() {
     };
   }, []);
 
-  // Testimonial image filenames
-  // const testimonialImages = [
-  //   "screenshot1.jpg",
-  //   "screenshot2.jpg",
-  //   "screenshot3.png",
-  //   "screenshot4.png",
-  //   "screenshot5.png",
-  //   "screenshot6.png",
-  //   "screenshot7.png",
-  //   "screenshot8.png",
-  //   "screenshot9.png",
-  //   "screenshot10.png",
-  //   "screenshot11.png",
-  //   "screenshot12.png",
-  //   "screenshot13.png",
-  //   "screenshot14.png",
-  //   "screenshot15.png",
-  //   "screenshot16.png",
-  //   "screenshot17.png",
-  //   "screenshot18.png",
-  //   "screenshot19.png",
-  //   "screenshot20.png",
-  //   "screenshot21.png",
-  //   "screenshot22.png",
-  //   "screenshot23.png",
-  //   "screenshot24.png",
-  //   "screenshot25.png",
-  //   "ss1.png",
-  //   "ss2.png",
-  //   "ss3.png",
-  //   "ss4.png",
-  // ];
-
+ 
   const faqs: FAQ[] = [
     {
       id: 1,
