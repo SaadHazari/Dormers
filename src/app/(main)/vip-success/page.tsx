@@ -53,7 +53,8 @@ export default function VipSuccessPage() {
               textTransform: "uppercase",
             }}
           >
-            YOU'RE ON <br/> THE LIST!
+            {/* FIXED: Changed ' to &apos; */}
+            YOU&apos;RE ON <br/> THE LIST!
           </h1>
           
           {/* Subtext - Poppins */}
@@ -67,11 +68,12 @@ export default function VipSuccessPage() {
               opacity: 0.9,
             }}
           >
-            Welcome to the inner circle. We'll text you as soon as spots open up. No spam, just food.
+            {/* FIXED: Changed ' to &apos; */}
+            Welcome to the inner circle. We&apos;ll text you as soon as spots open up. No spam, just food.
           </p>
         </div>
 
-        {/* Action Button - Montserrat (Matches your 'See if you qualify' button) */}
+        {/* Action Button - Montserrat */}
         <div className="pt-4">
           <Link
             href="/"
