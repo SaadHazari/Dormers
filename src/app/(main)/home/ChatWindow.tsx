@@ -7,17 +7,27 @@ interface ChatWindowProps {
   onClose: () => void;
 }
 
+// 1. Define the shape of a message so we know who sent it
+type Message = {
+  text: string;
+  isUser: boolean;
+};
+
 export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
+  
+  // 2. State now holds Objects (text + isUser) instead of just strings
+  const [messages, setMessages] = useState<Message[]>([]);
+  
   const [chatStep, setChatStep] = useState<'idle' | 'awaiting_name' | 'awaiting_email' | 'awaiting_phone' | 'done'>('idle');
   const [userDetails, setUserDetails] = useState<{ name?: string; email?: string; phone?: string }>({});
 
   useEffect(() => {
     if (isOpen) {
+      // Reset Chat: Initial message from Bot (isUser: false)
       setMessages([
-        'Bro, I\'m tired of instant noodles. Hook me up with Dormer\'s—real food, no stress! 🍛🔥'
+        { text: 'Bro, I\'m tired of instant noodles. Hook me up with Dormer\'s—real food, no stress! 🍛🔥', isUser: false }
       ]);
       setChatStep('idle');
       setUserDetails({});
@@ -29,24 +39,26 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   const handleSend = () => {
     const trimmed = message.trim();
     if (!trimmed) return;
-    setMessages(prev => [...prev, trimmed]);
 
-    // Chatbot logic
+    // 3. User Message -> Orange (isUser: true)
+    setMessages(prev => [...prev, { text: trimmed, isUser: true }]);
+
+    // Chatbot Logic
     if (chatStep === 'idle' && (/^hi$/i.test(trimmed) || /^hello$/i.test(trimmed))) {
       setTimeout(() => {
-        setMessages(prev => [...prev, 'Hey there! 👋 What\'s your name?']);
+        setMessages(prev => [...prev, { text: 'Hey there! 👋 What\'s your name?', isUser: false }]);
       }, 500);
       setChatStep('awaiting_name');
     } else if (chatStep === 'awaiting_name') {
       setUserDetails(prev => ({ ...prev, name: trimmed }));
       setTimeout(() => {
-        setMessages(prev => [...prev, `Nice to meet you, ${trimmed}! 😎 What\'s your email? 📧`]);
+        setMessages(prev => [...prev, { text: `Nice to meet you, ${trimmed}! 😎 What's your email? 📧`, isUser: false }]);
       }, 500);
       setChatStep('awaiting_email');
     } else if (chatStep === 'awaiting_email') {
       setUserDetails(prev => ({ ...prev, email: trimmed }));
       setTimeout(() => {
-        setMessages(prev => [...prev, 'And your phone number? 📱']);
+        setMessages(prev => [...prev, { text: 'And your phone number? 📱', isUser: false }]);
       }, 500);
       setChatStep('awaiting_phone');
     } else if (chatStep === 'awaiting_phone') {
@@ -55,7 +67,10 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
       const phone = trimmed;
       setUserDetails(prev => ({ ...prev, phone }));
       setTimeout(() => {
-        setMessages(prev => [...prev, 'Awesome, thanks! 🚀 We\'ll be in touch soon.', 'You\'re being redirected to WhatsApp for your query. An agent will hit you up! 💬🟢']);
+        setMessages(prev => [...prev, 
+          { text: 'Awesome, thanks! 🚀 We\'ll be in touch soon.', isUser: false },
+          { text: 'You\'re being redirected to WhatsApp for your query. An agent will hit you up! 💬🟢', isUser: false }
+        ]);
         setTimeout(() => {
           const text = encodeURIComponent(
             `👋 Hey Dormer's! I want real food, no stress! 🍛🔥\nName: ${name}\nEmail: ${email}\nPhone: ${phone}`
@@ -72,12 +87,11 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 p-4">
-      <div className="absolute top-[60%] left-1/2  transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px]">
+      <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px]">
         {/* Chat Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
-              {/* Simple SVG Avatar */}
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="14" cy="14" r="14" fill="#FFB300" />
                 <ellipse cx="14" cy="11" rx="5" ry="5" fill="#fff" />
@@ -97,8 +111,8 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
           </div>
           <button
             onClick={() => {
-              onClose(); // existing close logic
-              window.dispatchEvent(new CustomEvent('close-chat')); // tell ChatButton to show again
+              onClose();
+              window.dispatchEvent(new CustomEvent('close-chat'));
             }}
             className="text-white hover:opacity-75"
           >
@@ -109,18 +123,27 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         {/* Chat Messages Area */}
         <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
           {messages.map((msg, idx) => (
-            <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl max-w-full w-full"
+            <div 
+              key={idx} 
+              // 4. DYNAMIC STYLING: Orange for User, Cream for Bot
+              className={`px-4 py-2 rounded-xl max-w-[85%] w-fit ${
+                msg.isUser 
+                  ? "bg-[#FF7F00] text-white self-end rounded-tr-none" // User: Orange, Right aligned
+                  : "bg-[#EEE9DA] text-[#1E3A4F] self-start rounded-tl-none" // Bot: Cream, Left aligned
+              }`}
               style={{
                 fontFamily: "Montserrat, sans-serif",
                 fontWeight: 700,
                 lineHeight: "normal",
                 letterSpacing: "0",
               }}>
-              {msg}
+              {msg.text}
             </div>
           ))}
+          
+          {/* Summary Card */}
           {chatStep === 'done' && (
-            <div className="bg-[#FF6B00] text-white px-4 py-2 rounded-xl w-fit max-w-full mt-2 text-sm">
+            <div className="bg-[#FF6B00]/20 border border-[#FF6B00] text-white px-4 py-2 rounded-xl w-full mt-2 text-sm self-center">
               <div><b>Name:</b> {userDetails.name || '-'}</div>
               <div><b>Email:</b> {userDetails.email || '-'}</div>
               <div><b>Phone:</b> {userDetails.phone || '-'}</div>
@@ -130,7 +153,6 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
         {/* Chat Input */}
         <div className="p-4 border-t border-gray-700">
-          {/* Emoji Panel */}
           {showEmojis && (
             <div className="absolute bottom-[80px] left-4 bg-white rounded-lg p-2 shadow-lg">
               <div className="grid grid-cols-6 gap-2">
@@ -153,7 +175,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
           <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 w-[308px] md:w-full">
             <input
               type="text"
-              placeholder="Please write your message and press the send button"
+              placeholder="Please write your message..."
               className="flex-1 max-w-[198px] md:max-w-full outline-none text-sm text-gray-800 placeholder-gray-500"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -171,12 +193,10 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             >
               <span className="text-xl">☺</span>
             </button>
-            {/* UPDATED: Increased button size to w-10 h-10 (40px) */}
             <button
               className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors"
               onClick={handleSend}
             >
-              {/* UPDATED: Increased icon size to w-6 h-6 */}
               <svg viewBox="0 0 24 24" className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
