@@ -19,17 +19,22 @@ export default function ChatButton() {
   }, []);
 
   if (isChatOpen) return null;
+  
   return (
     <button 
       onClick={() => window.dispatchEvent(new CustomEvent('open-chat'))}
-      className="fixed bottom-6 right-6 w-12 h-10 flex items-center justify-center  transition-all z-50"
+      // UPDATED: Large size (w-20 h-20), Hover Zoom, NO Halo
+      className="fixed bottom-8 right-8 w-20 h-20 flex items-center justify-center transition-all duration-300 z-50 hover:scale-110 active:scale-95"
     >
       <Image
-        src="images/chaticonnew.svg"
+        src="/images/chaticonnew.svg"
         alt="Chat Icon"
-        width={50}
-        height={50}
+        // UPDATED: Large Image Size
+        width={80}
+        height={80}
+        // UPDATED: Standard shadow for depth (No Orange Glow)
+        className="drop-shadow-xl"
       />
     </button>
   );
-} 
+}
