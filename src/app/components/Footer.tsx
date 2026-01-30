@@ -394,7 +394,6 @@ export default function Footer() {
               </div>
               <div className="">
                 {/* <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer's All rights reserved</p> */}
-                <a className="hover:text-orange-400 text-white text-[14px]" href="https://www.Najah.io" target="_blank" rel="noopener noreferrer">Developed By @Najah media </a>
               </div>
             </div>
           </div>
