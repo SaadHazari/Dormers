@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-// import Image from 'next/image';
 import { FaInstagram, FaFacebook } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -36,13 +35,11 @@ export default function Footer() {
     if (isHomeHash) {
       const hash = href.split("#")[1];
       if (window.location.pathname === "/home") {
-        // If already on home page, just scroll
         const element = document.querySelector(`#${hash}`);
         if (element) {
           element.scrollIntoView({ behavior: "smooth" });
         }
       } else {
-        // If not on home page, navigate and then scroll
         router.push(href);
       }
     } else {
@@ -52,6 +49,7 @@ export default function Footer() {
 
   return (
     <>
+      {/* MOBILE FOOTER */}
       <footer
         className={`${theme === "light"
           ? "bg-[#031624] text-[#1E3A4F]"
@@ -191,8 +189,9 @@ export default function Footer() {
                 Privacy Policy
               </Link>
             </div>
+            {/* UPDATED: Centered the mobile copyright */}
             <div className="mt-2">
-              <div className="flex flex-row justify-between">
+              <div className="flex flex-row justify-center">
                 <p className="text-white text-[10px]">
                   © {new Date().getFullYear()} Dormer&apos;s All rights reserved
                 </p>
@@ -201,6 +200,8 @@ export default function Footer() {
           </div>
         </div>
       </footer>
+
+      {/* DESKTOP FOOTER */}
       <footer
         className={`${theme === "light"
           ? "bg-[#031624] text-[#1E3A4F]"
@@ -213,9 +214,7 @@ export default function Footer() {
               <div className="flex justify-between">
                 <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
                   <Image
-                    src={
-                      theme === "light" ? "/logo-dark.svg" : "/logo-dark.svg"
-                    }
+                    src={"/logo-dark.svg"}
                     alt="Dormer's Logo"
                     fill
                     className="object-contain"
@@ -262,10 +261,7 @@ export default function Footer() {
                   </h3>
                   <div className="flex flex-col gap-[16px]">
                     <div className="flex gap-[28px]">
-                      <p
-                        className={`location_footer_desktop ${theme === "light" ? " text-white" : "text-white"
-                          }`}
-                      >
+                      <p className={`location_footer_desktop text-white`}>
                         The Myriad
                       </p>
                       <p className={`location_footer_desktop text-white`}>
@@ -366,8 +362,10 @@ export default function Footer() {
           }}
         >
           <div className="lg:max-w-[987px]  mx-auto">
-            <div className="flex justify-between">
-              <div className="flex gap-[54px]">
+            {/* UPDATED: Changed to Grid for perfect centering */}
+            <div className="grid grid-cols-3 items-center">
+              {/* Left Column: Links */}
+              <div className="flex gap-[54px] justify-self-start">
                 <Link
                   href="/cookies-policy"
                   className="hover:text-orange-400 text-white text-[14px]"
@@ -387,12 +385,14 @@ export default function Footer() {
                   Privacy Policy
                 </Link>
               </div>
-              <div className="">
+
+              {/* Center Column: Copyright */}
+              <div className="justify-self-center whitespace-nowrap">
                 <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer&apos;s All rights reserved</p>
-                
               </div>
-              <div className="">
-                {/* <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer's All rights reserved</p> */}
+
+              {/* Right Column: Empty (Used for balance) */}
+              <div className="justify-self-end">
               </div>
             </div>
           </div>
