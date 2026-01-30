@@ -171,11 +171,13 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             >
               <span className="text-xl">☺</span>
             </button>
+            {/* UPDATED: Increased button size to w-10 h-10 (40px) */}
             <button
-              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors"
               onClick={handleSend}
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
+              {/* UPDATED: Increased icon size to w-6 h-6 */}
+              <svg viewBox="0 0 24 24" className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </button>
@@ -184,4 +186,4 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
       </div>
     </div>
   );
-} 
+}
