@@ -7,7 +7,7 @@ interface ChatWindowProps {
   onClose: () => void;
 }
 
-// 1. Define the shape of a message so we know who sent it
+// 1. Define a type so we know who sent the message
 type Message = {
   text: string;
   isUser: boolean;
@@ -17,7 +17,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
   
-  // 2. State now holds Objects (text + isUser) instead of just strings
+  // 2. Update state to store Objects instead of just Strings
   const [messages, setMessages] = useState<Message[]>([]);
   
   const [chatStep, setChatStep] = useState<'idle' | 'awaiting_name' | 'awaiting_email' | 'awaiting_phone' | 'done'>('idle');
@@ -25,7 +25,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
   useEffect(() => {
     if (isOpen) {
-      // Reset Chat: Initial message from Bot (isUser: false)
+      // Reset with the initial Bot message
       setMessages([
         { text: 'Bro, I\'m tired of instant noodles. Hook me up with Dormer\'s—real food, no stress! 🍛🔥', isUser: false }
       ]);
@@ -40,12 +40,13 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
     const trimmed = message.trim();
     if (!trimmed) return;
 
-    // 3. User Message -> Orange (isUser: true)
+    // 3. Add USER message (Orange)
     setMessages(prev => [...prev, { text: trimmed, isUser: true }]);
 
-    // Chatbot Logic
+    // Chatbot logic
     if (chatStep === 'idle' && (/^hi$/i.test(trimmed) || /^hello$/i.test(trimmed))) {
       setTimeout(() => {
+        // Bot message (Cream)
         setMessages(prev => [...prev, { text: 'Hey there! 👋 What\'s your name?', isUser: false }]);
       }, 500);
       setChatStep('awaiting_name');
@@ -92,6 +93,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
+              {/* Simple SVG Avatar */}
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="14" cy="14" r="14" fill="#FFB300" />
                 <ellipse cx="14" cy="11" rx="5" ry="5" fill="#fff" />
@@ -125,11 +127,11 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
-              // 4. DYNAMIC STYLING: Orange for User, Cream for Bot
+              // 4. Conditional Styling based on who sent it
               className={`px-4 py-2 rounded-xl max-w-[85%] w-fit ${
                 msg.isUser 
-                  ? "bg-[#FF7F00] text-white self-end rounded-tr-none" // User: Orange, Right aligned
-                  : "bg-[#EEE9DA] text-[#1E3A4F] self-start rounded-tl-none" // Bot: Cream, Left aligned
+                  ? "bg-[#FF7F00] text-white self-end rounded-tr-none" // Orange, Right Side
+                  : "bg-[#EEE9DA] text-[#1E3A4F] self-start rounded-tl-none" // Cream, Left Side
               }`}
               style={{
                 fontFamily: "Montserrat, sans-serif",
@@ -141,7 +143,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             </div>
           ))}
           
-          {/* Summary Card */}
+          {/* User Details Summary Card */}
           {chatStep === 'done' && (
             <div className="bg-[#FF6B00]/20 border border-[#FF6B00] text-white px-4 py-2 rounded-xl w-full mt-2 text-sm self-center">
               <div><b>Name:</b> {userDetails.name || '-'}</div>
@@ -153,6 +155,7 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
         {/* Chat Input */}
         <div className="p-4 border-t border-gray-700">
+          {/* Emoji Panel */}
           {showEmojis && (
             <div className="absolute bottom-[80px] left-4 bg-white rounded-lg p-2 shadow-lg">
               <div className="grid grid-cols-6 gap-2">
@@ -194,10 +197,10 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
               <span className="text-xl">☺</span>
             </button>
             <button
-              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors"
+              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
               onClick={handleSend}
             >
-              <svg viewBox="0 0 24 24" className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </button>
