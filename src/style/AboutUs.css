@@ -1,0 +1,344 @@
+@import url("https://fonts.cdnfonts.com/css/typo-round");
+@media (min-width: 768px) {
+  .container_aboutUs_box {
+    max-width: 987px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .ourvalues-para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 167%;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    max-width: 406px;
+  }
+  .OurValues_headingtitle {
+    color: #fff;
+    font-family: "Typo Round Bold Demo";
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .OurVisionAboutUs_title {
+    color: #1e3a4f;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurmissionAboutUs_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurVisionAboutUs_para {
+    /* color: #373737; */
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 19px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .OurmissionAboutUs_para {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 19px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .menu-heading_icon {
+    color: #fff;
+    text-align: center;
+    font-family: "Montserrat", sans-serif;
+    font-size: 30px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .currentdish_name_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 36px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+    max-width: 585px;
+  }
+  .currentDish_paramenu {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 300;
+    line-height: normal;
+    max-width: 417px;
+  }
+  .buttonNutrition_info {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 17px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .selectboxmenuweekwise {
+    border-radius: 23px;
+    background: #eee9da;
+    width: 125.464px;
+    height: 36px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 12px;
+  }
+  .curtleheightfaq {
+    height: 279px;
+  }
+  .aboutUsocntianercustle {
+    padding-top: 24px;
+  }
+  .curtleLightheight {
+    height: 212px;
+  }
+  .aboutUsocntianercustlelight {
+    padding-top: 24px;
+  }
+  .MenuCardBoxConatiner {
+    border-radius: 55px;
+    background: #1e3a4f;
+    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
+    padding: 34px;
+  }
+  .MenuCardBoxConatinerlight {
+    border-radius: 55px;
+    background: #1e3a4f;
+    /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
+    padding: 34px;
+  }
+
+  /* .custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #f5f2e9;
+    color: #1e3a4f;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 13px 35px 13px 13px;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .custom-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
+  } */
+  .select-wrapper {
+    position: relative;
+    /* display: inline-block; */
+    font-family: "Montserrat", sans-serif;
+    min-width: 126px;
+  }
+
+  .custom-select {
+    appearance: none;
+    background-color: #f5f2e9;
+    color: #1e3a4f;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    padding: 10px 17px;
+    border-radius: 9999px;
+    border: 1px solid rgba(30, 58, 79, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0px;
+  }
+
+  .custom-select:hover {
+    border-color: rgba(30, 58, 79, 0.3);
+  }
+
+  .custom-select:focus {
+    outline: none;
+    border-color: rgba(30, 58, 79, 0.5);
+    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.1);
+  }
+
+  /* For the dropdown options */
+  .select-wrapper ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #1e3a4f;
+  }
+  .BoxContainer_FAQBOX {
+    border-radius: 0 0 70px 70px;
+    background: #1e3a4f;
+    box-shadow: 0 14px 48.8px #00000096;
+  }
+}
+
+@media (max-width: 768px) {
+  .ourvalues-para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 167%;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    max-width: 406px;
+  }
+  .OurValues_headingtitle {
+    color: #fff;
+    font-family: "Typo Round Bold Demo";
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+  .OurVisionAboutUs_title {
+    color: #1e3a4f;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurmissionAboutUs_title {
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 16px; /* 44.444% */
+  }
+  .OurVisionAboutUs_para {
+    color: #373737;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .OurmissionAboutUs_para {
+    color: #fff;
+    text-align: justify;
+    font-family: "Montserrat", sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 16px;
+  }
+  .buttonNutrition_info {
+    font-size: 8px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600;
+  }
+  .curtleheightfaq {
+    height: 334px;
+  }
+  .aboutUsocntianercustle {
+    padding-top: 24px;
+  }
+  .curtleLightheight {
+    height: 286px;
+  }
+  .aboutUsocntianercustlelight {
+    padding-top: 24px;
+  }
+  .OurMissionCard {
+    height: 272px;
+  }
+  .OurvisionCard {
+    height: 212px;
+  }
+  .MenuCardBoxConatiner {
+    border-radius: 6px;
+    background: #1e3a4f;
+    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
+    padding: 13px;
+  }
+  .MenuCardBoxConatinerlight {
+    border-radius: 6px;
+    background: #1e3a4f;
+    /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
+    padding: 13px;
+  }
+  .select-wrapper {
+    position: relative;
+    /* display: inline-block; */
+    font-family: "Montserrat", sans-serif;
+  }
+
+  .custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #f5f2e9;
+    color: #1e3a4f;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 8px;
+    padding: 6px 19px 4px 10px;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .custom-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
+  }
+  .BoxContainer_FAQBOX {
+    border-radius: 0px 0px 20px 20px;
+    background: #1e3a4f;
+    box-shadow: 0px 14px 14.7px 0px rgba(0, 0, 0, 0.59);
+  }
+}
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.5); /* Tailwind gray-500 */
+  border-radius: 9999px;
+}
+
+.custom-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.8); /* darker on hover */
+}
+
+.custom-scroll {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
+}

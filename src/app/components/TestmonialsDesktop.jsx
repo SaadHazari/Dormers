@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+"use client";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 // import Image from "next/image";
-import { useSwipeable } from "react-swipeable";
 
 const messages =
   [
@@ -153,7 +153,7 @@ const messages =
       "city": "Yugo",
       "text": "...and Ive tried a few meal plans before but nothing compares to this..."
     },
-    {
+     {
       "id": 22,
       "from": "user",
       "name": "Jessica Dsouza",
@@ -223,136 +223,93 @@ const messages =
       "city": "Yugo",
       "text": "Damn, you guys are way better than the other meal plans. Hats off!!!"
     }
-
   ]
 
-export default function TestimonialsBubbles() {
+const TestimonialsDesktop = () => {
   const { theme } = useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const groupedMessages = useMemo(() => {
     const result = [];
-    for (let i = 0; i < messages.length; i += 2) {
-      result.push(messages.slice(i, i + 2));
+    for (let i = 0; i < messages.length; i += 3) {
+      result.push(messages.slice(i, i + 3));
     }
     return result;
   }, []);
 
-  // Pause and resume logic
-  const pauseAutoScroll = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
-    setIsPaused(true);
-  };
-
-  const resumeAutoScroll = () => {
-    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
-    resumeTimeoutRef.current = setTimeout(() => {
-      setIsPaused(false);
-    }, 8000); // resume after 5 seconds of inactivity
-  };
-
-  // Auto scroll effect
   useEffect(() => {
-    if (!isPaused) {
-      intervalRef.current = setInterval(() => {
-        setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
-      }, 8000);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [groupedMessages.length, isPaused]);
+    if (isHovered) return; // Don't run interval when hovered
 
-  // Manual dot click
-  const handleDotClick = (index: number) => {
-    pauseAutoScroll();
-    resumeAutoScroll();
-    setCurrentGroup(index);
-  };
-
-  // Swipe controls
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => {
-      pauseAutoScroll();
-      resumeAutoScroll();
+    const interval = setInterval(() => {
       setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
-    },
-    onSwipedRight: () => {
-      pauseAutoScroll();
-      resumeAutoScroll();
-      setCurrentGroup((prev) =>
-        prev === 0 ? groupedMessages.length - 1 : prev - 1
-      );
-    },
-    trackTouch: true,
-    trackMouse: true,
-    preventScrollOnSwipe: true,
-    delta: 50,
-  });
+    }, 5000);
 
+    return () => clearInterval(interval);
+  }, [groupedMessages.length, isHovered]);
+
+  const positions = ["top-0 left-0", "top-10 right-0", "bottom-0 left-1/3"];
+  const handleDotClick = (index) => setCurrentGroup(index);
   return (
-    <div
-      className="relative bg-[#031624] pt-[20px] pb-0 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)] touch-pan-y"
-      {...swipeHandlers}
-      onTouchStart={pauseAutoScroll}
-      onTouchEnd={resumeAutoScroll}
-      onMouseEnter={pauseAutoScroll}
-      onMouseLeave={resumeAutoScroll}
-    >
-      <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center h-[23rem]">
-        <AnimatePresence mode="wait">
-          {groupedMessages[currentGroup].map((msg) => (
-            <motion.div
-              key={`${msg.id}-${currentGroup}`}
-              initial={{ opacity: 0, x: msg.from === "user" ? 100 : -100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: msg.from === "user" ? -100 : 100 }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
-              className={`max-w-[250px] p-4 rounded-2xl ${theme === "light"
-                ? "bg-[#1E3A4F] text-white"
-                : "bg-[#EEE9DA] text-[#1E3A4F]"
-                } ${msg.from === "user" ? "self-end mr-4" : "self-start ml-4"
-                } relative`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#1E3A4F] flex items-center justify-center text-white text-xs font-bold uppercase">
-                    {msg.name?.charAt(0)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold">{msg.name}</span>
-                    <span className="text-xs font-normal">{msg.city}</span>
-                  </div>
-                </div>
-              </div>
+    <div>
+      <div className="w-full py-12 flex justify-center bg-[#031624]">
+        <div className="relative max-w-[987px] w-full h-[340px] overflow-hidden"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <AnimatePresence mode="wait">
+            {groupedMessages[currentGroup].map((msg, index) => {
+              const position = positions[index % positions.length];
+              const isLight = theme === "light";
 
-              <p
-                className="text-sm font-medium"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 600,
-                  lineHeight: "120%",
-                }}
-              >
-                {msg.text}
-              </p>
-
-              <div
-                className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"
-                  } w-4 h-4 transform rotate-45 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  }`}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              return (
+                <motion.div
+                  key={currentGroup}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.6 }}
+                  className="absolute inset-5"
+                >
+                  <div
+                    key={msg.id}
+                    className={`absolute ${position} ${isLight ? "bg-[#EEE9DA]" : "bg-[#F4F1EC]"
+                      } rounded-lg p-4 shadow-lg max-w-[280px]`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="bg-[#1e3b50] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">
+                        {msg.name[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-black">
+                          {msg.name}
+                        </p>
+                        <p className="text-xs font-normal text-[#686766]">{msg.city}</p> </div>
+                    </div>
+                    <p
+                      className="text-sm text-gray-800 font-medium"
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 600,
+                        lineHeight: "120%",
+                      }}
+                    >
+                      {msg.text}
+                    </p>
+                    <div
+                      className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"
+                        } w-4 h-4 transform rotate-45 ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#EEE9DA]"
+                        }`}
+                    />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
       </div>
-
       <div className="flex justify-center mt-6 gap-2">
-        {groupedMessages.slice(0, 5).map((_, index) => (
+        {groupedMessages.map((_, index) => (
           <button
             key={index}
             onClick={() => handleDotClick(index)}
@@ -365,4 +322,6 @@ export default function TestimonialsBubbles() {
       </div>
     </div>
   );
-}
+};
+
+export default TestimonialsDesktop;

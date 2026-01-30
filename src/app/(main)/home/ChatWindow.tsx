@@ -71,32 +71,35 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1E3A4F] rounded-2xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 z-50 p-4">
+      <div className="absolute top-[60%] left-1/2  transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px]">
         {/* Chat Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
               {/* Simple SVG Avatar */}
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="14" cy="14" r="14" fill="#FFB300"/>
-                <ellipse cx="14" cy="11" rx="5" ry="5" fill="#fff"/>
-                <ellipse cx="14" cy="21" rx="7" ry="4" fill="#fff"/>
-                <circle cx="12" cy="11" r="1" fill="#222"/>
-                <circle cx="16" cy="11" r="1" fill="#222"/>
-                <path d="M12 15 Q14 17 16 15" stroke="#222" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                <circle cx="14" cy="14" r="14" fill="#FFB300" />
+                <ellipse cx="14" cy="11" rx="5" ry="5" fill="#fff" />
+                <ellipse cx="14" cy="21" rx="7" ry="4" fill="#fff" />
+                <circle cx="12" cy="11" r="1" fill="#222" />
+                <circle cx="16" cy="11" r="1" fill="#222" />
+                <path d="M12 15 Q14 17 16 15" stroke="#222" strokeWidth="1.2" fill="none" strokeLinecap="round" />
               </svg>
             </div>
             <span className="text-white font-medium"
-            style={{
-      fontFamily: "Typo Round Bold Demo , sans-serif",
-      fontWeight: 700,
-      lineHeight: "100%",
-      letterSpacing: "0.5px",
-    }}>Welcome to Live chat!</span>
+              style={{
+                fontFamily: "Typo Round Bold Demo , sans-serif",
+                fontWeight: 700,
+                lineHeight: "100%",
+                letterSpacing: "0.5px",
+              }}>Welcome to Live chat!</span>
           </div>
-          <button 
-            onClick={onClose}
+          <button
+            onClick={() => {
+              onClose(); // existing close logic
+              window.dispatchEvent(new CustomEvent('close-chat')); // tell ChatButton to show again
+            }}
             className="text-white hover:opacity-75"
           >
             <span className="text-2xl">×</span>
@@ -104,15 +107,15 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         </div>
 
         {/* Chat Messages Area */}
-        <div className="h-[400px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
+        <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
           {messages.map((msg, idx) => (
-            <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl w-fit max-w-full"
-            style={{
-      fontFamily: "Montserrat, sans-serif",
-      fontWeight: 700,
-      lineHeight: "100%",
-      letterSpacing: "0",
-    }}>
+            <div key={idx} className="bg-[#EEE9DA] text-[#1E3A4F] px-4 py-2 rounded-xl max-w-full w-full"
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 700,
+                lineHeight: "normal",
+                letterSpacing: "0",
+              }}>
               {msg}
             </div>
           ))}
@@ -146,34 +149,34 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
               </div>
             </div>
           )}
-          
-          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2">
+
+          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 w-[308px] md:w-full">
             <input
               type="text"
               placeholder="Please write your message and press the send button"
-              className="flex-1 outline-none text-sm text-gray-800 placeholder-gray-500"
+              className="flex-1 max-w-[198px] md:max-w-full outline-none text-sm text-gray-800 placeholder-gray-500"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
               style={{
-      fontFamily: "Poppins, sans-serif",
-      fontWeight: 400,
-      lineHeight: "100%",
-      letterSpacing: "0.5px",
-    }}
+                fontFamily: "Poppins, sans-serif",
+                fontWeight: 400,
+                lineHeight: "100%",
+                letterSpacing: "0.5px",
+              }}
             />
-            <button 
+            <button
               onClick={() => setShowEmojis(!showEmojis)}
               className="text-gray-400 hover:text-gray-600 p-1"
             >
               <span className="text-xl">☺</span>
             </button>
-            <button 
+            <button
               className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
               onClick={handleSend}
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
+                <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </button>
           </div>

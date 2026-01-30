@@ -3,6 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Box, Modal } from "@mui/material";
+import { useTheme } from "next-themes";
+import CustomSelect from "@/app/components/CustomSelect";
+import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
+import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
+import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
+import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
+import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
+import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 // interface Nutrient {
 //   name: string;
@@ -36,7 +44,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
-    image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
+    // image: "/images/Week1/NonVeg/Chicken_Afghani_Yello_Rice.jpg",
+    image: ChickenAfghani,
     isVeg: false,
     dayOfWeek: 0, // Monday
     nutrients: {
@@ -59,7 +68,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
-    image: "/images/Week1/NonVeg/dormers chicken with zeera rice.jpg",
+    // image: "/images/Week1/NonVeg/Dormers_chicken_with zeera_rice.jpg",
+    image: DormersChicken,
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -82,7 +92,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
-    image: "/images/Week1/NonVeg/Peri peri chicken.jpg",
+    // image: "/images/Week1/NonVeg/Peri_peri_chicken.jpg",
+    image: PeriPeri,
     isVeg: false,
     dayOfWeek: 2, // Wednesday
     nutrients: {
@@ -105,7 +116,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
-    image: "/images/Week1/NonVeg/Meatballs_Mashed_Potatoes_Mushroom_sauce.jpg",
+    // image: "/images/Week1/NonVeg/MeatballsMashe.jpg",
+    image: Meatballs,
     isVeg: false,
     dayOfWeek: 3, // Thursday
     nutrients: {
@@ -128,7 +140,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
-    image: "/images/Week1/NonVeg/Chicken Fried Rice.jpg",
+    // image: "/images/Week1/NonVeg/ChickenFried.jpg",
+    image: ChickenFried,
     isVeg: false,
     dayOfWeek: 4, // Friday
     nutrients: {
@@ -151,7 +164,8 @@ const MENU_DATA = [
     week: "week1",
     description:
       "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
-    image: "/images/Week1/NonVeg/Chicken_Biryani_2.jpg",
+    // image: "/images/Week1/NonVeg/ChickenBiryani.jpg",
+    image: ChickenBiryani,
     isVeg: false,
     dayOfWeek: 5, // Saturday
     nutrients: {
@@ -339,7 +353,7 @@ const MENU_DATA = [
     week: "week2",
     description:
       "Juicy, marinated chicken simmered in a creamy, spiced tomato gravy, served with fluffy peas & carrots rice.",
-    image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.jpg",
+    image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.png",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
     nutrients: {
@@ -408,7 +422,7 @@ const MENU_DATA = [
     week: "week2",
     description:
       "Creamy, coconut-infused rice paired with crispy, golden fried chicken for a perfect blend of flavors.",
-    image: "/images/Week2/NonVeg/African coconut rice with fried chicken.jpg",
+    image: "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
     nutrients: {
@@ -1131,7 +1145,7 @@ const MENU_DATA = [
     week: "week4",
     description:
       "Classic Italian spaghetti tossed in a fresh tomato sauce, topped with tender grilled paneer.",
-      image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
+    image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
     nutrients: {
@@ -1151,31 +1165,28 @@ const MENU_DATA = [
 ];
 
 export default function Menu() {
+  const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(() => {
     const day = new Date().getDay();
     return day === 0 ? null : day - 1;
   });
+  // const [selectedDay, setSelectedDay] = useState<number>(() =>
+  //   new Date().getDay() - 1
+  // );
   const [, setShowNutritionHint] = useState(false);
   // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
-
-  // Filter dishes based on veg/non-veg selection
-  // const availableDishes = MENU_DATA.filter((dish) => dish.isVeg === isVegOnly);
-
-  // // Get current dish based on selected day
-  // const currentDish =
-  //   selectedDay !== null
-  //     ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay)
-  //     : null;
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
 
   const currentDish =
     selectedDay !== null
-      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay)
+      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[availableDishes.length - 1] || null
       : null;
+
+
   // Show nutrition hint when day is selected
   useEffect(() => {
     if (selectedDay !== null) {
@@ -1184,11 +1195,6 @@ export default function Menu() {
       return () => clearTimeout(timer);
     }
   }, [selectedDay]);
-
-  // Reset flip state when changing days or diet type
-  // useEffect(() => {
-  //   setIsFlipped(false);
-  // }, [selectedDay, isVegOnly]);
 
   const [isFlipped, setIsFlipped] = useState(false);
   // const modalRef = useRef(null);
@@ -1216,15 +1222,21 @@ export default function Menu() {
     left: "50%",
     transform: "translate(-50%, -50%)",
   };
+  // console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay - 1), "selected day");
+
 
   return (
     <>
-      <div className="bg-[#1E3A4F] w-full py-8">
+      <div
+        className={`relative w-full py-[24px] lg:py-[40px]  ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          } overflow-hidden`}
+      >
         <div className="container mx-auto px-4">
           {/* Menu Header */}
-          <div className="mb-5 mt-0 flex items-center justify-between max-w-4xl mx-auto">
+          <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[987px] mx-auto">
             <h2
-              className="text-white text-[32px] font-medium"
+              className={` text-[32px] font-medium lg:hidden block  ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
@@ -1235,67 +1247,89 @@ export default function Menu() {
             >
               MENU
             </h2>
-
-            {/* Diet Toggle */}
-            {/* <button
-              onClick={() => {
-                setIsVegOnly((v) => !v);
-                setSelectedDay(new Date().getDay());
-              }}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none bg-transparent border-2 border-white"
-              aria-label="Toggle veg/non-veg"
+            <h2
+              className={`menu-heading_icon lg:block hidden  ${theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
+                }`}
             >
-              <span className="sr-only">Toggle veg/non-veg</span>
-              <div
-                className={`${
-                  isVegOnly ? "translate-x-7" : "translate-x-1"
-                } inline-block h-3 w-3 transform rounded-full transition-transform duration-200 ease-in-out bg-white`}
-              >
-                <span className="absolute inset-0 flex items-center justify-center text-xs text-[#1E3A4F]">
-                  {isVegOnly ? "🥬" : "🍖"}
-                </span>
-              </div>
-            </button> */}
+              MENU
+            </h2>
             <button
               onClick={() => {
                 setIsVegOnly((v) => !v);
                 const jsDay = new Date().getDay();
+              
                 setSelectedDay(jsDay === 0 ? null : jsDay - 1);
               }}
-              className="relative w-15 h-7 rounded-full border-2 border-white flex items-center bg-transparent transition-colors duration-300 px-1"
+              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden 
+    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
               aria-label="Toggle veg/non-veg"
             >
               <span className="sr-only">Toggle veg/non-veg</span>
 
               {/* Toggle knob */}
               <div
-                className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full bg-[#FAF6EB] shadow-md flex items-center justify-center transition-transform duration-300
+                className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full  shadow-md flex items-center justify-center transition-transform duration-300
       ${isVegOnly ? "translate-x-7" : "translate-x-0"}
+       ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB] "}
     `}
               >
-                <span className="text-[16px]">{isVegOnly ? "🥬" : "🍖"}</span>
+                <span className="text-[16px]">
+                  {isVegOnly ? (
+                    <img
+                      src="/images/VegIcon.svg"
+                      className="w-[16px]"
+                      alt=""
+                    />
+                  ) : (
+                    <img src="/images/NonVeg.svg" className="w-[16px]" alt="" />
+                  )}
+                </span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsVegOnly((v) => !v);
+                const jsDay = new Date().getDay();
+                // setSelectedDay(jsDay);
+                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+              }}
+              className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
+    lg:flex lg:h-[43px] lg:w-[90px]
+    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+              aria-label="Toggle veg/non-veg"
+            >
+              {/* Toggle knob */}
+              <div
+                className={`absolute top-[4px] left-[4px] h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
+      ${isVegOnly ? "translate-x-[45px]" : "translate-x-0"}
+      ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
+              >
+                <img
+                  src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
+                  className="w-[20px] h-[20px]"
+                  alt=""
+                />
               </div>
             </button>
           </div>
 
           {/* Menu Card */}
-          <div className="max-w-4xl mx-auto">
+          <div className="lg:max-w-[987px] mx-auto">
             <div
-              className="bg-[#1E3A4F] rounded-xl p-5 perspective-1000"
-              style={{
-                boxShadow: "0px 0px 24.2px 1px #000000B5",
-              }}
+              className={`bg-[#1E3A4F] perspective-1000 ${theme === "light"
+                ? "MenuCardBoxConatinerlight"
+                : "MenuCardBoxConatiner"
+                }`}
             >
               {currentDish ? (
                 <div
-                  className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${
-                    isFlipped ? "" : ""
-                  }`}
+                  className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${isFlipped ? "" : ""
+                    }`}
                 >
-                  {/* Front of Card */}
                   <div>
                     <div className="flex justify-between">
-                      <div className="flex justify-center gap-1 mb-3">
+                      <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
                         {[
                           // { day: "S", index: 0 },
                           { day: "M", index: 0 },
@@ -1308,123 +1342,32 @@ export default function Menu() {
                           <button
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
-                            className={`w-4 h-4 mt-2 rounded-full border flex items-center justify-center text-[12px] font-bold transition-colors ${
-                              selectedDay === item.index
-                                ? "bg-white text-[#1E3A4F] border-white"
-                                : "bg-transparent text-white border-white hover:bg-white/20"
-                            }`}
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${selectedDay === item.index
+                              ? "bg-white text-[#1E3A4F] border-white"
+                              : "bg-transparent text-white border-white hover:bg-white/20"
+                              }`}
                             style={{
                               fontFamily: "Montserrat",
                               lineHeight: "100%",
-                              fontSize: "7px",
                             }}
                           >
                             {item.day}
                           </button>
                         ))}
                       </div>
-                      <div className="">
+                      <div className="select-wrapper relative md:hidden block">
                         <select
-                          value={selectedWeek}
+                          className="custom-select"
                           onChange={(e) => setSelectedWeek(e.target.value)}
-                          className="bg-white text-[#1E3A4F] font-medium rounded-full  py-1 text-[8px] cursor-pointer focus:outline-none border-r-4 border-transparent uppercase"
                         >
                           <option value="week1">Week One</option>
                           <option value="week2">Week Two</option>
                           <option value="week3">Week Three</option>
                           <option value="week4">Week Four</option>
                         </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      {/* Dish Image */}
-                      <div className="relative w-35 h-[130px] rounded-2xl overflow-hidden bg-[#EEE9DA]">
-                        <Image
-                          src={currentDish.image}
-                          alt={currentDish.name}
-                          fill
-                          className="object-cover rounded-2xl"
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col  min-w-0 overflow-visible">
-                        <h3
-                          className="text-white text-base font-bold uppercase mb-1 break-words "
-                          style={{
-                            fontFamily: "Montserrat",
-                            fontWeight: 700,
-                            lineHeight: "130%",
-                            fontSize: "13px",
-                          }}
-                        >
-                          {currentDish.name}
-                        </h3>
-
-                        <p
-                          className="text-white text-xs mb-2 mt-2"
-                          style={{
-                            fontFamily: "Poppins",
-                            fontWeight: 300,
-                            fontSize: "12px",
-                            lineHeight: "130%",
-                          }}
-                        >
-                          {currentDish.description}
-                        </p>
-
-                        {/* <button
-                        onClick={() => setIsFlipped(!isFlipped)}
-                        className={`flex items-center gap-1 text-white/80 text-xs transition-opacity ${
-                          showNutritionHint ? "animate-pulse" : ""
-                        }`}
-                      >
-                        <span
-                          style={{
-                            fontFamily: "Montserrat",
-                            fontWeight: 600,
-                            fontSize: "8px",
-                          }}
-                          className="mt-1"
-                        >
-                          Nutrition Info
-                        </span>
-                        <svg
-                          className={`w-3 h-3 mt-1 transform transition-transform ${
-                            showNutritionHint ? "animate-bounce" : ""
-                          }`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M6 9l6 6 6-6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button> */}
-
-                        <button
-                          onClick={() => setIsFlipped(true)}
-                          className={`flex items-center gap-1 text-white/80 text-xs transition-opacity ${
-                            isFlipped ? "animate-pulse" : ""
-                          }`}
-                        >
-                          <span
-                            style={{
-                              fontFamily: "Montserrat",
-                              fontWeight: 600,
-                              fontSize: "8px",
-                            }}
-                            className="mt-1"
-                          >
-                            Nutrition Info
-                          </span>
+                        <span>
                           <svg
-                            className={`w-3 h-3 mt-1 transform transition-transform ${
-                              isFlipped ? "animate-bounce" : ""
-                            }`}
+                            className={`absolute top-[7px] right-[8px] w-4 h-4 text-[#1e3a4f] transform transition-transform`}
                             viewBox="0 0 24 24"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
@@ -1437,7 +1380,85 @@ export default function Menu() {
                               strokeLinejoin="round"
                             />
                           </svg>
-                        </button>
+                        </span>
+                      </div>
+                      <div className="md:block hidden">
+                        {" "}
+                        <CustomSelect
+                          setSelectedWeek={setSelectedWeek}
+                          selectedWeek={selectedWeek}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">
+                      {/* Dish Image */}
+                      <div className="relative w-35 h-[147px] rounded-2xl overflow-hidden bg-[#EEE9DA] lg:h-[300px] lg:w-[336px] md:rounded-[33px]">
+                        <Image
+                          src={currentDish.image}
+                          alt={currentDish.name}
+                          fill
+                          className="object-cover rounded-2xl"
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col  min-w-0 overflow-visible">
+                        <h3
+                          className="text-white text-base font-bold uppercase mb-1 break-words lg:hidden block"
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 700,
+                            lineHeight: "130%",
+                            fontSize: "13px",
+                          }}
+                        >
+                          {currentDish.name}
+                        </h3>
+                        <p
+                          className="text-white text-xs mb-2 mt-2 lg:hidden block"
+                          style={{
+                            fontFamily: "Poppins",
+                            fontWeight: 300,
+                            fontSize: "12px",
+                            lineHeight: "130%",
+                          }}
+                        >
+                          {currentDish.description}
+                        </p>
+                        <div className="flex flex-col h-full justify-between">
+                          <div>
+                            <h3 className="currentdish_name_title lg:block hidden">
+                              {currentDish.name}
+                            </h3>
+
+                            <p className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden">
+                              {currentDish.description}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => setIsFlipped(true)}
+                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${isFlipped ? "animate-pulse" : ""
+                              }`}
+                          >
+                            <span className="mt-1 buttonNutrition_info">
+                              Nutrition Info
+                            </span>
+                            <svg
+                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${isFlipped ? "animate-bounce" : ""
+                                }`}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M6 9l6 6 6-6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1451,7 +1472,7 @@ export default function Menu() {
                   >
                     <Box sx={style}>
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white mmd:max-w-[420px] lg:max-w-[500px]  max-h-[90vh] overflow-y-auto w-[358px]">
+                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white md:max-w-[420px] lg:max-w-[700px] lg:w-[700px]  max-h-[90vh] overflow-y-auto w-[358px]">
                           {/* Modal Header */}
                           <div className="flex justify-between items-start mb-6">
                             <h3
@@ -1550,14 +1571,15 @@ export default function Menu() {
                 </div>
               ) : (
                 <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
-                  <div className="relative h-[280px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
+                  <div className="relative h-[280px] md:h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
                     <p className="text-white/60 text-center px-4">
-                      Select a day to view the menu
+                      Menu service is closed on Sundays.
                     </p>
                   </div>
                   <div className="flex-grow flex items-center justify-center">
                     <p className="text-white/60 text-center">
-                      Select a day to view the menu details
+                      Please check back tomorrow. We serve menus from Monday to
+                      Saturday.
                     </p>
                   </div>
                 </div>

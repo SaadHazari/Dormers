@@ -10,6 +10,9 @@ import FormModal from "@/app/components/FormModal";
 import OrderForm from "@/app/components/OrderForm";
 import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
+import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
+import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
+import CurtleAboutUs from "@/app/components/CurtleAboutUs";
 
 interface FAQ {
   id: number;
@@ -37,6 +40,7 @@ export default function Home() {
   // const lastScrollY = useRef(0);
 
   // Check if device is mobile
+  const [hasUserScrolled, setHasUserScrolled] = useState(false);
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -52,6 +56,35 @@ export default function Home() {
     window.addEventListener("open-chat", handleChatOpen);
     return () => window.removeEventListener("open-chat", handleChatOpen);
   }, []);
+  useEffect(() => {
+    const handleScroll = () => {
+      setHasUserScrolled(true);
+    };
+
+    window.addEventListener("scroll", handleScroll, { once: true }); // run only once
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasUserScrolled) {
+          setIsQualifyFlipped(true);
+        }
+      },
+      {
+        threshold: 0.5,
+      }
+    );
+
+    if (qualifyCardRef.current) {
+      observer.observe(qualifyCardRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (qualifyCardRef.current) {
+        observer.unobserve(qualifyCardRef.current);
+      }
+    };
+  }, [hasUserScrolled]);
 
   // Handle scroll-based card flips on mobile
 
@@ -119,39 +152,7 @@ export default function Home() {
     };
   }, []);
 
-  // Testimonial image filenames
-  const testimonialImages = [
-    "screenshot1.jpg",
-    "screenshot2.jpg",
-    "screenshot3.png",
-    "screenshot4.png",
-    "screenshot5.png",
-    "screenshot6.png",
-    "screenshot7.png",
-    "screenshot8.png",
-    "screenshot9.png",
-    "screenshot10.png",
-    "screenshot11.png",
-    "screenshot12.png",
-    "screenshot13.png",
-    "screenshot14.png",
-    "screenshot15.png",
-    "screenshot16.png",
-    "screenshot17.png",
-    "screenshot18.png",
-    "screenshot19.png",
-    "screenshot20.png",
-    "screenshot21.png",
-    "screenshot22.png",
-    "screenshot23.png",
-    "screenshot24.png",
-    "screenshot25.png",
-    "ss1.png",
-    "ss2.png",
-    "ss3.png",
-    "ss4.png",
-  ];
-
+ 
   const faqs: FAQ[] = [
     {
       id: 1,
@@ -265,101 +266,108 @@ export default function Home() {
     setOpenFAQ(openFAQ === id ? null : id);
   };
 
-  const renderFaqCard = (
-    faq: FAQ,
-    index: number,
-    openFAQ: number | null,
-    toggleFAQ: (id: number) => void
-    // theme: string | undefined
-  ) => {
-    const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
-    const color = colorSet[index % colorSet.length];
-    const isOpen = openFAQ === faq.id;
-    const isLight = color === "#EEE9DA";
+  // const renderFaqCard = (
+  //   faq: FAQ,
+  //   index: number,
+  //   openFAQ: number | null,
+  //   toggleFAQ: (id: number) => void
+  //   // theme: string | undefined
+  // ) => {
+  //   // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
+  //   // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
+  //   const colorSet =
+  //     theme === "light"
+  //       ? ["#1E3A4F", "#FF8A00", "#0A1B26"]
+  //       : ["#EEE9DA", "#FF8A00", "#0A1B26"];
 
-    return (
-      <div
-        key={faq.id}
-        className="rounded-xl overflow-hidden transition-all duration-300 w-[90%] mx-auto"
-        style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
-      >
-        <button
-          onClick={() => toggleFAQ(faq.id)}
-          className="w-full px-6 py-4 flex items-center justify-between text-left"
-        >
-          <span
-            className={`font-bold text-base sm:text-lg ${
-              isOpen
-                ? "text-[#22394A]"
-                : isLight
-                ? "text-[#22394A]"
-                : "text-white"
-            }`}
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-              fontWeight: 600,
-              fontSize: "14px",
-            }}
-          >
-            {faq.question}
-          </span>
-          <span
-            className={`text-xl font-bold ${
-              isOpen
-                ? "text-[#22394A]"
-                : isLight
-                ? "text-[#22394A]"
-                : "text-white"
-            }`}
-          >
-            {isOpen ? "−" : "+"}
-          </span>
-        </button>
+  //   const color = colorSet[index % colorSet.length];
+  //   const isOpen = openFAQ === faq.id;
+  //   const isLight = color === "#EEE9DA";
 
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="px-6 pb-4"
-            >
-              <div
-                className="text-[#22394A]"
-                style={{
-                  fontFamily: "Poppins, sans-serif",
-                  fontWeight: 300,
-                  lineHeight: "130%",
-                  letterSpacing: "0.5px",
-                  fontSize: "12px",
-                }}
-              >
-                {faq.answer}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
+  //   return (
+  //     <div
+  //       key={faq.id}
+  //       className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
+  //       style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
+  //     >
+  //       <button
+  //         onClick={() => toggleFAQ(faq.id)}
+  //         className="w-full px-6 py-4 flex items-center justify-between text-left md:!pb-[8px]"
+  //       >
+  //         <span
+  //           className={`font-bold text-base sm:text-lg ${
+  //             isOpen
+  //               ? "text-[#22394A]"
+  //               : isLight
+  //               ? "text-[#22394A]"
+  //               : "text-white"
+  //           }`}
+  //           style={{
+  //             fontFamily: "Montserrat, sans-serif",
+  //             fontWeight: 600,
+  //             fontSize: "14px",
+  //           }}
+  //         >
+  //           {faq.question}
+  //         </span>
+  //         <span
+  //           className={`text-xl font-bold ${
+  //             isOpen
+  //               ? "text-[#22394A]"
+  //               : isLight
+  //               ? "text-[#22394A]"
+  //               : "text-white"
+  //           }`}
+  //         >
+  //           {isOpen ? "−" : "+"}
+  //         </span>
+  //       </button>
+
+  //       <AnimatePresence>
+  //         {isOpen && (
+  //           <motion.div
+  //             initial={{ height: 0, opacity: 0 }}
+  //             animate={{ height: "auto", opacity: 1 }}
+  //             exit={{ height: 0, opacity: 0 }}
+  //             transition={{ duration: 0.2 }}
+  //             className="px-6 pb-4"
+  //           >
+  //             <div
+  //               className="text-[#22394A]"
+  //               style={{
+  //                 fontFamily: "Poppins, sans-serif",
+  //                 fontWeight: 300,
+  //                 lineHeight: "130%",
+  //                 letterSpacing: "0.5px",
+  //                 fontSize: "12px",
+  //               }}
+  //             >
+  //               {faq.answer}
+  //             </div>
+  //           </motion.div>
+  //         )}
+  //       </AnimatePresence>
+  //     </div>
+  //   );
+  // };
 
   return (
     <div
-      className={`min-h-screen ${
-        theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-      }`}
+      className={`min-h-screen ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        }`}
     >
       {/* Hero Section */}
-      <div id="hero" className="container mx-auto px-2 sm:px-4 pt-28 pb-16">
+      <div
+        id="hero"
+        className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px] md:pt-[137px] md:pb-[40px]"
+      >
         <div className="max-w-4xl mx-auto">
           <div className="space-y-4">
             {/* First Section */}
-            <div className="text-center">
+            <div className="text-center mb-[4px]">
               <h1
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
                 style={{
                   fontFamily: "'Typo Round Bold Demo', sans-serif",
                   lineHeight: "1",
@@ -385,8 +393,11 @@ export default function Home() {
                   STUDENTS
                 </h2>
                 <span
-                  className="bg-[#EEE9DA] text-[#1E3A4F] top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12"
-                  style={{ width: "33%" }}
+                  className={`${theme === "light"
+                    ? "bg-[#1E3A4F] text-white"
+                    : "bg-[#EEE9DA] text-[#1E3A4F]"
+                    }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
+                  style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
                   ONLY
                 </span>
@@ -394,30 +405,14 @@ export default function Home() {
             </div>
 
             {/* Second Section */}
-            <div className="relative text-center mt-2 sm:mt-4">
-              <span
-                className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg]"
-                style={{
-                  padding: "0 6px",
-                  height: "20px",
-                  top: "-38%",
-                  left: "1%",
-                  width: "15%",
-                  borderRadius: "16px",
-                  fontFamily: "Typo Round Bold Demo",
-                  fontWeight: 700,
-                  fontSize: "10px",
-                  lineHeight: "100%",
-                  textAlign: "center",
-                }}
-              >
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
+              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]">
                 NO
               </span>
 
               <h1
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
                 style={{
                   fontFamily: "'Typo Round Bold Demo', sans-serif",
                   textTransform: "uppercase",
@@ -429,7 +424,7 @@ export default function Home() {
             </div>
 
             {/* Third Section */}
-            <div className="relative text-center mt-2 sm:mt-4">
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
               <h2
                 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
                 style={{
@@ -458,9 +453,8 @@ export default function Home() {
 
             {/* Bottom Text */}
             <p
-              className={`text-[16px] sm:text-[24px] md:text-lg lg:text-xl ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              } text-center mt-3`}
+              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-center`}
               style={{
                 fontFamily: "Typo Round Bold Demo",
                 fontWeight: 700,
@@ -474,20 +468,17 @@ export default function Home() {
 
       {/* Repeating Text Banner */}
       <div
-        className={`relative w-full h-18 overflow-hidden ${
-          theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-        }`}
+        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+          }`}
       >
-        <div className="flex flex-col gap-3 w-full h-full py-3">
-          {/* Row 1 */}
+        <div className="flex flex-col gap-2 w-full h-full py-1">
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -504,9 +495,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -522,16 +512,13 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* Row 2 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee" style={{ animationDelay: "-7s" }}>
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -548,9 +535,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -566,23 +552,20 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {/* Row 3 (Half visible) */}
-          <div className="relative flex whitespace-nowrap">
+          <div className="relative flex whitespace-nowrap LastDomers">
             <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
                     fontWeight: 700,
                     lineHeight: "100%",
                     letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
+                    transform: "rotate(-4.84deg)",
                     opacity: 0.54,
                   }}
                 >
@@ -592,9 +575,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -615,12 +597,11 @@ export default function Home() {
 
       {/* How It Works Section */}
       <div
-        className={`relative w-full py-16 ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        } overflow-hidden`}
+        className={`relative w-full lg:py-16 py-[48px] ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          } overflow-hidden`}
       >
         {/* Background Image */}
-        <div className="absolute inset-0 w-full h-full">
+        <div className="absolute inset-0 w-full h-full block md:hidden">
           <Image
             src="/images/sec2bg.png"
             alt="Background Pattern"
@@ -633,13 +614,25 @@ export default function Home() {
             priority
           />
         </div>
+        <div className="absolute inset-0 w-full h-full md:block hidden">
+          <Image
+            src="/images/howit'sworkbackgroundimage.svg"
+            alt="Background Pattern"
+            className="w-full h-full object-cover  opacity-[0.7] md:scale-100"
+            style={{
+              imageRendering: "crisp-edges",
+              backgroundRepeat: "repeat",
+            }}
+            fill
+            priority
+          />
+        </div>
         {/* Content */}
-        <div className="relative container mx-auto px-4">
-          <div className="flex items-center justify-center gap-4 mb-10">
+        <div className="relative container mx-auto px-4 top-[-14px]">
+          <div className="flex items-center justify-center gap-4 mb-6">
             <h2
-              className={`${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              } text-3xl sm:text-4xl font-bold text-center`}
+              className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-3xl sm:text-4xl font-bold text-center`}
               style={{
                 fontFamily: "'Montserrat', sans-serif",
                 fontWeight: 500,
@@ -653,299 +646,309 @@ export default function Home() {
               HOW IT WORKS
             </h2>
           </div>
-          <div className="max-w-md mx-auto space-y-6">
-            {/* Qualify Card */}
-            <div
-              ref={qualifyCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              // onClick={() =>
-              //   setFlippedCard(flippedCard === "qualify" ? null : "qualify")
-              // }
-              onClick={() => setIsQualifyFlipped((prev) => !prev)}
-            >
+          <div className="max-w-md mx-auto space-y-6 md:max-w-full">
+            <div className="flex flex-col md:flex-row gap-5 md:justify-center">
+              {/* Qualify Card */}
               <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
-                }
-                } ${!isMobile && "hover:scale-105"}`}
+                ref={qualifyCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                // onClick={() =>
+                //   setFlippedCard(flippedCard === "qualify" ? null : "qualify")
+                // }
+                onClick={() => setIsQualifyFlipped((prev) => !prev)}
               >
-                {/* Front */}
-                <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3">
-                    1
-                  </span>
-                  <h3
-                    className="text-[#FFFFFF] text-2xl font-bold text-center"
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      fontSize: "20px",
-                    }}
-                  >
-                    QUALIFY
-                  </h3>
-                </div>
-
-                {/* Back - Tell us about yourself card */}
-                <div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
-
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      {/* Icon */}
-                      <Image
-                        src="/images/iconinfo1.svg"
-                        alt="Info Icon"
-                        width={47.84}
-                        height={34.28}
-                        className="object-contain"
-                      />
-
-                      {/* Text */}
-                      <h4
-                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
-                      >
-                        Tell us about
-                        <br />
-                        yourself
-                      </h4>
-                    </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
-                  </div>
-                </div>
-
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
-              </div>
-            </div>
-            {/* Subscribe Card */}
-            <div
-              ref={subscribeCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              // onClick={() =>
-              //   setFlippedCard(flippedCard === "subscribe" ? null : "subscribe")
-              // }
-              onClick={() => setIsSubscribeFlipped((prev) => !prev)}
-            >
-              <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
-                }
-                } ${!isMobile && "hover:scale-105"}`}
-              >
-                {/* Front */}
                 <div
-                  className={`absolute inset-0 ${
-                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${isQualifyFlipped ? "[transform:rotateY(180deg)]" : ""
+                    }
+                } ${!isMobile && "hover:scale-105"}`}
                 >
-                  <span
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${
-                      theme === "light"
+                  {/* Front */}
+                  <div className="absolute inset-0 bg-[#031624] rounded-2xl p-6 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <span className="bg-[#EEE9DA] text-[#1A1A1A] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-3">
+                      1
+                    </span>
+                    <h3
+                      className="text-[#FFFFFF] text-2xl font-bold text-center"
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        fontSize: "20px",
+                      }}
+                    >
+                      QUALIFY
+                    </h3>
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke={`${theme === "light" ? "white" : "white"}`}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Back - Tell us about yourself card */}
+                  <div className="absolute inset-0 bg-[#031624] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
+
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        {/* Icon */}
+                        <Image
+                          src="/images/iconinfo1.svg"
+                          alt="Info Icon"
+                          width={47.84}
+                          height={34.28}
+                          className="object-contain"
+                        />
+
+                        {/* Text */}
+                        <h4
+                          className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Tell us about
+                          <br />
+                          yourself
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
+                    </div>
+                  </div>
+
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
+              </div>
+              {/* Subscribe Card */}
+              <div
+                ref={subscribeCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                // onClick={() =>
+                //   setFlippedCard(flippedCard === "subscribe" ? null : "subscribe")
+                // }
+                onClick={() => setIsSubscribeFlipped((prev) => !prev)}
+              >
+                <div
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${isSubscribeFlipped ? "[transform:rotateY(180deg)]" : ""
+                    }
+                } ${!isMobile && "hover:scale-105"}`}
+                >
+                  {/* Front */}
+                  <div
+                    className={`absolute inset-0 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                      } rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                  >
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 ${theme === "light"
                         ? "bg-[#EEE9DA] text-[#1E3A4F]"
                         : "bg-[#1E3A4F] text-white"
-                    }`}
-                  >
-                    2
-                  </span>
-                  <h3
-                    className={`${
-                      theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                    } text-3xl sm:text-4xl font-bold`}
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      textAlign: "center",
-                      fontSize: "20px",
-                    }}
-                  >
-                    SUBSCRIBE
-                  </h3>
-                  {/* Click indicator */}
-                  <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Click to flip</span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
+                        }`}
                     >
-                      <path
-                        d="M12 4V20M12 20L6 14M12 20L18 14"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                      2
+                    </span>
+                    <h3
+                      className={`${theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                        } text-3xl sm:text-4xl font-bold`}
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        textAlign: "center",
+                        fontSize: "20px",
+                      }}
+                    >
+                      SUBSCRIBE
+                    </h3>
+                    {/* Click indicator */}
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke={`${theme === "light" ? "white" : "black"}`}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                {/* Back - Pick your perfect plan */}
-                <div
-                  className={`absolute inset-0 ${
-                    theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
-                >
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
+                  {/* Back - Pick your perfect plan */}
+                  <div
+                    className={`absolute inset-0 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
+                      } rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all`}
+                  >
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
 
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      <Image
-                        src="/images/iconbell.svg"
-                        alt="Info Icon"
-                        width={27.16}
-                        height={24}
-                        className={`object-contain ${
-                          theme === "light"
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        <Image
+                          src="/images/iconbell.svg"
+                          alt="Info Icon"
+                          width={27.16}
+                          height={24}
+                          className={`object-contain ${theme === "light"
                             ? "filter invert brightness-0 sepia saturate-100 hue-rotate-[10deg] contrast-105"
                             : ""
-                        }`}
-                      />
+                            }`}
+                        />
 
-                      <h4
-                        className={`${
-                          theme === "light" ? "text-white" : "text-[#1E3A4F]"
-                        } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
-                      >
-                        Pick your perfect
-                        <br />
-                        plan
-                      </h4>
+                        <h4
+                          className={`${theme === "light" ? "text-white" : "text-[#1E3A4F]"
+                            } text-[16px] font-extrabold font-[Montserrat] leading-snug`}
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Pick your perfect
+                          <br />
+                          plan
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
                     </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
                   </div>
-                </div>
 
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Feast Card */}
-            <div
-              ref={feastCardRef}
-              className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative"
-              onClick={() =>
-                setFlippedCard(flippedCard === "feast" ? null : "feast")
-              }
-            >
+              {/* Feast Card */}
               <div
-                className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${
-                  flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
-                } ${!isMobile && "hover:scale-105"}`}
+                ref={feastCardRef}
+                className="w-[72%] h-[165px] mx-auto [perspective:1000px] cursor-pointer group relative HowItWorksCardContainer"
+                onClick={() =>
+                  setFlippedCard(flippedCard === "feast" ? null : "feast")
+                }
               >
-                {/* Front */}
-                <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">
-                    3
-                  </span>
-                  <h3
-                    className="text-white text-3xl sm:text-4xl font-bold"
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      lineHeight: "100%",
-                      letterSpacing: "0%",
-                      textAlign: "center",
-                      fontSize: "20px",
-                    }}
-                  >
-                    FEAST
-                  </h3>
-                  {/* Click indicator */}
-                  <div className="absolute bottom-4 right-4 text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Click to flip</span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
+                <div
+                  className={`relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] ${flippedCard === "feast" ? "[transform:rotateY(180deg)]" : ""
+                    } ${!isMobile && "hover:scale-105"}`}
+                >
+                  {/* Front */}
+                  <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl p-8 flex flex-col items-center justify-center [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <span className="bg-white text-[#FF6B00] w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">
+                      3
+                    </span>
+                    <h3
+                      className="text-white text-3xl sm:text-4xl font-bold"
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        textAlign: "center",
+                        fontSize: "20px",
+                      }}
                     >
-                      <path
-                        d="M12 4V20M12 20L6 14M12 20L18 14"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                {/* Back - Enjoy stress-free meals */}
-                <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
-                  <div className="flex flex-col justify-between h-full">
-                    {/* Top Spacer */}
-                    <div className="h-[24px]"></div>
-
-                    {/* Icon + Text Block */}
-                    <div className="flex flex-col items-start space-y-3">
-                      <Image
-                        src="/images/iconfeast.svg"
-                        alt="Info Icon"
-                        width={27.16}
-                        height={24}
-                        className="object-contain"
-                      />
-
-                      <h4
-                        className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
-                        style={{
-                          fontFamily: "Montserrat",
-                          fontWeight: 900,
-                          lineHeight: "100%",
-                          letterSpacing: "0%",
-                          fontSize: "16px",
-                        }}
+                      FEAST
+                    </h3>
+                    {/* Click indicator */}
+                    <div className="absolute bottom-4 right-[46%] text-white/50 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* <span>Click to flip</span> */}
+                      <svg
+                        className="w-4 h-4 animate-bounce"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
-                        Enjoy stress-free
-                        <br />
-                        meals
-                      </h4>
+                        <path
+                          d="M12 4V20M12 20L6 14M12 20L18 14"
+                          stroke={`${theme === "light" ? "white" : "black"}`}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </div>
-
-                    {/* Bottom Spacer */}
-                    <div className="h-[24px]"></div>
                   </div>
-                </div>
+                  {/* Back - Enjoy stress-free meals */}
+                  <div className="absolute inset-0 bg-[#FF6B00] rounded-2xl px-5 py-4 [transform:rotateY(180deg)] [backface-visibility:hidden] shadow-lg group-hover:shadow-2xl transition-all">
+                    <div className="flex flex-col justify-between h-full">
+                      {/* Top Spacer */}
+                      <div className="h-[24px]"></div>
 
-                {!isMobile && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
-                )}
+                      {/* Icon + Text Block */}
+                      <div className="flex flex-col items-start space-y-3">
+                        <Image
+                          src="/images/iconfeast.svg"
+                          alt="Info Icon"
+                          width={27.16}
+                          height={24}
+                          className="object-contain"
+                        />
+
+                        <h4
+                          className="text-white text-[16px] font-extrabold font-[Montserrat] leading-snug"
+                          style={{
+                            fontFamily: "Montserrat",
+                            fontWeight: 900,
+                            lineHeight: "100%",
+                            letterSpacing: "0%",
+                            fontSize: "16px",
+                          }}
+                        >
+                          Enjoy stress-free
+                          <br />
+                          meals
+                        </h4>
+                      </div>
+
+                      {/* Bottom Spacer */}
+                      <div className="h-[24px]"></div>
+                    </div>
+                  </div>
+
+                  {!isMobile && (
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#FF6B00] via-white to-[#FF6B00] opacity-0 group-hover:opacity-100 animate-gradient-x -z-10 transition-opacity"></div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Qualify Button */}
             <div className="flex justify-center mb-[-35px] mt-2">
               <a
-                href="https://forms.dormers.ae"
+                href="https://vip.dormers.ae"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-[#031624] text-[#FFFFFF] font-bold py-1 px-3 rounded-full text-lg transition-all hover:scale-105"
@@ -956,7 +959,7 @@ export default function Home() {
                   fontSize: "12px",
                 }}
               >
-                SEE IF YOU QUALIFY
+                🔥 Secure My Spot
               </a>
             </div>
           </div>
@@ -966,29 +969,26 @@ export default function Home() {
       {/* Menu Section */}
       <div
         id="menu"
-        className={`relative w-full py-0 px-0 ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        }`}
+        className={`relative w-full py-0 px-0 ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          }`}
       >
         <Menu />
       </div>
 
       {/* Repeating Text Banner (after menu) */}
       <div
-        className={`relative w-full h-18 overflow-hidden ${
-          theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
-        }`}
+        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
+          }`}
       >
-        <div className="flex flex-col gap-3 w-full h-full py-3">
+        <div className="flex flex-col gap-2 w-full h-full py-1">
           {/* Row 1 */}
           <div className="relative flex whitespace-nowrap">
             <div className="marquee">
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1005,9 +1005,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1030,9 +1029,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1049,9 +1047,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1069,14 +1066,13 @@ export default function Home() {
           </div>
 
           {/* Row 3 (Half visible) */}
-          <div className="relative flex whitespace-nowrap">
+          <div className="relative flex whitespace-nowrap LastDomers">
             <div className="marquee" style={{ animationDelay: "-3s" }}>
               {[...Array(12)].map((_, i) => (
                 <span
                   key={i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1093,9 +1089,8 @@ export default function Home() {
               {[...Array(12)].map((_, i) => (
                 <span
                   key={12 + i}
-                  className={`inline-block ${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                  } mx-2`}
+                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
+                    } mx-2`}
                   style={{
                     fontFamily: "'Typo Round Bold Demo', sans-serif",
                     fontSize: "18px",
@@ -1115,7 +1110,7 @@ export default function Home() {
       </div>
 
       {/* Testimonials Section */}
-      <div id="testimonials" className="relative w-full py-8 ">
+      {/* <div id="testimonials" className="relative w-full py-8 pb-[0px]">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between max-w-4xl mx-auto mb-8">
             <h2
@@ -1134,431 +1129,199 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* New Testimonials Component */}
           <div className="max-w-4xl mx-auto">
-            <TestimonialsBubbles testimonialImages={testimonialImages} />
+            <TestimonialsBubbles />
+          </div>
+        </div>
+      </div> */}
+      <div
+        id="testimonials"
+        className="relative w-full lg:pt-[40px] py-[24px] pb-0"
+      >
+        <div className="">
+          <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-4">
+            <h2
+              className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                }`}
+              style={{
+                fontFamily: "Montserrat",
+                fontWeight: 500,
+                lineHeight: "100%",
+                letterSpacing: "0",
+              }}
+            >
+              VOICES OF DELIGHT
+            </h2>
+          </div>
+
+          {/* New Testimonials Component */}
+          <div className="mx-auto bg-[#031624] py-6 lg:hidden block">
+            <div className="lg:max-w-[987px] mx-auto">
+              <TestimonialsBubbles />
+            </div>
+          </div>
+          <div className="mx-auto bg-[#031624] py-6 lg:block hidden">
+            <div className="lg:max-w-[987px] mx-auto">
+              <TestmonialsDesktop />
+            </div>
           </div>
         </div>
       </div>
 
       {/* FAQ Section */}
-      <div
-        id="faq"
-        ref={faqRef}
-        className={`relative w-full ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
-        } pb-8`}
-      >
-        <div className="container mx-auto px-0">
+      <section id="faq">
+        <div
+
+          ref={faqRef}
+          className={`relative w-full  ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
+            }`}
+        >
           <div
-            className="w-full rounded-b-[60px] shadow-2xl pt-8 pb-10 px-4 sm:px-6 md:px-8"
+            className={` ${theme === "light" ? "curtleLightheight" : "curtleheightfaq"
+              } `}
             style={{
-              backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              backgroundColor: "#22394A",
+              borderTopLeftRadius: "60px",
+              borderTopRightRadius: "60px",
+              zIndex: 0,
             }}
           >
-            <div className="max-w-6xl mx-auto">
-              <h2
-                className={`${
-                  theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-3xl sm:text-4xl font-bold mb-8 text-left`}
-                style={{
-                  fontFamily: "Montserrat, sans-serif",
-                  fontWeight: 500,
-                  lineHeight: "100%",
-                  letterSpacing: "0",
-                  fontSize: "20px",
-                }}
-              >
-                FAQ&apos;S
-              </h2>
+            <div
+              className="w-full py-[24px] px-4 sm:px-6 md:px-8  lg:pt-[40px]  overflow-hidden BoxContainer_FAQBOX"
+              style={{
+                backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
+              }}
+            >
+              <div className="md:max-w-[987px] md:mx-auto">
+                <h2
+                  className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                    } text-3xl sm:text-4xl font-bold mb-8 text-left`}
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 500,
+                    lineHeight: "100%",
+                    letterSpacing: "0",
+                    fontSize: "20px",
+                  }}
+                >
+                  FAQ&apos;S
+                </h2>
 
-              <AnimatePresence mode="wait">
-                {showAll ? (
-                  <motion.div
-                    key="expanded"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="relative"
-                  >
-                    {/* Close button */}
+                <AnimatePresence mode="wait">
+                  {showAll ? (
+                    <motion.div
+                      key="expanded"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="relative"
+                    >
+                      {/* Close button */}
+                      <button
+                        onClick={() => {
+                          setShowAll(false);
+                          setTimeout(() => {
+                            faqRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 200); // slight delay so collapse animation completes
+                        }}
+                        className={`absolute top-[-66px] right-0 z-10 p-2 rounded-full  hover:opacity-80 transition-opacity`}
+                      >
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke={`${theme === "light" ? "black" : "white"}`}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Scrollable FAQ list */}
+                      <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                          {faqs.map((faq, index) =>
+                            renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="collapsed"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
+                    >
+                      {faqs
+                        .slice(0, 3)
+                        .map((faq, index) =>
+                          renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
+                        )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {!showAll && (
+                  <div className="mt-6 flex justify-center">
                     <button
                       onClick={() => {
-                        setShowAll(false);
+                        setShowAll(true);
                         setTimeout(() => {
-                          faqRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }, 200); // slight delay so collapse animation completes
+                          faqRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }, 100);
                       }}
-                      className={`absolute top-0 right-0 z-10 p-2 rounded-full ${
-                        theme === "light"
-                          ? "bg-[#1E3A4F] text-white"
-                          : "bg-[#EEE9DA] text-[#1E3A4F]"
-                      } hover:opacity-80 transition-opacity`}
+                      className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${theme === "light" ? "text-[#22394A]" : "text-white/80"
+                        }`}
                     >
+                      <span
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 600,
+                          lineHeight: "100%",
+                          letterSpacing: "0%",
+                          marginLeft: "0.3rem",
+                          fontSize: "12px",
+                        }}
+                      >
+                        View All
+                      </span>
                       <svg
-                        className="w-6 h-6"
-                        fill="none"
+                        className="w-4 h-4 animate-bounce"
                         viewBox="0 0 24 24"
-                        stroke="currentColor"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
                         <path
+                          d="M6 9l6 6 6-6"
+                          stroke="currentColor"
+                          strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
                         />
                       </svg>
                     </button>
-
-                    {/* Scrollable FAQ list */}
-                    <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {faqs.map((faq, index) =>
-                          renderFaqCard(faq, index, openFAQ, toggleFAQ)
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="collapsed"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                  >
-                    {faqs
-                      .slice(0, 3)
-                      .map((faq, index) =>
-                        renderFaqCard(faq, index, openFAQ, toggleFAQ)
-                      )}
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
-
-              {!showAll && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => {
-                      setShowAll(true);
-                      setTimeout(() => {
-                        faqRef.current?.scrollIntoView({ behavior: "smooth" });
-                      }, 100);
-                    }}
-                    className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${
-                      theme === "light" ? "text-[#22394A]" : "text-white/80"
-                    }`}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "Montserrat",
-                        fontWeight: 600,
-                        lineHeight: "100%",
-                        letterSpacing: "0%",
-                        marginLeft: "0.3rem",
-                        fontSize: "12px",
-                      }}
-                    >
-                      View All
-                    </span>
-                    <svg
-                      className="w-4 h-4 animate-bounce"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M6 9l6 6 6-6"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              )}
+              </div>
+              <CurtleAboutUs />
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* About Us Section */}
-      <div
-        id="about"
-        className={`px-5 w-full ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#22394A]"
-        }`}
-      >
-        <div className="container mx-auto  py-1">
-          <h2
-            className={`${
-              theme === "light" ? "text-[#1E3A4F]" : "text-white"
-            } text-3xl sm:text-4xl font-bold mb-5 text-left`}
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-              fontWeight: 500,
-              lineHeight: "100%",
-              letterSpacing: "0",
-              fontSize: "20px",
-            }}
-          >
-            ABOUT US
-          </h2>
-
-          {/* Top two cards: Vision and Mission */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
-            {/* Vision Card */}
-            <div
-              className={`${
-                theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-              } rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative`}
-            >
-              <div>
-                <h3
-                  className={`${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
-                  } text-xl font-bold mb-4 sm:mb-5`}
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 900,
-                    lineHeight: "100%",
-                    // letterSpacing: "0",
-                    fontSize: "16px",
-                  }}
-                >
-                  OUR <br /> VISION
-                </h3>
-                <p
-                  className={`${
-                    theme === "light" ? "text-[#EEE9DA]" : "text-[#22394A]"
-                  } text-sm leading-snug`}
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 300,
-                    // letterSpacing: "0.5px",
-                    fontSize: "8px",
-                  }}
-                >
-                  To become the leading provider of student-focused meal
-                  solutions, making everyday life convenient, healthy, and
-                  affordable for students. We envision a world where every
-                  student can enjoy nutritious meals without stress, fostering
-                  community, unity, and well-being through food.
-                </p>
-              </div>
-              <Image
-                src="/images/about1.svg"
-                alt="Vision Icon"
-                width={80}
-                height={64}
-                className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[120px] opacity-55 select-none transition-all duration-300 ${
-                  theme === "light" ? "invert brightness-0" : ""
-                }`}
-              />
-            </div>
-
-            {/* Mission Card */}
-            <div className="bg-[#FF7F00] rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[200px] sm:min-h-[260px] relative">
-              <div>
-                <h3
-                  className="text-[#EEE9DA] font-bold mb-4 sm:mb-5"
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 900,
-                    lineHeight: "100%",
-                    // letterSpacing: "0",
-                    fontSize: "16px",
-                  }}
-                >
-                  OUR <br /> MISSION
-                </h3>
-                <p
-                  className="text-white text-sm leading-snug"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 300,
-                    // letterSpacing: "0.5px",
-                    fontSize: "8px",
-                  }}
-                >
-                  To simplify & deliver tasty, healthy, and affordable meals to
-                  the student community. From hassle-free ordering to on-time
-                  deliveries, Dormer&rsquo;s helps students enjoy more, stress
-                  less, and thrive every day.
-                </p>
-              </div>
-              <Image
-                src="/images/about2.svg"
-                alt="Mission Icon"
-                width={80}
-                height={52}
-                className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 sm:w-[100px] opacity-55 select-none"
-              />
-
-              <Image
-                src="/images/about4.svg"
-                alt="Mission Icon"
-                width={60}
-                height={35}
-                className="absolute bottom-4 right-5 sm:bottom-[90px] sm:right-[120px] sm:w-[80px] opacity-55 select-none"
-              />
-
-              <Image
-                src="/images/about5.svg"
-                alt="Mission Icon"
-                width={30}
-                height={10}
-                className="absolute bottom-6 right-9 sm:bottom-[120px] sm:right-[170px] sm:w-[70px] opacity-55 select-none"
-              />
-
-              <Image
-                src="/images/about6.svg"
-                alt="Mission Icon"
-                width={50}
-                height={25}
-                className="absolute bottom-1 right-16 sm:bottom-[150px] sm:right-[230px] sm:w-[60px] opacity-55 select-none"
-              />
-            </div>
-          </div>
-
-          <div className="bg-[#031624] rounded-2xl p-4 sm:p-8 relative text-white">
-            {/* First Row: Title + 2 values */}
-            <div className="flex flex-wrap gap-4 items-start justify-start mb-6">
-              {/* OUR VALUES title */}
-              <div className="flex-shrink-0 w-[100px] mt-2">
-                <h3
-                  className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 900,
-                  }}
-                >
-                  OUR <br /> VALUES
-                </h3>
-              </div>
-
-              {/* CUSTOMER - CENTRICITY */}
-              <div className="max-w-[200px]">
-                <p
-                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
-                  }}
-                >
-                  <span className="text-[#FF7F00]">|</span> CUSTOMER -
-                  CENTRICITY
-                </p>
-                <p
-                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
-                >
-                  Every meal is crafted with students in mind, ensuring it’s not
-                  just food, but a moment of comfort and satisfaction.
-                </p>
-              </div>
-
-              {/* QUALITY FIRST */}
-              <div className="max-w-[200px]">
-                <p
-                  className="font-bold flex items-start gap-1 text-[10px] sm:text-sm"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
-                  }}
-                >
-                  <span className="text-[#FF7F00]">|</span> QUALITY FIRST
-                </p>
-                <p
-                  className="mt-1 font-light leading-snug text-[10px] sm:text-sm"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
-                >
-                  We never compromise on the quality of our ingredients or
-                  preparation, delivering meals that are safe, nutritious &
-                  delicious.
-                </p>
-              </div>
-            </div>
-
-            {/* Second Row: 3 more values */}
-            <div className="flex flex-wrap items-start justify-start gap-4">
-              {/* AFFORDABILITY */}
-              <div className="w-[calc(33%-10px)] max-w-[160px]">
-                <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
-                  }}
-                >
-                  <span className="text-[#FF7F00]">|</span> AFFORDABILITY
-                </p>
-                <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
-                >
-                  Great food should be accessible. We strive to keep our meals
-                  budget-friendly without sacrificing taste or value.
-                </p>
-              </div>
-
-              {/* DIVERSITY & INCLUSION */}
-              <div className="w-[calc(33%-10px)] max-w-[160px]">
-                <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
-                  }}
-                >
-                  <span className="text-[#FF7F00]">|</span> DIVERSITY &
-                  INCLUSION
-                </p>
-                <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
-                >
-                  Our menu celebrates the diverse cultures and cuisines of our
-                  students, ensuring there’s something for everyone.
-                </p>
-              </div>
-
-              {/* SUSTAINABILITY + Image aligned inside */}
-              <div className="w-[calc(33%-10px)] max-w-[160px] relative">
-                <p
-                  className="font-bold flex items-start gap-1 text-[10px]"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontSize: "8px",
-                  }}
-                >
-                  <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
-                </p>
-                <p
-                  className="mt-1 font-light leading-snug text-[10px]"
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "8px" }}
-                >
-                  Our menu celebrates the diverse cultures and cuisines of our
-                  students, ensuring there’s something for everyone.
-                </p>
-
-                {/* Icon aligned to bottom right of the section */}
-                <Image
-                  src="/images/about3.svg"
-                  alt="Values Icon"
-                  width={76.54}
-                  height={60}
-                  className="absolute bottom-0 right-0 opacity-55 select-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Chat Window */}
       <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />

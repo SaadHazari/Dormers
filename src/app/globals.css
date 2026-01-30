@@ -4,81 +4,80 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Montserrat';
-  src: url('/fonts/Montserrat-Medium.ttf') format('truetype');
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
-
 @font-face {
-  font-family: 'Montserrat';
-  src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Montserrat';
-  src: url('/fonts/Montserrat-Bold.ttf') format('truetype');
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Bold_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Bold_Demo.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Bold_Italic_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Bold_Italic_Demo.otf") format("opentype");
   font-weight: 700;
   font-style: italic;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Regular_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Regular_Demo.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Italic_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Italic_Demo.otf") format("opentype");
   font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Bold_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Bold_Demo.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Thin_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Thin_Demo.otf") format("opentype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Typo Round';
-  src: url('/fonts/Typo_Round_Thin_Italic_Demo.otf') format('opentype');
+  font-family: "Typo Round";
+  src: url("/fonts/Typo_Round_Thin_Italic_Demo.otf") format("opentype");
   font-weight: 300;
   font-style: italic;
   font-display: swap;
@@ -86,43 +85,44 @@
 
 /* --- Poppins Font (Minimal Set) --- */
 @font-face {
-  font-family: 'Poppins';
-  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
+  font-family: "Poppins";
+  src: url("/fonts/Poppins-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
-  font-family: 'Poppins';
-  src: url('/fonts/Poppins-Medium.ttf') format('truetype');
+  font-family: "Poppins";
+  src: url("/fonts/Poppins-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
-  font-family: 'Poppins';
-  src: url('/fonts/Poppins-SemiBold.ttf') format('truetype');
+  font-family: "Poppins";
+  src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
-  font-family: 'Poppins';
-  src: url('/fonts/Poppins-Bold.ttf') format('truetype');
+  font-family: "Poppins";
+  src: url("/fonts/Poppins-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Poppins';
-  src: url('/fonts/Poppins-Light.ttf') format('truetype');
+  font-family: "Poppins";
+  src: url("/fonts/Poppins-Light.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
-
-
 
 :root {
   --background: #ffffff;
@@ -145,6 +145,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -154,10 +155,13 @@ body {
 }
 
 @keyframes gradient-x {
-  0%, 100% {
+
+  0%,
+  100% {
     background-size: 200% 100%;
     background-position: left center;
   }
+
   50% {
     background-size: 200% 100%;
     background-position: right center;
@@ -166,4 +170,271 @@ body {
 
 .animate-gradient-x {
   animation: gradient-x 3s ease infinite;
+}
+
+/* .main_content {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#footer {
+  position: sticky;
+  bottom: -12px;
+  z-index: 0;
+  animation: slideInUp 1s ease-out forwards;
+} */
+/* .sidefotter {
+  bottom: 0px;
+  z-index: 0;
+  animation: slideInUp 1s ease-out forwards;
+} */
+/* @keyframes slideInUp {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+} */
+
+/* .main_content {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#footer {
+  position: sticky;
+  bottom: -12px;
+  z-index: 0;
+
+  -webkit-user-select: none;
+  flex: none;
+  pointer-events: none;
+  
+  user-select: none;
+  width: 100%;
+} */
+
+@keyframes struggleSlideInUp {
+  0% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+
+  30% {
+    transform: translateY(40px);
+    opacity: 0.4;
+  }
+
+  50% {
+    transform: translateY(60px);
+    opacity: 0.6;
+  }
+
+  70% {
+    transform: translateY(20px);
+    opacity: 0.8;
+  }
+
+  85% {
+    transform: translateY(30px);
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.paymentsucess_strip {
+  color: #09910e;
+  font-family: "Montserrat", sans-serif;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  margin-bottom: 8px;
+}
+
+.paymentmessage_stripe {
+  max-width: 24px;
+  margin-left: auto;
+  margin-right: auto;
+  color: #878787;
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 14px;
+  /* 140% */
+}
+
+.paymentstripeheading {
+  color: #000;
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 14px;
+  /* 116.667% */
+}
+
+.badge-label {
+  padding: 0 6px;
+  height: 20px;
+  top: -38%;
+  left: 1%;
+  width: 15%;
+  border-radius: 16px;
+  font-family: "Typo Round Bold Demo", sans-serif !important;
+  font-weight: 700;
+  font-size: 14px !important;
+  line-height: 100%;
+  text-align: center;
+}
+
+.mealsthattext_box {
+  font-family: "Montserrat";
+  font-weight: 900;
+  color: #213c4c;
+  font-size: 55px;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+    1px 1px 0 #fff;
+}
+
+.WelcomtextMessage {
+  color: #fff;
+  font-family: "Montserrat";
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.socialmediaiconbox {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: #eee9da;
+  border-radius: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media screen and (max-width: 365px) {
+  .Join_the_club {
+    /* margin-left: 33%; */
+  }
+}
+
+@media (min-width: 768px) {
+  .Join_the_club {
+    border-radius: 8px;
+    border: 0.5px solid #eee9da;
+    /* width: 113px; */
+    padding-left: 15px;
+    padding-right: 15px;
+    height: 38px;
+    flex-shrink: 0;
+    color: #fff;
+    font-family: "Montserrat", sans-serif;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+  }
+
+  .badge-label {
+    padding: 0 6px;
+    width: 80.653px;
+    height: 32px;
+    top: -19%;
+    left: 10%;
+    border-radius: 16px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 100%;
+    text-align: center;
+  }
+
+  .HowItWorksCardContainer {
+    max-width: 311px;
+    height: 245px;
+    margin: 0;
+  }
+
+  .location_footer_desktop {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 100%;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .para_info {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 400;
+    line-height: 100%;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main_page_meal {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 900;
+    color: #213c4c;
+    font-size: 55px;
+    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+      1px 1px 0 #fff;
+  }
+
+  .LastDomers {
+    transform: rotate(-2deg);
+    margin-left: 46px;
+  }
+
+  .MobileNavbarlogo {
+    padding-left: 8px;
+  }
+}
+
+.LastDomers {
+  /* transform: rotate(0deg);
+     margin-left: 23px; */
+}
+
+.slick-dots li.slick-active {
+  background-color: #fff !important;
+  border-radius: 20px;
+  display: inline-block;
+  height: 8px !important;
+  width: 60px !important;
+}
+
+.slick-dots li.slick-active button {
+  color: #fff !important;
+  height: 100% !important;
+  position: relative;
+  text-indent: -9999px;
+  width: 100% !important;
+}
+
+.slick-dots li button:before {
+  color: #fff !important;
+  height: 10px !important;
 }
