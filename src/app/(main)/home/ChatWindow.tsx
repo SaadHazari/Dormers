@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface ChatWindowProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// 1. Define a type so we know who sent the message
 type Message = {
   text: string;
   isUser: boolean;
@@ -16,16 +15,38 @@ type Message = {
 export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
-  
-  // 2. Update state to store Objects instead of just Strings
   const [messages, setMessages] = useState<Message[]>([]);
-  
   const [chatStep, setChatStep] = useState<'idle' | 'awaiting_name' | 'awaiting_email' | 'awaiting_phone' | 'done'>('idle');
   const [userDetails, setUserDetails] = useState<{ name?: string; email?: string; phone?: string }>({});
 
+  // NEW: Reference to the bottom of the chat list
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // NEW: Function to scroll to the bottom smoothly
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // NEW: Trigger scroll whenever messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, chatStep]);
+
+  // NEW: Lock background scrolling when chat is open
   useEffect(() => {
     if (isOpen) {
-      // Reset with the initial Bot message
+      document.body.style.overflow = 'hidden'; // Freeze background
+    } else {
+      document.body.style.overflow = 'unset'; // Unfreeze
+    }
+    // Cleanup when component unmounts
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
       setMessages([
         { text: 'Bro, I\'m tired of instant noodles. Hook me up with Dormer\'s—real food, no stress! 🍛🔥', isUser: false }
       ]);
@@ -40,13 +61,10 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
     const trimmed = message.trim();
     if (!trimmed) return;
 
-    // 3. Add USER message (Orange)
     setMessages(prev => [...prev, { text: trimmed, isUser: true }]);
 
-    // Chatbot logic
     if (chatStep === 'idle' && (/^hi$/i.test(trimmed) || /^hello$/i.test(trimmed))) {
       setTimeout(() => {
-        // Bot message (Cream)
         setMessages(prev => [...prev, { text: 'Hey there! 👋 What\'s your name?', isUser: false }]);
       }, 500);
       setChatStep('awaiting_name');
@@ -87,13 +105,16 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 p-4">
-      <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px]">
+    <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
+      {/* UPDATED: Added 'relative' and removed fixed positioning to center it better 
+         This helps prevent the "touch-through" scrolling issues on some mobile browsers
+      */}
+      <div className="bg-[#1E3A4F] rounded-2xl overflow-hidden w-[340px] md:w-[364px] relative shadow-2xl flex flex-col max-h-[90vh]">
+        
         {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden">
-              {/* Simple SVG Avatar */}
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="14" cy="14" r="14" fill="#FFB300" />
                 <ellipse cx="14" cy="11" rx="5" ry="5" fill="#fff" />
@@ -123,15 +144,14 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         </div>
 
         {/* Chat Messages Area */}
-        <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4">
+        <div className="h-[330px] overflow-y-auto p-4 bg-[#15304A] flex flex-col gap-4 scroll-smooth">
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
-              // 4. Conditional Styling based on who sent it
               className={`px-4 py-2 rounded-xl max-w-[85%] w-fit ${
                 msg.isUser 
-                  ? "bg-[#FF7F00] text-white self-end rounded-tr-none" // Orange, Right Side
-                  : "bg-[#EEE9DA] text-[#1E3A4F] self-start rounded-tl-none" // Cream, Left Side
+                  ? "bg-[#FF7F00] text-white self-end rounded-tr-none" 
+                  : "bg-[#EEE9DA] text-[#1E3A4F] self-start rounded-tl-none"
               }`}
               style={{
                 fontFamily: "Montserrat, sans-serif",
@@ -143,7 +163,6 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             </div>
           ))}
           
-          {/* User Details Summary Card */}
           {chatStep === 'done' && (
             <div className="bg-[#FF6B00]/20 border border-[#FF6B00] text-white px-4 py-2 rounded-xl w-full mt-2 text-sm self-center">
               <div><b>Name:</b> {userDetails.name || '-'}</div>
@@ -151,13 +170,15 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
               <div><b>Phone:</b> {userDetails.phone || '-'}</div>
             </div>
           )}
+          
+          {/* NEW: Invisible element to anchor the scroll to the bottom */}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Chat Input */}
-        <div className="p-4 border-t border-gray-700">
-          {/* Emoji Panel */}
+        <div className="p-4 border-t border-gray-700 shrink-0">
           {showEmojis && (
-            <div className="absolute bottom-[80px] left-4 bg-white rounded-lg p-2 shadow-lg">
+            <div className="absolute bottom-[80px] left-4 bg-white rounded-lg p-2 shadow-lg z-10">
               <div className="grid grid-cols-6 gap-2">
                 {emojis.map((emoji, index) => (
                   <button
@@ -175,11 +196,11 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             </div>
           )}
 
-          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 w-[308px] md:w-full">
+          <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 w-full">
             <input
               type="text"
               placeholder="Please write your message..."
-              className="flex-1 max-w-[198px] md:max-w-full outline-none text-sm text-gray-800 placeholder-gray-500"
+              className="flex-1 w-full min-w-0 outline-none text-sm text-gray-800 placeholder-gray-500"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
@@ -192,15 +213,15 @@ export default function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             />
             <button
               onClick={() => setShowEmojis(!showEmojis)}
-              className="text-gray-400 hover:text-gray-600 p-1"
+              className="text-gray-400 hover:text-gray-600 p-1 shrink-0"
             >
               <span className="text-xl">☺</span>
             </button>
             <button
-              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+              className="bg-[#2AABEE] hover:bg-[#229ED9] text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shrink-0"
               onClick={handleSend}
             >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </button>
