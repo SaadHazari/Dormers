@@ -1171,12 +1171,10 @@ export default function Menu() {
     const day = new Date().getDay();
     return day === 0 ? null : day - 1;
   });
-  // const [selectedDay, setSelectedDay] = useState<number>(() =>
-  //   new Date().getDay() - 1
-  // );
+
   const [, setShowNutritionHint] = useState(false);
-  // const [isFlipped, setIsFlipped] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState("week1");
+  
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
@@ -1186,8 +1184,6 @@ export default function Menu() {
       ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[availableDishes.length - 1] || null
       : null;
 
-
-  // Show nutrition hint when day is selected
   useEffect(() => {
     if (selectedDay !== null) {
       setShowNutritionHint(true);
@@ -1197,13 +1193,10 @@ export default function Menu() {
   }, [selectedDay]);
 
   const [isFlipped, setIsFlipped] = useState(false);
-  // const modalRef = useRef(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Handle outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      // Use a type guard to ensure modalRef.current is not null
       if (
         isFlipped &&
         modalRef.current &&
@@ -1212,126 +1205,165 @@ export default function Menu() {
         setIsFlipped(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isFlipped]);
+
   const style = {
     position: "absolute" as const,
     top: "50%",
     left: "50%",
     transform: "translate(-50%, -50%)",
   };
-  // console.log(availableDishes.find((dish) => dish.dayOfWeek === selectedDay - 1), "selected day");
 
+  // Helper styles for the toggle labels
+  const labelStyle = {
+    fontFamily: "Montserrat, sans-serif",
+    fontWeight: 700,
+    fontSize: "10px", // Mobile size
+    lineHeight: "100%",
+  };
+
+  const desktopLabelStyle = {
+    fontFamily: "Montserrat, sans-serif",
+    fontWeight: 700,
+    fontSize: "14px", // Desktop size
+    lineHeight: "100%",
+  };
 
   return (
     <>
       <div
-        className={`relative w-full py-[24px] lg:py-[40px]  ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-          } overflow-hidden`}
+        className={`relative w-full py-[24px] lg:py-[40px] ${
+          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+        } overflow-hidden`}
       >
         <div className="container mx-auto px-4">
-          {/* Menu Header */}
+          
+          {/* --- MENU HEADER & TOGGLES --- */}
           <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[987px] mx-auto">
+            
+            {/* Title (Mobile) */}
             <h2
-              className={` text-[32px] font-medium lg:hidden block  ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                }`}
+              className={`text-[32px] font-medium lg:hidden block ${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
                 lineHeight: "100%",
-                letterSpacing: "0%",
                 fontSize: "18px",
               }}
             >
               MENU
             </h2>
+            
+            {/* Title (Desktop) */}
             <h2
-              className={`menu-heading_icon lg:block hidden  ${theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
-                }`}
+              className={`menu-heading_icon lg:block hidden ${
+                theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
+              }`}
             >
               MENU
             </h2>
-            <button
-              onClick={() => {
-                setIsVegOnly((v) => !v);
-                const jsDay = new Date().getDay();
-              
-                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
-              }}
-              className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2  lg:hidden 
-    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
-              aria-label="Toggle veg/non-veg"
-            >
-              <span className="sr-only">Toggle veg/non-veg</span>
 
-              {/* Toggle knob */}
-              <div
-                className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full  shadow-md flex items-center justify-center transition-transform duration-300
-      ${isVegOnly ? "translate-x-7" : "translate-x-0"}
-       ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB] "}
-    `}
+            {/* --- MOBILE TOGGLE WITH LABELS --- */}
+            <div className="flex items-center gap-2 lg:hidden">
+              <span 
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-80`}
+                style={labelStyle}
               >
-                <span className="text-[16px]">
-                  {isVegOnly ? (
+                Non Veg
+              </span>
+              
+              <button
+                onClick={() => {
+                  setIsVegOnly((v) => !v);
+                  const jsDay = new Date().getDay();
+                  setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+                }}
+                className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
+                ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+                aria-label="Toggle veg/non-veg"
+              >
+                <div
+                  className={`absolute top-0.5 left-0.5 h-5 w-6 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
+                  ${isVegOnly ? "translate-x-7" : "translate-x-0"}
+                  ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
+                >
+                  <span className="text-[16px]">
                     <img
-                      src="/images/VegIcon.svg"
+                      src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
                       className="w-[16px]"
                       alt=""
                     />
-                  ) : (
-                    <img src="/images/NonVeg.svg" className="w-[16px]" alt="" />
-                  )}
-                </span>
-              </div>
-            </button>
+                  </span>
+                </div>
+              </button>
 
-            <button
-              onClick={() => {
-                setIsVegOnly((v) => !v);
-                const jsDay = new Date().getDay();
-                // setSelectedDay(jsDay);
-                setSelectedDay(jsDay === 0 ? null : jsDay - 1);
-              }}
-              className={`relative rounded-full hidden items-center bg-transparent transition-colors duration-300 px-1 border-2 
-    lg:flex lg:h-[43px] lg:w-[90px]
-    ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
-              aria-label="Toggle veg/non-veg"
-            >
-              {/* Toggle knob */}
-              <div
-                className={`absolute top-[4px] left-[4px] h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
-      ${isVegOnly ? "translate-x-[45px]" : "translate-x-0"}
-      ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
+              <span 
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-80`}
+                style={labelStyle}
               >
-                <img
-                  src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
-                  className="w-[20px] h-[20px]"
-                  alt=""
-                />
-              </div>
-            </button>
+                Veg
+              </span>
+            </div>
+
+            {/* --- DESKTOP TOGGLE WITH LABELS --- */}
+            <div className="hidden lg:flex items-center gap-3">
+              <span 
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-90`}
+                style={desktopLabelStyle}
+              >
+                Non Veg
+              </span>
+
+              <button
+                onClick={() => {
+                  setIsVegOnly((v) => !v);
+                  const jsDay = new Date().getDay();
+                  setSelectedDay(jsDay === 0 ? null : jsDay - 1);
+                }}
+                className={`relative rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
+                h-[43px] w-[90px]
+                ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+                aria-label="Toggle veg/non-veg"
+              >
+                <div
+                  className={`absolute top-[4px] left-[4px] h-8 w-8 rounded-full shadow-md flex items-center justify-center transition-transform duration-300
+                  ${isVegOnly ? "translate-x-[45px]" : "translate-x-0"}
+                  ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
+                >
+                  <img
+                    src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
+                    className="w-[20px] h-[20px]"
+                    alt=""
+                  />
+                </div>
+              </button>
+
+              <span 
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-90`}
+                style={desktopLabelStyle}
+              >
+                Veg
+              </span>
+            </div>
           </div>
 
-          {/* Menu Card */}
+          {/* Menu Card Content (Kept exactly as before) */}
           <div className="lg:max-w-[987px] mx-auto">
             <div
-              className={`bg-[#1E3A4F] perspective-1000 ${theme === "light"
-                ? "MenuCardBoxConatinerlight"
-                : "MenuCardBoxConatiner"
-                }`}
+              className={`bg-[#1E3A4F] perspective-1000 ${
+                theme === "light" ? "MenuCardBoxConatinerlight" : "MenuCardBoxConatiner"
+              }`}
             >
               {currentDish ? (
-                <div
-                  className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d ${isFlipped ? "" : ""
-                    }`}
-                >
+                <div className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d`}>
                   <div>
                     <div className="flex justify-between">
                       <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
                         {[
-                          // { day: "S", index: 0 },
                           { day: "M", index: 0 },
                           { day: "T", index: 1 },
                           { day: "W", index: 2 },
@@ -1342,10 +1374,11 @@ export default function Menu() {
                           <button
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${selectedDay === item.index
-                              ? "bg-white text-[#1E3A4F] border-white"
-                              : "bg-transparent text-white border-white hover:bg-white/20"
-                              }`}
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
+                              selectedDay === item.index
+                                ? "bg-white text-[#1E3A4F] border-white"
+                                : "bg-transparent text-white border-white hover:bg-white/20"
+                            }`}
                             style={{
                               fontFamily: "Montserrat",
                               lineHeight: "100%",
@@ -1383,7 +1416,6 @@ export default function Menu() {
                         </span>
                       </div>
                       <div className="md:block hidden">
-                        {" "}
                         <CustomSelect
                           setSelectedWeek={setSelectedWeek}
                           selectedWeek={selectedWeek}
@@ -1400,7 +1432,7 @@ export default function Menu() {
                           className="object-cover rounded-2xl"
                         />
                       </div>
-                      <div className="flex-1 flex flex-col  min-w-0 overflow-visible">
+                      <div className="flex-1 flex flex-col min-w-0 overflow-visible">
                         <h3
                           className="text-white text-base font-bold uppercase mb-1 break-words lg:hidden block"
                           style={{
@@ -1428,7 +1460,6 @@ export default function Menu() {
                             <h3 className="currentdish_name_title lg:block hidden">
                               {currentDish.name}
                             </h3>
-
                             <p className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden">
                               {currentDish.description}
                             </p>
@@ -1436,15 +1467,17 @@ export default function Menu() {
 
                           <button
                             onClick={() => setIsFlipped(true)}
-                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${isFlipped ? "animate-pulse" : ""
-                              }`}
+                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${
+                              isFlipped ? "animate-pulse" : ""
+                            }`}
                           >
                             <span className="mt-1 buttonNutrition_info">
                               Nutrition Info
                             </span>
                             <svg
-                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${isFlipped ? "animate-bounce" : ""
-                                }`}
+                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${
+                                isFlipped ? "animate-bounce" : ""
+                              }`}
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -1472,7 +1505,7 @@ export default function Menu() {
                   >
                     <Box sx={style}>
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white md:max-w-[420px] lg:max-w-[700px] lg:w-[700px]  max-h-[90vh] overflow-y-auto w-[358px]">
+                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white md:max-w-[420px] lg:max-w-[700px] lg:w-[700px] max-h-[90vh] overflow-y-auto w-[358px]">
                           {/* Modal Header */}
                           <div className="flex justify-between items-start mb-6">
                             <h3
@@ -1510,7 +1543,6 @@ export default function Menu() {
 
                           {/* Nutrient Info */}
                           <div className="grid md:grid-cols-2 gap-6">
-                            {/* Main Nutrients */}
                             <div className="space-y-3">
                               <h4 className="text-white text-lg font-semibold mb-3">
                                 Main Nutrients
@@ -1535,7 +1567,6 @@ export default function Menu() {
                               </div>
                             </div>
 
-                            {/* Micronutrients */}
                             <div className="space-y-3">
                               <h4 className="text-white text-lg font-semibold mb-3">
                                 Micronutrients
@@ -1620,6 +1651,7 @@ export default function Menu() {
     </>
   );
 }
+
 function NutrientRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-center py-2 border-b border-white/20">
