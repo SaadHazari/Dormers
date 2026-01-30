@@ -49,7 +49,7 @@ export default function Footer() {
 
   return (
     <>
-      {/* MOBILE FOOTER */}
+      {/* MOBILE FOOTER (Kept exactly as you liked it) */}
       <footer
         className={`${theme === "light"
           ? "bg-[#031624] text-[#1E3A4F]"
@@ -189,7 +189,7 @@ export default function Footer() {
                 Privacy Policy
               </Link>
             </div>
-            {/* UPDATED: Centered the mobile copyright */}
+            {/* Centered for Mobile */}
             <div className="mt-2">
               <div className="flex flex-row justify-center">
                 <p className="text-white text-[10px]">
@@ -201,7 +201,7 @@ export default function Footer() {
         </div>
       </footer>
 
-      {/* DESKTOP FOOTER */}
+      {/* DESKTOP FOOTER (Reverted to original Flex + Nudged Left) */}
       <footer
         className={`${theme === "light"
           ? "bg-[#031624] text-[#1E3A4F]"
@@ -351,6 +351,8 @@ export default function Footer() {
             </div>
           </div>
         </div>
+        
+        {/* DESKTOP BOTTOM BAR */}
         <div
           className="mt-8 pt-8 border-t border-dashed border-white text-sm text-center"
           style={{
@@ -361,11 +363,12 @@ export default function Footer() {
             fontSize: "11px",
           }}
         >
-          <div className="lg:max-w-[987px]  mx-auto">
-            {/* UPDATED: Changed to Grid for perfect centering */}
-            <div className="grid grid-cols-3 items-center">
-              {/* Left Column: Links */}
-              <div className="flex gap-[54px] justify-self-start">
+          <div className="lg:max-w-[987px] mx-auto">
+            {/* Reverted to FLEX (Your original preference) */}
+            <div className="flex justify-between items-center">
+              
+              {/* Left Side: Links */}
+              <div className="flex gap-[54px]">
                 <Link
                   href="/cookies-policy"
                   className="hover:text-orange-400 text-white text-[14px]"
@@ -386,14 +389,14 @@ export default function Footer() {
                 </Link>
               </div>
 
-              {/* Center Column: Copyright */}
-              <div className="justify-self-center whitespace-nowrap">
+              {/* Center Side: Copyright */}
+              {/* UPDATED: Added '-translate-x-12' to nudge it left as requested */}
+              <div className="transform -translate-x-12">
                 <p className="text-white text-[14px]">© {new Date().getFullYear()} Dormer&apos;s All rights reserved</p>
               </div>
 
-              {/* Right Column: Empty (Used for balance) */}
-              <div className="justify-self-end">
-              </div>
+              {/* Right Side: Empty (Kept for balance) */}
+              <div className=""></div>
             </div>
           </div>
         </div>
