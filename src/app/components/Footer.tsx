@@ -376,7 +376,7 @@ export default function Footer() {
                   Cookies Policy
                 </Link>
                 <Link
-                  href="/legal-terms"
+                  href="/terms"
                   className="hover:text-orange-400 text-white text-[14px]"
                 >
                   Legal Terms
