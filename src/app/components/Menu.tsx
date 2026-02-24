@@ -1173,7 +1173,18 @@ export default function Menu() {
   });
 
   const [, setShowNutritionHint] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState("week1");
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    // Get today's date (e.g., the 24th)
+    const dayOfMonth = new Date().getDate();
+    
+    // Divide by 7 and round up to find the week number (1, 2, 3, or 4)
+    let weekNum = Math.ceil(dayOfMonth / 7);
+    
+    // If the month has 29, 30, or 31 days, serve the Week 4 menu
+    if (weekNum > 4) weekNum = 4; 
+    
+    return `week${weekNum}`;
+  });
   
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
