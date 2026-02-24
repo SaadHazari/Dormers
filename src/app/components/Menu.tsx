@@ -5,9 +5,13 @@ import Image from "next/image";
 import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
 import CustomSelect from "@/app/components/CustomSelect";
+
+// Keeping all 6 imports so Netlify passes the build!
 import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
 import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
+import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
 import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
+import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
 import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 // interface Nutrient {
@@ -51,7 +55,7 @@ const MENU_DATA = [
   {
     id: 3, name: "Chicken Wanazi w/ Oven Baked Naan", week: "week1", isVeg: false, dayOfWeek: 2,
     description: "Mild coconut chicken stew, gently spiced and fragrant, served with warm naan for dipping.",
-    image: "/images/Week1/nonveg1/ChickenWanazi.png",
+    image: "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg", // Placeholder
     nutrients: { calories: "680 kcal", protein: "38g", carbs: "65g", fat: "28g", microNutrients: [{ name: "Calcium", amount: "150mg", percentage: "15%" }, { name: "Iron", amount: "4.1mg", percentage: "22%" }, { name: "Potassium", amount: "420mg", percentage: "9%" }] }
   },
   {
@@ -69,7 +73,7 @@ const MENU_DATA = [
   {
     id: 6, name: "Chicken Seekh Kebab w/ Mint Dip & Naan", week: "week1", isVeg: false, dayOfWeek: 5,
     description: "Grilled spiced chicken skewers, smoky and juicy, served with cooling mint dip and naan.",
-    image: "/images/Week1/nonveg1/SeekhKebab.png",
+    image: "/images/Week2/NonVeg/Dormer's_Kebab.jpg", // Placeholder
     nutrients: { calories: "580 kcal", protein: "44g", carbs: "52g", fat: "20g", microNutrients: [{ name: "Iron", amount: "3.8mg", percentage: "21%" }, { name: "Calcium", amount: "200mg", percentage: "20%" }, { name: "Fiber", amount: "5g", percentage: "20%" }] }
   },
 
@@ -77,37 +81,37 @@ const MENU_DATA = [
   {
     id: 7, name: "Paneer Afghani w/ Middle Eastern Rice", week: "week1", isVeg: true, dayOfWeek: 0,
     description: "Tender, creamy grilled Cottage cheese marinated in rich spices, served with Tangy Middle Eastern basmati rice.",
-    image: "/images/Week1/Veg/Paneer_Afghani.jpg",
+    image: "/images/Week1/Veg/Paneer_Afghani_w__Yellow_rice.jpg",
     nutrients: { calories: "680 kcal", protein: "24g", carbs: "70g", fat: "34g", microNutrients: [{ name: "Calcium", amount: "350mg", percentage: "35%" }, { name: "Vitamin A", amount: "380mcg", percentage: "42%" }] }
   },
   {
     id: 8, name: "Dormers' Paneer w/ Zeera Rice", week: "week1", isVeg: true, dayOfWeek: 1,
     description: "Juicy, spiced cottage cheese with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
-    image: "/images/Week1/Veg/Dormers_Paneer.jpg",
+    image: "/images/Week1/Veg/Dormers_Paneer_Zeera_Rice.jpg",
     nutrients: { calories: "650 kcal", protein: "22g", carbs: "72g", fat: "30g", microNutrients: [{ name: "Calcium", amount: "300mg", percentage: "30%" }, { name: "Iron", amount: "3.2mg", percentage: "18%" }] }
   },
   {
     id: 9, name: "Aaloo Gobi w/ Tandoor Bread", week: "week1", isVeg: true, dayOfWeek: 2,
     description: "Spiced cauliflower and potato, slow-simmered with tomatoes and spices; served with warm tandoor bread.",
-    image: "/images/Week1/Veg/AalooGobi.jpg",
+    image: "/images/Week2/Veg/Dum_aaloo_2.jpg", // Placeholder
     nutrients: { calories: "480 kcal", protein: "12g", carbs: "75g", fat: "16g", microNutrients: [{ name: "Vitamin C", amount: "65mg", percentage: "72%" }, { name: "Fiber", amount: "12g", percentage: "48%" }] }
   },
   {
     id: 10, name: "Plantballs w/ Mashed Potatoes & Mushroom Sauce", week: "week1", isVeg: true, dayOfWeek: 3,
     description: "Tender plantballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
-    image: "/images/Week1/Veg/Plantballs.jpg",
+    image: "/images/Week1/Veg/Veg_Kofta_Mashed_Potato_Mushroom_sauce.jpg",
     nutrients: { calories: "510 kcal", protein: "18g", carbs: "60g", fat: "22g", microNutrients: [{ name: "Iron", amount: "4.5mg", percentage: "25%" }, { name: "Calcium", amount: "180mg", percentage: "18%" }] }
   },
   {
     id: 11, name: "Chickpea Veg Biryani", week: "week1", isVeg: true, dayOfWeek: 4,
     description: "A fragrant and flavorful rice dish layered with tender, spiced Veggies, Chickpeas, aromatic basmati rice, and a blend of traditional spices.",
-    image: "/images/Week1/Veg/ChickpeaBiryani.jpg",
+    image: "/images/Week1/Veg/Soya_Biryani_3.jpg", // Placeholder
     nutrients: { calories: "590 kcal", protein: "16g", carbs: "95g", fat: "14g", microNutrients: [{ name: "Fiber", amount: "15g", percentage: "60%" }, { name: "Iron", amount: "5.1mg", percentage: "28%" }] }
   },
   {
     id: 12, name: "Methi Matar Paneer w/ Tandoor bread", week: "week1", isVeg: true, dayOfWeek: 5,
     description: "A flavorful curry of tender paneer, fresh green peas, and aromatic fenugreek leaves in a spiced, creamy gravy.",
-    image: "/images/Week1/Veg/MethiMatarPaneer.jpg",
+    image: "/images/Week2/Veg/Methi_Matar_paneer.jpg",
     nutrients: { calories: "610 kcal", protein: "25g", carbs: "55g", fat: "32g", microNutrients: [{ name: "Calcium", amount: "320mg", percentage: "32%" }, { name: "Vitamin A", amount: "400mcg", percentage: "44%" }] }
   },
 
@@ -121,31 +125,31 @@ const MENU_DATA = [
   {
     id: 14, name: "African Coconut Rice w/ Fried Chicken", week: "week2", isVeg: false, dayOfWeek: 1,
     description: "Creamy, coconut-infused rice paired with crispy, golden fried chicken for a perfect blend of flavors.",
-    image: "/images/Week2/NonVeg/African_coconut_rice.jpg",
+    image: "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
     nutrients: { calories: "740 kcal", protein: "35g", carbs: "78g", fat: "32g", microNutrients: [{ name: "Iron", amount: "3.5mg", percentage: "19%" }, { name: "Selenium", amount: "28mcg", percentage: "51%" }] }
   },
   {
     id: 15, name: "African Peanut Chicken Stew w/ Indian Bread", week: "week2", isVeg: false, dayOfWeek: 2,
     description: "Hearty, slow-cooked chicken stew in a rich Peanut sauce, served with indian flatbread.",
-    image: "/images/Week2/NonVeg/African_Peanut.jpg",
+    image: "/images/Week3/NonVeg/Chicken_fricasse-W_mashed_Potato_1.jpg", // Placeholder
     nutrients: { calories: "720 kcal", protein: "42g", carbs: "58g", fat: "35g", microNutrients: [{ name: "Niacin", amount: "12mg", percentage: "75%" }, { name: "Magnesium", amount: "120mg", percentage: "29%" }] }
   },
   {
     id: 16, name: "Butter Chicken w/ Peas & Carrot Rice", week: "week2", isVeg: false, dayOfWeek: 3,
     description: "Juicy, marinated chicken simmered in a creamy, spiced tomato gravy, served with fluffy Peas & carrots rice.",
-    image: "/images/Week2/NonVeg/Butter_chicken.png",
+    image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.png",
     nutrients: { calories: "710 kcal", protein: "40g", carbs: "75g", fat: "26g", microNutrients: [{ name: "Vitamin A", amount: "380mcg", percentage: "42%" }, { name: "Calcium", amount: "120mg", percentage: "12%" }] }
   },
   {
     id: 17, name: "Chicken Penne Pasta in White Sauce", week: "week2", isVeg: false, dayOfWeek: 4,
     description: "Creamy white-sauce penne tossed with tender chicken, finished with parmesan and cracked pepper.",
-    image: "/images/Week2/NonVeg/ChickenPenne.jpg",
+    image: "/images/Week4/NonVeg/spaghetti_bolognese_2.jpg", // Placeholder
     nutrients: { calories: "680 kcal", protein: "38g", carbs: "72g", fat: "28g", microNutrients: [{ name: "Calcium", amount: "200mg", percentage: "20%" }, { name: "Iron", amount: "2.5mg", percentage: "14%" }] }
   },
   {
     id: 18, name: "Lamb Pilaf w/ Salad", week: "week2", isVeg: false, dayOfWeek: 5,
     description: "Aromatic rice cooked with tender, spiced lamb, served with a refreshing side salad for a balanced meal.",
-    image: "/images/Week2/NonVeg/Lamb_Pilaf_Salad.jpg",
+    image: "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
     nutrients: { calories: "750 kcal", protein: "35g", carbs: "80g", fat: "32g", microNutrients: [{ name: "Zinc", amount: "7.5mg", percentage: "68%" }, { name: "Vitamin B12", amount: "4.2mcg", percentage: "175%" }] }
   },
 
@@ -153,31 +157,31 @@ const MENU_DATA = [
   {
     id: 19, name: "Dal Makhni w/ Zeera Rice", week: "week2", isVeg: true, dayOfWeek: 0,
     description: "Rich and creamy lentils cooked in aromatic spices, served with fragrant cumin-flavored basmati rice.",
-    image: "/images/Week2/Veg/Dal_Makhni.jpg",
+    image: "/images/Week2/Veg/Dal_Nawabi_w__zeera_rice.jpg",
     nutrients: { calories: "580 kcal", protein: "18g", carbs: "95g", fat: "16g", microNutrients: [{ name: "Iron", amount: "4.2mg", percentage: "23%" }, { name: "Fiber", amount: "16g", percentage: "64%" }] }
   },
   {
     id: 20, name: "Penne Pasta Pomodoro", week: "week2", isVeg: true, dayOfWeek: 1,
     description: "Al dente penne in a fresh tomato-basil Pomodoro, finished with olive oil and parmesan.",
-    image: "/images/Week2/Veg/Penne_Pomodoro.png",
+    image: "/images/Week2/Veg/penne pmodorp.png",
     nutrients: { calories: "480 kcal", protein: "14g", carbs: "82g", fat: "12g", microNutrients: [{ name: "Vitamin C", amount: "42mg", percentage: "47%" }, { name: "Lycopene", amount: "12mg", percentage: "N/A" }] }
   },
   {
     id: 21, name: "Dum Aaloo & Dal w/ Indian Bread", week: "week2", isVeg: true, dayOfWeek: 2,
     description: "Slow-cooked baby potatoes in a spiced yogurt gravy, paired with flavorful lentils and soft, Indian flatbread.",
-    image: "/images/Week2/Veg/Dum_aaloo.jpg",
+    image: "/images/Week2/Veg/Dum_aaloo_2.jpg",
     nutrients: { calories: "520 kcal", protein: "16g", carbs: "88g", fat: "14g", microNutrients: [{ name: "Potassium", amount: "900mg", percentage: "19%" }, { name: "Fiber", amount: "12g", percentage: "48%" }] }
   },
   {
     id: 22, name: "Butter Paneer w/ Carrot & Peas Rice", week: "week2", isVeg: true, dayOfWeek: 3,
     description: "Soft paneer cubes simmered in a rich, buttery tomato gravy, served with fragrant cumin-infused basmati rice.",
-    image: "/images/Week2/Veg/Butter_paneer.png",
+    image: "/images/Week2/Veg/Butter paneer.png",
     nutrients: { calories: "660 kcal", protein: "22g", carbs: "70g", fat: "32g", microNutrients: [{ name: "Calcium", amount: "300mg", percentage: "30%" }, { name: "Vitamin A", amount: "450mcg", percentage: "50%" }] }
   },
   {
     id: 23, name: "Penne Veggie w/ White Sauce", week: "week2", isVeg: true, dayOfWeek: 4,
     description: "Classic Italian pasta tossed in a fresh, tangy White sauce with garlic, basil, and olive oil.",
-    image: "/images/Week2/Veg/Penne_Veggie.png",
+    image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg", // Placeholder
     nutrients: { calories: "550 kcal", protein: "15g", carbs: "80g", fat: "20g", microNutrients: [{ name: "Calcium", amount: "250mg", percentage: "25%" }, { name: "Vitamin C", amount: "35mg", percentage: "39%" }] }
   },
   {
@@ -191,13 +195,13 @@ const MENU_DATA = [
   {
     id: 25, name: "Chicken Khorma w/ Bagara Rice", week: "week3", isVeg: false, dayOfWeek: 0,
     description: "Fragrant, spiced chicken cooked in a rich, creamy gravy, served with flavorful bagara rice.",
-    image: "/images/Week4/NonVeg/chicken_Korma.jpg",
+    image: "/images/Week4/NonVeg/chicken_Korma_bagara_rice.jpg",
     nutrients: { calories: "720 kcal", protein: "40g", carbs: "70g", fat: "30g", microNutrients: [{ name: "Calcium", amount: "120mg", percentage: "12%" }, { name: "Iron", amount: "4.2mg", percentage: "23%" }] }
   },
   {
     id: 26, name: "Chicken Fried Rice", week: "week3", isVeg: false, dayOfWeek: 1,
     description: "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
-    image: "/images/Week1/nonveg1/ChickenFried.png",
+    image: ChickenFried,
     nutrients: { calories: "650 kcal", protein: "35g", carbs: "85g", fat: "18g", microNutrients: [{ name: "Vitamin C", amount: "42mg", percentage: "47%" }, { name: "Iron", amount: "3.8mg", percentage: "21%" }] }
   },
   {
@@ -209,19 +213,19 @@ const MENU_DATA = [
   {
     id: 28, name: "Malai Tikka w/ Lemon Rice", week: "week3", isVeg: false, dayOfWeek: 3,
     description: "Creamy, tender chicken marinated in rich spices, paired with fragrant lemon-infused rice.",
-    image: "/images/Week3/NonVeg/Malai_tikka.jpg",
+    image: "/images/Week3/NonVeg/Malai_tikka_Lemon_Rice.jpg",
     nutrients: { calories: "680 kcal", protein: "42g", carbs: "68g", fat: "26g", microNutrients: [{ name: "Calcium", amount: "180mg", percentage: "18%" }, { name: "Phosphorus", amount: "400mg", percentage: "57%" }] }
   },
   {
     id: 29, name: "Spaghetti Bolognese w/ Marinara Sauce", week: "week3", isVeg: false, dayOfWeek: 4,
     description: "Classic spaghetti tossed in a rich, savory marinara sauce, topped with hearty Bolognese meat sauce.",
-    image: "/images/Week4/NonVeg/spaghetti_bolognese.jpg",
+    image: "/images/Week4/NonVeg/spaghetti_bolognese_2.jpg",
     nutrients: { calories: "690 kcal", protein: "35g", carbs: "85g", fat: "22g", microNutrients: [{ name: "Lycopene", amount: "15mg", percentage: "N/A" }, { name: "Iron", amount: "4.8mg", percentage: "27%" }] }
   },
   {
     id: 30, name: "Chicken Biryani", week: "week3", isVeg: false, dayOfWeek: 5,
     description: "Fragrant basmati rice layered with spiced, tender chicken, cooked to perfection with traditional biryani spices.",
-    image: "/images/Week3/NonVeg/Chicken_Biryani.jpg",
+    image: "/images/Week3/NonVeg/Chicken_Biryani_2.jpg",
     nutrients: { calories: "690 kcal", protein: "40g", carbs: "82g", fat: "22g", microNutrients: [{ name: "Iron", amount: "4.2mg", percentage: "23%" }, { name: "Magnesium", amount: "140mg", percentage: "33%" }] }
   },
 
@@ -229,7 +233,7 @@ const MENU_DATA = [
   {
     id: 31, name: "Veg Aaloo Khorma w/ Bagara Rice", week: "week3", isVeg: true, dayOfWeek: 0,
     description: "A rich, spiced curry of potatoes and vegetables, served with flavorful bagara rice.",
-    image: "/images/Week4/Veg/Veg_aaloo_korma.jpg",
+    image: "/images/Week4/Veg/Veg_aaloo_korma_bagara_Rice.jpg",
     nutrients: { calories: "520 kcal", protein: "12g", carbs: "85g", fat: "16g", microNutrients: [{ name: "Vitamin C", amount: "45mg", percentage: "50%" }, { name: "Potassium", amount: "900mg", percentage: "19%" }] }
   },
   {
@@ -241,25 +245,25 @@ const MENU_DATA = [
   {
     id: 33, name: "Paneer Tikka & Dal w/ Roti", week: "week3", isVeg: true, dayOfWeek: 2,
     description: "Grilled paneer tikka marinated in spices, served with flavorful lentils and soft, whole wheat roti.",
-    image: "/images/Week3/Veg/Paneer_tikka.jpg",
+    image: "/images/Week3/Veg/Paneer_tikka_W_Lemon_rice.jpg",
     nutrients: { calories: "640 kcal", protein: "28g", carbs: "65g", fat: "28g", microNutrients: [{ name: "Calcium", amount: "350mg", percentage: "35%" }, { name: "Iron", amount: "4.5mg", percentage: "25%" }] }
   },
   {
     id: 34, name: "Paneer Lababdar w/ Lemon Rice", week: "week3", isVeg: true, dayOfWeek: 3,
     description: "Rich, creamy paneer curry simmered in a spiced tomato gravy, paired with fragrant lemon-infused rice.",
-    image: "/images/Week3/Veg/Paneer_lababdaar.jpg",
+    image: "/images/Week3/Veg/Paneer_lababdaar_W_Lemon_rice.jpg",
     nutrients: { calories: "660 kcal", protein: "22g", carbs: "72g", fat: "32g", microNutrients: [{ name: "Calcium", amount: "300mg", percentage: "30%" }, { name: "Vitamin A", amount: "450mcg", percentage: "50%" }] }
   },
   {
     id: 35, name: "Spaghetti Pomodoro", week: "week3", isVeg: true, dayOfWeek: 4,
     description: "Classic Italian spaghetti tossed in a fresh tomato sauce, topped with tender grilled paneer.",
-    image: "/images/Week4/Veg/spaghetti_pomodoro.jpg",
+    image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg", // Placeholder
     nutrients: { calories: "550 kcal", protein: "18g", carbs: "82g", fat: "18g", microNutrients: [{ name: "Lycopene", amount: "15mg", percentage: "N/A" }, { name: "Calcium", amount: "150mg", percentage: "15%" }] }
   },
   {
     id: 36, name: "Chickpea Veg Biryani w/ Raita", week: "week3", isVeg: true, dayOfWeek: 5,
     description: "Fragrant basmati rice cooked with mixed veggies, Chickpeas and aromatic spices, served with cooling yogurt raita.",
-    image: "/images/Week3/Veg/Chickpea_Biryani.jpg",
+    image: "/images/Week3/Veg/Soya_Biryani_3.jpg", // Placeholder
     nutrients: { calories: "580 kcal", protein: "18g", carbs: "95g", fat: "14g", microNutrients: [{ name: "Fiber", amount: "16g", percentage: "64%" }, { name: "Calcium", amount: "150mg", percentage: "15%" }] }
   },
 
@@ -267,19 +271,19 @@ const MENU_DATA = [
   {
     id: 37, name: "Dormers' Green Kabab w/ Chutney & Flat Bread", week: "week4", isVeg: false, dayOfWeek: 0,
     description: "Herb-forward green kebab, pan-seared, paired with tangy chutney and delicate rumali roti.",
-    image: "/images/Week4/NonVeg/Green_Kebab.jpg",
+    image: "/images/Week2/NonVeg/Dormer's_Kebab.jpg", // Placeholder
     nutrients: { calories: "590 kcal", protein: "42g", carbs: "55g", fat: "18g", microNutrients: [{ name: "Iron", amount: "4.5mg", percentage: "25%" }, { name: "Vitamin C", amount: "35mg", percentage: "39%" }] }
   },
   {
     id: 38, name: "Peri-Peri Chicken w/ Jolof Rice", week: "week4", isVeg: false, dayOfWeek: 1,
     description: "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
-    image: "/images/Week1/nonveg1/PeriPeri.png",
+    image: PeriPeri, 
     nutrients: { calories: "640 kcal", protein: "45g", carbs: "75g", fat: "16g", microNutrients: [{ name: "Vitamin D", amount: "8mcg", percentage: "40%" }, { name: "Selenium", amount: "28mcg", percentage: "51%" }] }
   },
   {
     id: 39, name: "Moroccan Chicken Tagine w/ Indian Bread", week: "week4", isVeg: false, dayOfWeek: 2,
     description: "Aromatic chicken slow cooked with spices and vegetables, served with fluffy Indian Bread.",
-    image: "/images/Week3/NonVeg/Morrocan_chicken.png",
+    image: "/images/Week3/NonVeg/Morrocan chicken.png",
     nutrients: { calories: "660 kcal", protein: "40g", carbs: "65g", fat: "24g", microNutrients: [{ name: "Iron", amount: "4.8mg", percentage: "27%" }, { name: "Vitamin A", amount: "450mcg", percentage: "50%" }] }
   },
   {
@@ -291,13 +295,13 @@ const MENU_DATA = [
   {
     id: 41, name: "Dormer's Style Halal Guys Bowl", week: "week4", isVeg: false, dayOfWeek: 4,
     description: "Juicy grilled Mutton served with rice, lettuce, and Dormer's signature white sauce and hot sauce.",
-    image: "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl.jpg",
+    image: "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl_correct3.jpg",
     nutrients: { calories: "750 kcal", protein: "35g", carbs: "78g", fat: "34g", microNutrients: [{ name: "Vitamin K", amount: "75mcg", percentage: "63%" }, { name: "Calcium", amount: "150mg", percentage: "15%" }] }
   },
   {
     id: 42, name: "Thai Chicken Curry w/ Coconut Rice", week: "week4", isVeg: false, dayOfWeek: 5,
     description: "Tangy Asian curry slow cooked with tender chicken, served with flaky coconut rice for a rich and hearty Food bowl.",
-    image: "/images/Week4/NonVeg/Thai_chicken_curry.jpg",
+    image: "/images/Week4/NonVeg/Thai_chicken_curry_w_cocnut_rice.jpg",
     nutrients: { calories: "720 kcal", protein: "38g", carbs: "75g", fat: "30g", microNutrients: [{ name: "Vitamin C", amount: "45mg", percentage: "50%" }, { name: "Iron", amount: "3.5mg", percentage: "19%" }] }
   },
 
@@ -305,13 +309,13 @@ const MENU_DATA = [
   {
     id: 43, name: "Classic Tangy Cholay w/ Naan", week: "week4", isVeg: true, dayOfWeek: 0,
     description: "Tangy spiced chickpeas simmered with tamarind and spices, served with warm buttered naan.",
-    image: "/images/Week4/Veg/Tangy_Cholay.jpg",
+    image: "/images/Week3/Veg/Mashed_potatoes_w_tangy_beans.jpg", // Placeholder
     nutrients: { calories: "550 kcal", protein: "18g", carbs: "85g", fat: "14g", microNutrients: [{ name: "Iron", amount: "5.5mg", percentage: "30%" }, { name: "Fiber", amount: "18g", percentage: "72%" }] }
   },
   {
     id: 44, name: "Jolof Rice w/ Grilled Veggies", week: "week4", isVeg: true, dayOfWeek: 1,
     description: "Perfectly char grilled Veggies served alongside flavorful, spicy West African tomato-infused rice.",
-    image: "/images/Week1/Veg/Jolof_rice.jpg",
+    image: "/images/Week1/Veg/Jolof_rice_grill_veggies_2.jpg",
     nutrients: { calories: "480 kcal", protein: "10g", carbs: "88g", fat: "12g", microNutrients: [{ name: "Vitamin A", amount: "450mcg", percentage: "50%" }, { name: "Vitamin C", amount: "45mg", percentage: "50%" }] }
   },
   {
@@ -329,13 +333,13 @@ const MENU_DATA = [
   {
     id: 47, name: "Rajma Aaloo w/ Roti", week: "week4", isVeg: true, dayOfWeek: 4,
     description: "Hearty red kidney beans and potatoes cooked in a spiced tomato gravy, served with soft roti.",
-    image: "/images/Week4/Veg/Rajma_aaloo.jpg",
+    image: "/images/Week3/Veg/Rajma_aaloo.jpg",
     nutrients: { calories: "540 kcal", protein: "18g", carbs: "85g", fat: "12g", microNutrients: [{ name: "Iron", amount: "4.8mg", percentage: "27%" }, { name: "Fiber", amount: "16g", percentage: "64%" }] }
   },
   {
     id: 48, name: "Kadhai Paneer w/ Cumin Rice", week: "week4", isVeg: true, dayOfWeek: 5,
     description: "Stir-fried paneer and bell peppers cooked in a flavorful, spiced gravy, served with Cumin infused rice.",
-    image: "/images/Week3/Veg/Kadhai_Paneer.jpg",
+    image: "/images/Week3/Veg/Kadhai_Paneer_w_Rice.jpg",
     nutrients: { calories: "640 kcal", protein: "22g", carbs: "75g", fat: "28g", microNutrients: [{ name: "Calcium", amount: "300mg", percentage: "30%" }, { name: "Vitamin C", amount: "120mg", percentage: "133%" }] }
   },
 ];
