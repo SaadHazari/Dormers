@@ -1,340 +1,258 @@
-@import url("https://fonts.cdnfonts.com/css/typo-round");
-@media (min-width: 768px) {
-  .container_aboutUs_box {
-    max-width: 987px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .ourvalues-para_info {
-    font-family: "Montserrat", sans-serif;
-    font-weight: 400;
-    line-height: 167%;
-    font-size: 15px;
-    letter-spacing: 0.5px;
-    max-width: 406px;
-  }
-  .OurValues_headingtitle {
-    color: #fff;
-    font-family: "Typo Round Bold Demo";
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
-    text-transform: uppercase;
-  }
-  .OurVisionAboutUs_title {
-    color: #1e3a4f;
-    font-family: "Montserrat", sans-serif;
-    font-size: 22px;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 16px; /* 44.444% */
-  }
-  .OurmissionAboutUs_title {
-    color: #fff;
-    font-family: "Montserrat", sans-serif;
-    font-size: 22px;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 16px; /* 44.444% */
-  }
-  .OurVisionAboutUs_para {
-    /* color: #373737; */
-    text-align: justify;
-    font-family: "Montserrat", sans-serif;
-    font-size: 19px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    margin-top: 16px;
-  }
-  .OurmissionAboutUs_para {
-    color: #fff;
-    text-align: justify;
-    font-family: "Montserrat", sans-serif;
-    font-size: 19px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    margin-top: 16px;
-  }
-  .menu-heading_icon {
-    color: #fff;
-    text-align: center;
-    font-family: "Montserrat", sans-serif;
-    font-size: 30px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: normal;
-    text-transform: uppercase;
-  }
-  .currentdish_name_title {
-    color: #fff;
-    font-family: "Montserrat", sans-serif;
-    font-size: 36px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
-    text-transform: uppercase;
-    max-width: 585px;
-  }
-  .currentDish_paramenu {
-    color: #fff;
-    text-align: justify;
-    font-family: "Montserrat", sans-serif;
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 300;
-    line-height: normal;
-    max-width: 417px;
-  }
-  .buttonNutrition_info {
-    color: #fff;
-    font-family: "Montserrat", sans-serif;
-    font-size: 17px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
-  }
-  .selectboxmenuweekwise {
-    border-radius: 23px;
-    background: #eee9da;
-    width: 125.464px;
-    height: 36px;
-    padding-left: 12px;
-    padding-right: 12px;
-    font-size: 12px;
-  }
-  .curtleheightfaq {
-    height: 279px;
-  }
-  .aboutUsocntianercustle {
-    padding-top: 24px;
-  }
-  .curtleLightheight {
-    height: 212px;
-  }
-  .aboutUsocntianercustlelight {
-    padding-top: 24px;
-  }
-  .MenuCardBoxConatiner {
-    border-radius: 55px;
-    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
-    padding: 34px;
-  }
-  .MenuCardBoxConatinerlight {
-    border-radius: 55px;
-    /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
-    padding: 34px;
-  }
+"use client";
+import { useTheme } from "next-themes";
+// import Image from "next/image";
+import React from "react";
+import "@/style/AboutUs.css";
 
-  /* .custom-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-color: #f5f2e9;
-    color: #1e3a4f;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 13px 35px 13px 13px;
-    border-radius: 9999px;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-  }
-  .custom-select:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
-  } */
-  .select-wrapper {
-    position: relative;
-    /* display: inline-block; */
-    font-family: "Montserrat", sans-serif;
-    min-width: 126px;
-  }
+const AboutUs = () => {
+  const { theme } = useTheme();
 
-  .custom-select {
-    appearance: none;
-    background-color: #f5f2e9;
-    color: #1e3a4f;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 12px;
-    padding: 10px 17px;
-    border-radius: 9999px;
-    border: 1px solid rgba(30, 58, 79, 0.1);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    text-align: left;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0px;
-  }
+  return (
+    <>
+      <div
+        id="about"
+        className={`px-5 w-full py-[0px] lg:pb-[12px] md:pt-[68px] ${theme === "light" ? "bg-[#031624]" : "bg-[#031624]"
+          }`}
+      >
+        <div className="container mx-auto  ">
+          <div className="container_aboutUs_box">
+            {/* <h2
+              className={`${
+                theme === "light" ? "text-[#1E3A4F]" : "text-white"
+              } text-3xl sm:text-4xl font-bold mb-5 text-left`}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 500,
+                lineHeight: "100%",
+                letterSpacing: "0",
+                fontSize: "20px",
+              }}
+            >
+              ABOUT US
+            </h2> */}
+          </div>
+          {/* Mobile View */}
+          <div className="bg-[#031624] rounded-2xl pt-7 pb-[3px]  text-white md:mx-auto lg:hidden block relative">
+            <div className="flex flex-col gap-4 items-start justify-start mb-4">
+              <div className="min-w-[100px] mt-1">
+                <h3
+                  className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
+                  style={{
+                    fontFamily: "Montserrat, sans-serif",
+                    fontWeight: 900,
+                  }}
+                >
+                  OUR VALUES
+                </h3>
+              </div>
 
-  .custom-select:hover {
-    border-color: rgba(30, 58, 79, 0.3);
-  }
+              {/* CUSTOMER - CENTRICITY */}
+              <div className="">
+                <p
+                  className="font-bold flex items-start gap-1 text-[14px] sm:text-sm"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> CUSTOMER -
+                  CENTRICITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[12px] sm:text-sm"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  Every meal is crafted with students in mind, ensuring it’s not
+                  just food, but a moment of comfort and satisfaction.
+                </p>
+              </div>
 
-  .custom-select:focus {
-    outline: none;
-    border-color: rgba(30, 58, 79, 0.5);
-    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.1);
-  }
+              {/* QUALITY FIRST */}
+              <div className="">
+                <p
+                  className="font-bold flex items-start gap-1 text-[14px] sm:text-sm"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> QUALITY FIRST
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  We never compromise on the quality of our ingredients or
+                  preparation, delivering meals that are safe, nutritious &
+                  delicious.
+                </p>
+              </div>
+            </div>
 
-  /* For the dropdown options */
-  .select-wrapper ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 12px;
-    text-transform: uppercase;
-    color: #1e3a4f;
-  }
-  .BoxContainer_FAQBOX {
-    border-radius: 0 0 70px 70px;
-    background: #1e3a4f;
-    box-shadow: 0 14px 48.8px #00000096;
-  }
-}
+            {/* Second Row: 3 more values */}
+            <div className="flex flex-col items-start justify-start gap-4">
+              {/* AFFORDABILITY */}
+              <div className="">
+                <p
+                  className="font-bold flex items-start gap-1 text-[14px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> AFFORDABILITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  Great food should be accessible. We strive to keep our meals
+                  budget-friendly without sacrificing taste or value.
+                </p>
+              </div>
 
-@media (max-width: 768px) {
-  .ourvalues-para_info {
-    font-family: "Montserrat", sans-serif;
-    font-weight: 400;
-    line-height: 167%;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    max-width: 406px;
-  }
-  .OurValues_headingtitle {
-    color: #fff;
-    font-family: "Typo Round Bold Demo";
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
-    text-transform: uppercase;
-  }
-  .OurVisionAboutUs_title {
-    color: #1e3a4f;
-    font-family: "Montserrat", sans-serif;
-    font-size: 22px;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 16px; /* 44.444% */
-  }
-  .OurmissionAboutUs_title {
-    color: #fff;
-    font-family: "Montserrat", sans-serif;
-    font-size: 22px;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 16px; /* 44.444% */
-  }
-  .OurVisionAboutUs_para {
-    color: #373737;
-    text-align: justify;
-    font-family: "Montserrat", sans-serif;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    margin-top: 16px;
-  }
-  .OurmissionAboutUs_para {
-    color: #fff;
-    text-align: justify;
-    font-family: "Montserrat", sans-serif;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    margin-top: 16px;
-  }
-  .buttonNutrition_info {
-    font-size: 8px;
-    font-family: "Montserrat", sans-serif;
-    font-weight: 600;
-  }
-  .curtleheightfaq {
-    height: 334px;
-  }
-  .aboutUsocntianercustle {
-    padding-top: 24px;
-  }
-  .curtleLightheight {
-    height: 286px;
-  }
-  .aboutUsocntianercustlelight {
-    padding-top: 24px;
-  }
-  .OurMissionCard {
-    height: 272px;
-  }
-  .OurvisionCard {
-    height: 212px;
-  }
-  .MenuCardBoxConatiner {
-    border-radius: 6px;
-    box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
-    padding: 13px;
-  }
-  .MenuCardBoxConatinerlight {
-    border-radius: 6px;
-    /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
-    padding: 13px;
-  }
-  .select-wrapper {
-    position: relative;
-    /* display: inline-block; */
-    font-family: "Montserrat", sans-serif;
-  }
+              {/* DIVERSITY & INCLUSION */}
+              <div className="">
+                <p
+                  className="font-bold flex items-start gap-1 text-[14px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> DIVERSITY &
+                  INCLUSION
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  Our menu celebrates the diverse cultures and cuisines of our
+                  students, ensuring there’s something for everyone.
+                </p>
+              </div>
 
-  .custom-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-color: #f5f2e9;
-    color: #1e3a4f;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 8px;
-    padding: 6px 19px 4px 10px;
-    border-radius: 9999px;
-    border: none;
-    cursor: pointer;
-  }
+              {/* SUSTAINABILITY + Image aligned inside */}
+              <div className=" relative">
+                <p
+                  className="font-bold flex items-start gap-1 text-[14px]"
+                  style={{
+                    fontFamily: "Typo Round Bold Demo",
+                  }}
+                >
+                  <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
+                </p>
+                <p
+                  className="mt-1 font-light leading-snug text-[12px]"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                     We aim to minimize waste and use eco-friendly practices, caring for the environment as
+                    much as we care for our customers
+                </p>
+              </div>
+              {/* Icon aligned to bottom right of the section */}
+            </div>
+            {/* <Image
+              src="/images/about3.svg"
+              alt="Values Icon"
+              width={76.54}
+              height={60}
+              className="absolute bottom-0 right-0 opacity-55 select-none"
+            /> */}
+          </div>
+          {/* Desktop View */}
+          <div className="bg-[#031624] rounded-2xl relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
+            <div className="">
+              <h3
+                className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
+                style={{
+                  fontFamily: "Montserrat, sans-serif",
+                  fontWeight: 900,
+                }}
+              >
+                OUR VALUES
+              </h3>
+            </div>
+            <div className="flex relative gap-[61px]">
+              <div className="flex flex-col gap-[16px] mt-[20px]">
+                {/* CUSTOMER - CENTRICITY */}
+                <div className="">
+                  <p className="flex items-start gap-1 OurValues_headingtitle">
+                    <span className="text-[#FF7F00] ">|</span> CUSTOMER -
+                    CENTRICITY
+                  </p>
+                  <p className="mt-1 font-light leading-snug ourvalues-para_info">
+                    Every meal is crafted with students in mind, ensuring it’s
+                    not just food, but a moment of comfort and satisfaction.
+                  </p>
+                </div>
+                <div>
+                  <p className="OurValues_headingtitle flex items-start gap-1">
+                    <span className="text-[#FF7F00]">|</span> SUSTAINABILITY
+                  </p>
+                  <p className="mt-1 font-light leading-snug  ourvalues-para_info">
+                    We aim to minimize waste and use eco-friendly practices, caring for the environment as
+                    much as we care for our customers
+                  </p>
+                </div>
 
-  .custom-select:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(30, 58, 79, 0.2);
-  }
-  .BoxContainer_FAQBOX {
-    border-radius: 0px 0px 20px 20px;
-    background: #1e3a4f;
-    box-shadow: 0px 14px 14.7px 0px rgba(0, 0, 0, 0.59);
-  }
-}
-.custom-scroll::-webkit-scrollbar {
-  width: 6px;
-}
+                {/* DIVERSITY & INCLUSION */}
+                <div className="">
+                  <p className="OurValues_headingtitle flex items-start gap-1">
+                    <span className="text-[#FF7F00]">|</span> DIVERSITY &
+                    INCLUSION
+                  </p>
+                  <p className="mt-1 font-light leading-snug  ourvalues-para_info">
+                    Our menu celebrates the diverse cultures and cuisines of our
+                    students, ensuring there’s something for everyone.
+                  </p>
+                </div>
+              </div>
 
-.custom-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
+              {/* Second Row: 3 more values */}
+              <div className="flex flex-col gap-[16px]  mt-[20px]">
+                {/* QUALITY FIRST */}
+                <div className="">
+                  <p className="flex items-start gap-1 OurValues_headingtitle">
+                    <span className="text-[#FF7F00]">|</span> QUALITY FIRST
+                  </p>
+                  <p className="mt-1 font-light leading-snug ourvalues-para_info">
+                    We never compromise on the quality of our ingredients or
+                    preparation, delivering meals that are safe, nutritious &
+                    delicious.
+                  </p>
+                </div>
+                {/* AFFORDABILITY */}
+                <div className="">
+                  <p className="OurValues_headingtitle flex items-start gap-1">
+                    <span className="text-[#FF7F00]">|</span> AFFORDABILITY
+                  </p>
+                  <p className="mt-1 font-light leading-snug  ourvalues-para_info">
+                    Great food should be accessible. We strive to keep our meals
+                    budget-friendly without sacrificing taste or value.
+                  </p>
+                </div>
 
-.custom-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.5); /* Tailwind gray-500 */
-  border-radius: 9999px;
-}
+                {/* SUSTAINABILITY + Image aligned inside */}
+                <div className="">
+                  {/* Icon aligned to bottom right of the section */}
+                  {/* <Image
+                    src="/images/Ourvlaues.svg"
+                    alt="Values Icon"
+                    width={76.54}
+                    height={60}
+                    className="
+    absolute bottom-0 right-0 opacity-55 select-none
+    w-[50px] h-[40px]          
+    lg:w-[200px] lg:h-[160px]    
+    lg:bottom-[-48px]
+    lg:right-[-50px] 
+  "
+                  /> */}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
 
-.custom-scroll:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.8); /* darker on hover */
-}
-
-.custom-scroll {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
-}
+export default AboutUs;
