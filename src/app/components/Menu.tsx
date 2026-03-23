@@ -635,8 +635,8 @@ export default function Menu() {
                       <div className="flex-1 flex flex-col min-w-0 overflow-visible">
                         <h3
                           className="text-base font-bold uppercase mb-1 break-words lg:hidden block"
-                          style={{ color: cardTextColor }}
                           style={{
+                            color: cardTextColor,
                             fontFamily: "Montserrat",
                             fontWeight: 700,
                             lineHeight: "130%",
@@ -647,8 +647,8 @@ export default function Menu() {
                         </h3>
                         <p
                           className="text-xs mb-2 mt-2 lg:hidden block"
-                          style={{ color: cardTextMuteColor }}
                           style={{
+                            color: cardTextMuteColor,
                             fontFamily: "Poppins",
                             fontWeight: 300,
                             fontSize: "12px",
