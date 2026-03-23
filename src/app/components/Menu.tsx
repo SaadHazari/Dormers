@@ -423,9 +423,8 @@ export default function Menu() {
   };
 
   // --- Card colour tokens ---
-  const cardBg       = isVegOnly ? "bg-[#EEE9DA]"      : "bg-[#031624]";
-  const cardText     = isVegOnly ? "text-[#031624]"     : "text-white";
-  const cardTextMute = isVegOnly ? "text-[#031624]/70"  : "text-white/80";
+  const cardTextColor     = isVegOnly ? "#031624"    : "#ffffff";
+  const cardTextMuteColor = isVegOnly ? "rgba(3,22,36,0.7)" : "rgba(255,255,255,0.8)";
   const daySelected  = isVegOnly
     ? "bg-[#031624] text-[#EEE9DA] border-[#031624]"
     : "bg-white text-[#031624] border-white";
@@ -556,9 +555,10 @@ export default function Menu() {
           {/* Menu Card Content (Kept exactly as before) */}
           <div className="lg:max-w-[987px] mx-auto">
             <div
-              className={`perspective-1000 transition-colors duration-500 ${cardBg} ${
+              className={`perspective-1000 transition-colors duration-500 ${
                 theme === "light" ? "MenuCardBoxConatinerlight" : "MenuCardBoxConatiner"
               }`}
+              style={{ backgroundColor: isVegOnly ? "#EEE9DA" : "#031624" }}
             >
               {currentDish ? (
                 <div className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d`}>
@@ -634,7 +634,8 @@ export default function Menu() {
                       </div>
                       <div className="flex-1 flex flex-col min-w-0 overflow-visible">
                         <h3
-                          className={`${cardText} text-base font-bold uppercase mb-1 break-words lg:hidden block`}
+                          className="text-base font-bold uppercase mb-1 break-words lg:hidden block"
+                          style={{ color: cardTextColor }}
                           style={{
                             fontFamily: "Montserrat",
                             fontWeight: 700,
@@ -645,7 +646,8 @@ export default function Menu() {
                           {currentDish.name}
                         </h3>
                         <p
-                          className={`${cardTextMute} text-xs mb-2 mt-2 lg:hidden block`}
+                          className="text-xs mb-2 mt-2 lg:hidden block"
+                          style={{ color: cardTextMuteColor }}
                           style={{
                             fontFamily: "Poppins",
                             fontWeight: 300,
@@ -673,9 +675,10 @@ export default function Menu() {
 
                           <button
                             onClick={() => setIsFlipped(true)}
-                            className={`flex items-center gap-1 ${cardTextMute} text-xs transition-opacity lg:mb-[8px] ${
+                            className={`flex items-center gap-1 text-xs transition-opacity lg:mb-[8px] ${
                               isFlipped ? "animate-pulse" : ""
                             }`}
+                            style={{ color: cardTextMuteColor }}
                           >
                             <span
                               className="mt-1 buttonNutrition_info"
