@@ -422,6 +422,17 @@ export default function Menu() {
     lineHeight: "100%",
   };
 
+  // --- Card colour tokens ---
+  const cardBg       = isVegOnly ? "bg-[#EEE9DA]"      : "bg-[#031624]";
+  const cardText     = isVegOnly ? "text-[#031624]"     : "text-white";
+  const cardTextMute = isVegOnly ? "text-[#031624]/70"  : "text-white/80";
+  const daySelected  = isVegOnly
+    ? "bg-[#031624] text-[#EEE9DA] border-[#031624]"
+    : "bg-white text-[#031624] border-white";
+  const dayIdle      = isVegOnly
+    ? "bg-transparent text-[#031624] border-[#031624] hover:bg-[#031624]/10"
+    : "bg-transparent text-white border-white hover:bg-white/20";
+
   return (
     <>
       <div
@@ -545,7 +556,7 @@ export default function Menu() {
           {/* Menu Card Content (Kept exactly as before) */}
           <div className="lg:max-w-[987px] mx-auto">
             <div
-              className={`bg-[#1E3A4F] perspective-1000 ${
+              className={`perspective-1000 transition-colors duration-500 ${cardBg} ${
                 theme === "light" ? "MenuCardBoxConatinerlight" : "MenuCardBoxConatiner"
               }`}
             >
@@ -566,9 +577,7 @@ export default function Menu() {
                             key={item.index}
                             onClick={() => setSelectedDay(item.index)}
                             className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
-                              selectedDay === item.index
-                                ? "bg-white text-[#1E3A4F] border-white"
-                                : "bg-transparent text-white border-white hover:bg-white/20"
+                              selectedDay === item.index ? daySelected : dayIdle
                             }`}
                             style={{
                               fontFamily: "Montserrat",
@@ -625,7 +634,7 @@ export default function Menu() {
                       </div>
                       <div className="flex-1 flex flex-col min-w-0 overflow-visible">
                         <h3
-                          className="text-white text-base font-bold uppercase mb-1 break-words lg:hidden block"
+                          className={`${cardText} text-base font-bold uppercase mb-1 break-words lg:hidden block`}
                           style={{
                             fontFamily: "Montserrat",
                             fontWeight: 700,
@@ -636,7 +645,7 @@ export default function Menu() {
                           {currentDish.name}
                         </h3>
                         <p
-                          className="text-white text-xs mb-2 mt-2 lg:hidden block"
+                          className={`${cardTextMute} text-xs mb-2 mt-2 lg:hidden block`}
                           style={{
                             fontFamily: "Poppins",
                             fontWeight: 300,
@@ -648,21 +657,30 @@ export default function Menu() {
                         </p>
                         <div className="flex flex-col h-full justify-between">
                           <div>
-                            <h3 className="currentdish_name_title lg:block hidden">
+                            <h3
+                              className="currentdish_name_title lg:block hidden"
+                              style={{ color: isVegOnly ? "#031624" : undefined }}
+                            >
                               {currentDish.name}
                             </h3>
-                            <p className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden">
+                            <p
+                              className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden"
+                              style={{ color: isVegOnly ? "#031624" : undefined }}
+                            >
                               {currentDish.description}
                             </p>
                           </div>
 
                           <button
                             onClick={() => setIsFlipped(true)}
-                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${
+                            className={`flex items-center gap-1 ${cardTextMute} text-xs transition-opacity lg:mb-[8px] ${
                               isFlipped ? "animate-pulse" : ""
                             }`}
                           >
-                            <span className="mt-1 buttonNutrition_info">
+                            <span
+                              className="mt-1 buttonNutrition_info"
+                              style={{ color: isVegOnly ? "#031624" : undefined }}
+                            >
                               Nutrition Info
                             </span>
                             <svg
@@ -675,7 +693,7 @@ export default function Menu() {
                             >
                               <path
                                 d="M6 9l6 6 6-6"
-                                stroke="currentColor"
+                                stroke={isVegOnly ? "#031624" : "currentColor"}
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
