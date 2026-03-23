@@ -119,13 +119,11 @@
   }
   .MenuCardBoxConatiner {
     border-radius: 55px;
-    background: #1e3a4f;
     box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
     padding: 34px;
   }
   .MenuCardBoxConatinerlight {
     border-radius: 55px;
-    background: #1e3a4f;
     /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
     padding: 34px;
   }
@@ -280,13 +278,11 @@
   }
   .MenuCardBoxConatiner {
     border-radius: 6px;
-    background: #1e3a4f;
     box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71);
     padding: 13px;
   }
   .MenuCardBoxConatinerlight {
     border-radius: 6px;
-    background: #1e3a4f;
     /* box-shadow: 0px 0px 24.2px 1px rgba(0, 0, 0, 0.71); */
     padding: 13px;
   }
