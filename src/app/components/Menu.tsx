@@ -423,11 +423,11 @@ export default function Menu() {
   };
 
   // --- Card colour tokens ---
-  const cardTextColor     = isVegOnly ? "#031624"    : "#ffffff";
+  const cardTextColor     = isVegOnly ? "#031624" : "#ffffff";
   const cardTextMuteColor = isVegOnly ? "rgba(3,22,36,0.7)" : "rgba(255,255,255,0.8)";
   const daySelected  = isVegOnly
     ? "bg-[#031624] text-[#EEE9DA] border-[#031624]"
-    : "bg-white text-[#031624] border-white";
+    : "bg-white text-[#1E3A4F] border-white";
   const dayIdle      = isVegOnly
     ? "bg-transparent text-[#031624] border-[#031624] hover:bg-[#031624]/10"
     : "bg-transparent text-white border-white hover:bg-white/20";
@@ -558,7 +558,7 @@ export default function Menu() {
               className={`perspective-1000 transition-colors duration-500 ${
                 theme === "light" ? "MenuCardBoxConatinerlight" : "MenuCardBoxConatiner"
               }`}
-              style={{ backgroundColor: isVegOnly ? "#EEE9DA" : "#031624" }}
+              style={{ backgroundColor: isVegOnly ? "#EEE9DA" : "#1E3A4F" }}
             >
               {currentDish ? (
                 <div className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d`}>
