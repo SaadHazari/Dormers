@@ -41,7 +41,15 @@ const ScrollText = ({ text, progress, range }: { text: string, progress: MotionV
   );
 };
 
-const ScrollBadge = ({ children, progress, range, className, style }: any) => {
+interface ScrollBadgeProps {
+  children: React.ReactNode;
+  progress: MotionValue<number>;
+  range: [number, number];
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+const ScrollBadge = ({ children, progress, range, className, style }: ScrollBadgeProps) => {
   const opacity = useTransform(progress, range, [0.15, 1]);
   return (
     <motion.span style={{ opacity, ...style }} className={className}>
