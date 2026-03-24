@@ -48,14 +48,31 @@ export default function Home() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
   };
 
-  // Upward bouncing animation for the double orange chevrons
   const arrowVariants = {
     initial: { y: 0 },
     animate: {
-      y: [0, -15, 0], // Bounces UP to indicate "pull up the curtain"
+      y: [0, -15, 0],
       transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
     },
   };
+
+  // ─── MAGIC TYPEWRITER HELPER ───
+  const renderTypewriter = (text: string) => {
+    return text.split("").map((char, index) => (
+      <motion.span
+        key={index}
+        variants={{
+          hidden: { opacity: 0 },
+          visible: { opacity: 1 },
+        }}
+        // Preserves normal spaces while allowing normal word-wrapping
+        style={{ whiteSpace: char === " " ? "pre" : "normal" }}
+      >
+        {char}
+      </motion.span>
+    ));
+  };
+  // ───────────────────────────────
 
   useEffect(() => {
     const checkMobile = () => {
@@ -337,7 +354,7 @@ export default function Home() {
               </motion.p>
             </div>
 
-            {/* Bouncing Double Up-Chevron (No Circle, Orange) */}
+            {/* Bouncing Double Up-Chevron */}
             <motion.div className="absolute top-[calc(100dvh-120px)] w-full flex justify-center" variants={heroItemVariants}>
               <motion.div
                 variants={arrowVariants}
@@ -411,7 +428,7 @@ export default function Home() {
             </motion.div>
           </motion.div>
 
-          {/* Bouncing Double Up-Chevron (No Circle, Orange) */}
+          {/* Bouncing Double Up-Chevron */}
           <motion.div 
             className="absolute top-[calc(100dvh-120px)] w-full flex justify-center"
             variants={heroContainerVariants}
@@ -436,81 +453,45 @@ export default function Home() {
           </motion.div>
         </div>
       </div>
-      {/* ──────────────────────────────────────────────────────── */}
 
-      {/* Negative margin wrapper (-mt-[5vh]) tucked under the Hero curve. */}
       <div className="relative z-10 -mt-[5vh] pt-[5vh]">
-        {/* DORMERS IS FOR STUDENTS ONLY SECTION */}
+        
+        {/* ─── DORMERS IS FOR STUDENTS ONLY SECTION (WITH TYPEWRITER REVEAL) ─── */}
         <div
           id="hero"
           className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px] md:pt-[137px] md:pb-[40px]"
         >
-          <div className="max-w-4xl mx-auto">
-            <div className="space-y-4">
-              {/* First Section */}
-              <div className="text-center mb-[4px]">
-                <h1
-                  className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                    } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    lineHeight: "1",
-                  }}
-                >
-                  DORMERS&apos; IS FOR
-                </h1>
+          {/* By wrapping this section in a motion.div with whileInView and staggerChildren: 0.04, 
+            it automatically forces every letter and badge inside to wait their turn before appearing. 
+            0.04 seconds is the sweet spot for a natural typewriting speed!
+          */}
+          <motion.div 
+            className="max-w-4xl mx-auto space-y-4"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={{
+              visible: {
+                transition: { staggerChildren: 0.04 },
+              },
+            }}
+          >
+            {/* First Section */}
+            <div className="text-center mb-[4px]">
+              <h1
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                style={{
+                  fontFamily: "'Typo Round Bold Demo', sans-serif",
+                  lineHeight: "1",
+                }}
+              >
+                {renderTypewriter("DORMERS' IS FOR")}
+              </h1>
 
-                <div className="relative inline-flex items-center gap-2 sm:gap-4">
-                  <h2
-                    className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0"
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      textTransform: "uppercase",
-                      color: "#213c4c",
-                      textShadow:
-                        "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
-                      lineHeight: "1",
-                      letterSpacing: "0",
-                    }}
-                  >
-                    STUDENTS
-                  </h2>
-                  <span
-                    className={`${theme === "light"
-                      ? "bg-[#1E3A4F] text-white"
-                      : "bg-[#EEE9DA] text-[#1E3A4F]"
-                      }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
-                    style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
-                  >
-                    ONLY
-                  </span>
-                </div>
-              </div>
-
-              {/* Second Section */}
-              <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-                <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]">
-                  NO
-                </span>
-
-                <h1
-                  className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                    } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    textTransform: "uppercase",
-                    lineHeight: "1",
-                  }}
-                >
-                  Overpriced Takeouts
-                </h1>
-              </div>
-
-              {/* Third Section */}
-              <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
+              <div className="relative inline-flex items-center gap-2 sm:gap-4">
                 <h2
-                  className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
+                  className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0"
                   style={{
                     fontFamily: "Montserrat",
                     fontWeight: 900,
@@ -522,33 +503,95 @@ export default function Home() {
                     letterSpacing: "0",
                   }}
                 >
-                  NO TIME WASTED
+                  {renderTypewriter("STUDENTS")}
                 </h2>
-                <span
-                  className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
-                  style={{
-                    fontFamily: "Typo Round Bold Demo",
-                    fontWeight: 700,
+                <motion.span
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.5 },
+                    visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
                   }}
+                  className={`${theme === "light"
+                    ? "bg-[#1E3A4F] text-white"
+                    : "bg-[#EEE9DA] text-[#1E3A4F]"
+                    }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
+                  style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
-                  COOKING
-                </span>
+                  ONLY
+                </motion.span>
               </div>
+            </div>
 
-              {/* Bottom Text */}
-              <p
-                className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                  } text-center`}
+            {/* Second Section */}
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
+              <motion.span 
+                variants={{
+                  hidden: { opacity: 0, scale: 0.5 },
+                  visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
+                }}
+                className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]"
+              >
+                NO
+              </motion.span>
+
+              <h1
+                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
+                style={{
+                  fontFamily: "'Typo Round Bold Demo', sans-serif",
+                  textTransform: "uppercase",
+                  lineHeight: "1",
+                }}
+              >
+                {renderTypewriter("Overpriced Takeouts")}
+              </h1>
+            </div>
+
+            {/* Third Section */}
+            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
+              <h2
+                className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  color: "#213c4c",
+                  textShadow:
+                    "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
+                  lineHeight: "1",
+                  letterSpacing: "0",
+                }}
+              >
+                {renderTypewriter("NO TIME WASTED")}
+              </h2>
+              <motion.span
+                variants={{
+                  hidden: { opacity: 0, scale: 0.5 },
+                  visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
+                }}
+                className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
                 style={{
                   fontFamily: "Typo Round Bold Demo",
                   fontWeight: 700,
                 }}
               >
-                Just good, affordable food, delivered to your dorm
-              </p>
+                COOKING
+              </motion.span>
             </div>
-          </div>
+
+            {/* Bottom Text */}
+            <p
+              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                } text-center flex justify-center flex-wrap`}
+              style={{
+                fontFamily: "Typo Round Bold Demo",
+                fontWeight: 700,
+              }}
+            >
+              {renderTypewriter("Just good, affordable food, delivered to your dorm")}
+            </p>
+          </motion.div>
         </div>
+        {/* ──────────────────────────────────────────────────────────────────────── */}
 
         {/* Repeating Text Banner */}
         <div
@@ -1214,7 +1257,6 @@ export default function Home() {
                 backgroundColor: "#22394A",
                 borderTopLeftRadius: "60px",
                 borderTopRightRadius: "60px",
-                // ─── FINAL CURTAIN REVEAL FOR THE FOOTER ───
                 borderBottomLeftRadius: "40px",
                 borderBottomRightRadius: "40px",
                 boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
