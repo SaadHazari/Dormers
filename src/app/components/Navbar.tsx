@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import { SunIcon, MoonIcon } from "@heroicons/react/24/outline";
 import OrderForm from "@/app/components/OrderForm";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function Navbar() {
   const [, setMounted] = useState(false);
@@ -13,19 +13,34 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const [isAtTop, setIsAtTop] = useState(true);
+
+  // ─── MAGIC SCROLL LOGIC TO HIDE NAVBAR ON HERO ───
+  useEffect(() => {
+    if (pathname !== "/home" && pathname !== "/") {
+      setIsAtTop(false);
+      return;
+    }
+    const handleScroll = () => {
+      // Hides navbar if in the top 85% of the screen
+      setIsAtTop(window.scrollY < window.innerHeight * 0.85);
+    };
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); 
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [pathname]);
+  // ────────────────────────────────────────────────
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const handleOrderFormOpen = () => {
-    // console.log("Opening order form...");
-    // setIsOrderFormOpen(true);
     window.open("https://vip.dormers.ae/", "_blank");
   };
 
   const handleOrderFormClose = () => {
-    console.log("Closing order form...");
     setIsOrderFormOpen(false);
   };
 
@@ -37,26 +52,6 @@ export default function Navbar() {
     { name: "Voices of Delight", href: "/home#testimonials" },
   ];
 
-  // const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-  //   e.preventDefault();
-  //   const isHomeHash = href.startsWith('/home#');
-
-  //   if (isHomeHash) {
-  //     const hash = href.split('#')[1];
-  //     if (window.location.pathname === '/home') {
-  //       const element = document.querySelector(`#${hash}`);
-  //       if (element) {
-  //         element.scrollIntoView({ behavior: 'smooth' });
-  //       }
-  //     } else {
-  //       // If not on home page, navigate and then scroll
-  //       router.push(href);
-  //     }
-  //   } else {
-  //     router.push(href);
-  //   }
-  //   setIsMenuOpen(false);
-  // };
   const handleNavClick = async (
     e: React.MouseEvent<HTMLAnchorElement>,
     href: string
@@ -68,26 +63,25 @@ export default function Navbar() {
       const section = document.getElementById(id);
       if (section) {
         section.scrollIntoView({ behavior: "smooth" });
-        window.history.pushState(null, "", `#${id}`); // ✅ Update URL hash without reload
+        window.history.pushState(null, "", `#${id}`);
       }
     };
 
     if (window.location.pathname === basePath) {
-      // Already on page
       scrollToSection(hash);
     } else {
-      // Navigate without automatic scroll
       router.push(basePath, { scroll: false });
       setTimeout(() => scrollToSection(hash), 300);
     }
-
     setIsMenuOpen(false);
   };
 
   return (
     <>
       <nav
-        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-[12px] md:rounded-[14px] mx-auto left-0 right-0 mt-4 transition-colors duration-300 bg-[#031624] `}
+        className={`fixed w-11/12 md:w-[98%] shadow-md z-[100] rounded-[12px] md:rounded-[14px] mx-auto left-0 right-0 mt-4 transition-all duration-500 bg-[#031624] ${
+          isAtTop ? 'opacity-0 -translate-y-full pointer-events-none' : 'opacity-100 translate-y-0 pointer-events-auto'
+        }`}
       >
         <div className="w-full px-2 sm:px-4">
           <div className="flex justify-between h-16 sm:h-20 items-center">
@@ -103,62 +97,29 @@ export default function Navbar() {
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
-            {/* <div className="hidden md:flex items-center space-x-8">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => handleNavClick(e, link.href)}
-                  className={`transition-colors ${
-                    theme === "light"
-                      ? "text-gray-700 hover:text-orange-500"
-                      : "text-gray-300 hover:text-orange-400"
-                  }`}
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                  }}
-                >
-                  {link.name}
-                </a>
-              ))}
-            </div> */}
-
             <div className="flex items-center justify-end md:justify-end w-full px-3 py-1">
-              {/* Theme Toggle & Menu Button Wrapper */}
               <div className="flex items-center gap-2 md:gap-4">
-                {/* Join the Club Button */}
                 <button
                   type="button"
                   onClick={handleOrderFormOpen}
-                  className={`Join_the_club text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors text-white border-white hover:bg-white hover:text-[#031624]
-                 
-                `}
+                  className={`Join_the_club text-[10px] border rounded-[8px] px-3 py-3 md:hidden block transition-colors text-white border-white hover:bg-white hover:text-[#031624]`}
                   style={{
                     fontFamily: "Montserrat, sans-serif",
                     fontWeight: 600,
                     lineHeight: "100%",
-                    letterSpacing: "0",
                   }}
                 >
                   Join the club
                 </button>
-                {/* Theme Toggle */}
                 <div>
                   <button
                     type="button"
                     onClick={handleOrderFormOpen}
-                    className={`Join_the_club !text-white !border-white !hover:bg-white !hover:text-[#031624] md:block hidden
-                  
-                `}
+                    className={`Join_the_club !text-white !border-white !hover:bg-white !hover:text-[#031624] md:block hidden`}
                     style={{
                       fontFamily: "Montserrat, sans-serif",
                       fontWeight: 600,
                       lineHeight: "100%",
-                      letterSpacing: "0",
                     }}
                   >
                     Join the club
@@ -166,8 +127,7 @@ export default function Navbar() {
                 </div>
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
-                    }`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"}`}
                 >
                   {theme === "light" ? (
                     <MoonIcon className="h-3 w-3 text-[#031624] md:w-[24px]" />
@@ -175,105 +135,23 @@ export default function Navbar() {
                     <SunIcon className="h-3 w-3 text-[#031624] md:w-[24px] md:h-[24px]" />
                   )}
                 </button>
-
-                {/* Hamburger Menu */}
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"
-                    }`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center md:h-[37px] md:w-[37px] ${theme === "light" ? "bg-white" : "bg-[#EEE9DA]"}`}
                 >
-                  <svg
-                    className="h-4 w-4 text-[#031624] md:w-[18px] md:h-[20px]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="h-4 w-4 text-[#031624] md:w-[18px] md:h-[20px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     {isMenuOpen ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 6h16M4 12h16M4 18h16"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     )}
                   </svg>
                 </button>
               </div>
             </div>
-
-            {/* Desktop Theme Toggle & CTA */}
-            {/* <div className="hidden md:flex items-center space-x-4">
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none bg-transparent border-2 ${
-                  theme === "light" ? "border-gray-700" : "border-white"
-                }`}
-              >
-                <span className="sr-only">Toggle theme</span>
-                <div
-                  className={`${
-                    mounted && theme === "dark"
-                      ? "translate-x-7"
-                      : "translate-x-1"
-                  } inline-block h-6 w-6 transform rounded-full transition-transform duration-200 ease-in-out relative ${
-                    theme === "light" ? "bg-gray-700" : "bg-white"
-                  }`}
-                >
-                  {mounted && theme === "dark" ? (
-                    <MoonIcon className="h-4 w-4 absolute top-1 left-1 text-[#031624]" />
-                  ) : (
-                    <SunIcon className="h-4 w-4 absolute top-1 left-1 text-orange-400" />
-                  )}
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={handleOrderFormOpen}
-                className={`border-2 px-6 py-2 rounded-full transition-all bg-transparent ${
-                  theme === "light"
-                    ? "border-gray-700 text-gray-700 hover:bg-gray-700 hover:text-white"
-                    : "border-white text-white hover:bg-white hover:text-[#031624]"
-                }`}
-                style={{
-                  fontFamily: "Montserrat, sans-serif",
-                  fontWeight: 700,
-                  lineHeight: "100%",
-                  letterSpacing: "0",
-                }}
-              >
-                Join the club
-              </button>
-            </div> */}
           </div>
         </div>
 
-        {/* Mobile menu */}
-        {/* <div className={`md:hidden  ${isMenuOpen ? "block" : "hidden"}`}>
-          <div className="px-2 pt-1 pb-2 space-y-0.5 sm:px-3">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={(e) => handleNavClick(e, link.href)}
-                className={`block px-3 py-1.5 text-sm transition-colors ${
-                  theme === "light"
-                    ? "text-gray-700 hover:text-orange-500"
-                    : "text-gray-300 hover:text-orange-400"
-                }`}
-              >
-                {link.name}
-              </a>
-            ))}
-          </div>
-        </div> */}
-        {/* Shared Menu for All Devices */}
         <div className={`${isMenuOpen ? "block" : "hidden"}`}>
           <div className="px-2 pt-1 pb-2 space-y-0.5 sm:px-3">
             {navLinks.map((link) => (
@@ -281,10 +159,7 @@ export default function Navbar() {
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleNavClick(e, link.href)}
-                className={`block px-3 py-1.5 text-sm transition-colors ${theme === "light"
-                    ? "text-white hover:text-orange-500"
-                    : "text-gray-300 hover:text-orange-400"
-                  }`}
+                className={`block px-3 py-1.5 text-sm transition-colors ${theme === "light" ? "text-white hover:text-orange-500" : "text-gray-300 hover:text-orange-400"}`}
               >
                 {link.name}
               </a>
@@ -293,7 +168,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Order Form */}
       <OrderForm isOpen={isOrderFormOpen} onClose={handleOrderFormClose} />
     </>
   );
