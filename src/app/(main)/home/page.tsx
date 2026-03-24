@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import ChatWindow from "./ChatWindow";
 import Menu from "@/app/components/Menu";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, MotionValue } from "framer-motion";
 import FormModal from "@/app/components/FormModal";
 import OrderForm from "@/app/components/OrderForm";
 import { useTheme } from "next-themes";
@@ -18,6 +18,38 @@ interface FAQ {
   question: string;
   answer: React.ReactNode;
 }
+
+// ─── MAGIC SCROLL-REVEAL HELPERS ───
+// These components listen to the user's scroll position and calculate exactly 
+// which letter should be lit up based on how far down they have scrolled.
+
+const Char = ({ char, progress, range }: { char: string, progress: MotionValue<number>, range: [number, number] }) => {
+  // Starts at 15% opacity so the layout doesn't look broken, then fills to 100% as they scroll past its range.
+  const opacity = useTransform(progress, range, [0.15, 1]); 
+  return <motion.span style={{ opacity, whiteSpace: char === " " ? "pre" : "normal" }}>{char}</motion.span>;
+};
+
+const ScrollText = ({ text, progress, range }: { text: string, progress: MotionValue<number>, range: [number, number] }) => {
+  const chars = text.split("");
+  const step = (range[1] - range[0]) / chars.length;
+  return (
+    <>
+      {chars.map((char, i) => (
+        <Char key={i} char={char} progress={progress} range={[range[0] + i * step, range[0] + (i + 1) * step]} />
+      ))}
+    </>
+  );
+};
+
+const ScrollBadge = ({ children, progress, range, className, style }: any) => {
+  const opacity = useTransform(progress, range, [0.15, 1]);
+  return (
+    <motion.span style={{ opacity, ...style }} className={className}>
+      {children}
+    </motion.span>
+  );
+};
+// ────────────────────────────────────
 
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -37,7 +69,7 @@ export default function Home() {
 
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
   
-  // ─── HERO ANIMATION VARS ───
+  // ─── HERO TOP SECTION VARS ───
   const heroContainerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.8, staggerChildren: 0.25 } },
@@ -56,28 +88,18 @@ export default function Home() {
     },
   };
 
-  // ─── MAGIC TYPEWRITER HELPER ───
-  const renderTypewriter = (text: string) => {
-    return text.split("").map((char, index) => (
-      <motion.span
-        key={index}
-        variants={{
-          hidden: { opacity: 0 },
-          visible: { opacity: 1 },
-        }}
-        // Preserves normal spaces while allowing normal word-wrapping
-        style={{ whiteSpace: char === " " ? "pre" : "normal" }}
-      >
-        {char}
-      </motion.span>
-    ));
-  };
-  // ───────────────────────────────
+  // ─── SCROLL LISTENER FOR TEXT REVEAL ───
+  const textRevealSectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: textRevealProgress } = useScroll({
+    target: textRevealSectionRef,
+    // "start 85%" = Animation begins when the top of this container reaches 85% down the screen
+    // "end 45%" = Animation finishes when the bottom of this container reaches 45% down the screen
+    // This provides a massive vertical runway for a slow, comfortable read.
+    offset: ["start 85%", "end 45%"], 
+  });
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -90,10 +112,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setHasUserScrolled(true);
-    };
-
+    const handleScroll = () => setHasUserScrolled(true);
     window.addEventListener("scroll", handleScroll, { once: true });
 
     const observer = new IntersectionObserver(
@@ -105,15 +124,11 @@ export default function Home() {
       { threshold: 0.5 }
     );
 
-    if (qualifyCardRef.current) {
-      observer.observe(qualifyCardRef.current);
-    }
+    if (qualifyCardRef.current) observer.observe(qualifyCardRef.current);
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      if (qualifyCardRef.current) {
-        observer.unobserve(qualifyCardRef.current);
-      }
+      if (qualifyCardRef.current) observer.unobserve(qualifyCardRef.current);
     };
   }, [hasUserScrolled]);
 
@@ -121,23 +136,17 @@ export default function Home() {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("section-visible");
-          }
+          if (entry.isIntersecting) entry.target.classList.add("section-visible");
         });
       },
       { threshold: 0.1 }
     );
 
     const aboutSection = document.querySelector(".about-section");
-    if (aboutSection) {
-      observer.observe(aboutSection);
-    }
+    if (aboutSection) observer.observe(aboutSection);
 
     return () => {
-      if (aboutSection) {
-        observer.unobserve(aboutSection);
-      }
+      if (aboutSection) observer.unobserve(aboutSection);
     };
   }, []);
 
@@ -456,26 +465,14 @@ export default function Home() {
 
       <div className="relative z-10 -mt-[5vh] pt-[5vh]">
         
-        {/* ─── DORMERS IS FOR STUDENTS ONLY SECTION (WITH TYPEWRITER REVEAL) ─── */}
+        {/* ─── SCROLL-DRIVEN TYPEWRITER SECTION ─── */}
         <div
           id="hero"
+          ref={textRevealSectionRef}
           className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px] md:pt-[137px] md:pb-[40px]"
         >
-          {/* By wrapping this section in a motion.div with whileInView and staggerChildren: 0.04, 
-            it automatically forces every letter and badge inside to wait their turn before appearing. 
-            0.04 seconds is the sweet spot for a natural typewriting speed!
-          */}
-          <motion.div 
-            className="max-w-4xl mx-auto space-y-4"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={{
-              visible: {
-                transition: { staggerChildren: 0.04 },
-              },
-            }}
-          >
+          <div className="max-w-4xl mx-auto space-y-4">
+            
             {/* First Section */}
             <div className="text-center mb-[4px]">
               <h1
@@ -486,7 +483,8 @@ export default function Home() {
                   lineHeight: "1",
                 }}
               >
-                {renderTypewriter("DORMERS' IS FOR")}
+                {/* 0 to 20% of the scroll reveals this line */}
+                <ScrollText text="DORMERS' IS FOR" progress={textRevealProgress} range={[0, 0.2]} />
               </h1>
 
               <div className="relative inline-flex items-center gap-2 sm:gap-4">
@@ -503,13 +501,13 @@ export default function Home() {
                     letterSpacing: "0",
                   }}
                 >
-                  {renderTypewriter("STUDENTS")}
+                  <ScrollText text="STUDENTS" progress={textRevealProgress} range={[0.2, 0.35]} />
                 </h2>
-                <motion.span
-                  variants={{
-                    hidden: { opacity: 0, scale: 0.5 },
-                    visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
-                  }}
+                
+                {/* Notice your original Tailwind classes (bounce, rotate, color) are completely preserved! */}
+                <ScrollBadge
+                  progress={textRevealProgress}
+                  range={[0.35, 0.4]}
                   className={`${theme === "light"
                     ? "bg-[#1E3A4F] text-white"
                     : "bg-[#EEE9DA] text-[#1E3A4F]"
@@ -517,21 +515,19 @@ export default function Home() {
                   style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
                 >
                   ONLY
-                </motion.span>
+                </ScrollBadge>
               </div>
             </div>
 
             {/* Second Section */}
             <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-              <motion.span 
-                variants={{
-                  hidden: { opacity: 0, scale: 0.5 },
-                  visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
-                }}
+              <ScrollBadge
+                progress={textRevealProgress}
+                range={[0.4, 0.45]}
                 className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]"
               >
                 NO
-              </motion.span>
+              </ScrollBadge>
 
               <h1
                 className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
@@ -542,7 +538,7 @@ export default function Home() {
                   lineHeight: "1",
                 }}
               >
-                {renderTypewriter("Overpriced Takeouts")}
+                <ScrollText text="Overpriced Takeouts" progress={textRevealProgress} range={[0.45, 0.65]} />
               </h1>
             </div>
 
@@ -561,13 +557,11 @@ export default function Home() {
                   letterSpacing: "0",
                 }}
               >
-                {renderTypewriter("NO TIME WASTED")}
+                <ScrollText text="NO TIME WASTED" progress={textRevealProgress} range={[0.65, 0.8]} />
               </h2>
-              <motion.span
-                variants={{
-                  hidden: { opacity: 0, scale: 0.5 },
-                  visible: { opacity: 1, scale: 1, transition: { type: "spring", bounce: 0.5 } }
-                }}
+              <ScrollBadge
+                progress={textRevealProgress}
+                range={[0.8, 0.85]}
                 className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
                 style={{
                   fontFamily: "Typo Round Bold Demo",
@@ -575,7 +569,7 @@ export default function Home() {
                 }}
               >
                 COOKING
-              </motion.span>
+              </ScrollBadge>
             </div>
 
             {/* Bottom Text */}
@@ -587,11 +581,11 @@ export default function Home() {
                 fontWeight: 700,
               }}
             >
-              {renderTypewriter("Just good, affordable food, delivered to your dorm")}
+              <ScrollText text="Just good, affordable food, delivered to your dorm" progress={textRevealProgress} range={[0.85, 1]} />
             </p>
-          </motion.div>
+          </div>
         </div>
-        {/* ──────────────────────────────────────────────────────────────────────── */}
+        {/* ─────────────────────────────────────────────────────────────────── */}
 
         {/* Repeating Text Banner */}
         <div
