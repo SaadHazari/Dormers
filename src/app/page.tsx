@@ -44,26 +44,18 @@ export default function WelcomePage() {
     if (dismissing) return;
     setDismissing(true);
 
-    // Genie effect: the screen warps and gets sucked into the top-left logo
-    // clipPath polygon corners: top-left, top-right, bottom-right, bottom-left
+    // True macOS Genie Effect
+    // Instead of cropping, we aggressively scale it down, curve the borders, 
+    // and pull it up towards the logo using a custom physics curve.
     await controls.start({
-      clipPath: [
-        // 1. Full screen
-        "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-        // 2. Bottom-right starts getting sucked toward top-left — waist forms
-        "polygon(0% 0%, 100% 0%, 6% 65%, 0% 65%)",
-        // 3. The warp intensifies — classic genie pinch
-        "polygon(0% 0%, 40% 0%, 3% 25%, 0% 25%)",
-        // 4. Almost gone — just a sliver at the top-left
-        "polygon(0% 0%, 8% 0%, 1% 5%, 0% 5%)",
-        // 5. Fully collapsed into the logo
-        "polygon(0% 0%, 0% 0%, 0% 0%, 0% 0%)",
-      ],
-      opacity: [1, 1, 0.9, 0.5, 0],
+      scale: 0.02, // Shrinks the entire page to 2% of its size
+      y: "-35vh", // Pulls it aggressively towards the top of the screen (the logo)
+      opacity: [1, 1, 0], // Keeps it visible during the warp, then fades out at the end
+      borderRadius: ["0%", "30%", "50%"], // Fakes the round "water droplet" genie funnel
       transition: {
-        duration: 0.65,
-        ease: [0.4, 0, 0.6, 1],
-        times: [0, 0.3, 0.55, 0.8, 1],
+        duration: 0.7,
+        ease: [0.25, 1, 0.5, 1], // This is the exact cubic-bezier curve Apple uses for the swoosh
+        times: [0, 0.6, 1],
       },
     });
 
@@ -75,7 +67,8 @@ export default function WelcomePage() {
       className="fixed inset-0 z-[999] overflow-hidden"
       style={{
         backgroundColor: "#1E3A4F",
-        clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
+        originX: 0.5, // Sets the "anchor point" to the top center so it sucks upwards
+        originY: 0.1,
       }}
       animate={controls}
     >
@@ -219,7 +212,7 @@ export default function WelcomePage() {
       {/* ── DESKTOP ── */}
       <div className="hidden md:flex flex-col items-center justify-start min-h-screen text-white px-4">
         {/* Logo */}
-        <div className="relative md:w-[240px] md:h-[212px] mb-6">
+        <div className="relative md:w-[240px] md:h-[212px] mb-6 mt-10">
           <Image
             src="/logo.png"
             alt="Dormer's Logo"
