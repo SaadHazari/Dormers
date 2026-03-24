@@ -1,6 +1,7 @@
 "use client";
 import { useTheme } from "next-themes";
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import "@/style/AboutUs.css";
 
 const VALUES = [
@@ -55,70 +56,7 @@ const AboutUs = () => {
           <div className="container_aboutUs_box" />
 
           {/* MOBILE VIEW */}
-          <div className="bg-[#031624] rounded-2xl pt-7 pb-4 text-white md:mx-auto lg:hidden block relative">
-            <div className="min-w-[100px] mb-4">
-              <h3
-                className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
-                style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
-              >
-                OUR VALUES
-              </h3>
-            </div>
-
-            <div className="flex flex-col">
-              {VALUES.map((v) => {
-                const isOpen = openValue === v.id;
-                return (
-                  <div key={v.id} className="border-b border-white/10 last:border-0">
-                    {/* Title row — never moves */}
-                    <div className="flex items-center justify-between py-2">
-                      <p
-                        className="font-bold flex items-center gap-1 text-[14px] sm:text-sm"
-                        style={{ fontFamily: "Typo Round Bold Demo" }}
-                      >
-                        <span className="text-[#FF7F00]">|</span> {v.title}
-                      </p>
-                      <button
-                        onClick={() => toggle(v.id)}
-                        aria-label={`Toggle ${v.title}`}
-                        className="flex-shrink-0 ml-2 p-1"
-                      >
-                        <svg
-                          className="w-4 h-4 text-[#EEE9DA] transition-transform duration-300"
-                          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M6 9l6 6 6-6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    {/* Description slides down below the title */}
-                    <div
-                      className="overflow-hidden transition-all duration-300 ease-in-out"
-                      style={{ maxHeight: isOpen ? "200px" : "0px", opacity: isOpen ? 1 : 0 }}
-                    >
-                      <p
-                        className="pb-3 font-light leading-snug text-[12px] sm:text-sm text-white/80"
-                        style={{ fontFamily: "Poppins, sans-serif" }}
-                      >
-                        {v.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* DESKTOP VIEW */}
-          <div className="bg-[#031624] rounded-2xl relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
+          <div className="bg-[#031624] rounded-2xl pt-7 pb-4 text-white md:mx-auto lg:hidden block">
             <div className="mb-4">
               <h3
                 className="text-[#EEE9DA] font-black leading-tight text-sm sm:text-xl"
@@ -133,41 +71,88 @@ const AboutUs = () => {
                 const isOpen = openValue === v.id;
                 return (
                   <div key={v.id} className="border-b border-white/10 last:border-0">
-                    {/* Title row — never moves */}
-                    <div className="flex items-center justify-between py-3 group">
+                    <button
+                      onClick={() => toggle(v.id)}
+                      className="w-full flex items-center justify-between text-left py-3"
+                    >
+                      <p
+                        className="font-bold flex items-center gap-1 text-[14px]"
+                        style={{ fontFamily: "Typo Round Bold Demo" }}
+                      >
+                        <span className="text-[#FF7F00]">|</span> {v.title}
+                      </p>
+                      <span className="text-white text-lg font-bold ml-3 flex-shrink-0">
+                        {isOpen ? "−" : "+"}
+                      </span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <p
+                            className="pb-3 font-light leading-snug text-[12px] text-white/80"
+                            style={{ fontFamily: "Poppins, sans-serif" }}
+                          >
+                            {v.description}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* DESKTOP VIEW */}
+          <div className="bg-[#031624] rounded-2xl relative text-white md:max-w-[987px] md:mx-auto lg:block hidden">
+            <div className="mb-4">
+              <h3
+                className="text-[#EEE9DA] font-black leading-tight"
+                style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+              >
+                OUR VALUES
+              </h3>
+            </div>
+
+            <div className="flex flex-col">
+              {VALUES.map((v) => {
+                const isOpen = openValue === v.id;
+                return (
+                  <div key={v.id} className="border-b border-white/10 last:border-0">
+                    <button
+                      onClick={() => toggle(v.id)}
+                      className="w-full flex items-center justify-between text-left py-3"
+                    >
                       <p className="flex items-center gap-2 OurValues_headingtitle">
                         <span className="text-[#FF7F00]">|</span> {v.title}
                       </p>
-                      <button
-                        onClick={() => toggle(v.id)}
-                        aria-label={`Toggle ${v.title}`}
-                        className="flex-shrink-0 ml-4 p-1 opacity-70 hover:opacity-100 transition-opacity"
-                      >
-                        <svg
-                          className="w-4 h-4 text-[#EEE9DA] transition-transform duration-300"
-                          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                          viewBox="0 0 24 24"
-                          fill="none"
+                      <span className="text-white text-xl font-bold ml-4 flex-shrink-0">
+                        {isOpen ? "−" : "+"}
+                      </span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
                         >
-                          <path
-                            d="M6 9l6 6 6-6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    {/* Description slides down below the title */}
-                    <div
-                      className="overflow-hidden transition-all duration-300 ease-in-out"
-                      style={{ maxHeight: isOpen ? "200px" : "0px", opacity: isOpen ? 1 : 0 }}
-                    >
-                      <p className="pb-4 ourvalues-para_info text-white/80">
-                        {v.description}
-                      </p>
-                    </div>
+                          <p className="pb-4 ourvalues-para_info text-white/80">
+                            {v.description}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 );
               })}
