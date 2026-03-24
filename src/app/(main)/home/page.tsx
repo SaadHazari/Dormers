@@ -37,13 +37,10 @@ export default function Home() {
 
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
   
-  // ─── ANIMATION VARS ───
+  // ─── HERO ANIMATION VARS ───
   const heroContainerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { duration: 0.8, staggerChildren: 0.25 },
-    },
+    visible: { opacity: 1, transition: { duration: 0.8, staggerChildren: 0.25 } },
   };
 
   const heroItemVariants = {
@@ -51,10 +48,11 @@ export default function Home() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
   };
 
+  // Upward bouncing animation for the double orange chevrons
   const arrowVariants = {
     initial: { y: 0 },
     animate: {
-      y: [0, 12, 0],
+      y: [0, -15, 0], // Bounces UP to indicate "pull up the curtain"
       transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
     },
   };
@@ -87,9 +85,7 @@ export default function Home() {
           setIsQualifyFlipped(true);
         }
       },
-      {
-        threshold: 0.5,
-      }
+      { threshold: 0.5 }
     );
 
     if (qualifyCardRef.current) {
@@ -113,9 +109,7 @@ export default function Home() {
           }
         });
       },
-      {
-        threshold: 0.1,
-      }
+      { threshold: 0.1 }
     );
 
     const aboutSection = document.querySelector(".about-section");
@@ -248,9 +242,7 @@ export default function Home() {
       className={`min-h-screen ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
         }`}
     >
-      
       {/* ─── NEW CURTAIN REVEAL HERO SECTION ─── */}
-      {/* Notice it is 105dvh so the curved corners are hidden below the screen initially! */}
       <div className="relative w-full h-[105dvh] bg-[#1E3A4F] overflow-hidden rounded-b-[40px] md:rounded-b-[80px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] z-20 border-b border-white/5">
         
         {/* MOBILE */}
@@ -345,17 +337,20 @@ export default function Home() {
               </motion.p>
             </div>
 
-            {/* Bouncing Chevron - Placed strictly inside the 100vh area so it's visible */}
-            <motion.div className="absolute top-[calc(100dvh-100px)] w-full flex justify-center" variants={heroItemVariants}>
+            {/* Bouncing Double Up-Chevron (No Circle, Orange) */}
+            <motion.div className="absolute top-[calc(100dvh-120px)] w-full flex justify-center" variants={heroItemVariants}>
               <motion.div
                 variants={arrowVariants}
                 initial="initial"
                 animate="animate"
-                className="relative w-10 h-10 rounded-full border border-white flex items-center justify-center bg-[#EEE9DA] shadow-lg"
+                className="flex flex-col items-center justify-center cursor-pointer opacity-80"
               >
-                <span className="relative w-[16px] h-[16px]">
-                  <Image src="/images/ArrowDownmain.svg" alt="Scroll Down" fill className="object-contain" priority />
-                </span>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mb-[-22px]">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -416,7 +411,7 @@ export default function Home() {
             </motion.div>
           </motion.div>
 
-          {/* Bouncing Chevron */}
+          {/* Bouncing Double Up-Chevron (No Circle, Orange) */}
           <motion.div 
             className="absolute top-[calc(100dvh-120px)] w-full flex justify-center"
             variants={heroContainerVariants}
@@ -428,11 +423,14 @@ export default function Home() {
                 variants={arrowVariants}
                 initial="initial"
                 animate="animate"
-                className="relative w-12 h-12 rounded-full border border-white flex items-center justify-center bg-[#EEE9DA] shadow-lg"
+                className="flex flex-col items-center justify-center cursor-pointer opacity-80"
               >
-                <span className="relative w-[18px] h-[18px]">
-                  <Image src="/images/ArrowDownmain.svg" alt="Scroll Down" fill className="object-contain" priority />
-                </span>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mb-[-28px]">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -440,11 +438,8 @@ export default function Home() {
       </div>
       {/* ──────────────────────────────────────────────────────── */}
 
-      {/* Negative margin wrapper (-mt-[5vh]) tucked under the Hero curve.
-        This forces the bottom layer to appear from physically underneath it!
-      */}
+      {/* Negative margin wrapper (-mt-[5vh]) tucked under the Hero curve. */}
       <div className="relative z-10 -mt-[5vh] pt-[5vh]">
-        
         {/* DORMERS IS FOR STUDENTS ONLY SECTION */}
         <div
           id="hero"
@@ -1138,7 +1133,7 @@ export default function Home() {
                       fontWeight: 700,
                       lineHeight: "100%",
                       letterSpacing: "0",
-                      transform: "rotate(-8.84deg)",
+                      transform: "rotate(-4.84deg)",
                       opacity: 0.54,
                     }}
                   >
