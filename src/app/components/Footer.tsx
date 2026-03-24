@@ -273,7 +273,7 @@ export default function Footer() {
                         KSK Homes
                       </p>
                       <p className={`location_footer_desktop text-white`}>
-                        Studo World
+                        Study World
                       </p>
                     </div>
                     <div className="flex gap-[28px]">
