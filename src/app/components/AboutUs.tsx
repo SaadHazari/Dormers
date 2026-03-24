@@ -65,36 +65,41 @@ const AboutUs = () => {
               </h3>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               {VALUES.map((v) => {
                 const isOpen = openValue === v.id;
                 return (
-                  <div key={v.id}>
-                    <button
-                      onClick={() => toggle(v.id)}
-                      className="w-full flex items-center justify-between gap-2 text-left py-2"
-                    >
+                  <div key={v.id} className="border-b border-white/10 last:border-0">
+                    {/* Title row — never moves */}
+                    <div className="flex items-center justify-between py-2">
                       <p
                         className="font-bold flex items-center gap-1 text-[14px] sm:text-sm"
                         style={{ fontFamily: "Typo Round Bold Demo" }}
                       >
                         <span className="text-[#FF7F00]">|</span> {v.title}
                       </p>
-                      <svg
-                        className="w-4 h-4 flex-shrink-0 text-[#EEE9DA] transition-transform duration-300"
-                        style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                        viewBox="0 0 24 24"
-                        fill="none"
+                      <button
+                        onClick={() => toggle(v.id)}
+                        aria-label={`Toggle ${v.title}`}
+                        className="flex-shrink-0 ml-2 p-1"
                       >
-                        <path
-                          d="M6 9l6 6 6-6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          className="w-4 h-4 text-[#EEE9DA] transition-transform duration-300"
+                          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M6 9l6 6 6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Description slides down below the title */}
                     <div
                       className="overflow-hidden transition-all duration-300 ease-in-out"
                       style={{ maxHeight: isOpen ? "200px" : "0px", opacity: isOpen ? 1 : 0 }}
@@ -123,33 +128,38 @@ const AboutUs = () => {
               </h3>
             </div>
 
-            <div className="flex flex-col gap-0">
+            <div className="flex flex-col">
               {VALUES.map((v) => {
                 const isOpen = openValue === v.id;
                 return (
                   <div key={v.id} className="border-b border-white/10 last:border-0">
-                    <button
-                      onClick={() => toggle(v.id)}
-                      className="w-full flex items-center justify-between gap-4 text-left py-3 group"
-                    >
-                      <p className="flex items-center gap-2 OurValues_headingtitle group-hover:opacity-80 transition-opacity">
+                    {/* Title row — never moves */}
+                    <div className="flex items-center justify-between py-3 group">
+                      <p className="flex items-center gap-2 OurValues_headingtitle">
                         <span className="text-[#FF7F00]">|</span> {v.title}
                       </p>
-                      <svg
-                        className="w-4 h-4 flex-shrink-0 text-[#EEE9DA] transition-transform duration-300"
-                        style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                        viewBox="0 0 24 24"
-                        fill="none"
+                      <button
+                        onClick={() => toggle(v.id)}
+                        aria-label={`Toggle ${v.title}`}
+                        className="flex-shrink-0 ml-4 p-1 opacity-70 hover:opacity-100 transition-opacity"
                       >
-                        <path
-                          d="M6 9l6 6 6-6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          className="w-4 h-4 text-[#EEE9DA] transition-transform duration-300"
+                          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M6 9l6 6 6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Description slides down below the title */}
                     <div
                       className="overflow-hidden transition-all duration-300 ease-in-out"
                       style={{ maxHeight: isOpen ? "200px" : "0px", opacity: isOpen ? 1 : 0 }}
