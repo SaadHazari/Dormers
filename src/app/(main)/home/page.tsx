@@ -206,13 +206,13 @@ export default function Home() {
       id: 3,
       question: "Do you have vegetarian options?",
       answer:
-        "Yes! We love our veggie lovers. We have a separate vegetarian meal plan, and our dishes aren't just "side salads pretending to be meals." We actually put effort into them. Paneer, lentils, chickpeas, mushrooms—you name it, we make it delicious.",
+        "Yes! We love our veggie lovers. We have a separate vegetarian meal plan, and our dishes aren\u2019t just \u2018side salads pretending to be meals.\u2019 We actually put effort into them. Paneer, lentils, chickpeas, mushrooms—you name it, we make it delicious.",
     },
     {
       id: 4,
       question: "Can I customize my meals?",
       answer:
-        "We're not a "Build-a-Biryani" workshop, but we do allow some customization! Don't like spicy food? We can tone it down. Allergic to something? We've got you. Just let us know your preferences, and we'll make sure your meal won't try to assassinate you.",
+        "We\u2019re not a \u2018Build-a-Biryani\u2019 workshop, but we do allow some customization! Don\u2019t like spicy food? We can tone it down. Allergic to something? We\u2019ve got you. Just let us know your preferences, and we\u2019ll make sure your meal won\u2019t try to assassinate you.",
     },
     {
       id: 5,
@@ -391,9 +391,8 @@ export default function Home() {
                     WELCOME TO DORMERS&apos;
                   </p>
                   <motion.div
-                    variants={arrowVariants}
-                    initial="initial"
-                    animate="animate"
+                    animate={{ y: [0, 6, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
                     className="relative w-7 h-7 rounded-full border border-white flex items-center justify-center cursor-pointer"
                     style={{ backgroundColor: "#EEE9DA" }}
                   >
@@ -454,9 +453,8 @@ export default function Home() {
             <div className="flex items-center gap-[24px] mt-[80px]">
               <p className="WelcomtextMessage">WELCOME TO DORMERS&apos;</p>
               <motion.div
-                variants={arrowVariants}
-                initial="initial"
-                animate="animate"
+                animate={{ y: [0, 6, 0] }}
+                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
                 className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center cursor-pointer"
                 style={{ backgroundColor: "#EEE9DA" }}
               >
