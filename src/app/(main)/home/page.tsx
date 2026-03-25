@@ -21,7 +21,8 @@ interface FAQ {
 
 // ─── MAGIC SCROLL-REVEAL HELPERS ───
 const Char = ({ char, progress, range }: { char: string, progress: MotionValue<number>, range: [number, number] }) => {
-  const opacity = useTransform(progress, range, [0.15, 1]); 
+  // Changed from [0.15, 1] to [0, 1] for true magical appearance
+  const opacity = useTransform(progress, range, [0, 1]); 
   return <motion.span style={{ opacity, whiteSpace: char === " " ? "pre" : "normal" }}>{char}</motion.span>;
 };
 
@@ -46,7 +47,8 @@ interface ScrollBadgeProps {
 }
 
 const ScrollBadge = ({ children, progress, range, className, style }: ScrollBadgeProps) => {
-  const opacity = useTransform(progress, range, [0.15, 1]);
+  // Changed from [0.15, 1] to [0, 1] for true magical appearance
+  const opacity = useTransform(progress, range, [0, 1]);
   return (
     <motion.span style={{ opacity, ...style }} className={className}>
       {children}
@@ -76,15 +78,6 @@ export default function Home() {
   // ─── THE LOCK SCREEN STATE ───
   const [isLockScreenDismissed, setIsLockScreenDismissed] = useState(false);
 
-  // ─── ANIMATION VARS ───
-  const arrowVariants = {
-    initial: { y: 0 },
-    animate: {
-      y: [0, -15, 0],
-      transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
-    },
-  };
-
   // ─── SCROLL LISTENER FOR THE STICKY TEXT REVEAL ───
   const textRevealSectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress: textRevealProgress } = useScroll({
@@ -102,10 +95,8 @@ export default function Home() {
       if (e.type === 'wheel') {
         if ((e as WheelEvent).deltaY > 10) setIsLockScreenDismissed(true);
       } else if (e.type === 'touchstart') {
-        // FIX: Changed 'let' to 'const' to satisfy strict linting
         const startY = (e as TouchEvent).touches[0].clientY;
         const handleTouchMove = (moveEvent: TouchEvent) => {
-          // FIX: Changed 'let' to 'const' to satisfy strict linting
           const currentY = moveEvent.touches[0].clientY;
           if (startY - currentY > 20) {
             setIsLockScreenDismissed(true);
@@ -275,97 +266,138 @@ export default function Home() {
   return (
     <div className={`min-h-screen ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"}`}>
       
-      {/* ─── THE SWIPE-UP LOCK SCREEN OVERLAY ─── */}
+      {/* ─── THE SWIPE-UP LOCK SCREEN OVERLAY (RESTORED FORMATTING + BOUNCE) ─── */}
       <motion.div 
-        className="fixed inset-0 z-[200] bg-[#1E3A4F] flex flex-col items-center justify-start pt-10 px-4"
+        className="fixed inset-0 z-[200] bg-[#1E3A4F]"
         initial={{ y: 0 }}
         animate={{ y: isLockScreenDismissed ? "-100%" : "0%" }}
         transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
       >
-        <div className="absolute top-10 left-3 md:relative md:w-[240px] md:h-[212px] mb-6">
-          <div className="relative w-[195px] h-[195px] md:w-full md:h-full">
-            <Image src="/logo.png" alt="Dormer's Logo" fill className="object-contain" priority />
-          </div>
-        </div>
+        {/* Continuous Page Bounce Animation */}
+        <motion.div 
+          className="w-full h-full relative"
+          animate={isLockScreenDismissed ? {} : { y: [0, -12, 0] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          {/* ── RESTORED MOBILE VIEW ── */}
+          <div className="md:hidden w-full h-full relative flex flex-col items-start justify-center cursor-pointer" onClick={() => setIsLockScreenDismissed(true)}>
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              {/* Logo */}
+              <div className="absolute top-10 left-3">
+                <div className="relative w-[195px] h-[195px]">
+                  <Image src="/logo.png" alt="Dormer's Logo" fill className="object-contain" priority />
+                </div>
+              </div>
 
-        <div className="absolute top-[220px] left-0 md:relative md:top-auto md:mt-12 w-full flex flex-col gap-[1px] md:items-center">
-          <p className="text-[64px] leading-[77px] pl-[33px] md:pl-0 main_page_meal text-white">MEALS</p>
-          <p className="text-[64px] leading-[78px] pl-[33px] md:pl-0" style={{ fontFamily: "Montserrat", fontWeight: 900, color: "#213c4c", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>THAT</p>
-          <div className="text-[64px] leading-[78px] pl-[34px] md:pl-0 flex md:justify-center">
-            <div className="flex items-center space-x-1">
-              <span style={{ fontFamily: "Montserrat", fontWeight: 900, color: "#213c4c", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>DON</span>
-              <span className="relative w-[20px] h-[40px] top-[-8px]"><Image src="/images/main_page_icon.svg" alt="'" fill className="object-contain" priority /></span>
-              <span style={{ fontFamily: "Montserrat", fontWeight: 900, WebkitTextStroke: "1px #fff", WebkitTextFillColor: "transparent" }}>T SUCK</span>
+              {/* Headline */}
+              <div className="absolute top-[170px] left-0 w-full flex flex-col gap-[1px]">
+                <p className="text-[64px] leading-[77px] pl-[33px] main_page_meal text-white">
+                  MEALS
+                </p>
+                <p className="text-[64px] leading-[78px] pl-[33px]" style={{ fontFamily: "Montserrat", fontWeight: 900, fontSize: "55px", color: "#213c4c", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>
+                  THAT
+                </p>
+                <div className="text-[64px] leading-[78px] pl-[34px] flex">
+                  <div className="flex items-center space-x-1">
+                    <span style={{ fontFamily: "Montserrat", fontWeight: 900, color: "#213c4c", fontSize: "55px", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>
+                      DON
+                    </span>
+                    <span className="relative w-[20px] h-[40px] top-[-8px]">
+                      <Image src="/images/main_page_icon.svg" alt="'" fill className="object-contain" priority />
+                    </span>
+                    <span style={{ fontFamily: "Montserrat", fontWeight: 900, fontSize: "55px", WebkitTextStroke: "1px #fff", WebkitTextFillColor: "transparent" }}>
+                      T
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[64px] leading-[78px] pl-[33px]" style={{ fontFamily: "Montserrat", fontWeight: 900, color: "#213c4c", fontSize: "55px", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>
+                  SUCK
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Bouncing Double Up-Chevron */}
-        <div className="absolute bottom-12 w-full flex justify-center">
-          <motion.div
-            variants={arrowVariants}
-            initial="initial"
-            animate="animate"
-            className="flex flex-col items-center justify-center cursor-pointer opacity-80"
-            onClick={() => setIsLockScreenDismissed(true)} 
-          >
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mb-[-22px]">
-              <polyline points="18 15 12 9 6 15"></polyline>
-            </svg>
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="18 15 12 9 6 15"></polyline>
-            </svg>
-            <p className="text-[#FF6B00] mt-2 font-bold text-xs uppercase tracking-widest font-[Montserrat]">Swipe Up</p>
-          </motion.div>
-        </div>
+          {/* ── RESTORED DESKTOP VIEW ── */}
+          <div className="hidden md:flex flex-col items-center justify-start min-h-screen text-white px-4 cursor-pointer" onClick={() => setIsLockScreenDismissed(true)}>
+            {/* Logo */}
+            <div className="relative md:w-[240px] md:h-[212px] mb-6 mt-10">
+              <Image src="/logo.png" alt="Dormer's Logo" fill className="object-contain" priority />
+            </div>
+
+            {/* Headline */}
+            <div className="text-center leading-tight mt-[60px]">
+              <p className="text-[64px] leading-[78px] pl-[33px] mealsthattext_box">
+                MEALS THAT
+              </p>
+              <div className="text-[64px] leading-[78px] pl-[34px] flex justify-center">
+                <div className="flex items-center space-x-1">
+                  <span style={{ fontFamily: "Montserrat", fontWeight: 900, color: "#213c4c", fontSize: "55px", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>
+                    DON
+                  </span>
+                  <span className="relative w-[20px] h-[40px] top-[-8px]">
+                    <Image src="/images/main_page_icon.svg" alt="'" fill className="object-contain" priority />
+                  </span>
+                  <p style={{ fontFamily: "Montserrat", fontWeight: 900, fontSize: "55px", color: "#213c4c", textShadow: "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff" }}>
+                    T SUCK
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
 
-      {/* ─── STICKY PINNED TYPEWRITER SECTION ─── */}
+      {/* ─── STICKY PINNED TYPEWRITER SECTION (GOLDEN RATIO) ─── */}
       <div ref={textRevealSectionRef} className="relative h-[300vh] w-full bg-[#1E3A4F] z-10">
-        <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center px-2 sm:px-4 overflow-hidden">
-          <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12 w-full">
+        <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center px-4 overflow-hidden">
+          
+          <div className="max-w-5xl mx-auto w-full flex flex-col items-center justify-center">
+            
             {/* First Section */}
-            <div className="text-center">
-              <h1 className="text-white text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2 leading-none" style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}>
+            <div className="text-center mb-[26px] md:mb-[42px] flex flex-col items-center">
+              <h1 className="text-white text-[42px] sm:text-[68px] md:text-[110px] leading-[1.1]" style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}>
                 <ScrollText text="DORMERS' IS FOR" progress={textRevealProgress} range={[0.0, 0.2]} />
               </h1>
-              <div className="relative inline-flex items-center gap-2 sm:gap-4 mt-2">
-                <h2 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0 leading-none" style={{ fontFamily: "Montserrat", fontWeight: 900, textTransform: "uppercase", textShadow: "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA" }}>
+              <div className="relative inline-flex items-center mt-2">
+                <h2 className="text-[42px] sm:text-[68px] md:text-[110px] text-[#213c4c] mt-0 leading-[1.1]" style={{ fontFamily: "Montserrat", fontWeight: 900, textTransform: "uppercase", textShadow: "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA" }}>
                   <ScrollText text="STUDENTS" progress={textRevealProgress} range={[0.2, 0.35]} />
                 </h2>
-                <ScrollBadge progress={textRevealProgress} range={[0.35, 0.4]} className="bg-[#EEE9DA] text-[#1E3A4F] px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-base rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]" style={{ fontFamily: "Typo Round Bold Demo" }}>
+                <ScrollBadge progress={textRevealProgress} range={[0.35, 0.4]} className="bg-[#EEE9DA] text-[#1E3A4F] px-3 py-1 rounded-full text-[16px] sm:text-[26px] rotate-[15.74deg] absolute -right-[42px] sm:-right-[68px]" style={{ fontFamily: "Typo Round Bold Demo" }}>
                   ONLY
                 </ScrollBadge>
               </div>
             </div>
 
             {/* Second Section */}
-            <div className="relative text-center">
-              <ScrollBadge progress={textRevealProgress} range={[0.4, 0.45]} className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute rotate-[-11.13deg] badge-label lg:!text-[14px]">
+            <div className="relative text-center mb-[26px] md:mb-[42px] flex items-center justify-center">
+              <ScrollBadge progress={textRevealProgress} range={[0.4, 0.45]} className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute rotate-[-11.13deg] rounded-md px-2 py-1 text-[16px] sm:text-[26px] z-10 left-[-26px] sm:left-[-42px] top-[-16px]">
                 NO
               </ScrollBadge>
-              <h1 className="text-white text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2 leading-none" style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", textTransform: "uppercase" }}>
+              <h1 className="text-white text-[26px] sm:text-[42px] md:text-[68px] leading-[1.1]" style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", textTransform: "uppercase" }}>
                 <ScrollText text="Overpriced Takeouts" progress={textRevealProgress} range={[0.45, 0.65]} />
               </h1>
             </div>
 
             {/* Third Section */}
-            <div className="relative text-center">
-              <h2 className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] leading-none" style={{ fontFamily: "Montserrat", fontWeight: 900, textTransform: "uppercase", textShadow: "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA" }}>
+            <div className="relative text-center flex items-center justify-center">
+              <h2 className="text-[42px] sm:text-[68px] md:text-[110px] text-[#213c4c] leading-[1.1]" style={{ fontFamily: "Montserrat", fontWeight: 900, textTransform: "uppercase", textShadow: "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA" }}>
                 <ScrollText text="NO TIME WASTED" progress={textRevealProgress} range={[0.65, 0.8]} />
               </h2>
-              <ScrollBadge progress={textRevealProgress} range={[0.8, 0.85]} className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-[-10px] rotate-[11.13deg]" style={{ fontFamily: "Typo Round Bold Demo", fontWeight: 700 }}>
+              <ScrollBadge progress={textRevealProgress} range={[0.8, 0.85]} className="bg-[#031624] text-[#FFFFFF] px-3 py-1 rounded-full text-[16px] sm:text-[26px] absolute right-[-26px] sm:right-[-42px] top-[-16px] rotate-[11.13deg]" style={{ fontFamily: "Typo Round Bold Demo", fontWeight: 700 }}>
                 COOKING
               </ScrollBadge>
             </div>
 
             {/* Bottom Text */}
-            <p className="text-white text-[12px] sm:text-[24px] md:text-lg lg:text-xl text-center flex justify-center flex-wrap pt-8" style={{ fontFamily: "Typo Round Bold Demo", fontWeight: 700 }}>
+            <p className="text-white text-[16px] sm:text-[26px] md:text-[42px] text-center flex justify-center flex-wrap mt-[42px] md:mt-[68px]" style={{ fontFamily: "Typo Round Bold Demo", fontWeight: 700 }}>
               <ScrollText text="Just good, affordable food, delivered to your dorm" progress={textRevealProgress} range={[0.85, 0.98]} />
             </p>
+
           </div>
         </div>
       </div>
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
 
       {/* Repeating Text Banner */}
       <div className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"}`}>
