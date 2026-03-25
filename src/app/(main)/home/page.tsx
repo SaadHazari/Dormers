@@ -105,13 +105,6 @@ export default function Home() {
   // ─── LOCK SCREEN ───────────────────────────────────────────────────────────
   const [isLockScreenDismissed, setIsLockScreenDismissed] = useState(false);
 
-  const arrowVariants = {
-    initial: { y: 0 },
-    animate: {
-      y: [0, 10, 0],
-      transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
-    },
-  };
 
   useEffect(() => {
     if (isLockScreenDismissed) return;
