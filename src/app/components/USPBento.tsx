@@ -20,6 +20,11 @@ import {
   Star,
 } from "lucide-react";
 
+// ─── Golden Ratio scale (φ = 1.618) ───────────────────────────────────────────
+// Base 11px → 18 → 29 → 47 → 76 → 123
+// Spacing  8px → 13 → 21 → 34 → 55
+// ─────────────────────────────────────────────────────────────────────────────
+
 const cardVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.97 },
   visible: (i: number) => ({
@@ -49,6 +54,7 @@ export default function USPBento() {
   const isLight = theme === "light";
   const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.05 });
 
+  // φ-scaled icon size — sits at the 18px tier (φ¹)
   const iconStyle = { opacity: 0.65, flexShrink: 0 };
 
   const cards: CardData[] = [
@@ -60,31 +66,55 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "1 / 3", gridRow: "1 / 2" },
       mobileClass: "col-span-2",
       content: (
+        // gap-[13px] = φ¹ of 8px base
         <div className="flex items-end justify-between h-full">
-          <div className="flex flex-col gap-1">
-            <RotateCcw size={28} strokeWidth={2.5} style={iconStyle} />
+          <div className="flex flex-col gap-[13px]">
+            <RotateCcw size={21} strokeWidth={2.5} style={iconStyle} />
+            {/* φ⁴ tier: 47px mobile / 76px desktop */}
             <p
-              className="text-[64px] md:text-[80px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, lineHeight: 1 }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(47px, 8vw, 76px)",
+                lineHeight: 1,
+              }}
             >
               48
             </p>
+            {/* φ² tier: 29px */}
             <p
-              className="text-lg md:text-2xl font-bold leading-tight"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(18px, 2.5vw, 29px)",
+                lineHeight: 1.15,
+                fontWeight: 700,
+              }}
             >
               Dishes Every Month
             </p>
+            {/* φ⁰ tier: 11px */}
             <p
-              className="text-[11px] md:text-sm opacity-60 mt-0.5"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "11px",
+                opacity: 0.6,
+                marginTop: "2px",
+              }}
             >
               New dish daily · Monthly rotating menu
             </p>
           </div>
+          {/* Ghost watermark — φ⁵ tier */}
           <p
-            className="text-[80px] md:text-[110px] font-black opacity-[0.07] leading-none select-none self-end"
-            style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+            style={{
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(76px, 12vw, 123px)",
+              lineHeight: 1,
+              opacity: 0.07,
+              userSelect: "none",
+              alignSelf: "flex-end",
+            }}
           >
             48
           </p>
@@ -100,24 +130,39 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "3 / 4", gridRow: "1 / 2" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-3">
-          <Globe size={24} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[13px]">
+          <Globe size={21} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[8px]">
+            {/* φ³ tier: 47px */}
             <p
-              className="text-[42px] md:text-[52px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, color: "#FF7F00" }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(34px, 5vw, 47px)",
+                lineHeight: 1,
+                color: "#FF7F00",
+              }}
             >
               11+
             </p>
+            {/* φ¹ tier: 18px */}
             <p
-              className="text-sm md:text-base font-bold leading-snug mt-1"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(13px, 1.5vw, 18px)",
+                fontWeight: 700,
+                lineHeight: 1.25,
+              }}
             >
               International Cuisines
             </p>
+            {/* φ⁰ tier: 11px */}
             <p
-              className="text-[10px] md:text-xs mt-1 opacity-50"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "11px",
+                opacity: 0.5,
+              }}
             >
               From all over the world
             </p>
@@ -134,24 +179,35 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "4 / 5", gridRow: "1 / 2" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-3">
-          <ShieldCheck size={24} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[13px]">
+          <ShieldCheck size={21} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[8px]">
             <p
-              className="text-[42px] md:text-[52px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(34px, 5vw, 47px)",
+                lineHeight: 1,
+              }}
             >
               100%
             </p>
             <p
-              className="text-sm md:text-base font-bold leading-snug mt-1"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(13px, 1.5vw, 18px)",
+                fontWeight: 700,
+                lineHeight: 1.25,
+              }}
             >
               Refund Policy
             </p>
             <p
-              className="text-[10px] md:text-xs mt-1 opacity-55"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "11px",
+                opacity: 0.55,
+              }}
             >
               On all remaining meals
             </p>
@@ -160,7 +216,7 @@ export default function USPBento() {
       ),
     },
 
-    // 4 — Skip 3x · cream small
+    // 4 — Skip 3× · cream small
     {
       id: 4,
       bg: "#EEE9DA",
@@ -168,24 +224,36 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "1 / 2", gridRow: "2 / 3" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <SkipForward size={20} strokeWidth={2} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <SkipForward size={18} strokeWidth={2} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
+            {/* φ² tier: 29px mobile, 34px desktop */}
             <p
-              className="text-[38px] md:text-[44px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(29px, 4vw, 34px)",
+                lineHeight: 1,
+              }}
             >
               3×
             </p>
             <p
-              className="text-xs md:text-sm font-bold mt-0.5 leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.3,
+              }}
             >
               Meal Skips
             </p>
             <p
-              className="text-[10px] opacity-55 mt-0.5"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.55,
+              }}
             >
               Per month
             </p>
@@ -202,18 +270,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "2 / 3", gridRow: "2 / 3" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <PauseCircle size={20} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <PauseCircle size={18} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-sm md:text-base font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Pause &<br />Resume
             </p>
             <p
-              className="text-[10px] opacity-50 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.5,
+              }}
             >
               Going on vacation? Pause and come back.
             </p>
@@ -222,7 +297,7 @@ export default function USPBento() {
       ),
     },
 
-    // 6 — FREE Delivery · dark hero card, 2×2
+    // 6 — FREE Delivery · deep dark hero 2×2
     {
       id: 6,
       bg: "#0C1E2C",
@@ -234,27 +309,42 @@ export default function USPBento() {
           className="flex flex-col justify-between h-full"
           style={{
             backgroundImage:
-              "radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)",
-            backgroundSize: "20px 20px",
+              "radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px)",
+            backgroundSize: "21px 21px",
           }}
         >
-          <Truck size={36} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
-          <div>
+          <Truck size={29} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
+          <div className="flex flex-col gap-[8px]">
+            {/* φ⁴: 47px mobile / 76px desktop */}
             <p
-              className="text-[56px] md:text-[76px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, color: "#FF7F00" }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(47px, 8vw, 76px)",
+                lineHeight: 1,
+                color: "#FF7F00",
+              }}
             >
               FREE
             </p>
+            {/* φ² tier */}
             <p
-              className="text-2xl md:text-3xl font-bold leading-tight"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(18px, 2.5vw, 29px)",
+                fontWeight: 700,
+                lineHeight: 1.15,
+              }}
             >
               Delivery
             </p>
+            {/* φ¹ tier */}
             <p
-              className="text-sm md:text-base opacity-55 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                opacity: 0.55,
+              }}
             >
               To all dorms across Dubai
             </p>
@@ -271,18 +361,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <Leaf size={20} strokeWidth={1.5} style={{ ...iconStyle, color: "#4ade80" }} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Leaf size={18} strokeWidth={1.5} style={{ ...iconStyle, color: "#4ade80" }} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Eco-Friendly<br />Packaging
             </p>
             <p
-              className="text-[10px] opacity-50 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.5,
+              }}
             >
               Sustainably made
             </p>
@@ -299,18 +396,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "2 / 3", gridRow: "3 / 4" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <Activity size={20} strokeWidth={2} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Activity size={18} strokeWidth={2} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Calculated<br />Macros
             </p>
             <p
-              className="text-[10px] opacity-60 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.6,
+              }}
             >
               Know exactly what you eat
             </p>
@@ -327,24 +431,30 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" },
       mobileClass: "col-span-2",
       content: (
-        <div className="flex items-start justify-between h-full gap-4">
-          <div className="flex flex-col gap-2">
-            <CreditCard size={24} strokeWidth={1.5} style={iconStyle} />
+        <div className="flex items-start h-full gap-[21px]">
+          <div className="flex flex-col gap-[13px]">
+            <CreditCard size={21} strokeWidth={1.5} style={iconStyle} />
+            {/* φ¹ tier */}
             <p
-              className="text-base md:text-xl font-bold"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(13px, 1.8vw, 18px)",
+                fontWeight: 700,
+              }}
             >
               Flexible Payments
             </p>
-            <div className="flex flex-wrap gap-1.5 mt-0.5">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
               {["Cash", "Card", "Online", "Bank Transfer", "Crypto"].map((m) => (
                 <span
                   key={m}
-                  className="text-[9px] md:text-[11px] rounded-full px-2 py-0.5"
                   style={{
                     fontFamily: "Poppins, sans-serif",
+                    fontSize: "10px",
                     background: "rgba(255,255,255,0.1)",
                     color: "#ffffff",
+                    borderRadius: "999px",
+                    padding: "3px 10px",
                   }}
                 >
                   {m}
@@ -364,18 +474,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <Utensils size={20} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Veg, Non-Veg<br />& Religious
             </p>
             <p
-              className="text-[10px] opacity-55 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.55,
+              }}
             >
               We respect your preferences
             </p>
@@ -392,18 +509,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <Headphones size={20} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Headphones size={18} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Dedicated<br />Student Support
             </p>
             <p
-              className="text-[10px] opacity-55 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.55,
+              }}
             >
               Always here for you
             </p>
@@ -420,24 +544,34 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <LayoutGrid size={20} strokeWidth={2} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-[38px] md:text-[44px] font-black leading-none"
-              style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+              style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(29px, 4vw, 34px)",
+                lineHeight: 1,
+              }}
             >
               3
             </p>
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+              }}
             >
               Plans
             </p>
             <p
-              className="text-[10px] opacity-60 mt-0.5"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.6,
+              }}
             >
               Monthly · Weekly · Trial
             </p>
@@ -454,18 +588,25 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "2 / 3", gridRow: "5 / 6" },
       mobileClass: "col-span-1",
       content: (
-        <div className="flex flex-col justify-between h-full gap-2">
-          <Wallet size={20} strokeWidth={1.5} style={iconStyle} />
-          <div>
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Wallet size={18} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
             <p
-              className="text-xs md:text-sm font-bold leading-snug"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(11px, 1.2vw, 13px)",
+                fontWeight: 700,
+                lineHeight: 1.35,
+              }}
             >
               Student<br />Budget Friendly
             </p>
             <p
-              className="text-[10px] opacity-50 mt-1"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "10px",
+                opacity: 0.5,
+              }}
             >
               Made for your wallet
             </p>
@@ -482,25 +623,39 @@ export default function USPBento() {
       desktopStyle: { gridColumn: "3 / 5", gridRow: "5 / 6" },
       mobileClass: "col-span-2",
       content: (
-        <div className="flex items-center justify-between h-full gap-4">
-          <div className="flex flex-col gap-2">
-            <Star size={24} strokeWidth={1.5} style={iconStyle} />
+        <div className="flex items-center justify-between h-full gap-[21px]">
+          <div className="flex flex-col gap-[13px]">
+            <Star size={21} strokeWidth={1.5} style={iconStyle} />
             <p
-              className="text-base md:text-xl font-bold"
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif" }}
+              style={{
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                fontSize: "clamp(13px, 1.8vw, 18px)",
+                fontWeight: 700,
+              }}
             >
               Best Quality Ingredients
             </p>
             <p
-              className="text-[10px] md:text-xs opacity-55"
-              style={{ fontFamily: "Poppins, sans-serif" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontSize: "11px",
+                opacity: 0.55,
+              }}
             >
               No compromises on what goes into your meals
             </p>
           </div>
+          {/* Ghost watermark */}
           <p
-            className="text-[80px] md:text-[100px] font-black opacity-[0.06] leading-none select-none shrink-0"
-            style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900 }}
+            style={{
+              fontFamily: "Montserrat, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(76px, 10vw, 110px)",
+              lineHeight: 1,
+              opacity: 0.06,
+              userSelect: "none",
+              flexShrink: 0,
+            }}
           >
             ★
           </p>
@@ -510,39 +665,51 @@ export default function USPBento() {
   ];
 
   const sharedCardClass =
-    "flex flex-col justify-between rounded-2xl p-4 md:p-5 overflow-hidden relative hover:scale-[1.015] transition-transform duration-300 cursor-default";
+    "flex flex-col justify-between rounded-2xl overflow-hidden relative hover:scale-[1.015] transition-transform duration-300 cursor-default";
+
+  // φ-scaled padding: 16px (p-4) mobile → 21px desktop (closest: p-5 = 20px ≈ φ×12)
+  const cardPadding = { padding: "16px" };
+  const cardPaddingDesktop = { padding: "21px" };
 
   return (
     <section
       ref={ref}
-      className={`w-full px-4 sm:px-6 lg:px-16 py-12 md:py-20 ${
+      className={`w-full px-4 sm:px-6 lg:px-16 ${
         isLight ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
       }`}
+      // φ spacing: 34px mobile → 55px desktop
+      style={{ paddingTop: "34px", paddingBottom: "55px" }}
     >
       <div className="max-w-6xl mx-auto">
-        {/* Section heading */}
+        {/* ── Section heading ── */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 13 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center mb-8 md:mb-12"
+          className="text-center"
+          // φ: mb = 34px desktop
+          style={{ marginBottom: "34px" }}
         >
+          {/* Eyebrow — φ⁰: 11px */}
           <p
-            className="text-[11px] sm:text-sm tracking-[0.25em] uppercase mb-2"
             style={{
               fontFamily: "Montserrat, sans-serif",
               fontWeight: 600,
+              fontSize: "11px",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
               color: "#FF7F00",
+              marginBottom: "8px",
             }}
           >
             Exclusive to Dormers
           </p>
+          {/* H2 — φ³ tier: 29px mobile → 47px desktop */}
           <h2
-            className={`text-2xl sm:text-4xl md:text-5xl ${
-              isLight ? "text-[#1E3A4F]" : "text-white"
-            }`}
+            className={isLight ? "text-[#1E3A4F]" : "text-white"}
             style={{
               fontFamily: "'Typo Round Bold Demo', sans-serif",
+              fontSize: "clamp(29px, 4vw, 47px)",
               lineHeight: 1.1,
             }}
           >
@@ -555,28 +722,38 @@ export default function USPBento() {
           variants={containerVariants}
           initial="hidden"
           animate={inView ? "visible" : "hidden"}
-          className="hidden md:grid gap-3"
+          className="hidden md:grid"
           style={{
             gridTemplateColumns: "repeat(4, 1fr)",
             gridTemplateRows: "repeat(5, auto)",
+            gap: "13px", // φ¹ of 8px base
           }}
         >
-          {cards.map((card, i) => (
-            <motion.div
-              key={card.id}
-              custom={i}
-              variants={cardVariants}
-              className={`${sharedCardClass} min-h-[140px]`}
-              style={{
-                background: card.bg,
-                color: card.textColor,
-                boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
-                ...card.desktopStyle,
-              }}
-            >
-              {card.content}
-            </motion.div>
-          ))}
+          {cards.map((card, i) => {
+            const isNavy = card.bg === "#1E3A4F";
+            return (
+              <motion.div
+                key={card.id}
+                custom={i}
+                variants={cardVariants}
+                className={`${sharedCardClass} min-h-[130px]`}
+                style={{
+                  background: card.bg,
+                  color: card.textColor,
+                  border: isNavy
+                    ? "1px solid rgba(255, 127, 0, 0.28)"
+                    : "1px solid transparent",
+                  boxShadow: isNavy
+                    ? "0 0 0 1px rgba(255,127,0,0.12) inset"
+                    : "inset 0 0 0 1px rgba(0,0,0,0.06)",
+                  ...cardPaddingDesktop,
+                  ...card.desktopStyle,
+                }}
+              >
+                {card.content}
+              </motion.div>
+            );
+          })}
         </motion.div>
 
         {/* ── Mobile Grid (< md) ── */}
@@ -584,23 +761,33 @@ export default function USPBento() {
           variants={containerVariants}
           initial="hidden"
           animate={inView ? "visible" : "hidden"}
-          className="grid md:hidden grid-cols-2 gap-3"
+          className="grid md:hidden grid-cols-2"
+          style={{ gap: "13px" }}
         >
-          {cards.map((card, i) => (
-            <motion.div
-              key={card.id}
-              custom={i}
-              variants={cardVariants}
-              className={`${sharedCardClass} min-h-[120px] ${card.mobileClass}`}
-              style={{
-                background: card.bg,
-                color: card.textColor,
-                boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
-              }}
-            >
-              {card.content}
-            </motion.div>
-          ))}
+          {cards.map((card, i) => {
+            const isNavy = card.bg === "#1E3A4F";
+            return (
+              <motion.div
+                key={card.id}
+                custom={i}
+                variants={cardVariants}
+                className={`${sharedCardClass} min-h-[110px] ${card.mobileClass}`}
+                style={{
+                  background: card.bg,
+                  color: card.textColor,
+                  border: isNavy
+                    ? "1px solid rgba(255, 127, 0, 0.28)"
+                    : "1px solid transparent",
+                  boxShadow: isNavy
+                    ? "0 0 0 1px rgba(255,127,0,0.12) inset"
+                    : "inset 0 0 0 1px rgba(0,0,0,0.06)",
+                  ...cardPadding,
+                }}
+              >
+                {card.content}
+              </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </section>
