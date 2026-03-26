@@ -13,6 +13,7 @@ import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
 import CurtleAboutUs from "@/app/components/CurtleAboutUs";
+import USPBento from "@/app/components/USPBento";
 
 interface FAQ {
   id: number;
@@ -594,6 +595,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* USP Bento Grid */}
+      <USPBento />
 
       {/* How It Works Section */}
       <div
