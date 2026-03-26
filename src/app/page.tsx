@@ -1,436 +1,383 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useAnimation } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { FaArrowDown } from "react-icons/fa";
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.9, staggerChildren: 0.28 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
+};
 
 export default function WelcomePage() {
   const router = useRouter();
+  const controls = useAnimation();
+  const [dismissed, setDismissed] = useState(false);
 
+  // Redirect if session path is stored
   useEffect(() => {
-    // Check if there's a redirect path stored
     const redirectPath = sessionStorage.getItem("redirectPath");
     if (redirectPath) {
-      // Clear the stored path
       sessionStorage.removeItem("redirectPath");
-      // Navigate to the stored path
       router.push(redirectPath);
     }
   }, [router]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 1,
-        staggerChildren: 0.3,
-      },
-    },
-  };
+  // Start the subtle card bob after content animates in
+  useEffect(() => {
+    if (dismissed) return;
+    const timer = setTimeout(() => {
+      controls.start({
+        y: [0, -18, 0],
+        transition: {
+          duration: 1.9,
+          times: [0, 0.32, 1],
+          // ease out fast, spring recoil back
+          ease: ["easeOut", [0.34, 1.56, 0.64, 1]],
+          repeat: Infinity,
+          repeatDelay: 4.5,
+        },
+      });
+    }, 1600);
+    return () => clearTimeout(timer);
+  }, [controls, dismissed]);
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-      },
-    },
-  };
+  // Genie minimisation — squeezes toward the Dormers logo (top-left)
+  const exitGenie = async () => {
+    if (dismissed) return;
+    setDismissed(true);
+    controls.stop();
 
-  const arrowVariants = {
-    initial: { y: 0 },
-    animate: {
-      y: [0, 10, 0],
-      transition: {
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut",
-      },
-    },
-  };
+    // Phase 1: lateral compression + slight lift — "gathering" the card
+    await controls.start({
+      scaleX: 0.18,
+      y: -55,
+      transition: { duration: 0.21, ease: [0.7, 0, 1, 1] },
+    });
 
-  const handleContinue = () => {
+    // Phase 2: the thin strip shoots to the logo (top-left corner)
+    await controls.start({
+      scaleX: 0,
+      scaleY: 0.04,
+      y: typeof window !== "undefined" ? -window.innerHeight : -900,
+      x: typeof window !== "undefined" ? -window.innerWidth * 0.44 : -200,
+      opacity: 0,
+      transition: { duration: 0.38, ease: [0.4, 0, 0.85, 1] },
+    });
+
     router.push("/home");
+  };
+
+  // Shared card visual props
+  const cardStyle: React.CSSProperties = {
+    background: "linear-gradient(168deg, #0A1B2A 0%, #182F42 55%, #1E3A4F 100%)",
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    // orange glow at base of card + depth shadow beneath
+    boxShadow:
+      "0 28px 64px 0 rgba(255, 127, 0, 0.18), 0 10px 32px rgba(0,0,0,0.45)",
   };
 
   return (
     <>
+      {/* ── Layer 0: peek-through background (same navy as /home) ── */}
       <div
-        className="h-screen md:hidden block w-full relative overflow-hidden"
-        style={{ backgroundColor: "#1E3A4F" }}
+        className="fixed inset-0"
+        style={{ background: "#1E3A4F", zIndex: 0 }}
+      />
+
+      {/* ── Layer 1: orange depth glow sitting behind the card ── */}
+      <div
+        aria-hidden
+        className="fixed bottom-0 left-0 right-0 pointer-events-none"
+        style={{
+          height: "50vh",
+          zIndex: 1,
+          background:
+            "radial-gradient(ellipse 85% 100% at 50% 105%, rgba(255, 127, 0, 0.40) 0%, transparent 68%)",
+        }}
+      />
+
+      {/* ── Layer 2: The Welcome Card (mobile) ── */}
+      <motion.div
+        animate={controls}
+        style={{
+          originX: "15%",
+          originY: "0%",
+          zIndex: 10,
+          touchAction: "none",
+        }}
+        className="fixed inset-0 md:hidden"
+        onPanEnd={(_, info) => {
+          // Trigger genie on upward swipe
+          if (info.offset.y < -55 || info.velocity.y < -320) {
+            exitGenie();
+          }
+        }}
       >
-        <motion.div
-          className="w-full h-full flex flex-col items-center justify-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* Logo */}
+        <div className="w-full h-full relative overflow-hidden" style={cardStyle}>
           <motion.div
-            variants={itemVariants}
-            className="absolute top-10 left-3 md:relative md:top-0 md:left-0 md:-mt-32"
+            className="w-full h-full flex flex-col items-center justify-center"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
           >
-            <div className="relative w-[195px] h-[195px] md:w-[275px] md:h-[275px]">
-              <Image
-                src="/logo.png"
-                alt="Dormer's Logo"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
-          </motion.div>
+            {/* Logo — top-left anchor (also the genie target) */}
+            <motion.div
+              variants={itemVariants}
+              className="absolute top-10 left-3"
+            >
+              <div className="relative w-[195px] h-[195px]">
+                <Image
+                  src="/logo.png"
+                  alt="Dormer's Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </motion.div>
 
-          {/* Text Elements Container */}
-          <div className="relative w-full md:flex md:flex-col md:items-center">
-            {/* Mobile Layout */}
-            <div className="md:hidden absolute top-[-170px] left-0 w-full flex flex-col gap-[1px]">
-              {/* MEALS */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[77px] pl-[33px] main_page_meal"
-              >
-                MEALS
-              </motion.p>
+            {/* MEALS THAT DON'T SUCK — stacked text */}
+            <div className="relative w-full">
+              <div className="absolute top-[-170px] left-0 w-full flex flex-col gap-[1px]">
+                {/* MEALS */}
+                <motion.p
+                  variants={itemVariants}
+                  className="text-[64px] leading-[77px] pl-[33px] main_page_meal"
+                >
+                  MEALS
+                </motion.p>
 
-              {/* THAT */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] pl-[33px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  fontSize: "55px",
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                THAT
-              </motion.p>
+                {/* THAT */}
+                <motion.p
+                  variants={itemVariants}
+                  className="text-[64px] leading-[78px] pl-[33px]"
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 900,
+                    fontSize: "55px",
+                    color: "#213c4c",
+                    textShadow:
+                      "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                  }}
+                >
+                  THAT
+                </motion.p>
 
-              {/* DON'T */}
-              <motion.div
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] pl-[34px] flex text-[#213c4c]"
-              >
-                <div className="flex items-center space-x-1">
-                  <span
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      color: "#213c4c",
-                      fontSize: "55px",
-                      textShadow:
-                        "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                    }}
-                  >
-                    DON
-                  </span>
-
-                  <span className="relative w-[20px] h-[40px] top-[-8px]">
-                    <Image
-                      src="/images/main_page_icon.svg"
-                      alt="'"
-                      fill
-                      className="object-contain"
-                      priority
-                    />
-                  </span>
-
-                  <span
-                    style={{
-                      fontFamily: "Montserrat",
-                      fontWeight: 900,
-                      fontSize: "55px",
-                      WebkitTextStroke: "1px #fff",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    T
-                  </span>
-                </div>
-              </motion.div>
-
-              {/* SUCK */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] pl-[33px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  fontSize: "55px",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                SUCK
-              </motion.p>
-
-              {/* Bottom Section for Mobile */}
-              <div className="flex flex-row items-center gap-x-10 mt-10 w-full pl-[33px]">
-                <div>
-                  <motion.p
-                    variants={itemVariants}
-                    className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
-                    style={{ fontFamily: "Montserrat" }}
-                  >
-                    WELCOME TO DORMERS&apos;
-                  </motion.p>
-                </div>
+                {/* DON'T */}
                 <motion.div
                   variants={itemVariants}
-                  className="cursor-pointer"
-                  onClick={handleContinue}
+                  className="text-[64px] leading-[78px] pl-[34px] flex"
                 >
-                  <motion.div
-                    variants={arrowVariants}
-                    initial="initial"
-                    animate="animate"
-                    className="relative w-7 h-7 rounded-full border border-white flex items-center justify-center"
-                    style={{ backgroundColor: "#EEE9DA" }}
-                  >
-                    <span className="relative w-[12px] h-[12px]">
+                  <div className="flex items-center space-x-1">
+                    <span
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        color: "#213c4c",
+                        fontSize: "55px",
+                        textShadow:
+                          "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                      }}
+                    >
+                      DON
+                    </span>
+                    <span className="relative w-[20px] h-[40px] top-[-8px]">
                       <Image
-                        src="/images/ArrowDownmain.svg"
+                        src="/images/main_page_icon.svg"
                         alt="'"
                         fill
                         className="object-contain"
                         priority
                       />
                     </span>
-                  </motion.div>
+                    <span
+                      style={{
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        fontSize: "55px",
+                        WebkitTextStroke: "1px #fff",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      T
+                    </span>
+                  </div>
+                </motion.div>
+
+                {/* SUCK */}
+                <motion.p
+                  variants={itemVariants}
+                  className="text-[64px] leading-[78px] pl-[33px]"
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 900,
+                    color: "#213c4c",
+                    fontSize: "55px",
+                    textShadow:
+                      "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
+                  }}
+                >
+                  SUCK
+                </motion.p>
+
+                {/* Welcome label */}
+                <motion.div
+                  variants={itemVariants}
+                  className="flex flex-row items-center gap-x-8 mt-10 w-full pl-[33px]"
+                >
+                  <p
+                    className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
+                    style={{ fontFamily: "Montserrat" }}
+                  >
+                    WELCOME TO DORMERS&apos;
+                  </p>
                 </motion.div>
               </div>
             </div>
+          </motion.div>
 
-            {/* Desktop Layout */}
-            <div className="hidden md:flex md:flex-col md:items-center md:gap-8">
-              {/* MEALS */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                MEALS
-              </motion.p>
+          {/* Bottom pill — reinforces the "foreground card" metaphor */}
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none">
+            <motion.div
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              style={{
+                width: 38,
+                height: 5,
+                borderRadius: 9999,
+                background: "rgba(238,233,218,0.6)",
+              }}
+            />
+          </div>
+        </div>
+      </motion.div>
 
-              {/* THAT */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                THAT
-              </motion.p>
+      {/* ── Layer 2: The Welcome Card (desktop) ── */}
+      <motion.div
+        animate={controls}
+        style={{
+          originX: "15%",
+          originY: "0%",
+          zIndex: 10,
+          touchAction: "none",
+        }}
+        className="fixed inset-0 hidden md:block"
+        onPanEnd={(_, info) => {
+          if (info.offset.y < -55 || info.velocity.y < -320) {
+            exitGenie();
+          }
+        }}
+      >
+        <div
+          className="w-full h-full flex flex-col items-center justify-start"
+          style={cardStyle}
+        >
+          {/* Logo */}
+          <div className="relative md:w-[240px] md:h-[212px] mb-6 mt-8">
+            <Image
+              src="/logo.png"
+              alt="Dormer's Logo"
+              fill
+              className="object-contain"
+              priority
+            />
+          </div>
 
-              {/* DON'T */}
-              <motion.div
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] flex justify-center text-[#213c4c]"
-              >
+          {/* Headline */}
+          <motion.div
+            className="text-center leading-tight"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.p
+              variants={itemVariants}
+              className="text-[64px] leading-[78px] pl-[33px] mealsthattext_box"
+            >
+              MEALS THAT
+            </motion.p>
+
+            <motion.div
+              variants={itemVariants}
+              className="text-[64px] leading-[78px] pl-[34px] flex justify-center"
+            >
+              <div className="flex items-center space-x-1">
                 <span
                   style={{
                     fontFamily: "Montserrat",
                     fontWeight: 900,
-                    color: "#213c4c;",
+                    color: "#213c4c",
+                    fontSize: "55px",
                     textShadow:
                       "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
                   }}
                 >
                   DON
                 </span>
-                <span
-                  className="text-[#FF6B00]"
-                  style={{
-                    fontFamily: "Montserrat",
-                    fontWeight: 900,
-                  }}
-                >
-                  &apos;
+                <span className="relative w-[20px] h-[40px] top-[-8px]">
+                  <Image
+                    src="/images/main_page_icon.svg"
+                    alt="'"
+                    fill
+                    className="object-contain"
+                    priority
+                  />
                 </span>
                 <span
                   style={{
                     fontFamily: "Montserrat",
                     fontWeight: 900,
-                    WebkitTextStroke: "1px #fff",
-                    WebkitTextFillColor: "transparent",
+                    fontSize: "55px",
+                    color: "#213c4c",
+                    textShadow:
+                      "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
                   }}
                 >
-                  T
+                  T SUCK
                 </span>
-              </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
 
-              {/* SUCK */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                SUCK
-              </motion.p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Bottom Section for Desktop (fixed) */}
-        <div className="hidden md:fixed md:bottom-12 md:left-0 md:right-0 md:flex md:items-center md:justify-center md:gap-3">
+          {/* Welcome label */}
           <motion.p
-            variants={itemVariants}
-            className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.75 }}
+            transition={{ delay: 1.4, duration: 1 }}
+            className="mt-16 text-[14px] text-white font-bold tracking-widest uppercase"
             style={{ fontFamily: "Montserrat" }}
           >
             WELCOME TO DORMERS&apos;
           </motion.p>
-          <motion.div
-            variants={itemVariants}
-            className="cursor-pointer"
-            onClick={handleContinue}
-          >
+
+          {/* Bottom pill */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none">
             <motion.div
-              variants={arrowVariants}
-              initial="initial"
-              animate="animate"
-              className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
-              style={{ backgroundColor: "#EEE9DA" }}
-            >
-              <FaArrowDown className="w-3 h-3" style={{ color: "#1E3A4F" }} />
-            </motion.div>
-          </motion.div>
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              style={{
+                width: 38,
+                height: 5,
+                borderRadius: 9999,
+                background: "rgba(238,233,218,0.6)",
+              }}
+            />
+          </div>
         </div>
-      </div>
-      <div className="hidden md:flex flex-col items-center justify-start min-h-screen bg-[#1E3A4F] text-white px-4">
-        {/* Logo */}
-        <div className="relative  md:w-[240px] md:h-[212px] mb-6">
-          <Image
-            src="/logo.png"
-            alt="Dormer's Logo"
-            fill
-            className="object-contain"
-            priority
-          />
-        </div>
-
-        {/* Headline */}
-        <div className="text-center leading-tight">
-          <motion.p
-            variants={itemVariants}
-            className="text-[64px] leading-[78px] pl-[33px] mealsthattext_box"
-          >
-            MEALS THAT
-          </motion.p>
-          <motion.div
-            variants={itemVariants}
-            className="text-[64px] leading-[78px] pl-[34px] flex text-[#213c4c]"
-          >
-            <div className="flex items-center space-x-1">
-              <span
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  color: "#213c4c",
-                  fontSize: "55px",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                DON
-              </span>
-
-              <span className="relative w-[20px] h-[40px] top-[-8px]">
-                <Image
-                  src="/images/main_page_icon.svg"
-                  alt="'"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </span>
-
-              {/* <span
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  fontSize: "55px",
-                  WebkitTextStroke: "1px #fff",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                T SUCK
-              </span> */}
-              <motion.p
-                variants={itemVariants}
-                className="text-[64px] leading-[78px] text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  fontSize: "55px",
-                  color: "#213c4c;",
-                  textShadow:
-                    "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
-                }}
-              >
-                T SUCK
-              </motion.p>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Bottom Text + Icon */}
-        <div className="hidden md:flex items-center gap-[24px] mt-[80px]">
-          <motion.p variants={itemVariants} className="WelcomtextMessage">
-            WELCOME TO DORMERS&apos;
-          </motion.p>
-          <motion.div
-            variants={itemVariants}
-            className="cursor-pointer"
-            onClick={handleContinue}
-          >
-            <motion.div
-              variants={arrowVariants}
-              initial="initial"
-              animate="animate"
-              className="relative w-8 h-8 rounded-full border border-white flex items-center justify-center"
-              style={{ backgroundColor: "#EEE9DA" }}
-            >
-              {/* <FaArrowDown className="w-3 h-3" style={{ color: "#1E3A4F" }} /> */}
-              <span className="relative w-[12px] h-[12px]">
-                <Image
-                  src="/images/ArrowDownmain.svg"
-                  alt="'"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </span>
-            </motion.div>
-          </motion.div>
-        </div>
-      </div>
+      </motion.div>
     </>
   );
 }

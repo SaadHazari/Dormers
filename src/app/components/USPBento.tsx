@@ -8,7 +8,6 @@ import {
   Globe,
   ShieldCheck,
   SkipForward,
-  PauseCircle,
   Truck,
   Leaf,
   Activity,
@@ -262,7 +261,7 @@ export default function USPBento() {
       ),
     },
 
-    // 5 — Pause & Resume · navy small
+    // 5 — Pause Anytime · navy small
     {
       id: 5,
       bg: "#1E3A4F",
@@ -271,7 +270,18 @@ export default function USPBento() {
       mobileClass: "col-span-1",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
-          <PauseCircle size={18} strokeWidth={1.5} style={iconStyle} />
+          {/* Orange gradient pause icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <defs>
+              <linearGradient id="pauseIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FF8C00" />
+                <stop offset="100%" stopColor="#FF5000" />
+              </linearGradient>
+            </defs>
+            <circle cx="12" cy="12" r="10" stroke="url(#pauseIconGrad)" />
+            <line x1="10" y1="15" x2="10" y2="9" stroke="url(#pauseIconGrad)" />
+            <line x1="14" y1="15" x2="14" y2="9" stroke="url(#pauseIconGrad)" />
+          </svg>
           <div className="flex flex-col gap-[5px]">
             <p
               style={{
@@ -281,7 +291,7 @@ export default function USPBento() {
                 lineHeight: 1.35,
               }}
             >
-              Pause &<br />Resume
+              Pause<br />Anytime
             </p>
             <p
               style={{
@@ -730,7 +740,14 @@ export default function USPBento() {
           }}
         >
           {cards.map((card, i) => {
-            const isNavy = card.bg === "#1E3A4F";
+            const noGradientBorder = card.bg === "#FF7F00" || !card.bg.startsWith("#");
+            const isCream = card.bg === "#EEE9DA";
+            const borderGrad = isCream
+              ? "linear-gradient(135deg, rgba(255,140,0,0.65) 0%, rgba(255,80,0,0.3) 100%)"
+              : "linear-gradient(135deg, #FF8C00 0%, #FF5000 100%)";
+            const cardBg = noGradientBorder
+              ? card.bg
+              : `linear-gradient(${card.bg}, ${card.bg}) padding-box, ${borderGrad} border-box`;
             return (
               <motion.div
                 key={card.id}
@@ -738,14 +755,9 @@ export default function USPBento() {
                 variants={cardVariants}
                 className={`${sharedCardClass} min-h-[130px]`}
                 style={{
-                  background: card.bg,
+                  background: cardBg,
                   color: card.textColor,
-                  border: isNavy
-                    ? "1px solid rgba(255, 127, 0, 0.28)"
-                    : "1px solid transparent",
-                  boxShadow: isNavy
-                    ? "0 0 0 1px rgba(255,127,0,0.12) inset"
-                    : "inset 0 0 0 1px rgba(0,0,0,0.06)",
+                  border: noGradientBorder ? "none" : "1.5px solid transparent",
                   ...cardPaddingDesktop,
                   ...card.desktopStyle,
                 }}
@@ -765,7 +777,14 @@ export default function USPBento() {
           style={{ gap: "13px" }}
         >
           {cards.map((card, i) => {
-            const isNavy = card.bg === "#1E3A4F";
+            const noGradientBorder = card.bg === "#FF7F00" || !card.bg.startsWith("#");
+            const isCream = card.bg === "#EEE9DA";
+            const borderGrad = isCream
+              ? "linear-gradient(135deg, rgba(255,140,0,0.65) 0%, rgba(255,80,0,0.3) 100%)"
+              : "linear-gradient(135deg, #FF8C00 0%, #FF5000 100%)";
+            const cardBg = noGradientBorder
+              ? card.bg
+              : `linear-gradient(${card.bg}, ${card.bg}) padding-box, ${borderGrad} border-box`;
             return (
               <motion.div
                 key={card.id}
@@ -773,14 +792,9 @@ export default function USPBento() {
                 variants={cardVariants}
                 className={`${sharedCardClass} min-h-[110px] ${card.mobileClass}`}
                 style={{
-                  background: card.bg,
+                  background: cardBg,
                   color: card.textColor,
-                  border: isNavy
-                    ? "1px solid rgba(255, 127, 0, 0.28)"
-                    : "1px solid transparent",
-                  boxShadow: isNavy
-                    ? "0 0 0 1px rgba(255,127,0,0.12) inset"
-                    : "inset 0 0 0 1px rgba(0,0,0,0.06)",
+                  border: noGradientBorder ? "none" : "1.5px solid transparent",
                   ...cardPadding,
                 }}
               >
