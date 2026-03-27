@@ -361,14 +361,7 @@ export default function Home() {
       {/* ── Hero scroll-reveal sequence ── */}
       <HeroReveal />
 
-      {/* ── Repeating Text Banner — fades in subtly after hero ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.4 }}
-        transition={{ duration: 1.1, ease: "easeOut" }}
-      >
-      {/* Repeating Text Banner */}
+      {/* ── Repeating Text Banner ── */}
       <div
         className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
           }`}
@@ -496,7 +489,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-      </motion.div>
 
       {/* USP Bento Grid */}
       <USPBento />

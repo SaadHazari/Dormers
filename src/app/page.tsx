@@ -37,17 +37,16 @@ export default function WelcomePage() {
     if (dismissed) return;
     const timer = setTimeout(() => {
       controls.start({
-        y: [0, -18, 0],
+        y: [0, -22, 0],
         transition: {
-          duration: 1.9,
-          times: [0, 0.32, 1],
-          // ease out fast, spring recoil back
+          duration: 1.2,
+          times: [0, 0.28, 1],
           ease: ["easeOut", [0.34, 1.56, 0.64, 1]],
           repeat: Infinity,
-          repeatDelay: 4.5,
+          repeatDelay: 3.0,
         },
       });
-    }, 1600);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [controls, dismissed]);
 
@@ -102,10 +101,10 @@ export default function WelcomePage() {
         aria-hidden
         className="fixed bottom-0 left-0 right-0 pointer-events-none"
         style={{
-          height: "50vh",
+          height: "60vh",
           zIndex: 1,
           background:
-            "radial-gradient(ellipse 85% 100% at 50% 105%, rgba(255, 127, 0, 0.40) 0%, transparent 68%)",
+            "radial-gradient(ellipse 100% 110% at 50% 108%, rgba(255, 127, 0, 0.65) 0%, rgba(255, 80, 0, 0.28) 45%, transparent 72%)",
         }}
       />
 
@@ -136,9 +135,9 @@ export default function WelcomePage() {
             {/* Logo — top-left anchor (also the genie target) */}
             <motion.div
               variants={itemVariants}
-              className="absolute top-10 left-3"
+              className="absolute top-8 left-4"
             >
-              <div className="relative w-[195px] h-[195px]">
+              <div className="relative w-[120px] h-[120px]">
                 <Image
                   src="/logo.png"
                   alt="Dormer's Logo"
@@ -233,32 +232,20 @@ export default function WelcomePage() {
                   SUCK
                 </motion.p>
 
-                {/* Welcome label */}
-                <motion.div
-                  variants={itemVariants}
-                  className="flex flex-row items-center gap-x-8 mt-10 w-full pl-[33px]"
-                >
-                  <p
-                    className="text-[14px] text-white font-bold tracking-normal uppercase leading-none"
-                    style={{ fontFamily: "Montserrat" }}
-                  >
-                    WELCOME TO DORMERS&apos;
-                  </p>
-                </motion.div>
               </div>
             </div>
           </motion.div>
 
-          {/* Bottom pill — reinforces the "foreground card" metaphor */}
+          {/* Bottom pill */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none">
             <motion.div
-              animate={{ opacity: [0.2, 0.5, 0.2] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              animate={{ opacity: [0.45, 0.85, 0.45] }}
+              transition={{ duration: 2.0, repeat: Infinity, ease: "easeInOut" }}
               style={{
-                width: 38,
+                width: 64,
                 height: 5,
                 borderRadius: 9999,
-                background: "rgba(238,233,218,0.6)",
+                background: "rgba(238,233,218,0.85)",
               }}
             />
           </div>
@@ -352,27 +339,16 @@ export default function WelcomePage() {
             </motion.div>
           </motion.div>
 
-          {/* Welcome label */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.75 }}
-            transition={{ delay: 1.4, duration: 1 }}
-            className="mt-16 text-[14px] text-white font-bold tracking-widest uppercase"
-            style={{ fontFamily: "Montserrat" }}
-          >
-            WELCOME TO DORMERS&apos;
-          </motion.p>
-
           {/* Bottom pill */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none">
             <motion.div
-              animate={{ opacity: [0.2, 0.5, 0.2] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              animate={{ opacity: [0.45, 0.85, 0.45] }}
+              transition={{ duration: 2.0, repeat: Infinity, ease: "easeInOut" }}
               style={{
-                width: 38,
+                width: 64,
                 height: 5,
                 borderRadius: 9999,
-                background: "rgba(238,233,218,0.6)",
+                background: "rgba(238,233,218,0.85)",
               }}
             />
           </div>

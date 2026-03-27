@@ -10,64 +10,39 @@ import {
 } from "framer-motion";
 import { useTheme } from "next-themes";
 
-// ─── Scroll phase breakpoints (0–1) ──────────────────────────────────────────
-const L1_SHRINK_S   = 0.02;
-const L1_SHRINK_E   = 0.18;
-const L2_FADE_S     = 0.15;
-const L2_REVEAL_S   = 0.18;
-const L2_REVEAL_E   = 0.36;
-const L2_SHRINK_E   = 0.46;
-const L3_FADE_S     = 0.42;
-const L3_REVEAL_S   = 0.46;
-const L3_REVEAL_E   = 0.62;
-const L3_SHRINK_E   = 0.72;
-const L4_FADE_S     = 0.68;
-const L4_START      = 0.72;
-const L4_END        = 0.88;
-const L4_SHRINK_E   = 0.94;
-const XFADE_S       = 0.88;
-const XFADE_E       = 0.96;
-const UI_SHOW_AT    = 0.88;
+// ─── Scroll breakpoints (0–1) ─────────────────────────────────────────────────
+const L2_REVEAL_S = 0.18;
+const L2_REVEAL_E = 0.38;
+const L2_SHRINK_E = 0.48;
+const L3_REVEAL_S = 0.48;
+const L3_REVEAL_E = 0.66;
+const L3_SHRINK_E = 0.76;
+const L4_REVEAL_S = 0.76;
+const L4_REVEAL_E = 0.90;
+const XFADE_S     = 0.90;
+const XFADE_E     = 0.97;
+const UI_SHOW_AT  = 0.90;
+const WORD_DUR    = 0.044; // scroll-progress units each word takes to reveal
 
-// ─── Static content arrays ────────────────────────────────────────────────────
-const L1_ROW1 = ["DORMERS'", "IS", "FOR"];
-const L1_ROW2 = ["STUDENTS", "ONLY"];
-const L2_CHARS = Array.from("NO OVERPRICED TAKEOUTS");
-const L3_CHARS = Array.from("NO TIME WASTED COOKING");
+const L1_WORDS = ["DORMERS'", "IS", "FOR", "STUDENTS", "ONLY"];
+const L2_WORDS = ["NO", "OVERPRICED", "TAKEOUTS"];
+const L3_WORDS = ["NO", "TIME", "WASTED", "COOKING"];
 const L4_WORDS = ["JUST", "GOOD,", "AFFORDABLE", "FOOD,", "DELIVERED", "TO", "YOUR", "DORM"];
 
-// ─── RevealChar: scroll-linked per-letter opacity+blur ───────────────────────
-function RevealChar({
-  char,
+// ─── Per-word scroll-linked reveal ───────────────────────────────────────────
+function RevealWord({
+  word,
   scrollY,
-  threshold,
-  dur,
+  start,
 }: {
-  char: string;
+  word: string;
   scrollY: MotionValue<number>;
-  threshold: number;
-  dur: number;
+  start: number;
 }) {
-  const opacity = useTransform(scrollY, [threshold, threshold + dur], [0, 1]);
-  const blur    = useTransform(scrollY, [threshold, threshold + dur * 1.5], ["blur(10px)", "blur(0px)"]);
-  if (char === " ") return <span style={{ display: "inline-block", width: "0.26em" }} />;
+  const opacity = useTransform(scrollY, [start, start + WORD_DUR], [0, 1]);
+  const y = useTransform(scrollY, [start, start + WORD_DUR * 1.4], ["22px", "0px"]);
   return (
-    <motion.span style={{ opacity, filter: blur, display: "inline-block", willChange: "opacity,filter" }}>
-      {char}
-    </motion.span>
-  );
-}
-
-// ─── RibbonWord: scroll-linked word slide-in from right ──────────────────────
-function RibbonWord({
-  word, scrollY, start, end, style,
-}: {
-  word: string; scrollY: MotionValue<number>; start: number; end: number; style?: React.CSSProperties;
-}) {
-  const opacity = useTransform(scrollY, [start, end], [0, 1]);
-  const x       = useTransform(scrollY, [start, end], ["90px", "0px"]);
-  return (
-    <motion.span style={{ opacity, x, display: "inline-block", ...style }}>
+    <motion.span style={{ opacity, y, display: "inline-block" }}>
       {word}
     </motion.span>
   );
@@ -79,7 +54,6 @@ export default function HeroReveal() {
   const isLight   = theme === "light";
   const bg        = isLight ? "#EEE9DA" : "#1E3A4F";
   const textColor = isLight ? "#1E3A4F" : "#EEE9DA";
-  const outline   = `${textColor}`;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -87,38 +61,35 @@ export default function HeroReveal() {
     offset: ["start start", "end end"],
   });
 
-  // ── L1 time-based word reveal ──────────────────────────────────────────────
+  // L1 — time-based word reveal (auto-plays on arrival)
   const [l1Shown, setL1Shown] = useState(0);
   useEffect(() => {
-    [...L1_ROW1, ...L1_ROW2].forEach((_, i) => {
-      setTimeout(() => setL1Shown(i + 1), 350 + i * 300);
+    L1_WORDS.forEach((_, i) => {
+      setTimeout(() => setL1Shown(i + 1), 280 + i * 250);
     });
   }, []);
 
-  // ── Line 1: scale down as user scrolls ────────────────────────────────────
-  const l1Scale = useTransform(scrollYProgress, [L1_SHRINK_S, L1_SHRINK_E], [3.6, 1]);
-  const l1Y     = useTransform(scrollYProgress, [L1_SHRINK_S, L1_SHRINK_E], [200, 0]);
+  // ── Scale + Y settle for each line ──────────────────────────────────────────
+  const l1Scale = useTransform(scrollYProgress, [0.00, 0.20], [2.6, 1]);
+  const l1Y     = useTransform(scrollYProgress, [0.00, 0.20], ["70px", "0px"]);
 
-  // ── Line 2 container ───────────────────────────────────────────────────────
-  const l2Opacity = useTransform(scrollYProgress, [L2_FADE_S, L2_REVEAL_S], [0, 1]);
-  const l2Scale   = useTransform(scrollYProgress, [L2_REVEAL_S, L2_SHRINK_E], [3.0, 1]);
-  const l2Y       = useTransform(scrollYProgress, [L2_REVEAL_S, L2_SHRINK_E], [160, 0]);
+  const l2Fade  = useTransform(scrollYProgress, [L2_REVEAL_S - 0.04, L2_REVEAL_S], [0, 1]);
+  const l2Scale = useTransform(scrollYProgress, [L2_REVEAL_S, L2_SHRINK_E], [2.6, 1]);
+  const l2Y     = useTransform(scrollYProgress, [L2_REVEAL_S, L2_SHRINK_E], ["70px", "0px"]);
 
-  // ── Line 3 container ───────────────────────────────────────────────────────
-  const l3Opacity = useTransform(scrollYProgress, [L3_FADE_S, L3_REVEAL_S], [0, 1]);
-  const l3Scale   = useTransform(scrollYProgress, [L3_REVEAL_S, L3_SHRINK_E], [3.0, 1]);
-  const l3Y       = useTransform(scrollYProgress, [L3_REVEAL_S, L3_SHRINK_E], [160, 0]);
+  const l3Fade  = useTransform(scrollYProgress, [L3_REVEAL_S - 0.04, L3_REVEAL_S], [0, 1]);
+  const l3Scale = useTransform(scrollYProgress, [L3_REVEAL_S, L3_SHRINK_E], [2.6, 1]);
+  const l3Y     = useTransform(scrollYProgress, [L3_REVEAL_S, L3_SHRINK_E], ["70px", "0px"]);
 
-  // ── Line 4 ribbon container ───────────────────────────────────────────────
-  const l4Opacity = useTransform(scrollYProgress, [L4_FADE_S, L4_START], [0, 1]);
-  const l4Scale   = useTransform(scrollYProgress, [L4_END, L4_SHRINK_E], [2.4, 1]);
-  const l4Y       = useTransform(scrollYProgress, [L4_END, L4_SHRINK_E], [100, 0]);
+  const l4Fade  = useTransform(scrollYProgress, [L4_REVEAL_S - 0.04, L4_REVEAL_S], [0, 1]);
+  const l4Scale = useTransform(scrollYProgress, [L4_REVEAL_S, XFADE_S], [2.2, 1]);
+  const l4Y     = useTransform(scrollYProgress, [L4_REVEAL_S, XFADE_S], ["55px", "0px"]);
 
-  // ── Crossfade intro ↔ final ────────────────────────────────────────────────
+  // ── Crossfade intro → final hero ────────────────────────────────────────────
   const introOpacity = useTransform(scrollYProgress, [XFADE_S, XFADE_E], [1, 0]);
   const finalOpacity = useTransform(scrollYProgress, [XFADE_S, XFADE_E], [0, 1]);
 
-  // ── Dispatch hero-ui-visible/hidden ───────────────────────────────────────
+  // ── Dispatch hero-ui-visible / hidden ───────────────────────────────────────
   useMotionValueEvent(scrollYProgress, "change", (v) => {
     if (v >= UI_SHOW_AT) {
       window.dispatchEvent(new CustomEvent("hero-ui-visible"));
@@ -127,34 +98,37 @@ export default function HeroReveal() {
     }
   });
 
-  // ── Per-char thresholds ───────────────────────────────────────────────────
-  const l2Range = L2_REVEAL_E - L2_REVEAL_S;
-  const l2Dur   = (l2Range / L2_CHARS.length) * 0.75;
-  const l3Range = L3_REVEAL_E - L3_REVEAL_S;
-  const l3Dur   = (l3Range / L3_CHARS.length) * 0.75;
+  // ── Word start positions ────────────────────────────────────────────────────
+  const l2Step = (L2_REVEAL_E - L2_REVEAL_S) / L2_WORDS.length;
+  const l3Step = (L3_REVEAL_E - L3_REVEAL_S) / L3_WORDS.length;
+  const l4Step = (L4_REVEAL_E - L4_REVEAL_S) / L4_WORDS.length;
 
-  // ── L4 per-word scroll range ──────────────────────────────────────────────
-  const l4Step = (L4_END - L4_START) / L4_WORDS.length;
+  // ── Shared styles ───────────────────────────────────────────────────────────
+  const INTRO_FONT = "clamp(34px, 7.5vw, 70px)";
+  const L4_FONT    = "clamp(26px, 5.5vw, 52px)";
 
-  // ── Shared text styles ────────────────────────────────────────────────────
+  const lineBase: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "baseline",
+    gap: "0 0.24em",
+    lineHeight: 1.05,
+  };
+
   const typoRound: React.CSSProperties = {
     fontFamily: "'Typo Round Bold Demo', sans-serif",
-    lineHeight: 1.1,
+    color: textColor,
+    fontSize: INTRO_FONT,
   };
-  const montserratOutline: React.CSSProperties = {
-    fontFamily: "Montserrat",
-    fontWeight: 900,
-    color: "#213c4c",
-    textShadow: `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}`,
-    lineHeight: 1.1,
-  };
-  const INTRO_FONT = "clamp(28px, 7.2vw, 58px)";
+
+  const outline   = textColor;
 
   return (
-    /* ── 480 vh outer: provides the scroll space ───────────────────────────── */
-    <div ref={containerRef} style={{ height: "480vh", position: "relative" }}>
+    /* 400 vh outer — provides scroll space */
+    <div ref={containerRef} style={{ height: "400vh", position: "relative" }}>
 
-      {/* ── 100 vh sticky viewport ────────────────────────────────────────── */}
+      {/* 100 vh sticky viewport */}
       <div
         style={{
           position: "sticky",
@@ -174,165 +148,119 @@ export default function HeroReveal() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "flex-start",
-            paddingTop: "clamp(60px, 10vh, 100px)",
-            gap: "clamp(4px, 1vh, 10px)",
+            paddingTop: "clamp(55px, 9vh, 95px)",
+            gap: "clamp(3px, 0.6vh, 8px)",
             opacity: introOpacity,
             zIndex: 2,
             pointerEvents: "none",
           }}
         >
 
-          {/* ── L1: DORMERS' IS FOR / STUDENTS ONLY ───────────────────────── */}
+          {/* ── L1: DORMERS' IS FOR STUDENTS ONLY ── */}
           <motion.div
             style={{
               scale: l1Scale,
               y: l1Y,
               transformOrigin: "top center",
-              textAlign: "center",
               width: "100%",
             }}
           >
-            {/* Row 1 */}
-            <div style={{ display: "flex", justifyContent: "center", gap: "0.2em", flexWrap: "wrap" }}>
-              {L1_ROW1.map((word, i) => (
+            <div style={{ ...lineBase, ...typoRound }}>
+              {L1_WORDS.map((word, i) => (
                 <motion.span
                   key={word}
-                  initial={{ opacity: 0, y: 16, filter: "blur(10px)" }}
+                  initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
                   animate={
                     l1Shown > i
                       ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                      : { opacity: 0, y: 16, filter: "blur(10px)" }
+                      : { opacity: 0, y: 18, filter: "blur(8px)" }
                   }
-                  transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  style={{ ...typoRound, fontSize: INTRO_FONT, color: textColor, display: "inline-block" }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  style={{ display: "inline-block" }}
                 >
                   {word}
                 </motion.span>
               ))}
             </div>
-            {/* Row 2 */}
-            <div style={{ display: "flex", justifyContent: "center", gap: "0.2em", flexWrap: "wrap", marginTop: "0.05em" }}>
-              {L1_ROW2.map((word, i) => {
-                const isStudents = word === "STUDENTS";
-                return (
-                  <motion.span
-                    key={word}
-                    initial={{ opacity: 0, y: 16, filter: "blur(10px)" }}
-                    animate={
-                      l1Shown > L1_ROW1.length + i
-                        ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                        : { opacity: 0, y: 16, filter: "blur(10px)" }
-                    }
-                    transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    style={{
-                      ...(isStudents ? montserratOutline : typoRound),
-                      fontSize: INTRO_FONT,
-                      color: isStudents ? "#213c4c" : textColor,
-                      display: "inline-block",
-                    }}
-                  >
-                    {word}
-                  </motion.span>
-                );
-              })}
-            </div>
           </motion.div>
 
-          {/* ── L2: NO OVERPRICED TAKEOUTS ────────────────────────────────── */}
+          {/* ── L2: NO OVERPRICED TAKEOUTS ── */}
           <motion.div
             style={{
-              opacity: l2Opacity,
+              opacity: l2Fade,
               scale: l2Scale,
               y: l2Y,
               transformOrigin: "top center",
-              textAlign: "center",
               width: "100%",
             }}
           >
-            <div
-              style={{
-                ...typoRound,
-                fontSize: INTRO_FONT,
-                color: textColor,
-                display: "inline-flex",
-                flexWrap: "wrap",
-                justifyContent: "center",
-                gap: 0,
-              }}
-            >
-              {L2_CHARS.map((char, i) => (
-                <RevealChar
-                  key={i}
-                  char={char}
-                  scrollY={scrollYProgress}
-                  threshold={L2_REVEAL_S + i * (l2Range / L2_CHARS.length)}
-                  dur={l2Dur}
-                />
-              ))}
-            </div>
-          </motion.div>
-
-          {/* ── L3: NO TIME WASTED COOKING ───────────────────────────────── */}
-          <motion.div
-            style={{
-              opacity: l3Opacity,
-              scale: l3Scale,
-              y: l3Y,
-              transformOrigin: "top center",
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            <div
-              style={{
-                ...montserratOutline,
-                fontSize: INTRO_FONT,
-                display: "inline-flex",
-                flexWrap: "wrap",
-                justifyContent: "center",
-                gap: 0,
-              }}
-            >
-              {L3_CHARS.map((char, i) => (
-                <RevealChar
-                  key={i}
-                  char={char}
-                  scrollY={scrollYProgress}
-                  threshold={L3_REVEAL_S + i * (l3Range / L3_CHARS.length)}
-                  dur={l3Dur}
-                />
-              ))}
-            </div>
-          </motion.div>
-
-          {/* ── L4: ribbon ────────────────────────────────────────────────── */}
-          <motion.div
-            style={{
-              opacity: l4Opacity,
-              scale: l4Scale,
-              y: l4Y,
-              transformOrigin: "top center",
-              textAlign: "center",
-              width: "100%",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                flexWrap: "wrap",
-                gap: "0.28em",
-              }}
-            >
-              {L4_WORDS.map((word, i) => (
-                <RibbonWord
+            <div style={{ ...lineBase, ...typoRound }}>
+              {L2_WORDS.map((word, i) => (
+                <RevealWord
                   key={i}
                   word={word}
                   scrollY={scrollYProgress}
-                  start={L4_START + i * l4Step}
-                  end={L4_START + (i + 1) * l4Step}
-                  style={{ ...typoRound, fontSize: "clamp(22px, 5.5vw, 46px)", color: textColor }}
+                  start={L2_REVEAL_S + i * l2Step}
+                />
+              ))}
+            </div>
+          </motion.div>
+
+          {/* ── L3: NO TIME WASTED COOKING (outline style) ── */}
+          <motion.div
+            style={{
+              opacity: l3Fade,
+              scale: l3Scale,
+              y: l3Y,
+              transformOrigin: "top center",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                ...lineBase,
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 900,
+                fontSize: INTRO_FONT,
+                WebkitTextFillColor: "transparent",
+                WebkitTextStroke: `2px ${outline}`,
+              }}
+            >
+              {L3_WORDS.map((word, i) => (
+                <RevealWord
+                  key={i}
+                  word={word}
+                  scrollY={scrollYProgress}
+                  start={L3_REVEAL_S + i * l3Step}
+                />
+              ))}
+            </div>
+          </motion.div>
+
+          {/* ── L4: JUST GOOD, AFFORDABLE FOOD, DELIVERED TO YOUR DORM ── */}
+          <motion.div
+            style={{
+              opacity: l4Fade,
+              scale: l4Scale,
+              y: l4Y,
+              transformOrigin: "top center",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                ...lineBase,
+                fontFamily: "'Typo Round Bold Demo', sans-serif",
+                color: textColor,
+                fontSize: L4_FONT,
+              }}
+            >
+              {L4_WORDS.map((word, i) => (
+                <RevealWord
+                  key={i}
+                  word={word}
+                  scrollY={scrollYProgress}
+                  start={L4_REVEAL_S + i * l4Step}
                 />
               ))}
             </div>
@@ -340,7 +268,7 @@ export default function HeroReveal() {
 
         </motion.div>
 
-        {/* ══════════════ FINAL HERO LAYER (crossfades in at end) ════════════ */}
+        {/* ══════════════ FINAL HERO LAYER ════════════════ */}
         <motion.div
           style={{
             position: "absolute",
@@ -366,10 +294,13 @@ export default function HeroReveal() {
                     <h2
                       className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mt-0"
                       style={{
-                        fontFamily: "Montserrat", fontWeight: 900,
-                        textTransform: "uppercase", color: "#213c4c",
-                        textShadow: `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}`,
-                        lineHeight: 1, letterSpacing: 0,
+                        fontFamily: "Montserrat",
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                        color: "transparent",
+                        WebkitTextStroke: `2px ${outline}`,
+                        lineHeight: 1,
+                        letterSpacing: 0,
                       }}
                     >
                       STUDENTS
@@ -392,7 +323,9 @@ export default function HeroReveal() {
                     className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2"
                     style={{
                       fontFamily: "'Typo Round Bold Demo', sans-serif",
-                      textTransform: "uppercase", lineHeight: 1, color: textColor,
+                      textTransform: "uppercase",
+                      lineHeight: 1,
+                      color: textColor,
                     }}
                   >
                     Overpriced Takeouts
@@ -404,10 +337,13 @@ export default function HeroReveal() {
                   <h2
                     className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl"
                     style={{
-                      fontFamily: "Montserrat", fontWeight: 900,
-                      textTransform: "uppercase", color: "#213c4c",
-                      textShadow: `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}`,
-                      lineHeight: 1, letterSpacing: 0,
+                      fontFamily: "Montserrat",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      color: "transparent",
+                      WebkitTextStroke: `2px ${outline}`,
+                      lineHeight: 1,
+                      letterSpacing: 0,
                     }}
                   >
                     NO TIME WASTED
