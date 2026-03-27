@@ -25,18 +25,18 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  hidden: { opacity: 0, y: 28, scale: 0.96 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.42, ease: "easeOut", delay: i * 0.055 },
+    transition: { duration: 0.58, ease: [0.25, 0.46, 0.45, 0.94], delay: i * 0.10 },
   }),
 };
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.055 } },
+  visible: { transition: { staggerChildren: 0.10 } },
 };
 
 interface CardData {

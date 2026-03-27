@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // import { IoIosArrowDown } from 'react-icons/io';
 import FormModal from "@/app/components/FormModal";
 import OrderForm from "@/app/components/OrderForm";
+import HeroReveal from "@/app/components/HeroReveal";
 import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
@@ -357,116 +358,16 @@ export default function Home() {
       className={`min-h-screen ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
         }`}
     >
-      {/* Hero Section */}
-      <div
-        id="hero"
-        className="container mx-auto px-2 sm:px-4 pt-[106px] pb-[24px] md:pt-[137px] md:pb-[40px]"
+      {/* ── Hero scroll-reveal sequence ── */}
+      <HeroReveal />
+
+      {/* ── Repeating Text Banner — fades in subtly after hero ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.4 }}
+        transition={{ duration: 1.1, ease: "easeOut" }}
       >
-        <div className="max-w-4xl mx-auto">
-          <div className="space-y-4">
-            {/* First Section */}
-            <div className="text-center mb-[4px]">
-              <h1
-                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
-                style={{
-                  fontFamily: "'Typo Round Bold Demo', sans-serif",
-                  lineHeight: "1",
-                }}
-              >
-                DORMERS&apos; IS FOR
-              </h1>
-
-              <div className="relative inline-flex items-center gap-2 sm:gap-4">
-                <h2
-                  className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c] mt-0"
-                  style={{
-                    fontFamily: "Montserrat",
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    color: "#213c4c",
-                    textShadow:
-                      "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
-                    lineHeight: "1",
-                    letterSpacing: "0",
-                  }}
-                >
-                  STUDENTS
-                </h2>
-                <span
-                  className={`${theme === "light"
-                    ? "bg-[#1E3A4F] text-white"
-                    : "bg-[#EEE9DA] text-[#1E3A4F]"
-                    }  top-4 px-2 sm:px-3 py-1 sm:py-1 rounded-full text-[10px] sm:text-base transition-all duration-300 hover:scale-110 animate-bounce rotate-[15.74deg] absolute -right-15 sm:-right-12 lg:right-[-117px]`}
-                  style={{ width: "33%", fontFamily: "Typo Round Bold Demo" }}
-                >
-                  ONLY
-                </span>
-              </div>
-            </div>
-
-            {/* Second Section */}
-            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-              <span className="bg-[#FF7F00] text-[#1E3A4F] flex items-center justify-center absolute transition-all duration-300 hover:scale-110 animate-bounce rotate-[-11.13deg] badge-label lg:!text-[14px]">
-                NO
-              </span>
-
-              <h1
-                className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                  } text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl mb-1 sm:mb-2`}
-                style={{
-                  fontFamily: "'Typo Round Bold Demo', sans-serif",
-                  textTransform: "uppercase",
-                  lineHeight: "1",
-                }}
-              >
-                Overpriced Takeouts
-              </h1>
-            </div>
-
-            {/* Third Section */}
-            <div className="relative text-center mt-2 sm:mt-2 mb-[4px]">
-              <h2
-                className="text-[32px] sm:text-[64px] md:text-5xl lg:text-6xl text-[#213c4c]"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  color: "#213c4c",
-                  textShadow:
-                    "-1px -1px 0 #EEE9DA, 1px -1px 0 #EEE9DA, -1px 1px 0 #EEE9DA, 1px 1px 0 #EEE9DA",
-                  lineHeight: "1",
-                  letterSpacing: "0",
-                }}
-              >
-                NO TIME WASTED
-              </h2>
-              <span
-                className="bg-[#031624] text-[#FFFFFF] px-3 sm:px-2 py-1 rounded-full text-[10px] sm:text-base absolute right-4 sm:right-35 top-1 transition-all duration-300 hover:scale-110 animate-bounce rotate-[11.13deg]"
-                style={{
-                  fontFamily: "Typo Round Bold Demo",
-                  fontWeight: 700,
-                }}
-              >
-                COOKING
-              </span>
-            </div>
-
-            {/* Bottom Text */}
-            <p
-              className={`text-[12px] sm:text-[24px] md:text-lg lg:text-xl ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                } text-center`}
-              style={{
-                fontFamily: "Typo Round Bold Demo",
-                fontWeight: 700,
-              }}
-            >
-              Just good, affordable food, delivered to your dorm
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Repeating Text Banner */}
       <div
         className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
@@ -595,6 +496,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      </motion.div>
 
       {/* USP Bento Grid */}
       <USPBento />

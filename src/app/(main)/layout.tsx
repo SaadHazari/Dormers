@@ -11,12 +11,26 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { theme } = useTheme();
   const pathname = usePathname(); // <--- Get the current URL
   const [hideNavbar, setHideNavbar] = useState(false);
+  const [heroReady, setHeroReady] = useState(false);
   const scrollYRef = useRef(0);
   const slideSectionRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   // Check if we are on the home page (either "/" or "/home")
   const isHomePage = pathname === "/" || pathname === "/home";
+
+  // Listen for hero reveal completion on /home
+  useEffect(() => {
+    if (pathname !== "/home") return;
+    const show = () => setHeroReady(true);
+    const hide = () => setHeroReady(false);
+    window.addEventListener("hero-ui-visible", show);
+    window.addEventListener("hero-ui-hidden",  hide);
+    return () => {
+      window.removeEventListener("hero-ui-visible", show);
+      window.removeEventListener("hero-ui-hidden",  hide);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     // Only run scroll logic on the Home Page
@@ -85,8 +99,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       `}</style>
 
       <div className="main_content">
-        {/* Only hide navbar on Home Page; always show it on other pages */}
-        {(!hideNavbar || !isHomePage) && <Navbar />}
+        {/* On /home: hidden until hero sequence completes + not near footer */}
+        {/* On other pages: hidden only when footer-slide is approaching */}
+        {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
         <main className="flex-grow">{children}</main>
       </div>
 
