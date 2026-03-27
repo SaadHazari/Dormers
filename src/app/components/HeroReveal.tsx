@@ -7,7 +7,6 @@ import {
   useTransform,
   useMotionValueEvent,
   MotionValue,
-  AnimatePresence,
 } from "framer-motion";
 import { useTheme } from "next-themes";
 
