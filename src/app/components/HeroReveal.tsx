@@ -82,7 +82,7 @@ const CSS = `
   .h-headline { margin-bottom: 48px; }
   .h-hl-l1 {
     font-family: Montserrat, sans-serif;
-    font-weight: 700;
+    font-weight: 500;
     font-size: 72px;
     line-height: 1.05;
     letter-spacing: -0.02em;
@@ -252,6 +252,7 @@ const CSS = `
 
   /* ── Tablet (641–1024px) ── */
   @media (max-width: 1024px) {
+    .h-section   { padding-top: 100px; }
     .h-content   { padding: 0 48px; }
     .h-hl-l1, .h-hl-l2 { font-size: 52px; }
     .h-hl-dinner, .h-hl-period { font-size: 64px; }
@@ -290,7 +291,7 @@ function Strike({ delay, rotation }: { delay: number; rotation: number }) {
         left: -4,
         right: -4,
         top: "50%",
-        height: "1.5px",
+        height: "1px",
         transform: `translateY(-50%) rotate(${rotation}deg)`,
         overflow: "hidden",
       }}
