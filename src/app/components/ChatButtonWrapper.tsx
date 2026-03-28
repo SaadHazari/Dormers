@@ -9,7 +9,7 @@ export default function ChatButtonWrapper() {
   const isWelcome = pathname === "/";
   const isHome    = pathname === "/home";
 
-  const [heroReady, setHeroReady] = useState(false);
+  const [heroReady, setHeroReady] = useState(true);
 
   useEffect(() => {
     if (!isHome) return;
