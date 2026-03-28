@@ -20,7 +20,8 @@ const CSS = `
     position: relative;
     display: flex;
     align-items: center;
-    padding-top: 88px;
+    padding-top: 120px;
+    padding-bottom: 40px;
     overflow: hidden;
   }
 
@@ -47,7 +48,7 @@ const CSS = `
   .h-headline { margin-bottom: 48px; }
   .h-hl-l1 {
     font-family: Montserrat, sans-serif;
-    font-weight: 700;
+    font-weight: 500;
     font-size: 72px;
     line-height: 1.05;
     letter-spacing: -0.02em;
@@ -61,7 +62,7 @@ const CSS = `
     letter-spacing: -0.02em;
     margin: 0;
   }
-  .h-hl-to    { font-weight: 700; color: #ede8da; margin-right: 0.22em; }
+  .h-hl-to    { font-weight: 500; color: #ede8da; margin-right: 0.22em; }
   .h-hl-stress { font-weight: 800; color: #f57f20; font-style: italic; }
   .h-hl-l3    { margin: 0; line-height: 1.05; letter-spacing: -0.02em; }
 
@@ -218,6 +219,7 @@ const CSS = `
 
   /* ── Tablet (641–1024px) ── */
   @media (max-width: 1024px) {
+    .h-section   { padding-top: 100px; }
     .h-content   { padding: 0 48px; }
     .h-hl-l1, .h-hl-l2 { font-size: 52px; }
     .h-hl-dinner, .h-hl-period { font-size: 64px; }
@@ -227,8 +229,8 @@ const CSS = `
 
   /* ── Mobile (≤640px) ── */
   @media (max-width: 640px) {
-    .h-section   { padding-top: 72px; }
-    .h-content   { padding: 0 24px; }
+    .h-section   { padding-top: 88px; }
+    .h-content   { padding: 0 16px; }
     .h-hl-l1, .h-hl-l2 { font-size: 36px; }
     .h-hl-dinner, .h-hl-period { font-size: 44px; }
     .h-headline  { margin-bottom: 34px; }
@@ -247,7 +249,7 @@ const CSS = `
   }
 `;
 
-/* ─── Strikethrough — Framer reveal, thin + semi-transparent ──── */
+/* ─── Strikethrough — Framer reveal, thinner + more transparent ── */
 function Strike({ delay, rotation }: { delay: number; rotation: number }) {
   return (
     <span
@@ -256,7 +258,7 @@ function Strike({ delay, rotation }: { delay: number; rotation: number }) {
         left: -4,
         right: -4,
         top: "50%",
-        height: "1.5px",
+        height: "1px",
         transform: `translateY(-50%) rotate(${rotation}deg)`,
         overflow: "hidden",
       }}
@@ -269,7 +271,7 @@ function Strike({ delay, rotation }: { delay: number; rotation: number }) {
           display: "block",
           width: "100%",
           height: "100%",
-          background: "rgba(245, 127, 32, 0.32)",
+          background: "rgba(245, 127, 32, 0.22)",
           transformOrigin: "left",
           borderRadius: "1px",
         }}
@@ -321,7 +323,6 @@ export default function HeroReveal() {
             </div>
 
             <div className="h-hl-l3">
-              {/* "dinner" with animated hand-drawn SVG underline */}
               <span className="h-hl-dinner-wrap">
                 <span className="h-hl-dinner">dinner</span>
 
@@ -419,14 +420,13 @@ export default function HeroReveal() {
             </button>
           </motion.div>
 
-          {/* 5 ── Proof bar — 3 columns per spec */}
+          {/* 5 ── Proof bar — 3 columns */}
           <motion.div
             className="h-proof"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 2.3, duration: 0.4, ease: E }}
           >
-            {/* Col 1 — Starting from AED 17 / meal */}
             <div className="h-proof-col">
               <span className="h-proof-qualifier">Starting from</span>
               <div className="h-proof-num-row">
@@ -438,7 +438,6 @@ export default function HeroReveal() {
 
             <div className="h-proof-divider" />
 
-            {/* Col 2 — More than 48 dishes */}
             <div className="h-proof-col">
               <span className="h-proof-qualifier">More than</span>
               <div className="h-proof-num-row">
@@ -449,7 +448,6 @@ export default function HeroReveal() {
 
             <div className="h-proof-divider" />
 
-            {/* Col 3 — Delivering to 6 dorms */}
             <div className="h-proof-col">
               <span className="h-proof-qualifier">Delivering to</span>
               <div className="h-proof-num-row">
