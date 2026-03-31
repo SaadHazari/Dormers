@@ -1,0 +1,5 @@
+- always obey Golden Ratio Principle for layouts, text hierarchy, text Spacing & Sizing, linie spacing etc. 
+- Always make the text readable and UX Friendly. 
+- If something is readble in the desktop version but not readable in the mobile version, you can make two versions of it.
+- UX & UI is the most important thing.
+- do not commit & push on Github or deploy website until i have given my signal. Ask before deploying. always deploy on local server using terminal until the final versionis ready.

@@ -207,8 +207,9 @@ export default function WelcomePage() {
                         fontFamily: "Montserrat",
                         fontWeight: 900,
                         fontSize: "55px",
-                        WebkitTextStroke: "1px #fff",
-                        WebkitTextFillColor: "transparent",
+                        color: "#213c4c",
+                        textShadow:
+                          "-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff",
                       }}
                     >
                       T

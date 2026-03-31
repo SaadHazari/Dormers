@@ -127,6 +127,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-small: 8px;
 }
 
 @theme inline {
@@ -437,4 +440,26 @@ body {
 .slick-dots li button:before {
   color: #fff !important;
   height: 10px !important;
+}
+
+/* ── Hero CTA Button Hover Effects ────────────────────────────────────────── */
+.hero-cta-primary:hover {
+  background: #e06f00 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(255, 127, 0, 0.5) !important;
+}
+
+.hero-cta-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 12px rgba(255, 127, 0, 0.3) !important;
+}
+
+.hero-cta-secondary:hover {
+  background: rgba(255, 127, 0, 0.08) !important;
+  border-color: #FF7F00 !important;
+  color: #FF7F00 !important;
+}
+
+.hero-cta-secondary:active {
+  background: rgba(255, 127, 0, 0.15) !important;
 }

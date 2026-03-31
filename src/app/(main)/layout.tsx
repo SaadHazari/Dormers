@@ -11,7 +11,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { theme } = useTheme();
   const pathname = usePathname(); // <--- Get the current URL
   const [hideNavbar, setHideNavbar] = useState(false);
-  const [heroReady, setHeroReady] = useState(true);
+  const [heroReady, setHeroReady] = useState(false);
   const scrollYRef = useRef(0);
   const slideSectionRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
