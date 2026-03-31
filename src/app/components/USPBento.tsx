@@ -63,16 +63,16 @@ const FLIP_CSS = `
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 24px;
+    padding: 16px; /* Reduced from 24px to prevent bleed on small cards */
   }
   .bento-flip-hint {
     display: none;
     margin-top: auto;
-    padding-top: 12px;
+    padding-top: 8px;
     font-family: Montserrat, sans-serif;
-    font-weight: 400;
-    font-size: 11px;
-    opacity: 0.3;
+    font-weight: 500;
+    font-size: 10px;
+    opacity: 0.4;
   }
   @media (hover: none) { .bento-flip-hint { display: block; } }
   .bento-flip-icon {
@@ -118,9 +118,9 @@ export default function USPBento() {
     {
       id: 1, bg: "linear-gradient(135deg, #FF8C00 0%, #FF6500 100%)", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 3", gridRow: "1 / 2" }, mobileClass: "col-span-2",
-      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.9)",
       backTitle: "48 Dishes Every Month",
-      backBody: "A brand new dish every single day. Our monthly rotating menu is crafted by chefs to keep your meals exciting — 48 unique options every month, never the same week twice.",
+      backBody: "A new dish daily. Chef-crafted menus guarantee 48 unique options every month with zero repeats.",
       content: (
         <div className="flex items-end justify-between h-full">
           <div className="flex flex-col gap-[13px]">
@@ -136,9 +136,9 @@ export default function USPBento() {
     {
       id: 2, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "3 / 4", gridRow: "1 / 2" }, mobileClass: "col-span-1",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
-      backTitle: "11+ International Cuisines",
-      backBody: "Explore cuisines from around the world — Italian, Arabic, Asian, Mediterranean, Indian, and more. Something new every day.",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.75)",
+      backTitle: "11+ Cuisines",
+      backBody: "Explore global flavors daily: Italian, Arabic, Asian, Indian, Mediterranean, and more.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[13px]">
           <Globe size={21} strokeWidth={1.5} style={iconStyle} />
@@ -153,9 +153,9 @@ export default function USPBento() {
     {
       id: 3, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "4 / 5", gridRow: "1 / 2" }, mobileClass: "col-span-1",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
-      backTitle: "100% Refund Policy",
-      backBody: "Cancel before your next delivery window and receive a full refund on all remaining unused meals. No questions asked, no hassle.",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
+      backTitle: "100% Refund",
+      backBody: "Cancel anytime before your delivery window for a full refund on unused meals. No hassle.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[13px]">
           <ShieldCheck size={21} strokeWidth={1.5} style={iconStyle} />
@@ -170,9 +170,9 @@ export default function USPBento() {
     {
       id: 4, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "2 / 3" }, mobileClass: "col-span-1",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
       backTitle: "3× Meal Skips",
-      backBody: "Don't feel like eating today? Skip up to 3 deliveries per month — no penalties, no fuss. Your plan just carries on.",
+      backBody: "Skip up to 3 deliveries per month with zero penalties. Your plan automatically adjusts.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <SkipForward size={18} strokeWidth={2} style={iconStyle} />
@@ -187,9 +187,9 @@ export default function USPBento() {
     {
       id: 5, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "2 / 3" }, mobileClass: "col-span-1",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.75)",
       backTitle: "Pause Anytime",
-      backBody: "Going home for the holidays? Traveling? Pause your subscription anytime and resume the moment you're back. No charges while paused.",
+      backBody: "Traveling? Pause your subscription anytime and resume when you return. No hidden charges.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <PauseCircle size={21} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
@@ -203,9 +203,9 @@ export default function USPBento() {
     {
       id: 6, bg: "#0C1E2C", textColor: "#ffffff",
       desktopStyle: { gridColumn: "3 / 5", gridRow: "2 / 4" }, mobileClass: "col-span-2",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
       backTitle: "FREE Delivery",
-      backBody: "Every single delivery is completely free — no matter where your dorm is across Dubai. No minimum order, no delivery fee, ever.",
+      backBody: "Zero delivery fees or minimums, ever. We deliver to all supported dorms across Dubai completely free of charge.",
       content: (
         <div className="flex flex-col justify-between h-full" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px)", backgroundSize: "21px 21px" }}>
           <Truck size={29} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
@@ -220,9 +220,9 @@ export default function USPBento() {
     {
       id: 7, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" }, mobileClass: "col-span-1",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
-      backTitle: "Eco-Friendly Packaging",
-      backBody: "All our packaging is biodegradable and sustainably sourced. We care about the planet as much as we care about your meal.",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.75)",
+      backTitle: "Eco Packaging",
+      backBody: "Our packaging is sustainably sourced. Good for you, good for the planet.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Leaf size={18} strokeWidth={1.5} style={{ ...iconStyle, color: "#4ade80" }} />
@@ -236,9 +236,9 @@ export default function USPBento() {
     {
       id: 8, bg: "#FF7F00", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "3 / 4" }, mobileClass: "col-span-1",
-      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
-      backTitle: "Calculated Macros",
-      backBody: "Every meal comes with full nutritional info — calories, protein, carbs, and fats. Eat smart without doing the math yourself.",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.9)",
+      backTitle: "Macros Counted",
+      backBody: "Every meal includes full nutritional info (calories, protein, carbs, fats) so you can eat smart.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Activity size={18} strokeWidth={2} style={iconStyle} />
@@ -252,9 +252,9 @@ export default function USPBento() {
     {
       id: 9, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" }, mobileClass: "col-span-2",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.8)",
       backTitle: "Flexible Payments",
-      backBody: "Pay your way — cash on delivery, card, online bank transfer, or even crypto. We've built Dormers to fit your lifestyle, not the other way around.",
+      backBody: "Pay your way: cash, card, bank transfer, or crypto. Built specifically to fit your student lifestyle.",
       content: (
         <div className="flex items-start h-full gap-[21px]">
           <div className="flex flex-col gap-[13px]">
@@ -272,9 +272,9 @@ export default function USPBento() {
     {
       id: 10, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" }, mobileClass: "col-span-1",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
-      backTitle: "Veg, Non-Veg & Religious",
-      backBody: "Tell us your dietary requirements and we'll tailor your menu. Vegetarian, non-vegetarian, halal, or specific religious restrictions — we've got you.",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
+      backTitle: "Dietary Needs",
+      backBody: "We accommodate your dietary needs: vegetarian, non-veg, halal, and religious preferences.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
@@ -288,9 +288,9 @@ export default function USPBento() {
     {
       id: 11, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" }, mobileClass: "col-span-1",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
-      backTitle: "Dedicated Student Support",
-      backBody: "Our student support team is here 7 days a week. Chat with us directly through the app — fast responses, real people, no bots.",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
+      backTitle: "Student Support",
+      backBody: "Get help 7 days a week. Chat with our real support team via the app for fast answers.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Headphones size={18} strokeWidth={1.5} style={iconStyle} />
@@ -304,9 +304,9 @@ export default function USPBento() {
     {
       id: 12, bg: "#FF7F00", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" }, mobileClass: "col-span-1",
-      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.9)",
       backTitle: "3 Plans",
-      backBody: "Monthly for regular students, Weekly for flexibility, and a Trial pack to test Dormers before committing. Pick what fits your schedule.",
+      backBody: "Choose from Monthly, Weekly, or a Trial pack. Flexible options to fit your schedule.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
@@ -321,9 +321,9 @@ export default function USPBento() {
     {
       id: 13, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "5 / 6" }, mobileClass: "col-span-1",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
-      backTitle: "Student Budget Friendly",
-      backBody: "Dormers is designed specifically for students on tight budgets. Great food at prices that genuinely don't hurt your wallet — no compromises.",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.75)",
+      backTitle: "Budget Friendly",
+      backBody: "Premium quality meals crafted for students, at prices that won't hurt your wallet.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Wallet size={18} strokeWidth={1.5} style={iconStyle} />
@@ -337,9 +337,9 @@ export default function USPBento() {
     {
       id: 14, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "3 / 5", gridRow: "5 / 6" }, mobileClass: "col-span-2",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
-      backTitle: "Best Quality Ingredients",
-      backBody: "We source only the best quality ingredients for every meal. No hidden shortcuts, no compromises — what goes into your food matters to us.",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.85)",
+      backTitle: "Quality Ingredients",
+      backBody: "We source only premium ingredients. No shortcuts or compromises on what goes into your food.",
       content: (
         <div className="flex items-center justify-between h-full gap-[21px]">
           <div className="flex flex-col gap-[13px]">
@@ -383,8 +383,8 @@ export default function USPBento() {
               {card.content}
             </div>
             <div className="bento-back" style={{ background: card.backBg, color: card.backTextColor }}>
-              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: "clamp(13px, 1.5vw, 18px)", lineHeight: 1.25, marginBottom: "10px", color: card.backTextColor }}>{card.backTitle}</p>
-              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: 1.6, color: card.backBodyColor }}>{card.backBody}</p>
+              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: "clamp(12px, 1.4vw, 16px)", lineHeight: 1.2, marginBottom: "6px", color: card.backTextColor }}>{card.backTitle}</p>
+              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "clamp(11px, 1.1vw, 13px)", lineHeight: 1.4, color: card.backBodyColor }}>{card.backBody}</p>
               <p className="bento-flip-hint" style={{ color: card.backTextColor }}>↻ Tap to flip back</p>
             </div>
           </div>
