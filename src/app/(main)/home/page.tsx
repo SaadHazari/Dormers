@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import ChatWindow from "./ChatWindow";
 import Menu from "@/app/components/Menu";
 import { motion, AnimatePresence } from "framer-motion";
-// import { IoIosArrowDown } from 'react-icons/io';
 import FormModal from "@/app/components/FormModal";
 import OrderForm from "@/app/components/OrderForm";
 import HeroReveal from "@/app/components/HeroReveal";
@@ -29,20 +28,7 @@ export default function Home() {
   const faqRef = useRef<HTMLDivElement>(null);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const { theme } = useTheme();
-  const [isMobile, setIsMobile] = useState(false);
   const [showAll, setShowAll] = useState(false);
-
-  // const lastScrollY = useRef(0);
-
-  // Check if device is mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Add chat event listener
   useEffect(() => {
@@ -50,46 +36,6 @@ export default function Home() {
     window.addEventListener("open-chat", handleChatOpen);
     return () => window.removeEventListener("open-chat", handleChatOpen);
   }, []);
-
-  // Handle scroll-based card flips on mobile
-
-  //   const handleCardClick = (id: string) => {
-  //   setFlippedCard(id);
-  //   setTimeout(() => {
-  //     setFlippedCard(null);
-  //   }, 1500);
-  // };
-  // useEffect(() => {
-  //   if (!isMobile) return;
-
-  //   const handleScroll = () => {
-  //     const currentScrollY = window.scrollY;
-  //     const scrollingDown = currentScrollY > lastScrollY.current;
-  //     lastScrollY.current = currentScrollY;
-
-  //     const cards = [
-  //       { ref: qualifyCardRef, id: 'qualify' },
-  //       { ref: subscribeCardRef, id: 'subscribe' },
-  //       { ref: feastCardRef, id: 'feast' }
-  //     ];
-
-  //     cards.forEach(({ ref, id }) => {
-  //       if (!ref.current) return;
-  //       const rect = ref.current.getBoundingClientRect();
-  //       const isInView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-
-  //       if (isInView) {
-  //         if (scrollingDown) {
-  //           setFlippedCard(id);
-  //           setTimeout(() => setFlippedCard(null), 1500);
-  //         }
-  //       }
-  //     });
-  //   };
-
-  //   window.addEventListener('scroll', handleScroll);
-  //   return () => window.removeEventListener('scroll', handleScroll);
-  // }, [isMobile]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -117,7 +63,6 @@ export default function Home() {
     };
   }, []);
 
- 
   const faqs: FAQ[] = [
     {
       id: 1,
@@ -230,91 +175,6 @@ export default function Home() {
   const toggleFAQ = (id: number) => {
     setOpenFAQ(openFAQ === id ? null : id);
   };
-
-  // const renderFaqCard = (
-  //   faq: FAQ,
-  //   index: number,
-  //   openFAQ: number | null,
-  //   toggleFAQ: (id: number) => void
-  //   // theme: string | undefined
-  // ) => {
-  //   // const colorSet = ["#EEE9DA", "#FF8A00", "#0A1B26"];
-  //   // const colorSet = ["#1E3A4F", "#FF8A00", "#0A1B26"];
-  //   const colorSet =
-  //     theme === "light"
-  //       ? ["#1E3A4F", "#FF8A00", "#0A1B26"]
-  //       : ["#EEE9DA", "#FF8A00", "#0A1B26"];
-
-  //   const color = colorSet[index % colorSet.length];
-  //   const isOpen = openFAQ === faq.id;
-  //   const isLight = color === "#EEE9DA";
-
-  //   return (
-  //     <div
-  //       key={faq.id}
-  //       className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
-  //       style={{ backgroundColor: isOpen ? "#EEE9DA" : color }}
-  //     >
-  //       <button
-  //         onClick={() => toggleFAQ(faq.id)}
-  //         className="w-full px-6 py-4 flex items-center justify-between text-left md:!pb-[8px]"
-  //       >
-  //         <span
-  //           className={`font-bold text-base sm:text-lg ${
-  //             isOpen
-  //               ? "text-[#22394A]"
-  //               : isLight
-  //               ? "text-[#22394A]"
-  //               : "text-white"
-  //           }`}
-  //           style={{
-  //             fontFamily: "Montserrat, sans-serif",
-  //             fontWeight: 600,
-  //             fontSize: "14px",
-  //           }}
-  //         >
-  //           {faq.question}
-  //         </span>
-  //         <span
-  //           className={`text-xl font-bold ${
-  //             isOpen
-  //               ? "text-[#22394A]"
-  //               : isLight
-  //               ? "text-[#22394A]"
-  //               : "text-white"
-  //           }`}
-  //         >
-  //           {isOpen ? "−" : "+"}
-  //         </span>
-  //       </button>
-
-  //       <AnimatePresence>
-  //         {isOpen && (
-  //           <motion.div
-  //             initial={{ height: 0, opacity: 0 }}
-  //             animate={{ height: "auto", opacity: 1 }}
-  //             exit={{ height: 0, opacity: 0 }}
-  //             transition={{ duration: 0.2 }}
-  //             className="px-6 pb-4"
-  //           >
-  //             <div
-  //               className="text-[#22394A]"
-  //               style={{
-  //                 fontFamily: "Poppins, sans-serif",
-  //                 fontWeight: 300,
-  //                 lineHeight: "130%",
-  //                 letterSpacing: "0.5px",
-  //                 fontSize: "12px",
-  //               }}
-  //             >
-  //               {faq.answer}
-  //             </div>
-  //           </motion.div>
-  //         )}
-  //       </AnimatePresence>
-  //     </div>
-  //   );
-  // };
 
   return (
     <div
@@ -602,31 +462,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Testimonials Section */}
-      {/* <div id="testimonials" className="relative w-full py-8 pb-[0px]">
-        <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between max-w-4xl mx-auto mb-8">
-            <h2
-              className={`text-3xl sm:text-4xl font-bold ${
-                theme === "light" ? "text-[1E3A4F]" : "text-white"
-              }`}
-              style={{
-                fontFamily: "Montserrat",
-                fontWeight: 500,
-                lineHeight: "100%",
-                letterSpacing: "0",
-                fontSize: "18px",
-              }}
-            >
-              VOICES OF DELIGHT
-            </h2>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <TestimonialsBubbles />
-          </div>
-        </div>
-      </div> */}
       <div
         id="testimonials"
         className="relative w-full lg:pt-[40px] py-[24px] pb-0"
@@ -813,8 +648,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* About Us Section */}
 
       {/* Chat Window */}
       <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
