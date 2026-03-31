@@ -5,20 +5,8 @@ import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useInView } from "react-intersection-observer";
 import {
-  RotateCcw,
-  Globe,
-  ShieldCheck,
-  SkipForward,
-  PauseCircle,
-  Truck,
-  Leaf,
-  Activity,
-  CreditCard,
-  Utensils,
-  Headphones,
-  LayoutGrid,
-  Wallet,
-  Star,
+  RotateCcw, Globe, ShieldCheck, SkipForward, PauseCircle, Truck, Leaf,
+  Activity, CreditCard, Utensils, Headphones, LayoutGrid, Wallet, Star,
 } from "lucide-react";
 
 /* ─── Flip CSS injected once ─────────────────────────────────────────────── */
@@ -26,21 +14,22 @@ const FLIP_CSS = `
   .bento-wrapper {
     perspective: 1000px;
     flex: 1;
-    min-height: 0;
+    display: flex;
+    flex-direction: column;
     position: relative;
     cursor: pointer;
     transition: transform 0.2s ease;
+    height: 100%;
   }
-  .bento-wrapper:hover {
-    transform: translateY(-4px);
-  }
+  .bento-wrapper:hover { transform: translateY(-4px); }
   .bento-flipper {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     transform-style: preserve-3d;
     -webkit-transform-style: preserve-3d;
-    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                box-shadow 0.3s ease;
+    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     border-radius: 16px;
   }
@@ -48,10 +37,20 @@ const FLIP_CSS = `
     transform: rotateY(180deg);
     box-shadow: 0 12px 40px rgba(0,0,0,0.30);
   }
-  .bento-wrapper:hover .bento-flipper {
-    box-shadow: 0 12px 40px rgba(0,0,0,0.30);
+  .bento-wrapper:hover .bento-flipper { box-shadow: 0 12px 40px rgba(0,0,0,0.30); }
+  .bento-front {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: 2;
+    transform: rotateY(0deg);
   }
-  .bento-front,
   .bento-back {
     position: absolute;
     top: 0; left: 0;
@@ -60,12 +59,6 @@ const FLIP_CSS = `
     -webkit-backface-visibility: hidden;
     border-radius: 16px;
     overflow: hidden;
-  }
-  .bento-front {
-    z-index: 2;
-    transform: rotateY(0deg);
-  }
-  .bento-back {
     transform: rotateY(180deg);
     display: flex;
     flex-direction: column;
@@ -81,9 +74,7 @@ const FLIP_CSS = `
     font-size: 11px;
     opacity: 0.3;
   }
-  @media (hover: none) {
-    .bento-flip-hint { display: block; }
-  }
+  @media (hover: none) { .bento-flip-hint { display: block; } }
   .bento-flip-icon {
     position: absolute;
     top: 12px; right: 12px;
@@ -93,12 +84,9 @@ const FLIP_CSS = `
     transition: opacity 0.2s ease;
     z-index: 3;
   }
-  .bento-wrapper:hover .bento-flip-icon {
-    opacity: 0.5 !important;
-  }
+  .bento-wrapper:hover .bento-flip-icon { opacity: 0.5 !important; }
 `;
 
-/* ─── Animation variants ──────────────────────────────────────────────────── */
 const cardVariants = {
   hidden: { opacity: 0, y: 28, scale: 0.96 },
   visible: (i: number) => ({
@@ -112,19 +100,10 @@ const containerVariants = {
   visible: { transition: { staggerChildren: 0.10 } },
 };
 
-/* ─── Card data ───────────────────────────────────────────────────────────── */
 interface CardData {
-  id: number;
-  bg: string;
-  textColor: string;
-  desktopStyle: React.CSSProperties;
-  mobileClass: string;
-  backBg: string;
-  backTextColor: string;
-  backBodyColor: string;
-  backTitle: string;
-  backBody: string;
-  content: React.ReactNode;
+  id: number; bg: string; textColor: string; desktopStyle: React.CSSProperties;
+  mobileClass: string; backBg: string; backTextColor: string; backBodyColor: string;
+  backTitle: string; backBody: string; content: React.ReactNode;
 }
 
 export default function USPBento() {
@@ -137,14 +116,9 @@ export default function USPBento() {
 
   const cards: CardData[] = [
     {
-      id: 1,
-      bg: "linear-gradient(135deg, #FF8C00 0%, #FF6500 100%)",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "1 / 3", gridRow: "1 / 2" },
-      mobileClass: "col-span-2",
-      backBg: "#e06d10",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.85)",
+      id: 1, bg: "linear-gradient(135deg, #FF8C00 0%, #FF6500 100%)", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "1 / 3", gridRow: "1 / 2" }, mobileClass: "col-span-2",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
       backTitle: "48 Dishes Every Month",
       backBody: "A brand new dish every single day. Our monthly rotating menu is crafted by chefs to keep your meals exciting — 48 unique options every month, never the same week twice.",
       content: (
@@ -160,14 +134,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 2,
-      bg: "#1E3A4F",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "3 / 4", gridRow: "1 / 2" },
-      mobileClass: "col-span-1",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 2, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "3 / 4", gridRow: "1 / 2" }, mobileClass: "col-span-1",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "11+ International Cuisines",
       backBody: "Explore cuisines from around the world — Italian, Arabic, Asian, Mediterranean, Indian, and more. Something new every day.",
       content: (
@@ -182,14 +151,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 3,
-      bg: "#EEE9DA",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "4 / 5", gridRow: "1 / 2" },
-      mobileClass: "col-span-1",
-      backBg: "#d9d4c5",
-      backTextColor: "#091825",
-      backBodyColor: "rgba(9,24,37,0.7)",
+      id: 3, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "4 / 5", gridRow: "1 / 2" }, mobileClass: "col-span-1",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
       backTitle: "100% Refund Policy",
       backBody: "Cancel before your next delivery window and receive a full refund on all remaining unused meals. No questions asked, no hassle.",
       content: (
@@ -204,14 +168,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 4,
-      bg: "#EEE9DA",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "1 / 2", gridRow: "2 / 3" },
-      mobileClass: "col-span-1",
-      backBg: "#d9d4c5",
-      backTextColor: "#091825",
-      backBodyColor: "rgba(9,24,37,0.7)",
+      id: 4, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "1 / 2", gridRow: "2 / 3" }, mobileClass: "col-span-1",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
       backTitle: "3× Meal Skips",
       backBody: "Don't feel like eating today? Skip up to 3 deliveries per month — no penalties, no fuss. Your plan just carries on.",
       content: (
@@ -226,14 +185,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 5,
-      bg: "#1E3A4F",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "2 / 3", gridRow: "2 / 3" },
-      mobileClass: "col-span-1",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 5, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "2 / 3", gridRow: "2 / 3" }, mobileClass: "col-span-1",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "Pause Anytime",
       backBody: "Going home for the holidays? Traveling? Pause your subscription anytime and resume the moment you're back. No charges while paused.",
       content: (
@@ -247,14 +201,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 6,
-      bg: "#0C1E2C",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "3 / 5", gridRow: "2 / 4" },
-      mobileClass: "col-span-2",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 6, bg: "#0C1E2C", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "3 / 5", gridRow: "2 / 4" }, mobileClass: "col-span-2",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "FREE Delivery",
       backBody: "Every single delivery is completely free — no matter where your dorm is across Dubai. No minimum order, no delivery fee, ever.",
       content: (
@@ -269,14 +218,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 7,
-      bg: "#1E3A4F",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" },
-      mobileClass: "col-span-1",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 7, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" }, mobileClass: "col-span-1",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "Eco-Friendly Packaging",
       backBody: "All our packaging is biodegradable and sustainably sourced. We care about the planet as much as we care about your meal.",
       content: (
@@ -290,14 +234,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 8,
-      bg: "#FF7F00",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "2 / 3", gridRow: "3 / 4" },
-      mobileClass: "col-span-1",
-      backBg: "#e06d10",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.85)",
+      id: 8, bg: "#FF7F00", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "2 / 3", gridRow: "3 / 4" }, mobileClass: "col-span-1",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
       backTitle: "Calculated Macros",
       backBody: "Every meal comes with full nutritional info — calories, protein, carbs, and fats. Eat smart without doing the math yourself.",
       content: (
@@ -311,14 +250,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 9,
-      bg: "#1E3A4F",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" },
-      mobileClass: "col-span-2",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 9, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" }, mobileClass: "col-span-2",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "Flexible Payments",
       backBody: "Pay your way — cash on delivery, card, online bank transfer, or even crypto. We've built Dormers to fit your lifestyle, not the other way around.",
       content: (
@@ -336,14 +270,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 10,
-      bg: "#EEE9DA",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" },
-      mobileClass: "col-span-1",
-      backBg: "#d9d4c5",
-      backTextColor: "#091825",
-      backBodyColor: "rgba(9,24,37,0.7)",
+      id: 10, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" }, mobileClass: "col-span-1",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
       backTitle: "Veg, Non-Veg & Religious",
       backBody: "Tell us your dietary requirements and we'll tailor your menu. Vegetarian, non-vegetarian, halal, or specific religious restrictions — we've got you.",
       content: (
@@ -357,14 +286,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 11,
-      bg: "#EEE9DA",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" },
-      mobileClass: "col-span-1",
-      backBg: "#d9d4c5",
-      backTextColor: "#091825",
-      backBodyColor: "rgba(9,24,37,0.7)",
+      id: 11, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" }, mobileClass: "col-span-1",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
       backTitle: "Dedicated Student Support",
       backBody: "Our student support team is here 7 days a week. Chat with us directly through the app — fast responses, real people, no bots.",
       content: (
@@ -378,14 +302,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 12,
-      bg: "#FF7F00",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" },
-      mobileClass: "col-span-1",
-      backBg: "#e06d10",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.85)",
+      id: 12, bg: "#FF7F00", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" }, mobileClass: "col-span-1",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.85)",
       backTitle: "3 Plans",
       backBody: "Monthly for regular students, Weekly for flexibility, and a Trial pack to test Dormers before committing. Pick what fits your schedule.",
       content: (
@@ -400,14 +319,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 13,
-      bg: "#1E3A4F",
-      textColor: "#ffffff",
-      desktopStyle: { gridColumn: "2 / 3", gridRow: "5 / 6" },
-      mobileClass: "col-span-1",
-      backBg: "#091825",
-      backTextColor: "#ede8da",
-      backBodyColor: "rgba(237,232,218,0.7)",
+      id: 13, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "2 / 3", gridRow: "5 / 6" }, mobileClass: "col-span-1",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.7)",
       backTitle: "Student Budget Friendly",
       backBody: "Dormers is designed specifically for students on tight budgets. Great food at prices that genuinely don't hurt your wallet — no compromises.",
       content: (
@@ -421,14 +335,9 @@ export default function USPBento() {
       ),
     },
     {
-      id: 14,
-      bg: "#EEE9DA",
-      textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "3 / 5", gridRow: "5 / 6" },
-      mobileClass: "col-span-2",
-      backBg: "#d9d4c5",
-      backTextColor: "#091825",
-      backBodyColor: "rgba(9,24,37,0.7)",
+      id: 14, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "3 / 5", gridRow: "5 / 6" }, mobileClass: "col-span-2",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.7)",
       backTitle: "Best Quality Ingredients",
       backBody: "We source only the best quality ingredients for every meal. No hidden shortcuts, no compromises — what goes into your food matters to us.",
       content: (
@@ -464,70 +373,20 @@ export default function USPBento() {
         key={card.id}
         custom={i}
         variants={cardVariants}
-        className={`flex flex-col rounded-2xl overflow-hidden relative ${
-          isDesktop ? "min-h-[130px]" : `min-h-[110px] ${card.mobileClass}`
-        }`}
-        style={{
-          ...(isDesktop ? card.desktopStyle : {}),
-        }}
+        className={`flex flex-col relative ${isDesktop ? "min-h-[130px]" : `min-h-[110px] ${card.mobileClass}`}`}
+        style={{ ...(isDesktop ? card.desktopStyle : {}), height: "100%" }}
       >
-        <div
-          className="bento-wrapper"
-          onClick={() => setFlippedId(isFlipped ? null : card.id)}
-        >
+        <div className="bento-wrapper" onClick={() => setFlippedId(isFlipped ? null : card.id)}>
           <div className={`bento-flipper${isFlipped ? " flipped" : ""}`}>
-
-            {/* ── FRONT ── */}
-            <div
-              className="bento-front"
-              style={{
-                background: frontBg,
-                color: card.textColor,
-                border: isGradientBg ? "1.5px solid transparent" : "none",
-                padding,
-              }}
-            >
-              {/* Flip hint icon */}
-              <span
-                className="bento-flip-icon"
-                aria-hidden
-                style={{ color: flipIconColor, opacity: 0.25 }}
-              >↻</span>
+            <div className="bento-front" style={{ background: frontBg, color: card.textColor, border: isGradientBg ? "1.5px solid transparent" : "none", padding }}>
+              <span className="bento-flip-icon" aria-hidden style={{ color: flipIconColor, opacity: 0.25 }}>↻</span>
               {card.content}
             </div>
-
-            {/* ── BACK ── */}
-            <div
-              className="bento-back"
-              style={{
-                background: card.backBg,
-                color: card.backTextColor,
-              }}
-            >
-              <p style={{
-                fontFamily: "Montserrat, sans-serif",
-                fontWeight: 700,
-                fontSize: "clamp(13px, 1.5vw, 18px)",
-                lineHeight: 1.25,
-                marginBottom: "10px",
-                color: card.backTextColor,
-              }}>
-                {card.backTitle}
-              </p>
-              <p style={{
-                fontFamily: "Montserrat, sans-serif",
-                fontWeight: 400,
-                fontSize: "14px",
-                lineHeight: 1.6,
-                color: card.backBodyColor,
-              }}>
-                {card.backBody}
-              </p>
-              <p className="bento-flip-hint" style={{ color: card.backTextColor }}>
-                ↻ Tap to flip back
-              </p>
+            <div className="bento-back" style={{ background: card.backBg, color: card.backTextColor }}>
+              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: "clamp(13px, 1.5vw, 18px)", lineHeight: 1.25, marginBottom: "10px", color: card.backTextColor }}>{card.backTitle}</p>
+              <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 400, fontSize: "14px", lineHeight: 1.6, color: card.backBodyColor }}>{card.backBody}</p>
+              <p className="bento-flip-hint" style={{ color: card.backTextColor }}>↻ Tap to flip back</p>
             </div>
-
           </div>
         </div>
       </motion.div>
@@ -537,51 +396,16 @@ export default function USPBento() {
   return (
     <>
       <style>{FLIP_CSS}</style>
-
-      <section
-        ref={ref}
-        className={`w-full px-4 sm:px-6 lg:px-16 ${isLight ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"}`}
-        style={{ paddingTop: "34px", paddingBottom: "55px" }}
-      >
+      <section ref={ref} className={`w-full px-4 sm:px-6 lg:px-16 ${isLight ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"}`} style={{ paddingTop: "34px", paddingBottom: "55px" }}>
         <div className="max-w-6xl mx-auto">
-          {/* Section heading */}
-          <motion.div
-            initial={{ opacity: 0, y: 13 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5 }}
-            className="text-center"
-            style={{ marginBottom: "34px" }}
-          >
-            <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>
-              Exclusive to Dormers
-            </p>
-            <h2
-              className={isLight ? "text-[#1E3A4F]" : "text-white"}
-              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}
-            >
-              Why only Dormers?
-            </h2>
+          <motion.div initial={{ opacity: 0, y: 13 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} className="text-center" style={{ marginBottom: "34px" }}>
+            <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>Exclusive to Dormers</p>
+            <h2 className={isLight ? "text-[#1E3A4F]" : "text-white"} style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}>Why only Dormers?</h2>
           </motion.div>
-
-          {/* Desktop Grid */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate={inView ? "visible" : "hidden"}
-            className="hidden md:grid"
-            style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}
-          >
+          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="hidden md:grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}>
             {cards.map((card, i) => renderCard(card, i, true))}
           </motion.div>
-
-          {/* Mobile Grid */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate={inView ? "visible" : "hidden"}
-            className="grid md:hidden grid-cols-2"
-            style={{ gap: "13px" }}
-          >
+          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="grid md:hidden grid-cols-2" style={{ gap: "13px" }}>
             {cards.map((card, i) => renderCard(card, i, false))}
           </motion.div>
         </div>
