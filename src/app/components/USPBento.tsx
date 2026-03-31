@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useInView } from "react-intersection-observer";
 import {
@@ -9,6 +9,7 @@ import {
   Globe,
   ShieldCheck,
   SkipForward,
+  PauseCircle,
   Truck,
   Leaf,
   Activity,
@@ -20,12 +21,88 @@ import {
   Star,
 } from "lucide-react";
 
+/* ─── Flip CSS injected once ─────────────────────────────────────────────── */
+const FLIP_CSS = `
+  .bento-wrapper {
+    perspective: 1000px;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  .bento-wrapper:hover {
+    transform: translateY(-4px);
+  }
+  .bento-flipper {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 0.3s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    border-radius: 16px;
+  }
+  .bento-flipper.flipped {
+    transform: rotateY(180deg);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.30);
+  }
+  .bento-wrapper:hover .bento-flipper {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.30);
+  }
+  .bento-front,
+  .bento-back {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .bento-front {
+    z-index: 2;
+    transform: rotateY(0deg);
+  }
+  .bento-back {
+    transform: rotateY(180deg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+  }
+  .bento-flip-hint {
+    display: none;
+    margin-top: auto;
+    padding-top: 12px;
+    font-family: Montserrat, sans-serif;
+    font-weight: 400;
+    font-size: 11px;
+    opacity: 0.3;
+  }
+  @media (hover: none) {
+    .bento-flip-hint { display: block; }
+  }
+  .bento-flip-icon {
+    position: absolute;
+    top: 12px; right: 12px;
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 3;
+  }
+  .bento-wrapper:hover .bento-flip-icon {
+    opacity: 0.5 !important;
+  }
+`;
+
+/* ─── Animation variants ──────────────────────────────────────────────────── */
 const cardVariants = {
   hidden: { opacity: 0, y: 28, scale: 0.96 },
   visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    scale: 1,
+    opacity: 1, y: 0, scale: 1,
     transition: { duration: 0.58, ease: [0.25, 0.46, 0.45, 0.94], delay: i * 0.10 },
   }),
 };
@@ -35,21 +112,26 @@ const containerVariants = {
   visible: { transition: { staggerChildren: 0.10 } },
 };
 
+/* ─── Card data ───────────────────────────────────────────────────────────── */
 interface CardData {
   id: number;
   bg: string;
   textColor: string;
   desktopStyle: React.CSSProperties;
   mobileClass: string;
+  backBg: string;
+  backTextColor: string;
+  backBodyColor: string;
+  backTitle: string;
+  backBody: string;
   content: React.ReactNode;
-  extraInfo: string;
 }
 
 export default function USPBento() {
   const { theme } = useTheme();
   const isLight = theme === "light";
   const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.05 });
-  const [openCardId, setOpenCardId] = useState<number | null>(null);
+  const [flippedId, setFlippedId] = useState<number | null>(null);
 
   const iconStyle = { opacity: 0.65, flexShrink: 0 };
 
@@ -60,7 +142,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 3", gridRow: "1 / 2" },
       mobileClass: "col-span-2",
-      extraInfo: "A brand new dish every single day. Our monthly rotating menu is crafted by chefs to keep your meals exciting — 48 unique options every month, never the same week twice.",
+      backBg: "#e06d10",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.85)",
+      backTitle: "48 Dishes Every Month",
+      backBody: "A brand new dish every single day. Our monthly rotating menu is crafted by chefs to keep your meals exciting — 48 unique options every month, never the same week twice.",
       content: (
         <div className="flex items-end justify-between h-full">
           <div className="flex flex-col gap-[13px]">
@@ -79,7 +165,11 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "3 / 4", gridRow: "1 / 2" },
       mobileClass: "col-span-1",
-      extraInfo: "Explore cuisines from around the world — Italian, Arabic, Asian, Mediterranean, Indian, and more. Something new every day.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "11+ International Cuisines",
+      backBody: "Explore cuisines from around the world — Italian, Arabic, Asian, Mediterranean, Indian, and more. Something new every day.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[13px]">
           <Globe size={21} strokeWidth={1.5} style={iconStyle} />
@@ -97,7 +187,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "4 / 5", gridRow: "1 / 2" },
       mobileClass: "col-span-1",
-      extraInfo: "Cancel before your next delivery window and receive a full refund on all remaining unused meals. No questions asked, no hassle.",
+      backBg: "#d9d4c5",
+      backTextColor: "#091825",
+      backBodyColor: "rgba(9,24,37,0.7)",
+      backTitle: "100% Refund Policy",
+      backBody: "Cancel before your next delivery window and receive a full refund on all remaining unused meals. No questions asked, no hassle.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[13px]">
           <ShieldCheck size={21} strokeWidth={1.5} style={iconStyle} />
@@ -115,7 +209,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "2 / 3" },
       mobileClass: "col-span-1",
-      extraInfo: "Don't feel like eating today? Skip up to 3 deliveries per month — no penalties, no fuss. Your plan just carries on.",
+      backBg: "#d9d4c5",
+      backTextColor: "#091825",
+      backBodyColor: "rgba(9,24,37,0.7)",
+      backTitle: "3× Meal Skips",
+      backBody: "Don't feel like eating today? Skip up to 3 deliveries per month — no penalties, no fuss. Your plan just carries on.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <SkipForward size={18} strokeWidth={2} style={iconStyle} />
@@ -133,20 +231,14 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "2 / 3" },
       mobileClass: "col-span-1",
-      extraInfo: "Going home for the holidays? Traveling? Pause your subscription anytime and resume the moment you're back. No charges while paused.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "Pause Anytime",
+      backBody: "Going home for the holidays? Traveling? Pause your subscription anytime and resume the moment you're back. No charges while paused.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <defs>
-              <linearGradient id="pauseIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FF8C00" />
-                <stop offset="100%" stopColor="#FF5000" />
-              </linearGradient>
-            </defs>
-            <circle cx="12" cy="12" r="10" stroke="url(#pauseIconGrad)" />
-            <line x1="10" y1="15" x2="10" y2="9" stroke="url(#pauseIconGrad)" />
-            <line x1="14" y1="15" x2="14" y2="9" stroke="url(#pauseIconGrad)" />
-          </svg>
+          <PauseCircle size={21} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
           <div className="flex flex-col gap-[5px]">
             <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Pause<br />Anytime</p>
             <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.5 }}>Going on vacation? Pause and come back.</p>
@@ -160,7 +252,11 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "3 / 5", gridRow: "2 / 4" },
       mobileClass: "col-span-2",
-      extraInfo: "Every single delivery is completely free — no matter where your dorm is across Dubai. No minimum order, no delivery fee, ever.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "FREE Delivery",
+      backBody: "Every single delivery is completely free — no matter where your dorm is across Dubai. No minimum order, no delivery fee, ever.",
       content: (
         <div className="flex flex-col justify-between h-full" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px)", backgroundSize: "21px 21px" }}>
           <Truck size={29} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
@@ -178,7 +274,11 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" },
       mobileClass: "col-span-1",
-      extraInfo: "All our packaging is biodegradable and sustainably sourced. We care about the planet as much as we care about your meal.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "Eco-Friendly Packaging",
+      backBody: "All our packaging is biodegradable and sustainably sourced. We care about the planet as much as we care about your meal.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Leaf size={18} strokeWidth={1.5} style={{ ...iconStyle, color: "#4ade80" }} />
@@ -195,7 +295,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "3 / 4" },
       mobileClass: "col-span-1",
-      extraInfo: "Every meal comes with full nutritional info — calories, protein, carbs, and fats. Eat smart without doing the math yourself.",
+      backBg: "#e06d10",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.85)",
+      backTitle: "Calculated Macros",
+      backBody: "Every meal comes with full nutritional info — calories, protein, carbs, and fats. Eat smart without doing the math yourself.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Activity size={18} strokeWidth={2} style={iconStyle} />
@@ -212,7 +316,11 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" },
       mobileClass: "col-span-2",
-      extraInfo: "Pay your way — cash on delivery, card, online bank transfer, or even crypto. We've built Dormers to fit your lifestyle, not the other way around.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "Flexible Payments",
+      backBody: "Pay your way — cash on delivery, card, online bank transfer, or even crypto. We've built Dormers to fit your lifestyle, not the other way around.",
       content: (
         <div className="flex items-start h-full gap-[21px]">
           <div className="flex flex-col gap-[13px]">
@@ -233,7 +341,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" },
       mobileClass: "col-span-1",
-      extraInfo: "Tell us your dietary requirements and we'll tailor your menu. Vegetarian, non-vegetarian, halal, or specific religious restrictions — we've got you.",
+      backBg: "#d9d4c5",
+      backTextColor: "#091825",
+      backBodyColor: "rgba(9,24,37,0.7)",
+      backTitle: "Veg, Non-Veg & Religious",
+      backBody: "Tell us your dietary requirements and we'll tailor your menu. Vegetarian, non-vegetarian, halal, or specific religious restrictions — we've got you.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
@@ -250,7 +362,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" },
       mobileClass: "col-span-1",
-      extraInfo: "Our student support team is here 7 days a week. Chat with us directly through the app — fast responses, real people, no bots.",
+      backBg: "#d9d4c5",
+      backTextColor: "#091825",
+      backBodyColor: "rgba(9,24,37,0.7)",
+      backTitle: "Dedicated Student Support",
+      backBody: "Our student support team is here 7 days a week. Chat with us directly through the app — fast responses, real people, no bots.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Headphones size={18} strokeWidth={1.5} style={iconStyle} />
@@ -267,7 +383,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" },
       mobileClass: "col-span-1",
-      extraInfo: "Monthly for regular students, Weekly for flexibility, and a Trial pack to test Dormers before committing. Pick what fits your schedule.",
+      backBg: "#e06d10",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.85)",
+      backTitle: "3 Plans",
+      backBody: "Monthly for regular students, Weekly for flexibility, and a Trial pack to test Dormers before committing. Pick what fits your schedule.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
@@ -285,7 +405,11 @@ export default function USPBento() {
       textColor: "#ffffff",
       desktopStyle: { gridColumn: "2 / 3", gridRow: "5 / 6" },
       mobileClass: "col-span-1",
-      extraInfo: "Dormers is designed specifically for students on tight budgets. Great food at prices that genuinely don't hurt your wallet — no compromises.",
+      backBg: "#091825",
+      backTextColor: "#ede8da",
+      backBodyColor: "rgba(237,232,218,0.7)",
+      backTitle: "Student Budget Friendly",
+      backBody: "Dormers is designed specifically for students on tight budgets. Great food at prices that genuinely don't hurt your wallet — no compromises.",
       content: (
         <div className="flex flex-col justify-between h-full gap-[8px]">
           <Wallet size={18} strokeWidth={1.5} style={iconStyle} />
@@ -302,7 +426,11 @@ export default function USPBento() {
       textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "3 / 5", gridRow: "5 / 6" },
       mobileClass: "col-span-2",
-      extraInfo: "We source only the best quality ingredients for every meal. No hidden shortcuts, no compromises — what goes into your food matters to us.",
+      backBg: "#d9d4c5",
+      backTextColor: "#091825",
+      backBodyColor: "rgba(9,24,37,0.7)",
+      backTitle: "Best Quality Ingredients",
+      backBody: "We source only the best quality ingredients for every meal. No hidden shortcuts, no compromises — what goes into your food matters to us.",
       content: (
         <div className="flex items-center justify-between h-full gap-[21px]">
           <div className="flex flex-col gap-[13px]">
@@ -316,142 +444,148 @@ export default function USPBento() {
     },
   ];
 
-  const cardPadding = { padding: "16px" };
-  const cardPaddingDesktop = { padding: "21px" };
+  const noGradientBorder = (bg: string) => bg === "#FF7F00" || !bg.startsWith("#");
 
   const renderCard = (card: CardData, i: number, isDesktop: boolean) => {
-    const isOpen = openCardId === card.id;
-    const noGradientBorder = card.bg === "#FF7F00" || !card.bg.startsWith("#");
+    const isFlipped = flippedId === card.id;
     const isCream = card.bg === "#EEE9DA";
+    const isGradientBg = !noGradientBorder(card.bg);
     const borderGrad = isCream
       ? "linear-gradient(135deg, rgba(255,140,0,0.65) 0%, rgba(255,80,0,0.3) 100%)"
       : "linear-gradient(135deg, #FF8C00 0%, #FF5000 100%)";
-    const cardBg = noGradientBorder
-      ? card.bg
-      : `linear-gradient(${card.bg}, ${card.bg}) padding-box, ${borderGrad} border-box`;
+    const frontBg = isGradientBg
+      ? `linear-gradient(${card.bg}, ${card.bg}) padding-box, ${borderGrad} border-box`
+      : card.bg;
+    const flipIconColor = isCream ? "rgba(9,24,37,0.15)" : "rgba(237,232,218,0.25)";
+    const padding = isDesktop ? "21px" : "16px";
 
     return (
       <motion.div
         key={card.id}
         custom={i}
         variants={cardVariants}
-        onClick={() => setOpenCardId(isOpen ? null : card.id)}
-        animate={isOpen ? { scale: 1.10, rotate: 2, y: -10 } : { scale: 1, rotate: 0, y: 0 }}
-        transition={{ type: "spring", stiffness: 320, damping: 22 }}
-        whileHover={!isOpen ? { scale: 1.03 } : {}}
-        className={`flex flex-col justify-between rounded-2xl overflow-hidden relative cursor-pointer ${
-          isDesktop ? `min-h-[130px]` : `min-h-[110px] ${card.mobileClass}`
+        className={`flex flex-col rounded-2xl overflow-hidden relative ${
+          isDesktop ? "min-h-[130px]" : `min-h-[110px] ${card.mobileClass}`
         }`}
         style={{
-          background: cardBg,
-          color: card.textColor,
-          border: noGradientBorder ? "none" : "1.5px solid transparent",
-          ...(isDesktop ? cardPaddingDesktop : cardPadding),
           ...(isDesktop ? card.desktopStyle : {}),
-          zIndex: isOpen ? 20 : 1,
-          position: "relative",
         }}
       >
-        {card.content}
+        <div
+          className="bento-wrapper"
+          onClick={() => setFlippedId(isFlipped ? null : card.id)}
+        >
+          <div className={`bento-flipper${isFlipped ? " flipped" : ""}`}>
 
-        {/* Expanded extra info */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
+            {/* ── FRONT ── */}
+            <div
+              className="bento-front"
               style={{
-                position: "absolute",
-                inset: 0,
-                background: cardBg,
-                borderRadius: "inherit",
-                padding: isDesktop ? "21px" : "16px",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end",
-                zIndex: 1,
+                background: frontBg,
+                color: card.textColor,
+                border: isGradientBg ? "1.5px solid transparent" : "none",
+                padding,
               }}
             >
+              {/* Flip hint icon */}
+              <span
+                className="bento-flip-icon"
+                aria-hidden
+                style={{ color: flipIconColor, opacity: 0.25 }}
+              >↻</span>
               {card.content}
-              <p
-                style={{
-                  fontFamily: "Poppins, sans-serif",
-                  fontSize: "clamp(10px, 1.1vw, 12px)",
-                  lineHeight: 1.55,
-                  opacity: 0.78,
-                  marginTop: "10px",
-                  borderTop: `1px solid ${card.textColor}22`,
-                  paddingTop: "8px",
-                  color: card.textColor,
-                }}
-              >
-                {card.extraInfo}
+            </div>
+
+            {/* ── BACK ── */}
+            <div
+              className="bento-back"
+              style={{
+                background: card.backBg,
+                color: card.backTextColor,
+              }}
+            >
+              <p style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 700,
+                fontSize: "clamp(13px, 1.5vw, 18px)",
+                lineHeight: 1.25,
+                marginBottom: "10px",
+                color: card.backTextColor,
+              }}>
+                {card.backTitle}
               </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <p style={{
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 400,
+                fontSize: "14px",
+                lineHeight: 1.6,
+                color: card.backBodyColor,
+              }}>
+                {card.backBody}
+              </p>
+              <p className="bento-flip-hint" style={{ color: card.backTextColor }}>
+                ↻ Tap to flip back
+              </p>
+            </div>
+
+          </div>
+        </div>
       </motion.div>
     );
   };
 
   return (
-    <section
-      ref={ref}
-      className={`w-full px-4 sm:px-6 lg:px-16 ${isLight ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"}`}
-      style={{ paddingTop: "34px", paddingBottom: "55px" }}
-    >
-      {/* Backdrop to close open card */}
-      {openCardId !== null && (
-        <div
-          className="fixed inset-0 z-10"
-          onClick={() => setOpenCardId(null)}
-        />
-      )}
+    <>
+      <style>{FLIP_CSS}</style>
 
-      <div className="max-w-6xl mx-auto">
-        {/* Section heading */}
-        <motion.div
-          initial={{ opacity: 0, y: 13 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
-          className="text-center"
-          style={{ marginBottom: "34px" }}
-        >
-          <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>
-            Exclusive to Dormers
-          </p>
-          <h2
-            className={isLight ? "text-[#1E3A4F]" : "text-white"}
-            style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}
+      <section
+        ref={ref}
+        className={`w-full px-4 sm:px-6 lg:px-16 ${isLight ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"}`}
+        style={{ paddingTop: "34px", paddingBottom: "55px" }}
+      >
+        <div className="max-w-6xl mx-auto">
+          {/* Section heading */}
+          <motion.div
+            initial={{ opacity: 0, y: 13 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.5 }}
+            className="text-center"
+            style={{ marginBottom: "34px" }}
           >
-            Why only Dormers?
-          </h2>
-        </motion.div>
+            <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>
+              Exclusive to Dormers
+            </p>
+            <h2
+              className={isLight ? "text-[#1E3A4F]" : "text-white"}
+              style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}
+            >
+              Why only Dormers?
+            </h2>
+          </motion.div>
 
-        {/* Desktop Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
-          className="hidden md:grid"
-          style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}
-        >
-          {cards.map((card, i) => renderCard(card, i, true))}
-        </motion.div>
+          {/* Desktop Grid */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate={inView ? "visible" : "hidden"}
+            className="hidden md:grid"
+            style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}
+          >
+            {cards.map((card, i) => renderCard(card, i, true))}
+          </motion.div>
 
-        {/* Mobile Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
-          className="grid md:hidden grid-cols-2"
-          style={{ gap: "13px" }}
-        >
-          {cards.map((card, i) => renderCard(card, i, false))}
-        </motion.div>
-      </div>
-    </section>
+          {/* Mobile Grid */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate={inView ? "visible" : "hidden"}
+            className="grid md:hidden grid-cols-2"
+            style={{ gap: "13px" }}
+          >
+            {cards.map((card, i) => renderCard(card, i, false))}
+          </motion.div>
+        </div>
+      </section>
+    </>
   );
 }

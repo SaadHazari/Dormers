@@ -321,8 +321,11 @@ export default function HeroReveal() {
   const CLOSER_FULL = "A new dish, every night.";
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("hero-ui-visible"));
+    const t = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("hero-ui-visible"));
+    }, (DORM_D + 0.5) * 1000);
     return () => {
+      clearTimeout(t);
       window.dispatchEvent(new CustomEvent("hero-ui-hidden"));
     };
   }, []);
