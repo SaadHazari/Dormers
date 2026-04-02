@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
-  const stripeSecretKey = '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'
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
   if (!stripeSecretKey) {
     console.error("❌ Stripe secret key missing in environment!");
