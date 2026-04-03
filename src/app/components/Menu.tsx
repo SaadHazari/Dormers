@@ -1429,6 +1429,7 @@ export default function Menu() {
                           src={currentDish.image}
                           alt={currentDish.name}
                           fill
+                          sizes="(max-width: 1024px) 140px, 336px"
                           className="object-cover rounded-2xl"
                         />
                       </div>
