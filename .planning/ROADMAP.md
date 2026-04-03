@@ -28,7 +28,9 @@
   3. All 48 dishes in MENU_DATA have a `spiceLevel` integer field (1, 2, or 3) — a console log of MENU_DATA shows no `undefined` spice values
   4. All 48 dishes have an `allergens` string array — no dish has a missing or null allergens field
   5. Placeholder values are present where real data is unknown — the structure is ready for a future find-and-replace with real values without schema changes
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 01-01-PLAN.md — Enable image optimization and type the Dish data model with spice/allergen placeholders
 **UI hint**: yes
 
 ### Phase 2: Card Gallery
@@ -64,7 +66,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundations & Data | 0/? | Not started | - |
+| 1. Foundations & Data | 0/1 | Not started | - |
 | 2. Card Gallery | 0/? | Not started | - |
 | 3. Navigation + Detail View | 0/? | Not started | - |
 
@@ -101,3 +103,4 @@
 ---
 
 *Roadmap created: 2026-04-03*
+*Last updated: 2026-04-02 — Phase 1 planned (1 plan)*
