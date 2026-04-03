@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
 import CustomSelect from "@/app/components/CustomSelect";
@@ -12,31 +12,37 @@ import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
 import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
 import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
-// interface Nutrient {
-//   name: string;
-//   amount: string;
-//   percentage?: string;
-// }
+type SpiceLevel = 1 | 2 | 3;
+type Week = 'week1' | 'week2' | 'week3' | 'week4';
+type AllergenType = 'gluten' | 'dairy' | 'nuts' | 'eggs' | 'soy' | 'peanuts' | 'mustard' | 'fish' | 'sesame';
 
-// interface Dish {
-//   id: number;
+interface MicroNutrient {
+  name: string;
+  amount: string;
+  percentage: string;
+}
 
-//   name: string;
-//   description: string;
-//   image: string;
-//   isVeg: boolean;
-//   dayOfWeek: number;
-//   nutrients: {
-//     calories: string;
-//     protein: string;
-//     carbs: string;
-//     fat: string;
-//     microNutrients: Nutrient[];
-//   };
-// }
+interface Dish {
+  id: number;
+  name: string;
+  week: Week;
+  description: string;
+  image: string | StaticImageData;
+  isVeg: boolean;
+  dayOfWeek: number;
+  spiceLevel: SpiceLevel;
+  allergens: AllergenType[];
+  nutrients: {
+    calories: string;
+    protein: string;
+    carbs: string;
+    fat: string;
+    microNutrients: MicroNutrient[];
+  };
+}
 
 // This would typically come from an API or database
-const MENU_DATA = [
+const MENU_DATA: Dish[] = [
   // Week 1 Non-Veg
   {
     id: 1,
@@ -48,6 +54,8 @@ const MENU_DATA = [
     image: ChickenAfghani,
     isVeg: false,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -72,6 +80,8 @@ const MENU_DATA = [
     image: DormersChicken,
     isVeg: false,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['dairy', 'mustard'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -96,6 +106,8 @@ const MENU_DATA = [
     image: PeriPeri,
     isVeg: false,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 3,
+    allergens: [],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -120,6 +132,8 @@ const MENU_DATA = [
     image: Meatballs,
     isVeg: false,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 1,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "601.5 kcal",
       protein: "52.2g",
@@ -144,6 +158,8 @@ const MENU_DATA = [
     image: ChickenFried,
     isVeg: false,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['soy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -168,6 +184,8 @@ const MENU_DATA = [
     image: ChickenBiryani,
     isVeg: false,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -193,6 +211,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Paneer_Afghani_w__Yellow_rice.jpg",
     isVeg: true,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -216,6 +236,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Dormers_Paneer_Zeera_Rice.jpg",
     isVeg: true,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -239,6 +261,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Jolof_rice_grill_veggies_2.jpg",
     isVeg: true,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 2,
+    allergens: [],
     nutrients: {
       calories: "555 kcal",
       protein: "11.1g",
@@ -262,6 +286,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Veg_Kofta_Mashed_Potato_Mushroom_sauce.jpg",
     isVeg: true,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 1,
+    allergens: ['dairy'],
     nutrients: {
       calories: "429 kcal",
       protein: "8.7g",
@@ -285,6 +311,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Veg_Fried_Rice.jpg",
     isVeg: true,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['soy'],
     nutrients: {
       calories: "555 kcal",
       protein: "11.1g",
@@ -308,6 +336,8 @@ const MENU_DATA = [
     image: "/images/Week1/Veg/Soya_Biryani_3.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "650 kcal",
       protein: "56.11g",
@@ -333,6 +363,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy'],
     nutrients: {
       calories: "855 kcal",
       protein: "47.1g",
@@ -356,6 +388,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/Butter chicken with peas and carrot rice.png",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -379,6 +413,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 1,
+    allergens: ['nuts'],
     nutrients: {
       calories: "921 kcal",
       protein: "45.6g",
@@ -402,6 +438,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['peanuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -425,6 +463,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['eggs', 'gluten'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -448,6 +488,8 @@ const MENU_DATA = [
     image: "/images/Week2/NonVeg/Dormer's_Kebab.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -473,6 +515,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/Dal_Nawabi_w__zeera_rice.jpg",
     isVeg: true,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy'],
     nutrients: {
       calories: "654 kcal",
       protein: "21.6g",
@@ -496,6 +540,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/Butter paneer.png",
     isVeg: true,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -519,6 +565,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/Rajma_chawal.jpg",
     isVeg: true,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 2,
+    allergens: [],
     nutrients: {
       calories: "430.5 kcal",
       protein: "19.5g",
@@ -542,6 +590,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/Dum_aaloo_2.jpg",
     isVeg: true,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['gluten'],
     nutrients: {
       calories: "414 kcal",
       protein: "19.5g",
@@ -565,6 +615,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/penne pmodorp.png",
     isVeg: true,
     dayOfWeek: 4, // Friday
+    spiceLevel: 1,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "315 kcal",
       protein: "9g",
@@ -588,6 +640,8 @@ const MENU_DATA = [
     image: "/images/Week2/Veg/Methi_Matar_paneer.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "637.5 kcal",
       protein: "33g",
@@ -613,6 +667,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Malai_tikka_Lemon_Rice.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -636,6 +692,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Aaloo_keema.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -659,6 +717,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Chicken_fricasse-W_mashed_Potato_1.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -682,6 +742,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Chicken_shawarma_Bowl_2.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['dairy', 'sesame'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -705,6 +767,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Morrocan chicken.png",
     isVeg: false,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['gluten'],
     nutrients: {
       calories: "673.5 kcal",
       protein: "57.9g",
@@ -728,6 +792,8 @@ const MENU_DATA = [
     image: "/images/Week3/NonVeg/Chicken_Biryani_2.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -753,6 +819,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Paneer_lababdaar_W_Lemon_rice.jpg",
     isVeg: true,
     dayOfWeek: 0, // Monday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -776,6 +844,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Paneer_tikka_W_Lemon_rice.jpg",
     isVeg: true,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "637.5 kcal",
       protein: "33g",
@@ -799,6 +869,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Mashed_potatoes_w_tangy_beans.jpg",
     isVeg: true,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 1,
+    allergens: ['dairy'],
     nutrients: {
       calories: "429 kcal",
       protein: "8.7g",
@@ -822,6 +894,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Kadhai_Paneer_w_Rice.jpg",
     isVeg: true,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -845,6 +919,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Rajma_aaloo.jpg",
     isVeg: true,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['gluten'],
     nutrients: {
       calories: "430.5 kcal",
       protein: "19.5g",
@@ -868,6 +944,8 @@ const MENU_DATA = [
     image: "/images/Week3/Veg/Soya_Biryani_3.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "650 kcal",
       protein: "56.11g",
@@ -893,6 +971,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/Thai_chicken_curry_w_cocnut_rice.jpg",
     isVeg: false,
     dayOfWeek: 0, // Monday
+    spiceLevel: 2,
+    allergens: ['fish', 'soy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -916,6 +996,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl_correct3.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['dairy', 'sesame'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -939,6 +1021,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/chicken_Korma_bagara_rice.jpg",
     isVeg: false,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -962,6 +1046,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/Mexican_Burrito-Bowl.jpg",
     isVeg: false,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "855 kcal",
       protein: "47.1g",
@@ -985,6 +1071,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/Dormer_Chicken_Veg_Biryani.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -1008,6 +1096,8 @@ const MENU_DATA = [
     image: "/images/Week4/NonVeg/spaghetti_bolognese_2.jpg",
     isVeg: false,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 1,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "727.5 kcal",
       protein: "54.6g",
@@ -1033,6 +1123,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/Pav_Bhaji.jpg",
     isVeg: true,
     dayOfWeek: 0, // Monday
+    spiceLevel: 2,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "315 kcal",
       protein: "9g",
@@ -1056,6 +1148,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/Soya_chunk_masala_w_orange_rice_1.jpg",
     isVeg: true,
     dayOfWeek: 1, // Tuesday
+    spiceLevel: 2,
+    allergens: ['soy'],
     nutrients: {
       calories: "650 kcal",
       protein: "56.11g",
@@ -1079,6 +1173,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/Veg_aaloo_korma_bagara_Rice.jpg",
     isVeg: true,
     dayOfWeek: 2, // Wednesday
+    spiceLevel: 1,
+    allergens: ['dairy', 'nuts'],
     nutrients: {
       calories: "555 kcal",
       protein: "11.1g",
@@ -1102,6 +1198,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/spaghetti_bolognese_2.jpg",
     isVeg: true,
     dayOfWeek: 3, // Thursday
+    spiceLevel: 2,
+    allergens: ['gluten'],
     nutrients: {
       calories: "315 kcal",
       protein: "9g",
@@ -1125,6 +1223,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
     isVeg: true,
     dayOfWeek: 4, // Friday
+    spiceLevel: 2,
+    allergens: ['dairy'],
     nutrients: {
       calories: "650 kcal",
       protein: "26g",
@@ -1148,6 +1248,8 @@ const MENU_DATA = [
     image: "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
     isVeg: true,
     dayOfWeek: 5, // Saturday
+    spiceLevel: 1,
+    allergens: ['gluten', 'dairy'],
     nutrients: {
       calories: "315 kcal",
       protein: "9g",
