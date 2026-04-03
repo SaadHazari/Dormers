@@ -15,11 +15,11 @@ Food photos that make you want to order — a menu you browse naturally, not nav
 - ✓ 4-week rotating menu (veg + non-veg, 6 days/week, 48 dishes) — existing
 - ✓ Stripe checkout integration — existing
 - ✓ Dark/light theme support — existing
+- ✓ REV-01: Next.js image optimization enabled — WebP/AVIF served at responsive sizes — Validated in Phase 01: foundations-data
+- ✓ REV-02: Spice level + allergen fields on all 48 dishes (real CSV values) — Validated in Phase 01: foundations-data
 
 ### Active
 
-- [ ] REV-01: Enable Next.js image optimization (remove `unoptimized: true` in next.config.ts) — images load at full size currently
-- [ ] REV-02: Add spice level (1–3 chillies) and allergen fields to all 48 dishes in MENU_DATA
 - [ ] REV-03: Replace 6 letter-button day selector with horizontally scrollable food card gallery — all days visible, swipe to browse, tap to select
 - [ ] REV-04: Each gallery card shows: day label, food photo (optimized), dish name, spice chilli icons, allergen icons
 - [ ] REV-05: Replace week dropdown with horizontally scrollable tab strip (Week 1–4)
@@ -59,4 +59,4 @@ Food photos that make you want to order — a menu you browse naturally, not nav
 | Placeholder spice/allergen data | Real data not available yet; structure must exist for future fill-in | — Pending |
 
 ---
-*Last updated: 2026-04-03 — initial project setup*
+*Last updated: 2026-04-03 — Phase 01 complete: image optimization enabled, Dish type model active with spice/allergen data*
