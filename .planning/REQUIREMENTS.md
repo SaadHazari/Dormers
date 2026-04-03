@@ -7,14 +7,14 @@
 
 ### Performance
 
-- [ ] **PERF-01**: Next.js image optimization enabled (remove `unoptimized: true` from next.config.ts) — images served as WebP/AVIF with responsive sizing
-- [ ] **PERF-02**: All dish images in Menu use `<Image>` with correct `sizes` attribute for responsive loading
+- [x] **PERF-01**: Next.js image optimization enabled (remove `unoptimized: true` from next.config.ts) — images served as WebP/AVIF with responsive sizing
+- [x] **PERF-02**: All dish images in Menu use `<Image>` with correct `sizes` attribute for responsive loading
 
 ### Data
 
-- [ ] **DATA-01**: All 48 dishes in MENU_DATA have a `spiceLevel` field (integer 1–3)
-- [ ] **DATA-02**: All 48 dishes in MENU_DATA have an `allergens` field (array of strings: `['gluten', 'dairy', 'nuts', 'eggs', 'soy', 'shellfish']`)
-- [ ] **DATA-03**: Placeholder values are used where real values are unknown — data structure ready for future fill-in
+- [x] **DATA-01**: All 48 dishes in MENU_DATA have a `spiceLevel` field (integer 1–3)
+- [x] **DATA-02**: All 48 dishes in MENU_DATA have an `allergens` field (array of strings: `['gluten', 'dairy', 'nuts', 'eggs', 'soy', 'shellfish']`)
+- [x] **DATA-03**: Placeholder values are used where real values are unknown — data structure ready for future fill-in
 
 ### Gallery Navigation
 
@@ -70,11 +70,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 1 | Pending |
-| PERF-02 | Phase 1 | Pending |
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
-| DATA-03 | Phase 1 | Pending |
+| PERF-01 | Phase 1 | Complete |
+| PERF-02 | Phase 1 | Complete |
+| DATA-01 | Phase 1 | Complete |
+| DATA-02 | Phase 1 | Complete |
+| DATA-03 | Phase 1 | Complete |
 | GALL-01 | Phase 2 | Pending |
 | GALL-02 | Phase 2 | Pending |
 | GALL-03 | Phase 2 | Pending |

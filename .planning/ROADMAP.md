@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields
+- [x] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields (completed 2026-04-03)
 - [ ] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery
 - [ ] **Phase 3: Navigation + Detail View** - Replace the week dropdown, refine the diet toggle, and add a slide-up dish detail sheet
 
@@ -30,7 +30,7 @@
   5. Placeholder values are present where real data is unknown — the structure is ready for a future find-and-replace with real values without schema changes
 **Plans**: 1 plan
 Plans:
-- [ ] 01-01-PLAN.md — Enable image optimization and type the Dish data model with spice/allergen placeholders
+- [x] 01-01-PLAN.md — Enable image optimization and type the Dish data model with spice/allergen placeholders
 **UI hint**: yes
 
 ### Phase 2: Card Gallery
@@ -66,7 +66,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundations & Data | 0/1 | Not started | - |
+| 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
 | 2. Card Gallery | 0/? | Not started | - |
 | 3. Navigation + Detail View | 0/? | Not started | - |
 

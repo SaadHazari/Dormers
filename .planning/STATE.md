@@ -1,14 +1,28 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: phase_complete
+last_updated: "2026-04-03T07:21:00Z"
+progress:
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 1
+  completed_plans: 1
+  percent: 33
+---
+
 # Project State — Dormer's Menu Revamp
 
 **Last updated:** 2026-04-03
-**Session:** Initial roadmap creation
+**Session:** Phase 1 Plan 01 — Foundations & Data complete
 
 ---
 
 ## Project Reference
 
 **Core value:** Food photos that make you want to order — a menu you browse naturally, not navigate laboriously.
-**Current focus:** Phase 1 — Foundations & Data
+**Current focus:** Phase 01 — foundations-data
 **Total phases:** 3
 **Requirements:** 20 v1 requirements, 0 in progress, 0 complete
 
@@ -16,16 +30,18 @@
 
 ## Current Position
 
+Phase: 01 (foundations-data) — COMPLETE
+Plan: 1 of 1 complete
 | Field | Value |
 |-------|-------|
-| Active phase | Phase 1: Foundations & Data |
-| Active plan | None (planning not yet started) |
-| Phase status | Not started |
-| Overall progress | 0/3 phases complete |
+| Active phase | Phase 2: Card Gallery (next) |
+| Active plan | None (phase 1 complete, phase 2 not yet planned) |
+| Phase status | Phase 1 complete, Phase 2 not started |
+| Overall progress | 1/3 phases complete |
 
 ```
-Progress: [----------] 0%
-Phase 1 ░░░░░░░░░░
+Progress: [███-------] 33%
+Phase 1 ██████████ COMPLETE
 Phase 2 ░░░░░░░░░░
 Phase 3 ░░░░░░░░░░
 ```
@@ -42,9 +58,10 @@ Phase 3 ░░░░░░░░░░
 | Card gallery replaces letter buttons | Shows all days at once — images are the primary browsing driver, not navigation labels |
 | Keep MUI nutrition modal, change only the trigger | Avoids a modal rewrite; reduces button clutter by moving access to an icon inside the detail sheet |
 | Veg/Non-Veg toggle retained, refined only | Toggle pattern is already intuitive — visual consistency is all that's needed |
-| Placeholder spice/allergen data | Real data not available; structure must exist for future fill-in without schema changes |
+| Real spice/allergen data from CSV (not placeholders) | CSV data was available at plan time — used real values for all 48 dishes instead of empty arrays |
 | Phase 1 before Phase 2 | Gallery cards need optimized images and spice/allergen fields — data layer must be ready first |
 | Phase 2 before Phase 3 | Week tabs and detail sheet depend on the card gallery layout being established |
+| sizes=(max-width: 1024px) 140px, 336px | Matches actual Tailwind breakpoint (lg: = 1024px) and rendered widths (w-35 = 140px mobile, lg:w-[336px]) |
 
 ### Architecture Notes
 
@@ -70,7 +87,10 @@ None at project start.
 
 ## Session Continuity
 
-To resume: read `.planning/ROADMAP.md` for phase goals and `.planning/REQUIREMENTS.md` for requirement detail. Begin with `/gsd:plan-phase 1`.
+Phase 1 complete. To continue: plan Phase 2 (Card Gallery) with `/gsd:plan-phase 2`.
+Phase 2 depends on Phase 1 (now complete). Requirements: GALL-01 through GALL-05.
+
+**Stopped at:** Completed 01-foundations-data/01-01-PLAN.md
 
 ---
 
