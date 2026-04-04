@@ -5,6 +5,7 @@ import Image, { StaticImageData } from "next/image";
 import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
 import CustomSelect from "@/app/components/CustomSelect";
+import DishGallery from "@/app/components/DishGallery";
 import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
 import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
 import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
@@ -1464,32 +1465,11 @@ export default function Menu() {
                 <div className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d`}>
                   <div>
                     <div className="flex justify-between">
-                      <div className="flex justify-center gap-1 mb-3 lg:gap-[23px] ">
-                        {[
-                          { day: "M", index: 0 },
-                          { day: "T", index: 1 },
-                          { day: "W", index: 2 },
-                          { day: "T", index: 3 },
-                          { day: "F", index: 4 },
-                          { day: "S", index: 5 },
-                        ].map((item) => (
-                          <button
-                            key={item.index}
-                            onClick={() => setSelectedDay(item.index)}
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[7px] font-bold transition-colors lg:w-[33px] lg:h-[33px] lg:text-[14px] ${
-                              selectedDay === item.index
-                                ? "bg-white text-[#1E3A4F] border-white"
-                                : "bg-transparent text-white border-white hover:bg-white/20"
-                            }`}
-                            style={{
-                              fontFamily: "Montserrat",
-                              lineHeight: "100%",
-                            }}
-                          >
-                            {item.day}
-                          </button>
-                        ))}
-                      </div>
+                      <DishGallery
+                        availableDishes={availableDishes}
+                        selectedDay={selectedDay}
+                        setSelectedDay={setSelectedDay}
+                      />
                       <div className="select-wrapper relative md:hidden block">
                         <select
                           className="custom-select"
