@@ -11,7 +11,7 @@
 ## Phases
 
 - [x] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields (completed 2026-04-03)
-- [ ] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery
+- [x] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery (completed 2026-04-04)
 - [ ] **Phase 3: Navigation + Detail View** - Replace the week dropdown, refine the diet toggle, and add a slide-up dish detail sheet
 
 ---
@@ -70,7 +70,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
-| 2. Card Gallery | 1/2 | In Progress|  |
+| 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
 | 3. Navigation + Detail View | 0/? | Not started | - |
 
 ---
