@@ -18,11 +18,11 @@
 
 ### Gallery Navigation
 
-- [ ] **GALL-01**: Day navigation is a horizontally scrollable card gallery — all 6 days visible as swipeable cards
-- [ ] **GALL-02**: Each gallery card shows: day label (Mon–Sat), food photo, dish name, spice icon row, allergen icon row
-- [ ] **GALL-03**: Selected day card is visually distinct (highlighted border or scale treatment)
-- [ ] **GALL-04**: Gallery auto-scrolls to selected day on initial load (today's day)
-- [ ] **GALL-05**: Scroll behavior is smooth and touch-friendly (no scrollbar visible)
+- [x] **GALL-01**: Day navigation is a horizontally scrollable card gallery — all 6 days visible as swipeable cards
+- [x] **GALL-02**: Each gallery card shows: day label (Mon–Sat), food photo, dish name, spice icon row, allergen icon row
+- [x] **GALL-03**: Selected day card is visually distinct (highlighted border or scale treatment)
+- [x] **GALL-04**: Gallery auto-scrolls to selected day on initial load (today's day)
+- [x] **GALL-05**: Scroll behavior is smooth and touch-friendly (no scrollbar visible)
 
 ### Week Navigation
 
@@ -75,11 +75,11 @@
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
-| GALL-01 | Phase 2 | Pending |
-| GALL-02 | Phase 2 | Pending |
-| GALL-03 | Phase 2 | Pending |
-| GALL-04 | Phase 2 | Pending |
-| GALL-05 | Phase 2 | Pending |
+| GALL-01 | Phase 2 | Complete |
+| GALL-02 | Phase 2 | Complete |
+| GALL-03 | Phase 2 | Complete |
+| GALL-04 | Phase 2 | Complete |
+| GALL-05 | Phase 2 | Complete |
 | WEEK-01 | Phase 3 | Pending |
 | WEEK-02 | Phase 3 | Pending |
 | WEEK-03 | Phase 3 | Pending |

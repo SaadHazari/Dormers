@@ -70,7 +70,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
-| 2. Card Gallery | 0/2 | Planned | - |
+| 2. Card Gallery | 1/2 | In Progress|  |
 | 3. Navigation + Detail View | 0/? | Not started | - |
 
 ---
