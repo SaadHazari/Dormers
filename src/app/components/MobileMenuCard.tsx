@@ -94,7 +94,19 @@ export default function MobileMenuCard({
       {currentDish && (
         <motion.div 
           layout
-          className={`rounded-[24px] overflow-hidden relative flex flex-col mx-auto w-[95%] max-w-md ${glassPanel}`}
+          key={currentDish.id}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.5}
+          onDragEnd={(e, { offset }) => {
+            const swipe = offset.x;
+            if (swipe < -50 && selectedDay < 5) {
+              setSelectedDay(selectedDay + 1);
+            } else if (swipe > 50 && selectedDay > 0) {
+              setSelectedDay(selectedDay - 1);
+            }
+          }}
+          className={`rounded-[24px] flex-shrink-0 overflow-hidden relative flex flex-col mx-auto w-[95%] max-w-md ${glassPanel} touch-pan-y`}
         >
           {/* Dish Hero Image */}
           <div className="relative w-full h-[190px] [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]">
