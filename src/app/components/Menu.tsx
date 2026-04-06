@@ -6,11 +6,13 @@ import { Box, Modal } from "@mui/material";
 import { useTheme } from "next-themes";
 import CustomSelect from "@/app/components/CustomSelect";
 import DishGallery from "@/app/components/DishGallery";
+import MobileMenuCard from "@/app/components/MobileMenuCard";
+import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
 import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
 import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
 import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
 import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
-import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
+import ChickenFried from '../../../public/images/Week1/NonVeg/ChickenFried_v2.jpg';
 import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 type SpiceLevel = 1 | 2 | 3;
@@ -1270,9 +1272,9 @@ const MENU_DATA: Dish[] = [
 export default function Menu() {
   const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<number | null>(() => {
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
     const day = new Date().getDay();
-    return day === 0 ? null : day - 1;
+    return day === 0 ? 0 : day - 1;
   });
 
   const [, setShowNutritionHint] = useState(false);
@@ -1382,11 +1384,9 @@ export default function Menu() {
               <button
                 onClick={() => {
                   setIsVegOnly((v) => !v);
-                  const jsDay = new Date().getDay();
-                  setSelectedDay(jsDay === 0 ? null : jsDay - 1);
                 }}
-                className={`relative w-15 h-7 rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
-                ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+                className={`relative w-15 h-7 rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
+                ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1424,12 +1424,10 @@ export default function Menu() {
               <button
                 onClick={() => {
                   setIsVegOnly((v) => !v);
-                  const jsDay = new Date().getDay();
-                  setSelectedDay(jsDay === 0 ? null : jsDay - 1);
                 }}
-                className={`relative rounded-full flex items-center bg-transparent transition-colors duration-300 px-1 border-2 
+                className={`relative rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
                 h-[43px] w-[90px]
-                ${theme === "light" ? "border-[#1E3A4F]" : "border-white"}`}
+                ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1454,281 +1452,27 @@ export default function Menu() {
             </div>
           </div>
 
-          {/* Menu Card Content (Kept exactly as before) */}
-          <div className="lg:max-w-[987px] mx-auto">
-            <div
-              className={`bg-[#1E3A4F] perspective-1000 ${
-                theme === "light" ? "MenuCardBoxConatinerlight" : "MenuCardBoxConatiner"
-              }`}
-            >
-              {currentDish ? (
-                <div className={`relative w-full min-h-[180px] md:min-h-[260px] transition-transform duration-500 preserve-3d`}>
-                  <div>
-                    <div className="flex justify-between">
-                      <DishGallery
-                        availableDishes={availableDishes}
-                        selectedDay={selectedDay}
-                        setSelectedDay={setSelectedDay}
-                      />
-                      <div className="select-wrapper relative md:hidden block">
-                        <select
-                          className="custom-select"
-                          onChange={(e) => setSelectedWeek(e.target.value)}
-                        >
-                          <option value="week1">Week One</option>
-                          <option value="week2">Week Two</option>
-                          <option value="week3">Week Three</option>
-                          <option value="week4">Week Four</option>
-                        </select>
-                        <span>
-                          <svg
-                            className={`absolute top-[7px] right-[8px] w-4 h-4 text-[#1e3a4f] transform transition-transform`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M6 9l6 6 6-6"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                      </div>
-                      <div className="md:block hidden">
-                        <CustomSelect
-                          setSelectedWeek={setSelectedWeek}
-                          selectedWeek={selectedWeek}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-3 lg:gap-[30px] lg:mt-[12px]">
-                      {/* Dish Image */}
-                      <div className="relative w-35 h-[147px] rounded-2xl overflow-hidden bg-[#EEE9DA] lg:h-[300px] lg:w-[336px] md:rounded-[33px]">
-                        <Image
-                          src={currentDish.image}
-                          alt={currentDish.name}
-                          fill
-                          sizes="(max-width: 1024px) 140px, 336px"
-                          className="object-cover rounded-2xl"
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col min-w-0 overflow-visible">
-                        <h3
-                          className="text-white text-base font-bold uppercase mb-1 break-words lg:hidden block"
-                          style={{
-                            fontFamily: "Montserrat",
-                            fontWeight: 700,
-                            lineHeight: "130%",
-                            fontSize: "13px",
-                          }}
-                        >
-                          {currentDish.name}
-                        </h3>
-                        <p
-                          className="text-white text-xs mb-2 mt-2 lg:hidden block"
-                          style={{
-                            fontFamily: "Poppins",
-                            fontWeight: 300,
-                            fontSize: "12px",
-                            lineHeight: "130%",
-                          }}
-                        >
-                          {currentDish.description}
-                        </p>
-                        <div className="flex flex-col h-full justify-between">
-                          <div>
-                            <h3 className="currentdish_name_title lg:block hidden">
-                              {currentDish.name}
-                            </h3>
-                            <p className="currentDish_paramenu text-xs mb-2 mt-2 lg:block hidden">
-                              {currentDish.description}
-                            </p>
-                          </div>
-
-                          <button
-                            onClick={() => setIsFlipped(true)}
-                            className={`flex items-center gap-1 text-white/80 text-xs transition-opacity lg:mb-[8px] ${
-                              isFlipped ? "animate-pulse" : ""
-                            }`}
-                          >
-                            <span className="mt-1 buttonNutrition_info">
-                              Nutrition Info
-                            </span>
-                            <svg
-                              className={`w-3 h-3 mt-1 transform transition-transform lg:h-[32px] lg:w-[26px] ${
-                                isFlipped ? "animate-bounce" : ""
-                              }`}
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M6 9l6 6 6-6"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Back of Card - Nutrition Info */}
-                  <Modal
-                    open={isFlipped}
-                    onClose={() => setIsFlipped(false)}
-                    aria-labelledby="modal-modal-title"
-                    aria-describedby="modal-modal-description"
-                  >
-                    <Box sx={style}>
-                      <div className="flex items-center justify-center">
-                        <div className="bg-[#1E3A4F] rounded-3xl p-8 border-2 border-white md:max-w-[420px] lg:max-w-[700px] lg:w-[700px] max-h-[90vh] overflow-y-auto w-[358px]">
-                          {/* Modal Header */}
-                          <div className="flex justify-between items-start mb-6">
-                            <h3
-                              className="text-white text-2xl font-bold"
-                              style={{
-                                fontFamily: "Montserrat, sans-serif",
-                                fontWeight: 700,
-                                lineHeight: "100%",
-                                letterSpacing: "0",
-                                fontSize: "18px",
-                              }}
-                            >
-                              Nutrition Facts
-                            </h3>
-                            <button
-                              onClick={() => setIsFlipped(false)}
-                              className="text-white/80 hover:text-white transition-colors"
-                            >
-                              <svg
-                                className="w-6 h-6"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  d="M6 18L18 6M6 6l12 12"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-
-                          {/* Nutrient Info */}
-                          <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                              <h4 className="text-white text-lg font-semibold mb-3">
-                                Main Nutrients
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                <NutrientRow
-                                  label="Calories"
-                                  value={currentDish.nutrients.calories}
-                                />
-                                <NutrientRow
-                                  label="Protein"
-                                  value={currentDish.nutrients.protein}
-                                />
-                                <NutrientRow
-                                  label="Carbs"
-                                  value={currentDish.nutrients.carbs}
-                                />
-                                <NutrientRow
-                                  label="Fat"
-                                  value={currentDish.nutrients.fat}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <h4 className="text-white text-lg font-semibold mb-3">
-                                Micronutrients
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                {currentDish.nutrients.microNutrients.map(
-                                  (nutrient, index) => (
-                                    <div
-                                      key={index}
-                                      className="flex justify-between items-center py-2 border-b border-white/20"
-                                    >
-                                      <span className="text-white/90">
-                                        {nutrient.name}
-                                      </span>
-                                      <div className="text-right">
-                                        <span className="text-white font-medium">
-                                          {nutrient.amount}
-                                        </span>
-                                        <span className="text-white/60 ml-2">
-                                          ({nutrient.percentage})
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Box>
-                  </Modal>
-                </div>
-              ) : (
-                <div className="flex flex-col md:flex-row gap-8 min-h-[350px]">
-                  <div className="relative h-[280px] md:h-[330px] rounded-3xl overflow-hidden bg-[#EEE9DA]/10 flex items-center justify-center w-full md:w-[280px]">
-                    <p className="text-white/60 text-center px-4">
-                      Menu service is closed on Sundays.
-                    </p>
-                  </div>
-                  <div className="flex-grow flex items-center justify-center">
-                    <p className="text-white/60 text-center">
-                      Please check back tomorrow. We serve menus from Monday to
-                      Saturday.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* --- NEW MOBILE MENU UI --- */}
+          <div className="lg:hidden mx-auto mt-4 px-2">
+            <MobileMenuCard 
+              currentDish={currentDish as any}
+              selectedWeek={selectedWeek}
+              setSelectedWeek={setSelectedWeek}
+              selectedDay={selectedDay}
+              setSelectedDay={setSelectedDay}
+            />
           </div>
 
-          <style jsx>{`
-            .perspective-1000 {
-              perspective: 1000px;
-            }
-            .preserve-3d {
-              transform-style: preserve-3d;
-            }
-            .backface-hidden {
-              backface-visibility: hidden;
-            }
-            .rotate-y-180 {
-              transform: rotateY(180deg);
-            }
-            .custom-scrollbar {
-              scrollbar-width: thin;
-              scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
-            }
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 6px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background-color: rgba(255, 255, 255, 0.3);
-              border-radius: 3px;
-            }
-          `}</style>
+          {/* --- NEW DESKTOP CAROUSEL UI --- */}
+          <div className="hidden lg:block w-full">
+            <DesktopMenuCarousel 
+              availableDishes={availableDishes as any}
+              selectedWeek={selectedWeek}
+              setSelectedWeek={setSelectedWeek}
+              selectedDay={selectedDay}
+              setSelectedDay={setSelectedDay}
+            />
+          </div>
         </div>
       </div>
     </>
