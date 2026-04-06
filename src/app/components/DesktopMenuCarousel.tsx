@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
+import Image, { StaticImageData } from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChiliIcon from './ChiliIcon';
 
@@ -14,7 +14,7 @@ interface Dish {
   name: string;
   week: string;
   description: string;
-  image: any;
+  image: string | StaticImageData;
   isVeg: boolean;
   dayOfWeek: number;
   spiceLevel: number;
@@ -216,7 +216,7 @@ export default function DesktopMenuCarousel({
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={1}
-                onDragEnd={(e, { offset, velocity }) => {
+                onDragEnd={(e, { offset }) => {
                   const swipe = offset.x; // positive = dragged right, negative = dragged left
                   if (swipe < -50) {
                     handleNext();

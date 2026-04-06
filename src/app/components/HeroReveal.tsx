@@ -357,7 +357,7 @@ export default function HeroReveal() {
       timers.forEach((t) => clearTimeout(t));
       intervals.forEach((iv) => clearInterval(iv));
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

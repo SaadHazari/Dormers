@@ -23,9 +23,7 @@ interface DishGalleryProps {
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const DAY_INDICES = [0, 1, 2, 3, 4, 5];
 const CARD_WIDTH_MOBILE = 120;
-const CARD_WIDTH_DESKTOP = 140;
 const CARD_HEIGHT_MOBILE = 168;
-const CARD_HEIGHT_DESKTOP = 196;
 const CARD_GAP = 16; // md token from UI-SPEC spacing scale
 const PEEK = 12; // peek token — 12px of adjacent card visible at edges
 const STEP = CARD_WIDTH_MOBILE + CARD_GAP; // 136px — used for snap calculations (mobile-first)

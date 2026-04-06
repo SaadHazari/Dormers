@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image, { StaticImageData } from "next/image";
-import { Box, Modal } from "@mui/material";
+import { StaticImageData } from "next/image";
 import { useTheme } from "next-themes";
-import CustomSelect from "@/app/components/CustomSelect";
-import DishGallery from "@/app/components/DishGallery";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
 import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
 import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.png';
@@ -1314,12 +1311,7 @@ export default function Menu() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isFlipped]);
 
-  const style = {
-    position: "absolute" as const,
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-  };
+
 
   // Helper styles for the toggle labels
   const labelStyle = {
@@ -1455,7 +1447,7 @@ export default function Menu() {
           {/* --- NEW MOBILE MENU UI --- */}
           <div className="lg:hidden mx-auto mt-4 px-2">
             <MobileMenuCard 
-              currentDish={currentDish as any}
+              currentDish={currentDish}
               selectedWeek={selectedWeek}
               setSelectedWeek={setSelectedWeek}
               selectedDay={selectedDay}
@@ -1466,7 +1458,7 @@ export default function Menu() {
           {/* --- NEW DESKTOP CAROUSEL UI --- */}
           <div className="hidden lg:block w-full">
             <DesktopMenuCarousel 
-              availableDishes={availableDishes as any}
+              availableDishes={availableDishes}
               selectedWeek={selectedWeek}
               setSelectedWeek={setSelectedWeek}
               selectedDay={selectedDay}
@@ -1476,14 +1468,5 @@ export default function Menu() {
         </div>
       </div>
     </>
-  );
-}
-
-function NutrientRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center py-2 border-b border-white/20">
-      <span className="text-white/90">{label}</span>
-      <span className="text-white font-medium">{value}</span>
-    </div>
   );
 }

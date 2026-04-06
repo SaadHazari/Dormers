@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
+import Image, { StaticImageData } from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChiliIcon from './ChiliIcon';
 
@@ -14,7 +14,7 @@ interface Dish {
   name: string;
   week: string;
   description: string;
-  image: any;
+  image: string | StaticImageData;
   isVeg: boolean;
   dayOfWeek: number;
   spiceLevel: number;
