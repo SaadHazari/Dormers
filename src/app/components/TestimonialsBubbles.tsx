@@ -304,7 +304,7 @@ export default function TestimonialsBubbles() {
       onMouseLeave={resumeAutoScroll}
     >
       <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center h-[23rem]">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {groupedMessages[currentGroup].map((msg) => (
             <motion.div
               key={`${msg.id}-${currentGroup}`}

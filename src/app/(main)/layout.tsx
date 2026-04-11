@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation"; // <--- Added this import
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
-import AboutUs from "../components/AboutUs";
 import { useTheme } from "next-themes";
+import DeliveryStrip from "@/components/ui/DeliveryStrip";
+import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -73,7 +74,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ backgroundColor: "#1E3A4F" }}
+      style={{ backgroundColor: "#ede8da" }}
     >
       <style jsx>{`
         .main_content {
@@ -82,6 +83,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           z-index: 1;
           display: flex;
           flex-direction: column;
+          border-bottom-left-radius: 46px;
+          border-bottom-right-radius: 46px;
+          overflow: hidden;
         }
         #footer {
           position: sticky;
@@ -93,6 +97,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           user-select: none;
           width: 100%;
         }
+        @media (max-width: 900px) {
+          #footer {
+            height: auto !important;
+            min-height: 82vh;
+            overflow: visible !important;
+          }
+        }
         .slide-in-section {
           pointer-events: auto;
         }
@@ -103,22 +114,259 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* On other pages: hidden only when footer-slide is approaching */}
         {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
         <main className="flex-grow">{children}</main>
+        {/* Inside main_content so it shares the same stacking context as the navbar (z-100 beats z-49) */}
+        <ChatButtonWrapper />
       </div>
 
       <div
         id="footer"
-        className={`${
-          theme === "light"
-            ? "md:mt-[600px] mt-[641px]"
-            : "md:mt-[450px] mt-[588px]"
-        }`}
+        className="w-full"
+        style={{
+          height: "82vh",
+          backgroundColor: "#ede8da",
+          backgroundImage: `linear-gradient(rgba(245,127,32,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(245,127,32,0.25) 1px, transparent 1px)`,
+          backgroundSize: "50px 50px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          overflow: "hidden",
+        }}
       >
-        <div ref={slideSectionRef} className="slide-in-section">
-          {/* MAGIC FIX: Only show AboutUs on the Home Page */}
-          {isHomePage && <AboutUs />}
+        {/* ── About Us Copy — visible as the curtain peels back ── */}
+        <style>{`
+          .au-row {
+            display: grid;
+            grid-template-columns: minmax(0, 680px) auto;
+            gap: 10.42vw;
+            align-items: center;
+            width: 100%;
+            flex: 1;
+            padding-left: 6.25vw;
+            padding-right: 7.29vw;
+            padding-top: 44px;
+            padding-bottom: 52px;
+            box-sizing: border-box;
+          }
+          .au-section {
+            width: 100%;
+          }
+          @media (max-width: 900px) {
+            .au-row {
+              grid-template-columns: 1fr;
+              gap: 0;
+              padding-left: 40px;
+              padding-right: 40px;
+              padding-top: 44px;
+              padding-bottom: 52px;
+            }
+          }
+          @media (max-width: 639px) {
+            .au-row {
+              padding-left: 24px;
+              padding-right: 24px;
+              padding-top: 48px;
+              padding-bottom: 72px;
+            }
+          }
+          .au-headline {
+            font-family: Montserrat, sans-serif;
+            font-size: clamp(1.75rem, 3.8vw, 2.25rem);
+            font-weight: 700;
+            color: #091825;
+            line-height: 1.25;
+            letter-spacing: -0.02em;
+            text-align: left;
+            margin: 0 0 28px 0;
+          }
+          @media (max-width: 639px) {
+            .au-headline { margin-bottom: 32px; }
+          }
+          .au-headline em {
+            font-weight: 700;
+            font-style: italic;
+            color: #1e3a4f;
+          }
+          .br-desk { display: block; }
+          @media (max-width: 639px) {
+            .br-desk { display: none; }
+          }
+          .au-emotional {
+            font-family: Montserrat, sans-serif;
+            font-size: clamp(1.0625rem, 2.2vw, 1.1875rem);
+            font-weight: 400;
+            color: #1e3a4f;
+            line-height: 1.75;
+            letter-spacing: 0.005em;
+            text-align: left;
+            max-width: 560px;
+            margin: 0 0 22px 0;
+          }
+          @media (max-width: 639px) {
+            .au-emotional { margin-bottom: 24px; }
+          }
+          .au-emotional em { font-weight: 500; font-style: italic; }
+          .au-credential-wrap {
+            max-width: 560px;
+            padding: 20px 24px;
+            background: rgba(245, 127, 32, 0.18);
+            border-left: 3px solid #f57f20;
+            border-radius: 0 12px 12px 0;
+            margin: 0 0 14px 0;
+          }
+          @media (max-width: 639px) {
+            .au-credential-wrap { padding: 16px 20px; margin-bottom: 16px; }
+          }
+          .au-credential {
+            font-family: Montserrat, sans-serif;
+            font-size: clamp(0.9375rem, 1.9vw, 1rem);
+            font-weight: 400;
+            color: #1e3a4f;
+            line-height: 1.75;
+            letter-spacing: 0.005em;
+            text-align: left;
+            margin: 0;
+          }
+          .au-credential .brand { font-weight: 600; }
+          .au-credential .stat  { font-weight: 700; color: #f57f20; }
+          .au-closer {
+            font-family: Montserrat, sans-serif;
+            font-size: clamp(0.9375rem, 1.9vw, 1rem);
+            font-weight: 500;
+            color: #1e3a4f;
+            line-height: 1.7;
+            letter-spacing: 0.005em;
+            text-align: left;
+            max-width: 560px;
+            margin: 0;
+          }
+          .au-closer .mic-drop { font-weight: 700; color: #091825; display: block; }
+          .au-delivery-strip {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 49px;
+          }
+          @media (min-width: 901px) {
+            .au-delivery-strip { display: none; }
+          }
+          .deliver-sidebar {
+            display: none;
+          }
+          @media (min-width: 901px) {
+            .deliver-sidebar {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+            }
+          }
+          .deliver-label {
+            font-family: Montserrat, sans-serif;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: rgba(30, 58, 79, 0.5);
+            margin: 0 0 14px 0;
+          }
+          .deliver-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .deliver-row {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+          }
+          .deliver-pill {
+            font-family: Montserrat, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(30, 58, 79, 0.55);
+            letter-spacing: 0.01em;
+            background: rgba(30, 58, 79, 0.06);
+            border: 1px solid rgba(30, 58, 79, 0.1);
+            border-radius: 100px;
+            padding: 6px 14px;
+            white-space: nowrap;
+          }
+          .deliver-pill-expanding {
+            font-family: Montserrat, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(245, 127, 32, 0.6);
+            letter-spacing: 0.01em;
+            background: rgba(245, 127, 32, 0.07);
+            border: 1px solid rgba(245, 127, 32, 0.15);
+            border-radius: 100px;
+            padding: 6px 14px;
+            white-space: nowrap;
+          }
+        `}</style>
+
+        <div className="au-row">
+          <div className="au-section">
+            <h2 className="au-headline">
+              Built by people who know{" "}
+              <br className="br-desk" />
+              what it&apos;s like to miss{" "}
+              <br className="br-desk" />
+              <em>a home-cooked meal.</em>
+            </h2>
+
+            <p className="au-emotional">
+              Moving abroad is a lot. New city, new campus, new everything
+              — and somewhere between unpacking and orientation, you realise
+              no one&apos;s making <em>dinner.</em>
+            </p>
+
+            <div className="au-credential-wrap">
+              <p className="au-credential">
+                <span className="brand">Dormers&apos;</span> has prepared and delivered over{" "}
+                <span className="stat">4,000 meals</span> across Dubai&apos;s dorms since 2024.
+                Real food, made properly, brought to your dorm.
+              </p>
+            </div>
+
+            <p className="au-closer">
+              And if it&apos;s not for you, you walk away.
+              <span className="mic-drop">Simple.</span>
+            </p>
+
+            {/* Mobile delivery strip — hidden on desktop (grid shows pills instead) */}
+            <div className="au-delivery-strip">
+              <DeliveryStrip />
+            </div>
+          </div>
+
+          {/* ── Delivery sidebar — desktop only, right side ── */}
+          <aside className="deliver-sidebar">
+            <p className="deliver-label">We deliver to</p>
+            <div className="deliver-rows">
+              <div className="deliver-row">
+                <span className="deliver-pill">The Myriad</span>
+                <span className="deliver-pill">DSOA Residence</span>
+              </div>
+              <div className="deliver-row">
+                <span className="deliver-pill">KSK Homes</span>
+                <span className="deliver-pill">Study World</span>
+              </div>
+              <div className="deliver-row">
+                <span className="deliver-pill">Yugo</span>
+              </div>
+              <div className="deliver-row">
+                <span className="deliver-pill-expanding">&amp; Expanding</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        {/* Footer pinned to bottom */}
+        <div ref={slideSectionRef} className="slide-in-section w-full pb-2">
           <Footer />
         </div>
       </div>
+
     </div>
   );
 }

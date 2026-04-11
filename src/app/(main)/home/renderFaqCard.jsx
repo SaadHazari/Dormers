@@ -11,8 +11,7 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
   const isOpen = openFAQ === faq.id;
   const isLight = color === "#EEE9DA";
   const isTextDark = !isOpen && color === "#EEE9DA";
-  console.log(isTextDark , "adil nawaz");
-  
+
 
   return (
     <div

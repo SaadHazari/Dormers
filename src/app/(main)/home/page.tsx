@@ -11,7 +11,7 @@ import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
-import CurtleAboutUs from "@/app/components/CurtleAboutUs";
+
 import USPBento from "@/app/components/USPBento";
 import HowItWorks from "@/app/components/HowItWorks";
 
@@ -582,6 +582,36 @@ export default function Home() {
                           )}
                         </div>
                       </div>
+
+                      {/* Show Less — outside scroll zone */}
+                      <div className="mt-4 mb-2 flex justify-center">
+                        <button
+                          onClick={() => {
+                            setShowAll(false);
+                            setTimeout(() => {
+                              faqRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            }, 200);
+                          }}
+                          className={`flex items-center gap-2 text-sm transition-opacity hover:opacity-80 ${theme === "light" ? "text-[#22394A]" : "text-white/80"
+                            }`}
+                        >
+                          <span
+                            className="underline"
+                            style={{
+                              fontFamily: "Montserrat",
+                              fontWeight: 600,
+                              lineHeight: "100%",
+                              letterSpacing: "0%",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Show Less
+                          </span>
+                        </button>
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -644,13 +674,25 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <CurtleAboutUs />
+
             </div>
           </div>
+
+          {/* ── Navy gap — same height as a marquee band, rounded bottom corners ── */}
+          <div
+            style={{
+              height: "72px",
+              backgroundColor: "#22394A",
+              borderBottomLeftRadius: "60px",
+              borderBottomRightRadius: "60px",
+            }}
+          />
         </div>
       </section>
 
       {/* Chat Window */}
+
+
       <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
       {/* Form Modal */}

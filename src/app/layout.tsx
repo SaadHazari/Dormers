@@ -3,7 +3,6 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { ThemeProvider } from "next-themes";
-import ChatButtonWrapper from "./components/ChatButtonWrapper";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -50,8 +49,6 @@ export default function RootLayout({
           themes={["dark", "light"]}
         >
           {children}
-          <ChatButtonWrapper />
-          {/* <ChatButton /> */}
         </ThemeProvider>
       </body>
     </html>

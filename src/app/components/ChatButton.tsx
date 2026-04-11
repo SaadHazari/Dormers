@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 
-export default function ChatButton() {
+export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: number }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function ChatButton() {
   if (isChatOpen) return null;
 
   return (
-    <div className="fixed bottom-8 right-8 z-50" style={{ width: 60, height: 60 }}>
+    <div className="fixed right-8 z-[49]" style={{ width: 60, height: 60, bottom: bottomOffset }}>
       {/* Breathing pulse ring — subtle, single layer */}
       <motion.div
         aria-hidden

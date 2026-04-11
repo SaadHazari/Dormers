@@ -258,19 +258,19 @@ const TestimonialsDesktop = () => {
           onMouseLeave={() => setIsHovered(false)}
         >
           <AnimatePresence mode="wait">
-            {groupedMessages[currentGroup].map((msg, index) => {
-              const position = positions[index % positions.length];
-              const isLight = theme === "light";
+            <motion.div
+              key={currentGroup}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.6 }}
+              className="absolute inset-5"
+            >
+              {groupedMessages[currentGroup].map((msg, index) => {
+                const position = positions[index % positions.length];
+                const isLight = theme === "light";
 
-              return (
-                <motion.div
-                  key={currentGroup}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.6 }}
-                  className="absolute inset-5"
-                >
+                return (
                   <div
                     key={msg.id}
                     className={`absolute ${position} ${isLight ? "bg-[#EEE9DA]" : "bg-[#F4F1EC]"
@@ -302,9 +302,9 @@ const TestimonialsDesktop = () => {
                         }`}
                     />
                   </div>
-                </motion.div>
-              );
-            })}
+                );
+              })}
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>
