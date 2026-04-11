@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, type Variants, type Easing } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useInView } from "react-intersection-observer";
 import {
@@ -87,11 +87,13 @@ const FLIP_CSS = `
   .bento-wrapper:hover .bento-flip-icon { opacity: 0.5 !important; }
 `;
 
-const cardVariants = {
+const cardEase: Easing = [0.25, 0.46, 0.45, 0.94];
+
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 28, scale: 0.96 },
   visible: (i: number) => ({
     opacity: 1, y: 0, scale: 1,
-    transition: { duration: 0.58, ease: [0.25, 0.46, 0.45, 0.94], delay: i * 0.10 },
+    transition: { duration: 0.58, ease: cardEase, delay: i * 0.10 },
   }),
 };
 
