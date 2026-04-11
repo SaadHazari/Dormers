@@ -9,7 +9,7 @@ import DeliveryStrip from "@/components/ui/DeliveryStrip";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { theme } = useTheme();
+  useTheme();
   const pathname = usePathname(); // <--- Get the current URL
   const [hideNavbar, setHideNavbar] = useState(false);
   const [heroReady, setHeroReady] = useState(false);
