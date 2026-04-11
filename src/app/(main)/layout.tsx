@@ -109,6 +109,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             height: 85vh !important;
             min-height: unset !important;
             overflow: hidden !important;
+            justify-content: flex-start !important;
+          }
+          .au-row {
+            flex: 0 0 auto !important;
+          }
+          .slide-in-section {
+            margin-top: auto;
           }
         }
         .slide-in-section {
@@ -198,9 +205,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             color: #1e3a4f;
           }
           .br-desk { display: block; }
-          @media (max-width: 639px) {
-            .br-desk { display: none; }
-          }
           .au-emotional {
             font-family: Montserrat, sans-serif;
             font-size: clamp(1.0625rem, 2.2vw, 1.1875rem);
@@ -214,7 +218,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }
           @media (max-width: 639px) {
             .au-emotional {
-              font-size: 0.75rem;
+              font-size: 0.9375rem;
               line-height: 1.55;
               margin-bottom: 10px;
             }
@@ -230,8 +234,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }
           @media (max-width: 639px) {
             .au-credential-wrap { padding: 10px 14px; margin-bottom: 8px; }
-            .au-credential { font-size: 0.9375rem; line-height: 1.55; }
-            .au-closer { font-size: 0.75rem; line-height: 1.5; }
+            .au-credential { font-size: 0.75rem; line-height: 1.55; }
+            .au-closer { font-size: 0.9375rem; line-height: 1.5; }
           }
           .au-credential {
             font-family: Montserrat, sans-serif;

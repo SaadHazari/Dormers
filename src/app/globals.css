@@ -150,6 +150,7 @@ html {
   scroll-behavior: smooth;
   overflow-x: hidden;
   scrollbar-width: none; /* Firefox */
+  overscroll-behavior: none; /* prevent iOS bounce from scrolling foreground off-screen */
 }
 
 html::-webkit-scrollbar {
