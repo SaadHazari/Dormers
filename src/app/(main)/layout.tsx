@@ -214,7 +214,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }
           @media (max-width: 639px) {
             .au-emotional {
-              font-size: 0.8125rem;
+              font-size: 0.75rem;
               line-height: 1.55;
               margin-bottom: 10px;
             }
@@ -230,8 +230,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }
           @media (max-width: 639px) {
             .au-credential-wrap { padding: 10px 14px; margin-bottom: 8px; }
-            .au-credential { font-size: 0.8125rem; line-height: 1.55; }
-            .au-closer { font-size: 0.8125rem; line-height: 1.5; }
+            .au-credential { font-size: 0.9375rem; line-height: 1.55; }
+            .au-closer { font-size: 0.75rem; line-height: 1.5; }
           }
           .au-credential {
             font-family: Montserrat, sans-serif;

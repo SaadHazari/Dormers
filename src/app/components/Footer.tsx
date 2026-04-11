@@ -7,6 +7,12 @@ export default function Footer() {
     <footer className="bg-transparent text-[#1E3A4F] w-full pb-5 pt-3">
       <div className="lg:max-w-[987px] mx-auto px-5">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+          <p
+            className="text-[#1E3A4F]/50 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase sm:hidden"
+            style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600 }}
+          >
+            Made with ❤️ in Dubai
+          </p>
           <div className="flex gap-6 sm:gap-10">
             <Link
               href="/cookies-policy"
@@ -31,7 +37,7 @@ export default function Footer() {
             </Link>
           </div>
           <p
-            className="text-[#1E3A4F]/50 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase"
+            className="text-[#1E3A4F]/50 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase hidden sm:block"
             style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600 }}
           >
             Made with ❤️ in Dubai
