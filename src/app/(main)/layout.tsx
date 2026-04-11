@@ -97,11 +97,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           user-select: none;
           width: 100%;
         }
-        @media (max-width: 900px) {
+        @media (min-width: 640px) and (max-width: 900px) {
           #footer {
             height: auto !important;
             min-height: 82vh;
             overflow: visible !important;
+          }
+        }
+        @media (max-width: 639px) {
+          #footer {
+            height: 85vh !important;
+            min-height: unset !important;
+            overflow: hidden !important;
           }
         }
         .slide-in-section {
@@ -164,8 +171,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             .au-row {
               padding-left: 24px;
               padding-right: 24px;
-              padding-top: 48px;
-              padding-bottom: 72px;
+              padding-top: 22px;
+              padding-bottom: 20px;
             }
           }
           .au-headline {
@@ -179,7 +186,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             margin: 0 0 28px 0;
           }
           @media (max-width: 639px) {
-            .au-headline { margin-bottom: 32px; }
+            .au-headline {
+              font-size: 1.2rem;
+              line-height: 1.2;
+              margin-bottom: 12px;
+            }
           }
           .au-headline em {
             font-weight: 700;
@@ -202,7 +213,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             margin: 0 0 22px 0;
           }
           @media (max-width: 639px) {
-            .au-emotional { margin-bottom: 24px; }
+            .au-emotional {
+              font-size: 0.8125rem;
+              line-height: 1.55;
+              margin-bottom: 10px;
+            }
           }
           .au-emotional em { font-weight: 500; font-style: italic; }
           .au-credential-wrap {
@@ -214,7 +229,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             margin: 0 0 14px 0;
           }
           @media (max-width: 639px) {
-            .au-credential-wrap { padding: 16px 20px; margin-bottom: 16px; }
+            .au-credential-wrap { padding: 10px 14px; margin-bottom: 8px; }
+            .au-credential { font-size: 0.8125rem; line-height: 1.55; }
+            .au-closer { font-size: 0.8125rem; line-height: 1.5; }
           }
           .au-credential {
             font-family: Montserrat, sans-serif;
@@ -244,7 +261,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             display: flex;
             justify-content: center;
             width: 100%;
-            margin-top: 49px;
+            margin-top: 16px;
           }
           @media (min-width: 901px) {
             .au-delivery-strip { display: none; }
