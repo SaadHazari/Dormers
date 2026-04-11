@@ -90,10 +90,14 @@ export default function MobileMenuCard({
           );
         })}
       </div>
-
+<AnimatePresence mode="wait">
       {currentDish && (
         <motion.div 
-          layout
+          key={currentDish.id}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
           key={currentDish.id}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
@@ -251,7 +255,7 @@ export default function MobileMenuCard({
           </div>
         </motion.div>
       )}
-
+    </AnimatePresence>
       {/* Day Navigator (Glass) */}
       <div className={`mx-auto w-[95%] max-w-md p-1 rounded-full relative ${glassPanel} mt-1 mb-2`}>
         <div className="flex justify-between items-center">
