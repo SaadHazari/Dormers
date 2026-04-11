@@ -100,19 +100,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         @media (min-width: 640px) and (max-width: 900px) {
           #footer {
             height: auto !important;
-            min-height: 82vh;
+            min-height: 82svh;
             overflow: visible !important;
           }
         }
         @media (max-width: 639px) {
           #footer {
-            height: 85vh !important;
+            height: 85svh !important;
             min-height: unset !important;
             overflow: hidden !important;
             justify-content: flex-start !important;
           }
           .au-row {
             flex: 0 0 auto !important;
+            padding-bottom: env(safe-area-inset-bottom) !important; /* ADDED: protects from iPhone home bar */
           }
           .slide-in-section {
             margin-top: auto;
@@ -136,7 +137,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         id="footer"
         className="w-full"
         style={{
-          height: "82vh",
+          height: "85svh",
           backgroundColor: "#ede8da",
           backgroundImage: `linear-gradient(rgba(245,127,32,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(245,127,32,0.25) 1px, transparent 1px)`,
           backgroundSize: "50px 50px",
