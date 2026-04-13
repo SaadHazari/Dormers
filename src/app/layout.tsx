@@ -10,8 +10,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Dormer's - Student Meal Service",
-  description: "Delicious, affordable meals delivered to your dorm",
+  title: "Dormers' - Student Meals in Dubai",
+  description: "Meals that don't Suck, delivered to your dorm",
 };
 
 export default function RootLayout({
