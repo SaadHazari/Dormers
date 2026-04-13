@@ -7,7 +7,6 @@ import Footer from "@/app/components/Footer";
 import { useTheme } from "next-themes";
 import DeliveryStrip from "@/components/ui/DeliveryStrip";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
-import { ReactLenis } from 'lenis/react';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   useTheme();
