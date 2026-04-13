@@ -7,6 +7,7 @@ import Footer from "@/app/components/Footer";
 import { useTheme } from "next-themes";
 import DeliveryStrip from "@/components/ui/DeliveryStrip";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
+import { ReactLenis } from 'lenis/react';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   useTheme();
@@ -26,10 +27,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const show = () => setHeroReady(true);
     const hide = () => setHeroReady(false);
     window.addEventListener("hero-ui-visible", show);
-    window.addEventListener("hero-ui-hidden",  hide);
+    window.addEventListener("hero-ui-hidden", hide);
     return () => {
       window.removeEventListener("hero-ui-visible", show);
-      window.removeEventListener("hero-ui-hidden",  hide);
+      window.removeEventListener("hero-ui-hidden", hide);
     };
   }, [pathname]);
 
@@ -85,7 +86,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           flex-direction: column;
           border-bottom-left-radius: 46px;
           border-bottom-right-radius: 46px;
-          overflow: hidden;
+          clip-path: inset(0 0 0 0 round 0 0 46px 46px);
+          -webkit-clip-path: inset(0 0 0 0 round 0 0 46px 46px);
         }
         #footer {
           position: sticky;

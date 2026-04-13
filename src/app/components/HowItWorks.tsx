@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef, useState, useEffect, Fragment } from "react";
-import { motion } from "framer-motion";
+import { useRef, useState, Fragment } from "react";
+import { motion, useScroll, useTransform, useMotionValueEvent, Variants } from "framer-motion";
 
 const E = [0.25, 0.46, 0.45, 0.94] as const;
 
+// ==========================================
+// 1. ORIGINAL DESKTOP CSS
+// ==========================================
 const CSS = `
   .hiw-section {
     background: #091825;
@@ -14,7 +17,6 @@ const CSS = `
     overflow: hidden;
   }
 
-  /* ── Background decorative image ── */
   .hiw-bg {
     position: absolute;
     inset: 0;
@@ -22,12 +24,11 @@ const CSS = `
     background-repeat: no-repeat;
     background-position: center;
     background-size: cover;
-    opacity: 0.13;
+    opacity: 0.4;
     pointer-events: none;
     z-index: 0;
   }
 
-  /* ── Container — matches USPBento max-w-6xl + lg:px-16 ── */
   .hiw-container {
     max-width: 72rem;
     margin: 0 auto;
@@ -36,7 +37,6 @@ const CSS = `
     z-index: 1;
   }
 
-  /* ── Header ── */
   .hiw-label {
     font-family: Montserrat, sans-serif;
     font-weight: 600;
@@ -58,7 +58,6 @@ const CSS = `
     line-height: 1.15;
   }
 
-  /* ── Columns row ── */
   .hiw-cols {
     display: flex;
     align-items: stretch;
@@ -70,7 +69,6 @@ const CSS = `
     position: relative;
   }
 
-  /* ── Vertical separator ── */
   .hiw-sep {
     flex-shrink: 0;
     width: 1px;
@@ -84,7 +82,6 @@ const CSS = `
     );
   }
 
-  /* ── Large number — layout only; background/clip applied via inline style ── */
   .hiw-num {
     font-family: Montserrat, sans-serif;
     font-weight: 900;
@@ -99,7 +96,6 @@ const CSS = `
     z-index: 1;
   }
 
-  /* ── Text block — sits visually above the number ── */
   .hiw-text-block {
     position: relative;
     z-index: 2;
@@ -108,7 +104,6 @@ const CSS = `
     border-radius: var(--radius-card, 16px);
   }
 
-  /* ── Title ── */
   .hiw-title {
     font-family: Montserrat, sans-serif;
     font-weight: 800;
@@ -120,7 +115,6 @@ const CSS = `
     text-align: center;
   }
 
-  /* ── Body copy ── */
   .hiw-body {
     font-family: Montserrat, sans-serif;
     font-weight: 500;
@@ -132,7 +126,6 @@ const CSS = `
     text-align: center;
   }
 
-  /* ── Subline ── */
   .hiw-subline {
     font-family: Montserrat, sans-serif;
     font-weight: 400;
@@ -144,56 +137,6 @@ const CSS = `
     text-align: center;
   }
 
-  /* ── Mobile carousel ── */
-  .hiw-carousel-wrap { display: none; }
-
-  .hiw-carousel {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    gap: 0;
-    padding: 0 24px;
-  }
-  .hiw-carousel::-webkit-scrollbar { display: none; }
-
-  .hiw-carousel-card {
-    flex: 0 0 80vw;
-    scroll-snap-align: center;
-    padding: 0 12px;
-    text-align: center;
-  }
-  .hiw-carousel-card .hiw-num {
-    font-size: 120px;
-    margin-bottom: -28px;
-  }
-
-  .hiw-dots {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    margin-top: 28px;
-  }
-  .hiw-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(237, 232, 218, 0.2);
-    transition: background 200ms ease, transform 200ms ease;
-    flex-shrink: 0;
-    cursor: pointer;
-    border: none;
-    padding: 0;
-  }
-  .hiw-dot-active {
-    background: #f57f20;
-    transform: scale(1.25);
-  }
-
-  /* ── Tablet (641–1024px) ── */
   @media (max-width: 1024px) {
     .hiw-container     { padding: 0 48px; }
     .hiw-cols          { gap: 24px; }
@@ -201,16 +144,6 @@ const CSS = `
     .hiw-section-title { font-size: 34px; }
     .hiw-title         { font-size: 22px; }
     .hiw-body          { font-size: 15px; max-width: 240px; }
-  }
-
-  /* ── Mobile (≤640px) ── */
-  @media (max-width: 640px) {
-    .hiw-section         { padding: 64px 0; }
-    .hiw-container       { padding: 0; }
-    .hiw-label           { padding: 0 24px; margin-bottom: 12px; }
-    .hiw-section-title   { font-size: 28px; padding: 0 24px; margin-bottom: 48px; }
-    .hiw-cols            { display: none; }
-    .hiw-carousel-wrap   { display: block; }
   }
 `;
 
@@ -246,34 +179,35 @@ const CARDS: CardDef[] = [
   },
 ];
 
-// Per-column animation timing from spec
+// Exact 1.5s multiplier intervals for desktop storytelling
 const COL_TIMING = [
-  { numDelay: 0.2,  textDelay: 0.4  },
-  { numDelay: 0.35, textDelay: 0.55 },
-  { numDelay: 0.5,  textDelay: 0.7  },
+  { numDelay: 1.5, textDelay: 1.7 },
+  { numDelay: 3.0, textDelay: 3.2 },
+  { numDelay: 4.5, textDelay: 4.7 },
 ];
 
-export default function HowItWorks() {
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const slideRefs   = useRef<(HTMLDivElement | null)[]>([null, null, null]);
-  const [activeIndex, setActiveIndex] = useState(0);
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15, delayChildren: 0.1 },
+  },
+};
 
-  useEffect(() => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-    const observers: IntersectionObserver[] = [];
-    slideRefs.current.forEach((slide, i) => {
-      if (!slide) return;
-      const obs = new IntersectionObserver(
-        ([entry]) => { if (entry.isIntersecting) setActiveIndex(i); },
-        { root: carousel, threshold: 0.5 }
-      );
-      obs.observe(slide);
-      observers.push(obs);
-    });
-    return () => observers.forEach((o) => o.disconnect());
-  }, []);
+const wordVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
 
+const underlineVariants: Variants = {
+  hidden: { width: "0%" },
+  show: { width: "100%", transition: { duration: 0.5, ease: "easeOut", delay: 0.8 } },
+};
+
+// ==========================================
+// 2. DESKTOP COMPONENT
+// ==========================================
+function DesktopHowItWorks() {
   return (
     <>
       <style>{CSS}</style>
@@ -282,35 +216,32 @@ export default function HowItWorks() {
         <div className="hiw-bg" aria-hidden />
         <div className="hiw-container">
 
-          {/* ── Header ── */}
-          <motion.span
-            className="hiw-label"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0, ease: E }}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-100px" }}
+            className="flex flex-col items-center mb-[80px]"
           >
-            HOW IT WORKS
-          </motion.span>
-          <motion.h2
-            className="hiw-section-title"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0, ease: E }}
-          >
-            From stressed to{" "}
-            <span style={{
-              textDecoration: "underline",
-              textDecorationColor: "#f57f20",
-              textDecorationThickness: "3px",
-              textUnderlineOffset: "5px",
-            }}>
-              sorted.
-            </span>
-          </motion.h2>
+            <motion.span variants={wordVariants} className="hiw-label mb-4">
+              HOW IT WORKS
+            </motion.span>
 
-          {/* ── Desktop / Tablet — three columns with separator divs ── */}
+            <h2 className="hiw-section-title flex flex-wrap justify-center gap-x-3 !mb-0">
+              <motion.span variants={wordVariants} className="inline-block">From</motion.span>
+              <motion.span variants={wordVariants} className="inline-block">stressed</motion.span>
+              <motion.span variants={wordVariants} className="inline-block">to</motion.span>
+
+              <motion.span variants={wordVariants} className="inline-block relative">
+                sorted.
+                <motion.span
+                  variants={underlineVariants}
+                  className="absolute left-0 bottom-[-4px] md:bottom-[-6px] h-[3px] md:h-[4px] bg-[#f57f20] rounded-full origin-left"
+                />
+              </motion.span>
+            </h2>
+          </motion.div>
+
           <div className="hiw-cols">
             {CARDS.map((card, i) => (
               <Fragment key={card.num}>
@@ -320,12 +251,11 @@ export default function HowItWorks() {
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: 0.6, ease: E }}
+                    transition={{ duration: 0.4, delay: COL_TIMING[i].numDelay - 0.2, ease: E }}
                   />
                 )}
 
                 <div className="hiw-col">
-                  {/* Layer A — large number, behind text content */}
                   <motion.span
                     className="hiw-num"
                     style={{
@@ -344,7 +274,6 @@ export default function HowItWorks() {
                     {card.num}
                   </motion.span>
 
-                  {/* Layer B — text content, in front of number */}
                   <motion.div
                     className="hiw-text-block"
                     initial={{ opacity: 0, y: 24 }}
@@ -353,25 +282,127 @@ export default function HowItWorks() {
                     transition={{ duration: 0.4, delay: COL_TIMING[i].textDelay, ease: E }}
                   >
                     <h3 className="hiw-title">{card.title}</h3>
-                    <p  className="hiw-body">{card.body}</p>
-                    <p  className="hiw-subline">{card.subline}</p>
+                    <p className="hiw-body">{card.body}</p>
+                    <p className="hiw-subline">{card.subline}</p>
                   </motion.div>
                 </div>
               </Fragment>
             ))}
           </div>
 
-          {/* ── Mobile carousel ── */}
-          <div className="hiw-carousel-wrap">
-            <div className="hiw-carousel" ref={carouselRef}>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ==========================================
+// 3. MOBILE COMPONENT (400vh Stack Slide)
+// ==========================================
+function MobileHowItWorks() {
+  const targetRef = useRef<HTMLElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+  });
+
+  // Phase 1: The Heading Sequence (0% to 25%)
+  const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.04], [0, 1]);
+  const op1 = useTransform(scrollYProgress, [0.02, 0.07], [0, 1]);
+  const y1 = useTransform(scrollYProgress, [0.02, 0.07], [20, 0]);
+  const op2 = useTransform(scrollYProgress, [0.06, 0.11], [0, 1]);
+  const y2 = useTransform(scrollYProgress, [0.06, 0.11], [20, 0]);
+  const op3 = useTransform(scrollYProgress, [0.10, 0.15], [0, 1]);
+  const y3 = useTransform(scrollYProgress, [0.10, 0.15], [20, 0]);
+  const op4 = useTransform(scrollYProgress, [0.14, 0.19], [0, 1]);
+  const y4 = useTransform(scrollYProgress, [0.14, 0.19], [20, 0]);
+  const underlineWidth = useTransform(scrollYProgress, [0.20, 0.25], ["0%", "100%"]);
+
+  // Phase 2, 3, 4: Center-Fade, Slide Up & Swipe Stack
+  const dotsOpacity = useTransform(scrollYProgress, [0.25, 0.30], [0, 1]);
+
+  const c1Opacity = useTransform(scrollYProgress, [0.25, 0.30, 0.47, 0.48], [0, 1, 1, 0]);
+  const c1Y = useTransform(scrollYProgress, [0.25, 0.30], [100, 0]);
+  const c1Scale = useTransform(scrollYProgress, [0.25, 0.30], [0.95, 1]);
+  const c1X = useTransform(scrollYProgress, [0.40, 0.47], ["0vw", "-120vw"]);
+
+  const c2Opacity = useTransform(scrollYProgress, [0.50, 0.55, 0.72, 0.73], [0, 1, 1, 0]);
+  const c2Y = useTransform(scrollYProgress, [0.50, 0.55], [100, 0]);
+  const c2Scale = useTransform(scrollYProgress, [0.50, 0.55], [0.95, 1]);
+  const c2X = useTransform(scrollYProgress, [0.65, 0.72], ["0vw", "-120vw"]);
+
+  const c3Opacity = useTransform(scrollYProgress, [0.75, 0.80], [0, 1]);
+  const c3Y = useTransform(scrollYProgress, [0.75, 0.80], [100, 0]);
+  const c3Scale = useTransform(scrollYProgress, [0.75, 0.80], [0.95, 1]);
+  const c3X = useTransform(scrollYProgress, [0.75, 1], ["0vw", "0vw"]);
+
+  const cardOpacities = [c1Opacity, c2Opacity, c3Opacity];
+  const cardYs = [c1Y, c2Y, c3Y];
+  const cardScales = [c1Scale, c2Scale, c3Scale];
+  const cardXs = [c1X, c2X, c3X];
+
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    if (latest < 0.50) setActiveIndex(0);
+    else if (latest < 0.75) setActiveIndex(1);
+    else setActiveIndex(2);
+  });
+
+  return (
+    <section ref={targetRef} className="relative h-[400vh] bg-[#091825]">
+      <div className="sticky top-0 h-[100vh] flex flex-col justify-center overflow-hidden">
+
+        <div
+          className="absolute inset-0 opacity-[0.4] pointer-events-none z-0"
+          style={{
+            backgroundImage: `url("/images/howit'sworkbackgroundimage.svg")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover'
+          }}
+        />
+
+        <div className="w-full relative z-10 flex flex-col -mt-20">
+
+          <div className="max-w-[72rem] mx-auto px-6 w-full mb-8 text-center">
+            <motion.span
+              style={{ opacity: eyebrowOpacity }}
+              className="font-bold text-[11px] md:text-[12px] uppercase tracking-[0.25em] text-[#ede8da]/50 text-center block mb-4 font-montserrat"
+            >
+              HOW IT WORKS
+            </motion.span>
+
+            <h2 className="font-extrabold text-[32px] md:text-[48px] text-[#ede8da] leading-[1.2] tracking-tight flex flex-wrap justify-center gap-x-2 font-montserrat">
+              <motion.span style={{ opacity: op1, y: y1 }} className="inline-block">From</motion.span>
+              <motion.span style={{ opacity: op2, y: y2 }} className="inline-block">stressed</motion.span>
+              <motion.span style={{ opacity: op3, y: y3 }} className="inline-block">to</motion.span>
+
+              <motion.span style={{ opacity: op4, y: y4 }} className="inline-block relative">
+                sorted.
+                <motion.span
+                  style={{ width: underlineWidth }}
+                  className="absolute left-0 bottom-[-4px] h-[3px] bg-[#f57f20] rounded-full origin-left"
+                />
+              </motion.span>
+            </h2>
+          </div>
+
+          <div className="max-w-[72rem] mx-auto w-full flex justify-center relative">
+            <div className="relative grid place-items-center" style={{ gridTemplateAreas: '"stack"' }}>
               {CARDS.map((card, i) => (
-                <div
-                  key={card.num}
-                  className="hiw-carousel-card"
-                  ref={(el) => { slideRefs.current[i] = el; }}
+                <motion.div
+                  key={i}
+                  style={{
+                    gridArea: 'stack',
+                    opacity: cardOpacities[i],
+                    x: cardXs[i],
+                    y: cardYs[i],
+                    scale: cardScales[i]
+                  }}
+                  className="flex-shrink-0 w-[80vw] max-w-[320px] bg-white/[0.03] border border-white/[0.08] rounded-[24px] pt-4 pb-8 px-4 flex flex-col relative shadow-[0_-20px_40px_rgba(9,24,37,0.6)] backdrop-blur-sm"
                 >
                   <span
-                    className="hiw-num"
+                    className="text-[120px] font-black leading-none text-center block -mb-[28px] pointer-events-none select-none relative z-[1] font-montserrat"
                     style={{
                       backgroundImage: card.numGrad,
                       WebkitBackgroundClip: "text",
@@ -379,38 +410,63 @@ export default function HowItWorks() {
                       WebkitTextFillColor: "transparent",
                       color: "transparent",
                     }}
-                    aria-hidden
                   >
                     {card.num}
                   </span>
-                  <div className="hiw-text-block">
-                    <h3 className="hiw-title">{card.title}</h3>
-                    <p  className="hiw-body">{card.body}</p>
-                    <p  className="hiw-subline">{card.subline}</p>
+
+                  <div className="relative z-[2] px-4 flex flex-col items-center text-center">
+                    <h3 className="text-[22px] font-extrabold text-[#f57f20] uppercase tracking-[0.06em] mb-4 font-montserrat">
+                      {card.title}
+                    </h3>
+                    <p className="text-[15px] font-medium text-[#ede8da] leading-[1.6] max-w-[240px] mb-3 font-montserrat">
+                      {card.body}
+                    </p>
+                    <p className="text-[14px] font-normal text-[#ede8da]/40 italic leading-[1.5] font-montserrat">
+                      {card.subline}
+                    </p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
-            <div className="hiw-dots" aria-hidden>
+            {/* VERTICAL Scroll-Synced Pagination HUD on the Right Edge */}
+            <motion.div
+              style={{ opacity: dotsOpacity }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5 z-20"
+            >
               {CARDS.map((_, i) => (
-                <button
+                <div
                   key={i}
-                  className={`hiw-dot${activeIndex === i ? " hiw-dot-active" : ""}`}
-                  onClick={() => {
-                    slideRefs.current[i]?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "nearest",
-                      inline: "center",
-                    });
-                  }}
+                  className={`w-[4px] rounded-full transition-all duration-300 ${activeIndex === i
+                    ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
+                    : "h-[4px] bg-[#ede8da]/20"
+                    }`}
                 />
               ))}
-            </div>
+            </motion.div>
           </div>
-
         </div>
-      </section>
+
+      </div>
+    </section>
+  );
+}
+
+// ==========================================
+// 4. MAIN EXPORT COMPONENT
+// ==========================================
+export default function HowItWorks() {
+  return (
+    <>
+      {/* Renders ONLY on screens sm (640px) and up */}
+      <div className="hidden sm:block">
+        <DesktopHowItWorks />
+      </div>
+
+      {/* Renders ONLY on mobile screens smaller than sm (640px) */}
+      <div className="block sm:hidden">
+        <MobileHowItWorks />
+      </div>
     </>
   );
 }
