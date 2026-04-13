@@ -309,6 +309,8 @@ export default function MobileMenuCard({
                 onClick={() => setSelectedDay(day.index)}
                 className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${isActive ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm' : 'text-white/60 py-1.5 flex-1 min-w-[30px]'
                   }`}
+                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${isActive ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm' : 'text-white/60 py-1.5 flex-1 min-w-[30px]'
+                  }`}
               >
                 {isActive && (
                   <motion.div
