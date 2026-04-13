@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, Fragment } from "react";
+import { useRef, useState, useEffect, Fragment } from "react";
 import { motion, useScroll, useTransform, useMotionValueEvent, Variants } from "framer-motion";
 
 const E = [0.25, 0.46, 0.45, 0.94] as const;
@@ -174,7 +174,7 @@ const CARDS: CardDef[] = [
     num: "03",
     numGrad: "linear-gradient(180deg, rgba(237,232,218,0.30) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
     title: "US",
-    body: "We cook. We pack. We deliver. Mon – Fri.",
+    body: "We cook. We pack. We deliver. Mon – Sat.",
     subline: "New dish. Warm box. At your door. Like clockwork.",
   },
 ];
@@ -301,10 +301,28 @@ function DesktopHowItWorks() {
 // ==========================================
 function MobileHowItWorks() {
   const targetRef = useRef<HTMLElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // On mobile Chrome/Safari, CSS `100vh` can differ from `window.innerHeight`
+  // (large vs small viewport height depending on URL bar visibility). Framer
+  // Motion's useScroll uses window.innerHeight for its range calculations, so
+  // if the CSS height doesn't match, the animation starts mid-way and the last
+  // card never appears. Setting heights via JS keeps them in sync.
+  useEffect(() => {
+    function syncHeights() {
+      const h = window.innerHeight;
+      if (targetRef.current) targetRef.current.style.height = `${h * 4}px`;
+      if (stickyRef.current) stickyRef.current.style.height = `${h}px`;
+    }
+    syncHeights();
+    window.addEventListener('resize', syncHeights, { passive: true });
+    return () => window.removeEventListener('resize', syncHeights);
+  }, []);
 
   const { scrollYProgress } = useScroll({
     target: targetRef,
+    offset: ["start start", "end end"]
   });
 
   // Phase 1: The Heading Sequence (0% to 25%)
@@ -349,8 +367,8 @@ function MobileHowItWorks() {
   });
 
   return (
-    <section ref={targetRef} className="relative h-[400vh] bg-[#091825]">
-      <div className="sticky top-0 h-[100vh] flex flex-col justify-center overflow-hidden">
+    <section ref={targetRef} className="relative h-[400dvh] bg-[#091825]">
+      <div ref={stickyRef} className="sticky top-0 h-[100dvh] flex flex-col justify-center overflow-hidden">
 
         <div
           className="absolute inset-0 opacity-[0.4] pointer-events-none z-0"
