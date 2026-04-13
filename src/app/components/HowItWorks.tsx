@@ -24,7 +24,7 @@ const CSS = `
     background-repeat: no-repeat;
     background-position: center;
     background-size: cover;
-    opacity: 0.4;
+    opacity: 1;
     pointer-events: none;
     z-index: 0;
   }
@@ -174,12 +174,11 @@ const CARDS: CardDef[] = [
     num: "03",
     numGrad: "linear-gradient(180deg, rgba(237,232,218,0.30) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
     title: "US",
-    body: "We cook. We pack. We deliver. Mon – Sat.",
+    body: "We cook. We pack. We deliver. Mon – Fri.",
     subline: "New dish. Warm box. At your door. Like clockwork.",
   },
 ];
 
-// Exact 1.5s multiplier intervals for desktop storytelling
 const COL_TIMING = [
   { numDelay: 1.5, textDelay: 1.7 },
   { numDelay: 3.0, textDelay: 3.2 },
@@ -210,7 +209,7 @@ const underlineVariants: Variants = {
 function DesktopHowItWorks() {
   return (
     <>
-      <style>{CSS}</style>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       <section className="hiw-section">
         <div className="hiw-bg" aria-hidden />
@@ -300,60 +299,73 @@ function DesktopHowItWorks() {
 // 3. MOBILE COMPONENT (400vh Stack Slide)
 // ==========================================
 function MobileHowItWorks() {
-  const targetRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // On mobile Chrome/Safari, CSS `100vh` can differ from `window.innerHeight`
-  // (large vs small viewport height depending on URL bar visibility). Framer
-  // Motion's useScroll uses window.innerHeight for its range calculations, so
-  // if the CSS height doesn't match, the animation starts mid-way and the last
-  // card never appears. Setting heights via JS keeps them in sync.
+  // useScroll({ target }) relies on Framer's internal getBoundingClientRect()
+  // called in useLayoutEffect. On mobile Chrome/Safari, this fires before the
+  // page layout fully settles, returning a wrong offsetTop and making progress
+  // start at ~0.28 instead of 0. Fix: use global scrollY + measure offsetTop
+  // ourselves via the offsetParent chain (reliable, layout-independent).
+  const { scrollY } = useScroll();
+  const rangeRef = useRef<[number, number]>([0, 1]);
+
   useEffect(() => {
-    function syncHeights() {
+    function measure() {
       const h = window.innerHeight;
-      if (targetRef.current) targetRef.current.style.height = `${h * 4}px`;
+      if (containerRef.current) containerRef.current.style.height = `${h * 4}px`;
       if (stickyRef.current) stickyRef.current.style.height = `${h}px`;
+      // rAF lets the DOM settle after the height write before we read position
+      requestAnimationFrame(() => {
+        if (!containerRef.current) return;
+        let top = 0;
+        let el: HTMLElement | null = containerRef.current;
+        while (el) {
+          top += el.offsetTop;
+          el = el.offsetParent as HTMLElement | null;
+        }
+        rangeRef.current = [top, top + h * 3];
+      });
     }
-    syncHeights();
-    window.addEventListener('resize', syncHeights, { passive: true });
-    return () => window.removeEventListener('resize', syncHeights);
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+    return () => window.removeEventListener('resize', measure);
   }, []);
 
-  const { scrollYProgress } = useScroll({
-    target: targetRef,
-    offset: ["start start", "end end"]
+  const scrollYProgress = useTransform(scrollY, (v) => {
+    const [start, end] = rangeRef.current;
+    return Math.max(0, Math.min(1, (v - start) / (end - start)));
   });
 
-  // Phase 1: The Heading Sequence (0% to 25%)
-  const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.04], [0, 1]);
-  const op1 = useTransform(scrollYProgress, [0.02, 0.07], [0, 1]);
-  const y1 = useTransform(scrollYProgress, [0.02, 0.07], [20, 0]);
-  const op2 = useTransform(scrollYProgress, [0.06, 0.11], [0, 1]);
-  const y2 = useTransform(scrollYProgress, [0.06, 0.11], [20, 0]);
+  const eyebrowOpacity = useTransform(scrollYProgress, [0.02, 0.07], [0, 1]);
+  const op1 = useTransform(scrollYProgress, [0.04, 0.09], [0, 1]);
+  const y1 = useTransform(scrollYProgress, [0.04, 0.09], [20, 0]);
+  const op2 = useTransform(scrollYProgress, [0.07, 0.12], [0, 1]);
+  const y2 = useTransform(scrollYProgress, [0.07, 0.12], [20, 0]);
   const op3 = useTransform(scrollYProgress, [0.10, 0.15], [0, 1]);
   const y3 = useTransform(scrollYProgress, [0.10, 0.15], [20, 0]);
-  const op4 = useTransform(scrollYProgress, [0.14, 0.19], [0, 1]);
-  const y4 = useTransform(scrollYProgress, [0.14, 0.19], [20, 0]);
-  const underlineWidth = useTransform(scrollYProgress, [0.20, 0.25], ["0%", "100%"]);
+  const op4 = useTransform(scrollYProgress, [0.13, 0.18], [0, 1]);
+  const y4 = useTransform(scrollYProgress, [0.13, 0.18], [20, 0]);
+  const underlineWidth = useTransform(scrollYProgress, [0.18, 0.23], ["0%", "100%"]);
 
-  // Phase 2, 3, 4: Center-Fade, Slide Up & Swipe Stack
-  const dotsOpacity = useTransform(scrollYProgress, [0.25, 0.30], [0, 1]);
+  const dotsOpacity = useTransform(scrollYProgress, [0.23, 0.28], [0, 1]);
 
-  const c1Opacity = useTransform(scrollYProgress, [0.25, 0.30, 0.47, 0.48], [0, 1, 1, 0]);
-  const c1Y = useTransform(scrollYProgress, [0.25, 0.30], [100, 0]);
-  const c1Scale = useTransform(scrollYProgress, [0.25, 0.30], [0.95, 1]);
-  const c1X = useTransform(scrollYProgress, [0.40, 0.47], ["0vw", "-120vw"]);
+  const c1Opacity = useTransform(scrollYProgress, [0.24, 0.29, 0.44, 0.49], [0, 1, 1, 0]);
+  const c1Y = useTransform(scrollYProgress, [0.24, 0.29], [100, 0]);
+  const c1Scale = useTransform(scrollYProgress, [0.24, 0.29], [0.95, 1]);
+  // Re-verified exact string closure here:
+  const c1X = useTransform(scrollYProgress, [0.39, 0.49], ["0vw", "-120vw"]);
 
-  const c2Opacity = useTransform(scrollYProgress, [0.50, 0.55, 0.72, 0.73], [0, 1, 1, 0]);
+  const c2Opacity = useTransform(scrollYProgress, [0.50, 0.55, 0.70, 0.75], [0, 1, 1, 0]);
   const c2Y = useTransform(scrollYProgress, [0.50, 0.55], [100, 0]);
   const c2Scale = useTransform(scrollYProgress, [0.50, 0.55], [0.95, 1]);
-  const c2X = useTransform(scrollYProgress, [0.65, 0.72], ["0vw", "-120vw"]);
+  const c2X = useTransform(scrollYProgress, [0.65, 0.75], ["0vw", "-120vw"]);
 
-  const c3Opacity = useTransform(scrollYProgress, [0.75, 0.80], [0, 1]);
-  const c3Y = useTransform(scrollYProgress, [0.75, 0.80], [100, 0]);
-  const c3Scale = useTransform(scrollYProgress, [0.75, 0.80], [0.95, 1]);
-  const c3X = useTransform(scrollYProgress, [0.75, 1], ["0vw", "0vw"]);
+  const c3Opacity = useTransform(scrollYProgress, [0.76, 0.81], [0, 1]);
+  const c3Y = useTransform(scrollYProgress, [0.76, 0.81], [100, 0]);
+  const c3Scale = useTransform(scrollYProgress, [0.76, 0.81], [0.95, 1]);
+  const c3X = useTransform(scrollYProgress, [0.76, 1], ["0vw", "0vw"]);
 
   const cardOpacities = [c1Opacity, c2Opacity, c3Opacity];
   const cardYs = [c1Y, c2Y, c3Y];
@@ -361,17 +373,17 @@ function MobileHowItWorks() {
   const cardXs = [c1X, c2X, c3X];
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    if (latest < 0.50) setActiveIndex(0);
+    if (latest < 0.49) setActiveIndex(0);
     else if (latest < 0.75) setActiveIndex(1);
     else setActiveIndex(2);
   });
 
   return (
-    <section ref={targetRef} className="relative h-[400dvh] bg-[#091825]">
-      <div ref={stickyRef} className="sticky top-0 h-[100dvh] flex flex-col justify-center overflow-hidden">
+    <section ref={containerRef} className="relative bg-[#091825]" style={{ height: '400dvh' }}>
+      <div ref={stickyRef} className="sticky top-0 flex flex-col justify-center overflow-hidden" style={{ height: '100dvh' }}>
 
         <div
-          className="absolute inset-0 opacity-[0.4] pointer-events-none z-0"
+          className="absolute inset-0 opacity-100 pointer-events-none z-0"
           style={{
             backgroundImage: `url("/images/howit'sworkbackgroundimage.svg")`,
             backgroundRepeat: 'no-repeat',
@@ -384,6 +396,7 @@ function MobileHowItWorks() {
 
           <div className="max-w-[72rem] mx-auto px-6 w-full mb-8 text-center">
             <motion.span
+              initial={{ opacity: 0 }}
               style={{ opacity: eyebrowOpacity }}
               className="font-bold text-[11px] md:text-[12px] uppercase tracking-[0.25em] text-[#ede8da]/50 text-center block mb-4 font-montserrat"
             >
@@ -391,13 +404,14 @@ function MobileHowItWorks() {
             </motion.span>
 
             <h2 className="font-extrabold text-[32px] md:text-[48px] text-[#ede8da] leading-[1.2] tracking-tight flex flex-wrap justify-center gap-x-2 font-montserrat">
-              <motion.span style={{ opacity: op1, y: y1 }} className="inline-block">From</motion.span>
-              <motion.span style={{ opacity: op2, y: y2 }} className="inline-block">stressed</motion.span>
-              <motion.span style={{ opacity: op3, y: y3 }} className="inline-block">to</motion.span>
+              <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op1, y: y1 }} className="inline-block">From</motion.span>
+              <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op2, y: y2 }} className="inline-block">stressed</motion.span>
+              <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op3, y: y3 }} className="inline-block">to</motion.span>
 
-              <motion.span style={{ opacity: op4, y: y4 }} className="inline-block relative">
+              <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op4, y: y4 }} className="inline-block relative">
                 sorted.
                 <motion.span
+                  initial={{ width: "0%" }}
                   style={{ width: underlineWidth }}
                   className="absolute left-0 bottom-[-4px] h-[3px] bg-[#f57f20] rounded-full origin-left"
                 />
@@ -410,6 +424,7 @@ function MobileHowItWorks() {
               {CARDS.map((card, i) => (
                 <motion.div
                   key={i}
+                  initial={{ opacity: 0, scale: 0.95, y: 100 }}
                   style={{
                     gridArea: 'stack',
                     opacity: cardOpacities[i],
@@ -447,8 +462,8 @@ function MobileHowItWorks() {
               ))}
             </div>
 
-            {/* VERTICAL Scroll-Synced Pagination HUD on the Right Edge */}
             <motion.div
+              initial={{ opacity: 0 }}
               style={{ opacity: dotsOpacity }}
               className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5 z-20"
             >
@@ -456,8 +471,8 @@ function MobileHowItWorks() {
                 <div
                   key={i}
                   className={`w-[4px] rounded-full transition-all duration-300 ${activeIndex === i
-                    ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
-                    : "h-[4px] bg-[#ede8da]/20"
+                      ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
+                      : "h-[4px] bg-[#ede8da]/20"
                     }`}
                 />
               ))}
@@ -476,12 +491,9 @@ function MobileHowItWorks() {
 export default function HowItWorks() {
   return (
     <>
-      {/* Renders ONLY on screens sm (640px) and up */}
       <div className="hidden sm:block">
         <DesktopHowItWorks />
       </div>
-
-      {/* Renders ONLY on mobile screens smaller than sm (640px) */}
       <div className="block sm:hidden">
         <MobileHowItWorks />
       </div>
