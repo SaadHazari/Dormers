@@ -404,10 +404,10 @@ export default function USPBento() {
             <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>Exclusive to Dormers</p>
             <h2 className={isLight ? "text-[#1E3A4F]" : "text-white"} style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}>Why only Dormers?</h2>
           </motion.div>
-          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="hidden md:grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}>
+          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="hidden lg:grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}>
             {cards.map((card, i) => renderCard(card, i, true))}
           </motion.div>
-          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="grid md:hidden grid-cols-2" style={{ gap: "13px" }}>
+          <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="grid lg:hidden grid-cols-2" style={{ gap: "13px" }}>
             {cards.map((card, i) => renderCard(card, i, false))}
           </motion.div>
         </div>

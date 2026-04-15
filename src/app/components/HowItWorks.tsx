@@ -313,75 +313,58 @@ function MobileHowItWorks() {
   const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // useScroll({ target }) relies on Framer's internal getBoundingClientRect()
-  // called in useLayoutEffect. On mobile Chrome/Safari, this fires before the
-  // page layout fully settles, returning a wrong offsetTop and making progress
-  // start at ~0.28 instead of 0. Fix: use global scrollY + measure offsetTop
-  // ourselves via the offsetParent chain (reliable, layout-independent).
-  const { scrollY } = useScroll();
-  const rangeRef = useRef<[number, number]>([0, 1]);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
 
   useEffect(() => {
     function measure() {
       const h = window.innerHeight;
       if (containerRef.current) containerRef.current.style.height = `${h * 4}px`;
       if (stickyRef.current) stickyRef.current.style.height = `${h}px`;
-      // rAF lets the DOM settle after the height write before we read position
-      requestAnimationFrame(() => {
-        if (!containerRef.current) return;
-        let top = 0;
-        let el: HTMLElement | null = containerRef.current;
-        while (el) {
-          top += el.offsetTop;
-          el = el.offsetParent as HTMLElement | null;
-        }
-        rangeRef.current = [top, top + h * 3];
-      });
     }
     let prevW = window.innerWidth;
     function handleResize() {
       const w = window.innerWidth;
-      if (w !== prevW) { prevW = w; measure(); }
       // Height-only resize = Safari chrome show/hide — ignore to prevent layout jump
+      if (w !== prevW) { prevW = w; measure(); }
     }
     measure();
     window.addEventListener('resize', handleResize, { passive: true });
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const scrollYProgress = useTransform(scrollY, (v) => {
-    const [start, end] = rangeRef.current;
-    return Math.max(0, Math.min(1, (v - start) / (end - start)));
-  });
+  const eyebrowOpacity = useTransform(scrollYProgress, [0.05, 0.08], [0, 1]);
+  const op1 = useTransform(scrollYProgress, [0.07, 0.10], [0, 1]);
+  const y1 = useTransform(scrollYProgress, [0.07, 0.10], [20, 0]);
+  const op2 = useTransform(scrollYProgress, [0.09, 0.12], [0, 1]);
+  const y2 = useTransform(scrollYProgress, [0.09, 0.12], [20, 0]);
+  const op3 = useTransform(scrollYProgress, [0.11, 0.14], [0, 1]);
+  const y3 = useTransform(scrollYProgress, [0.11, 0.14], [20, 0]);
+  const op4 = useTransform(scrollYProgress, [0.13, 0.16], [0, 1]);
+  const y4 = useTransform(scrollYProgress, [0.13, 0.16], [20, 0]);
+  const underlineWidth = useTransform(scrollYProgress, [0.16, 0.20], ["0%", "100%"]);
 
-  const eyebrowOpacity = useTransform(scrollYProgress, [0.02, 0.07], [0, 1]);
-  const op1 = useTransform(scrollYProgress, [0.04, 0.09], [0, 1]);
-  const y1 = useTransform(scrollYProgress, [0.04, 0.09], [20, 0]);
-  const op2 = useTransform(scrollYProgress, [0.07, 0.12], [0, 1]);
-  const y2 = useTransform(scrollYProgress, [0.07, 0.12], [20, 0]);
-  const op3 = useTransform(scrollYProgress, [0.10, 0.15], [0, 1]);
-  const y3 = useTransform(scrollYProgress, [0.10, 0.15], [20, 0]);
-  const op4 = useTransform(scrollYProgress, [0.13, 0.18], [0, 1]);
-  const y4 = useTransform(scrollYProgress, [0.13, 0.18], [20, 0]);
-  const underlineWidth = useTransform(scrollYProgress, [0.18, 0.23], ["0%", "100%"]);
+  const dotsOpacity = useTransform(scrollYProgress, [0.20, 0.23], [0, 1]);
 
-  const dotsOpacity = useTransform(scrollYProgress, [0.23, 0.28], [0, 1]);
+  // Card 1: 0.22 - 0.58
+  const c1Opacity = useTransform(scrollYProgress, [0.22, 0.28, 0.48, 0.58], [0, 1, 1, 0]);
+  const c1Y = useTransform(scrollYProgress, [0.22, 0.28], [100, 0]);
+  const c1Scale = useTransform(scrollYProgress, [0.22, 0.28], [0.95, 1]);
+  const c1X = useTransform(scrollYProgress, [0.48, 0.58], ["0vw", "-120vw"]);
 
-  const c1Opacity = useTransform(scrollYProgress, [0.24, 0.29, 0.44, 0.49], [0, 1, 1, 0]);
-  const c1Y = useTransform(scrollYProgress, [0.24, 0.29], [100, 0]);
-  const c1Scale = useTransform(scrollYProgress, [0.24, 0.29], [0.95, 1]);
-  // Re-verified exact string closure here:
-  const c1X = useTransform(scrollYProgress, [0.39, 0.49], ["0vw", "-120vw"]);
+  // Card 2: 0.58 - 0.88
+  const c2Opacity = useTransform(scrollYProgress, [0.58, 0.64, 0.78, 0.88], [0, 1, 1, 0]);
+  const c2Y = useTransform(scrollYProgress, [0.58, 0.64], [100, 0]);
+  const c2Scale = useTransform(scrollYProgress, [0.58, 0.64], [0.95, 1]);
+  const c2X = useTransform(scrollYProgress, [0.78, 0.88], ["0vw", "-120vw"]);
 
-  const c2Opacity = useTransform(scrollYProgress, [0.50, 0.55, 0.70, 0.75], [0, 1, 1, 0]);
-  const c2Y = useTransform(scrollYProgress, [0.50, 0.55], [100, 0]);
-  const c2Scale = useTransform(scrollYProgress, [0.50, 0.55], [0.95, 1]);
-  const c2X = useTransform(scrollYProgress, [0.65, 0.75], ["0vw", "-120vw"]);
-
-  const c3Opacity = useTransform(scrollYProgress, [0.76, 0.81], [0, 1]);
-  const c3Y = useTransform(scrollYProgress, [0.76, 0.81], [100, 0]);
-  const c3Scale = useTransform(scrollYProgress, [0.76, 0.81], [0.95, 1]);
-  const c3X = useTransform(scrollYProgress, [0.76, 1], ["0vw", "0vw"]);
+  // Card 3: 0.88 - 1.00
+  const c3Opacity = useTransform(scrollYProgress, [0.88, 0.94], [0, 1]);
+  const c3Y = useTransform(scrollYProgress, [0.88, 0.94], [100, 0]);
+  const c3Scale = useTransform(scrollYProgress, [0.88, 0.94], [0.95, 1]);
+  const c3X = useTransform(scrollYProgress, [0.88, 1], ["0vw", "0vw"]);
 
   const cardOpacities = [c1Opacity, c2Opacity, c3Opacity];
   const cardYs = [c1Y, c2Y, c3Y];
@@ -389,8 +372,8 @@ function MobileHowItWorks() {
   const cardXs = [c1X, c2X, c3X];
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    if (latest < 0.49) setActiveIndex(0);
-    else if (latest < 0.75) setActiveIndex(1);
+    if (latest < 0.58) setActiveIndex(0);
+    else if (latest < 0.88) setActiveIndex(1);
     else setActiveIndex(2);
   });
 

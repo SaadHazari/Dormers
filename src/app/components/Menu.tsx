@@ -22,7 +22,7 @@ interface MicroNutrient {
   percentage: string;
 }
 
-interface Dish {
+export interface Dish {
   id: number;
   name: string;
   week: Week;
@@ -42,7 +42,7 @@ interface Dish {
 }
 
 // This would typically come from an API or database
-const MENU_DATA: Dish[] = [
+export const MENU_DATA: Dish[] = [
   // Week 1 Non-Veg
   {
     id: 1,
@@ -1379,6 +1379,7 @@ export default function Menu() {
                 }}
                 className={`relative w-15 h-7 rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
                 ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
+                style={{ WebkitBackdropFilter: "blur(12px)", backdropFilter: "blur(12px)" }}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1420,6 +1421,7 @@ export default function Menu() {
                 className={`relative rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
                 h-[43px] w-[90px]
                 ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
+                style={{ WebkitBackdropFilter: "blur(12px)", backdropFilter: "blur(12px)" }}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1445,7 +1447,7 @@ export default function Menu() {
           </div>
 
           {/* --- NEW MOBILE MENU UI --- */}
-          <div className="lg:hidden mx-auto mt-4 px-2">
+          <div className="lg:hidden mx-auto mt-6 sm:mt-10 px-2">
             <MobileMenuCard 
               currentDish={currentDish}
               selectedWeek={selectedWeek}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 // import Image from "next/image";
@@ -226,9 +226,11 @@ const messages =
   ]
 
 const TestimonialsDesktop = () => {
-  const { theme } = useTheme();
+  useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const containerRef = useRef(null);
+  const wheelCooldown = useRef(false);
 
   const groupedMessages = useMemo(() => {
     const result = [];
@@ -248,10 +250,31 @@ const TestimonialsDesktop = () => {
     return () => clearInterval(interval);
   }, [groupedMessages.length, isHovered]);
 
+  const handleWheel = useCallback((e) => {
+    if (wheelCooldown.current) return;
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 40) return;
+    wheelCooldown.current = true;
+    setTimeout(() => { wheelCooldown.current = false; }, 600);
+    setIsHovered(true);
+    setTimeout(() => setIsHovered(false), 3000);
+    if (e.deltaX > 0) {
+      setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
+    } else {
+      setCurrentGroup((prev) => (prev === 0 ? groupedMessages.length - 1 : prev - 1));
+    }
+  }, [groupedMessages.length]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: true });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
+
   const positions = ["top-0 left-0", "top-10 right-0", "bottom-0 left-1/3"];
   const handleDotClick = (index) => setCurrentGroup(index);
   return (
-    <div>
+    <div ref={containerRef}>
       <div className="w-full py-12 flex justify-center bg-[#031624]">
         <div className="relative max-w-[987px] w-full h-[340px] overflow-hidden"
           onMouseEnter={() => setIsHovered(true)}
@@ -268,26 +291,32 @@ const TestimonialsDesktop = () => {
             >
               {groupedMessages[currentGroup].map((msg, index) => {
                 const position = positions[index % positions.length];
-                const isLight = theme === "light";
-
                 return (
                   <div
                     key={msg.id}
-                    className={`absolute ${position} ${isLight ? "bg-[#EEE9DA]" : "bg-[#F4F1EC]"
-                      } rounded-lg p-4 shadow-lg max-w-[280px]`}
+                    className={`absolute ${position} rounded-2xl p-4 max-w-[280px] ${
+                      msg.from === "user"
+                        ? "bg-[#1E6B8A]/20 border border-white/15 backdrop-blur-md shadow-[0_4px_24px_rgba(30,107,138,0.15)] text-white"
+                        : "bg-[#FF7F00]/15 border border-[#FF7F00]/30 backdrop-blur-md shadow-[0_4px_24px_rgba(255,127,0,0.18)] text-white"
+                    }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="bg-[#1e3b50] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold">
+                      <div className={`rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold text-white ${msg.from === "user" ? "bg-[#1E6B8A]" : "bg-[#FF7F00]"}`}>
                         {msg.name[0]}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-black">
+                        <p className="text-sm font-semibold text-white">
                           {msg.name}
                         </p>
-                        <p className="text-xs font-normal text-[#686766]">{msg.city}</p> </div>
+                        <p className="text-xs font-normal text-white/60">{msg.city}</p> </div>
+                    </div>
+                    <div className="flex gap-0.5 my-1.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span key={s} style={{ color: "#FF7F00", fontSize: "12px" }}>★</span>
+                      ))}
                     </div>
                     <p
-                      className="text-sm text-gray-800 font-medium"
+                      className="text-sm text-white/90 font-medium"
                       style={{
                         fontFamily: "Montserrat",
                         fontWeight: 600,
@@ -297,9 +326,11 @@ const TestimonialsDesktop = () => {
                       {msg.text}
                     </p>
                     <div
-                      className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"
-                        } w-4 h-4 transform rotate-45 ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#EEE9DA]"
-                        }`}
+                      className={`absolute -bottom-2 w-4 h-4 transform rotate-45 ${
+                        msg.from === "user"
+                          ? "right-4 bg-[#1E6B8A]/20 border-r border-b border-white/15"
+                          : "left-4 bg-[#FF7F00]/15 border-r border-b border-[#FF7F00]/30"
+                      }`}
                     />
                   </div>
                 );
@@ -308,15 +339,16 @@ const TestimonialsDesktop = () => {
           </AnimatePresence>
         </div>
       </div>
-      <div className="flex justify-center mt-6 gap-2">
+      <div className="flex justify-center mt-6 gap-1.5 pb-6 flex-wrap px-4">
         {groupedMessages.map((_, index) => (
           <button
             key={index}
             onClick={() => handleDotClick(index)}
-            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentGroup
-              ? "bg-white scale-110 w-[60px] h-[8px]"
-              : "bg-white/30"
-              }`}
+            className={`transition-all duration-300 rounded-full ${
+              index === currentGroup
+                ? "bg-white w-[24px] h-[8px]"
+                : "bg-white/30 w-[8px] h-[8px]"
+            }`}
           />
         ))}
       </div>

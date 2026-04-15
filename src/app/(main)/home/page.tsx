@@ -580,7 +580,7 @@ export default function Home() {
 
                       {/* Scrollable FAQ list */}
                       <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                           {faqs.map((faq, index) =>
                             renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
                           )}
@@ -623,7 +623,7 @@ export default function Home() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
+                      className="grid grid-cols-1 gap-4"
                     >
                       {faqs
                         .slice(0, 3)

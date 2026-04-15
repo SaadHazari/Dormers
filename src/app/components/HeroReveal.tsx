@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
+import TonightsMeal from "@/app/components/TonightsMeal";
+import Preloader from "@/app/components/Preloader";
 
 /* ─────────────────────────────────────────────────────────────────
  * Framer ease curve
@@ -54,8 +56,7 @@ const CSS = `
     min-height: 100vh;
     position: relative;
     display: flex;
-    align-items: flex-start;
-    /* Balanced with left-margin (80px): top gap ~72px gives near-1:1 ratio */
+    flex-direction: column;
     padding-top: 136px;
     overflow: hidden;
   }
@@ -73,10 +74,20 @@ const CSS = `
   .h-content {
     position: relative;
     z-index: 1;
-    max-width: 1200px;
+    max-width: 1280px;
     width: 100%;
     margin: 0 auto;
-    padding: 0 80px;
+    padding: 0 70px;
+    display: flex;
+    align-items: flex-start;
+    gap: 56px;
+  }
+  .h-left  { flex: 1 1 auto; min-width: 0; }
+  .h-right {
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 19px;
+    margin-left: 5px;
   }
 
   /* ── Headline ── */
@@ -84,7 +95,7 @@ const CSS = `
   .h-hl-l1 {
     font-family: Montserrat, sans-serif;
     font-weight: 500;
-    font-size: 72px;
+    font-size: 58px;
     line-height: 1.05;
     letter-spacing: -0.02em;
     color: #ede8da;
@@ -92,7 +103,7 @@ const CSS = `
   }
   .h-hl-l2 {
     font-family: Montserrat, sans-serif;
-    font-size: 72px;
+    font-size: 58px;
     line-height: 1.05;
     letter-spacing: -0.02em;
     margin: 0;
@@ -108,14 +119,14 @@ const CSS = `
   .h-hl-dinner {
     font-family: Montserrat, sans-serif;
     font-weight: 900;
-    font-size: 88px;
+    font-size: 74px;
     color: #f57f20;
     font-style: italic;
   }
   .h-hl-period {
     font-family: Montserrat, sans-serif;
     font-weight: 900;
-    font-size: 88px;
+    font-size: 74px;
     color: #f57f20;
     font-style: italic;
   }
@@ -125,6 +136,8 @@ const CSS = `
     margin-bottom: 48px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    row-gap: 12px;
   }
   .h-check-item {
     font-family: Montserrat, sans-serif;
@@ -134,6 +147,7 @@ const CSS = `
     letter-spacing: 0.01em;
     position: relative;
     display: inline-block;
+    white-space: nowrap;
   }
   .h-dot-sep {
     color: rgba(237, 232, 218, 0.55);
@@ -187,9 +201,15 @@ const CSS = `
   .h-btn-secondary:hover { border-color: #ede8da; background: rgba(237,232,218,0.08); transform: scale(1.03); }
 
   /* ── Proof bar ── */
+  .h-proof-wrapper {
+    width: 100%;
+    max-width: 900px;
+    margin: auto auto 40px auto; /* pushes to the bottom of the flex container, horizontally centered */
+    padding: 0 40px;
+  }
   .h-proof {
     border-top: 1px solid rgba(237, 232, 218, 0.15);
-    padding: 32px 0;
+    padding: 24px 0 0;
     display: flex;
     justify-content: space-around;
     align-items: flex-start;
@@ -253,18 +273,21 @@ const CSS = `
 
   /* ── Tablet (641–1024px) ── */
   @media (max-width: 1024px) {
-    .h-section   { padding-top: 100px; }
-    .h-content   { padding: 0 48px; }
+    .h-section   { padding-top: 100px; min-height: auto; padding-bottom: 30px; }
+    .h-content   { padding: 0 48px; flex-direction: column; gap: 32px; }
     .h-hl-l1, .h-hl-l2 { font-size: 52px; }
     .h-hl-dinner, .h-hl-period { font-size: 64px; }
     .h-proof-num    { font-size: 44px; }
     .h-proof-prefix { font-size: 13px; }
+    .h-ctas         { margin-bottom: 24px; }
+    .h-right        { align-self: center; margin-top: 0; margin-left: 0; transform: scale(0.95); margin-bottom: 30px; }
   }
 
   /* ── Mobile (≤640px) ── */
   @media (max-width: 640px) {
     .h-section   { padding-top: 96px; }
     .h-content   { padding: 0 24px; }
+    .h-right     { display: none !important; }
     .h-hl-l1, .h-hl-l2 { font-size: 36px; }
     .h-hl-dinner, .h-hl-period { font-size: 44px; }
     .h-headline  { margin-bottom: 34px; }
@@ -319,9 +342,11 @@ export default function HeroReveal() {
   type CloserPhase = "idle" | "cursor" | "typing" | "done";
   const [closerPhase, setCloserPhase] = useState<CloserPhase>("idle");
   const [closerText, setCloserText] = useState("");
+  const [isPreloading, setIsPreloading] = useState(true);
   const CLOSER_FULL = "A new dish, every night.";
 
   useEffect(() => {
+    if (isPreloading) return;
     const t = setTimeout(() => {
       window.dispatchEvent(new CustomEvent("hero-ui-visible"));
     }, (DORM_D + 0.5) * 1000);
@@ -329,9 +354,11 @@ export default function HeroReveal() {
       clearTimeout(t);
       window.dispatchEvent(new CustomEvent("hero-ui-hidden"));
     };
-  }, []);
+  }, [isPreloading]);
+
 
   useEffect(() => {
+    if (isPreloading) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const intervals: ReturnType<typeof setInterval>[] = [];
 
@@ -358,11 +385,13 @@ export default function HeroReveal() {
       timers.forEach((t) => clearTimeout(t));
       intervals.forEach((iv) => clearInterval(iv));
     };
-  }, []);
+  }, [isPreloading]);
 
   return (
     <>
       <style>{CSS}</style>
+
+      {isPreloading && <Preloader onComplete={() => setIsPreloading(false)} />}
 
       <section id="hero" className="h-section">
 
@@ -378,252 +407,270 @@ export default function HeroReveal() {
           </svg>
         </div>
 
-        <div className="h-content">
+        {!isPreloading && (
+          <>
+            <div className="h-content">
+          <div className="h-left">
 
-          {/* 1 ── Headline */}
-          <div className="h-headline">
+            {/* 1 ── Headline */}
+            <div className="h-headline">
 
-            {/* Line 1 — word-by-word */}
-            <div className="h-hl-l1">
-              {["You", "didn't", "leave", "home"].map((word, i) => (
+              {/* Line 1 — word-by-word */}
+              <div className="h-hl-l1">
+                {["You", "didn't", "leave", "home"].map((word, i) => (
+                  <motion.span
+                    key={word}
+                    initial={{ opacity: 0, y: 22, scale: 0.88 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.44, delay: L1_S + i * W_GAP, ease: E }}
+                    style={{
+                      display: "inline-block",
+                      marginRight: "0.24em",
+                      fontFamily:
+                        word === "home"
+                          ? "'Typo Round Bold Demo','Typo Round',sans-serif"
+                          : "Montserrat,sans-serif",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </div>
+
+              {/* Line 2 — word-by-word */}
+              <div className="h-hl-l2">
                 <motion.span
-                  key={word}
+                  className="h-hl-to"
                   initial={{ opacity: 0, y: 22, scale: 0.88 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.44, delay: L1_S + i * W_GAP, ease: E }}
-                  style={{
-                    display: "inline-block",
-                    marginRight: "0.24em",
-                    fontFamily:
-                      word === "home"
-                        ? "'Typo Round Bold Demo','Typo Round',sans-serif"
-                        : "Montserrat,sans-serif",
-                    fontWeight: 700,
-                  }}
+                  transition={{ duration: 0.44, delay: L2_D, ease: E }}
+                  style={{ display: "inline-block", marginRight: "0.24em" }}
                 >
-                  {word}
+                  to
                 </motion.span>
-              ))}
+                <motion.span
+                  className="h-hl-stress"
+                  initial={{ opacity: 0, y: 22, scale: 0.88 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.44, delay: L2_D + L2_W_GAP, ease: E }}
+                  style={{ display: "inline-block", marginRight: "0.24em" }}
+                >
+                  stress
+                </motion.span>
+                <motion.span
+                  className="h-hl-stress"
+                  initial={{ opacity: 0, y: 22, scale: 0.88 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.44, delay: L2_D + 2 * L2_W_GAP, ease: E }}
+                  style={{ display: "inline-block", marginRight: "0.24em" }}
+                >
+                  about
+                </motion.span>
+              </div>
+
+              {/* Line 3 — "dinner." + straight underline */}
+              <div className="h-hl-l3">
+                <motion.span
+                  initial={{ opacity: 0, y: 22, scale: 0.88 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.44, delay: L2_D + 3 * L2_W_GAP, ease: E }}
+                  style={{ display: "inline-block" }}
+                >
+                  <span className="h-hl-dinner-wrap">
+                    <span className="h-hl-dinner">dinner</span>
+                    <motion.span
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ delay: UNDER_D, duration: 0.50, ease: E }}
+                      style={{
+                        position: "absolute",
+                        bottom: -3,
+                        left: 0,
+                        right: 0,
+                        height: 2,
+                        background: "#f57f20",
+                        transformOrigin: "left center",
+                        display: "block",
+                        borderRadius: "1px",
+                      }}
+                    />
+                  </span>
+                  <span className="h-hl-period">.</span>
+                </motion.span>
+              </div>
             </div>
 
-            {/* Line 2 — word-by-word */}
-            <div className="h-hl-l2">
+            {/* 2 ── Checklist — sequential: item → strike → dot → next item */}
+            <div className="h-checklist">
+
+              {/* Item 1 */}
               <motion.span
-                className="h-hl-to"
-                initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.44, delay: L2_D, ease: E }}
-                style={{ display: "inline-block", marginRight: "0.24em" }}
+                className="h-check-item"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.40, delay: PP1_D, ease: E }}
               >
-                to
+                No apps to scroll
+                <Strike delay={STR1_D} rotation={-1} />
               </motion.span>
+
+              {/* Dot 1 — appears after strike 1 */}
               <motion.span
-                className="h-hl-stress"
-                initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.44, delay: L2_D + L2_W_GAP, ease: E }}
-                style={{ display: "inline-block", marginRight: "0.24em" }}
+                className="h-dot-sep"
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.18, delay: DOT1_D, ease: E }}
               >
-                stress
+                ·
               </motion.span>
+
+              {/* Item 2 */}
               <motion.span
-                className="h-hl-stress"
-                initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.44, delay: L2_D + 2 * L2_W_GAP, ease: E }}
-                style={{ display: "inline-block", marginRight: "0.24em" }}
+                className="h-check-item"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.40, delay: PP2_D, ease: E }}
               >
-                about
+                No groceries to buy
+                <Strike delay={STR2_D} rotation={0.5} />
               </motion.span>
+
+              {/* Dot 2 — appears after strike 2 */}
+              <motion.span
+                className="h-dot-sep"
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.18, delay: DOT2_D, ease: E }}
+              >
+                ·
+              </motion.span>
+
+              {/* Item 3 */}
+              <motion.span
+                className="h-check-item"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.40, delay: PP3_D, ease: E }}
+              >
+                No recipes to follow
+                <Strike delay={STR3_D} rotation={-0.8} />
+              </motion.span>
+
             </div>
 
-            {/* Line 3 — "dinner." + straight underline */}
-            <div className="h-hl-l3">
-              <motion.span
-                initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.44, delay: L2_D + 3 * L2_W_GAP, ease: E }}
-                style={{ display: "inline-block" }}
-              >
-                <span className="h-hl-dinner-wrap">
-                  <span className="h-hl-dinner">dinner</span>
+            {/* 3 ── Anchor / payoff */}
+            <div className="h-anchor">
+
+              {/* Line 1 — typewriter */}
+              <p className="h-anchor-l1" style={{ minHeight: "1.25em" }}>
+                {closerPhase !== "idle" && closerText}
+
+                {(closerPhase === "cursor" || closerPhase === "typing") && (
                   <motion.span
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ delay: UNDER_D, duration: 0.50, ease: E }}
-                    style={{
-                      position: "absolute",
-                      bottom: -3,
-                      left: 0,
-                      right: 0,
-                      height: 2,
-                      background: "#f57f20",
-                      transformOrigin: "left center",
-                      display: "block",
-                      borderRadius: "1px",
+                    animate={
+                      closerPhase === "cursor" ? { opacity: [1, 0] } : { opacity: 1 }
+                    }
+                    transition={{
+                      duration: 0.45,
+                      repeat: closerPhase === "cursor" ? Infinity : 0,
+                      repeatType: "reverse",
                     }}
-                  />
-                </span>
-                <span className="h-hl-period">.</span>
-              </motion.span>
+                    style={{
+                      fontFamily: "Montserrat, sans-serif",
+                      fontWeight: 300,
+                      color: "rgba(237,232,218,0.55)",
+                    }}
+                  >
+                    |
+                  </motion.span>
+                )}
+
+                {closerPhase === "done" && (
+                  <motion.span
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 0 }}
+                    transition={{ delay: 0.6, duration: 0.5 }}
+                    style={{
+                      fontFamily: "Montserrat, sans-serif",
+                      fontWeight: 300,
+                      color: "rgba(237,232,218,0.55)",
+                    }}
+                  >
+                    |
+                  </motion.span>
+                )}
+              </p>
+
+              {/* Line 2 — "Delivered WARM" first, then "to your DORM." */}
+              <p className="h-anchor-l2">
+                <motion.span
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: LINE2_D, duration: 0.45, ease: E }}
+                  style={{ display: "inline" }}
+                >
+                  Delivered{" "}<span className="h-anchor-emph">WARM</span>
+                </motion.span>
+                {" "}
+                <motion.span
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: LINE2B_D, duration: 0.45, ease: E }}
+                  style={{ display: "inline" }}
+                >
+                  to your{" "}<span className="h-anchor-emph">DORM</span>.
+                </motion.span>
+              </p>
+
             </div>
-          </div>
 
-          {/* 2 ── Checklist — sequential: item → strike → dot → next item */}
-          <div className="h-checklist">
-
-            {/* Item 1 */}
-            <motion.span
-              className="h-check-item"
-              initial={{ opacity: 0, y: 10 }}
+            {/* 4 ── CTA Buttons */}
+            <motion.div
+              className="h-ctas"
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.40, delay: PP1_D, ease: E }}
+              transition={{ delay: CTA_D, duration: 0.48, ease: E }}
             >
-              No apps to scroll
-              <Strike delay={STR1_D} rotation={-1} />
-            </motion.span>
-
-            {/* Dot 1 — appears after strike 1 */}
-            <motion.span
-              className="h-dot-sep"
-              aria-hidden="true"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.18, delay: DOT1_D, ease: E }}
-            >
-              ·
-            </motion.span>
-
-            {/* Item 2 */}
-            <motion.span
-              className="h-check-item"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.40, delay: PP2_D, ease: E }}
-            >
-              No groceries to buy
-              <Strike delay={STR2_D} rotation={0.5} />
-            </motion.span>
-
-            {/* Dot 2 — appears after strike 2 */}
-            <motion.span
-              className="h-dot-sep"
-              aria-hidden="true"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.18, delay: DOT2_D, ease: E }}
-            >
-              ·
-            </motion.span>
-
-            {/* Item 3 */}
-            <motion.span
-              className="h-check-item"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.40, delay: PP3_D, ease: E }}
-            >
-              No recipes to follow
-              <Strike delay={STR3_D} rotation={-0.8} />
-            </motion.span>
-
-          </div>
-
-          {/* 3 ── Anchor / payoff */}
-          <div className="h-anchor">
-
-            {/* Line 1 — typewriter */}
-            <p className="h-anchor-l1" style={{ minHeight: "1.25em" }}>
-              {closerPhase !== "idle" && closerText}
-
-              {(closerPhase === "cursor" || closerPhase === "typing") && (
-                <motion.span
-                  animate={
-                    closerPhase === "cursor" ? { opacity: [1, 0] } : { opacity: 1 }
-                  }
-                  transition={{
-                    duration: 0.45,
-                    repeat: closerPhase === "cursor" ? Infinity : 0,
-                    repeatType: "reverse",
-                  }}
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 300,
-                    color: "rgba(237,232,218,0.55)",
-                  }}
-                >
-                  |
-                </motion.span>
-              )}
-
-              {closerPhase === "done" && (
-                <motion.span
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 0 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontWeight: 300,
-                    color: "rgba(237,232,218,0.55)",
-                  }}
-                >
-                  |
-                </motion.span>
-              )}
-            </p>
-
-            {/* Line 2 — "Delivered WARM" first, then "to your DORM." */}
-            <p className="h-anchor-l2">
-              <motion.span
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: LINE2_D, duration: 0.45, ease: E }}
-                style={{ display: "inline" }}
+              <button
+                className="h-btn h-btn-primary hero-cta-primary flex items-center justify-center overflow-hidden min-w-[160px] md:min-w-[185px]"
+                onClick={() => window.open("https://vip.dormers.ae/", "_blank")}
               >
-                Delivered{" "}<span className="h-anchor-emph">WARM</span>
-              </motion.span>
-              {" "}
-              <motion.span
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: LINE2B_D, duration: 0.45, ease: E }}
-                style={{ display: "inline" }}
+                <TextRotate
+                  texts={["Get Started", "View Plans"]}
+                  mainClassName="font-bold !whitespace-nowrap !flex-nowrap"
+                  staggerDuration={0.03}
+                  staggerFrom="last"
+                  rotationInterval={3500}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                />
+              </button>
+              <button
+                className="h-btn h-btn-secondary"
+                onClick={() => window.open("https://vip.dormers.ae/", "_blank")}
               >
-                to your{" "}<span className="h-anchor-emph">DORM</span>.
-              </motion.span>
-            </p>
+                Try a Meal
+              </button>
+            </motion.div>
 
-          </div>
+          </div>{/* end h-left */}
 
-          {/* 4 ── CTA Buttons */}
+          {/* Right column — Tonight's Meal card */}
           <motion.div
-            className="h-ctas"
-            initial={{ opacity: 0, y: 14 }}
+            className="h-right"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: CTA_D, duration: 0.48, ease: E }}
+            transition={{ delay: DISH_D, duration: 0.55, ease: E }}
           >
-            <button
-              className="h-btn h-btn-primary hero-cta-primary flex items-center justify-center overflow-hidden"
-              onClick={() => window.open("https://vip.dormers.ae/", "_blank")}
-            >
-              <TextRotate
-                texts={["Get Started", "View Plans"]}
-                mainClassName="font-bold !whitespace-nowrap !flex-nowrap"
-                staggerDuration={0.03}
-                staggerFrom="last"
-                rotationInterval={3500}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              />
-            </button>
-            <button
-              className="h-btn h-btn-secondary"
-              onClick={() => window.open("https://vip.dormers.ae/", "_blank")}
-            >
-              Try a Meal
-            </button>
+            <TonightsMeal />
           </motion.div>
 
-          {/* 5 ── Proof bar — individually staggered */}
+        </div>
+
+        {/* 5 ── Proof bar — individually staggered */}
+        <div className="h-proof-wrapper">
           <div className="h-proof">
 
             <motion.div
@@ -681,8 +728,9 @@ export default function HeroReveal() {
             </motion.div>
 
           </div>
-
         </div>
+          </>
+        )}
       </section>
     </>
   );

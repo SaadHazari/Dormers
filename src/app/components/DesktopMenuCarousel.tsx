@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Image, { StaticImageData } from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import ChiliIcon from './ChiliIcon';
 
 interface MicroNutrient {
   name: string;
@@ -186,7 +185,7 @@ export default function DesktopMenuCarousel({
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={1}
-                onDragEnd={(e, { offset }) => {
+                onDragEnd={(_e, { offset }) => {
                   if (offset.x < -50) handleNext();
                   else if (offset.x > 50) handlePrev();
                 }}
@@ -200,7 +199,8 @@ export default function DesktopMenuCarousel({
                       src={dish.image}
                       alt={dish.name}
                       fill
-                      className={`object-cover transition-transform duration-300 ${dish.name.includes('Chicken Fried Rice') ? 'translate-y-[20px] scale-[1.12]' : ''}`}
+                      className="object-cover transition-transform duration-300"
+                      style={(dish.name.includes('Chicken Fried Rice') || dish.name.includes('Veg Fried Rice')) ? { objectPosition: 'center 40%' } : undefined}
                       sizes="(max-width: 768px) 100vw, 400px"
                       priority
                     />
@@ -264,8 +264,8 @@ export default function DesktopMenuCarousel({
                             <div className={`flex justify-between items-center py-2.5 border-b ${divider} relative z-20`}>
                               <span className="text-[#f57f20] font-bold text-[11px] tracking-widest uppercase">Spice</span>
                               <div className="flex gap-1.5">
-                                {[1, 2, 3].map((level) => (
-                                  <ChiliIcon key={level} filled={level <= dish.spiceLevel} className="w-[18px] h-[18px]" />
+                                {[0, 1, 2].map((i) => (
+                                  <span key={i} style={{ filter: i < (dish.spiceLevel || 0) ? "none" : "grayscale(100%) opacity(25%)", transition: "all 0.3s ease" }}>🌶️</span>
                                 ))}
                               </div>
                             </div>

@@ -1,6 +1,6 @@
+"use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "next-themes";
 // import Image from "next/image";
 import { useSwipeable } from "react-swipeable";
 
@@ -227,11 +227,11 @@ const messages =
   ]
 
 export default function TestimonialsBubbles() {
-  useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const directionRef = useRef(1);
 
   const groupedMessages = useMemo(() => {
     const result = [];
@@ -259,6 +259,7 @@ export default function TestimonialsBubbles() {
   useEffect(() => {
     if (!isPaused) {
       intervalRef.current = setInterval(() => {
+        directionRef.current = 1;
         setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
       }, 8000);
     }
@@ -269,6 +270,7 @@ export default function TestimonialsBubbles() {
 
   // Manual dot click
   const handleDotClick = (index: number) => {
+    directionRef.current = index > currentGroup ? 1 : -1;
     pauseAutoScroll();
     resumeAutoScroll();
     setCurrentGroup(index);
@@ -277,11 +279,13 @@ export default function TestimonialsBubbles() {
   // Swipe controls
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
+      directionRef.current = 1;
       pauseAutoScroll();
       resumeAutoScroll();
       setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
     },
     onSwipedRight: () => {
+      directionRef.current = -1;
       pauseAutoScroll();
       resumeAutoScroll();
       setCurrentGroup((prev) =>
@@ -289,69 +293,91 @@ export default function TestimonialsBubbles() {
       );
     },
     trackTouch: true,
-    trackMouse: true,
-    preventScrollOnSwipe: false,
-    delta: 50,
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+    delta: 30,
   });
 
   return (
     <div
-      className="relative bg-[#031624] pt-[20px] pb-0 w-screen overflow-hidden -mx-[calc((100vw_-_100%)/2)] touch-pan-y"
+      className="relative bg-[#031624] pt-[20px] pb-0 w-screen overflow-x-hidden -mx-[calc((100vw_-_100%)/2)]"
       {...swipeHandlers}
       onTouchStart={pauseAutoScroll}
       onTouchEnd={resumeAutoScroll}
       onMouseEnter={pauseAutoScroll}
       onMouseLeave={resumeAutoScroll}
     >
-      <div className="flex flex-col items-center gap-4 min-h-[200px] justify-center h-[23rem]">
-        <AnimatePresence>
-          {groupedMessages[currentGroup].map((msg) => (
-            <motion.div
-              key={`${msg.id}-${currentGroup}`}
-              initial={{ opacity: 0, x: msg.from === "user" ? 100 : -100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: msg.from === "user" ? -100 : 100 }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
-              className={`max-w-[250px] p-4 rounded-2xl bg-[#EEE9DA] text-[#1E3A4F] ${msg.from === "user" ? "self-end mr-4" : "self-start ml-4"
-                } relative`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#1E3A4F] flex items-center justify-center text-white text-xs font-bold uppercase">
-                    {msg.name?.charAt(0)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold">{msg.name}</span>
-                    <span className="text-xs font-normal">{msg.city}</span>
+      <div className="flex flex-col items-center min-h-[200px] py-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentGroup}
+            initial={{ opacity: 0, x: directionRef.current * 80 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: directionRef.current * -80 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-4 w-full max-w-xl mx-auto"
+          >
+            {groupedMessages[currentGroup].map((msg) => (
+              <div
+                key={msg.id}
+                className={`max-w-[250px] p-4 rounded-2xl relative ${
+                  msg.from === "user"
+                    ? "self-end mr-4 bg-[#1E6B8A]/20 border border-white/15 backdrop-blur-md shadow-[0_4px_24px_rgba(30,107,138,0.15)] text-white"
+                    : "self-start ml-4 bg-[#FF7F00]/15 border border-[#FF7F00]/30 backdrop-blur-md shadow-[0_4px_24px_rgba(255,127,0,0.18)] text-white"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold uppercase ${msg.from === "user" ? "bg-[#1E6B8A]" : "bg-[#FF7F00]"}`}>
+                      {msg.name?.charAt(0)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">{msg.name}</span>
+                      <span className="text-xs font-normal text-white/70">{msg.city}</span>
+                    </div>
                   </div>
                 </div>
+
+                <div className="flex gap-0.5 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <span key={s} style={{ color: "#FF7F00", fontSize: "12px" }}>★</span>
+                  ))}
+                </div>
+
+                <p
+                  className="text-sm font-medium"
+                  style={{
+                    fontFamily: "Montserrat",
+                    fontWeight: 600,
+                    lineHeight: "120%",
+                  }}
+                >
+                  {msg.text}
+                </p>
+
+                <div
+                  className={`absolute -bottom-2 w-4 h-4 transform rotate-45 ${
+                    msg.from === "user"
+                      ? "right-4 bg-[#1E6B8A]/20 border-r border-b border-white/15"
+                      : "left-4 bg-[#FF7F00]/15 border-r border-b border-[#FF7F00]/30"
+                  }`}
+                />
               </div>
-
-              <p
-                className="text-sm font-medium"
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: 600,
-                  lineHeight: "120%",
-                }}
-              >
-                {msg.text}
-              </p>
-
-              <div
-                className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"} w-4 h-4 transform rotate-45 bg-[#EEE9DA]`}
-              />
-            </motion.div>
-          ))}
+            ))}
+          </motion.div>
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center mt-6 gap-2">
-        {groupedMessages.slice(0, 5).map((_, index) => (
+      <div className="flex justify-center mt-6 gap-1.5 pb-6 flex-wrap px-4">
+        {groupedMessages.map((_, index) => (
           <button
             key={index}
             onClick={() => handleDotClick(index)}
-            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentGroup ? "bg-white scale-110 w-[60px] h-[8px]" : "bg-white/30"}`}
+            className={`transition-all duration-300 rounded-full ${
+              index === currentGroup
+                ? "bg-white w-[24px] h-[8px]"
+                : "bg-white/30 w-[8px] h-[8px]"
+            }`}
           />
         ))}
       </div>

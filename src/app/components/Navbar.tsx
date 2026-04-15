@@ -90,7 +90,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-6 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl z-[100] font-montserrat flex items-stretch gap-5 lg:gap-6">
+    <header className="fixed top-6 inset-x-0 mx-auto w-[95%] max-w-6xl z-[100] font-montserrat flex items-stretch gap-5 lg:gap-6">
 
       {/*
         Golden-ratio decorative rings — desktop only, behind the nav pill.
@@ -140,14 +140,15 @@ export default function Navbar() {
       {/* NAV PILL — always rounded-3xl on mobile to avoid shape-morph jank */}
       <nav
         ref={navRef}
-        className={`flex-1 flex flex-col rounded-3xl lg:rounded-full backdrop-blur-[28px] saturate-[1.5] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_1px_0_0_rgba(255,255,255,0.06),0_8px_32px_0_rgba(0,0,0,0.25)] transition-colors duration-300 ${isMenuOpen
+        className={`flex-grow w-full max-w-[100vw] flex flex-col rounded-3xl lg:rounded-full backdrop-blur-[28px] saturate-[1.5] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_1px_0_0_rgba(255,255,255,0.06),0_8px_32px_0_rgba(0,0,0,0.25)] transition-colors duration-300 ${isMenuOpen
             ? isLight
               ? "bg-[#F5F0E8]/85 border border-[#091825]/15"
               : "bg-[#091825]/80 border border-white/20"
             : isLight
-              ? "bg-[#F5F0E8]/55 lg:bg-[#091825]/06 border border-[#091825]/15"
-              : "bg-[#091825]/28 lg:bg-[#FAF6EB]/10 border border-white/10"
+              ? "bg-[#091825]/06 border border-[#091825]/15"
+              : "bg-[#FAF6EB]/10 border border-white/10"
           }`}
+        style={{ WebkitBackdropFilter: "blur(28px) saturate(1.5)", backdropFilter: "blur(28px) saturate(1.5)" }}
       >
         {/* TOP ROW — always visible */}
         <div className="flex items-center justify-between px-4 lg:px-6 py-1.5 lg:py-3">
@@ -175,7 +176,7 @@ export default function Navbar() {
                   key={link.name}
                   href={link.href}
                   onClick={(e) => handleNavClick(e, link.href)}
-                  className={`relative px-4 py-2 rounded-full text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${isActive
+                  className={`relative px-2 lg:px-4 py-2 rounded-full text-[11px] lg:text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${isActive
                       ? isLight ? "text-[#091825]" : "text-white"
                       : "opacity-0 pointer-events-none select-none"
                     }`}
@@ -201,8 +202,8 @@ export default function Navbar() {
               <button
                 onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
                 className={`p-2 rounded-full transition-colors ${isLight
-                    ? "text-[#091825]/80 hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
-                    : "text-white/90 hover:text-white bg-white/10 border border-white/20"
+                    ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
+                    : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
                   }`}
               >
                 {isDesktopMenuOpen ? (
@@ -236,8 +237,8 @@ export default function Navbar() {
                             className={`block px-4 py-2.5 rounded-2xl text-[12px] font-bold uppercase tracking-wider transition-colors ${isActive
                                 ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
                                 : isLight
-                                  ? "text-[#091825]/70 hover:bg-[#091825]/05 hover:text-[#091825]"
-                                  : "text-white/80 hover:bg-white/5 hover:text-white"
+                                  ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
+                                  : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
                               }`}
                           >
                             {link.name}
@@ -279,7 +280,8 @@ export default function Navbar() {
           <div className="lg:hidden flex items-center gap-2.5">
             <button
               onClick={handleOrderFormOpen}
-              className={`flex items-center justify-center overflow-hidden relative backdrop-blur-sm px-4 py-2 rounded-full active:scale-95 transition-all duration-200 border ${isLight ? "bg-[#f57f20]/15 border-[#f57f20]/40 text-[#f57f20]" : "bg-[#f57f20]/15 border-[#f57f20]/35 text-[#f57f20]"}`}
+              className={`flex items-center justify-center min-w-[125px] overflow-hidden relative backdrop-blur-sm px-4 py-2 rounded-full active:scale-95 transition-all duration-200 border ${isLight ? "bg-[#f57f20]/15 border-[#f57f20]/40 text-[#f57f20]" : "bg-[#f57f20]/15 border-[#f57f20]/35 text-[#f57f20]"}`}
+              style={{ WebkitBackdropFilter: "blur(4px)", backdropFilter: "blur(4px)" }}
             >
               <TextRotate
                 texts={["Get Started", "View Plans"]}
@@ -294,8 +296,8 @@ export default function Navbar() {
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`p-1.5 rounded-full focus:outline-none transition-colors ${isLight
-                  ? "text-[#091825]/80 hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
-                  : "text-white/90 hover:text-white bg-white/10 border border-white/20"
+                  ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
+                  : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
                 }`}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -347,8 +349,8 @@ export default function Navbar() {
                   className={`block px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isActive
                       ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
                       : isLight
-                        ? "text-[#091825]/70 active:bg-[#091825]/05 active:text-[#091825]"
-                        : "text-white/80 active:bg-white/5 active:text-white"
+                        ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
+                        : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
                     }`}
                 >
                   {link.name}

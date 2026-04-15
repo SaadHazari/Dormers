@@ -97,10 +97,19 @@ function DishCard({ dish, isSelected, onSelect }: DishCardProps) {
 
         {/* Spice row */}
         <span
-          style={{ fontSize: 10, lineHeight: "100%" }}
+          style={{ fontSize: 10, lineHeight: "100%", display: "flex", gap: "1px" }}
           className="lg:text-[11px]"
         >
-          {"🌶".repeat(dish.spiceLevel)}
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                filter: i < dish.spiceLevel ? "none" : "grayscale(100%) opacity(25%)",
+              }}
+            >
+              🌶️
+            </span>
+          ))}
         </span>
       </div>
     </motion.button>
