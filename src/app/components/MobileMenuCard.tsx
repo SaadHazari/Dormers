@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image, { StaticImageData } from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from 'next-themes';
 import ChiliIcon from './ChiliIcon';
 
 interface MicroNutrient {
@@ -45,28 +46,17 @@ export default function MobileMenuCard({
 }: MobileMenuCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [direction, setDirection] = useState(0);
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
 
   useEffect(() => {
     setIsExpanded(false);
   }, [currentDish?.id]);
 
-  // UPGRADE 1: Parallax Depth scaling for a more 3D "deck of cards" feel
   const swipeVariants = {
-    enter: (dir: number) => ({
-      opacity: 0,
-      x: dir > 0 ? '100%' : '-100%',
-      scale: 0.9,
-    }),
-    center: {
-      opacity: 1,
-      x: 0,
-      scale: 1,
-    },
-    exit: (dir: number) => ({
-      opacity: 0,
-      x: dir > 0 ? '-100%' : '100%',
-      scale: 0.85,
-    }),
+    enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? '100%' : '-100%', scale: 0.9 }),
+    center: { opacity: 1, x: 0, scale: 1 },
+    exit: (dir: number) => ({ opacity: 0, x: dir > 0 ? '-100%' : '100%', scale: 0.85 }),
   };
 
   const weeks = [
@@ -85,7 +75,21 @@ export default function MobileMenuCard({
     { index: 5, initial: 'S', full: 'SAT' },
   ];
 
-  const glassPanel = "bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
+  const glassPanel = isLight
+    ? "bg-[#1E3A4F]/10 border border-[#1E3A4F]/18 shadow-[0_8px_32px_0_rgba(9,24,37,0.10)]"
+    : "bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
+
+  const inactiveText = isLight ? "text-[#1E3A4F]/55" : "text-white/60";
+  const primaryText  = isLight ? "text-[#091825]" : "text-white";
+  const bodyText     = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
+  const mutedText    = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
+  const divider      = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
+  const macroGrid    = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
+  const macroLabel   = isLight ? "text-[#1E3A4F]/50 text-[8px] tracking-wider uppercase font-semibold mb-[2px]" : "text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]";
+  const macroValue   = isLight ? "text-[#091825] font-bold text-[13px] drop-shadow-sm" : "text-white font-bold text-[13px] drop-shadow-sm";
+  const allergenTag  = isLight
+    ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2 py-[2px] text-[10px] text-[#1E3A4F] capitalize backdrop-blur-sm shadow-sm"
+    : "bg-white/10 border border-white/20 rounded-full px-2 py-[2px] text-[10px] text-white capitalize backdrop-blur-sm shadow-sm";
 
   return (
     <div className="w-full flex flex-col gap-4 font-montserrat">
@@ -96,13 +100,10 @@ export default function MobileMenuCard({
           return (
             <button
               key={w.id}
-              onClick={() => {
-                setSelectedWeek(w.id);
-                setSelectedDay(0);
-                setDirection(1);
-              }}
-              className={`flex-1 py-1.5 text-center rounded-full transition-colors duration-200 relative z-10 ${isActive ? 'text-white' : 'text-white/60'
-                }`}
+              onClick={() => { setSelectedWeek(w.id); setSelectedDay(0); setDirection(1); }}
+              className={`flex-1 py-1.5 text-center rounded-full transition-colors duration-200 relative z-10 ${
+                isActive ? 'text-white' : inactiveText
+              }`}
             >
               {isActive && (
                 <motion.div
@@ -128,18 +129,14 @@ export default function MobileMenuCard({
               animate="center"
               exit="exit"
               style={{ gridArea: 'stack' }}
-              // UPGRADE 2: Apple-tuned Spring Physics (Snappy, weighty, zero rubber-band wobble)
               transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7} // Slightly firmer drag resistance
-              // UPGRADE 3: Tactile Squish when thumb presses the card
+              dragElastic={0.7}
               whileDrag={{ scale: 0.98, cursor: "grabbing" }}
               onDragEnd={(e, { offset, velocity }) => {
                 const swipeDistance = offset.x;
                 const swipeVelocity = velocity.x;
-
-                // UPGRADE 4: Velocity tracking. It triggers on distance OR a fast flick
                 if ((swipeDistance < -50 || swipeVelocity < -500) && selectedDay < 5) {
                   setDirection(1);
                   setSelectedDay(selectedDay + 1);
@@ -148,8 +145,7 @@ export default function MobileMenuCard({
                   setSelectedDay(selectedDay - 1);
                 }
               }}
-              className={`rounded-[24px] flex-shrink-0 overflow-hidden relative flex flex-col mx-auto w-[95%] max-w-md ${glassPanel} touch-pan-y transition-[height] duration-300 ${isExpanded ? 'h-auto' : 'h-[360px]'
-                }`}
+              className={`rounded-[24px] flex-shrink-0 overflow-hidden relative flex flex-col mx-auto w-[95%] max-w-md ${glassPanel} touch-pan-y transition-[height] duration-300 ${isExpanded ? 'h-auto' : 'h-[360px]'}`}
             >
               {/* Dish Hero Image */}
               <div className="relative w-full h-[190px] shrink-0 [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]">
@@ -160,20 +156,19 @@ export default function MobileMenuCard({
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 400px"
                   priority
-                  draggable={false} // Prevents native image dragging interference
+                  draggable={false}
                 />
               </div>
 
               <div className="px-5 pb-4 pt-3 flex flex-col z-10 w-full flex-grow">
-
                 <div className="min-h-[44px] flex items-start">
-                  <h3 className="text-[20px] font-black text-white leading-[1.1] tracking-tight pr-2">
+                  <h3 className={`text-[20px] font-black leading-[1.1] tracking-tight pr-2 ${primaryText}`}>
                     {currentDish.name}
                   </h3>
                 </div>
 
                 <div className="mb-2">
-                  <p className="text-white/80 text-[11px] leading-snug font-light pointer-events-none select-none">
+                  <p className={`text-[11px] leading-snug font-light pointer-events-none select-none ${bodyText}`}>
                     {currentDish.description}
                   </p>
                 </div>
@@ -181,7 +176,7 @@ export default function MobileMenuCard({
                 <div className="mt-auto">
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="w-full flex items-center justify-center py-2 text-white/50 hover:text-white transition-colors border-t border-white/10"
+                    className={`w-full flex items-center justify-center py-2 transition-colors border-t ${divider} ${isLight ? "text-[#1E3A4F]/45 hover:text-[#091825]" : "text-white/50 hover:text-white"}`}
                   >
                     <span className="text-[10px] uppercase font-bold tracking-widest mr-2">
                       {isExpanded ? 'Less Info' : 'More Info'}
@@ -210,81 +205,51 @@ export default function MobileMenuCard({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className="pt-2 border-t border-white/10 mt-1">
-
-                          <div className="flex justify-between items-center py-2.5 border-b border-white/10">
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase shadow-[#f57f20]">
-                              Spice
-                            </span>
+                        <div className={`pt-2 border-t ${divider} mt-1`}>
+                          <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
+                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Spice</span>
                             <div className="flex gap-1.5">
                               {[1, 2, 3].map((level) => (
-                                <ChiliIcon
-                                  key={level}
-                                  filled={level <= currentDish.spiceLevel}
-                                  className="w-[18px] h-[18px]"
-                                />
+                                <ChiliIcon key={level} filled={level <= currentDish.spiceLevel} className="w-[18px] h-[18px]" />
                               ))}
                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center py-2.5 border-b border-white/10">
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">
-                              Allergens
-                            </span>
+                          <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
+                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Allergens</span>
                             <div className="flex gap-1.5 flex-wrap justify-end">
                               {currentDish.allergens.length > 0 ? (
                                 currentDish.allergens.map((allergen, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="bg-white/10 border border-white/20 rounded-full px-2 py-[2px] text-[10px] text-white capitalize backdrop-blur-sm shadow-sm"
-                                  >
-                                    {allergen}
-                                  </span>
+                                  <span key={idx} className={allergenTag}>{allergen}</span>
                                 ))
                               ) : (
-                                <span className="text-white/50 text-[10px]">None</span>
+                                <span className={`text-[10px] ${mutedText}`}>None</span>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center py-2.5 border-b border-white/10 min-h-[36px]">
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">
-                              Calories
-                            </span>
+                          <div className={`flex justify-between items-center py-2.5 border-b ${divider} min-h-[36px]`}>
+                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Calories</span>
                             <div className="text-right flex items-baseline">
-                              <span className="font-bold text-base text-white drop-shadow-md">
+                              <span className={`font-bold text-base drop-shadow-md ${primaryText}`}>
                                 {currentDish.nutrients.calories.replace(/kcal/i, '').trim()}
                               </span>
-                              <span className="text-[9px] text-white/70 ml-1 uppercase font-semibold">
-                                Kcal
-                              </span>
+                              <span className={`text-[9px] ml-1 uppercase font-semibold ${mutedText}`}>Kcal</span>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-0 py-[10px] mt-1 pl-1 bg-white/5 rounded-xl border border-white/10 mt-3 p-3 mb-2">
-                            <div className="flex flex-col text-center border-r border-white/10 pr-2">
-                              <span className="text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]">
-                                Protein
-                              </span>
-                              <span className="text-white font-bold text-[13px] drop-shadow-sm">
-                                {currentDish.nutrients.protein}
-                              </span>
+                          <div className={`grid grid-cols-3 gap-0 py-[10px] mt-3 p-3 mb-2 ${macroGrid}`}>
+                            <div className={`flex flex-col text-center border-r ${divider} pr-2`}>
+                              <span className={macroLabel}>Protein</span>
+                              <span className={macroValue}>{currentDish.nutrients.protein}</span>
                             </div>
-                            <div className="flex flex-col text-center border-r border-white/10 px-2">
-                              <span className="text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]">
-                                Carbs
-                              </span>
-                              <span className="text-white font-bold text-[13px] drop-shadow-sm">
-                                {currentDish.nutrients.carbs}
-                              </span>
+                            <div className={`flex flex-col text-center border-r ${divider} px-2`}>
+                              <span className={macroLabel}>Carbs</span>
+                              <span className={macroValue}>{currentDish.nutrients.carbs}</span>
                             </div>
                             <div className="flex flex-col text-center pl-2">
-                              <span className="text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]">
-                                Fat
-                              </span>
-                              <span className="text-white font-bold text-[13px] drop-shadow-sm">
-                                {currentDish.nutrients.fat}
-                              </span>
+                              <span className={macroLabel}>Fat</span>
+                              <span className={macroValue}>{currentDish.nutrients.fat}</span>
                             </div>
                           </div>
                         </div>
@@ -307,8 +272,11 @@ export default function MobileMenuCard({
               <button
                 key={day.index}
                 onClick={() => setSelectedDay(day.index)}
-                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${isActive ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm' : 'text-white/60 py-1.5 flex-1 min-w-[30px]'
-                  }`}
+                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${
+                  isActive
+                    ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm'
+                    : `${inactiveText} py-1.5 flex-1 min-w-[30px]`
+                }`}
               >
                 {isActive && (
                   <motion.div

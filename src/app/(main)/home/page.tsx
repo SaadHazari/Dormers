@@ -313,11 +313,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* USP Bento Grid */}
-      <USPBento />
+      {/* USP Bento Grid - ADDED ID HERE */}
+      <div id="usp">
+        <USPBento />
+      </div>
 
-      {/* How It Works Section */}
-      <HowItWorks />
+      {/* How It Works Section - ADDED ID HERE */}
+      <div id="howitworks">
+        <HowItWorks />
+      </div>
 
       {/* Menu Section */}
       <div
@@ -510,7 +514,7 @@ export default function Home() {
               bottom: 0,
               left: 0,
               width: "100%",
-              backgroundColor: "#22394A",
+              backgroundColor: theme === "light" ? "#D5CFBF" : "#22394A",
               borderTopLeftRadius: "60px",
               borderTopRightRadius: "60px",
               zIndex: 0,
@@ -678,11 +682,11 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── Navy gap — same height as a marquee band, rounded bottom corners ── */}
+          {/* ── Gap — same height as a marquee band, rounded bottom corners ── */}
           <div
             style={{
               height: "72px",
-              backgroundColor: "#22394A",
+              backgroundColor: theme === "light" ? "#D5CFBF" : "#22394A",
               borderBottomLeftRadius: "60px",
               borderBottomRightRadius: "60px",
             }}

@@ -17,10 +17,83 @@ const EXPANDING_INDEX = DELIVERY_LOCATIONS.length - 1
 
 const SPRING = { type: "spring", damping: 28, stiffness: 350 } as const
 
-export default function DeliveryStrip() {
+export default function DeliveryStrip({ large }: { large?: boolean }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const isExpanding = currentIndex === EXPANDING_INDEX
 
+  if (large) {
+    return (
+      // Outer div is 100% wide — label is always anchored to this width,
+      // completely independent of the pill's changing size below it.
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "6px",
+          fontFamily: "Montserrat, sans-serif",
+        }}
+      >
+        {/* Label — static width (100%), centered. Fades when expanding. */}
+        <AnimatePresence mode="wait">
+          {!isExpanding && (
+            <motion.span
+              key="label"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "center",
+                fontSize: "0.65rem",
+                fontWeight: 700,
+                color: "rgba(30, 58, 79, 0.65)",
+                whiteSpace: "nowrap",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              Delivering to:
+            </motion.span>
+          )}
+        </AnimatePresence>
+
+        {/* Pill — no layout/LayoutGroup, snaps to content width, no jitter */}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            background: isExpanding ? "rgba(245, 127, 32, 0.08)" : "rgba(30, 58, 79, 0.07)",
+            border: isExpanding ? "1px solid rgba(245, 127, 32, 0.2)" : "1px solid rgba(30, 58, 79, 0.14)",
+            borderRadius: "100px",
+            padding: "8px 20px",
+            transition: "background 0.4s, border-color 0.4s",
+          }}
+        >
+          <TextRotate
+            texts={DELIVERY_LOCATIONS}
+            rotationInterval={2200}
+            splitBy="words"
+            staggerFrom="first"
+            staggerDuration={0.04}
+            initial={{ y: "110%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "-110%", opacity: 0 }}
+            transition={SPRING}
+            onNext={setCurrentIndex}
+            mainClassName="font-semibold text-[1rem] tracking-[0.01em] whitespace-nowrap"
+            elementLevelClassName={isExpanding ? "text-[#f57f20]" : "text-[rgba(30,58,79,0.6)]"}
+            splitLevelClassName="overflow-hidden"
+          />
+        </span>
+      </div>
+    )
+  }
+
+  // ── Default (non-large) mode ──────────────────────────────────────────────
   return (
     <div
       style={{
@@ -32,7 +105,6 @@ export default function DeliveryStrip() {
         overflow: "hidden",
       }}
     >
-      {/* "Delivering to:" — animates out when "& Expanding Quickly" shows */}
       <AnimatePresence mode="wait">
         {!isExpanding && (
           <motion.span

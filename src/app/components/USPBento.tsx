@@ -220,6 +220,59 @@ export default function USPBento() {
       ),
     },
     {
+      id: 10, bg: "#EEE9DA", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" }, mobileClass: "col-span-1",
+      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
+      backTitle: "Dietary Needs",
+      backBody: "We accommodate your dietary needs: veg, non-veg, halal, and religious preferences.",
+      content: (
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
+            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Veg, Non-Veg<br />& Religious</p>
+            <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>We respect your preferences</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 12, bg: "#FF7F00", textColor: "#1E3A4F",
+      desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" }, mobileClass: "col-span-1",
+      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.9)",
+      backTitle: "3 Plans",
+      backBody: "Choose from Monthly, Weekly, or a Trial pack. Flexible options to fit your schedule.",
+      content: (
+        <div className="flex flex-col justify-between h-full gap-[8px]">
+          <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
+          <div className="flex flex-col gap-[5px]">
+            <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(29px, 4vw, 34px)", lineHeight: 1 }}>3</p>
+            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700 }}>Plans</p>
+            <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.6 }}>Monthly · Weekly · Trial</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 9, bg: "#1E3A4F", textColor: "#ffffff",
+      desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" }, mobileClass: "col-span-2",
+      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.8)",
+      backTitle: "Flexible Payments",
+      backBody: "Pay your way: cash, card, bank transfer, or crypto. Built specifically to fit your student lifestyle.",
+      content: (
+        <div className="flex items-start h-full gap-[21px]">
+          <div className="flex flex-col gap-[13px]">
+            <CreditCard size={21} strokeWidth={1.5} style={iconStyle} />
+            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Flexible Payments</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
+              {["Cash", "Card", "Online", "Bank Transfer", "Crypto"].map((m) => (
+                <span key={m} style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", background: "rgba(255,255,255,0.1)", color: "#ffffff", borderRadius: "999px", padding: "3px 10px" }}>{m}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
       id: 7, bg: "#1E3A4F", textColor: "#ffffff",
       desktopStyle: { gridColumn: "1 / 2", gridRow: "3 / 4" }, mobileClass: "col-span-1",
       backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.75)",
@@ -252,42 +305,6 @@ export default function USPBento() {
       ),
     },
     {
-      id: 9, bg: "#1E3A4F", textColor: "#ffffff",
-      desktopStyle: { gridColumn: "1 / 3", gridRow: "4 / 5" }, mobileClass: "col-span-2",
-      backBg: "#091825", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.8)",
-      backTitle: "Flexible Payments",
-      backBody: "Pay your way: cash, card, bank transfer, or crypto. Built specifically to fit your student lifestyle.",
-      content: (
-        <div className="flex items-start h-full gap-[21px]">
-          <div className="flex flex-col gap-[13px]">
-            <CreditCard size={21} strokeWidth={1.5} style={iconStyle} />
-            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Flexible Payments</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
-              {["Cash", "Card", "Online", "Bank Transfer", "Crypto"].map((m) => (
-                <span key={m} style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", background: "rgba(255,255,255,0.1)", color: "#ffffff", borderRadius: "999px", padding: "3px 10px" }}>{m}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 10, bg: "#EEE9DA", textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "3 / 4", gridRow: "4 / 5" }, mobileClass: "col-span-1",
-      backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
-      backTitle: "Dietary Needs",
-      backBody: "We accommodate your dietary needs: vegetarian, non-veg, halal, and religious preferences.",
-      content: (
-        <div className="flex flex-col justify-between h-full gap-[8px]">
-          <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
-          <div className="flex flex-col gap-[5px]">
-            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Veg, Non-Veg<br />& Religious</p>
-            <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>We respect your preferences</p>
-          </div>
-        </div>
-      ),
-    },
-    {
       id: 11, bg: "#EEE9DA", textColor: "#1E3A4F",
       desktopStyle: { gridColumn: "4 / 5", gridRow: "4 / 5" }, mobileClass: "col-span-1",
       backBg: "#d9d4c5", backTextColor: "#091825", backBodyColor: "rgba(9,24,37,0.8)",
@@ -299,23 +316,6 @@ export default function USPBento() {
           <div className="flex flex-col gap-[5px]">
             <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Dedicated<br />Student Support</p>
             <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>Always here for you</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 12, bg: "#FF7F00", textColor: "#1E3A4F",
-      desktopStyle: { gridColumn: "1 / 2", gridRow: "5 / 6" }, mobileClass: "col-span-1",
-      backBg: "#e06d10", backTextColor: "#ede8da", backBodyColor: "rgba(237,232,218,0.9)",
-      backTitle: "3 Plans",
-      backBody: "Choose from Monthly, Weekly, or a Trial pack. Flexible options to fit your schedule.",
-      content: (
-        <div className="flex flex-col justify-between h-full gap-[8px]">
-          <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
-          <div className="flex flex-col gap-[5px]">
-            <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(29px, 4vw, 34px)", lineHeight: 1 }}>3</p>
-            <p style={{ fontFamily: "'Typo Round Bold Demo', sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700 }}>Plans</p>
-            <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.6 }}>Monthly · Weekly · Trial</p>
           </div>
         </div>
       ),

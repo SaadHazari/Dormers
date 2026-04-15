@@ -147,10 +147,8 @@
 }
 
 html {
-  scroll-behavior: smooth;
   overflow-x: hidden;
   scrollbar-width: none; /* Firefox */
-  overscroll-behavior: none; /* prevent iOS bounce from scrolling foreground off-screen */
 }
 
 html::-webkit-scrollbar {
@@ -469,4 +467,62 @@ body {
 
 .hero-cta-secondary:active {
   background: rgba(255, 127, 0, 0.15) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Selector html.light beats the single-class dark defaults,
+   no JS changes needed in CSS-injecting components.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── HeroReveal ─────────────────────────────────────────────── */
+html.light .h-section {
+  background: linear-gradient(180deg, #F5F0E8 0%, #EEE9DA 60%, #E8E3D5 100%) !important;
+}
+html.light .h-hl-l1  { color: #091825; }
+html.light .h-hl-to  { color: #091825; }
+html.light .h-check-item { color: #1E3A4F; }
+html.light .h-dot-sep    { color: rgba(9,24,37,0.40); }
+html.light .h-anchor-l1  { color: rgba(9,24,37,0.50); }
+html.light .h-anchor-l2  { color: #091825; }
+html.light .h-btn-secondary {
+  color: #091825;
+  border-color: rgba(9,24,37,0.30);
+}
+html.light .h-btn-secondary:hover {
+  background: rgba(9,24,37,0.06) !important;
+  border-color: #091825 !important;
+  color: #091825 !important;
+}
+html.light .h-proof {
+  border-top-color: rgba(9,24,37,0.12);
+}
+html.light .h-proof-divider {
+  background: rgba(9,24,37,0.10);
+}
+html.light .h-proof-qualifier { color: rgba(9,24,37,0.45); }
+html.light .h-proof-unit      { color: rgba(9,24,37,0.45); }
+html.light .h-proof-num       { color: #1E3A4F; }
+html.light .h-proof-prefix    { color: #1E3A4F; }
+html.light .h-text-block {
+  box-shadow: 0 -20px 40px rgba(9,24,37,0.06) !important;
+}
+
+/* ── HowItWorks ─────────────────────────────────────────────── */
+html.light .hiw-section { background: #F0EBE0 !important; }
+html.light .hiw-label   { color: rgba(9,24,37,0.45); }
+html.light .hiw-section-title { color: #091825; }
+html.light .hiw-sep {
+  background: linear-gradient(
+    180deg,
+    transparent                      0%,
+    rgba(9,24,37,0.10)              30%,
+    rgba(9,24,37,0.10)              70%,
+    transparent                     100%
+  ) !important;
+}
+html.light .hiw-body    { color: #1E3A4F; }
+html.light .hiw-subline { color: rgba(9,24,37,0.45); }
+html.light .hiw-text-block {
+  box-shadow: 0 -20px 40px rgba(9,24,37,0.06) !important;
 }

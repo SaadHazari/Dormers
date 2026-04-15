@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, Fragment } from "react";
 import { motion, useScroll, useTransform, useMotionValueEvent, Variants } from "framer-motion";
+import { useTheme } from "next-themes";
 
 const E = [0.25, 0.46, 0.45, 0.94] as const;
 
@@ -24,7 +25,7 @@ const CSS = `
     background-repeat: no-repeat;
     background-position: center;
     background-size: cover;
-    opacity: 1;
+    opacity: 0.5;
     pointer-events: none;
     z-index: 0;
   }
@@ -150,6 +151,7 @@ const CSS = `
 interface CardDef {
   num: string;
   numGrad: string;
+  numGradLight: string;
   title: string;
   body: string;
   subline: string;
@@ -158,23 +160,26 @@ interface CardDef {
 const CARDS: CardDef[] = [
   {
     num: "01",
-    numGrad: "linear-gradient(180deg, rgba(237,232,218,0.30) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
+    numGrad: "linear-gradient(180deg, rgba(237,232,218,0.60) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
+    numGradLight: "linear-gradient(180deg, rgba(9,24,37,0.40) 0%, rgba(9,24,37,0.03) 80%, rgba(9,24,37,0) 100%)",
     title: "YOU",
     body: "One quick sign-up. That's your whole part.",
     subline: "Way quicker than deciding what to eat.",
   },
   {
     num: "02",
-    numGrad: "linear-gradient(180deg, rgba(245,127,32,0.35) 0%, rgba(245,127,32,0.03) 80%, rgba(245,127,32,0) 100%)",
+    numGrad: "linear-gradient(180deg, rgba(245,127,32,0.65) 0%, rgba(245,127,32,0.03) 80%, rgba(245,127,32,0) 100%)",
+    numGradLight: "linear-gradient(180deg, rgba(245,127,32,0.65) 0%, rgba(245,127,32,0.03) 80%, rgba(245,127,32,0) 100%)",
     title: "CHOOSE",
     body: "Pick how long you want dinner sorted.",
     subline: "A week, a month, or one meal to try us.",
   },
   {
     num: "03",
-    numGrad: "linear-gradient(180deg, rgba(237,232,218,0.30) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
+    numGrad: "linear-gradient(180deg, rgba(237,232,218,0.60) 0%, rgba(237,232,218,0.03) 80%, rgba(237,232,218,0) 100%)",
+    numGradLight: "linear-gradient(180deg, rgba(9,24,37,0.40) 0%, rgba(9,24,37,0.03) 80%, rgba(9,24,37,0) 100%)",
     title: "US",
-    body: "We cook. We pack. We deliver. Mon – Fri.",
+    body: "We cook. We pack. We deliver. Mon – Sat.",
     subline: "New dish. Warm box. At your door. Like clockwork.",
   },
 ];
@@ -207,6 +212,9 @@ const underlineVariants: Variants = {
 // 2. DESKTOP COMPONENT
 // ==========================================
 function DesktopHowItWorks() {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -258,7 +266,7 @@ function DesktopHowItWorks() {
                   <motion.span
                     className="hiw-num"
                     style={{
-                      backgroundImage: card.numGrad,
+                      backgroundImage: isLight ? card.numGradLight : card.numGrad,
                       WebkitBackgroundClip: "text",
                       backgroundClip: "text",
                       WebkitTextFillColor: "transparent",
@@ -299,6 +307,8 @@ function DesktopHowItWorks() {
 // 3. MOBILE COMPONENT (400vh Stack Slide)
 // ==========================================
 function MobileHowItWorks() {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -328,9 +338,15 @@ function MobileHowItWorks() {
         rangeRef.current = [top, top + h * 3];
       });
     }
+    let prevW = window.innerWidth;
+    function handleResize() {
+      const w = window.innerWidth;
+      if (w !== prevW) { prevW = w; measure(); }
+      // Height-only resize = Safari chrome show/hide — ignore to prevent layout jump
+    }
     measure();
-    window.addEventListener('resize', measure, { passive: true });
-    return () => window.removeEventListener('resize', measure);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const scrollYProgress = useTransform(scrollY, (v) => {
@@ -379,11 +395,11 @@ function MobileHowItWorks() {
   });
 
   return (
-    <section ref={containerRef} className="relative bg-[#091825]" style={{ height: '400dvh' }}>
-      <div ref={stickyRef} className="sticky top-0 flex flex-col justify-center overflow-hidden" style={{ height: '100dvh' }}>
+    <section ref={containerRef} className={`relative ${isLight ? "bg-[#F0EBE0]" : "bg-[#091825]"}`} style={{ height: '400vh' }}>
+      <div ref={stickyRef} className="sticky top-0 flex flex-col justify-center overflow-hidden pt-6" style={{ height: '100vh' }}>
 
         <div
-          className="absolute inset-0 opacity-100 pointer-events-none z-0"
+          className="absolute inset-0 opacity-50 pointer-events-none z-0"
           style={{
             backgroundImage: `url("/images/howit'sworkbackgroundimage.svg")`,
             backgroundRepeat: 'no-repeat',
@@ -392,18 +408,18 @@ function MobileHowItWorks() {
           }}
         />
 
-        <div className="w-full relative z-10 flex flex-col -mt-20">
+        <div className="w-full relative z-10 flex flex-col">
 
           <div className="max-w-[72rem] mx-auto px-6 w-full mb-8 text-center">
             <motion.span
               initial={{ opacity: 0 }}
               style={{ opacity: eyebrowOpacity }}
-              className="font-bold text-[11px] md:text-[12px] uppercase tracking-[0.25em] text-[#ede8da]/50 text-center block mb-4 font-montserrat"
+              className={`font-bold text-[11px] md:text-[12px] uppercase tracking-[0.25em] text-center block mb-4 font-montserrat ${isLight ? "text-[#091825]/45" : "text-[#ede8da]/50"}`}
             >
               HOW IT WORKS
             </motion.span>
 
-            <h2 className="font-extrabold text-[32px] md:text-[48px] text-[#ede8da] leading-[1.2] tracking-tight flex flex-wrap justify-center gap-x-2 font-montserrat">
+            <h2 className={`font-extrabold text-[32px] md:text-[48px] leading-[1.2] tracking-tight flex flex-wrap justify-center gap-x-2 font-montserrat ${isLight ? "text-[#091825]" : "text-[#ede8da]"}`}>
               <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op1, y: y1 }} className="inline-block">From</motion.span>
               <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op2, y: y2 }} className="inline-block">stressed</motion.span>
               <motion.span initial={{ opacity: 0, y: 20 }} style={{ opacity: op3, y: y3 }} className="inline-block">to</motion.span>
@@ -432,12 +448,12 @@ function MobileHowItWorks() {
                     y: cardYs[i],
                     scale: cardScales[i]
                   }}
-                  className="flex-shrink-0 w-[80vw] max-w-[320px] bg-white/[0.03] border border-white/[0.08] rounded-[24px] pt-4 pb-8 px-4 flex flex-col relative shadow-[0_-20px_40px_rgba(9,24,37,0.6)] backdrop-blur-sm"
+                  className={`flex-shrink-0 w-[80vw] max-w-[320px] rounded-[24px] pt-4 pb-8 px-4 flex flex-col relative ${isLight ? "bg-white/60 border border-[#1E3A4F]/10 shadow-[0_-20px_40px_rgba(9,24,37,0.08)]" : "bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] shadow-[0_-20px_40px_rgba(9,24,37,0.6)]"}`}
                 >
                   <span
                     className="text-[120px] font-black leading-none text-center block -mb-[28px] pointer-events-none select-none relative z-[1] font-montserrat"
                     style={{
-                      backgroundImage: card.numGrad,
+                      backgroundImage: isLight ? card.numGradLight : card.numGrad,
                       WebkitBackgroundClip: "text",
                       backgroundClip: "text",
                       WebkitTextFillColor: "transparent",
@@ -451,10 +467,10 @@ function MobileHowItWorks() {
                     <h3 className="text-[22px] font-extrabold text-[#f57f20] uppercase tracking-[0.06em] mb-4 font-montserrat">
                       {card.title}
                     </h3>
-                    <p className="text-[15px] font-medium text-[#ede8da] leading-[1.6] max-w-[240px] mb-3 font-montserrat">
+                    <p className={`text-[15px] font-medium leading-[1.6] max-w-[240px] mb-3 font-montserrat ${isLight ? "text-[#1E3A4F]" : "text-[#ede8da]"}`}>
                       {card.body}
                     </p>
-                    <p className="text-[14px] font-normal text-[#ede8da]/40 italic leading-[1.5] font-montserrat">
+                    <p className={`text-[14px] font-normal italic leading-[1.5] font-montserrat ${isLight ? "text-[#1E3A4F]/45" : "text-[#ede8da]/40"}`}>
                       {card.subline}
                     </p>
                   </div>
@@ -462,6 +478,24 @@ function MobileHowItWorks() {
               ))}
             </div>
 
+            {/* Left dots */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              style={{ opacity: dotsOpacity }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5 z-20"
+            >
+              {CARDS.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-[4px] rounded-full transition-all duration-300 ${activeIndex === i
+                    ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
+                    : isLight ? "h-[6px] bg-[#091825]/35" : "h-[6px] bg-[#ede8da]/35"
+                    }`}
+                />
+              ))}
+            </motion.div>
+
+            {/* Right dots */}
             <motion.div
               initial={{ opacity: 0 }}
               style={{ opacity: dotsOpacity }}
@@ -471,8 +505,8 @@ function MobileHowItWorks() {
                 <div
                   key={i}
                   className={`w-[4px] rounded-full transition-all duration-300 ${activeIndex === i
-                      ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
-                      : "h-[4px] bg-[#ede8da]/20"
+                    ? "h-8 bg-[#f57f20] shadow-[0_0_10px_rgba(245,127,32,0.6)]"
+                    : isLight ? "h-[6px] bg-[#091825]/35" : "h-[6px] bg-[#ede8da]/35"
                     }`}
                 />
               ))}

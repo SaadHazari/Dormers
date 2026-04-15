@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { TextRotate } from "@/components/ui/text-rotate";
 
 /* ─────────────────────────────────────────────────────────────────
  * Framer ease curve
@@ -17,30 +18,30 @@ const E = [0.25, 0.46, 0.45, 0.94] as const;
  * → typewriter → "Delivered WARM" → "to your DORM."
  * → CTAs → proof columns
  * ───────────────────────────────────────────────────────────────── */
-const W_GAP    = 0.13;   // L1 inter-word gap
-const L1_S     = 0.20;   // "You" starts at 0.20 s
-const L2_D     = 1.15;   // "to" starts at 1.15 s
+const W_GAP = 0.13;   // L1 inter-word gap
+const L1_S = 0.20;   // "You" starts at 0.20 s
+const L2_D = 1.15;   // "to" starts at 1.15 s
 const L2_W_GAP = 0.20;   // L2 inter-word gap
-const UNDER_D  = 2.26;   // dinner underline
+const UNDER_D = 2.26;   // dinner underline
 
 // Sequential checklist
-const PP1_D   = 3.95;    // Item 1
-const STR1_D  = 4.40;    // Strike 1  (item 1 settles ~0.05 s before)
-const DOT1_D  = 4.88;    // Dot 1     (strike 1 ends + tiny buffer)
-const PP2_D   = 5.08;    // Item 2
-const STR2_D  = 5.52;    // Strike 2
-const DOT2_D  = 6.00;    // Dot 2
-const PP3_D   = 6.20;    // Item 3
-const STR3_D  = 6.64;    // Strike 3
+const PP1_D = 3.95;    // Item 1
+const STR1_D = 4.40;    // Strike 1  (item 1 settles ~0.05 s before)
+const DOT1_D = 4.88;    // Dot 1     (strike 1 ends + tiny buffer)
+const PP2_D = 5.08;    // Item 2
+const STR2_D = 5.52;    // Strike 2
+const DOT2_D = 6.00;    // Dot 2
+const PP3_D = 6.20;    // Item 3
+const STR3_D = 6.64;    // Strike 3
 
 // Anchor + rest
-const CLOSE_D  = 7.30;             // typewriter starts
-const LINE2_D  = CLOSE_D + 1.65;   // = 8.95 — "Delivered WARM"
-const LINE2B_D = LINE2_D  + 0.50;  // = 9.45 — "to your DORM."
-const CTA_D    = 10.10;
-const PRICE_D  = 10.75;
-const DISH_D   = 11.30;
-const DORM_D   = 11.85;
+const CLOSE_D = 7.30;             // typewriter starts
+const LINE2_D = CLOSE_D + 1.65;   // = 8.95 — "Delivered WARM"
+const LINE2B_D = LINE2_D + 0.50;  // = 9.45 — "to your DORM."
+const CTA_D = 10.10;
+const PRICE_D = 10.75;
+const DISH_D = 11.30;
+const DORM_D = 11.85;
 
 /* ─────────────────────────────────────────────────────────────────
  * Scoped CSS — structural + typography only.
@@ -229,7 +230,7 @@ const CSS = `
     font-family: Montserrat, sans-serif;
     font-weight: 600;
     font-size: 14px;
-    color: #f57f20;
+    color: #ede8da;
     line-height: 1.1;
   }
   .h-proof-num {
@@ -317,7 +318,7 @@ export default function HeroReveal() {
   /* ── Typewriter state ── */
   type CloserPhase = "idle" | "cursor" | "typing" | "done";
   const [closerPhase, setCloserPhase] = useState<CloserPhase>("idle");
-  const [closerText, setCloserText]   = useState("");
+  const [closerText, setCloserText] = useState("");
   const CLOSER_FULL = "A new dish, every night.";
 
   useEffect(() => {
@@ -331,7 +332,7 @@ export default function HeroReveal() {
   }, []);
 
   useEffect(() => {
-    const timers:    ReturnType<typeof setTimeout>[]   = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
     const intervals: ReturnType<typeof setInterval>[] = [];
 
     const t1 = setTimeout(() => {
@@ -602,10 +603,17 @@ export default function HeroReveal() {
             transition={{ delay: CTA_D, duration: 0.48, ease: E }}
           >
             <button
-              className="h-btn h-btn-primary"
+              className="h-btn h-btn-primary hero-cta-primary flex items-center justify-center overflow-hidden"
               onClick={() => window.open("https://vip.dormers.ae/", "_blank")}
             >
-              Subscribe
+              <TextRotate
+                texts={["Get Started", "View Plans"]}
+                mainClassName="font-bold !whitespace-nowrap !flex-nowrap"
+                staggerDuration={0.03}
+                staggerFrom="last"
+                rotationInterval={3500}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              />
             </button>
             <button
               className="h-btn h-btn-secondary"

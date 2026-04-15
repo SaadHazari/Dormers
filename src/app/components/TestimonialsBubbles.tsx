@@ -227,7 +227,7 @@ const messages =
   ]
 
 export default function TestimonialsBubbles() {
-  const { theme } = useTheme();
+  useTheme();
   const [currentGroup, setCurrentGroup] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -290,7 +290,7 @@ export default function TestimonialsBubbles() {
     },
     trackTouch: true,
     trackMouse: true,
-    preventScrollOnSwipe: true,
+    preventScrollOnSwipe: false,
     delta: 50,
   });
 
@@ -312,10 +312,7 @@ export default function TestimonialsBubbles() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: msg.from === "user" ? -100 : 100 }}
               transition={{ duration: 0.6, ease: "easeInOut" }}
-              className={`max-w-[250px] p-4 rounded-2xl ${theme === "light"
-                ? "bg-[#1E3A4F] text-white"
-                : "bg-[#EEE9DA] text-[#1E3A4F]"
-                } ${msg.from === "user" ? "self-end mr-4" : "self-start ml-4"
+              className={`max-w-[250px] p-4 rounded-2xl bg-[#EEE9DA] text-[#1E3A4F] ${msg.from === "user" ? "self-end mr-4" : "self-start ml-4"
                 } relative`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -342,9 +339,7 @@ export default function TestimonialsBubbles() {
               </p>
 
               <div
-                className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"
-                  } w-4 h-4 transform rotate-45 ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-                  }`}
+                className={`absolute -bottom-2 ${msg.from === "user" ? "right-4" : "left-4"} w-4 h-4 transform rotate-45 bg-[#EEE9DA]`}
               />
             </motion.div>
           ))}
@@ -356,10 +351,7 @@ export default function TestimonialsBubbles() {
           <button
             key={index}
             onClick={() => handleDotClick(index)}
-            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentGroup
-              ? "bg-white scale-110 w-[60px] h-[8px]"
-              : "bg-white/30"
-              }`}
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentGroup ? "bg-white scale-110 w-[60px] h-[8px]" : "bg-white/30"}`}
           />
         ))}
       </div>

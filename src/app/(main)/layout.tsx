@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation"; // <--- Added this import
+import { motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
-import { useTheme } from "next-themes";
 import DeliveryStrip from "@/components/ui/DeliveryStrip";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  useTheme();
-  const pathname = usePathname(); // <--- Get the current URL
+  const pathname = usePathname();
   const [hideNavbar, setHideNavbar] = useState(false);
   const [heroReady, setHeroReady] = useState(false);
+  const [footerRevealed, setFooterRevealed] = useState(false);
   const scrollYRef = useRef(0);
   const slideSectionRef = useRef<HTMLDivElement>(null);
+  const footerSentinelRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   // Check if we are on the home page (either "/" or "/home")
@@ -32,6 +33,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       window.removeEventListener("hero-ui-hidden", hide);
     };
   }, [pathname]);
+
+  // Fire footerRevealed once the bottom of main_content scrolls into view
+  useEffect(() => {
+    if (!footerSentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setFooterRevealed(true); },
+      { threshold: 0.1 }
+    );
+    observer.observe(footerSentinelRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     // Only run scroll logic on the Home Page
@@ -69,12 +81,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [hideNavbar, isHomePage]); // <--- Added isHomePage dependency
+  }, [hideNavbar, isHomePage]);
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{ backgroundColor: "#ede8da" }}
+      className="flex flex-col"
+      style={{ minHeight: "100vh", backgroundColor: "#ede8da" }}
     >
       <style jsx>{`
         .main_content {
@@ -89,8 +101,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           -webkit-clip-path: inset(0 0 0 0 round 0 0 46px 46px);
         }
         #footer {
-          position: sticky;
-          bottom: 4px;
           z-index: 0;
           -webkit-user-select: none;
           flex: none;
@@ -101,20 +111,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         @media (min-width: 640px) and (max-width: 900px) {
           #footer {
             height: auto !important;
-            min-height: 82svh;
+            min-height: 82vh;
             overflow: visible !important;
           }
         }
         @media (max-width: 639px) {
           #footer {
-            height: 85svh !important;
+            height: 85dvh !important;
             min-height: unset !important;
             overflow: hidden !important;
             justify-content: flex-start !important;
           }
           .au-row {
             flex: 0 0 auto !important;
-            padding-bottom: env(safe-area-inset-bottom) !important; /* ADDED: protects from iPhone home bar */
+            padding-bottom: env(safe-area-inset-bottom) !important;
           }
           .slide-in-section {
             margin-top: auto;
@@ -125,20 +135,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
       `}</style>
 
+      {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
       <div className="main_content">
-        {/* On /home: hidden until hero sequence completes + not near footer */}
-        {/* On other pages: hidden only when footer-slide is approaching */}
-        {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
         <main className="flex-grow">{children}</main>
-        {/* Inside main_content so it shares the same stacking context as the navbar (z-100 beats z-49) */}
         <ChatButtonWrapper />
+        {/* Sentinel: fires footerRevealed when main_content bottom enters view */}
+        <div ref={footerSentinelRef} style={{ height: 1 }} />
       </div>
 
       <div
         id="footer"
         className="w-full"
         style={{
-          height: "85svh",
+          height: "85vh",
           backgroundColor: "#ede8da",
           backgroundImage: `linear-gradient(rgba(245,127,32,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(245,127,32,0.25) 1px, transparent 1px)`,
           backgroundSize: "50px 50px",
@@ -148,7 +157,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           overflow: "hidden",
         }}
       >
-        {/* ── About Us Copy — visible as the curtain peels back ── */}
         <style>{`
           .au-row {
             display: grid;
@@ -196,15 +204,60 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }
           @media (max-width: 639px) {
             .au-headline {
-              font-size: 1.45rem;
-              line-height: 1.2;
-              margin-bottom: 12px;
+              font-size: clamp(2rem, 8vw, 2.6rem);
+              line-height: 1.08;
+              letter-spacing: -0.03em;
+              margin-bottom: 20px;
+              text-align: center;
             }
           }
           .au-headline em {
             font-weight: 700;
             font-style: italic;
             color: #1e3a4f;
+          }
+          @media (max-width: 639px) {
+            .au-headline em {
+              color: #f57f20;
+            }
+            .au-emotional,
+            .au-credential-wrap,
+            .au-closer {
+              display: none;
+            }
+            .au-row {
+              display: flex;
+              flex-direction: column;
+              justify-content: flex-start;
+              padding-left: 32px;
+              padding-right: 32px;
+              padding-top: 100px;
+            }
+            .au-section {
+              display: flex;
+              flex-direction: column;
+              flex: 1;
+            }
+            .au-delivery-strip {
+              margin-top: auto;
+              margin-bottom: auto;
+            }
+          }
+          .au-headline-black {
+            font-size: clamp(1.75rem, 3.8vw, 2.25rem);
+          }
+          .au-headline-orange {
+            font-size: clamp(2rem, 4.2vw, 2.6rem);
+          }
+          @media (max-width: 639px) {
+            .au-headline-black {
+              font-size: 9.5vw;
+              display: block;
+            }
+            .au-headline-orange {
+              font-size: 8.5vw;
+              margin-top: 0.18em;
+            }
           }
           .br-desk { display: block; }
           .au-emotional {
@@ -329,13 +382,80 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
         <div className="au-row">
           <div className="au-section">
-            <h2 className="au-headline">
+            {/* Desktop headline — original, untouched */}
+            <h2 className="au-headline hidden sm:block">
               Built by people who know{" "}
               <br className="br-desk" />
               what it&apos;s like to miss{" "}
               <br className="br-desk" />
               <em>a home-cooked meal.</em>
             </h2>
+
+            {/* Mobile headline — animated, 4-line typographic block */}
+            <motion.h2
+              className="sm:hidden flex flex-col text-left mb-7"
+              initial="hidden"
+              animate={footerRevealed ? "visible" : "hidden"}
+              variants={{ hidden: {}, visible: {} }}
+            >
+              {/* THE TENSE SETUP — word-by-word stagger, 2s initial delay */}
+              <motion.div
+                variants={{
+                  hidden: {},
+                  visible: { transition: { staggerChildren: 0.18, delayChildren: 2 } },
+                }}
+                className="au-headline-black font-montserrat font-black text-[#091825]"
+                style={{
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.033em",
+                  fontWeight: 900,
+                  willChange: "transform",
+                  transform: "translateZ(0)",
+                }}
+              >
+                {["Built", "by", "People", "BREAK", "who", "know", "what", "BREAK", "it\u2019s", "like", "to", "miss", "a"].map((w, i) =>
+                  w === "BREAK" ? <br key={i} /> : (
+                    <motion.span
+                      key={i}
+                      variants={{
+                        hidden: { opacity: 0, y: 22 },
+                        visible: {
+                          opacity: 1,
+                          y: 0,
+                          transition: { type: "spring", stiffness: 100, damping: 30, mass: 1.8 },
+                        },
+                      }}
+                      style={{ display: "inline-block", marginRight: "0.22em", willChange: "transform, opacity" }}
+                    >
+                      {w}
+                    </motion.span>
+                  )
+                )}
+              </motion.div>
+
+              {/* THE WARM RESOLVE — 2s initial + 11 words × 0.18s + ~1s settle + 0.4s breath */}
+              <motion.span
+                variants={{
+                  hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    filter: "blur(0px)",
+                    transition: { duration: 1.6, ease: [0.25, 0.46, 0.45, 0.94], delay: 5.4 },
+                  },
+                }}
+                className="au-headline-orange font-serif italic font-medium text-[#f57f20] drop-shadow-sm"
+                style={{
+                  lineHeight: 1.13,
+                  letterSpacing: "0.021em",
+                  willChange: "transform, opacity, filter",
+                  transform: "translateZ(0)",
+                  isolation: "isolate",
+                }}
+              >
+                home-cooked meal.
+              </motion.span>
+            </motion.h2>
 
             <p className="au-emotional">
               Moving abroad is a lot. New city, new campus, new everything
@@ -356,13 +476,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <span className="mic-drop">Simple.</span>
             </p>
 
-            {/* Mobile delivery strip — hidden on desktop (grid shows pills instead) */}
             <div className="au-delivery-strip">
-              <DeliveryStrip />
+              <DeliveryStrip large />
             </div>
           </div>
 
-          {/* ── Delivery sidebar — desktop only, right side ── */}
           <aside className="deliver-sidebar">
             <p className="deliver-label">We deliver to</p>
             <div className="deliver-rows">
@@ -384,7 +502,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </aside>
         </div>
 
-        {/* Footer pinned to bottom */}
         <div ref={slideSectionRef} className="slide-in-section w-full pb-2">
           <Footer />
         </div>
