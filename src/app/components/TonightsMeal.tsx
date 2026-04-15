@@ -34,30 +34,12 @@ export default function TonightsMeal() {
   const [activeIndex, setActiveIndex] = useState(0);
   const directionRef = useRef(1);
 
-  const goTo = (index: number) => {
-    directionRef.current = index > activeIndex ? 1 : -1;
-    setActiveIndex(index);
-  };
-
-  if (!variants.length) return null;
-
-  const dish = variants[activeIndex];
-
+  // All hooks must be called unconditionally before any early returns
   const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
-  const currentTheme = theme === "system" ? systemTheme : theme;
-  const isLight = mounted && currentTheme === "light";
-
-  const colorText = isLight ? "#111827" : "white";
-  const colorSubtext = isLight ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.7)";
-  const colorLabel = isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)";
-  const colorToggleBg = isLight ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.3)";
-  const colorToggleInactive = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.6)";
-
-  const glareOpacityValue = isLight ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)";
 
   const mouseX = useMotionValue(190);
   const mouseY = useMotionValue(200);
@@ -69,8 +51,27 @@ export default function TonightsMeal() {
 
   // Opacity fade logic for the glare overlay
   const glareOpacity = useTransform(isHovered, [0, 1], [0, 1]);
+
+  const currentTheme = theme === "system" ? systemTheme : theme;
+  const isLight = mounted && currentTheme === "light";
+  const glareOpacityValue = isLight ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)";
   // Dynamic gradient string that rigidly follows the cursor coordinates
   const glareBackground = useMotionTemplate`radial-gradient(circle at ${mouseX}px ${mouseY}px, ${glareOpacityValue}, transparent 80%)`;
+
+  if (!variants.length) return null;
+
+  const dish = variants[activeIndex];
+
+  const goTo = (index: number) => {
+    directionRef.current = index > activeIndex ? 1 : -1;
+    setActiveIndex(index);
+  };
+
+  const colorText = isLight ? "#111827" : "white";
+  const colorSubtext = isLight ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.7)";
+  const colorLabel = isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)";
+  const colorToggleBg = isLight ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.3)";
+  const colorToggleInactive = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.6)";
 
   return (
     <div style={{ perspective: "1500px" }} className="tm-wrapper w-full flex justify-center">
@@ -209,7 +210,7 @@ export default function TonightsMeal() {
               {/* Top Row: Title + Badge Toggle */}
               <div className="tm-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
             <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 550, fontSize: "16px", color: colorText, margin: 0 }}>
-              Tonight's Meal
+              Tonight&apos;s Meal
             </h2>
             {variants.length > 1 ? (
               <div style={{ display: "flex", gap: "2px", background: colorToggleBg, padding: "4px", borderRadius: "999px" }}>

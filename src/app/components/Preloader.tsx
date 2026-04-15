@@ -72,7 +72,7 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
                   textShadow: "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff",
                 }}
               >
-                Meals that<br />don't suck.
+                Meals that<br />don&apos;t suck.
               </div>
 
               {/* Layer 2: Filled Text (Reveals bottom to top) */}
@@ -85,7 +85,7 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
                 animate={{ clipPath: "inset(0% 0 0 0)" }}
                 transition={{ duration: 1.4, ease: [0.65, 0, 0.35, 1], delay: 0.3 }}
               >
-                Meals that<br />don't suck.
+                Meals that<br />don&apos;t suck.
               </motion.div>
             </div>
 
