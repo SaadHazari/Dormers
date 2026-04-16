@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import ChatWindow from "./ChatWindow";
+import GuidedConcierge from "@/app/components/GuidedConcierge";
 import Menu from "@/app/components/Menu";
 import { AnimatePresence, motion } from "framer-motion";
 import FormModal from "@/app/components/FormModal";
@@ -697,7 +697,7 @@ export default function Home() {
       {/* Chat Window */}
 
 
-      <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <GuidedConcierge isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
       {/* Form Modal */}
       <FormModal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />

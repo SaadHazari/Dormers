@@ -16,6 +16,19 @@ type SpiceLevel = 1 | 2 | 3;
 type Week = 'week1' | 'week2' | 'week3' | 'week4';
 type AllergenType = 'gluten' | 'dairy' | 'nuts' | 'eggs' | 'soy' | 'peanuts' | 'mustard' | 'fish' | 'sesame';
 
+// April 13, 2026 (Monday) is the start of Week 1
+const WEEK1_START_MS = Date.UTC(2026, 3, 13);
+const WEEK_NAMES: Week[] = ['week1', 'week2', 'week3', 'week4'];
+
+export function getMenuWeek(date: Date = new Date()): Week {
+  // Get Monday of the given date's week (UTC)
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  const weeksElapsed = Math.round((d.getTime() - WEEK1_START_MS) / (7 * 24 * 60 * 60 * 1000));
+  return WEEK_NAMES[((weeksElapsed % 4) + 4) % 4];
+}
+
 interface MicroNutrient {
   name: string;
   amount: string;
@@ -1275,7 +1288,7 @@ export default function Menu() {
   });
 
   const [, setShowNutritionHint] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState("week1");
+  const [selectedWeek, setSelectedWeek] = useState<string>(() => getMenuWeek(new Date()));
   
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek

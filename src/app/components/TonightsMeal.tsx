@@ -4,24 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence, useMotionValue, useTransform, useMotionTemplate } from "framer-motion";
 import { useTheme } from "next-themes";
-import { MENU_DATA, Dish } from "@/app/components/Menu";
-
-type Week = "week1" | "week2" | "week3" | "week4";
-const WEEKS: Week[] = ["week1", "week2", "week3", "week4"];
-
-function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
+import { MENU_DATA, Dish, getMenuWeek } from "@/app/components/Menu";
 
 function getTodayDishes(): Dish[] {
   const now = new Date();
   const jsDay = now.getDay();
   const menuDay = jsDay === 0 ? 0 : jsDay - 1;
-  const week = WEEKS[(getISOWeek(now) - 1) % 4];
+  const week = getMenuWeek(now);
   return MENU_DATA.filter((d) => d.week === week && d.dayOfWeek === menuDay);
 }
 
@@ -294,20 +283,20 @@ export default function TonightsMeal() {
               alignItems: "flex-end",
             }}>
               <div style={{ display: "flex", gap: "24px" }}>
+                {/* Kcal */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "9px", fontWeight: 600, color: colorLabel, textTransform: "uppercase", letterSpacing: "0.05em" }}>KCAL</span>
+                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.calories?.replace(" kcal", "") || "0"}</span>
+                </div>
                 {/* Protein */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "9px", fontWeight: 600, color: colorLabel, textTransform: "uppercase", letterSpacing: "0.05em" }}>PROTEIN</span>
                   <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.protein || "0g"}</span>
                 </div>
-                {/* Cals */}
+                {/* Carbs */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "9px", fontWeight: 600, color: colorLabel, textTransform: "uppercase", letterSpacing: "0.05em" }}>CALS</span>
-                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.calories?.replace(" kcal", "") || "0"}</span>
-                </div>
-                {/* Fat */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "9px", fontWeight: 600, color: colorLabel, textTransform: "uppercase", letterSpacing: "0.05em" }}>FAT</span>
-                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.fat || "0g"}</span>
+                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "9px", fontWeight: 600, color: colorLabel, textTransform: "uppercase", letterSpacing: "0.05em" }}>CARBS</span>
+                  <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.carbs || "0g"}</span>
                 </div>
               </div>
               <div style={{ display: "flex", gap: "2px", fontSize: "16px", paddingBottom: "2px" }}>

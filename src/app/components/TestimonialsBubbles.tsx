@@ -307,7 +307,7 @@ export default function TestimonialsBubbles() {
       onMouseEnter={pauseAutoScroll}
       onMouseLeave={resumeAutoScroll}
     >
-      <div className="flex flex-col items-center min-h-[200px] py-6">
+      <div className="flex flex-col items-center min-h-[480px] py-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentGroup}
