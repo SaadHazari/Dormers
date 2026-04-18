@@ -59,4 +59,4 @@ Food photos that make you want to order — a menu you browse naturally, not nav
 | Placeholder spice/allergen data | Real data not available yet; structure must exist for future fill-in | — Pending |
 
 ---
-*Last updated: 2026-04-03 — Phase 01 complete: image optimization enabled, Dish type model active with spice/allergen data*
+*Last updated: 2026-04-18 — Phase 04 complete: codebase cleanup — 13 orphaned source files, 20 unused public assets, and legacy ESLint config removed; nonveg1/ import path corrected in Menu.tsx*
