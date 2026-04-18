@@ -9,7 +9,7 @@ import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.p
 import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
 import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
 import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
-import ChickenFried from '../../../public/images/Week1/Nonveg/ChickenFried_v2.jpg';
+import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.jpg';
 import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 type SpiceLevel = 1 | 2 | 3;
