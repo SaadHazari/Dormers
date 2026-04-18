@@ -3,20 +3,20 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md — orphaned source component cleanup
-last_updated: "2026-04-18T12:58:46.352Z"
+stopped_at: Completed 04-02-PLAN.md — image cleanup and build verification
+last_updated: "2026-04-18T13:05:50.809Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 4
-  percent: 33
+  completed_plans: 5
+  percent: 80
 ---
 
 # Project State — Dormer's Menu Revamp
 
 **Last updated:** 2026-04-18
-**Session:** Phase 4 Plan 01 — Orphaned source component cleanup complete
+**Session:** Phase 4 Plan 02 — Image cleanup and build verification complete
 
 ---
 
@@ -31,21 +31,21 @@ progress:
 
 ## Current Position
 
-Phase: 04 (codebase-cleanup) — EXECUTING
-Plan: 1 of 2 complete
+Phase: 04 (codebase-cleanup) — COMPLETE
+Plan: 2 of 2 complete
 | Field | Value |
 |-------|-------|
 | Active phase | Phase 4: Codebase Cleanup |
-| Active plan | 04-02 (image cleanup — next) |
-| Phase status | Phase 1, 2 complete; Phase 3 not started; Phase 4 in progress |
-| Overall progress | 4/5 plans complete |
+| Active plan | None (Phase 4 complete) |
+| Phase status | Phase 1, 2, 4 complete; Phase 3 not started |
+| Overall progress | 5/5 plans complete |
 
 ```
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 Phase 1 ██████████ COMPLETE
 Phase 2 ██████████ COMPLETE
 Phase 3 ░░░░░░░░░░ NOT STARTED
-Phase 4 █████░░░░░ IN PROGRESS (1/2 plans)
+Phase 4 ██████████ COMPLETE (2/2 plans)
 ```
 
 ---
@@ -67,6 +67,8 @@ Phase 4 █████░░░░░ IN PROGRESS (1/2 plans)
 | Grep for importers before any component deletion | Safety pattern — confirmed zero importers for all 9 components before removal |
 | Delete CustomSelect.jsx now (04-01) | Already orphaned post-Phase-2; no reason to defer to Phase 3 |
 | eslint.config.mjs is sole ESLint config | .eslintrc.js (legacy) deleted; flat config verified functional post-removal |
+| Fix Menu.tsx import before deleting Nonveg/ | Safety grep caught ChickenFried_v2.jpg still referenced — updated to nonveg1/ChickenFried.jpg before deletion |
+| next build failure is pre-existing local env issue | Apostrophe in Dormer's path breaks webpack-generated JS string — confirmed present at pre-Phase-4 commit; does not affect Netlify |
 
 ### Architecture Notes
 
@@ -79,6 +81,9 @@ Phase 4 █████░░░░░ IN PROGRESS (1/2 plans)
 - `react-swipeable` is already installed — available for touch gesture support in the gallery
 - Phase 4 Plan 01 removed: CurtleAboutUs, ChiliIcon, DishGallery, MatrixText, useResize, ChatWindow, QualifyForm, AboutUs, CustomSelect, git_hub_production, .eslintrc.js
 - ESLint: only `eslint.config.mjs` (flat config) remains — `.eslintrc.js` deleted
+- Phase 4 Plan 02 removed: public/images/Week1/Nonveg/ (14 files), 14 unused stock food photos, 5 Next.js default SVGs
+- Menu.tsx ChickenFried import fixed: Nonveg/ChickenFried_v2.jpg → nonveg1/ChickenFried.jpg (caught by safety grep)
+- All Week1 non-veg static imports now point exclusively to nonveg1/
 
 ### Roadmap Evolution
 
@@ -98,10 +103,13 @@ None at project start.
 
 ## Session Continuity
 
-Phase 4 Plan 01 complete. Next: execute 04-02-PLAN.md (image cleanup — delete duplicate Nonveg/ directory and 14 unused stock photos).
-Phase 4 Plan 02 depends on Plan 01 (now complete). No new dependencies required.
+Phase 4 complete. Both plans executed:
+- Plan 01: Orphaned source components, legacy configs, and root artifacts deleted
+- Plan 02: Duplicate image directory, unused stock photos, and Next.js SVGs deleted; Menu.tsx import fixed
 
-**Stopped at:** Completed 04-01-PLAN.md — orphaned source component cleanup
+Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
+
+**Stopped at:** Completed 04-02-PLAN.md — image cleanup and build verification
 
 ---
 

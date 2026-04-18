@@ -13,7 +13,7 @@
 - [x] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields (completed 2026-04-03)
 - [x] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery (completed 2026-04-04)
 - [ ] **Phase 3: Navigation + Detail View** - Replace the week dropdown, refine the diet toggle, and add a slide-up dish detail sheet
-- [ ] **Phase 4: Codebase Cleanup** - Audit and remove all files not referenced by the live website
+- [x] **Phase 4: Codebase Cleanup** - Audit and remove all files not referenced by the live website (completed 2026-04-18)
 
 ---
 
@@ -78,7 +78,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 04-01-PLAN.md — Delete orphaned source components, root artifacts, and legacy ESLint config
-- [ ] 04-02-PLAN.md — Delete unused images, duplicate directories, and default SVGs; verify clean build
+- [x] 04-02-PLAN.md — Delete unused images, duplicate directories, and default SVGs; verify clean build
 
 ---
 
@@ -89,7 +89,7 @@ Plans:
 | 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
 | 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
 | 3. Navigation + Detail View | 0/? | Not started | - |
-| 4. Codebase Cleanup | 1/2 | In Progress|  |
+| 4. Codebase Cleanup | 2/2 | Complete   | 2026-04-18 |
 
 ---
 
