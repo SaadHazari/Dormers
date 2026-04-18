@@ -13,6 +13,7 @@
 - [x] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields (completed 2026-04-03)
 - [x] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery (completed 2026-04-04)
 - [ ] **Phase 3: Navigation + Detail View** - Replace the week dropdown, refine the diet toggle, and add a slide-up dish detail sheet
+- [ ] **Phase 4: Codebase Cleanup** - Audit and remove all files not referenced by the live website
 
 ---
 
@@ -45,8 +46,8 @@ Plans:
   5. Scrolling the gallery feels smooth on touch devices and no scrollbar is visible — thumb-scrolling works without accidental zooms or jank
 **Plans**: 2 plans
 Plans:
-- [ ] 02-PLAN-01.md — Build DishGallery.tsx component with Framer Motion drag, snap-to-card, and selection treatment
-- [ ] 02-PLAN-02.md — Wire DishGallery into Menu.tsx, remove letter buttons, visual verification
+- [x] 02-PLAN-01.md — Build DishGallery.tsx component with Framer Motion drag, snap-to-card, and selection treatment
+- [x] 02-PLAN-02.md — Wire DishGallery into Menu.tsx, remove letter buttons, visual verification
 **UI hint**: yes
 
 ### Phase 3: Navigation + Detail View
@@ -63,6 +64,22 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 4: Codebase Cleanup
+**Goal**: All dead code, orphaned assets, duplicate image directories, and legacy configs are removed — the repo contains only files referenced by the live website
+**Depends on**: Phase 3
+**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04, CLEAN-05
+**Success Criteria** (what must be TRUE):
+  1. All 9 orphaned source components are deleted (CurtleAboutUs, ChiliIcon, DishGallery, MatrixText, useResize, ChatWindow, QualifyForm, AboutUs + CSS, CustomSelect)
+  2. Legacy .eslintrc.js is removed; eslint.config.mjs remains the sole ESLint config
+  3. Root scratch files (git_hub_production, test-flex.html) are removed
+  4. Duplicate public/images/Week1/Nonveg/ directory is removed; nonveg1/ is preserved
+  5. 14 unused stock food photos and 5 Next.js default SVGs are removed from public/
+  6. `next build` passes cleanly with exit code 0 after all deletions
+**Plans**: 2 plans
+Plans:
+- [ ] 04-01-PLAN.md — Delete orphaned source components, root artifacts, and legacy ESLint config
+- [ ] 04-02-PLAN.md — Delete unused images, duplicate directories, and default SVGs; verify clean build
+
 ---
 
 ## Progress
@@ -72,6 +89,7 @@ Plans:
 | 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
 | 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
 | 3. Navigation + Detail View | 0/? | Not started | - |
+| 4. Codebase Cleanup | 0/2 | Not started | - |
 
 ---
 
@@ -99,11 +117,17 @@ Plans:
 | DETL-03 | Phase 3 | Pending |
 | DETL-04 | Phase 3 | Pending |
 | DETL-05 | Phase 3 | Pending |
+| CLEAN-01 | Phase 4 | Pending |
+| CLEAN-02 | Phase 4 | Pending |
+| CLEAN-03 | Phase 4 | Pending |
+| CLEAN-04 | Phase 4 | Pending |
+| CLEAN-05 | Phase 4 | Pending |
 
 **v1 requirements mapped:** 20/20
+**Cleanup requirements mapped:** 5/5
 **Orphaned requirements:** 0
 
 ---
 
 *Roadmap created: 2026-04-03*
-*Last updated: 2026-04-04 — Phase 2 planned (2 plans)*
+*Last updated: 2026-04-18 — Phase 4 planned (2 plans)*
