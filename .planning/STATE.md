@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: "Checkpoint: Task 2 visual verification — 02-02-PLAN.md"
-last_updated: "2026-04-04T12:52:13.690Z"
+stopped_at: Phase 4 context gathered
+last_updated: "2026-04-18T12:27:47.074Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 2
   total_plans: 3
   completed_plans: 3
@@ -74,6 +74,10 @@ Phase 3 ░░░░░░░░░░
 - Framer Motion is already in the project and used elsewhere — safe to use for gallery scroll and sheet slide-up
 - `react-swipeable` is already installed — available for touch gesture support in the gallery
 
+### Roadmap Evolution
+
+- Phase 4 added: Codebase cleanup — audit and remove all files not referenced by the live website (unused components, dead assets, orphaned scripts, stale configs, etc.)
+
 ### Blockers
 
 None at project start.
@@ -91,7 +95,7 @@ None at project start.
 Phase 1 complete. To continue: plan Phase 2 (Card Gallery) with `/gsd:plan-phase 2`.
 Phase 2 depends on Phase 1 (now complete). Requirements: GALL-01 through GALL-05.
 
-**Stopped at:** Checkpoint: Task 2 visual verification — 02-02-PLAN.md
+**Stopped at:** Phase 4 context gathered
 
 ---
 
