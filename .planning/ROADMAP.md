@@ -77,7 +77,7 @@ Plans:
   6. `next build` passes cleanly with exit code 0 after all deletions
 **Plans**: 2 plans
 Plans:
-- [ ] 04-01-PLAN.md — Delete orphaned source components, root artifacts, and legacy ESLint config
+- [x] 04-01-PLAN.md — Delete orphaned source components, root artifacts, and legacy ESLint config
 - [ ] 04-02-PLAN.md — Delete unused images, duplicate directories, and default SVGs; verify clean build
 
 ---
@@ -89,7 +89,7 @@ Plans:
 | 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
 | 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
 | 3. Navigation + Detail View | 0/? | Not started | - |
-| 4. Codebase Cleanup | 0/2 | Not started | - |
+| 4. Codebase Cleanup | 1/2 | In Progress|  |
 
 ---
 
