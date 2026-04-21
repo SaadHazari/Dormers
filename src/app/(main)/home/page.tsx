@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import GuidedConcierge from "@/app/components/GuidedConcierge";
 import Menu from "@/app/components/Menu";
 import { AnimatePresence, motion } from "framer-motion";
 import FormModal from "@/app/components/FormModal";
@@ -30,12 +29,7 @@ export default function Home() {
   const { theme } = useTheme();
   const [showAll, setShowAll] = useState(false);
 
-  // Add chat event listener
-  useEffect(() => {
-    const handleChatOpen = () => setIsChatOpen(true);
-    window.addEventListener("open-chat", handleChatOpen);
-    return () => window.removeEventListener("open-chat", handleChatOpen);
-  }, []);
+
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -580,7 +574,7 @@ export default function Home() {
 
                       {/* Scrollable FAQ list */}
                       <div className="max-h-[65vh] overflow-y-auto pr-2 mt-8 custom-scroll">
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                           {faqs.map((faq, index) =>
                             renderFaqCard(faq, index, openFAQ, toggleFAQ, theme)
                           )}
@@ -623,7 +617,7 @@ export default function Home() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="grid grid-cols-1 gap-4"
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4"
                     >
                       {faqs
                         .slice(0, 3)
@@ -694,10 +688,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Chat Window */}
 
-
-      <GuidedConcierge isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
       {/* Form Modal */}
       <FormModal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />

@@ -313,58 +313,94 @@ function MobileHowItWorks() {
   const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
+  // useScroll({ target }) relies on Framer's internal getBoundingClientRect()
+  // called in useLayoutEffect. On mobile Chrome/Safari, this fires before the
+  // page layout fully settles, returning a wrong offsetTop and making progress
+  // start at ~0.28 instead of 0. Fix: use global scrollY + measure offsetTop
+  // ourselves via the offsetParent chain (reliable, layout-independent).
+  const { scrollY } = useScroll();
+  const rangeRef = useRef<[number, number]>([0, 1]);
 
   useEffect(() => {
     function measure() {
       const h = window.innerHeight;
-      if (containerRef.current) containerRef.current.style.height = `${h * 4}px`;
+      if (containerRef.current) containerRef.current.style.height = `${h * 3.6}px`;
       if (stickyRef.current) stickyRef.current.style.height = `${h}px`;
+      // rAF lets the DOM settle after the height write before we read position
+      requestAnimationFrame(() => {
+        if (!containerRef.current) return;
+        let top = 0;
+        let el: HTMLElement | null = containerRef.current;
+        while (el) {
+          top += el.offsetTop;
+          el = el.offsetParent as HTMLElement | null;
+        }
+        // Second scaling pass: 2.76h → 2.60h (×1.0615). C3 now settles at
+        // progress ~0.98, leaving only 0.02 × 2.60h ≈ 0.05vh buffer —
+        // essentially no dead scroll after Card 3.
+        rangeRef.current = [top, top + h * 2.6];
+      });
     }
     let prevW = window.innerWidth;
     function handleResize() {
       const w = window.innerWidth;
-      // Height-only resize = Safari chrome show/hide — ignore to prevent layout jump
       if (w !== prevW) { prevW = w; measure(); }
+      // Height-only resize = Safari chrome show/hide — ignore to prevent layout jump
     }
     measure();
     window.addEventListener('resize', handleResize, { passive: true });
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const eyebrowOpacity = useTransform(scrollYProgress, [0.05, 0.08], [0, 1]);
-  const op1 = useTransform(scrollYProgress, [0.07, 0.10], [0, 1]);
-  const y1 = useTransform(scrollYProgress, [0.07, 0.10], [20, 0]);
-  const op2 = useTransform(scrollYProgress, [0.09, 0.12], [0, 1]);
-  const y2 = useTransform(scrollYProgress, [0.09, 0.12], [20, 0]);
-  const op3 = useTransform(scrollYProgress, [0.11, 0.14], [0, 1]);
-  const y3 = useTransform(scrollYProgress, [0.11, 0.14], [20, 0]);
-  const op4 = useTransform(scrollYProgress, [0.13, 0.16], [0, 1]);
-  const y4 = useTransform(scrollYProgress, [0.13, 0.16], [20, 0]);
-  const underlineWidth = useTransform(scrollYProgress, [0.16, 0.20], ["0%", "100%"]);
+  const scrollYProgress = useTransform(scrollY, (v) => {
+    const [start, end] = rangeRef.current;
+    return Math.max(0, Math.min(1, (v - start) / (end - start)));
+  });
 
-  const dotsOpacity = useTransform(scrollYProgress, [0.20, 0.23], [0, 1]);
+  // ── Heading text ──────────────────────────────────────────────────────────
+  // Text starts at progress 0.35 = 0.35 × 2.60h = 0.91vh after the section
+  // is fully pinned — the user is well inside before anything appears.
+  // Each word staggers by 0.03 progress. Underline follows last word.
+  //
+  //  Section "settling" buffer:  0.35 × 2.60h = 0.91vh  ← felt as "fully in"
+  //  Full text + underline span: 0.35 → 0.55 = 0.52vh of scroll
+  const eyebrowOpacity = useTransform(scrollYProgress, [0.35, 0.40], [0, 1]);
+  const op1 = useTransform(scrollYProgress, [0.38, 0.43], [0, 1]);
+  const y1 = useTransform(scrollYProgress, [0.38, 0.43], [20, 0]);
+  const op2 = useTransform(scrollYProgress, [0.41, 0.46], [0, 1]);
+  const y2 = useTransform(scrollYProgress, [0.41, 0.46], [20, 0]);
+  const op3 = useTransform(scrollYProgress, [0.43, 0.48], [0, 1]);
+  const y3 = useTransform(scrollYProgress, [0.43, 0.48], [20, 0]);
+  const op4 = useTransform(scrollYProgress, [0.46, 0.51], [0, 1]);
+  const y4 = useTransform(scrollYProgress, [0.46, 0.51], [20, 0]);
+  const underlineWidth = useTransform(scrollYProgress, [0.49, 0.55], ["0%", "100%"]);
 
-  // Card 1: 0.22 - 0.58
-  const c1Opacity = useTransform(scrollYProgress, [0.22, 0.28, 0.48, 0.58], [0, 1, 1, 0]);
-  const c1Y = useTransform(scrollYProgress, [0.22, 0.28], [100, 0]);
-  const c1Scale = useTransform(scrollYProgress, [0.22, 0.28], [0.95, 1]);
-  const c1X = useTransform(scrollYProgress, [0.48, 0.58], ["0vw", "-120vw"]);
+  // ── Progress dots ─────────────────────────────────────────────────────────
+  const dotsOpacity = useTransform(scrollYProgress, [0.53, 0.58], [0, 1]);
 
-  // Card 2: 0.58 - 0.88
-  const c2Opacity = useTransform(scrollYProgress, [0.58, 0.64, 0.78, 0.88], [0, 1, 1, 0]);
-  const c2Y = useTransform(scrollYProgress, [0.58, 0.64], [100, 0]);
-  const c2Scale = useTransform(scrollYProgress, [0.58, 0.64], [0.95, 1]);
-  const c2X = useTransform(scrollYProgress, [0.78, 0.88], ["0vw", "-120vw"]);
+  // ── Cards ─────────────────────────────────────────────────────────────────
+  // All three card transitions are exactly 0.16h physical scroll. Enters and
+  // exits are symmetric. C3 ends at 1.0 — zero dead scroll.
+  //
+  //  C1 enter:  (0.62 – 0.56) × 2.60h = 0.16vh
+  //  C1 exit:   (0.75 – 0.69) × 2.60h = 0.16vh
+  //  C2 enter:  (0.81 – 0.75) × 2.60h = 0.16vh
+  //  C2 exit:   (0.94 – 0.88) × 2.60h = 0.16vh
+  //  C3 enter:  (1.00 – 0.94) × 2.60h = 0.16vh  ← ends exactly at range end
+  const c1Opacity = useTransform(scrollYProgress, [0.56, 0.62, 0.69, 0.75], [0, 1, 1, 0]);
+  const c1Y = useTransform(scrollYProgress, [0.56, 0.62], [100, 0]);
+  const c1Scale = useTransform(scrollYProgress, [0.56, 0.62], [0.95, 1]);
+  const c1X = useTransform(scrollYProgress, [0.69, 0.75], ["0vw", "-120vw"]);
 
-  // Card 3: 0.88 - 1.00
-  const c3Opacity = useTransform(scrollYProgress, [0.88, 0.94], [0, 1]);
-  const c3Y = useTransform(scrollYProgress, [0.88, 0.94], [100, 0]);
-  const c3Scale = useTransform(scrollYProgress, [0.88, 0.94], [0.95, 1]);
-  const c3X = useTransform(scrollYProgress, [0.88, 1], ["0vw", "0vw"]);
+  const c2Opacity = useTransform(scrollYProgress, [0.75, 0.81, 0.88, 0.94], [0, 1, 1, 0]);
+  const c2Y = useTransform(scrollYProgress, [0.75, 0.81], [100, 0]);
+  const c2Scale = useTransform(scrollYProgress, [0.75, 0.81], [0.95, 1]);
+  const c2X = useTransform(scrollYProgress, [0.88, 0.94], ["0vw", "-120vw"]);
+
+  const c3Opacity = useTransform(scrollYProgress, [0.94, 1.0], [0, 1]);
+  const c3Y = useTransform(scrollYProgress, [0.94, 1.0], [100, 0]);
+  const c3Scale = useTransform(scrollYProgress, [0.94, 1.0], [0.95, 1]);
+  const c3X = useTransform(scrollYProgress, [0.94, 1.0], ["0vw", "0vw"]);
 
   const cardOpacities = [c1Opacity, c2Opacity, c3Opacity];
   const cardYs = [c1Y, c2Y, c3Y];
@@ -372,13 +408,13 @@ function MobileHowItWorks() {
   const cardXs = [c1X, c2X, c3X];
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    if (latest < 0.58) setActiveIndex(0);
+    if (latest < 0.69) setActiveIndex(0);
     else if (latest < 0.88) setActiveIndex(1);
     else setActiveIndex(2);
   });
 
   return (
-    <section ref={containerRef} className={`relative ${isLight ? "bg-[#F0EBE0]" : "bg-[#091825]"}`} style={{ height: '400vh' }}>
+    <section ref={containerRef} className={`relative ${isLight ? "bg-[#F0EBE0]" : "bg-[#091825]"}`} style={{ height: '360vh' }}>
       <div ref={stickyRef} className="sticky top-0 flex flex-col justify-center overflow-hidden pt-6" style={{ height: '100vh' }}>
 
         <div

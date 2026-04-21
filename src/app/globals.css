@@ -139,6 +139,23 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ── Shadcn-compatible semantic tokens (dark-first; used by pricing-card) ── */
+@theme {
+  --color-card: #0d2035;
+  --color-card-foreground: #ffffff;
+  --color-muted: #0d2035;
+  --color-muted-foreground: #7a9ab0;
+  --color-border: #1e3448;
+  --color-primary: #f57f20;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #122637;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #122637;
+  --color-accent-foreground: #ffffff;
+  --color-input: #1e3448;
+  --color-ring: #f57f20;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

@@ -9,30 +9,30 @@ import ChickenAfghani from '../../../public/images/Week1/nonveg1/chickenAfghan.p
 import DormersChicken from '../../../public/images/Week1/nonveg1/DormersChicken.png';
 import PeriPeri from '../../../public/images/Week1/nonveg1/PeriPeri.png';
 import Meatballs from '../../../public/images/Week1/nonveg1/MeatballsMashe.png';
-import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.jpg';
+import ChickenFried from '../../../public/images/Week1/nonveg1/ChickenFried.png';
 import ChickenBiryani from '../../../public/images/Week1/nonveg1/ChickenBiryani.png';
 
 type SpiceLevel = 1 | 2 | 3;
 type Week = 'week1' | 'week2' | 'week3' | 'week4';
 type AllergenType = 'gluten' | 'dairy' | 'nuts' | 'eggs' | 'soy' | 'peanuts' | 'mustard' | 'fish' | 'sesame';
 
-// April 13, 2026 (Monday) is the start of Week 1
+interface MicroNutrient {
+  name: string;
+  amount: string;
+  percentage: string;
+}
+
+// April 13, 2026 (Monday) is the anchor for Week 1
 const WEEK1_START_MS = Date.UTC(2026, 3, 13);
 const WEEK_NAMES: Week[] = ['week1', 'week2', 'week3', 'week4'];
 
 export function getMenuWeek(date: Date = new Date()): Week {
-  // Get Monday of the given date's week (UTC)
+  // Find the Monday of the given date's week (UTC)
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dow = d.getUTCDay();
   d.setUTCDate(d.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
   const weeksElapsed = Math.round((d.getTime() - WEEK1_START_MS) / (7 * 24 * 60 * 60 * 1000));
   return WEEK_NAMES[((weeksElapsed % 4) + 4) % 4];
-}
-
-interface MicroNutrient {
-  name: string;
-  amount: string;
-  percentage: string;
 }
 
 export interface Dish {
@@ -1289,7 +1289,7 @@ export default function Menu() {
 
   const [, setShowNutritionHint] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>(() => getMenuWeek(new Date()));
-  
+
   const availableDishes = MENU_DATA.filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
@@ -1344,20 +1344,18 @@ export default function Menu() {
   return (
     <>
       <div
-        className={`relative w-full py-[24px] lg:py-[40px] ${
-          theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
-        } overflow-hidden`}
+        className={`relative w-full py-[24px] lg:py-[40px] ${theme === "light" ? "bg-[#EEE9DA]" : "bg-[#1E3A4F]"
+          } overflow-hidden`}
       >
         <div className="container mx-auto px-4">
-          
+
           {/* --- MENU HEADER & TOGGLES --- */}
           <div className="mb-5 mt-0 flex items-center justify-between lg:max-w-[987px] mx-auto">
-            
+
             {/* Title (Mobile) */}
             <h2
-              className={`text-[32px] font-medium lg:hidden block ${
-                theme === "light" ? "text-[#1E3A4F]" : "text-white"
-              }`}
+              className={`text-[32px] font-medium lg:hidden block ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
+                }`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
@@ -1367,32 +1365,30 @@ export default function Menu() {
             >
               MENU
             </h2>
-            
+
             {/* Title (Desktop) */}
             <h2
-              className={`menu-heading_icon lg:block hidden ${
-                theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
-              }`}
+              className={`menu-heading_icon lg:block hidden ${theme === "light" ? "!text-[#1E3A4F]" : "!text-white"
+                }`}
             >
               MENU
             </h2>
 
             {/* --- MOBILE TOGGLE WITH LABELS --- */}
             <div className="flex items-center gap-2 lg:hidden">
-              <span 
+              <span
                 className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-80`}
                 style={labelStyle}
               >
                 Non Veg
               </span>
-              
+
               <button
                 onClick={() => {
                   setIsVegOnly((v) => !v);
                 }}
                 className={`relative w-15 h-7 rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
                 ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
-                style={{ WebkitBackdropFilter: "blur(12px)", backdropFilter: "blur(12px)" }}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1410,7 +1406,7 @@ export default function Menu() {
                 </div>
               </button>
 
-              <span 
+              <span
                 className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-80`}
                 style={labelStyle}
               >
@@ -1420,7 +1416,7 @@ export default function Menu() {
 
             {/* --- DESKTOP TOGGLE WITH LABELS --- */}
             <div className="hidden lg:flex items-center gap-3">
-              <span 
+              <span
                 className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-90`}
                 style={desktopLabelStyle}
               >
@@ -1434,7 +1430,6 @@ export default function Menu() {
                 className={`relative rounded-full flex items-center transition-colors duration-300 px-1 border border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.1)] 
                 h-[43px] w-[90px]
                 ${theme === "light" ? "bg-black/5 backdrop-blur-md" : "bg-white/10 backdrop-blur-md"}`}
-                style={{ WebkitBackdropFilter: "blur(12px)", backdropFilter: "blur(12px)" }}
                 aria-label="Toggle veg/non-veg"
               >
                 <div
@@ -1450,7 +1445,7 @@ export default function Menu() {
                 </div>
               </button>
 
-              <span 
+              <span
                 className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"} opacity-90`}
                 style={desktopLabelStyle}
               >
@@ -1461,7 +1456,7 @@ export default function Menu() {
 
           {/* --- NEW MOBILE MENU UI --- */}
           <div className="lg:hidden mx-auto mt-6 sm:mt-10 px-2">
-            <MobileMenuCard 
+            <MobileMenuCard
               currentDish={currentDish}
               selectedWeek={selectedWeek}
               setSelectedWeek={setSelectedWeek}
@@ -1472,7 +1467,7 @@ export default function Menu() {
 
           {/* --- NEW DESKTOP CAROUSEL UI --- */}
           <div className="hidden lg:block w-full">
-            <DesktopMenuCarousel 
+            <DesktopMenuCarousel
               availableDishes={availableDishes}
               selectedWeek={selectedWeek}
               setSelectedWeek={setSelectedWeek}

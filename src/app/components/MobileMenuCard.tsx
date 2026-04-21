@@ -78,34 +78,30 @@ export default function MobileMenuCard({
     ? "bg-[#1E3A4F]/10 border border-[#1E3A4F]/18 shadow-[0_8px_32px_0_rgba(9,24,37,0.10)]"
     : "bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
 
-  const inactiveText = isLight ? "text-[rgba(30,58,79,0.55)]" : "text-[rgba(255,255,255,0.6)]";
-  const primaryText  = isLight ? "text-[#091825]" : "text-white";
-  const bodyText     = isLight ? "text-[rgba(30,58,79,0.7)]" : "text-[rgba(255,255,255,0.8)]";
-  const mutedText    = isLight ? "text-[rgba(30,58,79,0.45)]" : "text-[rgba(255,255,255,0.5)]";
-  const divider      = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
-  const macroGrid    = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
-  const macroLabel   = isLight ? "text-[rgba(30,58,79,0.5)] text-[8px] tracking-wider uppercase font-semibold mb-[2px]" : "text-[rgba(255,255,255,0.7)] text-[8px] tracking-wider uppercase font-semibold mb-[2px]";
-  const macroValue   = isLight ? "text-[#091825] font-bold text-[13px] drop-shadow-sm" : "text-white font-bold text-[13px] drop-shadow-sm";
-  const allergenTag  = isLight
-    ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2 py-[2px] text-[10px] text-[#1E3A4F] capitalize shadow-sm"
-    : "bg-white/10 border border-white/20 rounded-full px-2 py-[2px] text-[10px] text-white capitalize shadow-sm";
+  const inactiveText = isLight ? "text-[#1E3A4F]/55" : "text-white/60";
+  const primaryText = isLight ? "text-[#091825]" : "text-white";
+  const bodyText = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
+  const mutedText = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
+  const divider = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
+  const macroGrid = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
+  const macroLabel = isLight ? "text-[#1E3A4F]/50 text-[8px] tracking-wider uppercase font-semibold mb-[2px]" : "text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]";
+  const macroValue = isLight ? "text-[#091825] font-bold text-[13px] drop-shadow-sm" : "text-white font-bold text-[13px] drop-shadow-sm";
+  const allergenTag = isLight
+    ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2 py-[2px] text-[10px] text-[#1E3A4F] capitalize backdrop-blur-sm shadow-sm"
+    : "bg-white/10 border border-white/20 rounded-full px-2 py-[2px] text-[10px] text-white capitalize backdrop-blur-sm shadow-sm";
 
   return (
     <div className="w-full flex flex-col gap-4 font-montserrat">
       {/* Week Navigator */}
-      <div 
-        className={`flex rounded-full p-1 mx-auto w-[95%] max-w-sm font-bold text-[10px] relative ${glassPanel}`}
-        style={{ WebkitBackdropFilter: isLight ? 'none' : 'blur(12px)', backdropFilter: isLight ? 'none' : 'blur(12px)' }}
-      >
+      <div className={`flex rounded-full p-1 mx-auto w-[95%] max-w-sm font-bold text-[10px] relative ${glassPanel}`}>
         {weeks.map((w) => {
           const isActive = selectedWeek === w.id;
           return (
             <button
               key={w.id}
               onClick={() => { setSelectedWeek(w.id); setSelectedDay(0); setDirection(1); }}
-              className={`flex-1 py-1.5 text-center rounded-full transition-colors duration-200 relative z-10 ${
-                isActive ? 'text-white' : inactiveText
-              }`}
+              className={`flex-1 py-1.5 text-center rounded-full transition-colors duration-200 relative z-10 ${isActive ? 'text-white' : inactiveText
+                }`}
             >
               {isActive && (
                 <motion.div
@@ -147,18 +143,10 @@ export default function MobileMenuCard({
                   setSelectedDay(selectedDay - 1);
                 }
               }}
-              className={`rounded-[24px] flex-shrink-0 relative flex flex-col mx-auto w-[95%] max-w-md touch-pan-y transition-[height] duration-300 isolate ${isExpanded ? 'h-auto' : 'h-[360px] sm:h-[410px]'}`}
+              className={`rounded-[24px] flex-shrink-0 overflow-hidden relative flex flex-col mx-auto w-[95%] max-w-md ${glassPanel} touch-pan-y transition-[height] duration-300 ${isExpanded ? 'h-auto' : 'h-[360px] sm:h-[410px]'}`}
             >
-              {/* Isolated Safari Glass Layer Fix */}
-              <div 
-                className={`absolute inset-0 rounded-[24px] pointer-events-none z-0 ${glassPanel}`} 
-                style={{ WebkitBackdropFilter: isLight ? 'none' : 'blur(12px)', backdropFilter: isLight ? 'none' : 'blur(12px)' }}
-              />
-
-              {/* Secure Overflow Container */}
-              <div className="relative w-full h-full flex flex-col overflow-hidden rounded-[24px] z-10">
-                {/* Dish Hero Image */}
-                <div className="relative w-full h-[190px] sm:h-[240px] shrink-0 [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]">
+              {/* Dish Hero Image */}
+              <div className="relative w-full h-[190px] sm:h-[240px] shrink-0 [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]">
                 <Image
                   src={currentDish.image}
                   alt={currentDish.name}
@@ -268,18 +256,13 @@ export default function MobileMenuCard({
                   </AnimatePresence>
                 </div>
               </div>
-              
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       {/* Day Navigator */}
-      <div 
-        className={`mx-auto w-[95%] max-w-md p-1 rounded-full relative ${glassPanel} mt-1 mb-2`}
-        style={{ WebkitBackdropFilter: isLight ? 'none' : 'blur(12px)', backdropFilter: isLight ? 'none' : 'blur(12px)' }}
-      >
+      <div className={`mx-auto w-[95%] max-w-md p-1 rounded-full relative ${glassPanel} mt-1 mb-2`}>
         <div className="flex justify-between items-center">
           {dayData.map((day) => {
             const isActive = selectedDay === day.index;
@@ -287,11 +270,10 @@ export default function MobileMenuCard({
               <button
                 key={day.index}
                 onClick={() => setSelectedDay(day.index)}
-                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${
-                  isActive
+                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${isActive
                     ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm'
                     : `${inactiveText} py-1.5 flex-1 min-w-[30px]`
-                }`}
+                  }`}
               >
                 {isActive && (
                   <motion.div

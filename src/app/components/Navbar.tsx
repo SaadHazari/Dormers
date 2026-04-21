@@ -32,12 +32,12 @@ export default function Navbar() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
-    const open  = () => setIsChatOpen(true);
+    const open = () => setIsChatOpen(true);
     const close = () => setIsChatOpen(false);
-    window.addEventListener('open-chat',  open);
+    window.addEventListener('open-chat', open);
     window.addEventListener('close-chat', close);
     return () => {
-      window.removeEventListener('open-chat',  open);
+      window.removeEventListener('open-chat', open);
       window.removeEventListener('close-chat', close);
     };
   }, []);
@@ -79,7 +79,7 @@ export default function Navbar() {
   }, [mounted]);
 
   const handleOrderFormOpen = () => {
-    window.open("https://vip.dormers.ae/", "_blank");
+    /* CTA disabled — navigation intentionally suppressed */
   };
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -153,12 +153,12 @@ export default function Navbar() {
       <nav
         ref={navRef}
         className={`flex-grow w-full max-w-[100vw] flex flex-col rounded-3xl lg:rounded-full backdrop-blur-[28px] saturate-[1.5] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_1px_0_0_rgba(255,255,255,0.06),0_8px_32px_0_rgba(0,0,0,0.25)] transition-colors duration-300 ${isMenuOpen
-            ? isLight
-              ? "bg-[#F5F0E8]/85 border border-[#091825]/15"
-              : "bg-[#091825]/80 border border-white/20"
-            : isLight
-              ? "bg-[#091825]/06 border border-[#091825]/15"
-              : "bg-[#FAF6EB]/10 border border-white/10"
+          ? isLight
+            ? "bg-[#F5F0E8]/85 border border-[#091825]/15"
+            : "bg-[#091825]/80 border border-white/20"
+          : isLight
+            ? "bg-[#091825]/06 border border-[#091825]/15"
+            : "bg-[#FAF6EB]/10 border border-white/10"
           }`}
         style={{ WebkitBackdropFilter: "blur(28px) saturate(1.5)", backdropFilter: "blur(28px) saturate(1.5)" }}
       >
@@ -189,8 +189,8 @@ export default function Navbar() {
                   href={link.href}
                   onClick={(e) => handleNavClick(e, link.href)}
                   className={`relative px-2 lg:px-4 py-2 rounded-full text-[11px] lg:text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${isActive
-                      ? isLight ? "text-[#091825]" : "text-white"
-                      : "opacity-0 pointer-events-none select-none"
+                    ? isLight ? "text-[#091825]" : "text-white"
+                    : "opacity-0 pointer-events-none select-none"
                     }`}
                 >
                   {isActive && (
@@ -214,8 +214,8 @@ export default function Navbar() {
               <button
                 onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
                 className={`p-2 rounded-full transition-colors ${isLight
-                    ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
-                    : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
+                  ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
+                  : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
                   }`}
               >
                 {isDesktopMenuOpen ? (
@@ -234,8 +234,8 @@ export default function Navbar() {
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                     className={`absolute right-0 top-[calc(100%+10px)] w-52 rounded-3xl backdrop-blur-2xl shadow-[0_20px_40px_rgba(0,0,0,0.3)] overflow-hidden z-50 ${isLight
-                        ? "bg-[#FAF6EB]/95 border border-[#091825]/12"
-                        : "bg-[#091825]/95 border border-white/20"
+                      ? "bg-[#FAF6EB]/95 border border-[#091825]/12"
+                      : "bg-[#091825]/95 border border-white/20"
                       }`}
                   >
                     <div className="px-3 pt-3 pb-4 space-y-1">
@@ -247,10 +247,10 @@ export default function Navbar() {
                             href={link.href}
                             onClick={(e) => handleNavClick(e, link.href)}
                             className={`block px-4 py-2.5 rounded-2xl text-[12px] font-bold uppercase tracking-wider transition-colors ${isActive
-                                ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-                                : isLight
-                                  ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
-                                  : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
+                              ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
+                              : isLight
+                                ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
+                                : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
                               }`}
                           >
                             {link.name}
@@ -266,8 +266,8 @@ export default function Navbar() {
             <Link
               href="/login"
               className={`flex items-center justify-center px-5 py-2 rounded-full text-[12px] font-bold uppercase tracking-wider transition-colors ${isLight
-                  ? "border border-[#091825]/25 text-[#091825] hover:bg-[#091825]/08"
-                  : "border border-white/30 text-white hover:bg-white/10"
+                ? "border border-[#091825]/25 text-[#091825] hover:bg-[#091825]/08"
+                : "border border-white/30 text-white hover:bg-white/10"
                 }`}
             >
               Log In
@@ -308,8 +308,8 @@ export default function Navbar() {
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`p-1.5 rounded-full focus:outline-none transition-colors ${isLight
-                  ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
-                  : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
+                ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
+                : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
                 }`}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -359,10 +359,10 @@ export default function Navbar() {
                   href={link.href}
                   onClick={(e) => handleNavClick(e, link.href)}
                   className={`block px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isActive
-                      ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-                      : isLight
-                        ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
-                        : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
+                    ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
+                    : isLight
+                      ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
+                      : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
                     }`}
                 >
                   {link.name}
@@ -374,8 +374,8 @@ export default function Navbar() {
               <Link
                 href="/login"
                 className={`w-full text-center px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
-                    ? "border border-[#091825]/20 text-[#091825]"
-                    : "border border-white/20 text-white"
+                  ? "border border-[#091825]/20 text-[#091825]"
+                  : "border border-white/20 text-white"
                   }`}
               >
                 Log In
@@ -385,8 +385,8 @@ export default function Navbar() {
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
-                    ? "border border-[#091825]/20 text-[#091825]"
-                    : "border border-white/20 text-white"
+                  ? "border border-[#091825]/20 text-[#091825]"
+                  : "border border-white/20 text-white"
                   }`}
               >
                 <span>{isLight ? "Light Mode" : "Dark Mode"}</span>

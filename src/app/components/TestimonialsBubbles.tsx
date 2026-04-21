@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 // import Image from "next/image";
 import { useSwipeable } from "react-swipeable";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const messages =
   [
@@ -276,6 +277,20 @@ export default function TestimonialsBubbles() {
     setCurrentGroup(index);
   };
 
+  const handlePrev = () => {
+    directionRef.current = -1;
+    pauseAutoScroll();
+    resumeAutoScroll();
+    setCurrentGroup((prev) => prev === 0 ? groupedMessages.length - 1 : prev - 1);
+  };
+
+  const handleNext = () => {
+    directionRef.current = 1;
+    pauseAutoScroll();
+    resumeAutoScroll();
+    setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
+  };
+
   // Swipe controls
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
@@ -307,6 +322,24 @@ export default function TestimonialsBubbles() {
       onMouseEnter={pauseAutoScroll}
       onMouseLeave={resumeAutoScroll}
     >
+      {/* Left chevron — desktop only, absolute overlay */}
+      <button
+        onClick={handlePrev}
+        aria-label="Previous testimonials"
+        className="hidden sm:flex absolute left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white/10 border border-white/25 text-white hover:bg-white/20 hover:border-white/50 transition-all duration-200 shadow-lg"
+      >
+        <ChevronLeft size={18} strokeWidth={2.5} />
+      </button>
+
+      {/* Right chevron — desktop only */}
+      <button
+        onClick={handleNext}
+        aria-label="Next testimonials"
+        className="hidden sm:flex absolute right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white/10 border border-white/25 text-white hover:bg-white/20 hover:border-white/50 transition-all duration-200 shadow-lg"
+      >
+        <ChevronRight size={18} strokeWidth={2.5} />
+      </button>
+
       <div className="flex flex-col items-center min-h-[480px] py-6">
         <AnimatePresence mode="wait">
           <motion.div
@@ -368,7 +401,8 @@ export default function TestimonialsBubbles() {
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center mt-6 gap-1.5 pb-6 flex-wrap px-4">
+      {/* Dots row — chevrons are absolute overlays, so just dots here */}
+      <div className="flex justify-center mt-6 gap-1.5 pb-6 flex-wrap px-16">
         {groupedMessages.map((_, index) => (
           <button
             key={index}
