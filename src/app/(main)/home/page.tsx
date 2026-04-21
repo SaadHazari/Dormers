@@ -21,7 +21,7 @@ interface FAQ {
 }
 
 export default function Home() {
-  const [isChatOpen, setIsChatOpen] = useState(false);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const faqRef = useRef<HTMLDivElement>(null);

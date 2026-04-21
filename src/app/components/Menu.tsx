@@ -1397,8 +1397,10 @@ export default function Menu() {
                   ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
                 >
                   <span className="text-[16px]">
-                    <img
+                    <Image
                       src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
+                      width={16}
+                      height={16}
                       className="w-[16px]"
                       alt=""
                     />
@@ -1437,8 +1439,10 @@ export default function Menu() {
                   ${isVegOnly ? "translate-x-[45px]" : "translate-x-0"}
                   ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#FAF6EB]"}`}
                 >
-                  <img
+                  <Image
                     src={isVegOnly ? "/images/VegIcon.svg" : "/images/NonVeg.svg"}
+                    width={20}
+                    height={20}
                     className="w-[20px] h-[20px]"
                     alt=""
                   />
