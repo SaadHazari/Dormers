@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { StaticImageData } from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { useTheme } from "next-themes";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
 import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
