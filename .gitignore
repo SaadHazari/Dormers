@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude worktrees (embedded repos break Netlify)
+.claude/worktrees/
