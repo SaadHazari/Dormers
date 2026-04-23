@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react"; // <-- Updated Import!
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2 } from "lucide-react";
 
 export default function AIChatbot() {
     const [input, setInput] = useState(''); // <-- Manually managing input now
