@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: Request) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -10,10 +11,18 @@ export async function POST(req: Request) {
   }
 
   const stripe = new Stripe(stripeSecretKey, {
-     apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion // <-- Replace with latest valid version
+    apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion // <-- Replace with latest valid version
   });
 
   try {
+    // Fetch the authenticated user
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const {
@@ -22,36 +31,25 @@ export async function POST(req: Request) {
       email,
       phone,
       location,
-      mealType,
-      duration,
-      dietaryRestrictions,
-      startDate,
+      preference,
+      plan,
+      vegDays,
     }: {
       amount: number;
       name: string;
       email: string;
       phone: string;
       location: string;
-      mealType: string;
-      duration: string;
-      dietaryRestrictions: string;
-      startDate: string;
+      preference: string;
+      plan: string;
+      vegDays?: string[];
     } = body;
 
     if (!amount || amount < 100) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
-    const queryParams = new URLSearchParams({
-      name,
-      email,
-      phone,
-      location,
-      mealType,
-      duration,
-      dietaryRestrictions,
-      startDate,
-    });
+
 
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
@@ -69,20 +67,30 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?${queryParams}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/dashboard?checkout_success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/dashboard?checkout_canceled=true`,
       payment_intent_data: {
         metadata: {
+          user_id: user.id,
           name,
           email,
           phone,
           location,
-          mealType,
-          duration,
-          dietaryRestrictions,
-          startDate,
+          preference,
+          plan,
+          vegDays: vegDays ? vegDays.join(', ') : '',
         },
       },
+      metadata: { // Added to session level as well for webhook ease
+          user_id: user.id,
+          name,
+          email,
+          phone,
+          location,
+          preference,
+          plan,
+          vegDays: vegDays ? vegDays.join(', ') : '',
+      }
     });
 
     return NextResponse.json({ url: session.url });

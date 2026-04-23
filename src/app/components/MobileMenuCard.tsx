@@ -152,6 +152,7 @@ export default function MobileMenuCard({
                   alt={currentDish.name}
                   fill
                   className="object-cover"
+                  style={(currentDish.name.includes('Chicken Fried Rice') || currentDish.name.includes('Veg Fried Rice')) ? { objectPosition: 'center 35%' } : undefined}
                   sizes="(max-width: 768px) 100vw, 400px"
                   priority
                   draggable={false}
@@ -271,8 +272,8 @@ export default function MobileMenuCard({
                 key={day.index}
                 onClick={() => setSelectedDay(day.index)}
                 className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[11px] relative z-10 ${isActive
-                    ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm'
-                    : `${inactiveText} py-1.5 flex-1 min-w-[30px]`
+                  ? 'text-black py-1.5 px-4 min-w-[50px] drop-shadow-sm'
+                  : `${inactiveText} py-1.5 flex-1 min-w-[30px]`
                   }`}
               >
                 {isActive && (

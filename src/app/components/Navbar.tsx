@@ -29,18 +29,6 @@ export default function Navbar() {
 
   const navRef = useRef<HTMLElement>(null);
   const [orbSize, setOrbSize] = useState(62);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-
-  useEffect(() => {
-    const open = () => setIsChatOpen(true);
-    const close = () => setIsChatOpen(false);
-    window.addEventListener('open-chat', open);
-    window.addEventListener('close-chat', close);
-    return () => {
-      window.removeEventListener('open-chat', open);
-      window.removeEventListener('close-chat', close);
-    };
-  }, []);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -102,7 +90,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className={`fixed top-6 inset-x-0 mx-auto w-[95%] max-w-6xl z-[90] font-montserrat flex items-stretch gap-5 lg:gap-6 transition-opacity duration-200 ${isChatOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+    <header className={`fixed top-6 inset-x-0 mx-auto w-[95%] max-w-6xl z-[90] font-montserrat flex items-stretch gap-5 lg:gap-6 transition-opacity duration-200 opacity-100`}>
 
       {/*
         Golden-ratio decorative rings — desktop only, behind the nav pill.

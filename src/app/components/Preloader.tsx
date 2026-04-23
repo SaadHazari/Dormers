@@ -16,20 +16,33 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
     //   return;
     // }
 
-    // Lock scroll while preloader is active
+    // Lock scroll while preloader is active (iOS-safe: position fixed)
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     document.body.style.overflow = "hidden";
+
+    const unlockScroll = () => {
+      const savedY = document.body.style.top;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, parseInt(savedY || "0") * -1);
+    };
 
     // Duration of the hold before sliding up
     const timer = setTimeout(() => {
       setShow(false);
-      document.body.style.overflow = ""; 
+      unlockScroll();
       onComplete?.();
       // sessionStorage.setItem("has_seen_preloader", "true");
     }, 2200);
 
     return () => {
       clearTimeout(timer);
-      document.body.style.overflow = "";
+      unlockScroll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

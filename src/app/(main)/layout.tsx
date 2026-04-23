@@ -1,5 +1,6 @@
 "use client";
 
+import AIChatbot from "@/app/components/AIChatbot";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
@@ -138,10 +139,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
       <div className="main_content">
         <main className="flex-grow">{children}</main>
-        <ChatButtonWrapper />
         {/* Sentinel: fires footerRevealed when main_content bottom enters view */}
         <div ref={footerSentinelRef} style={{ height: 1 }} />
       </div>
+
+      <AIChatbot />
+      <ChatButtonWrapper />
 
       <div
         id="footer"

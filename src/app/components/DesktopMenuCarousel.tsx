@@ -75,25 +75,25 @@ export default function DesktopMenuCarousel({
     : "bg-white/10 border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
 
   const inactiveText = isLight ? "text-[#1E3A4F]/55 hover:text-[#1E3A4F]/80" : "text-white/60 hover:text-white/80";
-  const primaryText  = isLight ? "text-[#091825]" : "text-white";
-  const bodyText     = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
-  const mutedText    = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
-  const divider      = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
-  const macroGrid    = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
-  const macroLabel   = isLight ? "text-[#1E3A4F]/50 text-[9px] tracking-wider uppercase font-semibold mb-1" : "text-white/60 text-[9px] tracking-wider uppercase font-semibold mb-1";
-  const macroValue   = isLight ? "text-[#091825] font-bold text-[14px]" : "text-white font-bold text-[14px]";
-  const allergenTag  = isLight
+  const primaryText = isLight ? "text-[#091825]" : "text-white";
+  const bodyText = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
+  const mutedText = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
+  const divider = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
+  const macroGrid = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
+  const macroLabel = isLight ? "text-[#1E3A4F]/50 text-[9px] tracking-wider uppercase font-semibold mb-1" : "text-white/60 text-[9px] tracking-wider uppercase font-semibold mb-1";
+  const macroValue = isLight ? "text-[#091825] font-bold text-[14px]" : "text-white font-bold text-[14px]";
+  const allergenTag = isLight
     ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2.5 py-0.5 text-[10px] text-[#1E3A4F] capitalize backdrop-blur-sm shadow-sm"
     : "bg-white/10 border border-white/20 rounded-full px-2.5 py-0.5 text-[10px] text-white capitalize backdrop-blur-sm shadow-sm";
 
   // Framer Motion variants for carousel positioning
   const getVariants = (index: number, activeIndex: number) => {
     const diff = index - activeIndex;
-    if (diff === 0)  return { x: 0,      scale: 1,    opacity: 1,   zIndex: 10, filter: "blur(0px)" };
-    if (diff === -1) return { x: '-80%', scale: 0.85, opacity: 0.4, zIndex: 5,  filter: "blur(4px)" };
-    if (diff === 1)  return { x: '80%',  scale: 0.85, opacity: 0.4, zIndex: 5,  filter: "blur(4px)" };
-    if (diff < -1)   return { x: '-100%',scale: 0.6,  opacity: 0,   zIndex: 0,  filter: "blur(8px)" };
-    if (diff > 1)    return { x: '100%', scale: 0.6,  opacity: 0,   zIndex: 0,  filter: "blur(8px)" };
+    if (diff === 0) return { x: 0, scale: 1, opacity: 1, zIndex: 10, filter: "blur(0px)" };
+    if (diff === -1) return { x: '-80%', scale: 0.85, opacity: 0.4, zIndex: 5, filter: "blur(4px)" };
+    if (diff === 1) return { x: '80%', scale: 0.85, opacity: 0.4, zIndex: 5, filter: "blur(4px)" };
+    if (diff < -1) return { x: '-100%', scale: 0.6, opacity: 0, zIndex: 0, filter: "blur(8px)" };
+    if (diff > 1) return { x: '100%', scale: 0.6, opacity: 0, zIndex: 0, filter: "blur(8px)" };
     return { x: 0, scale: 0, opacity: 0, zIndex: 0, filter: "blur(0px)" };
   };
 
@@ -120,9 +120,8 @@ export default function DesktopMenuCarousel({
             <button
               key={w.id}
               onClick={() => setSelectedWeek(w.id)}
-              className={`flex-1 py-2 text-center rounded-full transition-colors duration-200 relative z-10 ${
-                isActive ? 'text-white' : inactiveText
-              }`}
+              className={`flex-1 py-2 text-center rounded-full transition-colors duration-200 relative z-10 ${isActive ? 'text-white' : inactiveText
+                }`}
             >
               {isActive && (
                 <motion.div
@@ -145,11 +144,10 @@ export default function DesktopMenuCarousel({
         {/* Left Carousel Arrow */}
         <button
           onClick={handlePrev}
-          className={`absolute -left-6 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 ${
-            isLight
+          className={`absolute -left-6 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 ${isLight
               ? "text-[#1E3A4F] hover:text-[#091825] bg-[#1E3A4F]/08 hover:bg-[#1E3A4F]/14 border border-[#1E3A4F]/15 shadow-[0_0_15px_rgba(30,58,79,0.10)]"
               : "text-white/90 hover:text-white bg-white/20 hover:bg-white/30 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.15)]"
-          }`}
+            }`}
         >
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -159,11 +157,10 @@ export default function DesktopMenuCarousel({
         {/* Right Carousel Arrow */}
         <button
           onClick={handleNext}
-          className={`absolute -right-6 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 ${
-            isLight
+          className={`absolute -right-6 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 ${isLight
               ? "text-[#1E3A4F] hover:text-[#091825] bg-[#1E3A4F]/08 hover:bg-[#1E3A4F]/14 border border-[#1E3A4F]/15 shadow-[0_0_15px_rgba(30,58,79,0.10)]"
               : "text-white/90 hover:text-white bg-white/20 hover:bg-white/30 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.15)]"
-          }`}
+            }`}
         >
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -200,7 +197,7 @@ export default function DesktopMenuCarousel({
                       alt={dish.name}
                       fill
                       className="object-cover transition-transform duration-300"
-                      style={(dish.name.includes('Chicken Fried Rice') || dish.name.includes('Veg Fried Rice')) ? { objectPosition: 'center 40%' } : undefined}
+                      style={(dish.name.includes('Chicken Fried Rice') || dish.name.includes('Veg Fried Rice')) ? { objectPosition: 'center 30%' } : undefined}
                       sizes="(max-width: 768px) 100vw, 400px"
                       priority
                     />
@@ -358,11 +355,10 @@ export default function DesktopMenuCarousel({
               <button
                 key={day.index}
                 onClick={() => setSelectedDay(day.index)}
-                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[12px] relative z-10 ${
-                  isActive
+                className={`flex items-center justify-center transition-colors duration-200 font-extrabold text-[12px] relative z-10 ${isActive
                     ? 'text-black py-2.5 px-6 min-w-[70px] drop-shadow-sm'
                     : `${inactiveText} py-2.5 flex-1 min-w-[50px]`
-                }`}
+                  }`}
               >
                 {isActive && (
                   <motion.div
