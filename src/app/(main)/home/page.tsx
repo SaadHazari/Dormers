@@ -60,9 +60,9 @@ export default function Home() {
   const faqs: FAQ[] = [
     {
       id: 1,
-      question: "What is Dormer's?",
+      question: "What is Dormers'?",
       answer:
-        "Dormer's is your friendly dorm meal savior, designed to keep you alive, full, and thriving without resorting to instant noodles and regret. We deliver tasty, healthy, and affordable meals straight to your dorm so you can focus on acing exams (or just binge-watching in peace).",
+        "Dormers' is your friendly dorm meal savior, designed to keep you alive, full, and thriving without resorting to instant noodles and regret. We deliver tasty, healthy, and affordable meals straight to your dorm so you can focus on acing exams (or just binge-watching in peace).",
     },
     {
       id: 2,

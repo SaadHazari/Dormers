@@ -174,7 +174,7 @@ export default function TermsAndConditions() {
               <h2 className="text-2xl font-bold text-white mb-4">13. Contact Information</h2>
               <p className="mb-4">For inquiries, support, or complaints, please contact us:</p>
               <ul className="space-y-2">
-                <li>Email: <a href="mailto:support@dormers.ae" className="text-orange-400 hover:underline">support@dormers.ae</a></li>
+                <li>Email: <a href="mailto:care@dormers.ae" className="text-orange-400 hover:underline">care@dormers.ae</a></li>
                 <li>Phone: <a href="tel:+971504619384" className="text-orange-400 hover:underline">+971 504 619 384</a></li>
                 <li>WhatsApp: <a href="https://wa.me/dormers" className="text-orange-400 hover:underline">wa.me/dormers</a></li>
               </ul>

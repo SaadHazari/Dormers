@@ -82,7 +82,7 @@ const messages =
       "from": "bot",
       "name": "Jannat Kona",
       "city": "Yugo",
-      "text": "Had a great dinner meal from Dormer's. It was a chicken and egg fried rice. The combination was good. The packaging was good. A bit of more salt and some veggies would have been perfect! A platter including this will be lovely."
+      "text": "Had a great dinner meal from Dormers'. It was a chicken and egg fried rice. The combination was good. The packaging was good. A bit of more salt and some veggies would have been perfect! A platter including this will be lovely."
     },
     {
       "id": 12,

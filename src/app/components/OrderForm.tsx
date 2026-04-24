@@ -106,7 +106,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
 
   //     // Format WhatsApp message
   //     const text = encodeURIComponent(
-  //       `👋 Hey Dormer's! I want to join the club! 🍛🔥\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.countryCode}${formData.phone}\nLocation: ${formData.location}\nMeal Type: ${formData.mealType}\nDuration: ${formData.duration}\nDietary Restrictions: ${formData.dietaryRestrictions}\nStart Date: ${formData.startDate}`
+  //       `👋 Hey Dormers'! I want to join the club! 🍛🔥\n\nName: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.countryCode}${formData.phone}\nLocation: ${formData.location}\nMeal Type: ${formData.mealType}\nDuration: ${formData.duration}\nDietary Restrictions: ${formData.dietaryRestrictions}\nStart Date: ${formData.startDate}`
   //     );
 
   //     // Redirect to WhatsApp

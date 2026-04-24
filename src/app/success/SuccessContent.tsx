@@ -15,7 +15,7 @@ export default function SuccessContent() {
   const startDate = searchParams.get("startDate") || "";
 
   const message = encodeURIComponent(
-    `👋 Hey Dormer's! I just completed my payment!\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nLocation: ${location}\nMeal Type: ${mealType}\nDuration: ${duration}\nDietary Restrictions: ${dietaryRestrictions}\nStart Date: ${startDate}`
+    `👋 Hey Dormers'! I just completed my payment!\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nLocation: ${location}\nMeal Type: ${mealType}\nDuration: ${duration}\nDietary Restrictions: ${dietaryRestrictions}\nStart Date: ${startDate}`
   );
 
   const whatsappLink = `https://wa.me/+971585556707?text=${message}`;
@@ -29,7 +29,7 @@ export default function SuccessContent() {
         <div className="relative w-[45px] h-[45px] md:w-[52px] md:h-[52px]">
           <Image
             src={"/logo-dark.svg"}
-            alt="Dormer's Logo"
+            alt="Dormers' Logo"
             fill
             className="object-contain"
           />

@@ -3,7 +3,50 @@
 import { useChat } from "@ai-sdk/react"; // <-- Updated Import!
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Loader2 } from "lucide-react";
+import { X, Send } from "lucide-react";
+
+const LOADING_WORDS = [
+  "prepping...", "cooking...", "heating up...", "chopping...",
+  "pouring...", "mixing...", "serving...", "splashing...",
+  "cracking...", "juicing...", "blending..."
+];
+
+function TypingLoader() {
+  const [displayText, setDisplayText] = useState("");
+  const [wordIndex, setWordIndex] = useState(
+    () => Math.floor(Math.random() * LOADING_WORDS.length)
+  );
+
+  useEffect(() => {
+    const currentWord = LOADING_WORDS[wordIndex];
+    let charIndex = 0;
+
+    const interval = setInterval(() => {
+      charIndex++;
+      setDisplayText(currentWord.slice(0, charIndex));
+      if (charIndex === currentWord.length) {
+        clearInterval(interval);
+        setTimeout(() => {
+          setDisplayText("");
+          setWordIndex(prev => {
+            let next;
+            do { next = Math.floor(Math.random() * LOADING_WORDS.length); }
+            while (next === prev);
+            return next;
+          });
+        }, 600);
+      }
+    }, 80);
+
+    return () => clearInterval(interval);
+  }, [wordIndex]);
+
+  return (
+    <span className="text-sm text-[#ede8da] font-medium italic">
+      {displayText}
+    </span>
+  );
+}
 
 export default function AIChatbot() {
     const [input, setInput] = useState(''); // <-- Manually managing input now
@@ -54,7 +97,7 @@ export default function AIChatbot() {
                 window.scrollTo(0, parseInt(scrollY || '0') * -1);
             }
         }
-        
+
         return () => {
             document.body.style.position = '';
             document.body.style.top = '';
@@ -134,9 +177,11 @@ export default function AIChatbot() {
                                                 if (part.type === 'text') {
                                                     const hasEscalation = part.text.includes('[WHATSAPP_ESCALATION]');
                                                     const hasViewPlans = part.text.includes('[VIEW_PLANS]');
-                                                    
+                                                    const hasViewMenu = part.text.includes('[VIEW_MENU]');
+
                                                     let cleanText = part.text.replace('[WHATSAPP_ESCALATION]', '');
-                                                    cleanText = cleanText.replace('[VIEW_PLANS]', '').trim();
+                                                    cleanText = cleanText.replace('[VIEW_PLANS]', '');
+                                                    cleanText = cleanText.replace('[VIEW_MENU]', '').trim();
 
                                                     return (
                                                         <div key={index} className="flex flex-col gap-3">
@@ -159,6 +204,15 @@ export default function AIChatbot() {
                                                                     View Plans
                                                                 </a>
                                                             )}
+                                                            {hasViewMenu && (
+                                                                <a
+                                                                    href="#menu" // Make sure this matches the ID of your menu section
+                                                                    onClick={closeChat} // Closes the chat automatically so they can see the menu!
+                                                                    className="bg-[#f57f20]/15 backdrop-blur-sm border border-[#f57f20]/35 text-[#f57f20] py-2 px-5 rounded-full flex items-center justify-center font-black uppercase tracking-wider text-[11px] hover:bg-[#f57f20]/25 transition-all w-fit mt-1"
+                                                                >
+                                                                    View Menu
+                                                                </a>
+                                                            )}
                                                         </div>
                                                     );
                                                 }
@@ -170,8 +224,8 @@ export default function AIChatbot() {
 
                                 {isLoading && (
                                     <div className="flex justify-start">
-                                        <div className="bg-white/[0.08] backdrop-blur-md border border-white/10 text-[#ede8da] rounded-2xl rounded-bl-sm px-4 py-3">
-                                            <Loader2 className="w-4 h-4 animate-spin text-[#f57f20]" />
+                                        <div className="bg-white/[0.08] backdrop-blur-md border border-white/10 text-[#ede8da] rounded-2xl rounded-bl-sm px-4 py-3 min-w-[110px]">
+                                            <TypingLoader />
                                         </div>
                                     </div>
                                 )}

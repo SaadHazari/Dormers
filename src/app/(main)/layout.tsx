@@ -4,10 +4,12 @@ import AIChatbot from "@/app/components/AIChatbot";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import DeliveryStrip from "@/components/ui/DeliveryStrip";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
+import { ArrowLeft } from "lucide-react";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,17 +23,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   // Check if we are on the home page (either "/" or "/home")
   const isHomePage = pathname === "/" || pathname === "/home";
+  const isLegalPage = pathname === "/privacy" || pathname === "/terms";
 
   // Listen for hero reveal completion on /home
   useEffect(() => {
     if (pathname !== "/home") return;
     const show = () => setHeroReady(true);
-    const hide = () => setHeroReady(false);
     window.addEventListener("hero-ui-visible", show);
-    window.addEventListener("hero-ui-hidden", hide);
     return () => {
       window.removeEventListener("hero-ui-visible", show);
-      window.removeEventListener("hero-ui-hidden", hide);
     };
   }, [pathname]);
 
@@ -136,7 +136,34 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
       `}</style>
 
-      {(pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
+      {!isLegalPage && (pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
+
+      {isLegalPage && (
+        <Link
+          href="/"
+          className="fixed top-6 left-6 z-50 flex items-center gap-2 transition-all duration-300 hover:scale-105"
+          style={{
+            background: "rgba(237,232,218,0.92)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1.5px solid rgba(30,58,79,0.15)",
+            borderRadius: "999px",
+            padding: "10px 18px",
+            color: "#1E3A4F",
+            fontFamily: "Montserrat, sans-serif",
+            fontWeight: 700,
+            fontSize: "12px",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            boxShadow: "0 4px 20px rgba(30,58,79,0.1)",
+          }}
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          Back to Home
+        </Link>
+      )}
+
       <div className="main_content">
         <main className="flex-grow">{children}</main>
         {/* Sentinel: fires footerRevealed when main_content bottom enters view */}
@@ -146,7 +173,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <AIChatbot />
       <ChatButtonWrapper />
 
-      <div
+      {!isLegalPage && <div
         id="footer"
         className="w-full"
         style={{
@@ -508,7 +535,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <div ref={slideSectionRef} className="slide-in-section w-full pb-2">
           <Footer />
         </div>
-      </div>
+      </div>}
 
     </div>
   );

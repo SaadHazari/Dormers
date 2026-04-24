@@ -12,18 +12,26 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
   const isLight = color === "#EEE9DA";
   const isTextDark = !isOpen && color === "#EEE9DA";
 
+  const isOrange = color === "#FF8A00";
+  const isCream = color === "#EEE9DA";
+  const borderGrad = isCream
+    ? "linear-gradient(135deg, rgba(255,140,0,0.65) 0%, rgba(255,80,0,0.3) 100%)"
+    : "linear-gradient(135deg, #FF8C00 0%, #FF5000 100%)";
+  const openBgColor = theme === "light" ? "#1E3A4F" : "#EEE9DA";
+  const cardStyle = isOpen
+    ? { backgroundColor: openBgColor }
+    : isOrange
+    ? { backgroundColor: color }
+    : {
+        background: `linear-gradient(${color}, ${color}) padding-box, ${borderGrad} border-box`,
+        border: "1.5px solid transparent",
+      };
 
   return (
     <div
       key={faq.id}
-      className="rounded-xl overflow-hidden transition-all duration-300 w-full mx-auto lg:w-[100%]"
-      style={{
-        backgroundColor: isOpen
-          ? theme === "light"
-            ? "#1E3A4F"
-            : "#EEE9DA"
-          : color,
-      }}
+      className="rounded-xl overflow-hidden w-full mx-auto lg:w-[100%]"
+      style={cardStyle}
     >
       <button
         onClick={() => toggleFAQ(faq.id)}
@@ -42,7 +50,7 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
           style={{
             fontFamily: "Montserrat, sans-serif",
             fontWeight: 600,
-            fontSize: "14px",
+            fontSize: "16px",
           }}
         >
           {faq.question}
@@ -53,6 +61,8 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
               ? theme === "light"
                 ? "text-white"
                 : "text-[#22394A]"
+              : isTextDark
+              ? "text-[#22394A]"
               : "text-white"
           }`}
         >
@@ -60,15 +70,19 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
         </span>
       </button>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="px-6 pb-4"
+            transition={{
+              height: { duration: 0.35, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.25, ease: "easeOut" },
+            }}
+            style={{ overflow: "hidden" }}
           >
+            <div className="px-6 pb-4">
             <div
               className={` ${
                 isOpen
@@ -80,12 +94,13 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
               style={{
                 fontFamily: "Poppins, sans-serif",
                 fontWeight: 300,
-                lineHeight: "130%",
-                letterSpacing: "0.5px",
-                fontSize: "12px",
+                lineHeight: "140%",
+                letterSpacing: "0.3px",
+                fontSize: "14px",
               }}
             >
               {faq.answer}
+            </div>
             </div>
           </motion.div>
         )}

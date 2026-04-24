@@ -81,7 +81,7 @@ const messages =
       "from": "bot",
       "name": "Jannat Kona",
       "city": "Yugo",
-      "text": "Had a great dinner meal from Dormer's. It was a chicken and egg fried rice. The combination was good. The packaging was good. A bit of more salt and some veggies would have been perfect! A platter including this will be lovely."
+      "text": "Had a great dinner meal from Dormers'. It was a chicken and egg fried rice. The combination was good. The packaging was good. A bit of more salt and some veggies would have been perfect! A platter including this will be lovely."
     },
     {
       "id": 12,
@@ -153,7 +153,7 @@ const messages =
       "city": "Yugo",
       "text": "...and Ive tried a few meal plans before but nothing compares to this..."
     },
-     {
+    {
       "id": 22,
       "from": "user",
       "name": "Jessica Dsouza",
@@ -273,70 +273,96 @@ const TestimonialsDesktop = () => {
 
   const positions = ["top-0 left-0", "top-10 right-0", "bottom-0 left-1/3"];
   const handleDotClick = (index) => setCurrentGroup(index);
+  const handlePrev = () => {
+    setIsHovered(true);
+    setTimeout(() => setIsHovered(false), 3000);
+    setCurrentGroup((prev) => (prev === 0 ? groupedMessages.length - 1 : prev - 1));
+  };
+  const handleNext = () => {
+    setIsHovered(true);
+    setTimeout(() => setIsHovered(false), 3000);
+    setCurrentGroup((prev) => (prev + 1) % groupedMessages.length);
+  };
   return (
     <div ref={containerRef}>
-      <div className="w-full py-12 flex justify-center bg-[#031624]">
-        <div className="relative max-w-[987px] w-full h-[340px] overflow-hidden"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentGroup}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.6 }}
-              className="absolute inset-5"
-            >
-              {groupedMessages[currentGroup].map((msg, index) => {
-                const position = positions[index % positions.length];
-                return (
-                  <div
-                    key={msg.id}
-                    className={`absolute ${position} rounded-2xl p-4 max-w-[280px] ${
-                      msg.from === "user"
+      <div className="w-full py-12 flex justify-center bg-[#031624] px-10">
+        <div className="relative max-w-[987px] w-full">
+          <button
+            onClick={handlePrev}
+            className="absolute -left-19 top-1/2 -translate-y-1/2 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 text-white/90 hover:text-white bg-white/20 hover:bg-white/30 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.15)]"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="relative w-full h-[340px] overflow-hidden"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentGroup}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6 }}
+                className="absolute inset-5"
+              >
+                {groupedMessages[currentGroup].map((msg, index) => {
+                  const position = positions[index % positions.length];
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`absolute ${position} rounded-2xl p-4 max-w-[280px] ${msg.from === "user"
                         ? "bg-[#1E6B8A]/20 border border-white/15 backdrop-blur-md shadow-[0_4px_24px_rgba(30,107,138,0.15)] text-white"
                         : "bg-[#FF7F00]/15 border border-[#FF7F00]/30 backdrop-blur-md shadow-[0_4px_24px_rgba(255,127,0,0.18)] text-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold text-white ${msg.from === "user" ? "bg-[#1E6B8A]" : "bg-[#FF7F00]"}`}>
-                        {msg.name[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {msg.name}
-                        </p>
-                        <p className="text-xs font-normal text-white/60">{msg.city}</p> </div>
-                    </div>
-                    <div className="flex gap-0.5 my-1.5">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <span key={s} style={{ color: "#FF7F00", fontSize: "12px" }}>★</span>
-                      ))}
-                    </div>
-                    <p
-                      className="text-sm text-white/90 font-medium"
-                      style={{
-                        fontFamily: "Montserrat",
-                        fontWeight: 600,
-                        lineHeight: "120%",
-                      }}
+                        }`}
                     >
-                      {msg.text}
-                    </p>
-                    <div
-                      className={`absolute -bottom-2 w-4 h-4 transform rotate-45 ${
-                        msg.from === "user"
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold text-white ${msg.from === "user" ? "bg-[#1E6B8A]" : "bg-[#FF7F00]"}`}>
+                          {msg.name[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {msg.name}
+                          </p>
+                          <p className="text-xs font-normal text-white/60">{msg.city}</p> </div>
+                      </div>
+                      <div className="flex gap-0.5 my-1.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <span key={s} style={{ color: "#FF7F00", fontSize: "12px" }}>★</span>
+                        ))}
+                      </div>
+                      <p
+                        className="text-sm text-white/90 font-medium"
+                        style={{
+                          fontFamily: "Montserrat",
+                          fontWeight: 600,
+                          lineHeight: "120%",
+                        }}
+                      >
+                        {msg.text}
+                      </p>
+                      <div
+                        className={`absolute -bottom-2 w-4 h-4 transform rotate-45 ${msg.from === "user"
                           ? "right-4 bg-[#1E6B8A]/20 border-r border-b border-white/15"
                           : "left-4 bg-[#FF7F00]/15 border-r border-b border-[#FF7F00]/30"
-                      }`}
-                    />
-                  </div>
-                );
-              })}
-            </motion.div>
-          </AnimatePresence>
+                          }`}
+                      />
+                    </div>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          <button
+            onClick={handleNext}
+            className="absolute -right-19 top-1/2 -translate-y-1/2 z-30 p-2.5 transition-all rounded-full backdrop-blur-lg hover:scale-110 text-white/90 hover:text-white bg-white/20 hover:bg-white/30 border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.15)]"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
       <div className="flex justify-center mt-6 gap-1.5 pb-6 flex-wrap px-4">
@@ -344,11 +370,10 @@ const TestimonialsDesktop = () => {
           <button
             key={index}
             onClick={() => handleDotClick(index)}
-            className={`transition-all duration-300 rounded-full ${
-              index === currentGroup
-                ? "bg-white w-[24px] h-[8px]"
-                : "bg-white/30 w-[8px] h-[8px]"
-            }`}
+            className={`transition-all duration-300 rounded-full ${index === currentGroup
+              ? "bg-white w-[24px] h-[8px]"
+              : "bg-white/30 w-[8px] h-[8px]"
+              }`}
           />
         ))}
       </div>

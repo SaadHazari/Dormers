@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -20,6 +21,7 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(false);
@@ -65,10 +67,6 @@ export default function Navbar() {
 
     return () => observer.disconnect();
   }, [mounted]);
-
-  const handleOrderFormOpen = () => {
-    /* CTA disabled — navigation intentionally suppressed */
-  };
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
@@ -252,7 +250,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              href="/login"
+              href="/maintenance"
               className={`flex items-center justify-center px-5 py-2 rounded-full text-[12px] font-bold uppercase tracking-wider transition-colors ${isLight
                 ? "border border-[#091825]/25 text-[#091825] hover:bg-[#091825]/08"
                 : "border border-white/30 text-white hover:bg-white/10"
@@ -262,7 +260,7 @@ export default function Navbar() {
             </Link>
 
             <button
-              onClick={handleOrderFormOpen}
+              onClick={() => router.push("/maintenance")}
               className="flex items-center justify-center min-w-[155px] overflow-hidden relative bg-gradient-to-r from-[#f57f20] to-[#ffaa00] text-white px-6 py-2.5 rounded-full shadow-[0_0_20px_rgba(245,127,32,0.4)] hover:scale-105 hover:shadow-[0_0_30px_rgba(245,127,32,0.6)] transition-all duration-300"
             >
               <TextRotate
@@ -279,7 +277,7 @@ export default function Navbar() {
           {/* MOBILE: Get Started + Hamburger */}
           <div className="lg:hidden flex items-center gap-2.5">
             <button
-              onClick={handleOrderFormOpen}
+              onClick={() => router.push("/maintenance")}
               className={`flex items-center justify-center min-w-[125px] overflow-hidden relative backdrop-blur-sm px-4 py-2 rounded-full active:scale-95 transition-all duration-200 border ${isLight ? "bg-[#f57f20]/15 border-[#f57f20]/40 text-[#f57f20]" : "bg-[#f57f20]/15 border-[#f57f20]/35 text-[#f57f20]"}`}
               style={{ WebkitBackdropFilter: "blur(4px)", backdropFilter: "blur(4px)" }}
             >
@@ -360,7 +358,7 @@ export default function Navbar() {
 
             <div className={`pt-3 mt-1 border-t flex flex-col gap-2 ${isLight ? "border-[#091825]/10" : "border-white/10"}`}>
               <Link
-                href="/login"
+                href="/maintenance"
                 className={`w-full text-center px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
                   ? "border border-[#091825]/20 text-[#091825]"
                   : "border border-white/20 text-white"

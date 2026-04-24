@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
 import TonightsMeal from "@/app/components/TonightsMeal";
@@ -388,6 +389,7 @@ function Strike({ delay, rotation, skipped }: { delay: number; rotation: number;
 }
 
 export default function HeroReveal() {
+  const router = useRouter();
 
   type CloserPhase = "idle" | "cursor" | "typing" | "done";
   const [closerPhase, setCloserPhase] = useState<CloserPhase>("idle");
@@ -396,6 +398,7 @@ export default function HeroReveal() {
   const [skipped, setSkipped] = useState(false);
   const [animDone, setAnimDone] = useState(false);
   const CLOSER_FULL = "A new dish, every night.";
+  const skippedRef = useRef(false);
 
   /* ── Snap-transition helper ──────────────────────────────────────
    * When skipped=true every entry animation collapses to 0 duration,
@@ -409,26 +412,40 @@ export default function HeroReveal() {
     setCloserPhase("done");
     setCloserText(CLOSER_FULL);
     window.dispatchEvent(new CustomEvent("hero-ui-visible"));
+    localStorage.setItem("hero_seen", "true");
   };
+
+  /* ── Skip animation for returning visitors ───────────────────── *
+   * Keep isPreloading=true so the quick splash screen still shows.  *
+   * skippedRef escapes the stale-closure problem in onComplete.     */
+  useLayoutEffect(() => {
+    if (localStorage.getItem("hero_seen") === "true") {
+      skippedRef.current = true;
+      setSkipped(true);
+      setAnimDone(true);
+      setCloserPhase("done");
+      setCloserText(CLOSER_FULL);
+    }
+  }, []);
 
   /* ── Navbar + chat bubble reveal ─────────────────────────────────
    * Fires right after the CTA buttons appear (CTA_D + 0.5 s),
    * not after the proof columns (old: DORM_D + 0.5 s).            */
   useEffect(() => {
-    if (isPreloading) return;
+    if (isPreloading || skipped) return;
     const t = setTimeout(() => {
       setAnimDone(true);
       window.dispatchEvent(new CustomEvent("hero-ui-visible"));
+      localStorage.setItem("hero_seen", "true");
     }, (CTA_D + 0.5) * 1000);
     return () => {
       clearTimeout(t);
-      window.dispatchEvent(new CustomEvent("hero-ui-hidden"));
     };
-  }, [isPreloading]);
+  }, [isPreloading, skipped]);
 
   /* ── Typewriter ───────────────────────────────────────────────── */
   useEffect(() => {
-    if (isPreloading) return;
+    if (isPreloading || skipped) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const intervals: ReturnType<typeof setInterval>[] = [];
 
@@ -455,13 +472,22 @@ export default function HeroReveal() {
       timers.forEach((t) => clearTimeout(t));
       intervals.forEach((iv) => clearInterval(iv));
     };
-  }, [isPreloading]);
+  }, [isPreloading, skipped]);
 
   return (
     <>
       <style>{CSS}</style>
 
-      {isPreloading && <Preloader onComplete={() => setIsPreloading(false)} />}
+      {isPreloading && (
+        <Preloader
+          onComplete={() => {
+            setIsPreloading(false);
+            if (skippedRef.current) {
+              window.dispatchEvent(new CustomEvent("hero-ui-visible"));
+            }
+          }}
+        />
+      )}
 
       <section id="hero" className="h-section">
 
@@ -716,7 +742,7 @@ export default function HeroReveal() {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => { /* CTA disabled — navigation intentionally suppressed */ }}
+                    onClick={() => router.push("/maintenance")}
                   >
                     <TextRotate
                       texts={["Get Started", "View Plans"]}
@@ -732,7 +758,7 @@ export default function HeroReveal() {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => { /* CTA disabled — navigation intentionally suppressed */ }}
+                    onClick={() => router.push("/maintenance")}
                   >
                     Try a Meal
                   </motion.button>

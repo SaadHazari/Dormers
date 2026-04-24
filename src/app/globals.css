@@ -173,7 +173,7 @@ html::-webkit-scrollbar {
 }
 
 body {
-  background: var(--background);
+  background: #091825;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   -ms-overflow-style: none; /* IE/Edge */

@@ -1,22 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 export default function Preloader({ onComplete }: { onComplete?: () => void }) {
   const [show, setShow] = useState(true);
+  const [isQuick, setIsQuick] = useState(false);
+
+  // Runs synchronously before paint — returning visitors get the quick
+  // version from the very first frame, no flash of the slow animation.
+  useLayoutEffect(() => {
+    if (localStorage.getItem("hero_seen") === "true") {
+      setIsQuick(true);
+    }
+  }, []);
 
   useEffect(() => {
-    // Optional: Check if user has already seen it this session (uncomment for production)
-    // const hasSeen = sessionStorage.getItem("has_seen_preloader");
-    // if (hasSeen) {
-    //   setShow(false);
-    //   onComplete?.();
-    //   return;
-    // }
+    const quick = localStorage.getItem("hero_seen") === "true";
 
-    // Lock scroll while preloader is active (iOS-safe: position fixed)
     const scrollY = window.scrollY;
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
@@ -32,16 +34,18 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
       window.scrollTo(0, parseInt(savedY || "0") * -1);
     };
 
-    // Duration of the hold before sliding up
+    const exitMs = quick ? 450 : 800;
+    let completeTimer: ReturnType<typeof setTimeout>;
+
     const timer = setTimeout(() => {
       setShow(false);
       unlockScroll();
-      onComplete?.();
-      // sessionStorage.setItem("has_seen_preloader", "true");
-    }, 2200);
+      completeTimer = setTimeout(() => onComplete?.(), exitMs + 50);
+    }, quick ? 900 : 2200);
 
     return () => {
       clearTimeout(timer);
+      clearTimeout(completeTimer);
       unlockScroll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,49 +58,56 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
           key="preloader"
           className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#091825]"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, y: "-100%" }} // smooth slide up and fade
-          transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
+          exit={{
+            opacity: 0,
+            y: "-100%",
+            transition: { duration: isQuick ? 0.45 : 0.8, ease: [0.76, 0, 0.24, 1] },
+          }}
         >
-          
           <div className="relative text-center select-none pointer-events-none px-4 flex flex-col items-center -mt-[100px] md:mt-0">
-            
-            {/* Logo fade in */}
+
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
+              transition={{ duration: isQuick ? 0.25 : 0.6, delay: isQuick ? 0 : 0.2 }}
               className="mb-8 relative w-[200px] h-[200px] sm:w-[260px] sm:h-[260px]"
             >
-               <Image 
-                src="/logo.png" 
-                alt="Dormers Logo" 
+              <Image
+                src="/logo.png"
+                alt="Dormers Logo"
                 fill
                 className="object-contain opacity-90"
                 priority
-               />
+              />
             </motion.div>
 
             <div className="relative">
-              {/* Layer 1: Hollow Text (Exact Old Style) */}
-              <div 
+              {/* Hollow outline layer */}
+              <div
                 className="font-montserrat font-black text-[40px] sm:text-[50px] md:text-[55px] lg:text-[65px] leading-[1.05] tracking-tight uppercase"
                 style={{
                   color: "#091825",
-                  textShadow: "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff",
+                  textShadow:
+                    "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff",
                 }}
               >
                 Meals that<br />don&apos;t suck.
               </div>
 
-              {/* Layer 2: Filled Text (Reveals bottom to top) */}
-              <motion.div 
+              {/* Orange fill layer — reveals bottom to top */}
+              <motion.div
                 className="absolute top-0 left-0 w-full h-full font-montserrat font-black text-[40px] sm:text-[50px] md:text-[55px] lg:text-[65px] leading-[1.05] tracking-tight uppercase text-[#f57f20]"
                 style={{
-                  textShadow: "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff", // Keeps the white outline even when filled
+                  textShadow:
+                    "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff",
                 }}
                 initial={{ clipPath: "inset(100% 0 0 0)" }}
                 animate={{ clipPath: "inset(0% 0 0 0)" }}
-                transition={{ duration: 1.4, ease: [0.65, 0, 0.35, 1], delay: 0.3 }}
+                transition={{
+                  duration: isQuick ? 0.65 : 1.4,
+                  ease: [0.65, 0, 0.35, 1],
+                  delay: isQuick ? 0.05 : 0.3,
+                }}
               >
                 Meals that<br />don&apos;t suck.
               </motion.div>

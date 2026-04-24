@@ -85,7 +85,7 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 2,
-    name: "Dormer's Chicken w/ Zeera Rice",
+    name: "Dormers' Chicken w/ Zeera Rice",
     week: "week1",
     description:
       "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
@@ -242,7 +242,7 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 8,
-    name: "Dormer's Paneer w/ Zeera Rice",
+    name: "Dormers' Paneer w/ Zeera Rice",
     week: "week1",
     description:
       "Juicy, spiced cottage cheese with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
@@ -494,7 +494,7 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 18,
-    name: "Dormer's Kabab w/ Chutney & Arabic Bread",
+    name: "Dormers' Kabab w/ Chutney & Arabic Bread",
     week: "week2",
     description:
       "Juicy, spiced kababs grilled to perfection, served with tangy chutney and warm, soft bread.",
@@ -1002,10 +1002,10 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 38,
-    name: "Dormer's Style Halal Guys Bowl",
+    name: "Dormers' Style Halal Guys Bowl",
     week: "week4",
     description:
-      "Juicy grilled chicken served with rice, lettuce, and Dormer's signature white sauce and hot sauce.",
+      "Juicy grilled chicken served with rice, lettuce, and Dormers' signature white sauce and hot sauce.",
     image: "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl_correct3.jpg",
     isVeg: false,
     dayOfWeek: 1, // Tuesday
@@ -1077,10 +1077,10 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 41,
-    name: "Veg Biryani w/ Dormer's Chicken",
+    name: "Veg Biryani w/ Dormers' Chicken",
     week: "week4",
     description:
-      "Aromatic vegetable biryani paired with Dormer's tender, spiced grilled chicken.",
+      "Aromatic vegetable biryani paired with Dormers' tender, spiced grilled chicken.",
     image: "/images/Week4/NonVeg/Dormer_Chicken_Veg_Biryani.jpg",
     isVeg: false,
     dayOfWeek: 4, // Friday
@@ -1229,10 +1229,10 @@ export const MENU_DATA: Dish[] = [
   },
   {
     id: 47,
-    name: "Veg Biryani w/ Dormer's Paneer",
+    name: "Veg Biryani w/ Dormers' Paneer",
     week: "week4",
     description:
-      "Aromatic basmati rice cooked with mixed vegetables, served with tangy, Dormer's paneer curry.",
+      "Aromatic basmati rice cooked with mixed vegetables, served with tangy, Dormers' paneer curry.",
     image: "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
     isVeg: true,
     dayOfWeek: 4, // Friday

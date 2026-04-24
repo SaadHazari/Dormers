@@ -17,13 +17,9 @@ export default function ChatButtonWrapper() {
     if (!isHome) return;
 
     const show = () => setHeroReady(true);
-    const hide = () => setHeroReady(false);
-
     window.addEventListener("hero-ui-visible", show);
-    window.addEventListener("hero-ui-hidden",  hide);
     return () => {
       window.removeEventListener("hero-ui-visible", show);
-      window.removeEventListener("hero-ui-hidden",  hide);
     };
   }, [isHome]);
 

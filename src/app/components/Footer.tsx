@@ -9,7 +9,7 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row justify-between items-center gap-1.5">
           {/* Mobile-only ❤️ — always first on mobile */}
           <p
-            className="order-1 sm:hidden text-[#1E3A4F]/25 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase"
+            className="order-1 sm:hidden text-[#1E3A4F]/50 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase"
             style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600 }}
           >
             Made with ❤️ in Dubai
@@ -23,7 +23,7 @@ export default function Footer() {
           </p>
           {/* Desktop-only ❤️ — middle on desktop */}
           <p
-            className="hidden sm:block sm:order-2 text-[#1E3A4F]/25 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase"
+            className="hidden sm:block sm:order-2 text-[#1E3A4F]/50 text-[10px] sm:text-[11px] whitespace-nowrap tracking-widest uppercase"
             style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600 }}
           >
             Made with ❤️ in Dubai
@@ -31,14 +31,14 @@ export default function Footer() {
           {/* Links — last on mobile, first on desktop */}
           <div className="order-3 sm:order-1 flex gap-6 sm:gap-10">
             <Link
-              href="/cookies-policy"
+              href="/privacy"
               className="text-[#1E3A4F]/35 hover:text-[#f57f20] transition-colors text-[12px] sm:text-[13px]"
               style={{ fontFamily: "Poppins, sans-serif", fontWeight: 400 }}
             >
               Cookies Policy
             </Link>
             <Link
-              href="/legal-terms"
+              href="/terms"
               className="text-[#1E3A4F]/35 hover:text-[#f57f20] transition-colors text-[12px] sm:text-[13px]"
               style={{ fontFamily: "Poppins, sans-serif", fontWeight: 400 }}
             >
