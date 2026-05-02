@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Image, { StaticImageData } from "next/image";
 import { useTheme } from "next-themes";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
@@ -1287,7 +1287,6 @@ export default function Menu() {
     return day === 0 ? 0 : day - 1;
   });
 
-  const [, setShowNutritionHint] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>(() => getMenuWeek(new Date()));
 
   const availableDishes = MENU_DATA.filter(
@@ -1295,36 +1294,9 @@ export default function Menu() {
   );
 
   const currentDish =
-    selectedDay !== null
-      ? availableDishes.find((dish) => dish.dayOfWeek === selectedDay) || availableDishes[availableDishes.length - 1] || null
-      : null;
-
-  useEffect(() => {
-    if (selectedDay !== null) {
-      setShowNutritionHint(true);
-      const timer = setTimeout(() => setShowNutritionHint(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedDay]);
-
-  const [isFlipped, setIsFlipped] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        isFlipped &&
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        setIsFlipped(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isFlipped]);
-
-
+    availableDishes.find((dish) => dish.dayOfWeek === selectedDay) ||
+    availableDishes[availableDishes.length - 1] ||
+    null;
 
   // Helper styles for the toggle labels
   const labelStyle = {
