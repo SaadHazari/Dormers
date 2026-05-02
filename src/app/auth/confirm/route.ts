@@ -9,18 +9,30 @@ import { createClient } from '@/utils/supabase/server'
  *   Site URL:            http://localhost:3004
  *   Redirect URLs:       http://localhost:3004/auth/confirm
  */
+
+type OtpType = 'email' | 'signup' | 'recovery' | 'email_change'
+
+function isValidOtpType(value: string | null): value is OtpType {
+    return value === 'email' || value === 'signup' || value === 'recovery' || value === 'email_change'
+}
+
+// Same-origin path only — `new URL(next, origin)` treats absolute or
+// protocol-relative values as a new origin, which would be an open redirect.
+function safeNext(raw: string): string {
+    return /^\/[^/\\]/.test(raw) ? raw : '/dashboard'
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url)
     const token_hash = searchParams.get('token_hash')
-    const type = searchParams.get('type') as 'email' | 'signup' | null
-    const next = searchParams.get('next') ?? '/dashboard'
+    const type = searchParams.get('type')
+    const next = safeNext(searchParams.get('next') ?? '/dashboard')
 
-    if (token_hash && type) {
+    if (token_hash && isValidOtpType(type)) {
         const supabase = await createClient()
         const { error } = await supabase.auth.verifyOtp({ type, token_hash })
 
         if (!error) {
-            // Session is now active — redirect straight to the app
             return NextResponse.redirect(new URL(next, origin))
         }
     }
