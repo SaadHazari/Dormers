@@ -602,8 +602,7 @@ export default function MenuClient({ customer }: { customer: Customer | null; us
 
         {/* ── Page header ── */}
         <div style={{ marginBottom: 32 }}>
-          <Eyebrow>{new Date().toLocaleDateString('en-AE', { weekday: 'long', month: 'long', day: 'numeric' })}</Eyebrow>
-          <div style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 10, lineHeight: 1, color: NV }}>
+          <div style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, color: NV }}>
             My menu<span style={{ color: OG }}>.</span>
           </div>
           <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 14, color: S.fgMuted, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

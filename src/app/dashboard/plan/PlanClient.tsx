@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight,
   ChefHat, Globe, ShieldCheck, CalendarDays, SkipForward, RefreshCw,
   Unlock, BadgePercent, Pause, Zap,
-  Beef, Salad, MoonStar, Heart,
+  Heart,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { OG, OG3, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
@@ -304,7 +304,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
             gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
             gap: 18,
           }}>
-            <Stat label="Meals" value={`${sub.delivered_meals}/${sub.total_meals}`} />
+            <Stat label="Meals delivered" value={`${sub.delivered_meals}/${sub.total_meals}`} />
             <Stat
               label="Skips left"
               value={skipAllowance > 0 ? `${skipsLeft} of ${skipAllowance}` : '—'}
@@ -327,42 +327,6 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 18, fontWeight: 800, color: NV, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
         {value}
       </div>
-    </div>
-  )
-}
-
-// ── Preference toggle ─────────────────────────────────────────────────────────
-function PrefToggle({ pref, setPref }: { pref: Pref; setPref: (p: Pref) => void }) {
-  const opts: { id: Pref; label: string; Icon: LucideIcon }[] = [
-    { id: 'NonVeg',    label: 'Non-Veg',       Icon: Beef },
-    { id: 'Veg',       label: 'Vegetarian',    Icon: Salad },
-    { id: 'Religious', label: 'Religious Mix', Icon: MoonStar },
-  ]
-  return (
-    <div style={{ display: 'inline-flex', padding: 4, borderRadius: 999, background: 'rgba(9,24,37,0.06)', border: `1px solid ${S.border}` }}>
-      {opts.map(o => {
-        const active = pref === o.id
-        const Icon = o.Icon
-        return (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => setPref(o.id)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 999, border: 0, cursor: 'pointer',
-              fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
-              background: active ? '#fff' : 'transparent',
-              color: active ? NV : S.fgMuted,
-              boxShadow: active ? '0 2px 8px rgba(9,24,37,0.08)' : 'none',
-              transition: 'background 150ms, color 150ms',
-            }}
-          >
-            <Icon size={13} strokeWidth={2.2} aria-hidden />
-            {o.label}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -439,10 +403,10 @@ function PlanCard({
     return { bg: 'rgba(9,24,37,0.05)', fg: S.fgMuted, border: S.border }
   })()
 
-  const planIcon = plan.id === 'Monthly Premium' ? <Gem size={14}/> :
-                   plan.id === 'Monthly Max' ? <Crown size={14}/> :
-                   plan.id === 'Weekly Flex' ? <Sparkles size={14}/> :
-                   <Utensils size={14}/>
+  const planIcon = plan.id === 'Monthly Premium' ? <Gem size={16}/> :
+                   plan.id === 'Monthly Max' ? <Crown size={16}/> :
+                   plan.id === 'Weekly Flex' ? <Sparkles size={16}/> :
+                   <Utensils size={16}/>
 
   // Recommended plan sits on TIER1 (lifted, focal); the rest sit on TIER2
   // (supporting). Selected adds an orange border ring + small lift but
@@ -499,8 +463,8 @@ function PlanCard({
 
       {/* Header */}
       <div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: NV, fontFamily: BODY, fontSize: 14, fontWeight: 700 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 7, background: 'rgba(9,24,37,0.06)' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: NV, fontFamily: BODY, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(9,24,37,0.06)' }}>
             {planIcon}
           </span>
           {plan.id}
@@ -515,7 +479,7 @@ function PlanCard({
       {/* Price */}
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontFamily: DISPLAY, fontSize: 44, fontWeight: 800, color: NV, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
+          <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: NV, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
           <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
         </div>
         <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -890,13 +854,15 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan' }: Props) {
   const isExplore = mode === 'explore'
-  const initialPref: Pref = customer?.meal_preference_type?.toLowerCase().includes('plant')
+  // Pricing follows the user's saved preference — there is no toggle on the
+  // page anymore. Preference lives on /dashboard/profile (single source of
+  // truth) and propagates here via server-rendered customer state.
+  const pref: Pref = customer?.meal_preference_type?.toLowerCase().includes('plant')
     ? 'Veg'
     : customer?.meal_preference_type?.toLowerCase().includes('religious')
       ? 'Religious'
       : 'NonVeg'
-
-  const [pref, setPref] = useState<Pref>(initialPref)
+  const prefLabel = pref === 'NonVeg' ? 'Non-Veg' : pref === 'Veg' ? 'Vegetarian' : 'Religious Mix'
   const [vegDayCount, setVegDayCount] = useState<number>(3) // always in 1–5 range
   const [selected, setSelected] = useState<PlanId | null>(null)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
@@ -1049,14 +1015,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
 
         {/* Header — clean hierarchy: H1 anchored, supporting paragraph in muted weight */}
         <header style={{ marginBottom: 48 }}>
-          {!isExplore && (
-            <Eyebrow>{new Date().toLocaleDateString('en-AE', { weekday: 'long', month: 'long', day: 'numeric' })}</Eyebrow>
-          )}
           <h1 style={{
             fontFamily: DISPLAY,
             fontSize: 'clamp(34px, 5vw, 48px)',
             fontWeight: 700, letterSpacing: '-0.025em',
-            marginTop: isExplore ? 0 : 10,
+            marginTop: 0,
             lineHeight: 1.05, color: NV,
           }}>
             {isExplore
@@ -1069,7 +1032,9 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             maxWidth: 640, lineHeight: 1.6,
           }}>
             {isExplore
-              ? 'Choose a plan that fits your week. Changes apply at your next renewal cycle.'
+              ? (activeSubscription
+                  ? 'Browse alternatives to your current plan — changes apply at your next renewal cycle.'
+                  : 'Choose a plan that fits your week.')
               : 'Your current subscription, account details, and past plans — all in one place.'}
           </p>
         </header>
@@ -1117,28 +1082,70 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
-              {/* Section header — only shown when there IS an active sub the user is browsing alternatives to */}
-              {activeSubscription && (
-                <div style={{ marginBottom: 16 }}>
-                  <Eyebrow>Browse plans</Eyebrow>
-                  <div style={{ marginTop: 6, fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, color: NV, letterSpacing: '-0.01em' }}>Pick a plan to renew or change to</div>
-                </div>
-              )}
-
-              {/* Preference toggle + (when Religious) the veg-day picker
-                  directly underneath, so cause and effect (toggle ↔ slider
-                  ↔ price changes) are in the same eyeshot. */}
-              <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                  <div>
-                    <Eyebrow>Show pricing for</Eyebrow>
-                    <div style={{ marginTop: 8 }}>
-                      <PrefToggle pref={pref} setPref={setPref} />
+              {/* Value strip — anchors the universal promise of any plan
+                  before the user reads prices. Frames the offer as outcome
+                  + low effort + low risk, instead of a feature list. Only
+                  shown in explore mode (this whole block is gated by
+                  `showPricing`). */}
+              <div className="explore-trust-strip" style={{
+                ...TIER2,
+                marginBottom: 24,
+                padding: 'clamp(18px, 2vw, 22px)',
+                borderRadius: 16,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 18,
+              }}>
+                {[
+                  { icon: Utensils,     title: 'Dinner sorted, every evening', sub: 'Chef-cooked, hot at your door. No planning, no cooking.' },
+                  { icon: CalendarDays, title: 'Delivered 7–8 PM, your dorm',  sub: 'Same time, every day. Sunday off.' },
+                  { icon: Unlock,       title: 'Skip, pause, cancel anytime',  sub: 'Life happens — flex without losing the meal.' },
+                ].map(({ icon: Icon, title, sub }) => (
+                  <div key={title} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 10,
+                      background: 'rgba(245,127,32,0.10)',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      color: OG,
+                    }}>
+                      <Icon size={16} strokeWidth={2.2} />
+                    </div>
+                    <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                      {title}
+                    </div>
+                    <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 400, color: S.fgMuted, lineHeight: 1.5 }}>
+                      {sub}
                     </div>
                   </div>
-                  <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                ))}
+              </div>
+
+              {/* Static preference display — pricing is scoped to the user's
+                  saved preference (one source of truth: profile). The toggle
+                  that used to live here invited a false choice. The veg-day
+                  picker stays for Religious users — that's a real choice
+                  inside their preference, not a switch between preferences. */}
+              <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  fontFamily: BODY, fontSize: 13, color: S.fgMuted,
+                }}>
+                  <span>Showing prices for</span>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    padding: '4px 10px', borderRadius: 999,
+                    background: 'rgba(245,127,32,0.10)',
+                    color: NV, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+                  }}>
+                    {prefLabel}
+                  </span>
+                  <Link href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}>
+                    Change
+                  </Link>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <Info size={13} /> Prices in AED.
-                  </div>
+                  </span>
                 </div>
 
                 <AnimatePresence initial={false}>
@@ -1356,16 +1363,20 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           </div>
         )}
 
-        {/* FAQ — constrained to ~720px so prose lines stay in the comfortable
-            45-75 character reading range; left-aligned inside the page so the
-            layout breathes instead of stretching. */}
-        <div style={{ ...TIER3, padding: 28, borderRadius: 20, marginBottom: 24, maxWidth: 720 }}>
-          <Eyebrow>Pricing FAQ</Eyebrow>
-          <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Common questions</div>
-          <div style={{ marginTop: 14 }}>
-            {PLAN_FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
+        {/* FAQ — only on /plan (manage mode). Explore Plans intentionally
+            keeps the page focused on the offer; the same FAQ is one click
+            away on /plan, so duplicating it here added clutter without
+            answering anything new. Constrained to ~720px so prose lines
+            stay in the comfortable 45-75 character reading range. */}
+        {!isExplore && (
+          <div style={{ ...TIER3, padding: 28, borderRadius: 20, marginBottom: 24, maxWidth: 720 }}>
+            <Eyebrow>Pricing FAQ</Eyebrow>
+            <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Common questions</div>
+            <div style={{ marginTop: 14 }}>
+              {PLAN_FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ textAlign: 'center', padding: '12px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgFaint, display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 6, width: '100%' }}>
           Made with <Heart size={11} fill={OG} strokeWidth={0} aria-hidden /> in Dubai
@@ -1387,6 +1398,12 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         }
         @media (min-width: 920px) {
           .plans-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+
+        /* Trust strip — collapses to a single column below 720px so the
+           three promises stack instead of getting cramped at narrow widths. */
+        @media (max-width: 720px) {
+          .explore-trust-strip { grid-template-columns: 1fr !important; gap: 14px !important; }
         }
 
         /* ── Checkout panel ──────────────────────────────────────────────
