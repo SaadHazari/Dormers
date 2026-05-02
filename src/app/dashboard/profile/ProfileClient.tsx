@@ -4,20 +4,14 @@ import { useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Heart } from 'lucide-react'
 import { updateProfile } from '../actions'
+import { OG, NV, NV2, CR, BODY, DISPLAY, MONO, BG_GRADIENT as BG } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 
 const ALLERGENS = ['Nuts', 'Dairy', 'Gluten', 'Shellfish', 'Eggs', 'Soy']
 const DORMS = ['The Myriad', 'KSK Homes', 'Yugo', 'DSOA Residence', 'Study World', 'Other']
 
-const OG  = '#f57f20'
-const NV  = '#091825'
-const NV2 = '#1e3a4f'
-const CR  = '#ede8da'
-const BG  = 'linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%)'
-const DISPLAY = 'var(--font-lora), Georgia, "Times New Roman", serif'
-const BODY    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
-const MONO    = 'var(--font-jetbrains), ui-monospace, monospace'
-
+// Translucent-surface S — Profile sits over BG_GRADIENT, so cards use
+// 0.60 alpha white and slightly darker text than the canonical light-S.
 const S = {
   surface2: 'rgba(255,255,255,0.60)',
   border:   'rgba(9,24,37,0.09)',

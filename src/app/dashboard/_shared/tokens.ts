@@ -19,10 +19,20 @@ export const CR  = '#ede8da'
 // Use this anywhere the cream tone is needed inside a card or popover.
 export const BG = '#ede8da'
 
+// Page background gradient — the cream wash behind dashboard subroutes
+// (profile, support, history). Distinct from `BG` (a solid for inset
+// surfaces). Three sibling files were redeclaring the exact same string.
+export const BG_GRADIENT = 'linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%)'
+
 // ── Typography ────────────────────────────────────────────────────────────────
-// Single typeface — Montserrat — for everything. Hierarchy is carried by
-// scale + weight + color, not by font swaps.
+// BODY (Montserrat) is the workhorse. DISPLAY (Lora serif) is used for
+// emphasised headings on profile/support/history. MONO (JetBrains) is
+// used for IDs and code-style values. All three lived as string literals
+// re-declared in 3-4 files; pulled up to keep them in sync if the brand
+// fonts ever change.
 export const BODY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
+export const DISPLAY = 'var(--font-lora), Georgia, "Times New Roman", serif'
+export const MONO = 'var(--font-jetbrains), ui-monospace, monospace'
 
 // ── Surface tokens — opacities tuned for AA contrast on light surfaces ────────
 export const S = {

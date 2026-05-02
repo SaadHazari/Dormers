@@ -2,15 +2,13 @@
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { cleanPlanName } from '../_shared/tokens'
+import { cleanPlanName, OG, NV, BODY, DISPLAY } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { fmt } from '../_shared/format'
 
-const OG  = '#f57f20'
-const NV  = '#091825'
-const BODY    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
-const DISPLAY = 'var(--font-lora), Georgia, "Times New Roman", serif'
-
+// Translucent-surface S — History rows sit over the BG_GRADIENT page wash
+// (set by the layout), so cards use 0.60 alpha white. Diverges from the
+// canonical light-S which uses solid #ffffff.
 const S = {
   surface2: 'rgba(255,255,255,0.60)',
   border:   'rgba(9,24,37,0.09)',
