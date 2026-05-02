@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image, { StaticImageData } from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Truck, Moon, Utensils, Check, Sparkles, Clock } from 'lucide-react'
-import { MENU_DATA, getMenuWeek } from '@/app/components/Menu'
+import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 
 import { OG, NV, CR, BG, BODY, S, TIER1, TIER2, TIER3 } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
