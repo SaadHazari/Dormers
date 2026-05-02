@@ -1,14 +1,17 @@
-import { Crown, Gem, Sparkles, Utensils, Star } from 'lucide-react'
+import { Crown, Gem, Sparkles, Utensils, Star, type LucideIcon } from 'lucide-react'
 import { OG } from './tokens'
+import { resolvePlan, type PlanId } from '@/lib/plans'
 
 // Single source of truth for the icon that sits adjacent to a plan name
-// anywhere in the dashboard. Matches `.includes()` so legacy decorated
-// `plan_name` rows resolve correctly:
-//   • Monthly Max     → Crown    (top tier, ceremonial)
-//   • Monthly Premium → Gem      (the "diamond")
-//   • Weekly Flex     → Sparkles (light-touch, flexible)
-//   • One-Time / Trial → Utensils (food-first, no commitment)
-//   • Anything else   → Star     (defensive fallback)
+// anywhere in the dashboard. Plan resolution is delegated to lib/plans.ts
+// so any new plan automatically picks up an icon (or the Star fallback).
+const GLYPHS: Record<PlanId, LucideIcon> = {
+  'monthly-max': Crown,        // top tier, ceremonial
+  'monthly-premium': Gem,      // the "diamond"
+  'weekly-flex': Sparkles,     // light-touch, flexible
+  'trial': Utensils,           // food-first, no commitment
+}
+
 export function PlanGlyph({
   planName,
   size = 14,
@@ -20,9 +23,7 @@ export function PlanGlyph({
   color?: string
   strokeWidth?: number
 }) {
-  if (planName.includes('Monthly Max'))     return <Crown    size={size} strokeWidth={strokeWidth} color={color} />
-  if (planName.includes('Monthly Premium')) return <Gem      size={size} strokeWidth={strokeWidth} color={color} />
-  if (planName.includes('Weekly Flex'))     return <Sparkles size={size} strokeWidth={strokeWidth} color={color} />
-  if (planName.includes('One-Time') || planName.includes('Trial')) return <Utensils size={size} strokeWidth={strokeWidth} color={color} />
-  return <Star size={size} strokeWidth={strokeWidth} color={color} />
+  const def = resolvePlan(planName)
+  const Icon = def ? GLYPHS[def.id] : Star
+  return <Icon size={size} strokeWidth={strokeWidth} color={color} />
 }
