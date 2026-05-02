@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-// import Image from "next/image";
 import { useSwipeable } from "react-swipeable";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -253,7 +252,7 @@ export default function TestimonialsBubbles() {
     if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
     resumeTimeoutRef.current = setTimeout(() => {
       setIsPaused(false);
-    }, 8000); // resume after 5 seconds of inactivity
+    }, 8000);
   };
 
   // Auto scroll effect
