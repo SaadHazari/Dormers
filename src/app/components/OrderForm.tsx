@@ -48,12 +48,8 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
 
   useEffect(() => {
     if (isOpen) {
-      console.log("OrderForm opened");
-      // Prevent body scroll when modal is open
       document.body.style.overflow = "hidden";
     } else {
-      console.log("OrderForm closed");
-      // Restore body scroll when modal is closed
       document.body.style.overflow = "unset";
     }
 
@@ -180,6 +176,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
           duration: formData.duration,
           dietaryRestrictions: formData.dietaryRestrictions,
           startDate: formData.startDate,
+          cancel_path: typeof window !== 'undefined' ? window.location.pathname : '/',
         }),
       });
 
@@ -211,7 +208,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
                 <h2
                   className="text-2xl font-bold text-white"
                   style={{
-                    fontFamily: "Typo Round Bold Demo , sans-serif",
+                    fontFamily: "'Lora', Georgia, serif",
                     fontWeight: 700,
                     lineHeight: "100%",
                     letterSpacing: "0.5px",

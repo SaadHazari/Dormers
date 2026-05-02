@@ -14,7 +14,7 @@ export default function PrivacyPolicy() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4" style={{ 
-            fontFamily: "'Typo Round Bold Demo', sans-serif",
+            fontFamily: "'Lora', Georgia, serif",
           }}>
             Privacy Policy
           </h1>

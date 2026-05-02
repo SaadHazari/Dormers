@@ -17,6 +17,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [heroReady, setHeroReady] = useState(false);
   const [footerRevealed, setFooterRevealed] = useState(false);
   const scrollYRef = useRef(0);
+  const hideNavbarRef = useRef(false);
   const slideSectionRef = useRef<HTMLDivElement>(null);
   const footerSentinelRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -67,7 +68,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         const triggerPoint = window.innerHeight / 4;
         const shouldHide = sectionRect.top <= triggerPoint;
 
-        if (shouldHide !== hideNavbar) {
+        if (shouldHide !== hideNavbarRef.current) {
+          hideNavbarRef.current = shouldHide;
           setHideNavbar(shouldHide);
         }
       });
@@ -82,7 +84,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [hideNavbar, isHomePage]);
+  }, [isHomePage]);
 
   return (
     <div
@@ -497,7 +499,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <p className="au-credential">
                 <span className="brand">Dormers&apos;</span> has prepared and delivered over{" "}
                 <span className="stat">4,000 meals</span> across Dubai&apos;s dorms since 2024.
-                Real food, made properly, brought to your dorm.
               </p>
             </div>
 

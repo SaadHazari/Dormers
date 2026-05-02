@@ -10,6 +10,7 @@ import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
+import MarqueeBanner from "@/app/components/MarqueeBanner";
 
 import USPBento from "@/app/components/USPBento";
 import HowItWorks from "@/app/components/HowItWorks";
@@ -179,133 +180,7 @@ export default function Home() {
       <HeroReveal />
 
       {/* ── Repeating Text Banner ── */}
-      <div
-        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]"
-          }`}
-      >
-        <div className="flex flex-col gap-2 w-full h-full py-1">
-          <div className="relative flex whitespace-nowrap">
-            <div className="marquee">
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: "-7s" }}>
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="relative flex whitespace-nowrap LastDomers">
-            <div className="marquee" style={{ animationDelay: "-3s" }}>
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-4.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <MarqueeBanner />
 
       {/* USP Bento Grid - ADDED ID HERE */}
       <div id="usp">
@@ -327,138 +202,7 @@ export default function Home() {
       </div>
 
       {/* Repeating Text Banner (after menu) */}
-      <div
-        className={`relative w-full h-18 overflow-hidden ${theme === "light" ? "bg-[#1E3A4F] mt-8 sm:mt-4" : "bg-[#EEE9DA]"
-          }`}
-      >
-        <div className="flex flex-col gap-2 w-full h-full py-1">
-          {/* Row 1 */}
-          <div className="relative flex whitespace-nowrap">
-            <div className="marquee">
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Row 2 */}
-          <div className="relative flex whitespace-nowrap">
-            <div className="marquee" style={{ animationDelay: "-7s" }}>
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Row 3 (Half visible) */}
-          <div className="relative flex whitespace-nowrap LastDomers">
-            <div className="marquee" style={{ animationDelay: "-3s" }}>
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <span
-                  key={12 + i}
-                  className={`inline-block ${theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]"
-                    } mx-2`}
-                  style={{
-                    fontFamily: "'Typo Round Bold Demo', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    transform: "rotate(-8.84deg)",
-                    opacity: 0.54,
-                  }}
-                >
-                  DORMERS&apos;
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <MarqueeBanner className={theme === "light" ? "mt-8 sm:mt-4" : ""} />
 
       <div
         id="testimonials"
@@ -467,11 +211,11 @@ export default function Home() {
         <div className="">
           <div className="flex items-center justify-between lg:max-w-[987px] mx-auto  px-4">
             <h2
-              className={`text-[20px]  font-bold lg:text-[30px] pb-[24px] lg:pb-[24px] ${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                }`}
+              className={`pb-[24px] lg:pb-[24px] ${theme === "light" ? "text-[#1E3A4F]" : "text-white"}`}
               style={{
                 fontFamily: "Montserrat",
                 fontWeight: 500,
+                fontSize: "20px",
                 lineHeight: "100%",
                 letterSpacing: "0",
               }}
@@ -502,8 +246,6 @@ export default function Home() {
             }`}
         >
           <div
-            className={` ${theme === "light" ? "curtleLightheight" : "curtleheightfaq"
-              } `}
             style={{
               bottom: 0,
               left: 0,
@@ -522,8 +264,7 @@ export default function Home() {
             >
               <div className="md:max-w-[987px] md:mx-auto">
                 <h2
-                  className={`${theme === "light" ? "text-[#1E3A4F]" : "text-white"
-                    } text-3xl sm:text-4xl font-bold mb-8 text-left`}
+                  className={`mb-8 ${theme === "light" ? "text-[#1E3A4F]" : "text-white"}`}
                   style={{
                     fontFamily: "Montserrat, sans-serif",
                     fontWeight: 500,
@@ -532,7 +273,7 @@ export default function Home() {
                     fontSize: "20px",
                   }}
                 >
-                  FAQ&apos;S
+                  FAQs
                 </h2>
 
                 <AnimatePresence mode="wait">
@@ -639,7 +380,7 @@ export default function Home() {
                           });
                         }, 100);
                       }}
-                      className={`flex items-center gap-2 text-sm transition-opacity animate-pulse ${theme === "light" ? "text-[#22394A]" : "text-white/80"
+                      className={`flex items-center gap-2 text-sm transition-opacity hover:opacity-70 ${theme === "light" ? "text-[#22394A]" : "text-white/80"
                         }`}
                     >
                       <span

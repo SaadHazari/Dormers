@@ -3,6 +3,30 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
+export async function updateProfile(data: {
+  name: string;
+  whatsapp_number: string;
+  dorm_name: string;
+  allergens: string;
+  spice_level_preference: string;
+  meal_preference_type?: string;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Unauthorized' };
+
+  const { error } = await supabase
+    .from('customers')
+    .update(data)
+    .eq('id', user.id);
+
+  if (error) return { error: 'Failed to update profile.' };
+
+  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/plan');
+  return { success: true };
+}
+
 export async function pauseSubscription(subscriptionId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +46,9 @@ export async function pauseSubscription(subscriptionId: string) {
   // Validation
   if (subscription.status === 'Paused') return { error: 'Subscription is already paused.' };
   if (subscription.status === 'Ended') return { error: 'Cannot pause an ended subscription.' };
-  if (!subscription.plan_name.includes('Monthly Premium')) return { error: 'Only Monthly Premium plans can be paused.' };
+  if (!subscription.plan_name.includes('Monthly Premium') && !subscription.plan_name.includes('Monthly Max')) {
+    return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
+  }
   if (subscription.has_paused_before) return { error: 'You have already used your 1 allowed pause for this subscription.' };
 
   // Apply Pause
@@ -37,7 +63,9 @@ export async function pauseSubscription(subscriptionId: string) {
 
   if (updateError) return { error: 'Failed to pause subscription.' };
 
-  revalidatePath('/dashboard');
+  // Revalidate at layout level so the sidebar/topbar plan badge + every nested
+  // route under /dashboard sees the new status.
+  revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
 
@@ -86,7 +114,9 @@ export async function resumeSubscription(subscriptionId: string) {
 
   if (updateError) return { error: 'Failed to resume subscription.' };
 
-  revalidatePath('/dashboard');
+  // Revalidate at layout level so the sidebar/topbar plan badge + every nested
+  // route under /dashboard sees the new status.
+  revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
 
@@ -115,9 +145,14 @@ export async function skipMeal(subscriptionId: string) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
   }
 
-  // Extend end_date by 1 day as the meal pushes back your final delivery date
+  // Extend end_date by 1 day as the meal pushes back your final delivery date.
+  // Sunday is a non-delivery day, so if the new end_date lands on Sunday, push to Monday.
   const newEndDate = new Date(subscription.end_date);
   newEndDate.setDate(newEndDate.getDate() + 1);
+  if (newEndDate.getDay() === 0) {
+    // 0 = Sunday → bump one more day so the user gets a real delivery
+    newEndDate.setDate(newEndDate.getDate() + 1);
+  }
 
   const { error: updateError } = await supabase
     .from('subscriptions')
@@ -130,6 +165,8 @@ export async function skipMeal(subscriptionId: string) {
 
   if (updateError) return { error: 'Failed to skip meal.' };
 
-  revalidatePath('/dashboard');
+  // Revalidate at layout level so the sidebar/topbar plan badge + every nested
+  // route under /dashboard sees the new status.
+  revalidatePath('/dashboard', 'layout');
   return { success: true };
 }

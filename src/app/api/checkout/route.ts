@@ -34,6 +34,8 @@ export async function POST(req: Request) {
       preference,
       plan,
       vegDays,
+      start_date,
+      cancel_path,
     }: {
       amount: number;
       name: string;
@@ -43,16 +45,38 @@ export async function POST(req: Request) {
       preference: string;
       plan: string;
       vegDays?: string[];
+      start_date?: string;
+      cancel_path?: string;
     } = body;
 
     if (!amount || amount < 100) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
+    const PLAN_MIN_FILS: Record<string, number> = {
+      'Monthly Max': 17.5 * 48 * 100,
+      'Monthly Premium': 18 * 24 * 100,
+      'Weekly Flex': 19 * 6 * 100,
+      'Trial': 20 * 1 * 100,
+    };
 
-
+    const matchedPlan = Object.keys(PLAN_MIN_FILS).find((key) => plan?.includes(key));
+    if (!matchedPlan) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+    if (amount < PLAN_MIN_FILS[matchedPlan]) {
+      return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
+    }
+    // ──────────────────────────────────────────────────────────
+    // Only accept same-origin paths to prevent open-redirect via Stripe.
+    const safeCancelPath =
+      typeof cancel_path === 'string' && /^\/[^/\\]/.test(cancel_path)
+        ? cancel_path
+        : '/dashboard';
+    const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004';
+    const cancelSep = safeCancelPath.includes('?') ? '&' : '?';
 
     const session = await stripe.checkout.sessions.create({
-      customer_email: email,
+      customer_email: user.email ?? email,
       payment_method_types: ['card'],
       line_items: [
         {
@@ -67,8 +91,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/dashboard?checkout_success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/dashboard?checkout_canceled=true`,
+      success_url: `${base}/dashboard?checkout_success=true`,
+      cancel_url: `${base}${safeCancelPath}${cancelSep}checkout_canceled=true`,
       payment_intent_data: {
         metadata: {
           user_id: user.id,
@@ -79,17 +103,19 @@ export async function POST(req: Request) {
           preference,
           plan,
           vegDays: vegDays ? vegDays.join(', ') : '',
+          start_date: start_date ?? '',
         },
       },
       metadata: { // Added to session level as well for webhook ease
-          user_id: user.id,
-          name,
-          email,
-          phone,
-          location,
-          preference,
-          plan,
-          vegDays: vegDays ? vegDays.join(', ') : '',
+        user_id: user.id,
+        name,
+        email,
+        phone,
+        location,
+        preference,
+        plan,
+        vegDays: vegDays ? vegDays.join(', ') : '',
+        start_date: start_date ?? '',
       }
     });
 

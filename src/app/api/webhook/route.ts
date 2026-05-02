@@ -29,21 +29,39 @@ export async function POST(req: Request) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      
+
       const metadata = session.metadata || {};
-      const { user_id, plan, preference, location, vegDays, name, phone } = metadata;
+      const { user_id, plan, preference, location, vegDays, name, phone, start_date } = metadata;
 
       if (!user_id) {
         console.error('❌ Webhook Error: No user_id in metadata');
         return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
       }
 
+      // Idempotency — Stripe retries on 5xx / timeout. If we've already seen this session, exit early.
+      const { data: existingOrder } = await supabaseAdmin
+        .from('orders')
+        .select('id')
+        .eq('stripe_session_id', session.id)
+        .maybeSingle();
+
+      if (existingOrder) {
+        console.log(`⏭️  Duplicate webhook for session ${session.id} — skipping`);
+        return NextResponse.json({ received: true, deduped: true });
+      }
+
       // Determine Plan Constraints
       let plan_name = 'One-Time Trial';
       let total_meals = 1;
       let duration_days = 1;
+      let meals_per_day = 1;
 
-      if (plan?.includes('Monthly Premium')) {
+      if (plan?.includes('Monthly Max')) {
+        plan_name = 'Monthly Max';
+        total_meals = 48;        // 24 delivery days × 2 meals
+        duration_days = 28;
+        meals_per_day = 2;
+      } else if (plan?.includes('Monthly Premium')) {
         plan_name = 'Monthly Premium';
         total_meals = 24;
         duration_days = 28;
@@ -53,10 +71,27 @@ export async function POST(req: Request) {
         duration_days = 7;
       }
 
-      // Calculate start and end dates
-      const startDate = new Date();
+      // Calculate start and end dates — honor user-picked start_date if provided
+      const startDate = start_date ? new Date(start_date) : new Date();
+      // Guard against invalid date
+      if (isNaN(startDate.getTime())) startDate.setTime(Date.now());
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + duration_days);
+
+      // If start date is in the future, mark as Scheduled — otherwise Active immediately.
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const status = startDate > todayMidnight ? 'Scheduled' : 'Active';
+
+      // If new sub overlaps an existing Active sub for this user (same start before existing end_date),
+      // end the existing one. Future-dated subs do NOT touch the current Active.
+      if (status === 'Active') {
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({ status: 'Ended' })
+          .eq('customer_id', user_id)
+          .in('status', ['Active', 'Paused']);
+      }
 
       // 1. Insert Subscription
       const { data: subData, error: subError } = await supabaseAdmin
@@ -64,10 +99,10 @@ export async function POST(req: Request) {
         .insert({
           customer_id: user_id,
           plan_name: plan_name,
-          status: 'Active',
+          status: status,
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString(),
-          meals_per_day: 1,
+          meals_per_day: meals_per_day,
           total_meals: total_meals,
           delivered_meals: 0,
           paused_days: 0,
@@ -109,7 +144,7 @@ export async function POST(req: Request) {
       }
 
       // 3. Update Customer Profile with the latest data
-      await supabaseAdmin
+      const { error: customerError } = await supabaseAdmin
         .from('customers')
         .update({
           name: name,
@@ -118,6 +153,12 @@ export async function POST(req: Request) {
           meal_preference_type: preference
         })
         .eq('id', user_id);
+
+      if (customerError) {
+        // Don't fail the webhook — subscription + order are already saved.
+        // Log for reconciliation between `customers` and `subscriptions`.
+        console.error('⚠️  Customer profile update failed:', customerError);
+      }
 
       console.log(`✅ Successfully processed checkout for user ${user_id}`);
     }

@@ -2,11 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const updateSession = async (request: NextRequest) => {
-    let supabaseResponse = NextResponse.next({
-        request: {
-            headers: request.headers,
-        },
-    });
+    // Clone headers so we can safely mutate. Strip any client-supplied
+    // x-user-* values up front — only middleware is allowed to set them.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete('x-user-id');
+    requestHeaders.delete('x-user-email');
+
+    // Buffer cookies that Supabase wants to set, then apply once at the end.
+    const cookiesToSetOnResponse: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,27 +20,39 @@ export const updateSession = async (request: NextRequest) => {
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-                    supabaseResponse = NextResponse.next({
-                        request,
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        request.cookies.set(name, value)
+                        cookiesToSetOnResponse.push({ name, value, options: (options ?? {}) as Record<string, unknown> })
                     })
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, options)
-                    )
                 },
             },
         },
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Local JWT verification via the project's asymmetric public key (JWKS).
+    // No network round-trip to Supabase Auth — claims are verified in-process.
+    // The JWKS itself is fetched and cached by the SDK (refreshed periodically),
+    // so only a cold start may incur a one-time JWKS fetch.
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+    const user = !claimsError && claimsData?.claims
+        ? { id: claimsData.claims.sub, email: (claimsData.claims.email as string | undefined) ?? '' }
+        : null;
 
+    const isPreview = process.env.NODE_ENV === 'development' && request.nextUrl.searchParams.get('preview') === '1'
     const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard');
 
-    if (isProtectedRoute && !user) {
+    const applyBufferedCookies = (res: NextResponse) => {
+        cookiesToSetOnResponse.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+        )
+        return res
+    }
+
+    if (isProtectedRoute && !user && !isPreview) {
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         url.searchParams.set('next', request.nextUrl.pathname);
-        return NextResponse.redirect(url);
+        return applyBufferedCookies(NextResponse.redirect(url));
     }
 
     // Redirect already-authenticated users away from auth/onboarding pages
@@ -47,9 +62,20 @@ export const updateSession = async (request: NextRequest) => {
 
     if (user && isAuthPage) {
         const url = request.nextUrl.clone();
-        url.pathname = '/dashboard';
-        return NextResponse.redirect(url);
+        const nextParam = request.nextUrl.searchParams.get('next');
+        url.pathname = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
+        url.search = '';
+        return applyBufferedCookies(NextResponse.redirect(url));
     }
 
-    return supabaseResponse
+    // Forward the validated user to server components so they can skip a
+    // second auth.getUser() round-trip. Headers are scoped to this request only.
+    if (user) {
+        requestHeaders.set('x-user-id', user.id);
+        if (user.email) requestHeaders.set('x-user-email', user.email);
+    }
+
+    return applyBufferedCookies(
+        NextResponse.next({ request: { headers: requestHeaders } })
+    )
 };
