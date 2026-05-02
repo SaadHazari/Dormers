@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
+import { fmt } from '../_shared/format'
 
 const OG  = '#f57f20'
 const NV  = '#091825'
@@ -27,9 +28,6 @@ export type EndedPlan = {
   delivered_meals: number
   skipped_meals_count: number
 }
-
-const fmt = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
 
 export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
   return (

@@ -10,6 +10,10 @@ import { ChevronRight, SkipForward, Pause as PauseIcon, Play, Check, Truck, Cale
 import { MENU_DATA, getMenuWeek } from '@/app/components/Menu'
 import { OG, OG3, NV, NV2, CR, BG, BODY, S, TIER1, TIER2, cleanPlanName } from './_shared/tokens'
 import { PlanGlyph } from './_shared/PlanGlyph'
+import { Eyebrow } from './_shared/Eyebrow'
+import { MealTag } from './_shared/MealTag'
+import { HeatBar } from './_shared/HeatBar'
+import { fmt } from './_shared/format'
 
 // True if `iso` falls on the same calendar day as `ref` (default: now). Used to
 // derive whether today's delivery has already been skipped — the canonical
@@ -113,9 +117,6 @@ interface Props {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmt = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-
 function getGreeting() {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
@@ -195,43 +196,7 @@ function btnStyle(v: BtnVariant): CSSProperties {
   }
 }
 
-// ── Primitives ────────────────────────────────────────────────────────────────
-function Eyebrow({ children, color = S.fgMuted }: { children: React.ReactNode; color?: string }) {
-  return (
-    <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color, lineHeight: 1.2 }}>
-      {children}
-    </div>
-  )
-}
-
-function MealTag({ kind }: { kind: string }) {
-  const map: Record<string, { bg: string; fg: string; mark: string }> = {
-    'Non Veg': { bg: 'rgba(245,127,32,0.14)', fg: '#a35100', mark: OG },
-    'Veg':     { bg: 'rgba(9,145,14,0.12)',   fg: '#1d8a30', mark: '#1d8a30' },
-    'Off':     { bg: 'rgba(9,24,37,0.06)',    fg: 'rgba(9,24,37,0.55)', mark: 'rgba(9,24,37,0.40)' },
-  }
-  const c = map[kind] || map.Veg
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: c.bg, color: c.fg, fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-      <span style={{ width: 6, height: 6, borderRadius: 2, background: kind === 'Veg' ? 'transparent' : c.mark, boxShadow: kind === 'Veg' ? `inset 0 0 0 1.5px ${c.mark}` : 'none' }} />
-      {kind === 'Non Veg' ? 'N.V' : kind}
-    </span>
-  )
-}
-
-function HeatBar({ level, label }: { level: number; label?: string }) {
-  const labels = ['', 'Mild', 'Medium', 'Hot']
-  const text = label ?? labels[level] ?? ''
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} aria-label={text ? `Spice level: ${text}` : 'No spice'}>
-      <span style={{ display: 'flex', gap: 3 }}>
-        {[0, 1, 2].map(i => (
-          <span key={i} style={{ width: 5, height: 9, borderRadius: 1.5, background: i < level ? OG : 'rgba(9,24,37,0.10)', display: 'inline-block' }} />
-        ))}
-      </span>
-    </span>
-  )
-}
+// Eyebrow / MealTag / HeatBar moved to _shared/ — imported above.
 
 // ── HeroToday ────────────────────────────────────────────────────────────────
 // Span-7 dish card. Only "TONIGHT'S DISH" eyebrow above the dish; status +

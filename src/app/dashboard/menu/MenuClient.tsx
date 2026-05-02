@@ -7,6 +7,9 @@ import { Truck, Moon, Utensils, Check, Sparkles, Clock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek } from '@/app/components/Menu'
 
 import { OG, NV, CR, BG, BODY, S, TIER1, TIER2, TIER3 } from '../_shared/tokens'
+import { Eyebrow } from '../_shared/Eyebrow'
+import { MealTag } from '../_shared/MealTag'
+import { HeatBar } from '../_shared/HeatBar'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -29,40 +32,7 @@ type WeekMeal = {
   image: string | StaticImageData | null
 }
 
-// ── Small shared components ───────────────────────────────────────────────────
-function Eyebrow({ children, color = S.fgMuted }: { children: React.ReactNode; color?: string }) {
-  return (
-    <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color, lineHeight: 1 }}>
-      {children}
-    </div>
-  )
-}
-
-// compact=true → 'N.V' for tight spaces (e.g. 7-col next-week grid)
-function MealTag({ kind, compact }: { kind: string; compact?: boolean }) {
-  const map: Record<string, { bg: string; fg: string; mark: string }> = {
-    'Non Veg': { bg: 'rgba(245,127,32,0.14)', fg: '#a35100', mark: OG },
-    'Veg':     { bg: 'rgba(9,145,14,0.12)',   fg: '#1d8a30', mark: '#1d8a30' },
-    'Off':     { bg: 'rgba(9,24,37,0.06)',    fg: 'rgba(9,24,37,0.55)', mark: 'rgba(9,24,37,0.40)' },
-  }
-  const c = map[kind] || map.Veg
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: c.bg, color: c.fg, fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-      <span style={{ width: 6, height: 6, borderRadius: 2, background: kind === 'Veg' ? 'transparent' : c.mark, boxShadow: kind === 'Veg' ? `inset 0 0 0 1.5px ${c.mark}` : 'none' }} />
-      {kind === 'Non Veg' ? (compact ? 'N.V' : 'Non-Veg') : kind}
-    </span>
-  )
-}
-
-function HeatBar({ level }: { level: number }) {
-  return (
-    <div style={{ display: 'flex', gap: 3 }}>
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{ width: 5, height: 9, borderRadius: 1.5, background: i < level ? OG : 'rgba(9,24,37,0.12)' }} />
-      ))}
-    </div>
-  )
-}
+// Eyebrow / MealTag / HeatBar moved to _shared/ — imported above.
 
 // ── Menu data helpers ─────────────────────────────────────────────────────────
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']

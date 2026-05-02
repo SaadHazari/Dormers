@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
+import { Eyebrow } from '../_shared/Eyebrow'
+import { FAQItem } from '../_shared/FAQItem'
 
 const OG  = '#f57f20'
 const NV  = '#091825'
@@ -23,9 +25,7 @@ interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null; created_at: string
 }
 
-function Eyebrow({ children, color = S.fgMuted }: { children: React.ReactNode; color?: string }) {
-  return <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color, lineHeight: 1 }}>{children}</div>
-}
+// Eyebrow moved to _shared/Eyebrow.tsx — imported above.
 
 const FAQS = [
   {
@@ -62,33 +62,7 @@ const FAQS = [
   },
 ]
 
-function FAQItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div style={{ borderBottom: `1px solid ${S.border}` }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', background: 'none', border: 'none', cursor: 'pointer', gap: 16, textAlign: 'left' }}
-      >
-        <span style={{ fontFamily: BODY, fontSize: 14, fontWeight: 600, color: NV, flex: 1 }}>{q}</span>
-        <span style={{ color: open ? OG : S.fgMuted, fontFamily: BODY, fontSize: 18, flexShrink: 0, transition: 'transform 200ms', transform: open ? 'rotate(45deg)' : 'none', display: 'inline-block' }}>+</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{ paddingBottom: 18, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>{a}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+// FAQItem moved to _shared/FAQItem.tsx — imported above.
 
 export default function SupportClient({ customer, userEmail }: { customer: Customer | null; userEmail: string }) {
   return (

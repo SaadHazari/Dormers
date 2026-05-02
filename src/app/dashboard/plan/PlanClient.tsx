@@ -13,6 +13,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { OG, OG3, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
+import { Eyebrow } from '../_shared/Eyebrow'
+import { FAQItem } from '../_shared/FAQItem'
+import { fmt, fmtWithDay } from '../_shared/format'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -60,8 +63,6 @@ interface Props {
   mode?: 'plan' | 'explore'
 }
 
-const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })
-const fmtWithDay = (iso: string) => new Date(iso).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 const isoDate = (d: Date) => d.toISOString().slice(0, 10)
 
 // ── Plan definitions ─────────────────────────────────────────────────────────
@@ -168,13 +169,7 @@ function totalPrice(plan: PlanId, pref: Pref, vegDayCount: number): number {
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
-function Eyebrow({ children, color = S.fgMuted }: { children: React.ReactNode; color?: string }) {
-  return (
-    <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color, lineHeight: 1 }}>
-      {children}
-    </div>
-  )
-}
+// Eyebrow moved to _shared/Eyebrow.tsx — imported above.
 
 function StatusDot({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string; dot: string }> = {
@@ -832,24 +827,7 @@ const PLAN_FAQS = [
     a: 'Yes — Weekly Flex includes 1 skip, Monthly Premium and Monthly Max include 3 skips per cycle. Use the Skip button on your dashboard before midnight the day prior.' },
 ]
 
-function FAQItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div style={{ borderBottom: `1px solid ${S.border}` }}>
-      <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left' }}>
-        <span style={{ fontFamily: BODY, fontSize: 14, fontWeight: 600, color: NV }}>{q}</span>
-        <span style={{ color: open ? OG : S.fgMuted, fontSize: 18, transform: open ? 'rotate(45deg)' : 'none', transition: 'transform 200ms', display: 'inline-block' }}>+</span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} style={{ overflow: 'hidden' }}>
-            <div style={{ paddingBottom: 16, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>{a}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+// FAQItem moved to _shared/FAQItem.tsx — imported above.
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan' }: Props) {
