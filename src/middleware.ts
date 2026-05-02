@@ -6,14 +6,17 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+    // Only run middleware on routes that need session gating. Every match
+    // performs an auth.getUser() round-trip to Supabase, so we keep this
+    // narrow on purpose.
+    //   /dashboard/:path*  → redirect to /login if not authed
+    //   /login             → redirect authed users to /dashboard (or ?next)
+    //   /onboarding        → same redirect-when-authed treatment
+    // Public pages, API routes (which do their own auth), the Supabase auth
+    // callback, and static assets are intentionally excluded.
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
-         */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/dashboard/:path*',
+        '/login',
+        '/onboarding',
     ],
 }

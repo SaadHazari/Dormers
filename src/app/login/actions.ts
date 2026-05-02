@@ -15,7 +15,8 @@ export async function login(formData: FormData) {
     const { error } = await supabase.auth.signInWithPassword(data)
 
     if (error) {
-        redirect(`/login?error=${encodeURIComponent(error.message)}`)
+        const params = new URLSearchParams({ error: error.message, email: data.email })
+        redirect(`/login?${params.toString()}`)
     }
 
     revalidatePath('/', 'layout')
@@ -51,4 +52,20 @@ export async function signout() {
     const supabase = await createClient()
     await supabase.auth.signOut()
     redirect('/home')
+}
+
+export async function requestPasswordReset(formData: FormData) {
+    const supabase = await createClient()
+    const email = (formData.get('email') as string || '').trim()
+
+    if (!email) {
+        redirect(`/login?error=${encodeURIComponent('Please enter your email address.')}`)
+    }
+
+    await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/auth/confirm?next=/login`,
+    })
+
+    // Always confirm — never disclose whether the email exists
+    redirect(`/login?message=${encodeURIComponent("If an account exists for that email, we've sent a reset link.")}`)
 }

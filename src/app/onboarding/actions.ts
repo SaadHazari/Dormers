@@ -22,9 +22,22 @@ export type CreateAccountResult =
     | { requiresConfirmation: true; email: string }
     | { error: string }
 
+function validateOnboardingPayload(p: OnboardingPayload): string | null {
+    if (!p.email || !/^\S+@\S+\.\S+$/.test(p.email)) return 'Invalid email address.'
+    if (!p.password || p.password.length < 8) return 'Password must be at least 8 characters.'
+    if (!p.name?.trim()) return 'Name is required.'
+    if (!p.phone?.trim()) return 'Phone number is required.'
+    if (!p.dorm?.trim()) return 'Please select your dorm.'
+    if (!p.preference?.trim()) return 'Please select a meal preference.'
+    return null
+}
+
 export async function createAccount(
     payload: OnboardingPayload
 ): Promise<CreateAccountResult> {
+    const validationError = validateOnboardingPayload(payload)
+    if (validationError) return { error: validationError }
+
     const supabase = await createClient()
 
     // Instantiated here (not at module level) so env vars are guaranteed to be available
@@ -51,7 +64,18 @@ export async function createAccount(
         },
     })
 
-    if (error) return { error: error.message }
+    if (error) {
+        // If the account already exists, route to /login with email prefilled instead of trapping the user here.
+        const msg = error.message.toLowerCase()
+        if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+            const params = new URLSearchParams({
+                email: payload.email,
+                message: 'You already have an account — sign in below.',
+            })
+            redirect(`/login?${params.toString()}`)
+        }
+        return { error: error.message }
+    }
 
     const userId = authData.user?.id
     if (!userId) return { error: 'Account creation failed. Please try again.' }

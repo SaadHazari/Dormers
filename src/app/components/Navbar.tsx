@@ -45,6 +45,18 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
+  // Close any open menu when clicking outside the nav pill
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+        setIsDesktopMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   // Scroll Spying
   useEffect(() => {
     if (!mounted) return;

@@ -6,46 +6,46 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
 
 const LOADING_WORDS = [
-  "prepping...", "cooking...", "heating up...", "chopping...",
-  "pouring...", "mixing...", "serving...", "splashing...",
-  "cracking...", "juicing...", "blending..."
+    "prepping...", "cooking...", "heating up...", "chopping...",
+    "pouring...", "mixing...", "serving...", "splashing...",
+    "cracking...", "juicing...", "blending...", "sauteing"
 ];
 
 function TypingLoader() {
-  const [displayText, setDisplayText] = useState("");
-  const [wordIndex, setWordIndex] = useState(
-    () => Math.floor(Math.random() * LOADING_WORDS.length)
-  );
+    const [displayText, setDisplayText] = useState("");
+    const [wordIndex, setWordIndex] = useState(
+        () => Math.floor(Math.random() * LOADING_WORDS.length)
+    );
 
-  useEffect(() => {
-    const currentWord = LOADING_WORDS[wordIndex];
-    let charIndex = 0;
+    useEffect(() => {
+        const currentWord = LOADING_WORDS[wordIndex];
+        let charIndex = 0;
 
-    const interval = setInterval(() => {
-      charIndex++;
-      setDisplayText(currentWord.slice(0, charIndex));
-      if (charIndex === currentWord.length) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setDisplayText("");
-          setWordIndex(prev => {
-            let next;
-            do { next = Math.floor(Math.random() * LOADING_WORDS.length); }
-            while (next === prev);
-            return next;
-          });
-        }, 600);
-      }
-    }, 80);
+        const interval = setInterval(() => {
+            charIndex++;
+            setDisplayText(currentWord.slice(0, charIndex));
+            if (charIndex === currentWord.length) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    setDisplayText("");
+                    setWordIndex(prev => {
+                        let next;
+                        do { next = Math.floor(Math.random() * LOADING_WORDS.length); }
+                        while (next === prev);
+                        return next;
+                    });
+                }, 600);
+            }
+        }, 80);
 
-    return () => clearInterval(interval);
-  }, [wordIndex]);
+        return () => clearInterval(interval);
+    }, [wordIndex]);
 
-  return (
-    <span className="text-sm text-[#ede8da] font-medium italic">
-      {displayText}
-    </span>
-  );
+    return (
+        <span className="text-sm text-[#ede8da] font-medium italic">
+            {displayText}
+        </span>
+    );
 }
 
 export default function AIChatbot() {
@@ -53,6 +53,7 @@ export default function AIChatbot() {
     const { messages, status, sendMessage } = useChat(); // <-- v5 destructured vars
     const [isOpen, setIsOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const savedScrollY = useRef(0);
 
     // In v5, we check status instead of a boolean 'isLoading'
     const isLoading = status === 'submitted' || status === 'streaming';
@@ -82,20 +83,17 @@ export default function AIChatbot() {
     // Prevent background scrolling when chat is open (iOS safe method)
     useEffect(() => {
         if (isOpen) {
-            const scrollY = window.scrollY;
+            savedScrollY.current = window.scrollY;
             document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollY}px`;
+            document.body.style.top = `-${savedScrollY.current}px`;
             document.body.style.width = '100%';
             document.body.style.overflow = 'hidden';
         } else {
-            const scrollY = document.body.style.top;
             document.body.style.position = '';
             document.body.style.top = '';
             document.body.style.width = '';
             document.body.style.overflow = '';
-            if (scrollY) {
-                window.scrollTo(0, parseInt(scrollY || '0') * -1);
-            }
+            window.scrollTo({ top: savedScrollY.current, behavior: 'instant' as ScrollBehavior });
         }
 
         return () => {

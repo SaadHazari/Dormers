@@ -48,7 +48,7 @@ export default function VipSuccessPage() {
               theme === "light" ? "text-[#1E3A4F]" : "text-white"
             }`}
             style={{
-              fontFamily: "'Typo Round Bold Demo', sans-serif",
+              fontFamily: "'Lora', Georgia, serif",
               lineHeight: "1",
               textTransform: "uppercase",
             }}

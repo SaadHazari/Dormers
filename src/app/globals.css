@@ -3,133 +3,50 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "Montserrat";
-  src: url("/fonts/Montserrat-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Montserrat";
-  src: url("/fonts/Montserrat-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Montserrat";
-  src: url("/fonts/Montserrat-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Bold_Demo.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Bold_Italic_Demo.otf") format("opentype");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Regular_Demo.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Italic_Demo.otf") format("opentype");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Bold_Demo.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Thin_Demo.otf") format("opentype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Typo Round";
-  src: url("/fonts/Typo_Round_Thin_Italic_Demo.otf") format("opentype");
-  font-weight: 300;
-  font-style: italic;
-  font-display: swap;
-}
-
-/* --- Poppins Font (Minimal Set) --- */
-@font-face {
-  font-family: "Poppins";
-  src: url("/fonts/Poppins-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("/fonts/Poppins-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("/fonts/Poppins-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("/fonts/Poppins-Light.ttf") format("truetype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Legacy radius (kept for back-compat with existing components) */
   --radius-card: 16px;
   --radius-button: 12px;
   --radius-small: 8px;
+
+  /* Dashboard radius scale (3 values) */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-pill: 999px;
+
+  /* Dashboard shadow scale */
+  --shadow-sm:   0 1px 2px rgba(9,24,37,0.04), 0 1px 3px rgba(9,24,37,0.05);
+  --shadow-md:   0 4px 16px rgba(9,24,37,0.08), 0 1px 4px rgba(9,24,37,0.04);
+  --shadow-lg:   0 18px 50px -20px rgba(9,24,37,0.30), 0 4px 12px rgba(9,24,37,0.06);
+  --shadow-glow: 0 0 28px rgba(245,127,32,0.45);
+
+  /* Dashboard type scale (8 sizes) — snap to nearest step, never invent in-between */
+  --text-xs:      11px;   /* micro labels: tnum, eyebrows */
+  --text-sm:      12px;   /* small captions, info chips */
+  --text-base:    13px;   /* body, button labels */
+  --text-md:      14px;   /* card body, modal text */
+  --text-lg:      16px;   /* prominent body, large captions */
+  --text-xl:      20px;   /* section titles */
+  --text-2xl:     28px;   /* big metrics */
+  --text-display: 40px;   /* hero / page anchor */
+
+  /* Dashboard letter-spacing scale (5 values) */
+  --tracking-tight:   -0.02em;  /* display headlines (large + tight) */
+  --tracking-snug:    -0.01em;  /* large titles (gentle tightening) */
+  --tracking-normal:  0;        /* body */
+  --tracking-wide:    0.04em;   /* button labels */
+  --tracking-wider:   0.10em;   /* small uppercase tags */
+  --tracking-widest:  0.18em;   /* eyebrow labels */
+
+  /* Dashboard line-height scale (4 values) */
+  --leading-display: 1;       /* hero metrics, display numbers */
+  --leading-tight:   1.2;     /* titles, eyebrows, tight stacks */
+  --leading-normal:  1.5;     /* body, captions */
+  --leading-relaxed: 1.65;    /* long-form reading, modal copy */
 }
 
 @theme inline {
@@ -138,6 +55,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
 
 /* ── Shadcn-compatible semantic tokens (dark-first; used by pricing-card) ── */
 @theme {
@@ -175,7 +93,7 @@ html::-webkit-scrollbar {
 body {
   background: #091825;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
   -ms-overflow-style: none; /* IE/Edge */
 }
 
@@ -195,6 +113,34 @@ body {
 
 .animate-gradient-x {
   animation: gradient-x 3s ease infinite;
+}
+
+@keyframes marq {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.dashboard-marquee {
+  animation: marq 40s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes activePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,127,32,0.4); }
+  50%       { box-shadow: 0 0 0 4px rgba(245,127,32,0); }
+}
+
+@keyframes urgentPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* .main_content {
@@ -321,7 +267,7 @@ body {
   left: 1%;
   width: 15%;
   border-radius: 16px;
-  font-family: "Typo Round Bold Demo", sans-serif !important;
+  font-family: "Lora", Georgia, serif !important;
   font-weight: 700;
   font-size: 14px !important;
   line-height: 100%;
@@ -542,4 +488,93 @@ html.light .hiw-body    { color: #1E3A4F; }
 html.light .hiw-subline { color: rgba(9,24,37,0.45); }
 html.light .hiw-text-block {
   box-shadow: 0 -20px 40px rgba(9,24,37,0.06) !important;
+}
+/* ── Dashboard tooltip helper — applies to any element with data-tooltip ─────
+   Used across Sidebar, UtilityCluster, action buttons, etc.
+   Position via data-tooltip-placement: 'top' (default) | 'bottom' | 'right' | 'left'.
+*/
+[data-tooltip] { position: relative; }
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  background: rgba(9,24,37,0.95);
+  color: #ede8da;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: var(--font-montserrat), Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(9,24,37,0.25);
+  opacity: 0;
+  animation: tooltipIn 120ms ease-out 350ms forwards;
+}
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::before {
+  content: '';
+  position: absolute;
+  border: 4px solid transparent;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  animation: tooltipIn 120ms ease-out 350ms forwards;
+}
+
+/* Default placement: top */
+[data-tooltip]:not([data-tooltip-placement]):hover::after,
+[data-tooltip][data-tooltip-placement="top"]:hover::after {
+  bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+}
+[data-tooltip]:not([data-tooltip-placement]):hover::before,
+[data-tooltip][data-tooltip-placement="top"]:hover::before {
+  bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+  border-top-color: rgba(9,24,37,0.95);
+}
+
+/* Bottom placement */
+[data-tooltip][data-tooltip-placement="bottom"]:hover::after {
+  top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+}
+[data-tooltip][data-tooltip-placement="bottom"]:hover::before {
+  top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+  border-bottom-color: rgba(9,24,37,0.95);
+}
+
+/* Right placement (used for sidebar nav items) */
+[data-tooltip][data-tooltip-placement="right"]:hover::after {
+  left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+}
+[data-tooltip][data-tooltip-placement="right"]:hover::before {
+  left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+  border-right-color: rgba(9,24,37,0.95);
+}
+
+@keyframes tooltipIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Dashboard focus rings ─────────────────────────────────────────────────────
+   Visible focus outline for keyboard navigation. Uses outline (not box-shadow)
+   so it follows the element's border-radius automatically.
+*/
+.dash-root button:focus-visible,
+.dash-root a:focus-visible,
+.dash-content button:focus-visible,
+.dash-content a:focus-visible,
+.dash-sidebar a:focus-visible,
+.dash-sidebar button:focus-visible,
+.utility-cluster button:focus-visible,
+.utility-cluster a:focus-visible,
+.utility-mobile-menu:focus-visible {
+  outline: 2px solid #f57f20;
+  outline-offset: 3px;
+}
+.dash-root button:focus:not(:focus-visible),
+.dash-root a:focus:not(:focus-visible) {
+  outline: none;
 }

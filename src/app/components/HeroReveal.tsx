@@ -543,7 +543,7 @@ export default function HeroReveal() {
                           marginRight: "0.24em",
                           fontFamily:
                             word === "home"
-                              ? "'Typo Round Bold Demo','Typo Round',sans-serif"
+                              ? "'Lora', Georgia, serif"
                               : "Montserrat,sans-serif",
                           fontWeight: 700,
                         }}

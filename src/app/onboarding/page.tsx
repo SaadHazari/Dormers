@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Eye, EyeOff, Check, Mail } from 'lucide-react'
@@ -8,11 +8,16 @@ import { createAccount } from './actions'
 import Image from 'next/image'
 import Link from 'next/link'
 
+const DRAFT_KEY = 'dormers_onboarding_draft_v1'
+
 // ─── static data ─────────────────────────────────────────────────────────────
 
+// `value` strings stay as-is so existing customer rows + downstream
+// string-matches (e.g. .includes('plant') / .includes('religious')) keep working.
+// Only the user-visible `label` changes.
 const PREFERENCES = [
-    { value: 'Carnivore',            emoji: '🥩', label: 'Carnivore',            desc: 'Chicken, mutton & more every day' },
-    { value: 'Plant-Based',          emoji: '🥗', label: 'Plant-Based',          desc: 'Fully vegetarian, every meal' },
+    { value: 'Carnivore',            emoji: '🥩', label: 'Non-Vegetarian',       desc: 'Chicken, mutton & more every day' },
+    { value: 'Plant-Based',          emoji: '🥗', label: 'Veg',                  desc: 'Fully vegetarian, every meal' },
     { value: 'Religious Preference', emoji: '☪️', label: 'Religious Preference', desc: 'Halal — choose your veg days below' },
 ]
 
@@ -152,6 +157,28 @@ export default function OnboardingPage() {
         name: '', phone: '', email: '', password: '',
     })
 
+    // Hydrate draft from sessionStorage so page refresh doesn't wipe progress.
+    useEffect(() => {
+        try {
+            const raw = sessionStorage.getItem(DRAFT_KEY)
+            if (!raw) return
+            const saved = JSON.parse(raw)
+            if (saved && typeof saved === 'object' && saved.form) {
+                setForm(prev => ({ ...prev, ...saved.form, password: '' })) // never restore password
+                if (typeof saved.step !== 'undefined') setStep(saved.step)
+            }
+        } catch { /* corrupt draft — ignore */ }
+    }, [])
+
+    // Persist draft on every change (excluding password and the confirm screen).
+    useEffect(() => {
+        if (step === 'confirm') return
+        try {
+            const safe = { ...form, password: '' }
+            sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form: safe, step }))
+        } catch { /* quota — ignore */ }
+    }, [form, step])
+
     // ── navigation ────────────────────────────────────────────────────────────
 
     const goTo = (next: Step) => {
@@ -227,9 +254,16 @@ export default function OnboardingPage() {
                 vegDays:    form.vegDays,
             })
 
-            if (!result) return // server-side redirect happened
+            if (!result) {
+                // server-side redirect happened — wipe draft so we don't replay later
+                try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
+                return
+            }
             if ('error' in result) { setError(result.error); return }
-            if ('requiresConfirmation' in result) goTo('confirm')
+            if ('requiresConfirmation' in result) {
+                try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
+                goTo('confirm')
+            }
         })
     }
 
@@ -345,9 +379,11 @@ export default function OnboardingPage() {
                                 {form.vegDays.length > 0 && (
                                     <motion.p
                                         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                        className="text-white/35 text-[12px] text-center"
+                                        className="text-white/55 text-[12px] text-center"
                                     >
-                                        {form.vegDays.length} veg day{form.vegDays.length > 1 ? 's' : ''} · {6 - form.vegDays.length} non-veg
+                                        {form.vegDays.length === 6
+                                            ? 'All days vegetarian.'
+                                            : `${form.vegDays.length} veg day${form.vegDays.length > 1 ? 's' : ''} · ${6 - form.vegDays.length} non-veg`}
                                     </motion.p>
                                 )}
 
@@ -497,7 +533,10 @@ export default function OnboardingPage() {
                                 </div>
                                 <div className="space-y-3">
                                     <FieldInput label="Full Name" type="text" placeholder="Your name" value={form.name} onChange={e => set('name', e.target.value)} />
-                                    <FieldInput label="WhatsApp Number" type="tel" placeholder="+971 50 000 0000" value={form.phone} onChange={e => set('phone', e.target.value)} />
+                                    <div>
+                                        <FieldInput label="WhatsApp Number" type="tel" placeholder="+971 50 000 0000" value={form.phone} onChange={e => set('phone', e.target.value)} />
+                                        <p className="text-white/45 text-[11px] mt-1.5">UAE format · we use this only for delivery updates.</p>
+                                    </div>
                                 </div>
                                 <CtaButton onClick={advance} disabled={!form.name.trim() || !form.phone.trim()}>Continue →</CtaButton>
                             </div>
@@ -596,7 +635,7 @@ export default function OnboardingPage() {
                                     ))}
                                 </div>
 
-                                <Link href="/login" className="text-white/30 hover:text-white/60 text-[13px] transition-colors">
+                                <Link href="/login" className="text-white/55 hover:text-white/85 text-[13px] transition-colors">
                                     ← Back to Sign In
                                 </Link>
                             </div>
