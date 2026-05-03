@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence, useMotionValue, useTransform, useMotionTemplate } from "framer-motion";
 import { useTheme } from "next-themes";
-import { MENU_DATA, Dish, getMenuWeek } from "@/app/components/Menu";
+import { MENU_DATA, Dish, getMenuWeek } from "@/lib/menuData";
 
 function getTodayDishes(): Dish[] {
   const now = new Date();
