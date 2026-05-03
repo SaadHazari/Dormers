@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Heart } from 'lucide-react'
 import { updateProfile } from '../actions'
+import { Eyebrow } from '../_shared/Eyebrow'
 
 const ALLERGENS = ['Nuts', 'Dairy', 'Gluten', 'Shellfish', 'Eggs', 'Soy']
 const DORMS = ['The Myriad', 'KSK Homes', 'Yugo', 'DSOA Residence', 'Study World', 'Other']
@@ -29,10 +30,6 @@ interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null
   whatsapp_number?: string | null; dorm_name?: string | null; meal_preference_type?: string | null
   allergens?: string | null; spice_level_preference?: string | null; created_at: string
-}
-
-function Eyebrow({ children, color = S.fgMuted }: { children: React.ReactNode; color?: string }) {
-  return <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color, lineHeight: 1.35 }}>{children}</div>
 }
 
 function Field({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
