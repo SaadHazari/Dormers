@@ -3,15 +3,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
+import { OG, NV, BODY, DISPLAY, BG_GRADIENT as BG } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
 
-const OG  = '#f57f20'
-const NV  = '#091825'
-const BG  = 'linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%)'
-const DISPLAY = 'var(--font-lora), Georgia, "Times New Roman", serif'
-const BODY    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
-
+// Translucent-surface S — Support sits over BG_GRADIENT, so cards use
+// 0.60 alpha white and slightly darker text than the canonical light-S.
 const S = {
   surface2: 'rgba(255,255,255,0.60)',
   border:   'rgba(9,24,37,0.09)',

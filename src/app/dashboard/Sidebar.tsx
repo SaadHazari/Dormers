@@ -9,13 +9,7 @@ import {
   Gift, Check,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
-
-const OG  = '#f57f20'
-const OG3 = '#ffaa00'
-const NV  = '#091825'
-const NV2 = '#1e3a4f'    // sidebar surface (matches design system)
-const CR  = '#ede8da'
-const BODY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
+import { OG, OG3, NV, NV2, CR, BODY } from './_shared/tokens'
 
 // Surface tokens for the navy sidebar — opacities tuned for AA contrast against #1e3a4f
 const S = {
