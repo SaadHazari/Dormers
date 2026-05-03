@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
 import { whatsAppHref } from "@/lib/contacts";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { closeChat as broadcastClose, subscribeChatBus } from "@/lib/chatBus";
 
 const LOADING_WORDS = [
     "prepping...", "cooking...", "heating up...", "chopping...",
@@ -67,21 +68,10 @@ export default function AIChatbot() {
 
     const closeChat = () => {
         setIsOpen(false);
-        window.dispatchEvent(new CustomEvent('close-chat'));
+        broadcastClose();
     };
 
-    useEffect(() => {
-        const handleOpen = () => setIsOpen(true);
-        const handleClose = () => setIsOpen(false);
-
-        window.addEventListener('open-chat', handleOpen);
-        window.addEventListener('close-chat', handleClose);
-
-        return () => {
-            window.removeEventListener('open-chat', handleOpen);
-            window.removeEventListener('close-chat', handleClose);
-        };
-    }, []);
+    useEffect(() => subscribeChatBus(setIsOpen), []);
 
     // Our custom submit handler for v5
     const onSubmit = (e: React.FormEvent) => {
