@@ -65,9 +65,16 @@ export async function createAccount(
     })
 
     if (error) {
-        // If the account already exists, route to /login with email prefilled instead of trapping the user here.
-        const msg = error.message.toLowerCase()
-        if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
+        // If the account already exists, route to /login with email prefilled
+        // instead of trapping the user here. Prefer the typed `code` field
+        // over message-substring matching (which breaks if Supabase ever
+        // changes its wording). Keep a message fallback for older deployments
+        // that still emit unstructured errors.
+        const isAlreadyExists =
+            error.code === 'user_already_exists' ||
+            error.code === 'email_exists' ||
+            /\b(already|registered|exists)\b/i.test(error.message)
+        if (isAlreadyExists) {
             const params = new URLSearchParams({
                 email: payload.email,
                 message: 'You already have an account — sign in below.',
