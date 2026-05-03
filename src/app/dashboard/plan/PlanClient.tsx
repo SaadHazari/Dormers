@@ -16,6 +16,7 @@ import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
+import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -203,7 +204,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
   const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
   const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
   const renewEligible = !startsInFuture && daysLeft <= 7
-  const status = startsInFuture ? 'Scheduled' : sub.status
+  const status = startsInFuture ? SUBSCRIPTION_STATUS.SCHEDULED : sub.status
 
   // Behavioural numbers — the answer to "how is my plan going?". Pulled from
   // the existing subscription record; no new data fetched.
@@ -219,7 +220,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause
     ? '—'
-    : sub.status === 'Paused'
+    : sub.status === SUBSCRIPTION_STATUS.PAUSED
       ? 'Active'
       : sub.has_paused_before
         ? 'Used'
@@ -917,7 +918,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   // is gated on this; no default-then-skip path.
   const [startDate, setStartDate] = useState<string>('')
 
-  const endedPlans = allSubscriptions.filter(s => s.status === 'Ended')
+  const endedPlans = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
 
   // In 'plan' mode, "Renew" routes the user to /dashboard/explore-plans.
   // In 'explore' mode, the pricing grid is already visible — just scroll to it.

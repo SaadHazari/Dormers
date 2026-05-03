@@ -14,6 +14,7 @@ import { Eyebrow } from './_shared/Eyebrow'
 import { MealTag } from './_shared/MealTag'
 import { HeatBar } from './_shared/HeatBar'
 import { fmt } from './_shared/format'
+import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 
 // True if `iso` falls on the same calendar day as `ref` (default: now). Used to
 // derive whether today's delivery has already been skipped — the canonical
@@ -885,7 +886,7 @@ function ActiveDashboard({ sub, customer, userEmail, allSubscriptions }: {
   //                     skipMeal doesn't flip status, only stamps the date)
   //   • Active        → otherwise
   const initialLocalState: LocalState =
-    sub.status === 'Paused' ? 'paused'
+    sub.status === SUBSCRIPTION_STATUS.PAUSED ? 'paused'
     : isSameDay(sub.last_skipped_date) ? 'skipped'
     : 'active'
   const [localState, setLocalState]       = useState<LocalState>(initialLocalState)
@@ -897,7 +898,7 @@ function ActiveDashboard({ sub, customer, userEmail, allSubscriptions }: {
 
   useEffect(() => {
     setLocalState(
-      sub.status === 'Paused' ? 'paused'
+      sub.status === SUBSCRIPTION_STATUS.PAUSED ? 'paused'
       : isSameDay(sub.last_skipped_date) ? 'skipped'
       : 'active'
     )
@@ -917,8 +918,8 @@ function ActiveDashboard({ sub, customer, userEmail, allSubscriptions }: {
   const isWeekly       = sub.plan_name.includes('Weekly Flex')
   const isOneTime      = sub.plan_name.includes('One-Time')
   const isPausableTier = sub.plan_name.includes('Monthly Premium') || sub.plan_name.includes('Monthly Max')
-  const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== 'Ended'
-  const endedPlans      = allSubscriptions.filter(s => s.status === 'Ended')
+  const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== SUBSCRIPTION_STATUS.ENDED
+  const endedPlans      = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
   const totalDelivered  = allSubscriptions.reduce((acc, x) => acc + (x.delivered_meals ?? 0), 0)
   const memberSinceText = customer?.created_at
     ? new Date(customer.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/lib/plans';
 import { requireUser } from '@/lib/auth-helpers';
 import { loadOwnedSubscription } from '@/lib/subscriptions';
+import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
 
 export async function updateProfile(data: {
   name: string;
@@ -37,8 +38,8 @@ export async function pauseSubscription(subscriptionId: string) {
   const { subscription } = subResult;
 
   // Validation
-  if (subscription.status === 'Paused') return { error: 'Subscription is already paused.' };
-  if (subscription.status === 'Ended') return { error: 'Cannot pause an ended subscription.' };
+  if (subscription.status === SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is already paused.' };
+  if (subscription.status === SUBSCRIPTION_STATUS.ENDED) return { error: 'Cannot pause an ended subscription.' };
   if (!resolvePlan(subscription.plan_name)?.canPause) {
     return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
   }
@@ -48,7 +49,7 @@ export async function pauseSubscription(subscriptionId: string) {
   const { error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
-      status: 'Paused',
+      status: SUBSCRIPTION_STATUS.PAUSED,
       pause_date: new Date().toISOString(),
       has_paused_before: true
     })
@@ -70,7 +71,7 @@ export async function resumeSubscription(subscriptionId: string) {
   if (!subResult.ok) return { error: subResult.error };
   const { subscription } = subResult;
 
-  if (subscription.status !== 'Paused') return { error: 'Subscription is not currently paused.' };
+  if (subscription.status !== SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is not currently paused.' };
   if (!subscription.pause_date) return { error: 'Pause date missing. Cannot calculate extension.' };
 
   // Calculate days passed since paused
@@ -91,7 +92,7 @@ export async function resumeSubscription(subscriptionId: string) {
   const { error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
-      status: 'Active',
+      status: SUBSCRIPTION_STATUS.ACTIVE,
       pause_date: null,
       end_date: newEndDate.toISOString(),
       paused_days: newPausedDaysTotal
@@ -114,7 +115,7 @@ export async function skipMeal(subscriptionId: string) {
   if (!subResult.ok) return { error: subResult.error };
   const { subscription } = subResult;
 
-  if (subscription.status !== 'Active') return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
+  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE) return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
 
   const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
 
