@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion, type Variants, type Easing } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useInView } from "react-intersection-observer";
+import { EASE_STANDARD as cardEase } from "@/lib/motion";
 import {
   RotateCcw, Globe, ShieldCheck, SkipForward, PauseCircle, Truck, Leaf,
   Activity, CreditCard, Utensils, Headphones, LayoutGrid, Wallet, Star,
@@ -86,8 +87,6 @@ const FLIP_CSS = `
   }
   .bento-wrapper:hover .bento-flip-icon { opacity: 0.5 !important; }
 `;
-
-const cardEase: Easing = [0.25, 0.46, 0.45, 0.94];
 
 const cardVariants: Variants = {
   hidden: { opacity: 0, y: 28, scale: 0.96 },
