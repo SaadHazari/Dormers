@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import {
   SUPPORT_EMAIL,
   WHATSAPP_NUMBER,
@@ -8,31 +7,14 @@ import {
   WHATSAPP_HANDLE_DISPLAY,
   whatsAppHref,
 } from '@/lib/contacts';
+import { LegalShell } from '@/app/components/LegalShell';
 
 export default function PrivacyPolicy() {
-  // Scroll to top on mount
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-[#1E3A4F] py-24">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4" style={{ 
-            fontFamily: "'Lora', Georgia, serif",
-          }}>
-            Privacy Policy
-          </h1>
-          <p className="text-[#EEE9DA] text-lg">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
-        </div>
-
-        {/* Content Container */}
-        <div className="max-w-4xl mx-auto bg-[#031624] rounded-3xl shadow-xl p-6 sm:p-8 md:p-12">
-          <div className="space-y-8 text-[#EEE9DA]/80">
+    <LegalShell
+      title="Privacy Policy"
+      closingText="By using Dormer's services, you confirm that you have read, understood, and agreed to this Privacy Policy."
+    >
             {/* 1. Introduction */}
             <section>
               <h2 className="text-2xl font-bold text-white mb-4">1. Introduction</h2>
@@ -180,12 +162,6 @@ export default function PrivacyPolicy() {
               </ul>
             </section>
 
-            <div className="text-center italic pt-8 border-t border-[#EEE9DA]/20">
-              By using Dormer&apos;s services, you confirm that you have read, understood, and agreed to this Privacy Policy.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </LegalShell>
   );
 } 
