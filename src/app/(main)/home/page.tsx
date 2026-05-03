@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Menu from "@/app/components/Menu";
 import { AnimatePresence, motion } from "framer-motion";
-import FormModal from "@/app/components/FormModal";
-import OrderForm from "@/app/components/OrderForm";
 import HeroReveal from "@/app/components/HeroReveal";
 import { useTheme } from "next-themes";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
@@ -23,8 +21,6 @@ interface FAQ {
 
 export default function Home() {
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const faqRef = useRef<HTMLDivElement>(null);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const { theme } = useTheme();
@@ -430,15 +426,6 @@ export default function Home() {
       </section>
 
 
-
-      {/* Form Modal */}
-      <FormModal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
-
-      {/* Order Form */}
-      <OrderForm
-        isOpen={isOrderFormOpen}
-        onClose={() => setIsOrderFormOpen(false)}
-      />
 
       <style jsx global>{`
         @keyframes marquee {
