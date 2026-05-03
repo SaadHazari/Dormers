@@ -2,6 +2,11 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan } from '@/lib/plans';
+import {
+  SUBSCRIPTION_STATUS,
+  LIVE_SUBSCRIPTION_STATUSES,
+  INVOICE_STATUS,
+} from '@/lib/subscription-status';
 
 export async function POST(req: Request) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -74,16 +79,16 @@ export async function POST(req: Request) {
       // If start date is in the future, mark as Scheduled — otherwise Active immediately.
       const todayMidnight = new Date();
       todayMidnight.setHours(0, 0, 0, 0);
-      const status = startDate > todayMidnight ? 'Scheduled' : 'Active';
+      const status = startDate > todayMidnight ? SUBSCRIPTION_STATUS.SCHEDULED : SUBSCRIPTION_STATUS.ACTIVE;
 
       // If new sub overlaps an existing Active sub for this user (same start before existing end_date),
       // end the existing one. Future-dated subs do NOT touch the current Active.
-      if (status === 'Active') {
+      if (status === SUBSCRIPTION_STATUS.ACTIVE) {
         await supabaseAdmin
           .from('subscriptions')
-          .update({ status: 'Ended' })
+          .update({ status: SUBSCRIPTION_STATUS.ENDED })
           .eq('customer_id', user_id)
-          .in('status', ['Active', 'Paused']);
+          .in('status', LIVE_SUBSCRIPTION_STATUSES);
       }
 
       // 1. Insert Subscription
@@ -124,7 +129,7 @@ export async function POST(req: Request) {
           meal_preference: vegDays ? `${preference} (${vegDays})` : preference,
           meals_count: total_meals,
           price_per_meal: pricePerMeal,
-          invoice_status: 'Paid',
+          invoice_status: INVOICE_STATUS.PAID,
           checkout_url: session.url,
           stripe_session_id: session.id,
           stripe_payment_id: session.payment_intent as string,
