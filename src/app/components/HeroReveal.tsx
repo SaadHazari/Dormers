@@ -10,6 +10,7 @@ import Preloader from "@/app/components/Preloader";
 import { EASE_STANDARD as E } from "@/lib/motion";
 import { HERO_REVEAL_CSS as CSS } from "@/app/components/HeroReveal.styles";
 import { HeroProofBar } from "@/app/components/HeroProofBar";
+import { HeroChecklist } from "@/app/components/HeroChecklist";
 
 /* ─────────────────────────────────────────────────────────────────
  * Animation timing — sequential checklist
@@ -52,36 +53,8 @@ const DISH_D   = PRICE_D + 0.55;  // 10.35 (was 11.30)
 const DORM_D   = DISH_D  + 0.55;  // 10.90 (was 11.85)
 
 
-/* ─── Strikethrough — Framer scaleX reveal ───────────────────── */
-function Strike({ delay, rotation, skipped }: { delay: number; rotation: number; skipped: boolean }) {
-  return (
-    <span
-      style={{
-        position: "absolute",
-        left: -4,
-        right: -4,
-        top: "50%",
-        height: "1px",
-        transform: `translateY(-50%) rotate(${rotation}deg)`,
-        overflow: "hidden",
-      }}
-    >
-      <motion.span
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={skipped ? { duration: 0, delay: 0 } : { delay, duration: 0.45, ease: E }}
-        style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          background: "#f57f20",
-          transformOrigin: "left",
-          borderRadius: "1px",
-        }}
-      />
-    </span>
-  );
-}
+// Strike (the strike-through animation used inside the checklist) lives
+// in HeroChecklist.tsx now — it's only used there.
 
 export default function HeroReveal() {
   const router = useRouter();
@@ -312,59 +285,14 @@ export default function HeroReveal() {
                 </div>
 
                 {/* 2 ── Checklist */}
-                <div className="h-checklist">
-
-                  <motion.span
-                    className="h-check-item"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={st({ duration: 0.40, delay: PP1_D, ease: E })}
-                  >
-                    No apps to scroll
-                    <Strike delay={STR1_D} rotation={-1} skipped={skipped} />
-                  </motion.span>
-
-                  <motion.span
-                    className="h-dot-sep"
-                    aria-hidden="true"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={st({ duration: 0.18, delay: DOT1_D, ease: E })}
-                  >
-                    ·
-                  </motion.span>
-
-                  <motion.span
-                    className="h-check-item"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={st({ duration: 0.40, delay: PP2_D, ease: E })}
-                  >
-                    No groceries to buy
-                    <Strike delay={STR2_D} rotation={0.5} skipped={skipped} />
-                  </motion.span>
-
-                  <motion.span
-                    className="h-dot-sep"
-                    aria-hidden="true"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={st({ duration: 0.18, delay: DOT2_D, ease: E })}
-                  >
-                    ·
-                  </motion.span>
-
-                  <motion.span
-                    className="h-check-item"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={st({ duration: 0.40, delay: PP3_D, ease: E })}
-                  >
-                    No recipes to follow
-                    <Strike delay={STR3_D} rotation={-0.8} skipped={skipped} />
-                  </motion.span>
-
-                </div>
+                <HeroChecklist
+                  skipped={skipped}
+                  items={[
+                    { text: "No apps to scroll",    strRotation: -1,   delay: PP1_D, strDelay: STR1_D, dotDelay: DOT1_D },
+                    { text: "No groceries to buy",  strRotation: 0.5,  delay: PP2_D, strDelay: STR2_D, dotDelay: DOT2_D },
+                    { text: "No recipes to follow", strRotation: -0.8, delay: PP3_D, strDelay: STR3_D },
+                  ]}
+                />
 
                 {/* 3 ── Anchor / payoff */}
                 <div className="h-anchor">
