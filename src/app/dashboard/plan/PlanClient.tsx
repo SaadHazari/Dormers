@@ -1795,8 +1795,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         /* Honour reduced-motion preferences — strip the lift/transitions
            but keep the hover signal via box-shadow only. */
         @media (prefers-reduced-motion: reduce) {
-          .checkout-cta,
-          .checkout-date-input {
+          .checkout-cta {
             transition: none;
           }
           .checkout-cta:hover:not(:disabled),
