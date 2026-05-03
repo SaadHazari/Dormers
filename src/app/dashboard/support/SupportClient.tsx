@@ -6,6 +6,7 @@ import { Mail, MessageCircle, Heart } from 'lucide-react'
 import { OG, NV, BODY, DISPLAY, BG_GRADIENT as BG } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
+import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
 
 // Translucent-surface S — Support sits over BG_GRADIENT, so cards use
 // 0.60 alpha white and slightly darker text than the canonical light-S.
@@ -111,11 +112,11 @@ export default function SupportClient({ customer, userEmail }: { customer: Custo
               </div>
             </div>
             <a
-              href="mailto:care@dormers.ae"
+              href={`mailto:${SUPPORT_EMAIL}`}
               data-tooltip="Opens your email app"
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', borderRadius: 999, background: 'rgba(245,127,32,0.14)', border: '1px solid rgba(245,127,32,0.25)', color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', marginTop: 'auto' }}
             >
-              care@dormers.ae
+              {SUPPORT_EMAIL}
             </a>
           </div>
 
@@ -131,7 +132,7 @@ export default function SupportClient({ customer, userEmail }: { customer: Custo
               </div>
             </div>
             <a
-              href="https://wa.me/971504619384"
+              href={whatsAppHref()}
               target="_blank"
               rel="noreferrer"
               data-tooltip="Opens WhatsApp"

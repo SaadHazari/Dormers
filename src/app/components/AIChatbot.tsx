@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react"; // <-- Updated Import!
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
+import { whatsAppHref } from "@/lib/contacts";
 
 const LOADING_WORDS = [
     "prepping...", "cooking...", "heating up...", "chopping...",
@@ -186,7 +187,7 @@ export default function AIChatbot() {
                                                             {cleanText && <span className="whitespace-pre-wrap">{cleanText}</span>}
                                                             {hasEscalation && (
                                                                 <a
-                                                                    href="https://wa.me/+971504619384"
+                                                                    href={whatsAppHref()}
                                                                     target="_blank"
                                                                     rel="noreferrer"
                                                                     className="bg-[#25D366] text-white py-2 px-4 rounded-xl flex items-center justify-center font-semibold text-[13px] hover:bg-[#20bd5a] transition-all w-fit mt-1"
