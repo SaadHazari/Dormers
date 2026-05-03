@@ -1,8 +1,9 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/lib/plans';
+import { requireUser } from '@/lib/auth-helpers';
+import { loadOwnedSubscription } from '@/lib/subscriptions';
 
 export async function updateProfile(data: {
   name: string;
@@ -12,14 +13,13 @@ export async function updateProfile(data: {
   spice_level_preference: string;
   meal_preference_type?: string;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Unauthorized' };
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
 
-  const { error } = await supabase
+  const { error } = await auth.supabase
     .from('customers')
     .update(data)
-    .eq('id', user.id);
+    .eq('id', auth.user.id);
 
   if (error) return { error: 'Failed to update profile.' };
 
@@ -29,20 +29,12 @@ export async function updateProfile(data: {
 }
 
 export async function pauseSubscription(subscriptionId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
 
-  if (!user) return { error: 'Unauthorized' };
-
-  // Fetch the subscription
-  const { data: subscription, error: fetchError } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('id', subscriptionId)
-    .eq('customer_id', user.id)
-    .single();
-
-  if (fetchError || !subscription) return { error: 'Subscription not found' };
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
 
   // Validation
   if (subscription.status === 'Paused') return { error: 'Subscription is already paused.' };
@@ -53,7 +45,7 @@ export async function pauseSubscription(subscriptionId: string) {
   if (subscription.has_paused_before) return { error: 'You have already used your 1 allowed pause for this subscription.' };
 
   // Apply Pause
-  const { error: updateError } = await supabase
+  const { error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
       status: 'Paused',
@@ -71,20 +63,13 @@ export async function pauseSubscription(subscriptionId: string) {
 }
 
 export async function resumeSubscription(subscriptionId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
 
-  if (!user) return { error: 'Unauthorized' };
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
 
-  // Fetch the subscription
-  const { data: subscription, error: fetchError } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('id', subscriptionId)
-    .eq('customer_id', user.id)
-    .single();
-
-  if (fetchError || !subscription) return { error: 'Subscription not found' };
   if (subscription.status !== 'Paused') return { error: 'Subscription is not currently paused.' };
   if (!subscription.pause_date) return { error: 'Pause date missing. Cannot calculate extension.' };
 
@@ -103,7 +88,7 @@ export async function resumeSubscription(subscriptionId: string) {
   const newPausedDaysTotal = (subscription.paused_days || 0) + diffDays;
 
   // Apply Resume
-  const { error: updateError } = await supabase
+  const { error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
       status: 'Active',
@@ -122,20 +107,12 @@ export async function resumeSubscription(subscriptionId: string) {
 }
 
 export async function skipMeal(subscriptionId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
 
-  if (!user) return { error: 'Unauthorized' };
-
-  // Fetch the subscription
-  const { data: subscription, error: fetchError } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('id', subscriptionId)
-    .eq('customer_id', user.id)
-    .single();
-
-  if (fetchError || !subscription) return { error: 'Subscription not found' };
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
 
   if (subscription.status !== 'Active') return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
 
@@ -154,7 +131,7 @@ export async function skipMeal(subscriptionId: string) {
     newEndDate.setDate(newEndDate.getDate() + 1);
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
       skipped_meals_count: subscription.skipped_meals_count + 1,
