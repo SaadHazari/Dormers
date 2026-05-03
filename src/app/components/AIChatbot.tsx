@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
 import { whatsAppHref } from "@/lib/contacts";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const LOADING_WORDS = [
     "prepping...", "cooking...", "heating up...", "chopping...",
@@ -54,7 +55,8 @@ export default function AIChatbot() {
     const { messages, status, sendMessage } = useChat(); // <-- v5 destructured vars
     const [isOpen, setIsOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const savedScrollY = useRef(0);
+
+    useBodyScrollLock(isOpen);
 
     // In v5, we check status instead of a boolean 'isLoading'
     const isLoading = status === 'submitted' || status === 'streaming';
@@ -80,30 +82,6 @@ export default function AIChatbot() {
             window.removeEventListener('close-chat', handleClose);
         };
     }, []);
-
-    // Prevent background scrolling when chat is open (iOS safe method)
-    useEffect(() => {
-        if (isOpen) {
-            savedScrollY.current = window.scrollY;
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${savedScrollY.current}px`;
-            document.body.style.width = '100%';
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            document.body.style.overflow = '';
-            window.scrollTo({ top: savedScrollY.current, behavior: 'instant' as ScrollBehavior });
-        }
-
-        return () => {
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            document.body.style.overflow = '';
-        };
-    }, [isOpen]);
 
     // Our custom submit handler for v5
     const onSubmit = (e: React.FormEvent) => {

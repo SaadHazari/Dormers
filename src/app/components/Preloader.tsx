@@ -3,10 +3,15 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export default function Preloader({ onComplete }: { onComplete?: () => void }) {
   const [show, setShow] = useState(true);
   const [isQuick, setIsQuick] = useState(false);
+
+  // Locks body scroll while the preloader is showing. Re-runs on `show`
+  // change → automatically unlocks once the timer flips show=false.
+  useBodyScrollLock(show);
 
   // Runs synchronously before paint — returning visitors get the quick
   // version from the very first frame, no flash of the slow animation.
@@ -18,35 +23,17 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
 
   useEffect(() => {
     const quick = localStorage.getItem("hero_seen") === "true";
-
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    document.body.style.overflow = "hidden";
-
-    const unlockScroll = () => {
-      const savedY = document.body.style.top;
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, parseInt(savedY || "0") * -1);
-    };
-
     const exitMs = quick ? 450 : 800;
     let completeTimer: ReturnType<typeof setTimeout>;
 
     const timer = setTimeout(() => {
       setShow(false);
-      unlockScroll();
       completeTimer = setTimeout(() => onComplete?.(), exitMs + 50);
     }, quick ? 900 : 2200);
 
     return () => {
       clearTimeout(timer);
       clearTimeout(completeTimer);
-      unlockScroll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

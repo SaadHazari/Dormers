@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface OrderFormProps {
   isOpen: boolean;
@@ -46,17 +47,7 @@ export default function OrderForm({ isOpen, onClose }: OrderFormProps) {
     startDate: "",
   });
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
+  useBodyScrollLock(isOpen);
 
   // const handleChange = (
   //   e: React.ChangeEvent<
