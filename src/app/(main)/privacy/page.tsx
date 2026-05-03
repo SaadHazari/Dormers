@@ -1,6 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
+import {
+  SUPPORT_EMAIL,
+  WHATSAPP_NUMBER,
+  WHATSAPP_NUMBER_DISPLAY,
+  WHATSAPP_HANDLE_DISPLAY,
+  whatsAppHref,
+} from '@/lib/contacts';
 
 export default function PrivacyPolicy() {
   // Scroll to top on mount
@@ -125,7 +132,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-2xl font-bold text-white mb-4">7. Data Retention</h2>
               <p>
-                We retain customer information only as long as necessary for service fulfillment and legal compliance. The retention period varies based on data type and legal requirements. Customers may request data deletion by contacting us at <a href="mailto:care@dormers.ae" className="text-orange-400 hover:underline">care@dormers.ae</a>.
+                We retain customer information only as long as necessary for service fulfillment and legal compliance. The retention period varies based on data type and legal requirements. Customers may request data deletion by contacting us at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-400 hover:underline">{SUPPORT_EMAIL}</a>.
               </p>
             </section>
 
@@ -142,7 +149,7 @@ export default function PrivacyPolicy() {
                 <li>Restriction of Processing: Request limited use of personal data under specific circumstances.</li>
               </ul>
               <p className="mt-4">
-                To exercise these rights, contact us at <a href="mailto:care@dormers.ae" className="text-orange-400 hover:underline">care@dormers.ae</a>.
+                To exercise these rights, contact us at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-400 hover:underline">{SUPPORT_EMAIL}</a>.
               </p>
             </section>
 
@@ -167,9 +174,9 @@ export default function PrivacyPolicy() {
               <h2 className="text-2xl font-bold text-white mb-4">11. Contact Information</h2>
               <p className="mb-4">For any questions, concerns, or requests related to this Privacy Policy, please contact us:</p>
               <ul className="space-y-2">
-                <li>Email: <a href="mailto:care@dormers.ae" className="text-orange-400 hover:underline">care@dormers.ae</a></li>
-                <li>Phone: <a href="tel:+971504619384" className="text-orange-400 hover:underline">+971 504 619 384</a></li>
-                <li>WhatsApp: <a href="https://wa.me/dormers" className="text-orange-400 hover:underline">wa.me/dormers</a></li>
+                <li>Email: <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-400 hover:underline">{SUPPORT_EMAIL}</a></li>
+                <li>Phone: <a href={`tel:${WHATSAPP_NUMBER}`} className="text-orange-400 hover:underline">{WHATSAPP_NUMBER_DISPLAY}</a></li>
+                <li>WhatsApp: <a href={whatsAppHref()} className="text-orange-400 hover:underline">{WHATSAPP_HANDLE_DISPLAY}</a></li>
               </ul>
             </section>
 

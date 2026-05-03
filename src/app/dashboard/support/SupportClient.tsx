@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
+import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
 
 const OG  = '#f57f20'
 const NV  = '#091825'
@@ -114,11 +115,11 @@ export default function SupportClient({ customer, userEmail }: { customer: Custo
               </div>
             </div>
             <a
-              href="mailto:care@dormers.ae"
+              href={`mailto:${SUPPORT_EMAIL}`}
               data-tooltip="Opens your email app"
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', borderRadius: 999, background: 'rgba(245,127,32,0.14)', border: '1px solid rgba(245,127,32,0.25)', color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', marginTop: 'auto' }}
             >
-              care@dormers.ae
+              {SUPPORT_EMAIL}
             </a>
           </div>
 
@@ -134,7 +135,7 @@ export default function SupportClient({ customer, userEmail }: { customer: Custo
               </div>
             </div>
             <a
-              href="https://wa.me/971504619384"
+              href={whatsAppHref()}
               target="_blank"
               rel="noreferrer"
               data-tooltip="Opens WhatsApp"
