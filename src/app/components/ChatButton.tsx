@@ -2,22 +2,12 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
+import { openChat, subscribeChatBus } from '@/lib/chatBus';
 
 export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: number }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  useEffect(() => {
-    const handleOpen = () => setIsChatOpen(true);
-    const handleClose = () => setIsChatOpen(false);
-
-    window.addEventListener('open-chat', handleOpen);
-    window.addEventListener('close-chat', handleClose);
-
-    return () => {
-      window.removeEventListener('open-chat', handleOpen);
-      window.removeEventListener('close-chat', handleClose);
-    };
-  }, []);
+  useEffect(() => subscribeChatBus(setIsChatOpen), []);
 
   if (isChatOpen) return null;
 
@@ -39,7 +29,7 @@ export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: numbe
 
       {/* Main button */}
       <motion.button
-        onClick={() => window.dispatchEvent(new CustomEvent('open-chat'))}
+        onClick={openChat}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.93 }}
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
