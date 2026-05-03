@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { pauseSubscription, resumeSubscription, skipMeal } from './actions'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, SkipForward, Pause as PauseIcon, Play, Check, Truck, CalendarDays, X } from 'lucide-react'
+import { ChevronRight, SkipForward, Pause as PauseIcon, Play, Check, X } from 'lucide-react'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 import { OG, OG3, NV, NV2, CR, BG, BODY, S, TIER1 } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
+import { StatRow } from './StatRow'
 import { btnStyle, BtnSpinner } from './_shared/buttons'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState } from './_shared/types'
 
@@ -100,120 +101,6 @@ function getGreeting() {
 
 // computeCountdown moved into HeroToday.tsx — only used there.
 
-// Days left = urgency signal (turns red within 3 days). Other metrics
-// (Meals delivered, Skips used) intentionally live in PlanProgress's legend
-// to avoid duplication.
-function StatRow({ sub }: { sub: Subscription }) {
-  const isMax = sub.plan_name.includes('Monthly Max')
-  const mealsPerDelivery = isMax ? 2 : 1
-  const total = sub.total_meals
-  const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
-  const deliveriesDone = Math.floor(sub.delivered_meals / mealsPerDelivery)
-  const skippedDeliveries = Math.floor(sub.skipped_meals_count / mealsPerDelivery)
-  const deliveriesLeft = Math.max(0, totalDeliveries - deliveriesDone - skippedDeliveries)
-
-  const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
-  const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
-  const endLabel = new Date(sub.end_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
-  const startLabel = new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
-
-  const daysColor: TileColor = daysLeft <= 3 ? 'red' : 'default'
-
-  return (
-    <div style={{
-      gridColumn: 'span 12',
-      display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: 16,
-    }} className="stat-row">
-      {/* 1 — Deliveries left (the page's most decision-relevant number) */}
-      <StatTile
-        color="orange"
-        glyph={
-          <div style={{
-            width: 44, height: 44, borderRadius: 16,
-            background: 'rgba(245,127,32,0.10)',
-            border: '1.5px solid rgba(245,127,32,0.22)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Truck size={20} strokeWidth={1.7} color={OG} />
-          </div>
-        }
-        label="Deliveries left"
-        value={deliveriesLeft}
-        sub={`of ${totalDeliveries} total`}
-      />
-
-      {/* 2 — Days left (urgency: red < 4 days, neutral otherwise) */}
-      <StatTile
-        color={daysColor}
-        glyph={
-          <div style={{
-            width: 44, height: 44, borderRadius: 16,
-            background: daysLeft <= 3 ? 'rgba(239,68,68,0.09)' : 'rgba(9,24,37,0.04)',
-            border: daysLeft <= 3 ? '1.5px solid rgba(239,68,68,0.20)' : '1.5px solid rgba(9,24,37,0.10)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <CalendarDays size={20} strokeWidth={1.9} color={daysLeft <= 3 ? '#b91c1c' : NV} />
-          </div>
-        }
-        label="Days left"
-        value={daysLeft}
-        sub={startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
-      />
-
-      <style jsx>{`
-        @media (max-width: 900px) {
-          :global(.stat-row) { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-type TileColor = 'orange' | 'red' | 'default'
-
-const TILE_SURFACES: Record<TileColor, CSSProperties> = {
-  orange:  { background: '#f8f3e6', border: '1px solid rgba(245,127,32,0.18)',  boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-  red:     { background: '#f8f3e6', border: '1px solid rgba(239,68,68,0.18)',   boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-  default: { background: '#f8f3e6', border: '1px solid rgba(9,24,37,0.07)',     boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-}
-
-function StatTile({ glyph, label, value, sub, color = 'default' }: {
-  glyph: React.ReactNode
-  label: string
-  value: string | number
-  sub: string
-  color?: TileColor
-}) {
-  const surface = TILE_SURFACES[color]
-  const valueColor = NV
-  return (
-    <div style={{
-      ...surface,
-      padding: 20, borderRadius: 'var(--radius-md)',
-      display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0,
-    }}>
-      <div style={{ flexShrink: 0 }}>{glyph}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgFaint, marginBottom: 6 }}>
-          {label}
-        </div>
-        <div style={{
-          fontFamily: BODY, fontSize: 28, fontWeight: 900,
-          lineHeight: 1, letterSpacing: '-0.02em',
-          color: valueColor,
-          fontFeatureSettings: '"tnum"',
-        }}>
-          {value}
-        </div>
-        <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, marginTop: 6, lineHeight: 1.5 }}>
-          {sub}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── QuickActions — sits next to PlanProgress, parallels design's actions card ─
 function QuickActions({
