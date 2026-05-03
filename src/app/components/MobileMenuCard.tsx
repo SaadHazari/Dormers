@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Image, { StaticImageData } from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
+import { SpiceMeter } from '@/app/components/SpiceMeter';
 
 interface MicroNutrient {
   name: string;
@@ -207,11 +208,7 @@ export default function MobileMenuCard({
                         <div className={`pt-2 border-t ${divider} mt-1`}>
                           <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
                             <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Spice</span>
-                            <div className="flex gap-1.5">
-                              {[0, 1, 2].map((i) => (
-                                <span key={i} style={{ filter: i < (currentDish.spiceLevel || 0) ? "none" : "grayscale(100%) opacity(25%)", transition: "all 0.3s ease" }}>🌶️</span>
-                              ))}
-                            </div>
+                            <SpiceMeter level={currentDish.spiceLevel} />
                           </div>
 
                           <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
