@@ -7,13 +7,12 @@ const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
  *
  * The component exposes the level as `aria-label` so screen readers
  * announce "Spice level: Medium" rather than reading three empty bars.
- * Pass `label` to override the default ('Mild' / 'Medium' / 'Hot').
  *
  * Was duplicated in ClientDashboard (with span+aria) and MenuClient
  * (without aria) — this version is the union.
  */
-export function HeatBar({ level, label }: { level: number; label?: string }) {
-    const text = label ?? SPICE_LABELS[level] ?? ''
+export function HeatBar({ level }: { level: number }) {
+    const text = SPICE_LABELS[level] ?? ''
     return (
         <span
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}

@@ -27,7 +27,6 @@ function isSameDay(iso: string | null | undefined, ref: Date = new Date()): bool
     && d.getDate() === ref.getDate()
 }
 
-// ── Tonight's dish illustration — flat 2-D SVG, brand colours ────────────────
 // ── Menu shape ────────────────────────────────────────────────────────────────
 type MealState = 'past' | 'today' | 'future'
 type MenuItem = {
@@ -172,8 +171,8 @@ function BtnSpinner() {
   )
 }
 
-// ── Button styles (3 variants + a tight primary used inside cards) ───────────
-type BtnVariant = 'primary' | 'secondary' | 'outline' | 'primary-tight'
+// ── Button styles (primary CTA + a tight primary used inside cards) ─────────
+type BtnVariant = 'primary' | 'primary-tight'
 function btnStyle(v: BtnVariant): CSSProperties {
   const base: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -186,14 +185,8 @@ function btnStyle(v: BtnVariant): CSSProperties {
   switch (v) {
     case 'primary':
       return { ...base, background: OG, color: '#fff', boxShadow: '0 4px 16px rgba(245,127,32,0.40)' }
-    case 'secondary':
-      return { ...base, background: 'rgba(255,255,255,0.6)', color: NV, border: `1px solid ${S.border2}` }
-    case 'outline':
-      return { ...base, background: 'transparent', color: NV, border: `1px solid ${S.border2}`, padding: '12px 14px' }
     case 'primary-tight':
       return { ...base, background: OG, color: '#fff', padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 12px rgba(245,127,32,0.35)' }
-    default:
-      return base
   }
 }
 
@@ -644,18 +637,12 @@ function StatRow({ sub }: { sub: Subscription }) {
   )
 }
 
-type TileColor = 'orange' | 'green' | 'yellow' | 'red' | 'blue' | 'default'
+type TileColor = 'orange' | 'red' | 'default'
 
 const TILE_SURFACES: Record<TileColor, CSSProperties> = {
   orange:  { background: '#f8f3e6', border: '1px solid rgba(245,127,32,0.18)',  boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-  green:   { background: '#f8f3e6', border: '1px solid rgba(29,138,48,0.15)',   boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-  yellow:  { background: '#f8f3e6', border: '1px solid rgba(255,170,0,0.22)',   boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
   red:     { background: '#f8f3e6', border: '1px solid rgba(239,68,68,0.18)',   boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-  blue:    { background: '#f8f3e6', border: '1px solid rgba(29,95,163,0.15)',   boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
   default: { background: '#f8f3e6', border: '1px solid rgba(9,24,37,0.07)',     boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-}
-const TILE_VALUE_COLORS: Record<TileColor, string> = {
-  orange: NV, green: NV, yellow: NV, red: NV, blue: NV, default: NV,
 }
 
 function StatTile({ glyph, label, value, sub, color = 'default' }: {
@@ -666,7 +653,7 @@ function StatTile({ glyph, label, value, sub, color = 'default' }: {
   color?: TileColor
 }) {
   const surface = TILE_SURFACES[color]
-  const valueColor = TILE_VALUE_COLORS[color]
+  const valueColor = NV
   return (
     <div style={{
       ...surface,
