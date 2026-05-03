@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { resolvePlan } from '@/lib/plans';
 
 export async function POST(req: Request) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -52,21 +53,18 @@ export async function POST(req: Request) {
     if (!amount || amount < 100) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
-    const PLAN_MIN_FILS: Record<string, number> = {
-      'Monthly Max': 17.5 * 48 * 100,
-      'Monthly Premium': 18 * 24 * 100,
-      'Weekly Flex': 19 * 6 * 100,
-      'Trial': 20 * 1 * 100,
-    };
 
-    const matchedPlan = Object.keys(PLAN_MIN_FILS).find((key) => plan?.includes(key));
-    if (!matchedPlan) {
+    // Plan whitelist + minimum-price guard — prevents charging AED 1 for a
+    // "Monthly Max" plan by tampering with the body. Source of truth for
+    // minimums is lib/plans.ts.
+    const planDef = resolvePlan(plan);
+    if (!planDef) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
-    if (amount < PLAN_MIN_FILS[matchedPlan]) {
+    if (amount < planDef.minPriceFils) {
       return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
     }
-    // ──────────────────────────────────────────────────────────
+
     // Only accept same-origin paths to prevent open-redirect via Stripe.
     const safeCancelPath =
       typeof cancel_path === 'string' && /^\/[^/\\]/.test(cancel_path)

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { resolvePlan } from '@/lib/plans';
 
 export async function updateProfile(data: {
   name: string;
@@ -46,7 +47,7 @@ export async function pauseSubscription(subscriptionId: string) {
   // Validation
   if (subscription.status === 'Paused') return { error: 'Subscription is already paused.' };
   if (subscription.status === 'Ended') return { error: 'Cannot pause an ended subscription.' };
-  if (!subscription.plan_name.includes('Monthly Premium') && !subscription.plan_name.includes('Monthly Max')) {
+  if (!resolvePlan(subscription.plan_name)?.canPause) {
     return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
   }
   if (subscription.has_paused_before) return { error: 'You have already used your 1 allowed pause for this subscription.' };
@@ -138,8 +139,7 @@ export async function skipMeal(subscriptionId: string) {
 
   if (subscription.status !== 'Active') return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
 
-  const isWeekly = subscription.plan_name.includes('Weekly Flex');
-  const maxSkips = isWeekly ? 1 : 3;
+  const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
 
   if (subscription.skipped_meals_count >= maxSkips) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };

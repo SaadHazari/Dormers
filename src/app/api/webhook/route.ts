@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolvePlan } from '@/lib/plans';
 
 export async function POST(req: Request) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -50,26 +51,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true, deduped: true });
       }
 
-      // Determine Plan Constraints
-      let plan_name = 'One-Time Trial';
-      let total_meals = 1;
-      let duration_days = 1;
-      let meals_per_day = 1;
-
-      if (plan?.includes('Monthly Max')) {
-        plan_name = 'Monthly Max';
-        total_meals = 48;        // 24 delivery days × 2 meals
-        duration_days = 28;
-        meals_per_day = 2;
-      } else if (plan?.includes('Monthly Premium')) {
-        plan_name = 'Monthly Premium';
-        total_meals = 24;
-        duration_days = 28;
-      } else if (plan?.includes('Weekly Flex')) {
-        plan_name = 'Weekly Flex';
-        total_meals = 6;
-        duration_days = 7;
-      }
+      // Resolve the plan from the metadata. Unknown plans fall back to the
+      // trial definition (1 meal, 1 day) — same defensive default as before.
+      const planDef = resolvePlan(plan) ?? {
+        label: 'One-Time Trial',
+        totalMeals: 1,
+        durationDays: 1,
+        mealsPerDay: 1,
+      };
+      const plan_name = planDef.label;
+      const total_meals = planDef.totalMeals;
+      const duration_days = planDef.durationDays;
+      const meals_per_day = planDef.mealsPerDay;
 
       // Calculate start and end dates — honor user-picked start_date if provided
       const startDate = start_date ? new Date(start_date) : new Date();
