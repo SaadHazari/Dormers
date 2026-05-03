@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
 import { OG, NV, BODY, DISPLAY, BG_GRADIENT as BG } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
