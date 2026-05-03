@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence, useMotionValue, useTransform, useMotionTemplate } from "framer-motion";
 import { useTheme } from "next-themes";
 import { MENU_DATA, Dish, getMenuWeek } from "@/lib/menuData";
+import { SpiceMeter } from "@/app/components/SpiceMeter";
 
 function getTodayDishes(): Dish[] {
   const now = new Date();
@@ -299,18 +300,8 @@ export default function TonightsMeal() {
                   <span style={{ fontFamily: "Montserrat, sans-serif", fontSize: "14px", fontWeight: 700, color: colorText }}>{dish.nutrients?.carbs || "0g"}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: "2px", fontSize: "16px", paddingBottom: "2px" }}>
-                {[0, 1, 2].map((i) => (
-                  <span 
-                    key={i} 
-                    style={{ 
-                      filter: i < (dish.spiceLevel || 0) ? "none" : "grayscale(100%) opacity(25%)",
-                      transition: "all 0.3s ease"
-                    }}
-                  >
-                    🌶️
-                  </span>
-                ))}
+              <div style={{ paddingBottom: "2px" }}>
+                <SpiceMeter level={dish.spiceLevel || 0} gap={2} fontSize={16} />
               </div>
             </div>
             </div>
