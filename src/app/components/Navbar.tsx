@@ -20,6 +20,81 @@ const navLinks = [
   { name: "FAQ", href: "/home#faq", id: "faq" },
 ];
 
+// One link rendered three different ways depending on where it sits.
+// Was duplicated as three near-identical `navLinks.map(...)` blocks
+// (desktop pill, desktop dropdown, mobile accordion).
+type NavLink = (typeof navLinks)[number];
+type NavLinkVariant = 'pill' | 'dropdown' | 'mobile';
+
+function NavLinkItem({
+  variant,
+  link,
+  active,
+  isLight,
+  onClick,
+}: {
+  variant: NavLinkVariant;
+  link: NavLink;
+  active: boolean;
+  isLight: boolean;
+  onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  if (variant === 'pill') {
+    return (
+      <a
+        href={link.href}
+        onClick={onClick}
+        className={`relative px-2 lg:px-4 py-2 rounded-full text-[11px] lg:text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${active
+          ? isLight ? "text-[#091825]" : "text-white"
+          : "opacity-0 pointer-events-none select-none"
+          }`}
+      >
+        {active && (
+          <motion.div
+            layoutId="desktopNavBubble"
+            className="absolute inset-0 bg-[#f57f20]/30 border border-[#f57f20]/40 rounded-full -z-10 shadow-[0_0_10px_rgba(245,127,32,0.2)]"
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          />
+        )}
+        {link.name}
+      </a>
+    );
+  }
+
+  if (variant === 'dropdown') {
+    return (
+      <a
+        href={link.href}
+        onClick={onClick}
+        className={`block px-4 py-2.5 rounded-2xl text-[12px] font-bold uppercase tracking-wider transition-colors ${active
+          ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
+          : isLight
+            ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
+            : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
+          }`}
+      >
+        {link.name}
+      </a>
+    );
+  }
+
+  // mobile
+  return (
+    <a
+      href={link.href}
+      onClick={onClick}
+      className={`block px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${active
+        ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
+        : isLight
+          ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
+          : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
+        }`}
+    >
+      {link.name}
+    </a>
+  );
+}
+
 export default function Navbar() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -179,29 +254,16 @@ export default function Navbar() {
 
           {/* CENTER: Navigation Links (desktop only) */}
           <div className="hidden lg:flex items-center justify-center gap-1 relative">
-            {navLinks.map((link) => {
-              const isActive = activeSection === link.href;
-              return (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => handleNavClick(e, link.href)}
-                  className={`relative px-2 lg:px-4 py-2 rounded-full text-[11px] lg:text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${isActive
-                    ? isLight ? "text-[#091825]" : "text-white"
-                    : "opacity-0 pointer-events-none select-none"
-                    }`}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="desktopNavBubble"
-                      className="absolute inset-0 bg-[#f57f20]/30 border border-[#f57f20]/40 rounded-full -z-10 shadow-[0_0_10px_rgba(245,127,32,0.2)]"
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                  {link.name}
-                </a>
-              );
-            })}
+            {navLinks.map((link) => (
+              <NavLinkItem
+                key={link.name}
+                variant="pill"
+                link={link}
+                active={activeSection === link.href}
+                isLight={isLight}
+                onClick={(e) => handleNavClick(e, link.href)}
+              />
+            ))}
           </div>
 
           {/* RIGHT: Desktop CTAs */}
@@ -237,24 +299,16 @@ export default function Navbar() {
                       }`}
                   >
                     <div className="px-3 pt-3 pb-4 space-y-1">
-                      {navLinks.map((link) => {
-                        const isActive = activeSection === link.href;
-                        return (
-                          <a
-                            key={link.name}
-                            href={link.href}
-                            onClick={(e) => handleNavClick(e, link.href)}
-                            className={`block px-4 py-2.5 rounded-2xl text-[12px] font-bold uppercase tracking-wider transition-colors ${isActive
-                              ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-                              : isLight
-                                ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
-                                : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
-                              }`}
-                          >
-                            {link.name}
-                          </a>
-                        );
-                      })}
+                      {navLinks.map((link) => (
+                        <NavLinkItem
+                          key={link.name}
+                          variant="dropdown"
+                          link={link}
+                          active={activeSection === link.href}
+                          isLight={isLight}
+                          onClick={(e) => handleNavClick(e, link.href)}
+                        />
+                      ))}
                     </div>
                   </motion.div>
                 )}
@@ -349,24 +403,16 @@ export default function Navbar() {
           style={{ willChange: "height" }}
         >
           <div className="px-4 pb-5 pt-1 space-y-1">
-            {navLinks.map((link) => {
-              const isActive = activeSection === link.href;
-              return (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => handleNavClick(e, link.href)}
-                  className={`block px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isActive
-                    ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-                    : isLight
-                      ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
-                      : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
-                    }`}
-                >
-                  {link.name}
-                </a>
-              );
-            })}
+            {navLinks.map((link) => (
+              <NavLinkItem
+                key={link.name}
+                variant="mobile"
+                link={link}
+                active={activeSection === link.href}
+                isLight={isLight}
+                onClick={(e) => handleNavClick(e, link.href)}
+              />
+            ))}
 
             <div className={`pt-3 mt-1 border-t flex flex-col gap-2 ${isLight ? "border-[#091825]/10" : "border-white/10"}`}>
               <Link
