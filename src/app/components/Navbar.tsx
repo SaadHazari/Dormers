@@ -7,93 +7,12 @@ import Image from "next/image";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
-import ThemeToggleOrb from "./ThemeToggleOrb";
 import { useTheme } from "next-themes";
-
-// Mapped exactly to the IDs in page.tsx
-const navLinks = [
-  { name: "Home", href: "/home#hero", id: "hero" },
-  { name: "Why Us", href: "/home#usp", id: "usp" },
-  { name: "How it Works", href: "/home#howitworks", id: "howitworks" },
-  { name: "Menu", href: "/home#menu", id: "menu" },
-  { name: "Testimonials", href: "/home#testimonials", id: "testimonials" },
-  { name: "FAQ", href: "/home#faq", id: "faq" },
-];
-
-// One link rendered three different ways depending on where it sits.
-// Was duplicated as three near-identical `navLinks.map(...)` blocks
-// (desktop pill, desktop dropdown, mobile accordion).
-type NavLink = (typeof navLinks)[number];
-type NavLinkVariant = 'pill' | 'dropdown' | 'mobile';
-
-function NavLinkItem({
-  variant,
-  link,
-  active,
-  isLight,
-  onClick,
-}: {
-  variant: NavLinkVariant;
-  link: NavLink;
-  active: boolean;
-  isLight: boolean;
-  onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
-}) {
-  if (variant === 'pill') {
-    return (
-      <a
-        href={link.href}
-        onClick={onClick}
-        className={`relative px-2 lg:px-4 py-2 rounded-full text-[11px] lg:text-[12px] uppercase tracking-wider font-bold transition-all duration-300 z-10 ${active
-          ? isLight ? "text-[#091825]" : "text-white"
-          : "opacity-0 pointer-events-none select-none"
-          }`}
-      >
-        {active && (
-          <motion.div
-            layoutId="desktopNavBubble"
-            className="absolute inset-0 bg-[#f57f20]/30 border border-[#f57f20]/40 rounded-full -z-10 shadow-[0_0_10px_rgba(245,127,32,0.2)]"
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          />
-        )}
-        {link.name}
-      </a>
-    );
-  }
-
-  if (variant === 'dropdown') {
-    return (
-      <a
-        href={link.href}
-        onClick={onClick}
-        className={`block px-4 py-2.5 rounded-2xl text-[12px] font-bold uppercase tracking-wider transition-colors ${active
-          ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-          : isLight
-            ? "text-[rgba(9,24,37,0.7)] hover:bg-[#091825]/05 hover:text-[#091825]"
-            : "text-[rgba(255,255,255,0.8)] hover:bg-white/5 hover:text-white"
-          }`}
-      >
-        {link.name}
-      </a>
-    );
-  }
-
-  // mobile
-  return (
-    <a
-      href={link.href}
-      onClick={onClick}
-      className={`block px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${active
-        ? "bg-[#f57f20]/20 text-[#f57f20] border border-[#f57f20]/30"
-        : isLight
-          ? "text-[rgba(9,24,37,0.7)] active:bg-[#091825]/05 active:text-[#091825]"
-          : "text-[rgba(255,255,255,0.8)] active:bg-white/5 active:text-white"
-        }`}
-    >
-      {link.name}
-    </a>
-  );
-}
+import ThemeToggleOrb from "./ThemeToggleOrb";
+import { NavLinkItem, navLinks } from "./NavLinkItem";
+import { NavbarOrnaments } from "./NavbarOrnaments";
+import { NavbarDesktopSectionMenu } from "./NavbarDesktopSectionMenu";
+import { NavbarMobileMenu } from "./NavbarMobileMenu";
 
 export default function Navbar() {
   const router = useRouter();
@@ -177,50 +96,7 @@ export default function Navbar() {
   return (
     <header className={`fixed top-6 inset-x-0 mx-auto w-[95%] max-w-6xl z-[90] font-montserrat flex items-stretch gap-5 lg:gap-6 transition-opacity duration-200 opacity-100`}>
 
-      {/*
-        Golden-ratio decorative rings — desktop only, behind the nav pill.
-        Radii: nav height ~62px → φ = 1.618
-          Large ring:  62 × φ² ≈ 162px  (anchored left-of-center)
-          Medium ring: 62 × φ  ≈ 100px  (anchored right-of-center)
-          Small ring:  62px             (anchored far right)
-        All pointer-events-none, z-[-1], so they never block interaction.
-      */}
-      <span
-        aria-hidden
-        className="hidden lg:block pointer-events-none select-none absolute z-[-1]"
-        style={{
-          width: 162, height: 162,
-          left: "calc(50% - 280px)",
-          top: "50%",
-          transform: "translateY(-50%)",
-          borderRadius: "50%",
-          border: "1px solid rgba(245,127,32,0.10)",
-        }}
-      />
-      <span
-        aria-hidden
-        className="hidden lg:block pointer-events-none select-none absolute z-[-1]"
-        style={{
-          width: 100, height: 100,
-          left: "calc(50% + 140px)",
-          top: "50%",
-          transform: "translateY(-50%)",
-          borderRadius: "50%",
-          border: "1px solid rgba(245,127,32,0.08)",
-        }}
-      />
-      <span
-        aria-hidden
-        className="hidden lg:block pointer-events-none select-none absolute z-[-1]"
-        style={{
-          width: 62, height: 62,
-          right: "calc(6% + 70px)",
-          top: "50%",
-          transform: "translateY(-50%)",
-          borderRadius: "50%",
-          border: "1px solid rgba(245,127,32,0.06)",
-        }}
-      />
+      <NavbarOrnaments />
 
       {/* NAV PILL — always rounded-3xl on mobile to avoid shape-morph jank */}
       <nav
@@ -269,51 +145,14 @@ export default function Navbar() {
           {/* RIGHT: Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-3">
 
-            {/* Desktop section navigation hamburger */}
-            <div className="relative">
-              <button
-                onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
-                className={`p-2 rounded-full transition-colors ${isLight
-                  ? "text-[rgba(9,24,37,0.8)] hover:text-[#091825] bg-[#091825]/08 border border-[#091825]/15"
-                  : "text-[rgba(255,255,255,0.9)] hover:text-white bg-white/10 border border-white/20"
-                  }`}
-              >
-                {isDesktopMenuOpen ? (
-                  <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <Bars3Icon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {isDesktopMenuOpen && (
-                  <motion.div
-                    key="desktop-section-menu"
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className={`absolute right-0 top-[calc(100%+10px)] w-52 rounded-3xl backdrop-blur-2xl shadow-[0_20px_40px_rgba(0,0,0,0.3)] overflow-hidden z-50 ${isLight
-                      ? "bg-[#FAF6EB]/95 border border-[#091825]/12"
-                      : "bg-[#091825]/95 border border-white/20"
-                      }`}
-                  >
-                    <div className="px-3 pt-3 pb-4 space-y-1">
-                      {navLinks.map((link) => (
-                        <NavLinkItem
-                          key={link.name}
-                          variant="dropdown"
-                          link={link}
-                          active={activeSection === link.href}
-                          isLight={isLight}
-                          onClick={(e) => handleNavClick(e, link.href)}
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <NavbarDesktopSectionMenu
+              links={navLinks}
+              isOpen={isDesktopMenuOpen}
+              setIsOpen={setIsDesktopMenuOpen}
+              isLight={isLight}
+              activeSection={activeSection}
+              onLinkClick={handleNavClick}
+            />
 
             <Link
               href="/maintenance"
@@ -394,53 +233,15 @@ export default function Navbar() {
 
         </div>
 
-        {/* MOBILE EXPANDED CONTENT — accordion inside the pill */}
-        <motion.div
-          initial={false}
-          animate={isMenuOpen ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          className="lg:hidden overflow-hidden"
-          style={{ willChange: "height" }}
-        >
-          <div className="px-4 pb-5 pt-1 space-y-1">
-            {navLinks.map((link) => (
-              <NavLinkItem
-                key={link.name}
-                variant="mobile"
-                link={link}
-                active={activeSection === link.href}
-                isLight={isLight}
-                onClick={(e) => handleNavClick(e, link.href)}
-              />
-            ))}
-
-            <div className={`pt-3 mt-1 border-t flex flex-col gap-2 ${isLight ? "border-[#091825]/10" : "border-white/10"}`}>
-              <Link
-                href="/maintenance"
-                className={`w-full text-center px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
-                  ? "border border-[#091825]/20 text-[#091825]"
-                  : "border border-white/20 text-white"
-                  }`}
-              >
-                Log In
-              </Link>
-
-              {/* Theme toggle row */}
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
-                  ? "border border-[#091825]/20 text-[#091825]"
-                  : "border border-white/20 text-white"
-                  }`}
-              >
-                <span>{isLight ? "Light Mode" : "Dark Mode"}</span>
-                <span className={`w-9 h-5 rounded-full relative transition-colors duration-200 flex-shrink-0 ${isLight ? "bg-[#091825]/15" : "bg-[#f57f20]/50"}`}>
-                  <span className={`absolute top-[3px] w-[14px] h-[14px] rounded-full transition-all duration-200 ${isLight ? "left-[3px] bg-[#091825]/40" : "left-[19px] bg-white"}`} />
-                </span>
-              </button>
-            </div>
-          </div>
-        </motion.div>
+        <NavbarMobileMenu
+          links={navLinks}
+          isOpen={isMenuOpen}
+          isLight={isLight}
+          activeSection={activeSection}
+          theme={theme}
+          setTheme={setTheme}
+          onLinkClick={handleNavClick}
+        />
 
       </nav>
 
