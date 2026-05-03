@@ -1,33 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Image, { StaticImageData } from 'next/image';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { SpiceMeter } from '@/app/components/SpiceMeter';
-
-interface MicroNutrient {
-  name: string;
-  amount: string;
-  percentage: string;
-}
-
-interface Dish {
-  id: number;
-  name: string;
-  week: string;
-  description: string;
-  image: string | StaticImageData;
-  isVeg: boolean;
-  dayOfWeek: number;
-  spiceLevel: number;
-  allergens: string[];
-  nutrients: {
-    calories: string;
-    protein: string;
-    carbs: string;
-    fat: string;
-    microNutrients: MicroNutrient[];
-  };
-}
+import { DishDetailPanel } from '@/app/components/DishDetailPanel';
+import { glassTokens } from '@/lib/glass';
+import type { Dish } from '@/lib/menuData';
 
 interface DesktopMenuCarouselProps {
   availableDishes: Dish[];
@@ -70,22 +47,10 @@ export default function DesktopMenuCarousel({
     { index: 5, initial: 'SAT', full: 'SATURDAY' },
   ];
 
-  // Common glassmorphism styles — dark navy tint in light mode, white tint in dark
-  const baseGlass = isLight
-    ? "bg-[#1E3A4F]/10 border border-[#1E3A4F]/18 shadow-[0_8px_32px_0_rgba(9,24,37,0.10)]"
-    : "bg-white/10 border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
-
-  const inactiveText = isLight ? "text-[#1E3A4F]/55 hover:text-[#1E3A4F]/80" : "text-white/60 hover:text-white/80";
-  const primaryText = isLight ? "text-[#091825]" : "text-white";
-  const bodyText = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
-  const mutedText = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
-  const divider = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
-  const macroGrid = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
-  const macroLabel = isLight ? "text-[#1E3A4F]/50 text-[9px] tracking-wider uppercase font-semibold mb-1" : "text-white/60 text-[9px] tracking-wider uppercase font-semibold mb-1";
-  const macroValue = isLight ? "text-[#091825] font-bold text-[14px]" : "text-white font-bold text-[14px]";
-  const allergenTag = isLight
-    ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2.5 py-0.5 text-[10px] text-[#1E3A4F] capitalize backdrop-blur-sm shadow-sm"
-    : "bg-white/10 border border-white/20 rounded-full px-2.5 py-0.5 text-[10px] text-white capitalize backdrop-blur-sm shadow-sm";
+  // Glass + theme tokens — pulled from lib/glass.ts. `baseGlass` was the
+  // legacy local name; kept aliased to `panel` for the JSX below.
+  const tokens = glassTokens(isLight, 'desktop');
+  const { panel: baseGlass, inactiveText, primaryText, bodyText, divider } = tokens;
 
   // Framer Motion variants for carousel positioning
   const getVariants = (index: number, activeIndex: number) => {
@@ -257,54 +222,7 @@ export default function DesktopMenuCarousel({
                           transition={{ duration: 0.3 }}
                           className="overflow-hidden"
                         >
-                          <div className={`flex flex-col gap-0 border-t ${divider} pt-3 mt-1`}>
-                            {/* Spice Info */}
-                            <div className={`flex justify-between items-center py-2.5 border-b ${divider} relative z-20`}>
-                              <span className="text-[#f57f20] font-bold text-[11px] tracking-widest uppercase">Spice</span>
-                              <SpiceMeter level={dish.spiceLevel} />
-                            </div>
-
-                            {/* Allergens Info */}
-                            <div className={`flex justify-between items-center py-2.5 border-b ${divider} relative z-20`}>
-                              <span className="text-[#f57f20] font-bold text-[11px] tracking-widest uppercase">Allergens</span>
-                              <div className="flex gap-1.5 flex-wrap justify-end">
-                                {dish.allergens.length > 0 ? (
-                                  dish.allergens.map((allergen, idx) => (
-                                    <span key={idx} className={allergenTag}>{allergen}</span>
-                                  ))
-                                ) : (
-                                  <span className={`text-[10px] ${mutedText}`}>None</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Calories Info */}
-                            <div className={`flex justify-between items-center py-2.5 min-h-[36px] relative z-20`}>
-                              <span className="text-[#f57f20] font-bold text-[11px] tracking-widest uppercase">Calories</span>
-                              <div className="text-right flex items-baseline">
-                                <span className={`font-bold text-[15px] drop-shadow-md ${primaryText}`}>
-                                  {dish.nutrients.calories.replace(/kcal/i, '').trim()}
-                                </span>
-                                <span className={`text-[10px] ml-1 uppercase font-semibold ${mutedText}`}>Kcal</span>
-                              </div>
-                            </div>
-
-                            {/* Macros Subfooter */}
-                            <div className={`grid grid-cols-3 gap-0 mt-1 mb-1 p-2.5 relative z-20 ${macroGrid}`}>
-                              <div className={`flex flex-col text-center border-r ${divider} pr-2`}>
-                                <span className={macroLabel}>Protein</span>
-                                <span className={macroValue}>{dish.nutrients.protein}</span>
-                              </div>
-                              <div className={`flex flex-col text-center border-r ${divider} px-2`}>
-                                <span className={macroLabel}>Carbs</span>
-                                <span className={macroValue}>{dish.nutrients.carbs}</span>
-                              </div>
-                              <div className="flex flex-col text-center pl-2">
-                                <span className={macroLabel}>Fat</span>
-                                <span className={macroValue}>{dish.nutrients.fat}</span>
-                              </div>
-                            </div>
-                          </div>
+                          <DishDetailPanel dish={dish} isLight={isLight} size="desktop" />
                         </motion.div>
                       )}
                     </AnimatePresence>

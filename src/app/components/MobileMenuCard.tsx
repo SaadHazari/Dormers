@@ -1,33 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Image, { StaticImageData } from 'next/image';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { SpiceMeter } from '@/app/components/SpiceMeter';
-
-interface MicroNutrient {
-  name: string;
-  amount: string;
-  percentage: string;
-}
-
-interface Dish {
-  id: number;
-  name: string;
-  week: string;
-  description: string;
-  image: string | StaticImageData;
-  isVeg: boolean;
-  dayOfWeek: number;
-  spiceLevel: number;
-  allergens: string[];
-  nutrients: {
-    calories: string;
-    protein: string;
-    carbs: string;
-    fat: string;
-    microNutrients: MicroNutrient[];
-  };
-}
+import { DishDetailPanel } from '@/app/components/DishDetailPanel';
+import { glassTokens } from '@/lib/glass';
+import type { Dish } from '@/lib/menuData';
 
 interface MobileMenuCardProps {
   currentDish: Dish | null;
@@ -75,21 +52,10 @@ export default function MobileMenuCard({
     { index: 5, initial: 'S', full: 'SAT' },
   ];
 
-  const glassPanel = isLight
-    ? "bg-[#1E3A4F]/10 border border-[#1E3A4F]/18 shadow-[0_8px_32px_0_rgba(9,24,37,0.10)]"
-    : "bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
-
-  const inactiveText = isLight ? "text-[#1E3A4F]/55" : "text-white/60";
-  const primaryText = isLight ? "text-[#091825]" : "text-white";
-  const bodyText = isLight ? "text-[#1E3A4F]/70" : "text-white/80";
-  const mutedText = isLight ? "text-[#1E3A4F]/45" : "text-white/50";
-  const divider = isLight ? "border-[#1E3A4F]/10" : "border-white/10";
-  const macroGrid = isLight ? "bg-[#1E3A4F]/06 rounded-xl border border-[#1E3A4F]/10" : "bg-white/5 rounded-xl border border-white/10";
-  const macroLabel = isLight ? "text-[#1E3A4F]/50 text-[8px] tracking-wider uppercase font-semibold mb-[2px]" : "text-white/70 text-[8px] tracking-wider uppercase font-semibold mb-[2px]";
-  const macroValue = isLight ? "text-[#091825] font-bold text-[13px] drop-shadow-sm" : "text-white font-bold text-[13px] drop-shadow-sm";
-  const allergenTag = isLight
-    ? "bg-[#1E3A4F]/08 border border-[#1E3A4F]/15 rounded-full px-2 py-[2px] text-[10px] text-[#1E3A4F] capitalize backdrop-blur-sm shadow-sm"
-    : "bg-white/10 border border-white/20 rounded-full px-2 py-[2px] text-[10px] text-white capitalize backdrop-blur-sm shadow-sm";
+  // Glass + theme tokens — pulled from lib/glass.ts. Local `glassPanel`
+  // alias kept for the JSX below.
+  const tokens = glassTokens(isLight, 'mobile');
+  const { panel: glassPanel, inactiveText, primaryText, bodyText, divider } = tokens;
 
   return (
     <div className="w-full flex flex-col gap-4 font-montserrat">
@@ -205,50 +171,7 @@ export default function MobileMenuCard({
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className={`pt-2 border-t ${divider} mt-1`}>
-                          <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Spice</span>
-                            <SpiceMeter level={currentDish.spiceLevel} />
-                          </div>
-
-                          <div className={`flex justify-between items-center py-2.5 border-b ${divider}`}>
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Allergens</span>
-                            <div className="flex gap-1.5 flex-wrap justify-end">
-                              {currentDish.allergens.length > 0 ? (
-                                currentDish.allergens.map((allergen, idx) => (
-                                  <span key={idx} className={allergenTag}>{allergen}</span>
-                                ))
-                              ) : (
-                                <span className={`text-[10px] ${mutedText}`}>None</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className={`flex justify-between items-center py-2.5 border-b ${divider} min-h-[36px]`}>
-                            <span className="text-[#f57f20] font-bold text-[10px] tracking-widest uppercase">Calories</span>
-                            <div className="text-right flex items-baseline">
-                              <span className={`font-bold text-base drop-shadow-md ${primaryText}`}>
-                                {currentDish.nutrients.calories.replace(/kcal/i, '').trim()}
-                              </span>
-                              <span className={`text-[9px] ml-1 uppercase font-semibold ${mutedText}`}>Kcal</span>
-                            </div>
-                          </div>
-
-                          <div className={`grid grid-cols-3 gap-0 py-[10px] mt-3 p-3 mb-2 ${macroGrid}`}>
-                            <div className={`flex flex-col text-center border-r ${divider} pr-2`}>
-                              <span className={macroLabel}>Protein</span>
-                              <span className={macroValue}>{currentDish.nutrients.protein}</span>
-                            </div>
-                            <div className={`flex flex-col text-center border-r ${divider} px-2`}>
-                              <span className={macroLabel}>Carbs</span>
-                              <span className={macroValue}>{currentDish.nutrients.carbs}</span>
-                            </div>
-                            <div className="flex flex-col text-center pl-2">
-                              <span className={macroLabel}>Fat</span>
-                              <span className={macroValue}>{currentDish.nutrients.fat}</span>
-                            </div>
-                          </div>
-                        </div>
+                        <DishDetailPanel dish={currentDish} isLight={isLight} size="mobile" />
                       </motion.div>
                     )}
                   </AnimatePresence>
