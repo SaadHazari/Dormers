@@ -12,6 +12,7 @@ import { HERO_REVEAL_CSS as CSS } from "@/app/components/HeroReveal.styles";
 import { HeroProofBar } from "@/app/components/HeroProofBar";
 import { HeroChecklist } from "@/app/components/HeroChecklist";
 import { HeroHeadline } from "@/app/components/HeroHeadline";
+import { HeroCloser } from "@/app/components/HeroCloser";
 
 /* ─────────────────────────────────────────────────────────────────
  * Animation timing — sequential checklist
@@ -60,13 +61,9 @@ const DORM_D   = DISH_D  + 0.55;  // 10.90 (was 11.85)
 export default function HeroReveal() {
   const router = useRouter();
 
-  type CloserPhase = "idle" | "cursor" | "typing" | "done";
-  const [closerPhase, setCloserPhase] = useState<CloserPhase>("idle");
-  const [closerText, setCloserText] = useState("");
   const [isPreloading, setIsPreloading] = useState(true);
   const [skipped, setSkipped] = useState(false);
   const [animDone, setAnimDone] = useState(false);
-  const CLOSER_FULL = "A new dish, every night.";
   const skippedRef = useRef(false);
 
   /* ── Snap-transition helper ──────────────────────────────────────
@@ -78,8 +75,6 @@ export default function HeroReveal() {
   const skipIntro = () => {
     setSkipped(true);
     setAnimDone(true);
-    setCloserPhase("done");
-    setCloserText(CLOSER_FULL);
     window.dispatchEvent(new CustomEvent("hero-ui-visible"));
     localStorage.setItem("hero_seen", "true");
   };
@@ -92,8 +87,6 @@ export default function HeroReveal() {
       skippedRef.current = true;
       setSkipped(true);
       setAnimDone(true);
-      setCloserPhase("done");
-      setCloserText(CLOSER_FULL);
     }
   }, []);
 
@@ -112,36 +105,7 @@ export default function HeroReveal() {
     };
   }, [isPreloading, skipped]);
 
-  /* ── Typewriter ───────────────────────────────────────────────── */
-  useEffect(() => {
-    if (isPreloading || skipped) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const intervals: ReturnType<typeof setInterval>[] = [];
-
-    const t1 = setTimeout(() => {
-      setCloserPhase("cursor");
-      const t2 = setTimeout(() => {
-        setCloserPhase("typing");
-        let idx = 0;
-        const iv = setInterval(() => {
-          idx++;
-          setCloserText(CLOSER_FULL.slice(0, idx));
-          if (idx >= CLOSER_FULL.length) {
-            clearInterval(iv);
-            setCloserPhase("done");
-          }
-        }, 42);
-        intervals.push(iv);
-      }, 500);
-      timers.push(t2);
-    }, CLOSE_D * 1000);
-    timers.push(t1);
-
-    return () => {
-      timers.forEach((t) => clearTimeout(t));
-      intervals.forEach((iv) => clearInterval(iv));
-    };
-  }, [isPreloading, skipped]);
+  // Typewriter state + effect now live inside <HeroCloser/>.
 
   return (
     <>
@@ -218,69 +182,14 @@ export default function HeroReveal() {
                   ]}
                 />
 
-                {/* 3 ── Anchor / payoff */}
-                <div className="h-anchor">
-
-                  <p className="h-anchor-l1" style={{ minHeight: "1.25em" }}>
-                    {closerPhase !== "idle" && closerText}
-
-                    {(closerPhase === "cursor" || closerPhase === "typing") && (
-                      <motion.span
-                        animate={
-                          closerPhase === "cursor" ? { opacity: [1, 0] } : { opacity: 1 }
-                        }
-                        transition={{
-                          duration: 0.45,
-                          repeat: closerPhase === "cursor" ? Infinity : 0,
-                          repeatType: "reverse",
-                        }}
-                        style={{
-                          fontFamily: "Montserrat, sans-serif",
-                          fontWeight: 300,
-                          color: "rgba(237,232,218,0.55)",
-                        }}
-                      >
-                        |
-                      </motion.span>
-                    )}
-
-                    {closerPhase === "done" && (
-                      <motion.span
-                        initial={{ opacity: 1 }}
-                        animate={{ opacity: 0 }}
-                        transition={{ delay: 0.6, duration: 0.5 }}
-                        style={{
-                          fontFamily: "Montserrat, sans-serif",
-                          fontWeight: 300,
-                          color: "rgba(237,232,218,0.55)",
-                        }}
-                      >
-                        |
-                      </motion.span>
-                    )}
-                  </p>
-
-                  <p className="h-anchor-l2">
-                    <motion.span
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={st({ delay: LINE2_D, duration: 0.45, ease: E })}
-                      style={{ display: "inline" }}
-                    >
-                      Delivered{" "}<span className="h-anchor-emph">WARM</span>
-                    </motion.span>
-                    {" "}
-                    <motion.span
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={st({ delay: LINE2B_D, duration: 0.45, ease: E })}
-                      style={{ display: "inline" }}
-                    >
-                      to your{" "}<span className="h-anchor-emph">DORM</span>.
-                    </motion.span>
-                  </p>
-
-                </div>
+                {/* 3 ── Anchor / payoff (typewriter + Delivered WARM) */}
+                <HeroCloser
+                  skipped={skipped}
+                  isPreloading={isPreloading}
+                  closeDelay={CLOSE_D}
+                  l2Delay={LINE2_D}
+                  l2bDelay={LINE2B_D}
+                />
 
                 {/* 4 ── CTA Buttons */}
                 <div className="h-ctas">
