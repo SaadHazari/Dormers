@@ -3,8 +3,7 @@
 import { useRef, useState, useEffect, Fragment } from "react";
 import { motion, useScroll, useTransform, useMotionValueEvent, Variants } from "framer-motion";
 import { useTheme } from "next-themes";
-
-const E = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_STANDARD as E } from "@/lib/motion";
 
 // ==========================================
 // 1. ORIGINAL DESKTOP CSS

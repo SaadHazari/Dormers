@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { EASE_DRAMATIC, EASE_SMOOTH } from "@/lib/motion";
 
 export default function Preloader({ onComplete }: { onComplete?: () => void }) {
   const [show, setShow] = useState(true);
@@ -48,7 +49,7 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
           exit={{
             opacity: 0,
             y: "-100%",
-            transition: { duration: isQuick ? 0.45 : 0.8, ease: [0.76, 0, 0.24, 1] },
+            transition: { duration: isQuick ? 0.45 : 0.8, ease: EASE_DRAMATIC },
           }}
         >
           <div className="relative text-center select-none pointer-events-none px-4 flex flex-col items-center -mt-[100px] md:mt-0">
@@ -92,7 +93,7 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
                 animate={{ clipPath: "inset(0% 0 0 0)" }}
                 transition={{
                   duration: isQuick ? 0.65 : 1.4,
-                  ease: [0.65, 0, 0.35, 1],
+                  ease: EASE_SMOOTH,
                   delay: isQuick ? 0.05 : 0.3,
                 }}
               >

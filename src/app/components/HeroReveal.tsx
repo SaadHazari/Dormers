@@ -7,10 +7,7 @@ import { TextRotate } from "@/components/ui/text-rotate";
 import TonightsMeal from "@/app/components/TonightsMeal";
 import Preloader from "@/app/components/Preloader";
 
-/* ─────────────────────────────────────────────────────────────────
- * Framer ease curve
- * ───────────────────────────────────────────────────────────────── */
-const E = [0.25, 0.46, 0.45, 0.94] as const;
+import { EASE_STANDARD as E } from "@/lib/motion";
 
 /* ─────────────────────────────────────────────────────────────────
  * Animation timing — sequential checklist
