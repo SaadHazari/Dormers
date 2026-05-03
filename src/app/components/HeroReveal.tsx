@@ -11,6 +11,7 @@ import { EASE_STANDARD as E } from "@/lib/motion";
 import { HERO_REVEAL_CSS as CSS } from "@/app/components/HeroReveal.styles";
 import { HeroProofBar } from "@/app/components/HeroProofBar";
 import { HeroChecklist } from "@/app/components/HeroChecklist";
+import { HeroHeadline } from "@/app/components/HeroHeadline";
 
 /* ─────────────────────────────────────────────────────────────────
  * Animation timing — sequential checklist
@@ -196,93 +197,16 @@ export default function HeroReveal() {
               <div className="h-left">
 
                 {/* 1 ── Headline */}
-                <div className="h-headline">
-
-                  {/* Line 1 — word-by-word */}
-                  <div className="h-hl-l1">
-                    {["You", "didn't", "leave", "home"].map((word, i) => (
-                      <motion.span
-                        key={word}
-                        initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={st({ duration: 0.44, delay: L1_S + i * W_GAP, ease: E })}
-                        style={{
-                          display: "inline-block",
-                          marginRight: "0.24em",
-                          fontFamily:
-                            word === "home"
-                              ? "'Lora', Georgia, serif"
-                              : "Montserrat,sans-serif",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {word}
-                      </motion.span>
-                    ))}
-                  </div>
-
-                  {/* Line 2 — word-by-word */}
-                  <div className="h-hl-l2">
-                    <motion.span
-                      className="h-hl-to"
-                      initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={st({ duration: 0.44, delay: L2_D, ease: E })}
-                      style={{ display: "inline-block", marginRight: "0.24em" }}
-                    >
-                      to
-                    </motion.span>
-                    <motion.span
-                      className="h-hl-stress"
-                      initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={st({ duration: 0.44, delay: L2_D + L2_W_GAP, ease: E })}
-                      style={{ display: "inline-block", marginRight: "0.24em" }}
-                    >
-                      stress
-                    </motion.span>
-                    <motion.span
-                      className="h-hl-stress"
-                      initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={st({ duration: 0.44, delay: L2_D + 2 * L2_W_GAP, ease: E })}
-                      style={{ display: "inline-block", marginRight: "0.24em" }}
-                    >
-                      about
-                    </motion.span>
-                  </div>
-
-                  {/* Line 3 — "dinner." + underline */}
-                  <div className="h-hl-l3">
-                    <motion.span
-                      initial={{ opacity: 0, y: 22, scale: 0.88 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={st({ duration: 0.44, delay: L2_D + 3 * L2_W_GAP, ease: E })}
-                      style={{ display: "inline-block" }}
-                    >
-                      <span className="h-hl-dinner-wrap">
-                        <span className="h-hl-dinner">dinner</span>
-                        <motion.span
-                          initial={{ scaleX: 0 }}
-                          animate={{ scaleX: 1 }}
-                          transition={st({ delay: UNDER_D, duration: 0.50, ease: E })}
-                          style={{
-                            position: "absolute",
-                            bottom: -3,
-                            left: 0,
-                            right: 0,
-                            height: 2,
-                            background: "#f57f20",
-                            transformOrigin: "left center",
-                            display: "block",
-                            borderRadius: "1px",
-                          }}
-                        />
-                      </span>
-                      <span className="h-hl-period">.</span>
-                    </motion.span>
-                  </div>
-                </div>
+                <HeroHeadline
+                  skipped={skipped}
+                  timing={{
+                    l1Start: L1_S,
+                    l1WordGap: W_GAP,
+                    l2Start: L2_D,
+                    l2WordGap: L2_W_GAP,
+                    underlineDelay: UNDER_D,
+                  }}
+                />
 
                 {/* 2 ── Checklist */}
                 <HeroChecklist
