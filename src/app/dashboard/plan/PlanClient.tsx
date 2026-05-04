@@ -240,6 +240,13 @@ function VegDayPicker({ count, setCount }: { count: number; setCount: (n: number
       <p style={{ marginTop: 10, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted }}>
         {`${count} veg day${count === 1 ? '' : 's'} · ${6 - count} non-veg day${6 - count === 1 ? '' : 's'}.`}
       </p>
+      <p style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, color: S.fgFaint, lineHeight: 1.5 }}>
+        Want all-veg or all-non-veg? Switch your preference on{' '}
+        <Link href="/dashboard/profile" style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 2 }}>
+          your profile
+        </Link>
+        .
+      </p>
     </div>
   )
 }

@@ -55,7 +55,7 @@ export function NoPlanView() {
         </div>
       </div>
 
-      <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary'), position: 'relative', zIndex: 1 }}>
+      <Link href="/dashboard/explore-plans" className="btn-primary" style={{ ...btnStyle('primary'), position: 'relative', zIndex: 1 }}>
         Pick a plan <ChevronRight size={16} strokeWidth={2.5} />
       </Link>
     </motion.div>

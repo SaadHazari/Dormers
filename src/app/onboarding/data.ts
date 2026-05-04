@@ -40,8 +40,10 @@ export const DRAFT_KEY = 'dormers_onboarding_draft_v1'
 // ─── types ────────────────────────────────────────────────────────────────────
 
 // Steps: 1=Preference, 1.5=VegDays(religious only), 2=Allergens, 3=Spice,
-//        4=Dorm, 5=University, 6=Contact, 7=Credentials, confirm=Done
-export type Step = 1 | 1.5 | 2 | 3 | 4 | 5 | 6 | 7 | 'confirm'
+//        4=Dorm, 5=University, 6=Contact+OTP, 7=Credentials+OTP→/dashboard.
+//        Step 7's EmailStep handles verification inline and routes to the
+//        dashboard on success — no dedicated 'confirm' step needed.
+export type Step = 1 | 1.5 | 2 | 3 | 4 | 5 | 6 | 7
 
 export interface FormState {
     preference: string
@@ -54,6 +56,7 @@ export interface FormState {
     customUniversity: string
     name: string
     phone: string
+    phoneVerified: boolean
     email: string
     password: string
 }

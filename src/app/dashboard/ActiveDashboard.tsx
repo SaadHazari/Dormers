@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useTransition, useEffect, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { X, PartyPopper } from 'lucide-react'
 import { pauseSubscription, resumeSubscription, skipMeal } from './actions'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
-import { OG, NV, BG, BODY, S } from './_shared/tokens'
+import { cleanPlanName, OG, NV, BG, BODY, S } from './_shared/tokens'
+import { fmtWithDay } from './_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
@@ -97,8 +98,9 @@ function getGreeting() {
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, justCheckedOut = false }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
+  justCheckedOut?: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -230,9 +232,216 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions }: 
     } catch {}
   }, [])
 
+  // Order-confirmation banner — captured on first render via lazy-init useState
+  // so the value survives the URL strip + re-renders that follow. Stays visible
+  // until manually dismissed (no auto-timeout) so the user always has a record
+  // of what they just bought sitting in the notification slot.
+  //
+  // For renewals the active sub is the OLD one (getActiveSubscription orders
+  // by start_date asc), so we surface the NEWEST sub from allSubscriptions
+  // (ordered by created_at desc) — that's the one the user just paid for.
+  const [showOrderBanner, setShowOrderBanner] = useState(justCheckedOut)
+  const justBoughtSub = allSubscriptions[0] ?? sub
+
+  // 3-second celebration overlay — fires once on the first render after a
+  // successful checkout. Emotional release / "feeling of accomplishment"
+  // companion to the informational banner. Honours prefers-reduced-motion.
+  const prefersReducedMotion = useReducedMotion()
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(justCheckedOut)
+  useEffect(() => {
+    if (!showSuccessOverlay) return
+    const t = setTimeout(() => setShowSuccessOverlay(false), 3000)
+    return () => clearTimeout(t)
+  }, [showSuccessOverlay])
+
   return (
     <div className="dash-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+
+      {/* ── Success overlay — 2s emotional flourish after successful checkout.
+            Animated checkmark + radial confetti burst over a softly blurred
+            backdrop. Pointer-events: none — the dashboard stays interactive
+            underneath. Reduced-motion users get a quiet fade with a static
+            checkmark, no confetti. ── */}
+      <AnimatePresence>
+        {showSuccessOverlay && (
+          <motion.div
+            key="success-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0.2 : 0.3 }}
+            aria-hidden
+            style={{
+              position: 'fixed', inset: 0, zIndex: 300,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              pointerEvents: 'none',
+              background: 'radial-gradient(circle at center, rgba(245,127,32,0.18) 0%, rgba(9,24,37,0.55) 70%)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}
+          >
+            {/* Confetti burst — 24 particles, evenly distributed angles, varied
+                distance + colour. Skipped in reduced-motion mode. */}
+            {!prefersReducedMotion && Array.from({ length: 24 }).map((_, i) => {
+              const angle = (Math.PI * 2 * i) / 24 + (i % 2 === 0 ? 0 : 0.13)
+              const distance = 200 + ((i * 37) % 120)
+              const x = Math.cos(angle) * distance
+              const y = Math.sin(angle) * distance
+              const palette = [OG, '#ffaa00', '#1ea34d', '#ede8da']
+              const colour = palette[i % palette.length]
+              const isSquare = i % 3 === 0
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ x: 0, y: 0, opacity: 1, scale: 0.8, rotate: 0 }}
+                  animate={{
+                    x, y,
+                    opacity: 0,
+                    scale: 0.4,
+                    rotate: i % 2 === 0 ? 320 : -280,
+                  }}
+                  transition={{
+                    duration: 1.4,
+                    ease: [0.16, 1, 0.3, 1],
+                    delay: 0.18,
+                  }}
+                  style={{
+                    position: 'absolute',
+                    width: isSquare ? 9 : 8,
+                    height: isSquare ? 9 : 8,
+                    borderRadius: isSquare ? 2 : '50%',
+                    background: colour,
+                    boxShadow: `0 0 12px ${colour}66`,
+                  }}
+                />
+              )
+            })}
+
+            {/* Centred stack: medallion + headline + sub-line. The text gives
+                the user something to read during the 3s pause and reinforces
+                the "you're in" emotional moment that the checkmark anchors. */}
+            <div style={{
+              position: 'relative',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22,
+            }}>
+              {/* Checkmark medallion — orange disc with a stroke-drawn tick.
+                  Spring scale on entry, stroke draws after the disc settles. */}
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.2 }
+                    : { type: 'spring', stiffness: 220, damping: 16, delay: 0.08 }
+                }
+                style={{
+                  width: 104, height: 104, borderRadius: '50%',
+                  background: OG,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 20px 50px rgba(245,127,32,0.45), 0 0 0 8px rgba(245,127,32,0.18)',
+                }}
+              >
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <motion.path
+                    d="M5 12 L10 17 L19 8"
+                    initial={{ pathLength: prefersReducedMotion ? 1 : 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.42 }
+                    }
+                  />
+                </svg>
+              </motion.div>
+
+              {/* Text — fades up after the checkmark settles. Two lines:
+                  big punchy lead, supporting line with the plan name. */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.2, delay: 0.1 }
+                    : { duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.7 }
+                }
+                style={{ textAlign: 'center', maxWidth: 360, padding: '0 24px' }}
+              >
+                <div style={{
+                  fontFamily: BODY, fontSize: 'clamp(28px, 4vw, 36px)',
+                  fontWeight: 800, color: '#fff',
+                  letterSpacing: '-0.02em', lineHeight: 1.1,
+                  textShadow: '0 2px 16px rgba(9,24,37,0.25)',
+                }}>
+                  You&rsquo;re in{firstName !== 'there' ? <>, {firstName}</> : ''}
+                  <span style={{ color: '#ffaa00' }}>!</span>
+                </div>
+                <div style={{
+                  marginTop: 10,
+                  fontFamily: BODY, fontSize: 14, fontWeight: 500,
+                  color: 'rgba(255,255,255,0.85)',
+                  lineHeight: 1.5,
+                  textShadow: '0 1px 8px rgba(9,24,37,0.30)',
+                }}>
+                  <strong style={{ color: '#fff', fontWeight: 700 }}>{cleanPlanName(justBoughtSub.plan_name)}</strong> is locked in. We&rsquo;re cooking.
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+
+        {/* Order confirmation banner — one-time, post-checkout. Closes the loop
+            on the most expensive interaction by echoing back what was bought and
+            when the first meal arrives. Dismissable + auto-fades after 12s. */}
+        <AnimatePresence>
+          {showOrderBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                marginBottom: 16,
+                padding: '14px 18px',
+                borderRadius: 'var(--radius-md)',
+                background: 'linear-gradient(135deg, rgba(245,127,32,0.10) 0%, rgba(255,170,0,0.05) 100%)',
+                border: '1px solid rgba(245,127,32,0.32)',
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}
+            >
+              <div style={{
+                width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
+                background: 'rgba(245,127,32,0.16)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: OG,
+              }}>
+                <PartyPopper size={20} strokeWidth={2} aria-hidden />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                  Your <strong style={{ color: OG }}>{cleanPlanName(justBoughtSub.plan_name)}</strong> is {new Date(justBoughtSub.start_date) > new Date() ? 'scheduled' : 'active'}.
+                </div>
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+                  First meal arrives <strong style={{ color: NV }}>{fmtWithDay(justBoughtSub.start_date)}</strong>. Receipt sent to your inbox.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOrderBanner(false)}
+                aria-label="Dismiss"
+                style={{
+                  background: 'none', border: 'none', color: S.fgMuted,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '4px 6px', borderRadius: 4, flexShrink: 0,
+                }}
+              >
+                <X size={14} strokeWidth={2.5} aria-hidden />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Greeting ribbon — name + accumulated equity (loyalty as endowed progress, not guilt) */}
         <motion.div

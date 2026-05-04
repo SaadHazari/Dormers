@@ -3,7 +3,7 @@ import LoginForm from './LoginForm'
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams?: Promise<{ error?: string; message?: string; next?: string; email?: string }>
+    searchParams?: Promise<{ error?: string; message?: string; next?: string; email?: string; step?: string }>
 }) {
     const params = await searchParams
     return (
@@ -12,6 +12,7 @@ export default async function LoginPage({
             message={params?.message}
             nextUrl={params?.next || '/dashboard'}
             prefillEmail={params?.email}
+            step={params?.step}
         />
     )
 }

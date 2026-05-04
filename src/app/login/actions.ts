@@ -54,18 +54,80 @@ export async function signout() {
     redirect('/home')
 }
 
-export async function requestPasswordReset(formData: FormData) {
+// ─── Password reset flow ──────────────────────────────────────────────────
+// Three server actions for the in-app reset flow that replaces the previous
+// "click the link, end up nowhere useful" UX:
+//
+//   1. requestPasswordReset — emails the user a code (and a fallback link)
+//   2. verifyResetOtp       — exchanges the code for a recovery session
+//   3. updatePassword       — uses that session to set a new password
+//
+// The fallback link in the email points at /auth/confirm?next=/login?step=set-password,
+// which lands magic-link clickers in the same set-password UI as OTP-typers.
+
+// Internal-only result shape. Must NOT be exported — Next.js 15 / Turbopack
+// disallows non-async-function exports from 'use server' files and throws
+// "An unexpected response was received from the server" at render time when
+// it sees a `type` export here. If a client component needs the shape, mirror
+// it inline at the call site.
+type ResetResult = { ok: true } | { error: string }
+
+export async function requestPasswordReset(email: string): Promise<ResetResult> {
+    const trimmed = (email || '').trim()
+    if (!trimmed) return { error: 'Please enter your email address.' }
+
     const supabase = await createClient()
-    const email = (formData.get('email') as string || '').trim()
+    const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'
+    const next     = encodeURIComponent('/login?step=set-password')
 
-    if (!email) {
-        redirect(`/login?error=${encodeURIComponent('Please enter your email address.')}`)
-    }
-
-    await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004'}/auth/confirm?next=/login`,
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${baseUrl}/auth/confirm?next=${next}`,
     })
 
-    // Always confirm — never disclose whether the email exists
-    redirect(`/login?message=${encodeURIComponent("If an account exists for that email, we've sent a reset link.")}`)
+    // Don't disclose whether the email exists. Log non-rate-limit errors
+    // for ourselves, return success either way so the UI can advance to the
+    // OTP entry phase. (If the email isn't registered, no email is sent —
+    // user just sees "no code arrived" and can correct the address.)
+    if (error && !/rate/i.test(error.message)) {
+        console.error('resetPasswordForEmail error:', error)
+    }
+    return { ok: true }
+}
+
+export async function verifyResetOtp(email: string, token: string): Promise<ResetResult> {
+    const trimmed = (email || '').trim()
+    // Supabase OTP length is 6–10 digits depending on Auth → Settings.
+    if (!trimmed || !/^\d{6,10}$/.test(token ?? '')) {
+        return { error: 'Enter the verification code from your email.' }
+    }
+    const supabase = await createClient()
+    const { error } = await supabase.auth.verifyOtp({
+        email: trimmed,
+        token,
+        type: 'recovery',
+    })
+    if (error) return { error: error.message }
+
+    // verifyOtp set the recovery session via the SSR client. Revalidate so
+    // protected layouts pick it up; updatePassword (next step) needs it.
+    revalidatePath('/', 'layout')
+    return { ok: true }
+}
+
+export async function updatePassword(newPassword: string): Promise<ResetResult> {
+    if (!newPassword || newPassword.length < 8) {
+        return { error: 'Password must be at least 8 characters.' }
+    }
+    const supabase = await createClient()
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) {
+        // Most common failure: recovery session expired. Surface a useful
+        // message so the user knows to restart the flow.
+        if (/session|jwt|auth/i.test(error.message)) {
+            return { error: 'Your reset session expired. Start over and request a new code.' }
+        }
+        return { error: error.message }
+    }
+    revalidatePath('/', 'layout')
+    return { ok: true }
 }

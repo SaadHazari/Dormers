@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createAccount } from './actions'
 import { OnboardingSteps } from './Steps'
 import { DRAFT_KEY, stepVariants, type FormState, type Step } from './data'
 
@@ -14,14 +13,11 @@ export default function OnboardingPage() {
     const router = useRouter()
     const [step, setStep]           = useState<Step>(1)
     const [direction, setDirection] = useState(1)
-    const [showPass, setShowPass]   = useState(false)
-    const [error, setError]         = useState('')
-    const [isPending, startTransition] = useTransition()
 
     const [form, setForm] = useState<FormState>({
         preference: '', vegDays: [], allergens: [], spiceLevel: '',
         dorm: '', customDorm: '', university: '', customUniversity: '',
-        name: '', phone: '', email: '', password: '',
+        name: '', phone: '', phoneVerified: false, email: '', password: '',
     })
 
     // Hydrate draft from sessionStorage so page refresh doesn't wipe progress.
@@ -37,9 +33,8 @@ export default function OnboardingPage() {
         } catch { /* corrupt draft — ignore */ }
     }, [])
 
-    // Persist draft on every change (excluding password and the confirm screen).
+    // Persist draft on every change.
     useEffect(() => {
-        if (step === 'confirm') return
         try {
             const safe = { ...form, password: '' }
             sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form: safe, step }))
@@ -53,7 +48,6 @@ export default function OnboardingPage() {
         const nxt  = typeof next === 'number' ? next : 99
         setDirection(nxt > curr ? 1 : -1)
         setStep(next)
-        setError('')
     }
 
     const advance = () => {
@@ -67,7 +61,7 @@ export default function OnboardingPage() {
     }
 
     const back = () => {
-        if (step === 1 || step === 'confirm') { router.push('/login'); return }
+        if (step === 1)   { router.push('/login'); return }
         if (step === 1.5) { goTo(1); return }
         if (step === 2)   { goTo(form.preference === 'Religious Preference' ? 1.5 : 1); return }
         if (step === 3)   { goTo(2); return }
@@ -98,50 +92,13 @@ export default function OnboardingPage() {
                 : [...prev.vegDays, day],
         }))
 
-    // ── submission ────────────────────────────────────────────────────────────
-
-    const handleCreate = () => {
-        setError('')
-        if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return }
-
-        const finalDorm = form.dorm === 'Other' ? form.customDorm.trim() : form.dorm
-        const finalUni  = form.university === 'Other' ? form.customUniversity.trim() : form.university
-
-        startTransition(async () => {
-            const result = await createAccount({
-                preference: form.preference,
-                allergens:  form.allergens.length ? form.allergens : ['None'],
-                spiceLevel: form.spiceLevel,
-                dorm:       finalDorm,
-                university: finalUni,
-                name:       form.name.trim(),
-                phone:      form.phone.trim(),
-                email:      form.email.trim(),
-                password:   form.password,
-                vegDays:    form.vegDays,
-            })
-
-            if (!result) {
-                // server-side redirect happened — wipe draft so we don't replay later
-                try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
-                return
-            }
-            if ('error' in result) { setError(result.error); return }
-            if ('requiresConfirmation' in result) {
-                try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
-                goTo('confirm')
-            }
-        })
-    }
-
     // ── progress ──────────────────────────────────────────────────────────────
 
     const isReligious = form.preference === 'Religious Preference'
     const totalSteps  = isReligious ? 8 : 7
     const stepNum: number =
-        step === 'confirm' ? totalSteps :
-        step === 1.5       ? 2 :
-        isReligious        ? (step as number) + 1 :
+        step === 1.5 ? 2 :
+        isReligious  ? (step as number) + 1 :
         (step as number)
     const progress = Math.min((stepNum / totalSteps) * 100, 100)
 
@@ -174,11 +131,9 @@ export default function OnboardingPage() {
                     <ArrowLeft size={16} strokeWidth={2} />
                 </button>
 
-                {step !== 'confirm' && (
-                    <span className="text-white/25 text-[11px] font-bold tracking-widest uppercase">
-                        Step {stepNum} of {totalSteps}
-                    </span>
-                )}
+                <span className="text-white/25 text-[11px] font-bold tracking-widest uppercase">
+                    Step {stepNum} of {totalSteps}
+                </span>
 
                 <Link href="/home">
                     <Image src="/logo.png" alt="Dormers" width={36} height={36} className="opacity-40 hover:opacity-70 transition-opacity" />
@@ -203,11 +158,6 @@ export default function OnboardingPage() {
                             advance={advance}
                             toggleAllergen={toggleAllergen}
                             toggleVegDay={toggleVegDay}
-                            showPass={showPass}
-                            setShowPass={setShowPass}
-                            error={error}
-                            isPending={isPending}
-                            handleCreate={handleCreate}
                         />
                     </motion.div>
                 </AnimatePresence>

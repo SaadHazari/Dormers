@@ -7,6 +7,8 @@ import { TIER1, NV, BODY } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
+import { fmtWithDay } from '../_shared/format'
+import { whatsAppHref } from '@/lib/contacts'
 import { pricePerMeal, totalPrice, PLANS, type PlanId, type Pref } from './pricing'
 
 interface CheckoutCustomer {
@@ -29,7 +31,29 @@ interface Props {
   activeSubscription: CheckoutSubscription | null
 }
 
-const isoDate = (d: Date) => d.toISOString().slice(0, 10)
+// Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
+// objects we hand this are built via setHours(0,0,0,0), i.e. local midnight;
+// `.toISOString()` would shift them to UTC and slice off the previous day in
+// any positive offset (AE is UTC+4 → local midnight is UTC 20:00 the day
+// before → toISOString slice = wrong day). Mirrors DateField.pick().
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// Earliest date the user can start: day-after-end for renewals, today otherwise.
+// Shared between the lazy initial value of `startDate` (sensible default — most
+// users want to start ASAP) and the dateBounds.min lookup so they never drift.
+function computeMinIso(active: { end_date: string } | null): string {
+  let d: Date
+  if (active) {
+    d = new Date(active.end_date)
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + 1)
+  } else {
+    d = new Date()
+    d.setHours(0, 0, 0, 0)
+  }
+  return isoDate(d)
+}
 
 /**
  * Slide-in checkout panel — appears once a plan is selected and owns the
@@ -43,7 +67,10 @@ export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
-  const [startDate, setStartDate] = useState('')
+  // Default the start date to the earliest valid pick. The most common path is
+  // "start as soon as possible" — pre-filling removes one click from the critical
+  // path and lets the CTA wake up in its actionable state on panel mount.
+  const [startDate, setStartDate] = useState<string>(() => computeMinIso(activeSubscription))
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,18 +81,10 @@ export function CheckoutPanel({
   // The calendar's initial month follows `min`, so the popover lands on a
   // relevant month even when `startDate` is still empty.
   const dateBounds = useMemo(() => {
-    let minD: Date
-    if (activeSubscription) {
-      minD = new Date(activeSubscription.end_date)
-      minD.setHours(0, 0, 0, 0)
-      minD.setDate(minD.getDate() + 1)
-    } else {
-      minD = new Date()
-      minD.setHours(0, 0, 0, 0)
-    }
-    const maxD = new Date(minD)
+    const minIso = computeMinIso(activeSubscription)
+    const maxD = new Date(minIso + 'T00:00:00')
     maxD.setDate(maxD.getDate() + 30)
-    return { min: isoDate(minD), max: isoDate(maxD) }
+    return { min: minIso, max: isoDate(maxD) }
   }, [activeSubscription])
 
   // Scroll the panel into clear view on mount and when selection changes,
@@ -101,6 +120,12 @@ export function CheckoutPanel({
     if (!startDate) return
     setError(null)
     setCheckoutLoading(true)
+    // Mark the moment we hand off to Stripe — the dashboard uses this on
+    // return to wait for a sub created *after* this timestamp before showing
+    // the order-confirmation UI. Without this gate, existing customers see
+    // banner/overlay populated from the OLD active sub (the new one hasn't
+    // been written by the webhook yet on first render).
+    try { sessionStorage.setItem('checkout-handoff-at', String(Date.now())) } catch {}
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -124,9 +149,9 @@ export function CheckoutPanel({
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setError(data.error ?? 'Checkout failed. Please try again.')
+      else setError(data.error ?? 'Couldn’t reach our payment system. Please try again — or message us on WhatsApp to complete your order.')
     } catch {
-      setError('Network error. Please try again.')
+      setError('Couldn’t reach our payment system. Check your connection and try again — or message us on WhatsApp to complete your order.')
     } finally {
       setCheckoutLoading(false)
     }
@@ -177,6 +202,11 @@ export function CheckoutPanel({
             <div className="checkout-plan-meta">
               {pricePerMeal(selected, pref, vegDayCount)} AED/meal &middot; {PLANS.find(p => p.id === selected)?.meals} meals
             </div>
+            {startDate && (
+              <div className="checkout-plan-when">
+                Starts <strong>{fmtWithDay(startDate)}</strong>
+              </div>
+            )}
           </div>
 
           {/* Headline number — single dominant moment of the panel.
@@ -215,11 +245,16 @@ export function CheckoutPanel({
                 minDate={dateBounds.min}
                 maxDate={dateBounds.max}
               />
+              <p className="checkout-window-hint">
+                {activeSubscription
+                  ? 'Starts the day after your current plan ends · 30-day window'
+                  : 'Choose any day in the next 30 days'}
+              </p>
             </div>
 
             {/* Three-state CTA:
                 • !startDate → "Pick a date to continue" (faded, awaiting input)
-                • ready      → "Checkout securely →"     (orange, lift on hover)
+                • ready      → "Continue to Stripe →"    (orange, lift on hover)
                 • loading    → spinner + "Redirecting…"  (press-scaled momentarily) */}
             <button
               type="button"
@@ -235,7 +270,7 @@ export function CheckoutPanel({
               ) : !startDate ? (
                 <span>Pick a date to continue</span>
               ) : (
-                <span>Checkout securely →</span>
+                <span>Continue to Stripe →</span>
               )}
             </button>
           </div>
@@ -249,7 +284,19 @@ export function CheckoutPanel({
                 <Lock size={11} strokeWidth={2.4} color="#1d8a30" aria-hidden />
                 Powered by Stripe &middot; Card details never touch our servers.
               </p>
-              {error && <p className="checkout-error">{error}</p>}
+              {error && (
+                <div className="checkout-error">
+                  <p className="checkout-error-msg">{error}</p>
+                  <a
+                    href={whatsAppHref('Hi! I had trouble checking out — could you help me complete my order?')}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="checkout-error-cta"
+                  >
+                    Message us on WhatsApp →
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -289,6 +336,14 @@ export function CheckoutPanel({
           color: rgba(9, 24, 37, 0.65);
           font-feature-settings: 'tnum';
         }
+        .checkout-plan-when {
+          margin-top: 4px;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 12px;
+          color: rgba(9, 24, 37, 0.65);
+          font-feature-settings: 'tnum';
+        }
+        .checkout-plan-when strong { color: #091825; font-weight: 700; }
 
         /* Headline number — single hero moment of the panel. Dramatic scale,
            tight tracking, OG accent, tabular numerals so digits don't
@@ -391,6 +446,17 @@ export function CheckoutPanel({
           line-height: 1.55;
         }
 
+        /* 30-day window hint — sits directly under the date trigger so the
+           constraint is visible before the user opens the calendar (rather
+           than discovering it by hitting greyed-out cells). */
+        .checkout-window-hint {
+          margin: 8px 0 0;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 11px;
+          color: rgba(9, 24, 37, 0.50);
+          line-height: 1.5;
+        }
+
         /* Primary CTA — orange-glow only on hover (at-rest sits on the
            consolidated neutral shadow scale). Lift + intensified glow on
            hover, snap-back on press. Visible focus ring inside the button
@@ -478,13 +544,34 @@ export function CheckoutPanel({
           line-height: 1.5;
         }
 
+        /* Error block — Norman: error messages must offer an alternative
+           path. The WhatsApp link is the always-on fallback when the payment
+           pipeline can't be reached, so the user is never dead-ended. */
         .checkout-error {
-          margin-top: 8px;
-          text-align: center;
+          margin-top: 10px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.06);
+          border: 1px solid rgba(239, 68, 68, 0.20);
+        }
+        .checkout-error-msg {
+          margin: 0;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
           color: #b91c1c;
+          line-height: 1.5;
         }
+        .checkout-error-cta {
+          display: inline-block;
+          margin-top: 6px;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 11.5px;
+          font-weight: 700;
+          color: #1ea34d;
+          text-decoration: none;
+          letter-spacing: 0.04em;
+        }
+        .checkout-error-cta:hover { text-decoration: underline; }
 
         /* Sticky checkout panel — desktop only. On mobile a sticky panel
            would cover too much of the viewport, so it stays in flow there.

@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer } from '@/utils/supabase/queries'
+import { getCustomer, getAllSubscriptions } from '@/utils/supabase/queries'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import SupportClient from './SupportClient'
@@ -18,6 +18,7 @@ export default async function SupportPage({
         <SupportClient
           customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', created_at: new Date().toISOString() }}
           userEmail="test@dormers.ae"
+          totalDelivered={42}
         />
       </Suspense>
     )
@@ -26,11 +27,15 @@ export default async function SupportPage({
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
-  const customer = await getCustomer(user.id)
+  const [customer, allSubscriptions] = await Promise.all([
+    getCustomer(user.id),
+    getAllSubscriptions(user.id),
+  ])
+  const totalDelivered = allSubscriptions.reduce((acc, s) => acc + (s.delivered_meals ?? 0), 0)
 
   return (
     <Suspense>
-      <SupportClient customer={customer} userEmail={user.email} />
+      <SupportClient customer={customer} userEmail={user.email} totalDelivered={totalDelivered} />
     </Suspense>
   )
 }

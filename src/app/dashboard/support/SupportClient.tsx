@@ -1,27 +1,30 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
-import { OG, NV, BODY, DISPLAY, BG_GRADIENT as BG } from '../_shared/tokens'
+import { OG, NV, BODY, MONO, S as BASE_S, TIER1, TIER2 } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
 import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
 
-// Translucent-surface S — Support sits over BG_GRADIENT, so cards use
-// 0.60 alpha white and slightly darker text than the canonical light-S.
+// Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
+// Matches MenuClient/PlanClient: hierarchy comes from scale + weight + colour,
+// not a serif/sans pairing. Brings Support out of the Profile/History serif
+// cohort and into the main-app surface cohort it sits next to in the sidebar.
+const DISPLAY = BODY
+
 const S = {
-  surface2: 'rgba(255,255,255,0.60)',
-  border:   'rgba(9,24,37,0.09)',
-  border2:  'rgba(9,24,37,0.15)',
-  fg:       NV,
-  fgMuted:  'rgba(9,24,37,0.55)',
-  fgSub:    'rgba(9,24,37,0.50)',
+  ...BASE_S,
+  fgMuted: 'rgba(9,24,37,0.62)',
+  fgSub:   'rgba(9,24,37,0.50)',
 }
+
+const WA_GREEN      = '#25D366'
+const WA_GREEN_DARK = '#1ea34d'
 
 interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null; created_at: string
 }
-
-// Eyebrow moved to _shared/Eyebrow.tsx — imported above.
 
 const FAQS = [
   {
@@ -58,103 +61,247 @@ const FAQS = [
   },
 ]
 
-// FAQItem moved to _shared/FAQItem.tsx — imported above.
-
-export default function SupportClient({ customer, userEmail }: { customer: Customer | null; userEmail: string }) {
+export default function SupportClient({
+  customer,
+  userEmail,
+  totalDelivered,
+}: {
+  customer: Customer | null
+  userEmail: string
+  totalDelivered: number
+}) {
   return (
-    <div style={{ minHeight: '100vh', background: BG, padding: 'clamp(16px, 3vw, 28px)', fontFamily: BODY, color: NV }}>
+    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: 36 }}>
-          <Eyebrow>Help & Support</Eyebrow>
-          <div style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 10, lineHeight: 1.05, color: NV }}>
+
+        {/* Header — matches Menu/Plan: motion fade-in, single-typeface display, period accent. */}
+        <motion.header
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          style={{ marginBottom: 36 }}
+        >
+          <Eyebrow>Help &amp; Support</Eyebrow>
+          <h1 style={{
+            margin: '8px 0 0',
+            fontFamily: DISPLAY, fontSize: 'clamp(24px, 3vw, 30px)',
+            fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, color: NV,
+          }}>
             We&apos;re here for you<span style={{ color: OG }}>.</span>
-          </div>
-          <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 8 }}>
-            Real humans, real food, real support. Usually reply within 15 minutes.
-          </div>
-        </div>
+          </h1>
+          <p style={{
+            marginTop: 10, fontFamily: BODY, fontSize: 15, fontWeight: 400,
+            color: S.fgMuted, maxWidth: 640, lineHeight: 1.6,
+          }}>
+            {totalDelivered >= 5 ? (
+              <>
+                <strong style={{ color: NV, fontWeight: 700 }}>{totalDelivered}</strong> dinners delivered — we&rsquo;ve got your back. Usually reply within 15 minutes.
+              </>
+            ) : (
+              <>Real humans, real food, real support. Usually reply within 15 minutes.</>
+            )}
+          </p>
+        </motion.header>
 
-        <div className="support-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 20, marginBottom: 36 }}>
-
-          {/* 1. Account info card — first, with a distinct orange tint to draw attention */}
-          <div style={{ gridColumn: 'span 4', padding: 28, borderRadius: 20, background: 'linear-gradient(135deg, rgba(245,127,32,0.10) 0%, rgba(255,170,0,0.06) 100%)', border: '1.5px solid rgba(245,127,32,0.30)', boxShadow: '0 8px 24px -10px rgba(245,127,32,0.18)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Eyebrow color="#a35100">Your reference</Eyebrow>
-            <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: NV }}>Account info</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-              {[
-                { label: 'Name',  value: customer?.name  ?? '—' },
-                { label: 'Email', value: customer?.email ?? userEmail },
-                { label: 'ID',    value: customer?.cid   ?? '—' },
-              ].map(row => (
-                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, paddingBottom: 10, borderBottom: `1px solid rgba(245,127,32,0.18)` }}>
-                  <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a35100' }}>{row.label}</span>
-                  <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontFamily: BODY, fontSize: 11, color: S.fgSub, lineHeight: 1.5 }}>
-              Share your Customer ID when contacting us so we can pull up your account instantly.
-            </div>
+        {/* ── Section 1: Get in touch — three equal cards.
+              Account info leads (your reference for the conversation),
+              Email next (paper trail), WhatsApp last (fastest reply). ── */}
+        <section style={{ marginBottom: 36 }}>
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Eyebrow>Get in touch</Eyebrow>
+            <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
 
-          {/* 2. Email Us — second */}
-          <div style={{ gridColumn: 'span 4', padding: 28, borderRadius: 20, background: S.surface2, border: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(245,127,32,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: OG }}>
-              <Mail size={22} strokeWidth={2} aria-hidden />
-            </div>
-            <div>
-              <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: NV }}>Email us</div>
-              <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 6, lineHeight: 1.5 }}>
-                For billing, plan changes, or anything that needs a paper trail. We reply within 24 hours.
+          <div className="support-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 20,
+          }}>
+
+            {/* 1. Account info — TIER1 + single OG accent border (mirrors PlanClient's
+                  ActivePlanCallout pattern). Replaces the prior orange-on-orange-on-
+                  orange treatment with a single accent + restrained dividers. */}
+            <div style={{
+              ...TIER1,
+              padding: 'clamp(20px, 2.2vw, 28px)',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px solid rgba(245,127,32,0.32)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              minHeight: 260,
+            }}>
+              <Eyebrow color="#a35100">Your reference</Eyebrow>
+              <h3 style={{
+                margin: 0, fontFamily: DISPLAY,
+                fontSize: 'clamp(18px, 1.6vw, 22px)',
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+              }}>
+                Account info
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                {[
+                  { label: 'Name',  value: customer?.name  ?? '—', mono: false },
+                  { label: 'Email', value: customer?.email ?? userEmail, mono: false },
+                  { label: 'ID',    value: customer?.cid   ?? '—', mono: true  },
+                ].map(row => (
+                  <div
+                    key={row.label}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                      gap: 8, paddingBottom: 10,
+                      borderBottom: '1px solid rgba(9,24,37,0.08)',
+                    }}
+                  >
+                    <span style={{
+                      fontFamily: BODY, fontSize: 10, fontWeight: 600,
+                      letterSpacing: '0.14em', textTransform: 'uppercase',
+                      color: S.fgMuted,
+                    }}>
+                      {row.label}
+                    </span>
+                    <span style={{
+                      fontFamily: row.mono ? MONO : BODY,
+                      fontSize: 13, fontWeight: 600, color: NV,
+                      maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                fontFamily: BODY, fontSize: 11, color: S.fgSub, lineHeight: 1.5,
+              }}>
+                Quote your ID so we can pull up your account instantly.
               </div>
             </div>
-            <a
-              href={`mailto:${SUPPORT_EMAIL}`}
-              data-tooltip="Opens your email app"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', borderRadius: 999, background: 'rgba(245,127,32,0.14)', border: '1px solid rgba(245,127,32,0.25)', color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', marginTop: 'auto' }}
-            >
-              {SUPPORT_EMAIL}
-            </a>
-          </div>
 
-          {/* 3. WhatsApp CTA — third */}
-          <div style={{ gridColumn: 'span 4', padding: 28, borderRadius: 20, background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(37,211,102,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1ea34d' }}>
-              <MessageCircle size={22} strokeWidth={2} aria-hidden />
-            </div>
-            <div>
-              <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: NV }}>Chat on WhatsApp</div>
-              <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 6, lineHeight: 1.5 }}>
-                Fastest way to reach us. Available 7 AM – 9 PM, 7 days a week.
+            {/* 2. Email — TIER2 surface (recedes vs the accent-bordered Account card) */}
+            <div style={{
+              ...TIER2,
+              padding: 'clamp(20px, 2.2vw, 28px)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              minHeight: 260,
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(245,127,32,0.14)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: OG,
+              }}>
+                <Mail size={20} strokeWidth={2} aria-hidden />
               </div>
+              <Eyebrow color="#a35100">Within 24 hours</Eyebrow>
+              <h3 style={{
+                margin: 0, fontFamily: DISPLAY,
+                fontSize: 'clamp(18px, 1.6vw, 22px)',
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+              }}>
+                Email us
+              </h3>
+              <p style={{
+                margin: 0, fontFamily: BODY, fontSize: 13,
+                color: S.fgMuted, lineHeight: 1.6,
+              }}>
+                For billing, plan changes, or anything that needs a paper trail.
+              </p>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                data-tooltip="Opens your email app"
+                className="support-cta-email"
+                style={{
+                  marginTop: 'auto', alignSelf: 'flex-start',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '11px 18px', borderRadius: 999,
+                  background: 'rgba(245,127,32,0.14)',
+                  border: '1px solid rgba(245,127,32,0.25)',
+                  color: OG,
+                  fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  transition: 'background 150ms, border-color 150ms',
+                  maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}
+              >
+                {SUPPORT_EMAIL}
+              </a>
             </div>
-            <a
-              href={whatsAppHref()}
-              target="_blank"
-              rel="noreferrer"
-              data-tooltip="Opens WhatsApp"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', borderRadius: 999, background: '#25D366', color: '#fff', fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', marginTop: 'auto' }}
-            >
-              Open WhatsApp
-            </a>
-          </div>
-        </div>
 
-        {/* FAQ */}
-        <div style={{ padding: 32, borderRadius: 20, background: S.surface2, border: `1px solid ${S.border}`, marginBottom: 24 }}>
-          <div style={{ marginBottom: 24 }}>
-            <Eyebrow>FAQ</Eyebrow>
-            <div style={{ fontFamily: DISPLAY, fontSize: 26, fontWeight: 700, color: NV, marginTop: 10 }}>
-              Common questions
+            {/* 3. WhatsApp — TIER2 surface + green accent border. Green is the
+                  established WhatsApp vocabulary (see dormwars-share-btn). */}
+            <div style={{
+              ...TIER2,
+              padding: 'clamp(20px, 2.2vw, 28px)',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px solid rgba(37,211,102,0.32)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              minHeight: 260,
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(37,211,102,0.16)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: WA_GREEN_DARK,
+              }}>
+                <MessageCircle size={20} strokeWidth={2} aria-hidden />
+              </div>
+              <Eyebrow color={WA_GREEN_DARK}>Fastest · ~15 min</Eyebrow>
+              <h3 style={{
+                margin: 0, fontFamily: DISPLAY,
+                fontSize: 'clamp(18px, 1.6vw, 22px)',
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+              }}>
+                Chat on WhatsApp
+              </h3>
+              <p style={{
+                margin: 0, fontFamily: BODY, fontSize: 13,
+                color: S.fgMuted, lineHeight: 1.6,
+              }}>
+                The fastest way to reach us. Available 7 AM – 9 PM, 7 days a week.
+              </p>
+              <a
+                href={whatsAppHref()}
+                target="_blank"
+                rel="noreferrer"
+                data-tooltip="Opens WhatsApp"
+                className="support-cta-wa"
+                style={{
+                  marginTop: 'auto', alignSelf: 'flex-start',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '11px 18px', borderRadius: 999,
+                  background: WA_GREEN, color: '#fff',
+                  fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  boxShadow: '0 6px 18px rgba(37,211,102,0.30)',
+                  transition: 'transform 150ms, box-shadow 150ms',
+                }}
+              >
+                Open WhatsApp →
+              </a>
             </div>
           </div>
-          <div>
+        </section>
+
+        {/* ── Section 2: FAQ — TIER2 surface, section eyebrow + hairline mirrors
+              Menu's section rhythm ── */}
+        <section style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Eyebrow>Common questions</Eyebrow>
+            <div style={{ flex: 1, height: 1, background: S.border }} />
+          </div>
+          <div style={{
+            ...TIER2,
+            padding: 'clamp(20px, 2.2vw, 28px)',
+            borderRadius: 'var(--radius-md)',
+          }}>
             {FAQS.map((faq, i) => (
               <FAQItem key={i} q={faq.q} a={faq.a} />
             ))}
           </div>
-        </div>
+        </section>
 
         <div style={{ textAlign: 'center', padding: '16px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -162,9 +309,18 @@ export default function SupportClient({ customer, userEmail }: { customer: Custo
           </span>
         </div>
       </div>
+
       <style>{`
+        .support-cta-wa:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 22px rgba(37,211,102,0.40) !important;
+        }
+        .support-cta-email:hover {
+          background: rgba(245,127,32,0.20) !important;
+          border-color: rgba(245,127,32,0.40) !important;
+        }
         @media (max-width: 1024px) {
-          .support-grid > * { grid-column: span 12 !important; }
+          .support-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

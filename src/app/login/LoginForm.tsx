@@ -6,7 +6,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
-import { login, requestPasswordReset } from './actions'
+import { login } from './actions'
+import { ForgotPasswordFlow } from './ForgotPasswordFlow'
 
 type Tab = 'signin' | 'signup' | 'forgot'
 
@@ -15,15 +16,19 @@ interface Props {
     message?: string
     nextUrl: string
     prefillEmail?: string
+    /** ?step=set-password — present when the user lands here from the magic
+        link in their reset-password email. Routes them straight to the
+        set-new-password phase of the forgot flow. */
+    step?: string
 }
 
-export default function LoginForm({ error, message, nextUrl, prefillEmail }: Props) {
+export default function LoginForm({ error, message, nextUrl, prefillEmail, step }: Props) {
     const router = useRouter()
-    const [tab, setTab] = useState<Tab>('signin')
+    const initialTab: Tab = step === 'set-password' ? 'forgot' : 'signin'
+    const [tab, setTab] = useState<Tab>(initialTab)
     const [showPassword, setShowPassword] = useState(false)
     const [capsOn, setCapsOn] = useState(false)
     const [isPending, startTransition] = useTransition()
-    const [isResetting, startResetTransition] = useTransition()
     const formRef = useRef<HTMLFormElement>(null)
 
     // Clear URL params when user switches tabs so old errors don't linger
@@ -45,18 +50,15 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail }: Pro
             router.push('/onboarding')
             return
         }
-        if (tab === 'forgot') {
-            const fd = new FormData(e.currentTarget)
-            startResetTransition(async () => { await requestPasswordReset(fd) })
-            return
-        }
+        // The forgot tab is rendered by <ForgotPasswordFlow> which owns its
+        // own form, so we never receive its submit events here. Sign-in only.
         const formData = new FormData(e.currentTarget)
         formData.set('next_url', nextUrl)
         startTransition(async () => { await login(formData) })
     }
 
     const switchTab = (next: Tab) => {
-        if (next === tab || isPending || isResetting) return
+        if (next === tab || isPending) return
         setShowPassword(false)
         setCapsOn(false)
         setTab(next)
@@ -115,7 +117,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail }: Pro
                         </div>
                     )}
 
-                    <form ref={formRef} onSubmit={handleSubmit} className="px-5 pt-5 pb-6">
+                    <div className="px-5 pt-5 pb-6">
                         <AnimatePresence mode="wait" initial={false}>
                             <motion.div
                                 key={tab}
@@ -125,8 +127,9 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail }: Pro
                                 transition={{ duration: 0.18, ease: 'easeOut' }}
                             >
 
-                                {/* Sign-in */}
-                                {tab === 'signin' && (<>
+                                {/* Sign-in — owns its own form so Enter submits credentials */}
+                                {tab === 'signin' && (
+                                <form ref={formRef} onSubmit={handleSubmit}>
                                     <div className="mb-5">
                                         <h1 className="text-[20px] font-bold text-[#091825] tracking-tight leading-snug">Welcome back.</h1>
                                         <p className="text-[#091825]/55 text-[13px] mt-1">Sign in to manage your meal plan.</p>
@@ -202,9 +205,10 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail }: Pro
                                             <span>Sign In</span>
                                         )}
                                     </button>
-                                </>)}
+                                </form>
+                                )}
 
-                                {/* Sign-up — redirect */}
+                                {/* Sign-up — redirect, no form */}
                                 {tab === 'signup' && (<>
                                     <div className="mb-5">
                                         <h1 className="text-[20px] font-bold text-[#091825] tracking-tight leading-snug">Join the table.</h1>
@@ -235,42 +239,20 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail }: Pro
                                     </p>
                                 </>)}
 
-                                {/* Forgot password */}
-                                {tab === 'forgot' && (<>
-                                    <div className="mb-5">
-                                        <button
-                                            type="button"
-                                            onClick={() => switchTab('signin')}
-                                            className="text-[#091825]/55 hover:text-[#091825]/85 text-[12px] font-semibold mb-3 transition-colors"
-                                        >
-                                            ← Back to sign in
-                                        </button>
-                                        <h1 className="text-[20px] font-bold text-[#091825] tracking-tight leading-snug">Reset your password.</h1>
-                                        <p className="text-[#091825]/55 text-[13px] mt-1">We&apos;ll email you a secure reset link.</p>
-                                    </div>
-
-                                    <div className="mb-3.5">
-                                        <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#091825]/55 mb-2">Email</label>
-                                        <input
-                                            name="email"
-                                            type="email"
-                                            required
-                                            autoComplete="email"
-                                            autoFocus
-                                            defaultValue={prefillEmail ?? ''}
-                                            placeholder="you@example.com"
-                                            className="w-full bg-white/80 border border-[#091825]/[0.12] hover:border-[#091825]/[0.22] focus:border-[#f57f20]/70 focus:bg-white focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] rounded-xl px-4 py-3 text-[#091825] text-[14px] placeholder-[#091825]/30 outline-none transition-all duration-200"
-                                        />
-                                    </div>
-
-                                    <button type="submit" disabled={isResetting} className="relative w-full flex items-center justify-center gap-2.5 bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] disabled:opacity-55 disabled:pointer-events-none text-white font-bold text-[14px] py-3.5 rounded-xl transition-all duration-200 shadow-[0_0_24px_rgba(245,127,32,0.22)]">
-                                        {isResetting ? 'Sending…' : 'Send reset link'}
-                                    </button>
-                                </>)}
+                                {/* Forgot password — three-phase inline flow (request → verify → reset).
+                                    `step=set-password` lands magic-link clickers directly in the
+                                    set-new-password phase. The component owns its own <form>. */}
+                                {tab === 'forgot' && (
+                                    <ForgotPasswordFlow
+                                        initialPhase={step === 'set-password' ? 'reset' : 'request'}
+                                        initialEmail={prefillEmail ?? ''}
+                                        onBackToSignIn={() => switchTab('signin')}
+                                    />
+                                )}
 
                             </motion.div>
                         </AnimatePresence>
-                    </form>
+                    </div>
                 </div>
 
                 <Link
