@@ -143,7 +143,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
   const isWeekly       = sub.plan_name.includes('Weekly Flex')
   const isOneTime      = sub.plan_name.includes('One-Time')
   const isPausableTier = sub.plan_name.includes('Monthly Premium') || sub.plan_name.includes('Monthly Max')
-  const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== SUBSCRIPTION_STATUS.ENDED
+  const isScheduled    = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > Date.now()
+  const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
   const endedPlans      = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
   const totalDelivered  = allSubscriptions.reduce((acc, x) => acc + (x.delivered_meals ?? 0), 0)
   const memberSinceText = customer?.created_at
@@ -176,10 +177,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
     })
   }
 
-  const handleSkipRequest  = () => { if (localState !== 'active' || isPending) return; setShowSkipConfirm(true) }
+  const handleSkipRequest  = () => { if (localState !== 'active' || isPending || isScheduled) return; setShowSkipConfirm(true) }
   const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id), 'skipped', 'skip') }
   const handlePauseRequest = () => {
-    if (isPending) return
+    if (isPending || isScheduled) return
     if (localState === 'paused')                      act(() => resumeSubscription(sub.id), 'active',  'resume')
     else if (canPause && localState === 'active')     setShowPauseConfirm(true)
   }
@@ -219,6 +220,21 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
   const prefIsVeg = !!customer?.meal_preference_type?.toLowerCase().includes('plant')
   const { menu: weekMenu } = useMemo(() => buildCurrentWeekMenu(prefIsVeg), [prefIsVeg])
   const todayMeal = weekMenu.find(m => m.state === 'today') ?? null
+
+  // 2 PM Asia/Dubai skip cutoff — recalculate on a 60s tick so the button
+  // locks itself the moment the clock crosses 14:00 AE without a refresh.
+  const [skipPastCutoff, setSkipPastCutoff] = useState(() => {
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+    return ae.getUTCHours() >= 14
+  })
+  useEffect(() => {
+    const tick = () => {
+      const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+      setSkipPastCutoff(ae.getUTCHours() >= 14)
+    }
+    const t = setInterval(tick, 60_000)
+    return () => clearInterval(t)
+  }, [])
 
   // Stagger entrance only on first visit per session — avoids 700ms hold-up on every navigation
   const [skipStagger, setSkipStagger] = useState(false)
@@ -491,6 +507,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
           <HeroToday
             todayMeal={todayMeal}
             localState={localState}
+            subStartDate={isScheduled ? sub.start_date : undefined}
           />
           <QuickActions
             canPause={canPause}
@@ -501,6 +518,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
             pendingAction={pendingAction}
             successAction={successAction}
             skipQuota={skipQuota}
+            disabledReason={isScheduled
+              ? `Available once your plan starts on ${new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}.`
+              : undefined}
+            skipPastCutoff={!isScheduled && skipPastCutoff}
           />
           <PlanProgress sub={effectiveSub} />
         </div>
@@ -527,10 +548,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
                   Skip tonight&rsquo;s meal?
                 </div>
                 <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
-                  Your credit returns automatically and your subscription resumes tomorrow.
+                  Your end date moves out by <strong style={{ color: NV }}>1 day</strong> so you don&rsquo;t lose this meal.{' '}
+                  {skipQuota.total > 0 && (
+                    <>You&rsquo;ll have <strong style={{ color: NV }}>{Math.max(0, skipQuota.left - 1)} of {skipQuota.total}</strong> skip{skipQuota.total === 1 ? '' : 's'} left after this.</>
+                  )}
                 </div>
                 <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', color: '#9a2828', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
-                  Once you confirm, this can&rsquo;t be undone — the kitchen will be informed.
+                  Once you confirm, the kitchen will be informed and this can&rsquo;t be undone.
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                   <button

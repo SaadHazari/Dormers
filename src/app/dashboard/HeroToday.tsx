@@ -89,14 +89,19 @@ function HeroStatusBadge({ status }: { status: 'Active' | 'Skipped' | 'Paused' |
   )
 }
 
-export function HeroToday({ todayMeal, localState }: {
+export function HeroToday({ todayMeal, localState, subStartDate }: {
   todayMeal: MenuItem | null
   localState: LocalState
+  // ISO date — when the user's plan is paid but hasn't begun yet, override the
+  // "today's dish" view with a "starting soon" state. The countdown copy points
+  // at this date instead of "tomorrow".
+  subStartDate?: string
 }) {
-  const isOff     = todayMeal === null
-  const isSkipped = localState === 'skipped'
-  const isPaused  = localState === 'paused'
-  const isActive  = !isOff && !isSkipped && !isPaused
+  const isStartingSoon = !!subStartDate && new Date(subStartDate).getTime() > Date.now()
+  const isOff     = !isStartingSoon && todayMeal === null
+  const isSkipped = !isStartingSoon && localState === 'skipped'
+  const isPaused  = !isStartingSoon && localState === 'paused'
+  const isActive  = !isStartingSoon && !isOff && !isSkipped && !isPaused
 
   // Live tick — countdown updates every 30s (active state only)
   const [now, setNow] = useState<Date>(() => new Date())
@@ -108,20 +113,28 @@ export function HeroToday({ todayMeal, localState }: {
   const countdown = computeCountdown(now)
 
   const badgeStatus: 'Active' | 'Skipped' | 'Paused' | 'Off' =
-    isPaused ? 'Paused' : isSkipped ? 'Skipped' : isOff ? 'Off' : 'Active'
+    isStartingSoon ? 'Active'
+    : isPaused ? 'Paused' : isSkipped ? 'Skipped' : isOff ? 'Off' : 'Active'
+
+  const startDateLabel = subStartDate
+    ? new Date(subStartDate + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+    : ''
 
   const footerCaption =
-    isActive  ? countdown.label
+    isStartingSoon ? `First meal arrives ${startDateLabel} at 7 PM`
+    : isActive  ? countdown.label
     : isSkipped ? "Credit safe — back tomorrow"
     : isPaused  ? "Resume when ready"
     : /* off */  "Mon–Sat, 7–8 PM"
 
   // Sub-headings only used in inactive states
-  const stateHeading = isSkipped ? 'You skipped today.'
+  const stateHeading = isStartingSoon ? "You're all set."
+    : isSkipped ? 'You skipped today.'
     : isPaused        ? 'Your plan is paused.'
     : isOff           ? 'No delivery today.'
     : ''
-  const stateSubtitle = isSkipped ? "Tomorrow's delivery is on track."
+  const stateSubtitle = isStartingSoon ? `Your meals begin on ${startDateLabel}.`
+    : isSkipped ? "Tomorrow's delivery is on track."
     : isPaused        ? "Tap resume when you're ready."
     : isOff           ? "We deliver Mon–Sat. See you tomorrow."
     : ''
@@ -207,7 +220,7 @@ export function HeroToday({ todayMeal, localState }: {
         </div>
       )}
 
-      {/* ── Inactive states ─────────────────────────────────────────────────── */}
+      {/* ── Inactive states (incl. starting-soon for paid+future-start subs) ── */}
       {!isActive && (
         <div className="hero-active" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h1 style={{

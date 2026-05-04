@@ -13,8 +13,22 @@ interface Props {
 
 export function DateField({ value, onChange, minDate, maxDate }: Props) {
   const [open, setOpen] = useState(false)
+  // 'down' = popover sits below the trigger (default); 'up' = flips above when
+  // there isn't enough viewport space below. Sticky checkout panels at the bottom
+  // of the viewport on desktop tend to clip the calendar otherwise.
+  const [openDirection, setOpenDirection] = useState<'down' | 'up'>('down')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Flip direction on open based on available space below the trigger.
+  // Approximate popover height = 360px (header + 6 weeks + dow row).
+  useEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const POPOVER_H = 360
+    const spaceBelow = window.innerHeight - rect.bottom
+    setOpenDirection(spaceBelow < POPOVER_H ? 'up' : 'down')
+  }, [open])
 
   // Calendar view month — defaults to the picked date (or the min bound when
   // nothing is picked yet). Keeps the popup landing on a relevant month.
@@ -120,11 +134,14 @@ export function DateField({ value, onChange, minDate, maxDate }: Props) {
             ref={popoverRef}
             role="dialog"
             aria-label="Choose a start date"
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            initial={{ opacity: 0, y: openDirection === 'up' ? 8 : -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            exit={{ opacity: 0, y: openDirection === 'up' ? 8 : -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className="checkout-date-popover"
+            style={openDirection === 'up'
+              ? { top: 'auto', bottom: 'calc(100% + 8px)', transformOrigin: 'bottom left' }
+              : undefined}
           >
             <div className="checkout-date-popover-head">
               <button

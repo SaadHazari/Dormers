@@ -54,20 +54,23 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                 </span>
             </div>
 
-            {/* 3 — Segmented progress bar — one cell per meal in the cycle.
-                  Delivered meals fill from the left in orange; skipped meals follow
-                  in hatched gray; remaining meals stay neutral. */}
+            {/* 3 — Segmented progress bar — one cell per DELIVERY DAY (not per
+                  meal). Monthly Max delivers 2 meals/day in a single drop, so 48
+                  meals = 24 day-bars. Plans that deliver 1/day (Premium, Weekly
+                  Flex, Trial) have day-bars == meal-count. Delivered days fill
+                  from the left in orange; skipped days follow in hatched gray;
+                  remaining days stay neutral. */}
             <div
                 role="progressbar"
                 aria-valuemin={0}
-                aria-valuemax={total}
-                aria-valuenow={sub.delivered_meals}
-                aria-label={`${sub.delivered_meals} of ${total} meals delivered`}
+                aria-valuemax={totalDeliveries}
+                aria-valuenow={deliveriesDone}
+                aria-label={`${deliveriesDone} of ${totalDeliveries} ${mealsPerDelivery > 1 ? 'delivery days' : 'meals'} delivered`}
                 style={{ display: 'flex', gap: 3, height: 10 }}
             >
-                {Array.from({ length: total }).map((_, i) => {
-                    const isDelivered = i < sub.delivered_meals
-                    const isSkipped = !isDelivered && i < sub.delivered_meals + sub.skipped_meals_count
+                {Array.from({ length: totalDeliveries }).map((_, i) => {
+                    const isDelivered = i < deliveriesDone
+                    const isSkipped = !isDelivered && i < deliveriesDone + skippedDeliveries
                     // Always use the backgroundColor + backgroundImage longhand pair —
                     // never mix with the `background` shorthand. React converts
                     // `backgroundImage: undefined` to '' which clears any image set via
@@ -117,8 +120,8 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
             <div style={{ marginTop: 'auto', paddingTop: 18, borderTop: `1px solid ${S.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 14, flexWrap: 'wrap' }}>
                     <div>
-                        <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2 }}>
-                            Started
+                        <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: startsInFuture ? OG : S.fgSub, lineHeight: 1.2 }}>
+                            {startsInFuture ? 'Starting' : 'Started'}
                         </div>
                         <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
                             {fmt(sub.start_date)}

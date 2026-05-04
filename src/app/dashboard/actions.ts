@@ -117,6 +117,17 @@ export async function skipMeal(subscriptionId: string) {
 
   if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE) return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
 
+  // Operations cutoff — kitchen prep starts well before 7 PM delivery, so a
+  // same-day skip is only honoured when requested before 14:00 Asia/Dubai.
+  // After 2 PM AE the customer must wait until tomorrow to skip the next day's
+  // meal. Server-side check, mirrored by a UI lockout in QuickActions.
+  const SKIP_CUTOFF_HOUR_AE = 14;
+  const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000); // shift UTC to AE wall time
+  const aeHour = aeNow.getUTCHours();
+  if (aeHour >= SKIP_CUTOFF_HOUR_AE) {
+    return { error: `Skip cutoff for today is 2 PM. Try again tomorrow morning.` };
+  }
+
   const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
 
   if (subscription.skipped_meals_count >= maxSkips) {

@@ -66,11 +66,18 @@ export function StatRow({ sub }: { sub: Subscription }) {
     const deliveriesLeft = Math.max(0, totalDeliveries - deliveriesDone - skippedDeliveries)
 
     const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
-    const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
+    const daysToEnd = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
+    const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
+    // While the plan is still in the future, surface days-until-start (the
+    // burning question is "when does this begin?"). After it starts, switch
+    // to days-left-in-plan. Mirrors the /plan ActivePlanCallout pattern.
+    const daysLeft = startsInFuture ? daysToStart : daysToEnd
     const endLabel = new Date(sub.end_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
     const startLabel = new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
 
-    const daysColor: TileColor = daysLeft <= 3 ? 'red' : 'default'
+    // Red urgency only for active subs nearing their end — a scheduled sub
+    // starting in 2 days is *good* news, not urgent. Don't paint it red.
+    const daysColor: TileColor = !startsInFuture && daysToEnd <= 3 ? 'red' : 'default'
 
     return (
         <div style={{
@@ -110,7 +117,7 @@ export function StatRow({ sub }: { sub: Subscription }) {
                         <CalendarDays size={20} strokeWidth={1.9} color={daysLeft <= 3 ? '#b91c1c' : NV} />
                     </div>
                 }
-                label="Days left"
+                label={startsInFuture ? 'Days to start' : 'Days left'}
                 value={daysLeft}
                 sub={startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
             />

@@ -39,9 +39,12 @@ interface Props {
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// Earliest date the user can start: day-after-end for renewals, today otherwise.
-// Shared between the lazy initial value of `startDate` (sensible default — most
-// users want to start ASAP) and the dateBounds.min lookup so they never drift.
+// Earliest date the user can start. Always **tomorrow at the earliest** —
+// today's prep window has already begun in the kitchen by the time someone is
+// checking out, so a same-day start can't be honoured. For renewals we anchor
+// to the day after the existing plan ends.
+//   • Active sub      → end_date + 1
+//   • No active sub   → today + 1
 function computeMinIso(active: { end_date: string } | null): string {
   let d: Date
   if (active) {
@@ -51,6 +54,7 @@ function computeMinIso(active: { end_date: string } | null): string {
   } else {
     d = new Date()
     d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + 1) // tomorrow, never today
   }
   return isoDate(d)
 }
@@ -248,7 +252,7 @@ export function CheckoutPanel({
               <p className="checkout-window-hint">
                 {activeSubscription
                   ? 'Starts the day after your current plan ends · 30-day window'
-                  : 'Choose any day in the next 30 days'}
+                  : 'Starts tomorrow at the earliest · 30-day window'}
               </p>
             </div>
 

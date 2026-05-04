@@ -65,6 +65,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
     }
 
+    // start_date must be a YYYY-MM-DD string for tomorrow ≤ start ≤ today+31
+    // (the same window the date picker enforces). Without this guard, a
+    // tampered POST could schedule a sub starting yesterday — which the webhook
+    // would store as `Active` immediately, bypassing the kitchen-prep window.
+    if (start_date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+        return NextResponse.json({ error: 'Invalid start_date format' }, { status: 400 });
+      }
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const minStart = new Date(today); minStart.setDate(minStart.getDate() + 1);
+      const maxStart = new Date(today); maxStart.setDate(maxStart.getDate() + 31);
+      const requested = new Date(start_date + 'T00:00:00');
+      if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
+        return NextResponse.json({ error: 'start_date must be within the allowed window' }, { status: 400 });
+      }
+    }
+
     // Only accept same-origin paths to prevent open-redirect via Stripe.
     const safeCancelPath =
       typeof cancel_path === 'string' && /^\/[^/\\]/.test(cancel_path)

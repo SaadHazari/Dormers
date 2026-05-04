@@ -14,6 +14,7 @@ import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { CheckoutPanel } from './CheckoutPanel'
+import { NoPlanView } from '../NoPlanView'
 import { pricePerMeal, totalPrice, PLANS, type PlanId, type Pref, type PlanDef } from './pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
@@ -77,20 +78,25 @@ function StatusDot({ status }: { status: string }) {
 // ── Active plan callout ───────────────────────────────────────────────────────
 function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; onRenewClick: () => void }) {
   if (!sub) {
-    return (
-      <div style={{ ...TIER1, padding: 22, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <Eyebrow>No active plan</Eyebrow>
-          <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Pick a plan to get started.</div>
-          <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 13, color: S.fgMuted }}>Cancel or change any time.</div>
-        </div>
-      </div>
-    )
+    // Reuse the dashboard's NoPlanView so the new-customer entry point reads
+    // identically across /dashboard and /dashboard/plan — same brand DNA grid,
+    // same headline, same CTA. Single source of truth for the empty state.
+    return <NoPlanView />
   }
-  const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
+  const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
+  const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
   const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
-  const renewEligible = !startsInFuture && daysLeft <= 7
-  const status = startsInFuture ? SUBSCRIPTION_STATUS.SCHEDULED : sub.status
+  // While the plan is still in the future, surface days-until-start as the hero
+  // number (the user's burning question is "when does it begin?"). Once it's
+  // started, switch to days-left-in-plan.
+  const daysLeft = startsInFuture ? daysToStart : daysToEnd
+  const renewEligible = !startsInFuture && daysToEnd <= 7
+  // Surface "Active" in the badge even for paid-but-not-yet-started subs — the
+  // user has paid; "Scheduled" can read as ambiguous. The "Beginning soon · DATE"
+  // subline below carries the timing context.
+  const status = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || startsInFuture
+    ? SUBSCRIPTION_STATUS.ACTIVE
+    : sub.status
 
   // Behavioural numbers — the answer to "how is my plan going?". Pulled from
   // the existing subscription record; no new data fetched.
@@ -131,7 +137,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
           </div>
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
             {startsInFuture
-              ? <>Starts <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
+              ? <><span style={{ color: OG, fontWeight: 700 }}>Beginning soon</span> · Starts <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
               : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: NV }}>{fmtWithDay(sub.end_date)}</strong></>}
           </div>
         </div>
@@ -141,7 +147,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysLeft}</span>
-          <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>day{daysLeft === 1 ? '' : 's'} {startsInFuture ? 'until you start' : 'left in your plan'}</span>
+          <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>day{daysLeft === 1 ? '' : 's'} {startsInFuture ? 'until your plan starts' : 'left in your plan'}</span>
         </div>
 
         {/* Renew control: only render the orange CTA when actionable. While
