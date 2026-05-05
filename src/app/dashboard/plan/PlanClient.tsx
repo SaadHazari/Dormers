@@ -1,20 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
   CalendarDays, Unlock, Heart,
 } from 'lucide-react'
-import { OG, OG3, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
+import { OG, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
+import { StatusDot } from '../_shared/StatusDot'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { CheckoutPanel } from './CheckoutPanel'
+import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
+import { changeStartDate } from '../actions'
 import { pricePerMeal, totalPrice, PLANS, type PlanId, type Pref, type PlanDef } from './pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
@@ -59,24 +63,114 @@ interface Props {
 // ── Reusable bits ─────────────────────────────────────────────────────────────
 // Eyebrow moved to _shared/Eyebrow.tsx — imported above.
 
-function StatusDot({ status }: { status: string }) {
-  const map: Record<string, { bg: string; fg: string; dot: string }> = {
-    Active:    { bg: 'rgba(9,145,14,0.14)',  fg: '#1d8a30', dot: '#1d8a30' },
-    Paused:    { bg: 'rgba(255,170,0,0.16)', fg: '#a36900', dot: OG3 },
-    Scheduled: { bg: 'rgba(0,136,204,0.14)', fg: '#0079b6', dot: '#0088cc' },
-    Ended:     { bg: 'rgba(9,24,37,0.08)',   fg: 'rgba(9,24,37,0.55)', dot: 'rgba(9,24,37,0.45)' },
+// StatusDot moved to _shared/StatusDot.tsx — imported above.
+
+// ── ChangeStartDateModal ──────────────────────────────────────────────────────
+// Lives only on Scheduled subs — once the plan begins, rescheduling is a
+// kitchen-ops concern, not self-serve. Reuses the brand DateField so the date
+// picker UX is identical to checkout.
+function ChangeStartDateModal({
+  sub, isOpen, onClose,
+}: {
+  sub: Subscription
+  isOpen: boolean
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  // Pre-fill with the current scheduled date — most users will tweak by a few
+  // days, not start from blank. Refresh the value whenever the modal reopens.
+  const localStart = sub.start_date.slice(0, 10)
+  const [picked, setPicked] = useState(localStart)
+  useEffect(() => { if (isOpen) { setPicked(localStart); setError(null) } }, [isOpen, localStart])
+
+  // Window: tomorrow .. today + 30 (mirrors /api/checkout + the action's check)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
+  const cap = new Date(today); cap.setDate(cap.getDate() + 30)
+  const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const minIso = isoLocal(tomorrow)
+  const maxIso = isoLocal(cap)
+
+  const handleSave = () => {
+    if (!picked || picked === localStart) { onClose(); return }
+    setError(null)
+    startTransition(async () => {
+      const res = await changeStartDate(sub.id, picked)
+      if (res?.error) { setError(res.error); return }
+      onClose()
+      router.refresh()
+    })
   }
-  const c = map[status] || map.Active
+
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 8px', borderRadius: 999, background: c.bg, color: c.fg, fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot }} />
-      {status}
-    </span>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(9,24,37,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#ede8da', borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 460, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+              Change start date
+            </div>
+            <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 8, lineHeight: 1.6 }}>
+              Pick any day in the next 30 days. Your end date moves with the start so the cycle stays the same length.
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <DateField
+                value={picked}
+                onChange={setPicked}
+                minDate={minIso}
+                maxDate={maxIso}
+              />
+            </div>
+
+            {error && (
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', color: '#9a2828', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                onClick={onClose}
+                disabled={pending}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: pending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: pending ? 0.6 : 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={pending || !picked}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: pending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)', opacity: pending ? 0.7 : 1 }}
+              >
+                {pending ? 'Saving…' : 'Save new date'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
 function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; onRenewClick: () => void }) {
+  const [showChangeStart, setShowChangeStart] = useState(false)
+
   if (!sub) {
     // Reuse the dashboard's NoPlanView so the new-customer entry point reads
     // identically across /dashboard and /dashboard/plan — same brand DNA grid,
@@ -91,11 +185,11 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
   // started, switch to days-left-in-plan.
   const daysLeft = startsInFuture ? daysToStart : daysToEnd
   const renewEligible = !startsInFuture && daysToEnd <= 7
-  // Surface "Active" in the badge even for paid-but-not-yet-started subs — the
-  // user has paid; "Scheduled" can read as ambiguous. The "Beginning soon · DATE"
-  // subline below carries the timing context.
-  const status = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || startsInFuture
-    ? SUBSCRIPTION_STATUS.ACTIVE
+  // Honest state — "Scheduled" with slate-blue is more legible than forcing
+  // "Active" + a clarifying subline. Color carries the meaning at a glance;
+  // the subline confirms the *when*, not disambiguates the *what*.
+  const status = startsInFuture && sub.status !== SUBSCRIPTION_STATUS.PAUSED
+    ? SUBSCRIPTION_STATUS.SCHEDULED
     : sub.status
 
   // Behavioural numbers — the answer to "how is my plan going?". Pulled from
@@ -137,7 +231,7 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
           </div>
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
             {startsInFuture
-              ? <><span style={{ color: OG, fontWeight: 700 }}>Beginning soon</span> · Starts <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
+              ? <>Beginning <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
               : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: NV }}>{fmtWithDay(sub.end_date)}</strong></>}
           </div>
         </div>
@@ -150,9 +244,8 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
           <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>day{daysLeft === 1 ? '' : 's'} {startsInFuture ? 'until your plan starts' : 'left in your plan'}</span>
         </div>
 
-        {/* Renew control: only render the orange CTA when actionable. While
-            mid-cycle, show a calm informational line instead of a permanently
-            disabled button — no daily reminder of an inability to act. */}
+        {/* Right-side affordance: Renew when in window, Change-start-date when
+            scheduled, calm info line otherwise. Only one of the three shows. */}
         {renewEligible ? (
           <button
             type="button"
@@ -169,7 +262,25 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
           >
             Renew now →
           </button>
-        ) : !startsInFuture ? (
+        ) : startsInFuture ? (
+          <button
+            type="button"
+            onClick={() => setShowChangeStart(true)}
+            title="Pick a different start date for this plan"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 16px', borderRadius: 999,
+              fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+              border: '1px solid rgba(58,111,140,0.32)',
+              background: 'rgba(58,111,140,0.08)',
+              color: '#3a6f8c', cursor: 'pointer',
+              transition: 'background 150ms, border-color 150ms',
+            }}
+          >
+            <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
+            Change start date
+          </button>
+        ) : (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: NV }}>
               Plan in progress
@@ -178,8 +289,14 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
               Renew opens {Math.max(0, daysLeft - 7)} day{Math.max(0, daysLeft - 7) === 1 ? '' : 's'} before {fmtWithDay(sub.end_date)}.
             </div>
           </div>
-        ) : null}
+        )}
       </div>
+
+      <ChangeStartDateModal
+        sub={sub}
+        isOpen={showChangeStart}
+        onClose={() => setShowChangeStart(false)}
+      />
 
       {/* Behavioural stats — the "how is it going?" row. Label-value pattern:
           small uppercase eyebrow over emphasised value. Hidden for scheduled
@@ -271,11 +388,11 @@ function PlanCard({
   const total = totalPrice(plan.id, pref, vegDayCount)
   const featured = plan.id === 'Monthly Premium'
 
-  // Anchor each upgrade against the next-tier-down at *equal meal count* so
+  // Anchor each upgrade against the entry-level plan at *equal meal count* so
   // the saving reflects the real monthly delta the user pays, not a per-meal
   // figure that hides commitment scale.
   //   • Premium (24 meals)   vs  Weekly Flex × 4 weeks  (also 24 meals)
-  //   • Max     (48 meals)   vs  Premium × 2            (also 48 meals)
+  //   • Max     (48 meals)   vs  Weekly Flex × 8 weeks  (also 48 meals)
   let saveAmount: number | null = null
   let saveAgainst: string | null = null
   if (plan.id === 'Monthly Premium') {
@@ -283,9 +400,9 @@ function PlanCard({
     const diff = flexFourWeeks - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   } else if (plan.id === 'Monthly Max') {
-    const twoPremium = totalPrice('Monthly Premium', pref, vegDayCount) * 2
-    const diff = twoPremium - total
-    if (diff > 0) { saveAmount = diff; saveAgainst = 'Monthly Premium' }
+    const eightWeeksFlex = totalPrice('Weekly Flex', pref, vegDayCount) * 8
+    const diff = eightWeeksFlex - total
+    if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   }
   const showSave = saveAmount !== null
   const saveLabel = saveAmount !== null

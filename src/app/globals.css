@@ -257,3 +257,28 @@ html.light .hiw-text-block {
 .dash-root a:focus:not(:focus-visible) {
   outline: none;
 }
+
+/* Browser autofill (Chrome/Safari) repaints inputs with its own colors via
+   -webkit-text-fill-color + an internal box-shadow, which beats Tailwind's
+   text-white / bg-[#0d2035]. Without these overrides, saved-credential
+   autofill on the auth funnel renders dark text on the dark navy field. */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus,
+html.dark input:-webkit-autofill:active,
+html.dark textarea:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff;
+  -webkit-box-shadow: 0 0 0 1000px #0d2035 inset;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-out, color 9999s ease-out;
+}
+html.light input:-webkit-autofill,
+html.light input:-webkit-autofill:hover,
+html.light input:-webkit-autofill:focus,
+html.light input:-webkit-autofill:active,
+html.light textarea:-webkit-autofill {
+  -webkit-text-fill-color: #091825;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  caret-color: #091825;
+  transition: background-color 9999s ease-out, color 9999s ease-out;
+}

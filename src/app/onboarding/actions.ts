@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
 
 export interface OnboardingPayload {
     preference: string
@@ -34,8 +35,9 @@ function redirectToLoginExisting(email: string): never {
 
 function validateOnboardingPayload(p: OnboardingPayload): string | null {
     if (!p.email || !/^\S+@\S+\.\S+$/.test(p.email)) return 'Invalid email address.'
-    if (!p.password || p.password.length < 8) return 'Password must be at least 8 characters.'
+    if (!isPasswordStrong(p.password ?? '')) return PASSWORD_RULES_TEXT
     if (!p.name?.trim()) return 'Name is required.'
+    if (!isAlphaName(p.name)) return 'Name can only contain letters and spaces.'
     if (!p.phone?.trim()) return 'Phone number is required.'
     if (!p.dorm?.trim()) return 'Please select your dorm.'
     if (!p.preference?.trim()) return 'Please select a meal preference.'

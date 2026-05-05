@@ -143,7 +143,11 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
               Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
             </div>
           )}
-          <NoPlanView />
+          <NoPlanView
+            customer={customer}
+            allSubscriptions={allSubscriptions}
+            userEmail={userEmail}
+          />
         </div>
       </div>
     )

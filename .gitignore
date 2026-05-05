@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Claude worktrees (embedded repos break Netlify)
 .claude/worktrees/
+
+# Local Netlify folder
+.netlify

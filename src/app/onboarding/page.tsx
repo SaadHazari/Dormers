@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
@@ -8,6 +8,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { OnboardingSteps } from './Steps'
 import { DRAFT_KEY, stepVariants, type FormState, type Step } from './data'
+import ThemeToggle from '@/app/components/ThemeToggle'
+import { useIsLight } from '@/hooks/useIsLight'
+import { authTokens } from '@/lib/auth-theme'
 
 export default function OnboardingPage() {
     const router = useRouter()
@@ -19,6 +22,12 @@ export default function OnboardingPage() {
         dorm: '', customDorm: '', university: '', customUniversity: '',
         name: '', phone: '', phoneVerified: false, email: '', password: '',
     })
+
+    // Keeps `advance` reading the latest form values when called from a
+    // setTimeout — the captured closure would otherwise see pre-set state
+    // and skip step 1.5 after picking Religious Preference.
+    const formRef = useRef(form)
+    formRef.current = form
 
     // Hydrate draft from sessionStorage so page refresh doesn't wipe progress.
     useEffect(() => {
@@ -51,7 +60,8 @@ export default function OnboardingPage() {
     }
 
     const advance = () => {
-        if (step === 1)   { goTo(form.preference === 'Religious Preference' ? 1.5 : 2); return }
+        const f = formRef.current
+        if (step === 1)   { goTo(f.preference === 'Religious Preference' ? 1.5 : 2); return }
         if (step === 1.5) { goTo(2); return }
         if (step === 2)   { goTo(3); return }
         if (step === 3)   { goTo(4); return }
@@ -61,9 +71,10 @@ export default function OnboardingPage() {
     }
 
     const back = () => {
+        const f = formRef.current
         if (step === 1)   { router.push('/login'); return }
         if (step === 1.5) { goTo(1); return }
-        if (step === 2)   { goTo(form.preference === 'Religious Preference' ? 1.5 : 1); return }
+        if (step === 2)   { goTo(f.preference === 'Religious Preference' ? 1.5 : 1); return }
         if (step === 3)   { goTo(2); return }
         if (step === 4)   { goTo(3); return }
         if (step === 5)   { goTo(4); return }
@@ -102,19 +113,28 @@ export default function OnboardingPage() {
         (step as number)
     const progress = Math.min((stepNum / totalSteps) * 100, 100)
 
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+
     // ── render ────────────────────────────────────────────────────────────────
 
     return (
-        <div className="min-h-screen bg-[#061520] flex flex-col font-montserrat">
+        <div
+            className="min-h-screen flex flex-col font-montserrat relative overflow-hidden"
+            style={{
+                background: tokens.pageBackground,
+                transition: 'background 320ms ease',
+            }}
+        >
 
             {/* subtle top gradient */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[360px] rounded-full bg-[#f57f20]/[0.04] blur-[120px]" />
-                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-[#0088cc]/[0.04] blur-[100px]" />
+                <div className={`absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[360px] rounded-full blur-[120px] ${isLight ? 'bg-[#f57f20]/[0.07]' : 'bg-[#f57f20]/[0.04]'}`} />
+                <div className={`absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full blur-[100px] ${isLight ? 'bg-[#0088cc]/[0.06]' : 'bg-[#0088cc]/[0.04]'}`} />
             </div>
 
             {/* Progress bar */}
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-white/[0.04] z-30">
+            <div className={`absolute top-0 left-0 w-full h-[3px] z-30 ${isLight ? 'bg-[#091825]/[0.06]' : 'bg-white/[0.04]'}`}>
                 <motion.div
                     className="h-full bg-[#f57f20]"
                     animate={{ width: `${progress}%` }}
@@ -126,19 +146,33 @@ export default function OnboardingPage() {
             <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 pt-6 pb-2 max-w-[540px] mx-auto w-full">
                 <button
                     onClick={back}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.07] text-white/50 hover:text-white hover:bg-white/[0.07] transition-all"
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${
+                        isLight
+                            ? 'bg-[#091825]/[0.04] border-[#091825]/[0.08] text-[#091825]/55 hover:text-[#091825] hover:bg-[#091825]/[0.08]'
+                            : 'bg-white/[0.04] border-white/[0.07] text-white/50 hover:text-white hover:bg-white/[0.07]'
+                    }`}
                 >
                     <ArrowLeft size={16} strokeWidth={2} />
                 </button>
 
-                <span className="text-white/25 text-[11px] font-bold tracking-widest uppercase">
+                <span className={`text-[11px] font-bold tracking-widest uppercase ${isLight ? 'text-[#091825]/65' : 'text-white/65'}`}>
                     Step {stepNum} of {totalSteps}
                 </span>
 
                 <Link href="/home">
-                    <Image src="/logo.png" alt="Dormers" width={36} height={36} className="opacity-40 hover:opacity-70 transition-opacity" />
+                    {/* Asset name = target surface (not own colour). */}
+                    <Image
+                        src={isLight ? '/logo-light.svg' : '/logo-dark.svg'}
+                        alt="Dormers"
+                        width={44}
+                        height={44}
+                        className="opacity-90 hover:opacity-100 transition-opacity"
+                    />
                 </Link>
             </div>
+
+            {/* Hanging-bulb theme toggle — self-positioned fixed top-right. */}
+            <ThemeToggle />
 
             {/* Content */}
             <div className="relative z-10 flex-1 flex flex-col justify-center px-4 sm:px-6 py-6 max-w-[540px] mx-auto w-full">
@@ -158,6 +192,7 @@ export default function OnboardingPage() {
                             advance={advance}
                             toggleAllergen={toggleAllergen}
                             toggleVegDay={toggleVegDay}
+                            isLight={isLight}
                         />
                     </motion.div>
                 </AnimatePresence>

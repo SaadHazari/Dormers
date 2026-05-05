@@ -3,10 +3,15 @@
 // `value` strings stay as-is so existing customer rows + downstream
 // string-matches (e.g. .includes('plant') / .includes('religious')) keep working.
 // Only the user-visible `label` changes.
+//
+// Onboarding intentionally uses warm chat-style emojis here — the dark navy
+// onboarding cards are the only surface in the app where they belong. The
+// dashboard uses Lucide line-icons exclusively for an editorial / interface
+// feel; never re-introduce emojis there.
 export const PREFERENCES = [
-    { value: 'Carnivore',            emoji: '🥩', label: 'Non-Vegetarian',       desc: 'Chicken, mutton & more every day' },
-    { value: 'Plant-Based',          emoji: '🥗', label: 'Veg',                  desc: 'Fully vegetarian, every meal' },
-    { value: 'Religious Preference', emoji: '☪️', label: 'Religious Preference', desc: 'Halal — choose your veg days below' },
+    { value: 'Carnivore', emoji: '🍗', label: 'Non-Vegetarian', desc: 'Chicken, mutton & more every day' },
+    { value: 'Plant-Based', emoji: '🥗', label: 'Veg', desc: 'Fully vegetarian, every meal' },
+    { value: 'Religious Preference', emoji: '☪️', label: 'Religious Preference', desc: 'Mix Veg & Non Veg meals' },
 ]
 
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -14,10 +19,10 @@ export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 export const ALLERGENS = ['Nuts', 'Dairy', 'Gluten', 'Shellfish', 'Eggs', 'Soy']
 
 export const SPICE_LEVELS = [
-    { value: 'Mild',       emoji: '🌱', label: 'Mild',       desc: 'Easy on the spice' },
-    { value: 'Medium',     emoji: '🌶️', label: 'Medium',     desc: 'A little kick' },
-    { value: 'Hot',        emoji: '🔥', label: 'Hot',        desc: 'Bring the heat' },
-    { value: 'Extra Hot',  emoji: '💀', label: 'Extra Hot',  desc: 'Absolutely no mercy' },
+    { value: 'Mild', emoji: '🌱', label: 'Mild', desc: 'Easy on the spice' },
+    { value: 'Medium', emoji: '🌶️', label: 'Medium', desc: 'A little kick' },
+    { value: 'Hot', emoji: '🔥', label: 'Hot', desc: 'Bring the heat' },
+    { value: 'Extra Hot', emoji: '💀', label: 'Extra Hot', desc: 'Absolutely no mercy' },
 ]
 
 export const DORMS = ['The Myriad', 'KSK Homes', 'Yugo', 'DSOA Residence', 'Study World', 'Other']
@@ -64,7 +69,7 @@ export interface FormState {
 // ─── animation variants ──────────────────────────────────────────────────────
 
 export const stepVariants = {
-    enter:  (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+    enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
     center: { x: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 380, damping: 34 } },
-    exit:   (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0, transition: { duration: 0.14 } }),
+    exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0, transition: { duration: 0.14 } }),
 }

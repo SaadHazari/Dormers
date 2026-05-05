@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
@@ -51,7 +52,7 @@ export async function signup(formData: FormData) {
 export async function signout() {
     const supabase = await createClient()
     await supabase.auth.signOut()
-    redirect('/home')
+    redirect('/login')
 }
 
 // ─── Password reset flow ──────────────────────────────────────────────────
@@ -115,8 +116,8 @@ export async function verifyResetOtp(email: string, token: string): Promise<Rese
 }
 
 export async function updatePassword(newPassword: string): Promise<ResetResult> {
-    if (!newPassword || newPassword.length < 8) {
-        return { error: 'Password must be at least 8 characters.' }
+    if (!isPasswordStrong(newPassword ?? '')) {
+        return { error: PASSWORD_RULES_TEXT }
     }
     const supabase = await createClient()
     const { error } = await supabase.auth.updateUser({ password: newPassword })

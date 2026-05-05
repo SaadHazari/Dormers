@@ -67,12 +67,14 @@ function computeCountdown(now: Date): Countdown {
   }
 }
 
-function HeroStatusBadge({ status }: { status: 'Active' | 'Skipped' | 'Paused' | 'Off' }) {
+function HeroStatusBadge({ status }: { status: 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' }) {
   const map: Record<string, { bg: string; fg: string; icon: React.ReactNode }> = {
-    Active:  { bg: 'rgba(29,138,48,0.12)',  fg: '#1d8a30',           icon: <Check       size={12} strokeWidth={2.6} /> },
-    Paused:  { bg: 'rgba(255,170,0,0.16)',  fg: '#a36900',           icon: <PauseIcon   size={11} strokeWidth={2.4} /> },
-    Skipped: { bg: 'rgba(9,24,37,0.08)',    fg: 'rgba(9,24,37,0.62)',icon: <SkipForward size={11} strokeWidth={2.4} /> },
-    Off:     { bg: 'rgba(9,24,37,0.06)',    fg: 'rgba(9,24,37,0.55)',icon: <CalendarDays size={11} strokeWidth={2.2} /> },
+    Active:    { bg: 'rgba(29,138,48,0.12)',   fg: '#1d8a30',            icon: <Check        size={12} strokeWidth={2.6} /> },
+    // Scheduled — slate-blue, paired with a calendar glyph (timing not delivery)
+    Scheduled: { bg: 'rgba(58,111,140,0.12)',  fg: '#3a6f8c',            icon: <CalendarDays size={11} strokeWidth={2.2} /> },
+    Paused:    { bg: 'rgba(255,170,0,0.16)',   fg: '#a36900',            icon: <PauseIcon    size={11} strokeWidth={2.4} /> },
+    Skipped:   { bg: 'rgba(9,24,37,0.08)',     fg: 'rgba(9,24,37,0.62)', icon: <SkipForward  size={11} strokeWidth={2.4} /> },
+    Off:       { bg: 'rgba(9,24,37,0.06)',     fg: 'rgba(9,24,37,0.55)', icon: <CalendarDays size={11} strokeWidth={2.2} /> },
   }
   const c = map[status]
   return (
@@ -112,8 +114,8 @@ export function HeroToday({ todayMeal, localState, subStartDate }: {
   }, [isActive])
   const countdown = computeCountdown(now)
 
-  const badgeStatus: 'Active' | 'Skipped' | 'Paused' | 'Off' =
-    isStartingSoon ? 'Active'
+  const badgeStatus: 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' =
+    isStartingSoon ? 'Scheduled'
     : isPaused ? 'Paused' : isSkipped ? 'Skipped' : isOff ? 'Off' : 'Active'
 
   const startDateLabel = subStartDate

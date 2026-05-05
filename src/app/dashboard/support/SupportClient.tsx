@@ -16,10 +16,10 @@ const DISPLAY = BODY
 const S = {
   ...BASE_S,
   fgMuted: 'rgba(9,24,37,0.62)',
-  fgSub:   'rgba(9,24,37,0.50)',
+  fgSub: 'rgba(9,24,37,0.50)',
 }
 
-const WA_GREEN      = '#25D366'
+const WA_GREEN = '#25D366'
 const WA_GREEN_DARK = '#1ea34d'
 
 interface Customer {
@@ -29,7 +29,7 @@ interface Customer {
 const FAQS = [
   {
     q: 'When is my meal delivered?',
-    a: 'Every weekday (Monday–Saturday) by 7:45 AM, directly to your dorm building. Sunday is always a rest day — no delivery.',
+    a: 'Every weekday (Monday–Saturday) by 7-8 PM, directly to your dorm building. Sunday is always a rest day — no delivery.',
   },
   {
     q: 'Can I skip a meal?',
@@ -140,9 +140,9 @@ export default function SupportClient({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
                 {[
-                  { label: 'Name',  value: customer?.name  ?? '—', mono: false },
+                  { label: 'Name', value: customer?.name ?? '—', mono: false },
                   { label: 'Email', value: customer?.email ?? userEmail, mono: false },
-                  { label: 'ID',    value: customer?.cid   ?? '—', mono: true  },
+                  { label: 'ID', value: customer?.cid ?? '—', mono: true },
                 ].map(row => (
                   <div
                     key={row.label}

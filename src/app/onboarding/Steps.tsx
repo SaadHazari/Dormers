@@ -6,6 +6,7 @@ import { CtaButton, FieldInput, PillCard, SelectCard } from './primitives'
 import { EmailStep } from './EmailStep'
 import { PhoneStep } from './PhoneStep'
 import { ALLERGENS, DAYS_OF_WEEK, DORMS, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, type FormState, type Step } from './data'
+import { authTokens } from '@/lib/auth-theme'
 
 interface Props {
     step: Step
@@ -14,6 +15,7 @@ interface Props {
     advance: () => void
     toggleAllergen: (item: string) => void
     toggleVegDay: (day: string) => void
+    isLight: boolean
 }
 
 /**
@@ -25,18 +27,23 @@ interface Props {
  * internally, so they don't need handleCreate / error / isPending plumbing.
  */
 export function OnboardingSteps({
-    step, form, set, advance, toggleAllergen, toggleVegDay,
+    step, form, set, advance, toggleAllergen, toggleVegDay, isLight,
 }: Props) {
+    const tokens = authTokens(isLight)
+    // Eyebrow stays orange in both modes (brand mark).
+    const eyebrowCls = 'text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2'
+    const headlineCls = `text-[28px] sm:text-[32px] font-black tracking-tight leading-tight ${tokens.heading}`
+    const sublineCls = `text-[13px] mt-2 leading-relaxed ${tokens.subline}`
+    const captionCls = `text-[12px] text-center ${tokens.subline}`
+
     return (
         <>
             {/* ── Step 1: Meal Preference ── */}
             {step === 1 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Meal Preference</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            What are<br />you eating?
-                        </h1>
+                        <p className={eyebrowCls}>Meal Preference</p>
+                        <h1 className={headlineCls}>What are<br />you eating?</h1>
                     </div>
                     <div className="space-y-2.5">
                         {PREFERENCES.map(p => (
@@ -55,12 +62,10 @@ export function OnboardingSteps({
             {step === 1.5 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Halal Mix</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            Which days<br />do you want veg?
-                        </h1>
-                        <p className="text-white/40 text-[13px] mt-2 leading-relaxed">
-                            Select the days you prefer vegetarian meals. Leave all unselected for fully non-veg.
+                        <p className={eyebrowCls}>Halal Mix</p>
+                        <h1 className={headlineCls}>Which days<br />do you want veg?</h1>
+                        <p className={sublineCls}>
+                            Pick at least one day you want vegetarian meals.
                         </p>
                     </div>
 
@@ -78,7 +83,7 @@ export function OnboardingSteps({
                     {form.vegDays.length > 0 && (
                         <motion.p
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                            className="text-white/55 text-[12px] text-center"
+                            className={captionCls}
                         >
                             {form.vegDays.length === 6
                                 ? 'All days vegetarian.'
@@ -86,7 +91,7 @@ export function OnboardingSteps({
                         </motion.p>
                     )}
 
-                    <CtaButton onClick={advance}>Continue →</CtaButton>
+                    <CtaButton onClick={advance} disabled={form.vegDays.length === 0}>Continue →</CtaButton>
                 </div>
             )}
 
@@ -94,11 +99,9 @@ export function OnboardingSteps({
             {step === 2 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Dietary Needs</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            Any foods<br />to avoid?
-                        </h1>
-                        <p className="text-white/40 text-[13px] mt-2">Select all that apply. We take this seriously.</p>
+                        <p className={eyebrowCls}>Dietary Needs</p>
+                        <h1 className={headlineCls}>Any foods<br />to avoid?</h1>
+                        <p className={sublineCls}>Select all that apply. We take this seriously.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2.5">
                         {ALLERGENS.map(a => (
@@ -110,7 +113,7 @@ export function OnboardingSteps({
                             label="None — no allergies"
                         />
                     </div>
-                    <CtaButton onClick={advance}>Continue →</CtaButton>
+                    <CtaButton onClick={advance} disabled={form.allergens.length === 0}>Continue →</CtaButton>
                 </div>
             )}
 
@@ -118,11 +121,9 @@ export function OnboardingSteps({
             {step === 3 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Spice Level</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            How much<br />heat?
-                        </h1>
-                        <p className="text-white/40 text-[13px] mt-2">We season every meal accordingly.</p>
+                        <p className={eyebrowCls}>Spice Level</p>
+                        <h1 className={headlineCls}>How much<br />heat?</h1>
+                        <p className={sublineCls}>We season every meal accordingly.</p>
                     </div>
                     <div className="space-y-2.5">
                         {SPICE_LEVELS.map(s => (
@@ -141,10 +142,8 @@ export function OnboardingSteps({
             {step === 4 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Location</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            Where should<br />we drop it?
-                        </h1>
+                        <p className={eyebrowCls}>Location</p>
+                        <h1 className={headlineCls}>Where should<br />we drop it?</h1>
                     </div>
                     <div className="grid grid-cols-2 gap-2.5">
                         {DORMS.map(d => (
@@ -180,10 +179,8 @@ export function OnboardingSteps({
             {step === 5 && (
                 <div className="space-y-5">
                     <div>
-                        <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">University</p>
-                        <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
-                            Where do<br />you study?
-                        </h1>
+                        <p className={eyebrowCls}>University</p>
+                        <h1 className={headlineCls}>Where do<br />you study?</h1>
                     </div>
                     <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                         {UNIVERSITIES.map(u => (
@@ -192,8 +189,8 @@ export function OnboardingSteps({
                                 onClick={() => { set('university', u); if (u !== 'Other') setTimeout(advance, 180) }}
                                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-[13px] font-semibold transition-all duration-150 ${
                                     form.university === u
-                                        ? 'border-[#f57f20] bg-[#f57f20]/[0.06] text-white'
-                                        : 'border-[#1e3448] bg-[#0d2035] text-white/60 hover:border-[#2a4a68] hover:text-white/80'
+                                        ? `${tokens.selectableSelected} ${isLight ? 'text-[#091825]' : 'text-white'}`
+                                        : `${tokens.selectableUnselected} ${isLight ? 'text-[#091825]/65 hover:text-[#091825]' : 'text-white/65 hover:text-white'}`
                                 }`}
                             >
                                 <span>{u}</span>

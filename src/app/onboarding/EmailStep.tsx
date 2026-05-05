@@ -8,6 +8,10 @@ import { CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { CtaButton, FieldInput } from './primitives'
 import { createAccount, resendEmailOtp, verifyEmailOtp } from './actions'
 import { DRAFT_KEY, type FormState } from './data'
+import { useIsLight } from '@/hooks/useIsLight'
+import { authTokens } from '@/lib/auth-theme'
+import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 
 // Supabase email OTPs in this project are 8 digits (configured in
 // Auth → Settings → Email OTP length). Bump this if you change that setting;
@@ -35,7 +39,9 @@ export function EmailStep({ form, set }: {
     const [isPending, startTransition] = useTransition()
     const codeRef = useRef<HTMLInputElement>(null)
 
-    // Resend cooldown ticker.
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+
     useEffect(() => {
         if (resendIn <= 0) return
         const t = setTimeout(() => setResendIn(s => s - 1), 1000)
@@ -46,9 +52,8 @@ export function EmailStep({ form, set }: {
         if (isPending) return
         setError('')
         if (!form.email.trim()) { setError('Email is required.'); return }
-        if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return }
+        if (!isPasswordStrong(form.password)) { setError(PASSWORD_RULES_TEXT); return }
 
-        // Resolve "Other" choices the same way the legacy handler in page.tsx did.
         const finalDorm = form.dorm === 'Other' ? form.customDorm.trim() : form.dorm
         const finalUni  = form.university === 'Other' ? form.customUniversity.trim() : form.university
 
@@ -65,8 +70,6 @@ export function EmailStep({ form, set }: {
                 password:   form.password,
                 vegDays:    form.vegDays,
             })
-            // Server-side redirect happened (existing user → /login, or session
-            // already active → /dashboard). Wipe the draft and let it land.
             if (!result) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} ; return }
             if ('error' in result) { setError(result.error); return }
             if ('requiresConfirmation' in result) {
@@ -86,12 +89,10 @@ export function EmailStep({ form, set }: {
             const res = await verifyEmailOtp(form.email.trim(), token)
             if ('error' in res) { setError(prettifyError(res.error)); return }
             setVerified(true)
-            // Brief beat so the green check is visible before the redirect.
             setTimeout(() => router.replace('/dashboard'), 500)
         })
     }
 
-    // Auto-verify the moment the user finishes typing/pasting a full code.
     useEffect(() => {
         if (code.length === OTP_LENGTH) verify(code)
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,9 +110,6 @@ export function EmailStep({ form, set }: {
         })
     }
 
-    // Escape hatch from 'sent' phase. Keeps email/password editable so the
-    // user can fix a typo without losing their place. The old unconfirmed
-    // auth user becomes a short-lived orphan — Supabase cleans those up.
     const editCredentials = () => {
         setStage('enter')
         setCode('')
@@ -119,8 +117,6 @@ export function EmailStep({ form, set }: {
         setResendIn(0)
     }
 
-    // Single submit handler for both phases. Fires on Enter in any input AND
-    // on CTA click. Phase decides which action runs.
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (verified || isPending) return
@@ -130,14 +126,25 @@ export function EmailStep({ form, set }: {
 
     const lockedFields = stage === 'sent'
 
+    const headlineCls    = `text-[28px] sm:text-[32px] font-black tracking-tight leading-tight ${tokens.heading}`
+    const sublineCls     = `text-[13px] mt-2 ${tokens.subline}`
+    const labelCls       = `block text-[11px] font-bold uppercase tracking-widest mb-1.5 ${tokens.label}`
+    const sentToCls      = `text-[11px] flex-1 min-w-0 ${tokens.subline}`
+    const sentToValueCls = `font-medium break-all ${isLight ? 'text-[#091825]/85' : 'text-white/85'}`
+    const termsCls       = `text-center text-[11px] ${tokens.termsBase}`
+    const termsLinkCls   = `underline transition-colors ${tokens.termsHover}`
+    const eyeBtnCls      = `absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-colors ${tokens.eyeBtn}`
+
+    const passInputCls = `w-full rounded-xl px-4 py-3 pr-11 text-[14px] outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`
+
     return (
         <form onSubmit={handleSubmit} className="space-y-5">
             <div>
                 <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">Create Account</p>
-                <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
+                <h1 className={headlineCls}>
                     You&apos;re<br />almost in.
                 </h1>
-                <p className="text-white/40 text-[13px] mt-2">
+                <p className={sublineCls}>
                     {stage === 'enter'
                         ? 'Create your login to lock in your preferences.'
                         : `Enter the ${OTP_LENGTH}-digit code we just emailed you.`}
@@ -145,9 +152,6 @@ export function EmailStep({ form, set }: {
             </div>
 
             <div className="space-y-3">
-                {/* Email + password stay mounted across both phases. Only their
-                    enabled state changes — mirrors the Stripe / Notion / GitHub
-                    pattern of "context never disappears during verification". */}
                 <FieldInput
                     label="Email Address"
                     type="email"
@@ -159,33 +163,27 @@ export function EmailStep({ form, set }: {
                 />
 
                 <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1.5">Password</label>
+                    <label className={labelCls}>Password</label>
                     <div className="relative">
                         <input
                             type={showPass ? 'text' : 'password'}
-                            placeholder="Min. 8 characters"
+                            placeholder="Choose a strong password"
                             value={form.password}
                             onChange={e => set('password', e.target.value)}
                             autoComplete="new-password"
                             disabled={lockedFields}
-                            className="w-full bg-[#0d2035] border border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.08)] rounded-xl px-4 py-3 pr-11 text-white text-[14px] placeholder-white/20 outline-none transition-all disabled:opacity-60"
+                            className={passInputCls}
                         />
-                        <button type="button" tabIndex={-1} onClick={() => setShowPass(v => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/25 hover:text-white/55 transition-colors">
+                        <button type="button" tabIndex={-1} onClick={() => setShowPass(v => !v)} className={eyeBtnCls}>
                             {showPass ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
                         </button>
                     </div>
-                    {!lockedFields && (
-                        <p className="text-white/25 text-[12px] mt-1.5">Use at least 8 characters.</p>
-                    )}
+                    {!lockedFields && <PasswordChecklist password={form.password} />}
                 </div>
 
-                {/* OTP appears below the locked credentials, completing the form. */}
                 {stage === 'sent' && (
                     <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1.5">
-                            Verification Code
-                        </label>
+                        <label className={labelCls}>Verification Code</label>
                         <div className="relative">
                             <input
                                 ref={codeRef}
@@ -197,10 +195,10 @@ export function EmailStep({ form, set }: {
                                 onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
                                 placeholder={'•'.repeat(OTP_LENGTH)}
                                 disabled={isPending || verified}
-                                className={`w-full bg-[#0d2035] border rounded-xl px-4 py-3 pr-11 text-white text-[18px] font-mono tracking-[0.35em] placeholder-white/15 outline-none transition-all disabled:opacity-60 ${
+                                className={`w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.35em] outline-none transition-all disabled:opacity-60 border ${tokens.field} ${
                                     verified
                                         ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.08)]'
-                                        : 'border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.08)]'
+                                        : tokens.fieldFocus
                                 }`}
                             />
                             {verified && (
@@ -208,8 +206,8 @@ export function EmailStep({ form, set }: {
                             )}
                         </div>
                         <div className="flex items-center justify-between mt-1.5 gap-3 flex-wrap">
-                            <p className="text-white/45 text-[11px] flex-1 min-w-0">
-                                Sent to <span className="text-white/70 font-medium break-all">{form.email}</span>.{' '}
+                            <p className={sentToCls}>
+                                Sent to <span className={sentToValueCls}>{form.email}</span>.{' '}
                                 <button
                                     type="button"
                                     onClick={editCredentials}
@@ -222,7 +220,7 @@ export function EmailStep({ form, set }: {
                                 type="button"
                                 onClick={resend}
                                 disabled={resendIn > 0 || isPending}
-                                className="text-[#f57f20] text-[11px] font-semibold disabled:text-white/30 disabled:pointer-events-none whitespace-nowrap"
+                                className={`text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none whitespace-nowrap ${isLight ? 'disabled:text-[#091825]/55' : 'disabled:text-white/55'}`}
                             >
                                 {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
                             </button>
@@ -234,7 +232,7 @@ export function EmailStep({ form, set }: {
             <AnimatePresence>
                 {error && (
                     <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className="px-4 py-3 rounded-xl bg-red-500/[0.08] border border-red-500/[0.18] text-red-400 text-[13px] text-center">
+                        className={`${tokens.errorBanner} ${tokens.errorText}`}>
                         {error}
                     </motion.div>
                 )}
@@ -243,7 +241,7 @@ export function EmailStep({ form, set }: {
             {stage === 'enter' ? (
                 <CtaButton
                     type="submit"
-                    disabled={isPending || !form.email.trim() || form.password.length < 8}
+                    disabled={isPending || !form.email.trim() || !isPasswordStrong(form.password)}
                 >
                     {isPending ? 'Sending…' : 'Send verification code →'}
                 </CtaButton>
@@ -255,10 +253,10 @@ export function EmailStep({ form, set }: {
                 </CtaButton>
             )}
 
-            <p className="text-center text-white/20 text-[11px]">
+            <p className={termsCls}>
                 By continuing you agree to our{' '}
-                <Link href="/terms" className="underline hover:text-white/40 transition-colors">Terms</Link>{' '}and{' '}
-                <Link href="/privacy" className="underline hover:text-white/40 transition-colors">Privacy Policy</Link>.
+                <Link href="/terms" className={termsLinkCls}>Terms</Link>{' '}and{' '}
+                <Link href="/privacy" className={termsLinkCls}>Privacy Policy</Link>.
             </p>
         </form>
     )

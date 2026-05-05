@@ -1,72 +1,104 @@
+'use client'
+
 import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COUNTRIES, combinePhone, splitPhone, type Country } from './countries'
+import { useIsLight } from '@/hooks/useIsLight'
+import { authTokens } from '@/lib/auth-theme'
 
 // ─── shared UI primitives ─────────────────────────────────────────────────────
 
 export const SelectCard = ({
     selected, onClick, emoji, label, desc,
-}: { selected: boolean; onClick: () => void; emoji: string; label: string; desc?: string }) => (
-    <button
-        onClick={onClick}
-        className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border text-left transition-all duration-150 ${
-            selected
-                ? 'border-[#f57f20] bg-[#f57f20]/[0.06]'
-                : 'border-[#1e3448] bg-[#0d2035] hover:border-[#2a4a68] hover:bg-[#0f2540]'
-        }`}
-    >
-        <span className="text-xl shrink-0">{emoji}</span>
-        <div className="flex-1 min-w-0">
-            <p className={`font-semibold text-[14px] ${selected ? 'text-white' : 'text-white/80'}`}>{label}</p>
-            {desc && <p className="text-white/40 text-[12px] mt-0.5 leading-snug">{desc}</p>}
-        </div>
-        {selected && <Check size={15} className="text-[#f57f20] shrink-0" strokeWidth={2.5} />}
-    </button>
-)
+}: { selected: boolean; onClick: () => void; emoji: string; label: string; desc?: string }) => {
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+    return (
+        <button
+            onClick={onClick}
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border text-left transition-all duration-150 ${
+                selected ? tokens.selectableSelected : tokens.selectableUnselected
+            }`}
+        >
+            <span className="text-xl shrink-0">{emoji}</span>
+            <div className="flex-1 min-w-0">
+                <p className={`font-semibold text-[14px] ${
+                    selected
+                        ? tokens.heading
+                        : (isLight ? 'text-[#091825]/85' : 'text-white/80')
+                }`}>{label}</p>
+                {desc && <p className={`text-[12px] mt-0.5 leading-snug ${tokens.subline}`}>{desc}</p>}
+            </div>
+            {selected && <Check size={15} className="text-[#f57f20] shrink-0" strokeWidth={2.5} />}
+        </button>
+    )
+}
 
 export const PillCard = ({
     selected, onClick, label,
-}: { selected: boolean; onClick: () => void; label: string }) => (
-    <button
-        onClick={onClick}
-        className={`flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all duration-150 ${
-            selected
-                ? 'border-[#f57f20] bg-[#f57f20]/[0.07] text-white'
-                : 'border-[#1e3448] bg-[#0d2035] text-white/55 hover:border-[#2a4a68] hover:text-white/80'
-        }`}
-    >
-        {selected && <Check size={12} className="text-[#f57f20] shrink-0" strokeWidth={3} />}
-        <span className="text-[13px] font-semibold">{label}</span>
-    </button>
-)
+}: { selected: boolean; onClick: () => void; label: string }) => {
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+    const selectedText = isLight ? 'text-[#091825]' : 'text-white'
+    const unselectedText = isLight ? 'text-[#091825]/65 hover:text-[#091825]' : 'text-white/65 hover:text-white'
+    return (
+        <button
+            onClick={onClick}
+            className={`flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all duration-150 ${
+                selected
+                    ? `${tokens.selectableSelected} ${selectedText}`
+                    : `${tokens.selectableUnselected} ${unselectedText}`
+            }`}
+        >
+            {selected && <Check size={12} className="text-[#f57f20] shrink-0" strokeWidth={3} />}
+            <span className="text-[13px] font-semibold">{label}</span>
+        </button>
+    )
+}
 
 export const CtaButton = ({
     children, onClick, disabled = false, type = 'button',
-}: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; type?: 'button' | 'submit' }) => (
-    <button
-        type={type}
-        onClick={onClick}
-        disabled={disabled}
-        className="w-full flex items-center justify-center gap-2 bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] disabled:opacity-35 disabled:pointer-events-none text-white font-bold text-[14px] py-3.5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,127,32,0.25)] hover:shadow-[0_4px_28px_rgba(245,127,32,0.4)]"
-    >
-        {children}
-    </button>
-)
+}: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; type?: 'button' | 'submit' }) => {
+    const isLight = useIsLight()
+    // Disabled style is a desaturated neutral, not faded orange. Faded orange
+    // (the previous opacity-55 approach) collapsed white-on-orange contrast to
+    // ~2.4:1 against the dark navy bg — neutral surface keeps the disabled
+    // state legible in both themes.
+    const stateCls = disabled
+        ? (isLight
+            ? 'bg-[#091825]/[0.06] text-[#091825]/65 pointer-events-none'
+            : 'bg-white/[0.07] text-white/65 pointer-events-none')
+        : 'bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] text-white shadow-[0_4px_20px_rgba(245,127,32,0.25)] hover:shadow-[0_4px_28px_rgba(245,127,32,0.4)]'
+    return (
+        <button
+            type={type}
+            onClick={onClick}
+            disabled={disabled}
+            className={`w-full flex items-center justify-center gap-2 font-bold text-[14px] py-3.5 rounded-xl transition-all ${stateCls}`}
+        >
+            {children}
+        </button>
+    )
+}
 
 export const FieldInput = ({
     label, ...props
-}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
-    <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1.5">
-            {label}
-        </label>
-        <input
-            {...props}
-            className={`w-full bg-[#0d2035] border border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.08)] rounded-xl px-4 py-3 text-white text-[14px] placeholder-white/20 outline-none transition-all ${props.className ?? ''}`}
-        />
-    </div>
-)
+}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => {
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+    return (
+        <div>
+            <label className={`block text-[11px] font-bold uppercase tracking-widest mb-1.5 ${tokens.label}`}>
+                {label}
+            </label>
+            <input
+                {...props}
+                className={`w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} ${props.className ?? ''}`}
+            />
+        </div>
+    )
+}
 
 // Phone with split country-code dropdown + local-number input.
 // Lifts the combined E.164 string ("+971504619384") to the parent via onChange,
@@ -80,6 +112,8 @@ export const PhoneField = ({
     placeholder?: string
     disabled?: boolean
 }) => {
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
     const initial = useMemo(() => splitPhone(value), []) // eslint-disable-line react-hooks/exhaustive-deps
     const [country, setCountry] = useState<Country>(initial.country)
     const [local,   setLocal]   = useState(initial.local)
@@ -92,22 +126,16 @@ export const PhoneField = ({
     const popRef     = useRef<HTMLDivElement>(null)
     const searchRef  = useRef<HTMLInputElement>(null)
 
-    // Portal needs document.body — only available on the client.
     useEffect(() => { setMounted(true) }, [])
-
-    // Keep parent in sync whenever either part changes.
     useEffect(() => {
         onChange(combinePhone(country, local))
     }, [country, local]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Compute the trigger's screen rect so the portal'd popover can pin to it.
-    // Recalc on open + on scroll/resize while open so the popover tracks the
-    // input even if the page moves under it.
     useLayoutEffect(() => {
         if (!open) return
         const update = () => {
             const r = triggerRef.current?.getBoundingClientRect()
-            if (r) setAnchor({ left: r.left, top: r.bottom }) // popover top sits just under the trigger
+            if (r) setAnchor({ left: r.left, top: r.bottom })
         }
         update()
         window.addEventListener('scroll',  update, true)
@@ -118,8 +146,6 @@ export const PhoneField = ({
         }
     }, [open])
 
-    // Click-outside to close. Checks both the trigger wrapper AND the portal'd
-    // popover, since the popover is no longer a DOM descendant of the field.
     useEffect(() => {
         if (!open) return
         const onClick = (e: MouseEvent) => {
@@ -132,7 +158,6 @@ export const PhoneField = ({
         return () => document.removeEventListener('mousedown', onClick)
     }, [open])
 
-    // Esc closes; focus the search field on open.
     useEffect(() => {
         if (!open) return
         searchRef.current?.focus()
@@ -148,13 +173,21 @@ export const PhoneField = ({
         })
         : COUNTRIES
 
+    // Theme-aware popover colours — keeps the portal'd dropdown matching the
+    // surrounding form even though it lives outside the React tree.
+    const popoverBg     = isLight ? '#ffffff' : '#0d2035'
+    const popoverBorder = isLight ? 'rgba(9,24,37,0.12)' : '#2a4a68'
+    const popoverShadow = isLight
+        ? '0 24px 50px -8px rgba(9,24,37,0.18), 0 4px 12px rgba(9,24,37,0.10)'
+        : '0 24px 50px -8px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.5)'
+    const scrimColor    = isLight ? 'rgba(9,24,37,0.30)' : 'rgba(6,21,32,0.65)'
+
     return (
         <div ref={wrapRef} className="relative">
-            <label className="block text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1.5">
+            <label className={`block text-[11px] font-bold uppercase tracking-widest mb-1.5 ${tokens.label}`}>
                 {label}
             </label>
             <div className="flex gap-2">
-                {/* Country code trigger */}
                 <button
                     ref={triggerRef}
                     type="button"
@@ -162,18 +195,19 @@ export const PhoneField = ({
                     aria-haspopup="listbox"
                     aria-expanded={open}
                     disabled={disabled}
-                    className={`shrink-0 flex items-center gap-1.5 bg-[#0d2035] border rounded-xl px-3 py-3 text-white text-[14px] outline-none transition-all disabled:opacity-60 disabled:pointer-events-none ${
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-3 text-[14px] outline-none transition-all border disabled:opacity-60 disabled:pointer-events-none ${
+                        isLight ? 'bg-white/80 text-[#091825]' : 'bg-[#0d2035]/80 text-white'
+                    } ${
                         open
                             ? 'border-[#f57f20]/70 shadow-[0_0_0_3px_rgba(245,127,32,0.08)]'
-                            : 'border-[#1e3448] hover:border-[#2a4a68]'
+                            : (isLight ? 'border-[#091825]/[0.12] hover:border-[#091825]/[0.22]' : 'border-[#1e3448] hover:border-[#2a4a68]')
                     }`}
                 >
                     <span className="text-[16px] leading-none">{country.flag}</span>
                     <span className="font-semibold tracking-tight">{country.dial}</span>
-                    <ChevronDown size={14} className={`text-white/40 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+                    <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''} ${isLight ? 'text-[#091825]/60' : 'text-white/60'}`} strokeWidth={2.5} />
                 </button>
 
-                {/* Local number */}
                 <input
                     type="tel"
                     inputMode="numeric"
@@ -181,26 +215,12 @@ export const PhoneField = ({
                     onChange={e => setLocal(e.target.value.replace(/[^\d\s-]/g, ''))}
                     placeholder={placeholder ?? '50 000 0000'}
                     disabled={disabled}
-                    className="flex-1 min-w-0 w-full bg-[#0d2035] border border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.08)] rounded-xl px-4 py-3 text-white text-[14px] placeholder-white/20 outline-none transition-all disabled:opacity-60"
+                    className={`flex-1 min-w-0 rounded-xl px-4 py-3 text-[14px] outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`}
                 />
             </div>
 
-            {/* Popover renders into <body> via portal. The step's parent
-                <motion.div> sets `transform`, which creates a stacking context —
-                rendering the popover inside the field wrapper made z-index local
-                to that context, so the orange CTA showed through. Portaling to
-                body escapes the context entirely.
-
-                Opens downward from the trigger (the standard pattern users
-                expect). The backdrop scrim dims the rest of the form so the
-                Continue CTA below the popover recedes visually instead of
-                competing with the country list. Click backdrop to dismiss.
-
-                Position is computed from the trigger's getBoundingClientRect()
-                and lives in viewport coords (position: fixed). */}
             {mounted && open && anchor && createPortal(
                 <>
-                    {/* Scrim — dims the form behind the popover */}
                     <div
                         onClick={() => setOpen(false)}
                         aria-hidden
@@ -208,10 +228,9 @@ export const PhoneField = ({
                             position:        'fixed',
                             inset:           0,
                             zIndex:          9998,
-                            backgroundColor: 'rgba(6,21,32,0.65)',
+                            backgroundColor: scrimColor,
                         }}
                     />
-                    {/* Popover card */}
                     <div
                         ref={popRef}
                         role="listbox"
@@ -223,22 +242,22 @@ export const PhoneField = ({
                             width:           280,
                             overflow:        'clip',
                             borderRadius:    12,
-                            border:          '1px solid #2a4a68',
-                            backgroundColor: '#0d2035',
+                            border:          `1px solid ${popoverBorder}`,
+                            backgroundColor: popoverBg,
                             backgroundImage: 'none',
-                            boxShadow:       '0 24px 50px -8px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.5)',
+                            boxShadow:       popoverShadow,
                         }}
                     >
-                        {/* Integrated search header — no form-field framing; reads
-                            as part of the popover, separated only by a hairline. */}
-                        <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
+                        <div className={`px-3 pt-3 pb-2 border-b ${isLight ? 'border-[#091825]/[0.06]' : 'border-white/[0.06]'}`}>
                             <input
                                 ref={searchRef}
                                 type="text"
                                 value={query}
                                 onChange={e => setQuery(e.target.value)}
                                 placeholder="Search country or code"
-                                className="w-full bg-transparent text-white text-[13px] placeholder-white/30 outline-none"
+                                className={`w-full bg-transparent text-[13px] outline-none ${
+                                    isLight ? 'text-[#091825] placeholder-[#091825]/55' : 'text-white placeholder-white/55'
+                                }`}
                             />
                         </div>
                         <div
@@ -253,7 +272,7 @@ export const PhoneField = ({
                             }}
                         >
                             {filtered.length === 0 && (
-                                <p className="px-3 py-3 text-white/40 text-[12px]">No matches.</p>
+                                <p className={`px-3 py-3 text-[12px] ${isLight ? 'text-[#091825]/65' : 'text-white/65'}`}>No matches.</p>
                             )}
                             {filtered.map(c => {
                                 const selected = c.code === country.code
@@ -265,12 +284,14 @@ export const PhoneField = ({
                                         aria-selected={selected}
                                         onClick={() => { setCountry(c); setOpen(false); setQuery('') }}
                                         className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                                            selected ? 'bg-[#f57f20]/[0.12]' : 'hover:bg-white/[0.04]'
+                                            selected
+                                                ? 'bg-[#f57f20]/[0.12]'
+                                                : (isLight ? 'hover:bg-[#091825]/[0.04]' : 'hover:bg-white/[0.04]')
                                         }`}
                                     >
                                         <span className="text-[16px] leading-none shrink-0">{c.flag}</span>
-                                        <span className="flex-1 text-white text-[13px] font-medium truncate">{c.name}</span>
-                                        <span className={`text-[12px] tabular-nums shrink-0 ${selected ? 'text-[#f57f20] font-semibold' : 'text-white/55'}`}>{c.dial}</span>
+                                        <span className={`flex-1 text-[13px] font-medium truncate ${isLight ? 'text-[#091825]' : 'text-white'}`}>{c.name}</span>
+                                        <span className={`text-[12px] tabular-nums shrink-0 ${selected ? 'text-[#f57f20] font-semibold' : (isLight ? 'text-[#091825]/55' : 'text-white/55')}`}>{c.dial}</span>
                                         {selected && <Check size={12} className="text-[#f57f20] shrink-0" strokeWidth={2.5} />}
                                     </button>
                                 )

@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { CtaButton, FieldInput, PhoneField } from './primitives'
 import type { FormState } from './data'
+import { useIsLight } from '@/hooks/useIsLight'
+import { authTokens } from '@/lib/auth-theme'
+import { isAlphaName, sanitizeNameInput } from '@/lib/validation'
 
 const OTP_LENGTH = 6 // we generate 6-digit codes server-side; see /api/whatsapp/start
 
@@ -32,6 +35,9 @@ export function PhoneStep({
     const [resendIn, setResendIn] = useState(0)
     const otpRef = useRef<HTMLInputElement>(null)
 
+    const isLight = useIsLight()
+    const tokens = authTokens(isLight)
+
     // Resend cooldown ticker. Plain interval, cleaned up on unmount/change.
     useEffect(() => {
         if (resendIn <= 0) return
@@ -40,7 +46,7 @@ export function PhoneStep({
     }, [resendIn])
 
     const sendCode = async () => {
-        if (busy || !form.name.trim() || !form.phone.trim()) return
+        if (busy || !isAlphaName(form.name) || !form.phone.trim()) return
         setBusy(true); setError('')
         try {
             const res  = await fetch('/api/whatsapp/start', {
@@ -120,7 +126,7 @@ export function PhoneStep({
         <form onSubmit={handleSubmit} className="space-y-5">
             <div>
                 <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">About You</p>
-                <h1 className="text-[28px] sm:text-[32px] font-black text-white tracking-tight leading-tight">
+                <h1 className={`text-[28px] sm:text-[32px] font-black tracking-tight leading-tight ${tokens.heading}`}>
                     Who are we<br />delivering to?
                 </h1>
             </div>
@@ -131,7 +137,9 @@ export function PhoneStep({
                     type="text"
                     placeholder="Your name"
                     value={form.name}
-                    onChange={e => set('name', e.target.value)}
+                    onChange={e => set('name', sanitizeNameInput(e.target.value))}
+                    autoCapitalize="words"
+                    autoComplete="name"
                     disabled={phoneLocked}
                 />
                 <div>
@@ -142,7 +150,7 @@ export function PhoneStep({
                         disabled={phoneLocked}
                     />
                     {stage === 'enter' && (
-                        <p className="text-white/45 text-[11px] mt-1.5">
+                        <p className={`text-[11px] mt-1.5 ${tokens.subline}`}>
                             We&apos;ll send a 6-digit code to verify this is your number.
                         </p>
                     )}
@@ -150,7 +158,7 @@ export function PhoneStep({
 
                 {stage === 'sent' && (
                     <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-white/35 mb-1.5">
+                        <label className={`block text-[11px] font-bold uppercase tracking-widest mb-1.5 ${tokens.label}`}>
                             Verification Code
                         </label>
                         <div className="relative">
@@ -164,10 +172,10 @@ export function PhoneStep({
                                 onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
                                 placeholder={'•'.repeat(OTP_LENGTH)}
                                 disabled={busy || form.phoneVerified}
-                                className={`w-full bg-[#0d2035] border rounded-xl px-4 py-3 pr-11 text-white text-[18px] font-mono tracking-[0.4em] placeholder-white/15 outline-none transition-all disabled:opacity-60 ${
+                                className={`w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.4em] outline-none transition-all disabled:opacity-60 border ${tokens.field} ${
                                     form.phoneVerified
                                         ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.08)]'
-                                        : 'border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.08)]'
+                                        : tokens.fieldFocus
                                 }`}
                             />
                             {form.phoneVerified && (
@@ -179,8 +187,8 @@ export function PhoneStep({
                             )}
                         </div>
                         <div className="flex items-center justify-between mt-1.5 gap-3 flex-wrap">
-                            <p className="text-white/45 text-[11px] flex-1 min-w-0">
-                                Sent to <span className="text-white/70 font-medium font-mono">{form.phone}</span>.{' '}
+                            <p className={`text-[11px] flex-1 min-w-0 ${tokens.subline}`}>
+                                Sent to <span className={`font-medium font-mono ${isLight ? 'text-[#091825]/85' : 'text-white/85'}`}>{form.phone}</span>.{' '}
                                 <button
                                     type="button"
                                     onClick={editPhone}
@@ -193,7 +201,7 @@ export function PhoneStep({
                                 type="button"
                                 onClick={sendCode}
                                 disabled={resendIn > 0 || busy}
-                                className="text-[#f57f20] text-[11px] font-semibold disabled:text-white/30 disabled:pointer-events-none whitespace-nowrap"
+                                className={`text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none whitespace-nowrap ${isLight ? 'disabled:text-[#091825]/55' : 'disabled:text-white/55'}`}
                             >
                                 {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
                             </button>
@@ -202,7 +210,7 @@ export function PhoneStep({
                 )}
 
                 {error && (
-                    <p className="text-[#ef4444] text-[12px] font-medium">{error}</p>
+                    <p className={`text-[12px] font-medium ${tokens.errorText}`}>{error}</p>
                 )}
             </div>
 
@@ -211,7 +219,7 @@ export function PhoneStep({
             ) : stage === 'enter' ? (
                 <CtaButton
                     type="submit"
-                    disabled={!form.name.trim() || !form.phone.trim() || busy}
+                    disabled={!isAlphaName(form.name) || !form.phone.trim() || busy}
                 >
                     {busy ? 'Sending…' : 'Send code →'}
                 </CtaButton>

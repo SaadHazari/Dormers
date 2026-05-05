@@ -60,8 +60,11 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
               transition={{ duration: isQuick ? 0.25 : 0.6, delay: isQuick ? 0 : 0.2 }}
               className="mb-8 relative w-[200px] h-[200px] sm:w-[260px] sm:h-[260px]"
             >
+              {/* logo-dark.svg = light-coloured logo for DARK surfaces. The
+                  preloader is bg-[#091825] (deep navy). Convention named by
+                  target surface, not own colour. */}
               <Image
-                src="/logo.png"
+                src="/logo-dark.svg"
                 alt="Dormers Logo"
                 fill
                 className="object-contain opacity-90"

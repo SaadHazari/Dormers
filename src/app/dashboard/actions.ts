@@ -107,6 +107,64 @@ export async function resumeSubscription(subscriptionId: string) {
   return { success: true };
 }
 
+/**
+ * Move the start date of a Scheduled subscription. Only allowed *before* the
+ * plan begins — once it's active, the only way to extend the timeline is via
+ * skip / pause. Recomputes end_date from the plan's duration so the cycle
+ * stays the same length.
+ */
+export async function changeStartDate(subscriptionId: string, newStartDate: string) {
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
+
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
+
+  // Gate on Scheduled — once a plan has started, the operations team is
+  // already cooking on a schedule; moving the start date is a manual reschedule.
+  const isScheduled =
+    subscription.status === SUBSCRIPTION_STATUS.SCHEDULED ||
+    new Date(subscription.start_date).getTime() > Date.now();
+  if (!isScheduled) {
+    return { error: 'Your plan has already started — message us on WhatsApp if you need to reschedule.' };
+  }
+
+  // YYYY-MM-DD format + window check (tomorrow ≤ newStart ≤ today + 31).
+  // Mirror the same guards as /api/checkout so a tampered call can't bypass.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newStartDate)) {
+    return { error: 'Invalid date format' };
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const minStart = new Date(today); minStart.setDate(minStart.getDate() + 1);
+  const maxStart = new Date(today); maxStart.setDate(maxStart.getDate() + 31);
+  const requested = new Date(newStartDate + 'T00:00:00');
+  if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
+    return { error: 'Pick a date within the next 30 days.' };
+  }
+
+  // Recompute end_date from the plan's canonical duration. Avoids drift if
+  // the previous end_date was hand-edited or accumulated skip/pause extensions
+  // (shouldn't be possible on a Scheduled sub, but defensive).
+  const planDef = resolvePlan(subscription.plan_name);
+  if (!planDef) return { error: 'Could not resolve plan' };
+  const newEnd = new Date(requested);
+  newEnd.setDate(newEnd.getDate() + planDef.durationDays);
+
+  const { error: updateError } = await auth.supabase
+    .from('subscriptions')
+    .update({
+      start_date: requested.toISOString(),
+      end_date: newEnd.toISOString(),
+    })
+    .eq('id', subscriptionId);
+
+  if (updateError) return { error: 'Failed to update start date.' };
+
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
 export async function skipMeal(subscriptionId: string) {
   const auth = await requireUser();
   if (!auth.ok) return { error: auth.error };
