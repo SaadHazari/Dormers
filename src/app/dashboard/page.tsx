@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription } from '@/utils/supabase/queries'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
@@ -57,10 +57,11 @@ export default async function DashboardPage({
     const user = await getUserFromHeaders()
     if (!user) redirect('/login')
 
-    const [customer, activeSubscription, allSubscriptions] = await Promise.all([
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
+        getQueuedSubscription(user.id),
     ])
 
     return (
@@ -69,6 +70,7 @@ export default async function DashboardPage({
                 customer={customer}
                 activeSubscription={activeSubscription}
                 allSubscriptions={allSubscriptions}
+                queuedSubscription={queuedSubscription}
                 userEmail={user.email}
             />
         </Suspense>

@@ -9,6 +9,7 @@ import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 import { OG, NV, CR, BG, BODY, S, TIER1, TIER2, TIER3 } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
+import { vegDayNumbersFor } from '@/lib/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
@@ -18,6 +19,12 @@ const DISPLAY = BODY
 interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null
   meal_preference_type?: string | null; dorm_name?: string | null; created_at: string
+  week_type?: '5DAYS' | '6DAYS' | null
+}
+
+interface ActiveSubLike {
+  week_type?: '5DAYS' | '6DAYS' | null
+  veg_days?: string[] | null
 }
 
 type WeekMeal = {
@@ -37,7 +44,18 @@ type WeekMeal = {
 // ── Menu data helpers ─────────────────────────────────────────────────────────
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-function buildFullMenu(prefIsVeg: boolean): { week: string; meals: WeekMeal[] }[] {
+/**
+ * Builds the customer's full menu for THIS week and NEXT week.
+ *
+ * `vegDayNumbers` is the per-day veg/non-veg map: for plain Veg/NonVeg it's
+ * all-or-nothing; for religious-mix it reflects exactly the customer's
+ * sub.veg_days choice. Days outside the working window (Sat for 5DAYS,
+ * Sun for any) render as "Off".
+ */
+function buildFullMenu(
+  vegDayNumbers: Set<number>,
+  weekType: '5DAYS' | '6DAYS',
+): { week: string; meals: WeekMeal[] }[] {
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0)
   const todayDay = todayMidnight.getDay()
 
@@ -52,26 +70,33 @@ function buildFullMenu(prefIsVeg: boolean): { week: string; meals: WeekMeal[] }[
     { week: 'This Week', start: thisMonday },
     { week: 'Next Week', start: nextMonday },
   ]
+  const W = weekType === '5DAYS' ? 5 : 6
 
   return blocks.map(block => {
     const weekKey = getMenuWeek(block.start)
-    const dishes = MENU_DATA.filter(d => d.week === weekKey && d.isVeg === prefIsVeg)
-    const dishByDay = new Map(dishes.map(d => [d.dayOfWeek, d]))
+    // Pull all dishes for this week (both isVeg variants) so per-day picks
+    // can pull whichever the customer needs. Religious-mix users may need
+    // veg on Mon and non-veg on Tue from the same week's catalogue.
+    const dishes = MENU_DATA.filter(d => d.week === weekKey)
+    const dishByDayAndVeg = new Map<string, typeof dishes[number]>()
+    for (const d of dishes) dishByDayAndVeg.set(`${d.dayOfWeek}_${d.isVeg}`, d)
 
     const meals: WeekMeal[] = []
     for (let i = 0; i < 7; i++) {
       const day = new Date(block.start); day.setDate(block.start.getDate() + i)
-      const isOff = i === 6
-      const dish = isOff ? null : dishByDay.get(i)
+      // Off if outside the working window OR Sunday (always off).
+      const isOff = i >= W || i === 6
+      const wantVeg = !isOff && vegDayNumbers.has(i)
+      const dish = isOff ? null : dishByDayAndVeg.get(`${i}_${wantVeg}`)
       const cal     = dish ? parseFloat(String(dish.nutrients.calories).replace(/[^\d.]/g, '')) || 0 : 0
       const protein = dish ? parseFloat(String(dish.nutrients.protein).replace(/[^\d.]/g, '')) || 0 : 0
 
       meals.push({
         day:   FULL_DAYS[i],
         date:  day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dish:  isOff ? 'Sunday OFF' : dish?.name ?? 'Menu coming soon',
+        dish:  isOff ? (i === 6 ? 'Sunday OFF' : 'Off') : dish?.name ?? 'Menu coming soon',
         sub:   isOff ? 'No delivery — rest day' : dish?.description ?? '',
-        tag:   isOff ? 'Off' : (prefIsVeg ? 'Veg' : 'Non Veg'),
+        tag:   isOff ? 'Off' : (wantVeg ? 'Veg' : 'Non Veg'),
         heat:  isOff ? 0 : dish?.spiceLevel ?? 1,
         cal, protein,
         image: isOff ? null : dish?.image ?? null,
@@ -550,10 +575,36 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function MenuClient({ customer }: { customer: Customer | null; userEmail?: string }) {
-  const isVeg = !!customer?.meal_preference_type?.toLowerCase().includes('plant')
-  const prefTag = isVeg ? 'Veg' : 'Non Veg'
-  const FULL_MENU = buildFullMenu(isVeg)
+export default function MenuClient({
+  customer,
+  activeSubscription,
+}: {
+  customer: Customer | null
+  activeSubscription?: ActiveSubLike | null
+  userEmail?: string
+}) {
+  // week_type: prefer the active sub's snapshot (canonical for this cycle).
+  // Fall back to the customer's preference (relevant for users browsing
+  // before their first checkout). Default 6DAYS as last resort.
+  const weekType: '5DAYS' | '6DAYS' =
+    (activeSubscription?.week_type === '5DAYS' || activeSubscription?.week_type === '6DAYS')
+      ? activeSubscription.week_type
+      : (customer?.week_type === '5DAYS' || customer?.week_type === '6DAYS')
+        ? customer.week_type
+        : '6DAYS'
+
+  const vegDayNumbers = vegDayNumbersFor(
+    customer?.meal_preference_type,
+    activeSubscription?.veg_days,
+    weekType,
+  )
+
+  // Top-of-page meta tag — for religious mix, "Mix" beats either Veg / Non Veg
+  // because some days are veg, others aren't. For pure prefs, use the simple label.
+  const isReligious = !!customer?.meal_preference_type?.toLowerCase().includes('religious')
+  const isVegPref   = !!customer?.meal_preference_type?.toLowerCase().includes('plant')
+  const prefTag: 'Veg' | 'Non Veg' | 'Mix' = isReligious ? 'Mix' : (isVegPref ? 'Veg' : 'Non Veg')
+  const FULL_MENU = buildFullMenu(vegDayNumbers, weekType)
   const thisWeek  = FULL_MENU[0]
   const nextWeek  = FULL_MENU[1]
 
@@ -578,6 +629,11 @@ export default function MenuClient({ customer }: { customer: Customer | null; us
           <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 14, color: S.fgMuted, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span>Your preference:</span>
             <MealTag kind={prefTag} />
+            {/* Change link routes the customer to Profile, where the
+                Edit-Preferences modal queues changes for the next plan
+                while the current cycle keeps cooking as before. No mid-
+                cycle "locked" copy here — the modal already explains
+                the timing. */}
             <a href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}>
               Change
             </a>

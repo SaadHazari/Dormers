@@ -8,7 +8,7 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
 import { useTheme } from "next-themes";
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggleOrb from "./ThemeToggleOrb";
 import { NavLinkItem, navLinks } from "./NavLinkItem";
 import { NavbarOrnaments } from "./NavbarOrnaments";
 import { NavbarDesktopSectionMenu } from "./NavbarDesktopSectionMenu";
@@ -233,9 +233,13 @@ export default function Navbar() {
 
       </nav>
 
-      {/* Hanging-bulb theme toggle. Self-positioned fixed top-right; renders
-          on every viewport (mobile menu no longer needs its own row). */}
-      <ThemeToggle />
+      {/* Glassmorphism sun/moon orb — fixed top-right on the marketing site.
+          The hanging-bulb variant is reserved for the login + onboarding
+          surfaces where the playful filament treatment fits the auth funnel
+          but feels wrong against the marketing-site composition. */}
+      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 110 }}>
+        <ThemeToggleOrb />
+      </div>
 
     </header>
   );

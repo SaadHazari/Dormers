@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { DORMS } from './data'
 
 export interface OnboardingPayload {
     preference: string
@@ -17,6 +18,8 @@ export interface OnboardingPayload {
     phone: string
     email: string
     password: string
+    /** '5DAYS' (Mon–Fri) or '6DAYS' (Mon–Sat). Optional in payload; defaults to 6DAYS. */
+    weekType?: '5DAYS' | '6DAYS'
 }
 
 export type CreateAccountResult =
@@ -40,7 +43,21 @@ function validateOnboardingPayload(p: OnboardingPayload): string | null {
     if (!isAlphaName(p.name)) return 'Name can only contain letters and spaces.'
     if (!p.phone?.trim()) return 'Phone number is required.'
     if (!p.dorm?.trim()) return 'Please select your dorm.'
+    if (!p.university?.trim()) return 'Please select your university.'
     if (!p.preference?.trim()) return 'Please select a meal preference.'
+    if (!p.spiceLevel?.trim()) return 'Please pick a spice level.'
+    // Allergens may be empty (defaults to "None" downstream), but if the array
+    // is empty the user never clicked anything — block that.
+    if (!Array.isArray(p.allergens) || p.allergens.length === 0) {
+        return 'Please confirm your allergies (or select "None").'
+    }
+    // Religious preference requires at least one veg day picked.
+    if (p.preference?.toLowerCase().includes('religious') && (!p.vegDays || p.vegDays.length === 0)) {
+        return 'Pick at least one veg day for the religious mix.'
+    }
+    if (p.weekType && p.weekType !== '5DAYS' && p.weekType !== '6DAYS') {
+        return 'Invalid delivery week.'
+    }
     return null
 }
 
@@ -137,6 +154,12 @@ export async function createAccount(
     const userId = authData.user?.id
     if (!userId) return { error: 'Account creation failed. Please try again.' }
 
+    // A dorm not in the canonical DORMS list (i.e. submitted via the "Other"
+    // text input at onboarding) sits outside our delivery radius until
+    // customer-service confirms coverage. Flagging here gates checkout and
+    // surfaces the WhatsApp-contact banner on the dashboard.
+    const dormListed = DORMS.includes(payload.dorm) && payload.dorm !== 'Other'
+
     // Upsert the customer profile (trigger may or may not have run yet)
     await supabaseAdmin.from('customers').upsert({
         id: userId,
@@ -149,6 +172,9 @@ export async function createAccount(
         meal_preference_type: payload.preference,
         allergens: payload.allergens.length ? payload.allergens.join(', ') : 'None',
         spice_level_preference: payload.spiceLevel,
+        // Phase 1 column — defaults to 6DAYS until the onboarding step is built.
+        week_type: payload.weekType ?? '6DAYS',
+        out_of_zone: !dormListed,
     })
 
     // Email confirmation disabled — session is live, go straight to dashboard

@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dormers — System Map</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Mermaid (vendored locally — see _vendor/mermaid.min.js — so no internet at print time) -->
+  <script src="_vendor/mermaid.min.js"></script>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--  COVER                                                       -->
+<!-- ============================================================ -->
+<section id="cover" class="cover sheet">
+  <div class="cover-band"></div>
+  <div class="cover-inner">
+    <p class="cover-eyebrow">DORMERS · INTERNAL DOCUMENTATION</p>
+    <h1 class="cover-title">System Map</h1>
+    <p class="cover-sub">Every page a customer can visit · every state a meal plan can hold · every automated thing happening behind the scenes — in plain English.</p>
+    <div class="cover-meta">
+      <div><span class="meta-k">Version</span><span class="meta-v" id="build-sha">dev</span></div>
+      <div><span class="meta-k">Compiled</span><span class="meta-v" id="build-date">—</span></div>
+    </div>
+    <p class="cover-foot">If the version stamp above is older than your most recent commit, this PDF is stale — re-run <code>npm run render</code>.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  TABLE OF CONTENTS                                           -->
+<!-- ============================================================ -->
+<section id="toc" class="sheet">
+  <h2 class="section-title">Contents</h2>
+  <ol class="toc-list">
+    <li><a href="#what-this-is">What this document is</a></li>
+    <li><a href="#big-picture">The big picture</a></li>
+    <li><a href="#all-pages">All the pages</a></li>
+    <li><a href="#journeys">Common journeys</a></li>
+    <li><a href="#lifecycle">A meal plan's lifecycle</a></li>
+    <li><a href="#signup">How signup works</a></li>
+    <li><a href="#automations">What runs by itself</a></li>
+    <li><a href="#data">How the data fits together</a></li>
+    <li><a href="#every-button">Every banner, badge & modal</a></li>
+  </ol>
+  <ol class="toc-list toc-list--appendix">
+    <li><a href="#glossary">Plain English ↔ code names</a></li>
+    <li><a href="#test-accounts">Test accounts</a></li>
+  </ol>
+</section>
+
+<!-- ============================================================ -->
+<!--  §1 What this document is                                    -->
+<!-- ============================================================ -->
+<section id="what-this-is" class="sheet">
+  <h2 class="section-title"><span class="section-num">1</span>What this document is</h2>
+
+  <p class="lead">A single source you can read end-to-end to understand <strong>how Dormers works as a product</strong> — without grepping the codebase or asking the engineer.</p>
+
+  <p>This document is written for anyone who needs to <em>understand</em> the system: a new collaborator, a stakeholder reviewing the customer experience, a support agent learning what to expect when a customer says "my plan paused itself."</p>
+
+  <p>The diagrams use the names you'd see in the dashboard — <strong>"Tonight's dish"</strong>, <strong>"Skip my meal"</strong>, <strong>"Pick a plan"</strong> — not the internal variable names. Where the technical name actually matters (e.g. for the engineering team to implement against), Appendix&nbsp;A maps every customer-facing term to the matching code.</p>
+
+  <div class="callout">
+    <p class="callout-title">How this document stays current</p>
+    <p>Every section in this PDF was generated from the live source files in <code>src/app/</code> and <code>supabase/migrations/</code>. The version stamp on the cover is the git short-hash at build time — if you're reading this after newer code has shipped, regenerate the PDF.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  §2 Big picture                                              -->
+<!-- ============================================================ -->
+<section id="big-picture" class="sheet">
+  <h2 class="section-title"><span class="section-num">2</span>The big picture</h2>
+
+  <p>Dormers connects three customer-facing things to four behind-the-scenes services. The browser only ever talks to the Dormers app server; the Dormers app server fans the request out to the right service.</p>
+
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart TD
+  classDef customer fill:#FFF3E5,stroke:#F57F20,stroke-width:2px,color:#091825,font-weight:700
+  classDef app fill:#091825,stroke:#091825,color:#EDE8DA,font-weight:700,stroke-width:2px
+  classDef ext fill:#E1ECF4,stroke:#3A6F8C,color:#091825,font-weight:600
+  classDef bg fill:#F0F0EE,stroke:#8C8378,color:#091825,font-weight:600
+
+  Browser["Customer's browser"]:::customer
+  App["Dormers app<br/><span style='font-size:11px;font-weight:400'>Next.js on Vercel</span>"]:::app
+  DB["Database + login<br/><span style='font-size:11px;font-weight:400'>Supabase</span>"]:::ext
+  Pay["Payments<br/><span style='font-size:11px;font-weight:400'>Stripe</span>"]:::ext
+  Wa["WhatsApp Business<br/><span style='font-size:11px;font-weight:400'>OTP + reminders</span>"]:::ext
+  Cron["Daily automations<br/><span style='font-size:11px;font-weight:400'>scheduled jobs</span>"]:::bg
+
+  Browser <==>|"secure HTTPS"| App
+  App <==>|"read · write"| DB
+  App ==>|"create checkout"| Pay
+  Pay -.->|"payment confirmed"| App
+  App ==>|"send code"| Wa
+  Cron -.->|"3 daily ticks"| DB
+    </div>
+    <p class="diagram-caption">The customer never talks to Stripe, Supabase or WhatsApp directly. The Dormers app coordinates everything.</p>
+  </div>
+
+  <h3 class="subsection-title">What each piece does</h3>
+  <ul class="feature-list">
+    <li><strong>Customer's browser</strong> — what students see when they visit dormers.ae. Just shows pages and buttons.</li>
+    <li><strong>Dormers app</strong> — the brains. Decides what page to show, validates every action, and is the only piece allowed to talk to the other services.</li>
+    <li><strong>Database + login</strong> — stores customer profiles, their meal plans, their order history, and handles their email + password.</li>
+    <li><strong>Payments</strong> — handles credit-card collection and confirms when money arrives.</li>
+    <li><strong>WhatsApp Business</strong> — sends verification codes during signup and (separately) the daily "your meal is on its way" messages from operations.</li>
+    <li><strong>Daily automations</strong> — scheduled tasks that run by themselves to keep meal plans up to date, even when no customer is logged in. (See §7.)</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<!--  §3 All the pages                                            -->
+<!-- ============================================================ -->
+<section id="all-pages" class="sheet">
+  <h2 class="section-title"><span class="section-num">3</span>All the pages</h2>
+
+  <p>Dormers has 15 distinct pages plus a handful of behind-the-scenes endpoints. The pages split into three groups by who's allowed to see them.</p>
+
+  <div class="diagram-card sitemap-card">
+    <div class="sitemap">
+      <div class="sitemap-col sitemap-col--public">
+        <div class="sitemap-col-title">Public</div>
+        <div class="sitemap-col-sub">anyone can visit</div>
+        <div class="sitemap-node sitemap-node--public">Home</div>
+        <div class="sitemap-node sitemap-node--public">Privacy</div>
+        <div class="sitemap-node sitemap-node--public">Terms</div>
+        <div class="sitemap-node sitemap-node--public">Maintenance</div>
+      </div>
+      <div class="sitemap-col sitemap-col--auth">
+        <div class="sitemap-col-title">Sign-in</div>
+        <div class="sitemap-col-sub">gateway to dashboard</div>
+        <div class="sitemap-node sitemap-node--gated">Log in</div>
+        <div class="sitemap-node sitemap-node--gated">Sign up <span class="sub">(9-step onboarding)</span></div>
+        <div class="sitemap-node sitemap-node--redir">Email confirmation</div>
+      </div>
+      <div class="sitemap-col sitemap-col--dash">
+        <div class="sitemap-col-title">Dashboard</div>
+        <div class="sitemap-col-sub">sign-in required</div>
+        <div class="sitemap-node sitemap-node--hub">Dashboard home</div>
+        <div class="sitemap-node sitemap-node--gated">My plan</div>
+        <div class="sitemap-node sitemap-node--gated">Pick a plan</div>
+        <div class="sitemap-node sitemap-node--gated">Menu</div>
+        <div class="sitemap-node sitemap-node--gated">Profile</div>
+        <div class="sitemap-node sitemap-node--gated">Support</div>
+        <div class="sitemap-node sitemap-node--gated">Past plans</div>
+      </div>
+    </div>
+    <div class="sitemap-legend">
+      <span><span class="sitemap-swatch sitemap-swatch--public"></span> Public</span>
+      <span><span class="sitemap-swatch sitemap-swatch--gated"></span> Sign-in required</span>
+      <span><span class="sitemap-swatch sitemap-swatch--redir"></span> Redirect-only</span>
+      <span><span class="sitemap-swatch sitemap-swatch--hub"></span> Main hub</span>
+    </div>
+    <p class="diagram-caption">15 pages organised by who's allowed to see them. Sign-in (centre) is the only path into the dashboard.</p>
+  </div>
+
+  <h3 class="subsection-title">Page reference</h3>
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Page</th><th>Who can see it</th><th>What's there</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Home</strong></td><td>Anyone</td><td>Landing page, hero, sign-up CTA.</td></tr>
+      <tr><td><strong>Privacy / Terms</strong></td><td>Anyone</td><td>Static legal copy.</td></tr>
+      <tr><td><strong>Maintenance</strong></td><td>Anyone</td><td>Shown when the team takes the site offline.</td></tr>
+      <tr><td><strong>Log in</strong></td><td>Anyone</td><td>Email + password fields, "Forgot password?" path, OTP-based reset flow.</td></tr>
+      <tr><td><strong>Sign up</strong></td><td>Anyone</td><td>Multi-step onboarding (see §6) — gathers preferences, contact details, password.</td></tr>
+      <tr><td><strong>Email confirmation</strong></td><td>Anyone with a magic link</td><td>Activates email verification then bounces to the dashboard.</td></tr>
+      <tr><td><strong>Dashboard home</strong></td><td>Signed-in customers</td><td>Hero card with tonight's dish · skip / pause buttons · plan progress · stat row.</td></tr>
+      <tr><td><strong>My plan</strong></td><td>Signed-in customers</td><td>Current plan details · veg-day chips (if religious mix) · past plans grid.</td></tr>
+      <tr><td><strong>Pick a plan</strong></td><td>Signed-in customers</td><td>Pricing grid · checkout panel with date picker.</td></tr>
+      <tr><td><strong>Menu</strong></td><td>Signed-in customers</td><td>This week + next week of dishes, customised to the customer's preferences.</td></tr>
+      <tr><td><strong>Profile</strong></td><td>Signed-in customers</td><td>Edit details · security section (email · password · WhatsApp re-verify).</td></tr>
+      <tr><td><strong>Support</strong></td><td>Signed-in customers</td><td>FAQ + chatbot.</td></tr>
+      <tr><td><strong>Past plans</strong></td><td>Signed-in customers</td><td>Read-only list of every subscription that's ended.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  §4 Common journeys                                          -->
+<!-- ============================================================ -->
+<section id="journeys" class="sheet">
+  <h2 class="section-title"><span class="section-num">4</span>Common journeys</h2>
+
+  <p>The seven flows below describe what happens — visually, step-by-step — when a customer does the most common things on Dormers.</p>
+
+  <h3 class="subsection-title">4.1 Signing up &amp; ordering the first plan</h3>
+  <div class="diagram-card">
+    <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Customer
+  participant App as Dormers app
+  participant Wa as WhatsApp
+  participant DB as Database
+  participant Stripe
+
+  Customer->>App: Open Sign Up
+  Note over Customer,App: Walk through 9 steps — see §6
+  Customer->>App: Submit (step 6) phone number
+  App->>Wa: Send 6-digit code
+  Wa-->>Customer: Code arrives on WhatsApp
+  Customer->>App: Type code in
+  App->>DB: Confirm verification
+
+  Customer->>App: Submit (step 7) email + password
+  App->>DB: Create login account
+  App->>DB: Save profile
+  DB-->>App: Account ready
+  App-->>Customer: Land on Dashboard
+
+  Customer->>App: Click "Pick a plan"
+  Customer->>App: Choose plan + start date
+  App->>Stripe: Open checkout
+  Stripe-->>Customer: Payment page
+  Customer->>Stripe: Enter card details
+  Stripe-->>App: Payment confirmed
+  App->>DB: Create subscription
+  App-->>Customer: Show confirmation overlay
+    </div>
+    <p class="diagram-caption">First-time signup → first paid plan, end-to-end.</p>
+  </div>
+
+  <h3 class="subsection-title">4.2 Renewing — the next plan queues behind the current one</h3>
+  <div class="diagram-card">
+    <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Customer
+  participant App as Dormers app
+  participant Stripe
+  participant DB as Database
+
+  Note over Customer: Already has Active plan
+  Customer->>App: Click "Renew now" (only visible<br/>in the last 7 days of the cycle)
+  App->>App: Block if a renewal already queued
+  Customer->>App: Choose plan
+  App->>Stripe: Open checkout
+  Customer->>Stripe: Pay
+  Stripe-->>App: Payment confirmed
+  App->>DB: Insert new plan, status = "Waiting to start"
+  App->>DB: Set start date = current plan's end + 1 working day
+  App-->>Customer: Show "Up next" banner above the current plan
+  Note over App,DB: Current plan keeps running.<br/>The new one auto-starts at midnight on its start date.
+    </div>
+    <p class="diagram-caption">A renewal never replaces the current plan — it queues behind it. The current plan keeps delivering until it naturally ends.</p>
+  </div>
+
+  <h3 class="subsection-title">4.3 Skipping today's meal</h3>
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart LR
+  classDef act fill:#FFF3E5,stroke:#F57F20,color:#091825,font-weight:600
+  classDef ok fill:#E0F1E3,stroke:#1D8A30,color:#091825,font-weight:600
+  classDef bad fill:#FFE5E5,stroke:#B91C1C,color:#091825,font-weight:600
+  classDef sys fill:#E1ECF4,stroke:#3A6F8C,color:#091825,font-weight:500
+
+  A["Click<br/>'Skip tonight's meal'"]:::act --> B{"Past 2pm Dubai<br/>time?"}
+  B -- "Yes" --> X["Blocked.<br/>'Try again<br/>tomorrow morning'"]:::bad
+  B -- "No" --> C{"Used all<br/>your skips?"}
+  C -- "Yes" --> Y["Blocked.<br/>'No skips left this cycle'"]:::bad
+  C -- "No" --> D["Confirm modal:<br/>'Tonight's meal carries<br/>forward by one day'"]:::act
+  D --> E["Plan flips to<br/>'Skipped today'"]:::ok
+  E --> F["End date pushes<br/>out by 1 day"]:::sys
+  E --> G["Pause button<br/>disabled until tomorrow"]:::sys
+  G --> H["Tomorrow at midnight:<br/>plan flips back to Active"]:::sys
+    </div>
+    <p class="diagram-caption">The skip flow. Skips don't lose meals — they shift the missed day to the end of the cycle.</p>
+  </div>
+
+  <h3 class="subsection-title">4.4 Pausing &amp; resuming</h3>
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart LR
+  classDef act fill:#FFF3E5,stroke:#F57F20,color:#091825,font-weight:600
+  classDef state fill:#FFF6E0,stroke:#FFAA00,color:#A36900,font-weight:600
+  classDef sys fill:#E1ECF4,stroke:#3A6F8C,color:#091825,font-weight:500
+  classDef ok fill:#E0F1E3,stroke:#1D8A30,color:#091825,font-weight:600
+
+  A["Click<br/>'Pause my plan'"]:::act --> B{"Already used<br/>your free pause?"}
+  B -- "Yes" --> X["Blocked.<br/>'1 pause per cycle limit'"]:::sys
+  B -- "No" --> C["Confirm modal:<br/>'Plan stays paused until<br/>you click Resume'"]:::act
+  C --> D["Plan: 'On hold'"]:::state
+  D -. "Each midnight" .-> E["End date pushed by 1 day<br/>(so the cycle isn't cut short)"]:::sys
+  D --> F["Click<br/>'Resume plan'"]:::act
+  F --> G["Plan back to Active"]:::ok
+    </div>
+    <p class="diagram-caption">Pausing freezes the clock. Each day the plan stays paused adds one day to the end date.</p>
+  </div>
+
+  <h3 class="subsection-title">4.5 Changing the start date of a scheduled plan</h3>
+  <p>Customers with a plan that hasn't started yet can shift its start date <strong>once</strong>. After that the button greys out for that plan.</p>
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart TD
+  classDef act fill:#FFF3E5,stroke:#F57F20,color:#091825,font-weight:600
+  classDef bad fill:#F0F0EE,stroke:#8C8378,color:#091825,font-weight:600
+  classDef ok fill:#E0F1E3,stroke:#1D8A30,color:#091825,font-weight:600
+
+  A["Click<br/>'Change start date'"]:::act --> B{"Already changed<br/>this plan's date once?"}
+  B -- "Yes" --> X["Button greyed out.<br/>Tooltip: 'You can only<br/>change the start date once'"]:::bad
+  B -- "No" --> C["Date picker opens<br/>(tomorrow up to 30 days out)"]:::act
+  C --> D["Confirm: 'You can only<br/>change this once'"]:::act
+  D --> E["New start date saved.<br/>End date adjusts<br/>automatically."]:::ok
+  E --> F["Button locked for<br/>this plan, forever"]:::bad
+    </div>
+    <p class="diagram-caption">One-shot date change per plan. Re-opens fresh at the next renewal.</p>
+  </div>
+
+  <h3 class="subsection-title">4.6 Resetting your password</h3>
+  <p>Three steps, all in-app. No magic-link emails to fish out of spam.</p>
+  <ol class="feature-list">
+    <li>On the Log in page, click <strong>"Forgot password?"</strong> → enter email → Dormers emails a 6-digit code.</li>
+    <li>Type the code on screen → Dormers logs you into a temporary recovery session.</li>
+    <li>Set a new password → done. Stronger-than-default rules enforced.</li>
+  </ol>
+
+  <h3 class="subsection-title">4.7 Changing your email, password, or WhatsApp number</h3>
+  <p>All three live in the <strong>Security &amp; verification</strong> card on the Profile page.</p>
+  <ul class="feature-list">
+    <li><strong>Change email</strong> — type new email; Dormers sends a confirmation link to the new address; the change takes effect when you click it.</li>
+    <li><strong>Change password</strong> — type current password (re-auth check), then the new one twice. Forgot path: "Email me a reset link" sends to the email on file.</li>
+    <li><strong>Change &amp; re-verify WhatsApp</strong> — type new number → Dormers sends a 6-digit code on WhatsApp → enter code → number is saved as verified.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<!--  §5 Lifecycle                                                -->
+<!-- ============================================================ -->
+<section id="lifecycle" class="sheet">
+  <h2 class="section-title"><span class="section-num">5</span>A meal plan's lifecycle</h2>
+
+  <p>Every meal plan is in exactly one of five states at any moment. The diagram below shows every transition — what causes the plan to move from one state to the next.</p>
+
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart TD
+  classDef start fill:#FFFFFF,stroke:#091825,stroke-width:2px,color:#091825,font-weight:700
+  classDef active fill:#1D8A30,stroke:#1D8A30,color:#FFFFFF,font-weight:700,stroke-width:2px
+  classDef paused fill:#A36900,stroke:#A36900,color:#FFFFFF,font-weight:700,stroke-width:2px
+  classDef sched fill:#3A6F8C,stroke:#3A6F8C,color:#FFFFFF,font-weight:700,stroke-width:2px
+  classDef skipped fill:#6B7280,stroke:#6B7280,color:#FFFFFF,font-weight:700,stroke-width:2px
+  classDef ended fill:#8C8378,stroke:#8C8378,color:#FFFFFF,font-weight:700,stroke-width:2px
+
+  Pay(["Customer pays"]):::start
+  Wait["Waiting<br/>to start"]:::sched
+  Act["Active"]:::active
+  Skip["Skipped<br/>today"]:::skipped
+  Hold["On hold"]:::paused
+  Done(["Finished"]):::ended
+
+  Pay -->|"start date today"| Act
+  Pay -->|"future start date"| Wait
+  Wait -.->|"midnight on<br/>start date"| Act
+  Act -->|"'Skip tonight'"| Skip
+  Skip -.->|"midnight"| Act
+  Act -->|"'Pause my plan'"| Hold
+  Hold -->|"'Resume plan'"| Act
+  Act -.->|"all meals delivered"| Done
+    </div>
+    <p class="diagram-caption">The five states a meal plan can hold. Solid arrows are customer actions; dashed arrows happen automatically at midnight.</p>
+  </div>
+
+  <h3 class="subsection-title">What each state means</h3>
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>State</th><th>Meaning</th><th>Customer sees</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Waiting to start</strong></td><td>Paid for, but the start date hasn't arrived yet.</td><td>"Starting Mon, 13 May" hero card.</td></tr>
+      <tr><td><strong>Active</strong></td><td>Currently delivering.</td><td>Tonight's dish, countdown timer, skip + pause buttons.</td></tr>
+      <tr><td><strong>Skipped today</strong></td><td>Active plan, but the customer skipped tonight. Auto-reverts to Active at midnight.</td><td>"You skipped today. Tomorrow's delivery is on track." Pause button disabled.</td></tr>
+      <tr><td><strong>On hold</strong></td><td>Customer hit pause. Stays paused until they hit resume — no time limit.</td><td>"Your plan is paused" hero. Big orange "Resume plan" button.</td></tr>
+      <tr><td><strong>Finished</strong></td><td>All meals delivered. The plan is in the customer's history.</td><td>Doesn't show on dashboard — appears in the "Past plans" page.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 class="subsection-title">The "one current + one queued" rule</h3>
+  <p>A customer can hold up to two live plans at the same time:</p>
+  <ul class="feature-list">
+    <li><strong>One current plan</strong> — the one delivering now (Active, On hold, or Skipped today).</li>
+    <li><strong>One queued plan</strong> — bought ahead of time as a renewal, status "Waiting to start".</li>
+  </ul>
+  <p>The dashboard shows the current plan's progress in full. The queued one shows up as a single line above the hero: <em>"Up next: Monthly Premium · starts Mon 27 May"</em>. Trying to buy a third plan is blocked at checkout.</p>
+
+  <div class="diagram-card">
+    <div class="timeline">
+      <div class="timeline-axis">
+        <span>1 May</span>
+        <span>15 May</span>
+        <span>28 May</span>
+        <span>11 Jun</span>
+        <span>25 Jun</span>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-label">Plan #1</div>
+        <div class="timeline-track">
+          <div class="timeline-bar timeline-bar--active" style="left:0%; width:48%">Active</div>
+          <div class="timeline-bar timeline-bar--finished" style="left:48%; width:5%">Finished</div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-label">Plan #2 <span class="sub">(queued renewal)</span></div>
+        <div class="timeline-track">
+          <div class="timeline-bar timeline-bar--waiting" style="left:25%; width:23%">Waiting to start</div>
+          <div class="timeline-bar timeline-bar--active" style="left:48%; width:50%">Active</div>
+        </div>
+      </div>
+      <div class="timeline-events">
+        <div class="timeline-event" style="left:25%">
+          <div class="timeline-event-dot"></div>
+          <div class="timeline-event-label">Customer renews<br/>(Plan #2 created)</div>
+        </div>
+        <div class="timeline-event" style="left:48%">
+          <div class="timeline-event-dot"></div>
+          <div class="timeline-event-label">Plan #1 ends &amp; Plan #2<br/>auto-starts (midnight)</div>
+        </div>
+      </div>
+    </div>
+    <p class="diagram-caption">Plan #2 was bought as a renewal while Plan #1 was still running. Plan #2's start date sits one delivery day after Plan #1's end date — set automatically at checkout.</p>
+  </div>
+
+  <h3 class="subsection-title">How the end date is calculated</h3>
+  <p>The end date isn't just <em>start date + 28 days</em>. It accounts for non-delivery days (Sundays for a 6-day-a-week plan; Saturdays + Sundays for a 5-day-a-week plan), the days the customer has paused, and the days they've skipped (each skip pushes the end out by 1 working day, so they don't lose the meal).</p>
+
+  <div class="callout">
+    <p class="callout-title">Worked example</p>
+    <p>Monthly Premium · 6 days a week · starts Mon 29 Apr · 1 skip used → end date is <strong>Tue 27 May</strong> (24 paid meals × 6-day weeks = 4 weeks of working days, plus the 4 Sundays in between, plus the 1 skip-extension day).</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  §6 Signup                                                   -->
+<!-- ============================================================ -->
+<section id="signup" class="sheet">
+  <h2 class="section-title"><span class="section-num">6</span>How signup works</h2>
+
+  <p>Onboarding is nine logical steps. Two are conditional — only Religious Mix customers see the veg-days picker (step 3); the "Other" branches in dorm and university only appear if the customer picks "Other" instead of one of the listed options.</p>
+
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart TD
+  classDef step fill:#FFFFFF,stroke:#091825,color:#091825,font-weight:600,stroke-width:1.5px
+  classDef branch fill:#FFF3E5,stroke:#F57F20,color:#091825,font-weight:600
+  classDef done fill:#E0F1E3,stroke:#1D8A30,color:#091825,font-weight:700,stroke-width:2px
+
+  S1["1 · Meal preference<br/>(Veg / Non-Veg / Religious Mix)"]:::step
+  S2["2 · Delivery week<br/>(5 days or 6 days)"]:::step
+  Q1{"Picked Religious Mix?"}:::branch
+  S3["3 · Pick veg days<br/>(max 4 of 5 or 5 of 6)"]:::step
+  S4["4 · Allergens"]:::step
+  S5["5 · Spice level"]:::step
+  S6["6 · Dorm"]:::step
+  S7["7 · University"]:::step
+  S8["8 · Name + WhatsApp number<br/>+ in-app verification code"]:::step
+  S9["9 · Email + password<br/>+ in-app email confirmation"]:::step
+  Done(["Land on Dashboard"]):::done
+
+  S1 --> S2 --> Q1
+  Q1 -- Yes --> S3 --> S4
+  Q1 -- No --> S4
+  S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> Done
+    </div>
+    <p class="diagram-caption">The nine onboarding steps. Religious Mix customers visit step 3; everyone else skips it.</p>
+  </div>
+
+  <h3 class="subsection-title">Why "Delivery week" comes <em>before</em> veg days</h3>
+  <p>The veg-day picker on step 3 has to know how many working days there are in the customer's week so it can cap the picker correctly (you can pick at most 4 veg days if your week is 5 days; up to 5 if it's 6). Putting the week-type question first means the picker always knows how many options to offer.</p>
+
+  <h3 class="subsection-title">When the dorm is "Other"</h3>
+  <p>The dorm step lists five known dorms plus an <strong>Other</strong> option. If the customer picks <em>Other</em>, a text input appears, they type the dorm's name, and onboarding completes as usual — they land on the dashboard. But the customer is silently flagged as <em>out of zone</em>:</p>
+  <ul class="feature-list">
+    <li>The dashboard shows a banner: <em>"Your dorm is outside our usual delivery radius. Message customer service on WhatsApp so we can confirm whether we can cater to you."</em> with a green <em>"Message us on WhatsApp →"</em> button (canonical wa.me link).</li>
+    <li>The <strong>Pick a plan</strong> / <strong>Renew now</strong> CTA is greyed out (cursor: not-allowed). Hovering shows a tooltip: <em>"Outside delivery radius — message us on WhatsApp"</em>.</li>
+    <li>If a tampered POST tries to bypass the UI, <code>/api/checkout</code> rejects with HTTP 409 <code>OUT_OF_ZONE</code>.</li>
+    <li>Once delivery feasibility is confirmed, customer service clears the flag manually via Supabase admin (no in-app UI for this).</li>
+  </ul>
+
+  <h3 class="subsection-title">Server-side checks at the very end</h3>
+  <p>Right before the account is created, the server independently re-checks:</p>
+  <ul class="feature-list">
+    <li>Email looks like an email and isn't already taken</li>
+    <li>Password is strong enough</li>
+    <li>WhatsApp was actually verified within the last 30 minutes (UI flag is just a hint)</li>
+    <li>For Religious Mix on a 5-day week: veg days picked are between 1 and 4</li>
+  </ul>
+  <p>If any check fails, the customer sees a friendly error and stays on the same step.</p>
+</section>
+
+<!-- ============================================================ -->
+<!--  §7 Automations                                              -->
+<!-- ============================================================ -->
+<section id="automations" class="sheet">
+  <h2 class="section-title"><span class="section-num">7</span>What runs by itself</h2>
+
+  <p>Three things happen automatically every day — no human has to push a button. They run on Dubai time so the customer's experience matches their wall clock.</p>
+
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart LR
+  classDef ok fill:#E0F1E3,stroke:#1D8A30,color:#091825,font-weight:700
+  classDef sys fill:#FFF3E5,stroke:#F57F20,color:#091825,font-weight:700
+  classDef hold fill:#FFF6E0,stroke:#FFAA00,color:#A36900,font-weight:700
+
+  T1["Just after midnight<br/>Dubai time"]:::sys --> A["Status update"]
+  T2["Just after midnight<br/>Dubai time"]:::hold --> B["Pause counter"]
+  T3["8 PM Dubai time"]:::ok --> C["Delivery counter"]
+
+  A --> A1["• Skipped → Active<br/>(so tomorrow delivers)<br/>• Waiting to start → Active<br/>(if today is the start date)<br/>• Active → Finished<br/>(if all meals delivered<br/>AND end date passed)"]
+  B --> B1["For each plan<br/>that's still 'On hold':<br/>add 1 to its pause counter<br/>and push the end date out"]
+  C --> C1["For each Active plan<br/>on a delivery day:<br/>mark today's meal(s)<br/>as delivered"]
+    </div>
+    <p class="diagram-caption">The three daily automations. All times are Dubai local; under the hood they run on the server in UTC.</p>
+  </div>
+
+  <h3 class="subsection-title">Why these run at these times</h3>
+  <ul class="feature-list">
+    <li><strong>Status update at 00:05 Dubai</strong> — runs <em>before</em> any deliveries that day, so a plan whose start date is today wakes up Active before 8 PM.</li>
+    <li><strong>Pause counter at 00:10 Dubai</strong> — same window. The 5-minute gap between this and Status update is just to keep them from interleaving.</li>
+    <li><strong>Delivery counter at 20:00 Dubai</strong> — when most of the kitchen's evening drops have happened. Counts every delivery that wasn't paused or skipped.</li>
+  </ul>
+
+  <div class="callout">
+    <p class="callout-title">Important: the delivery counter is time-based, not delivery-event-based</p>
+    <p>If a customer's meal didn't actually arrive (kitchen ops issue), the system <em>still</em> marks it delivered at 8 PM. Reconciliation happens out-of-band — operations adjusts manually if a delivery genuinely failed. This is a deliberate trade-off for simplicity.</p>
+  </div>
+
+  <h3 class="subsection-title">What happens when a customer clicks a button</h3>
+  <p>Server-side, every action goes through one of these check-then-write flows:</p>
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Button</th><th>Server checks</th><th>Then writes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Skip tonight's meal</strong></td><td>Plan is Active · time is before 2 PM Dubai · skips remaining > 0</td><td>Status → Skipped today · skip counter +1 · end date pushed</td></tr>
+      <tr><td><strong>Pause my plan</strong></td><td>Plan supports pause (Premium / Max only) · hasn't paused before this cycle · isn't Finished</td><td>Status → On hold · timestamp the pause</td></tr>
+      <tr><td><strong>Resume plan</strong></td><td>Plan is currently On hold</td><td>Status → Active · clear pause timestamp</td></tr>
+      <tr><td><strong>Change start date</strong></td><td>Plan is Waiting to start · hasn't been changed yet · new date is tomorrow–30 days out</td><td>New start date · stamp the change · auto-recompute end date</td></tr>
+      <tr><td><strong>Pick a plan / Renew</strong></td><td>Profile complete · no plan already queued · trial cooldown OK · veg days valid</td><td>Open Stripe checkout</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  §8 Data                                                     -->
+<!-- ============================================================ -->
+<section id="data" class="sheet">
+  <h2 class="section-title"><span class="section-num">8</span>How the data fits together</h2>
+
+  <p>Five tables hold everything Dormers knows about its customers. They link together as below — each line is a foreign key.</p>
+
+  <div class="diagram-card">
+    <div class="mermaid">
+erDiagram
+  LOGIN ||--|| CUSTOMER : has
+  CUSTOMER ||--o{ SUBSCRIPTION : owns
+  CUSTOMER ||--o{ ORDER : owns
+  SUBSCRIPTION ||--o{ ORDER : pays_for
+
+  LOGIN {
+    uuid id PK
+    string email
+    timestamp email_verified_at
+  }
+  CUSTOMER {
+    uuid id PK
+    string short_code
+    string name
+    string dorm
+    string meal_preference
+    string week_type
+    string whatsapp_number
+    boolean whatsapp_verified
+  }
+  SUBSCRIPTION {
+    uuid id PK
+    uuid customer_id FK
+    string plan_name
+    string status
+    date start_date
+    date end_date
+    string week_type
+    int total_meals
+    int delivered_meals
+    int skipped_count
+    int paused_days
+    array veg_days
+  }
+  ORDER {
+    uuid id PK
+    uuid customer_id FK
+    uuid subscription_id FK
+    string stripe_session_id
+    decimal price_per_meal
+    int meals_count
+    timestamp paid_at
+  }
+  WHATSAPP_OTP {
+    uuid id PK
+    string phone
+    string code_hash
+    int attempts
+    timestamp verified_at
+  }
+    </div>
+    <p class="diagram-caption">The five tables Dormers stores customer data in. <strong>Login</strong> and <strong>Customer</strong> are one-to-one; everything else fans out from <strong>Customer</strong>.</p>
+  </div>
+
+  <h3 class="subsection-title">Who can read &amp; write what</h3>
+  <p>Database security is enforced at the row level — a customer logged in as Aanya can only see Aanya's rows, not anyone else's.</p>
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Table</th><th>Customers can read</th><th>Customers can write</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Customer</strong></td><td>Their own row</td><td>Their own row (name, dorm, allergens, …)</td></tr>
+      <tr><td><strong>Subscription</strong></td><td>Their own rows</td><td>Their own rows (skip / pause / resume / change date)</td></tr>
+      <tr><td><strong>Order</strong></td><td>Their own rows</td><td>Never. Only Dormers writes (after Stripe confirms payment).</td></tr>
+      <tr><td><strong>WhatsApp verification codes</strong></td><td>Never</td><td>Never. Server-only.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  §9 Every banner / badge / modal                             -->
+<!-- ============================================================ -->
+<section id="every-button" class="sheet">
+  <h2 class="section-title"><span class="section-num">9</span>Every banner, badge &amp; modal</h2>
+
+  <p>Beyond the main pages, Dormers has 17 conditional UI surfaces — banners, badges, and modal dialogs that pop up when a specific condition is met. Reference list:</p>
+
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Surface</th><th>When it appears</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>"Up next" queued banner</strong></td><td>Customer has a current plan AND a renewal queued behind it</td></tr>
+      <tr><td><strong>Day-1 gold ribbon</strong></td><td>First day of a new plan, before any meals delivered</td></tr>
+      <tr><td><strong>Last-day renew banner</strong></td><td>Today is the final day of the cycle and no renewal is queued</td></tr>
+      <tr><td><strong>"Finish your profile" banner</strong></td><td>Required profile field is blank — blocks all "Pick a plan" CTAs</td></tr>
+      <tr><td><strong>"Outside delivery radius" banner</strong></td><td>Customer picked "Other" for dorm at onboarding — non-dismissable banner with WhatsApp customer-service CTA. Greys out "Pick a plan" / "Renew" until customer service clears the flag.</td></tr>
+      <tr><td><strong>Locked veg-days strip</strong></td><td>Religious Mix customer with an active plan — read-only chips showing the chosen veg days</td></tr>
+      <tr><td><strong>Webhook-delay spinner</strong></td><td>After paying, before the new plan appears on the dashboard (under 20 seconds)</td></tr>
+      <tr><td><strong>"Almost there…" fallback</strong></td><td>Same as above but more than 20 seconds — adds a WhatsApp escape hatch</td></tr>
+      <tr><td><strong>Success overlay</strong></td><td>Briefly after a successful checkout — the celebration moment</td></tr>
+      <tr><td><strong>Order-confirmation banner</strong></td><td>Persistent confirmation right after checkout (sits at the top of the dashboard)</td></tr>
+      <tr><td><strong>Skip confirm modal</strong></td><td>After clicking "Skip tonight's meal", before it actually skips</td></tr>
+      <tr><td><strong>Pause confirm modal</strong></td><td>After clicking "Pause my plan", before it actually pauses</td></tr>
+      <tr><td><strong>Change start date modal</strong></td><td>From My plan, on a Waiting-to-start plan, when "Change start date" hasn't been used</td></tr>
+      <tr><td><strong>Change email modal</strong></td><td>From Profile → Security &amp; verification → "Change email"</td></tr>
+      <tr><td><strong>Change password modal</strong></td><td>From Profile → Security &amp; verification → "Change password"</td></tr>
+      <tr><td><strong>WhatsApp verify modal</strong></td><td>From Profile → Security &amp; verification → "Verify" or "Re-verify"</td></tr>
+      <tr><td><strong>"Pause unavailable today" tooltip</strong></td><td>When the customer is in Skipped today state — pause button greys out</td></tr>
+      <tr><td><strong>"Past 2 PM" skip lockout</strong></td><td>After 2 PM Dubai time on any delivery day — skip button greys out</td></tr>
+      <tr><td><strong>"No delivery today" skip lockout</strong></td><td>Today isn't a delivery day for the customer's plan (Sunday on 6-day; Saturday or Sunday on 5-day) — skip button greys out so the customer doesn't burn a credit on a non-delivery day</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  Appendix A — Glossary                                       -->
+<!-- ============================================================ -->
+<section id="glossary" class="sheet">
+  <h2 class="section-title"><span class="section-num">A</span>Plain English ↔ code names</h2>
+
+  <p>Everything in this document uses customer-facing terms. The engineering team and the database use shorter, more technical names. Cross-reference here.</p>
+
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Plain English</th><th>Code name</th><th>Where it lives</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Active</strong> (currently delivering)</td><td><code>Active</code></td><td><code>subscriptions.status</code></td></tr>
+      <tr><td><strong>On hold</strong> (paused)</td><td><code>Paused</code></td><td><code>subscriptions.status</code></td></tr>
+      <tr><td><strong>Waiting to start</strong> (queued / scheduled)</td><td><code>Scheduled</code></td><td><code>subscriptions.status</code></td></tr>
+      <tr><td><strong>Skipped today</strong></td><td><code>Skipped</code></td><td><code>subscriptions.status</code></td></tr>
+      <tr><td><strong>Finished</strong> (plan ended)</td><td><code>Ended</code></td><td><code>subscriptions.status</code></td></tr>
+      <tr><td>Customer</td><td><code>customer_id</code></td><td><code>auth.users.id</code> = <code>customers.id</code></td></tr>
+      <tr><td>Login email</td><td><code>email</code></td><td><code>auth.users.email</code></td></tr>
+      <tr><td>Customer ID short code (CID)</td><td><code>cid</code></td><td><code>customers.cid</code></td></tr>
+      <tr><td>Delivery week</td><td><code>week_type</code> (<code>'5DAYS'</code> or <code>'6DAYS'</code>)</td><td><code>customers.week_type</code> + <code>subscriptions.week_type</code></td></tr>
+      <tr><td>Veg days picked</td><td><code>veg_days</code> (text array of day names)</td><td><code>subscriptions.veg_days</code></td></tr>
+      <tr><td>Meal preference</td><td><code>meal_preference_type</code></td><td><code>customers.meal_preference_type</code></td></tr>
+      <tr><td>Number of meals delivered so far</td><td><code>delivered_meals</code></td><td><code>subscriptions.delivered_meals</code></td></tr>
+      <tr><td>Meals customer paid for in total</td><td><code>total_meals</code></td><td><code>subscriptions.total_meals</code></td></tr>
+      <tr><td>Skips used this cycle</td><td><code>skipped_meals_count</code> (counts events, not meals)</td><td><code>subscriptions.skipped_meals_count</code></td></tr>
+      <tr><td>Days paused this cycle</td><td><code>paused_days</code></td><td><code>subscriptions.paused_days</code></td></tr>
+      <tr><td>Pause already used</td><td><code>has_paused_before</code></td><td><code>subscriptions.has_paused_before</code></td></tr>
+      <tr><td>Start date already changed</td><td><code>start_date_changed_at</code></td><td><code>subscriptions.start_date_changed_at</code></td></tr>
+      <tr><td>Status update (00:05 Dubai)</td><td><code>subscription_status_tick()</code></td><td>Postgres scheduled job</td></tr>
+      <tr><td>Pause counter (00:10 Dubai)</td><td><code>subscription_pause_tick()</code></td><td>Postgres scheduled job</td></tr>
+      <tr><td>Delivery counter (20:00 Dubai)</td><td><code>subscription_delivery_tick()</code></td><td>Postgres scheduled job</td></tr>
+      <tr><td>End-date math</td><td><code>compute_subscription_end_date()</code></td><td>Postgres function + TypeScript twin in <code>src/lib/end-date.ts</code></td></tr>
+      <tr><td>End-date trigger</td><td><code>trg_subscriptions_recompute_end_date</code></td><td>Postgres trigger on <code>subscriptions</code></td></tr>
+      <tr><td>Auto-shift queued plan when current plan extends</td><td><code>trg_subscriptions_shift_queued_scheduled</code></td><td>Postgres trigger on <code>subscriptions</code> — fires after a primary's end_date moves (skip / pause / start-date change) and pushes any overlapping queued Scheduled plan to the next valid delivery day</td></tr>
+      <tr><td>Renew → queue logic</td><td>Stripe webhook</td><td><code>src/app/api/webhook/route.ts</code></td></tr>
+      <tr><td>"Skip tonight's meal" button</td><td><code>skipMeal()</code></td><td><code>src/app/dashboard/actions.ts</code></td></tr>
+      <tr><td>"Pause my plan" button</td><td><code>pauseSubscription()</code></td><td><code>src/app/dashboard/actions.ts</code></td></tr>
+      <tr><td>"Resume plan" button</td><td><code>resumeSubscription()</code></td><td><code>src/app/dashboard/actions.ts</code></td></tr>
+      <tr><td>"Change start date" button</td><td><code>changeStartDate()</code></td><td><code>src/app/dashboard/actions.ts</code></td></tr>
+      <tr><td>"Change email" modal</td><td><code>requestEmailChange()</code></td><td><code>src/app/dashboard/profile/security-actions.ts</code></td></tr>
+      <tr><td>"Change password" modal</td><td><code>changePassword()</code></td><td><code>src/app/dashboard/profile/security-actions.ts</code></td></tr>
+      <tr><td>"Verify WhatsApp" modal</td><td><code>markWhatsappVerified()</code></td><td><code>src/app/dashboard/profile/security-actions.ts</code></td></tr>
+      <tr><td>Profile-completion gate</td><td><code>missingProfileFields()</code></td><td><code>src/lib/profile-completion.ts</code></td></tr>
+      <tr><td>Out-of-zone flag (dorm = "Other")</td><td><code>out_of_zone</code></td><td><code>customers.out_of_zone</code></td></tr>
+      <tr><td>"Outside delivery radius" banner</td><td><code>OutOfZoneBanner</code></td><td><code>src/app/dashboard/_shared/OutOfZoneBanner.tsx</code></td></tr>
+      <tr><td>Out-of-zone server reject</td><td><code>OUT_OF_ZONE</code> (HTTP 409)</td><td><code>src/app/api/checkout/route.ts</code></td></tr>
+      <tr><td>Veg-day per-day decision</td><td><code>vegDayNumbersFor()</code></td><td><code>src/lib/veg-day.ts</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  Appendix B — Test accounts                                  -->
+<!-- ============================================================ -->
+<section id="test-accounts" class="sheet">
+  <h2 class="section-title"><span class="section-num">B</span>Test accounts</h2>
+
+  <p>Eighteen accounts are seeded in the database. Universal password: <code>TestPass123!</code>. Each one exercises a distinct branch of the diagrams in §4–§9.</p>
+
+  <div class="table-wrap">
+  <table class="ref-table">
+    <thead>
+      <tr><th>Email</th><th>What it covers</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>fresh@dormers.test</code></td><td>Pristine — profile complete, no plans (first-time empty state)</td></tr>
+      <tr><td><code>incomplete@dormers.test</code></td><td>Profile incomplete — "Finish your profile" banner blocks all CTAs</td></tr>
+      <tr><td><code>emailunverified@dormers.test</code></td><td>Email never confirmed — Profile shows "Unverified" tag, "Resend" button</td></tr>
+      <tr><td><code>active@dormers.test</code></td><td>Standard mid-cycle Active plan</td></tr>
+      <tr><td><code>activemax@dormers.test</code></td><td>Monthly Max — bar grows on first skip (2 meals per delivery)</td></tr>
+      <tr><td><code>paused@dormers.test</code></td><td>On hold — Resume becomes the primary CTA</td></tr>
+      <tr><td><code>skipped@dormers.test</code></td><td>Skipped today — Pause button disabled with tooltip</td></tr>
+      <tr><td><code>scheduled@dormers.test</code></td><td>Only a Waiting-to-start plan — change-date button enabled</td></tr>
+      <tr><td><code>queued@dormers.test</code></td><td>Active + queued renewal — "Up next" banner visible</td></tr>
+      <tr><td><code>dayone@dormers.test</code></td><td>Day 1 of new plan — gold "Your first dinner" ribbon</td></tr>
+      <tr><td><code>lastday@dormers.test</code></td><td>Today is end date · no queue — Last-day renew banner</td></tr>
+      <tr><td><code>returning@dormers.test</code></td><td>Multiple finished plans, no current — returning-customer empty state</td></tr>
+      <tr><td><code>datechange@dormers.test</code></td><td>Scheduled with date already changed — change-date button locked</td></tr>
+      <tr><td><code>fiveday@dormers.test</code></td><td>5-days-a-week customer — pricing UI shows lower meal counts</td></tr>
+      <tr><td><code>trialcd@dormers.test</code></td><td>Recent Trial — checkout rejects another Trial within 15 days</td></tr>
+      <tr><td><code>religiousmix6day@dormers.test</code></td><td>Religious Mix · 6 days — checkout veg-day picker caps at 5 of 6</td></tr>
+      <tr><td><code>religiousmix5day@dormers.test</code></td><td>Religious Mix · 5 days — checkout veg-day picker caps at 4 of 5</td></tr>
+      <tr><td><code>religiousactive@dormers.test</code></td><td>Religious Mix Active · veg days = Tue, Thu, Sat — per-day mix on Dashboard + Menu</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  Mermaid bootstrap                                           -->
+<!-- ============================================================ -->
+<script>
+  // Initialise Mermaid with the Dormers palette + signal completion so
+  // Puppeteer knows when to render the PDF.
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: 'Montserrat, system-ui, sans-serif',
+      fontSize: '14px',
+      primaryColor: '#FFF3E5',
+      primaryTextColor: '#091825',
+      primaryBorderColor: '#F57F20',
+      lineColor: '#3A6F8C',
+      secondaryColor: '#E1ECF4',
+      tertiaryColor: '#FBF8F0',
+      background: '#FFFFFF',
+      mainBkg: '#FFF3E5',
+      nodeBorder: '#F57F20',
+      clusterBkg: '#FBF8F0',
+      clusterBorder: '#D9D2BF',
+      titleColor: '#091825',
+      edgeLabelBackground: '#FBF8F0',
+    },
+    flowchart: { curve: 'basis', useMaxWidth: true, htmlLabels: true, nodeSpacing: 40, rankSpacing: 50 },
+    sequence: {
+      useMaxWidth: true,
+      mirrorActors: false,
+      showSequenceNumbers: true,
+      actorFontSize: 14,
+      noteFontSize: 12,
+      messageFontSize: 13,
+      boxMargin: 12,
+      boxTextMargin: 6,
+      noteMargin: 12,
+      messageMargin: 40,
+      actorMargin: 70,
+      width: 160,
+      height: 50,
+      wrap: true,
+    },
+    stateDiagram: { useMaxWidth: true },
+    er: { useMaxWidth: true },
+    gantt: { useMaxWidth: true, fontSize: 11 },
+  });
+
+  (async () => {
+    // Render all .mermaid blocks, then signal Puppeteer.
+    await mermaid.run({ querySelector: '.mermaid' });
+    // Tiny wait to let layout settle (web-fonts swap, etc).
+    await new Promise(r => setTimeout(r, 500));
+    window.__mermaidReady = true;
+  })().catch(e => {
+    console.error('mermaid render failed:', e);
+    window.__mermaidReady = true; // unblock anyway so PDF still emits something
+  });
+
+  // Stamp build-time placeholders if the build script substituted them.
+  document.getElementById('build-sha').textContent =
+    document.getElementById('build-sha').textContent.replace('__BUILD_SHA__', 'dev');
+  document.getElementById('build-date').textContent = new Date().toISOString().slice(0, 10);
+</script>
+
+</body>
+</html>

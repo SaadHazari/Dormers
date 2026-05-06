@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2, Lock } from 'lucide-react'
-import { TIER1, NV, BODY } from '../_shared/tokens'
+import { TIER1, NV, BODY, S } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
 import { whatsAppHref } from '@/lib/contacts'
-import { pricePerMeal, totalPrice, PLANS, type PlanId, type Pref } from './pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from './pricing'
 
 interface CheckoutCustomer {
   name?: string | null
   email?: string | null
   whatsapp_number?: string | null
   dorm_name?: string | null
+  week_type?: '5DAYS' | '6DAYS' | null
 }
 
 interface CheckoutSubscription {
@@ -29,6 +30,11 @@ interface Props {
   customer: CheckoutCustomer | null
   userEmail: string
   activeSubscription: CheckoutSubscription | null
+  /** Effective delivery cadence — pending wins over canonical. Threaded
+   *  from PlanClient so the card grid and the checkout panel always agree
+   *  on the meal count + price (canonical-only here would silently submit
+   *  6DAYS pricing for a customer who queued a 5DAYS change). */
+  weekType: WeekType
 }
 
 // Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
@@ -59,6 +65,22 @@ function computeMinIso(active: { end_date: string } | null): string {
   return isoDate(d)
 }
 
+// Bump an ISO date forward until it lands on a delivery day for the customer's
+// week_type. Used to seed the date picker default — if the natural earliest
+// pick (tomorrow / day-after-end) falls on a Sunday (or Saturday for 5DAYS),
+// we land the user on the next valid working day instead of an immediately
+// invalid pre-fill.
+function clampToDeliveryDay(iso: string, weekType: WeekType): string {
+  const d = new Date(iso + 'T00:00:00')
+  for (let i = 0; i < 7; i++) {
+    const js = d.getDay()
+    const dow = js === 0 ? 7 : js  // 1=Mon..7=Sun
+    if (weekType === '5DAYS' ? (dow !== 6 && dow !== 7) : (dow !== 7)) break
+    d.setDate(d.getDate() + 1)
+  }
+  return isoDate(d)
+}
+
 /**
  * Slide-in checkout panel — appears once a plan is selected and owns the
  * date picker, the Stripe redirect, and the panel-local state (startDate,
@@ -68,13 +90,41 @@ function computeMinIso(active: { end_date: string } | null): string {
  * Was 128 inline JSX lines + 244 CSS lines in PlanClient.tsx.
  */
 export function CheckoutPanel({
-  selected, pref, vegDayCount, customer, userEmail, activeSubscription,
+  selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+  // weekType is the effective cadence (pending → canonical fallback) supplied
+  // by PlanClient. Reading customer.week_type here would diverge from the
+  // pricing cards above when a pending_week_type change is queued.
+  // Working days for this customer. Religious-mix users pick exactly
+  // `vegDayCount` of these for veg deliveries; the rest get non-veg.
+  const workingDayNames = useMemo(
+    () => ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].slice(0, weekType === '5DAYS' ? 5 : 6),
+    [weekType],
+  )
   // Default the start date to the earliest valid pick. The most common path is
   // "start as soon as possible" — pre-filling removes one click from the critical
   // path and lets the CTA wake up in its actionable state on panel mount.
-  const [startDate, setStartDate] = useState<string>(() => computeMinIso(activeSubscription))
+  // Clamp forward to the next delivery day so the seed never lands on a
+  // non-delivery weekday (Sun / Sat-Sun) that the calendar would reject.
+  const [startDate, setStartDate] = useState<string>(() =>
+    clampToDeliveryDay(computeMinIso(activeSubscription), weekType),
+  )
+  // Religious-mix only: which specific working days are veg. Length must
+  // equal `vegDayCount` before checkout is enabled. Reset whenever the user
+  // changes preference or veg count above (those changes invalidate the
+  // existing selection).
+  const [vegDays, setVegDays] = useState<string[]>([])
+  useEffect(() => { setVegDays([]) }, [pref, vegDayCount, weekType])
+
+  const toggleVegDay = (day: string) => {
+    setVegDays(prev => {
+      if (prev.includes(day)) return prev.filter(d => d !== day)
+      if (prev.length >= vegDayCount) return prev   // hard cap — block over-selection
+      return [...prev, day]
+    })
+  }
+  const vegDaysReady = pref !== 'Religious' || vegDays.length === vegDayCount
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -134,7 +184,7 @@ export function CheckoutPanel({
       const res = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(totalPrice(selected, pref, vegDayCount) * 100),
+          amount: Math.round(totalPrice(selected, pref, vegDayCount, weekType) * 100),
           name: customer?.name ?? '',
           email: customer?.email ?? userEmail,
           phone: customer?.whatsapp_number ?? '',
@@ -144,16 +194,21 @@ export function CheckoutPanel({
                 selected === 'Monthly Max'     ? 'Monthly Max' :
                 selected === 'Weekly Flex'     ? 'Weekly Flex' :
                 'One-Time Trial',
-          vegDays: pref === 'Religious'
-            ? ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].slice(0, vegDayCount)
-            : [],
+          vegDays: pref === 'Religious' ? vegDays : [],
           start_date: startDate,
           cancel_path: window.location.pathname,
         }),
       })
       const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else setError(data.error ?? 'Couldn’t reach our payment system. Please try again — or message us on WhatsApp to complete your order.')
+      if (data.url) {
+        window.location.href = data.url
+      } else if (data.error === 'QUEUE_FULL' || data.error === 'TRIAL_COOLDOWN' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE') {
+        // Friendly server-side rejection (1+1 stack rule, trial cooldown,
+        // profile gate). The `message` field is pre-formatted for display.
+        setError(data.message ?? 'Checkout blocked — please review your account and try again.')
+      } else {
+        setError(data.error ?? 'Couldn’t reach our payment system. Please try again — or message us on WhatsApp to complete your order.')
+      }
     } catch {
       setError('Couldn’t reach our payment system. Check your connection and try again — or message us on WhatsApp to complete your order.')
     } finally {
@@ -204,7 +259,7 @@ export function CheckoutPanel({
               <span>{selected}</span>
             </div>
             <div className="checkout-plan-meta">
-              {pricePerMeal(selected, pref, vegDayCount)} AED/meal &middot; {PLANS.find(p => p.id === selected)?.meals} meals
+              {pricePerMeal(selected, pref, vegDayCount, weekType)} AED/meal &middot; {mealsForPlan(selected, weekType)} meals
             </div>
             {startDate && (
               <div className="checkout-plan-when">
@@ -219,7 +274,7 @@ export function CheckoutPanel({
           <div className="checkout-total-block">
             <div className="checkout-total-line">
               <span className="checkout-total-num">
-                {totalPrice(selected, pref, vegDayCount)}
+                {totalPrice(selected, pref, vegDayCount, weekType)}
               </span>
               <span className="checkout-total-cur">AED</span>
             </div>
@@ -233,12 +288,77 @@ export function CheckoutPanel({
             a soft transition, not a hard slice. */}
         <div className="checkout-divider" aria-hidden />
 
+        {/* ── VEG-DAY PICKER (Religious mix only) ──
+            Lets the customer choose exactly which days are veg. Selection
+            count must equal vegDayCount (the slider above). The block is
+            anchored above the date+CTA so the user can't reach the CTA until
+            they've made a complete choice. Persists onto subscription.veg_days
+            via the webhook so the dashboard menu picks the right dish per day. */}
+        {pref === 'Religious' && (
+          <div style={{
+            margin: '14px 0 4px',
+            padding: 14,
+            borderRadius: 14,
+            background: 'rgba(58,111,140,0.06)',
+            border: '1px solid rgba(58,111,140,0.20)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+              <Eyebrow>Pick your veg days</Eyebrow>
+              <span style={{
+                fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                color: vegDaysReady ? '#1d8a30' : '#3a6f8c',
+                fontFeatureSettings: '"tnum"',
+              }}>
+                {vegDays.length} of {vegDayCount} chosen
+              </span>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${workingDayNames.length}, minmax(0, 1fr))`,
+              gap: 6,
+            }}>
+              {workingDayNames.map(day => {
+                const active = vegDays.includes(day)
+                const atCap = !active && vegDays.length >= vegDayCount
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => toggleVegDay(day)}
+                    disabled={atCap}
+                    style={{
+                      padding: '10px 0',
+                      borderRadius: 8,
+                      border: `1px solid ${active ? '#3a6f8c' : 'rgba(9,24,37,0.10)'}`,
+                      background: active ? 'rgba(58,111,140,0.16)' : (atCap ? 'rgba(9,24,37,0.03)' : '#ffffff'),
+                      color: active ? '#3a6f8c' : (atCap ? 'rgba(9,24,37,0.40)' : NV),
+                      fontFamily: BODY,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      cursor: atCap ? 'not-allowed' : 'pointer',
+                      transition: 'background 120ms, border-color 120ms, color 120ms',
+                    }}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ marginTop: 10, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.45 }}>
+              These are the days the kitchen will deliver vegetarian meals. The other {workingDayNames.length - vegDayCount} day{workingDayNames.length - vegDayCount === 1 ? '' : 's'} will be non-veg.
+            </p>
+          </div>
+        )}
+
         {/* ── ACTION STRIP ──
-            Two stacked grids so the trigger button and the CTA button share
-            a baseline regardless of how tall the helper text below them runs.
-            The controls grid is bottom-aligned (date col taller because of its
-            label; the CTA col centres its single button to that bottom), and
-            the helpers grid sits underneath top-aligned. */}
+            Single 2-col grid: date trigger | CTA button — both centred
+            vertically so the trigger and the button share a baseline no
+            matter what (the date col only contains label + trigger now;
+            the date hint moved into a structured helper row below).
+            Below: a 2-col helper row — date hint left (under the trigger),
+            trust line + payment-method note centred under the button. */}
         <div className="checkout-action">
           <div className="checkout-action-controls">
             <div className="checkout-date">
@@ -248,23 +368,20 @@ export function CheckoutPanel({
                 onChange={setStartDate}
                 minDate={dateBounds.min}
                 maxDate={dateBounds.max}
+                weekType={weekType}
               />
-              <p className="checkout-window-hint">
-                {activeSubscription
-                  ? 'Starts the day after your current plan ends · 30-day window'
-                  : 'Starts tomorrow at the earliest · 30-day window'}
-              </p>
             </div>
 
             {/* Three-state CTA:
                 • !startDate → "Pick a date to continue" (faded, awaiting input)
-                • ready      → "Continue to Stripe →"    (orange, lift on hover)
+                • ready      → "Continue to checkout →"  (orange, lift on hover)
                 • loading    → spinner + "Redirecting…"  (press-scaled momentarily) */}
             <button
               type="button"
-              disabled={checkoutLoading || !startDate}
+              disabled={checkoutLoading || !startDate || !vegDaysReady}
               onClick={handleCheckout}
-              className={`checkout-cta${!startDate && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
+              className={`checkout-cta${(!startDate || !vegDaysReady) && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
+              title={!vegDaysReady ? `Pick ${vegDayCount} veg day${vegDayCount === 1 ? '' : 's'} above` : undefined}
             >
               {checkoutLoading ? (
                 <>
@@ -274,16 +391,38 @@ export function CheckoutPanel({
               ) : !startDate ? (
                 <span>Pick a date to continue</span>
               ) : (
-                <span>Continue to Stripe →</span>
+                <span>Continue to checkout →</span>
               )}
             </button>
           </div>
 
           <div className="checkout-action-helpers">
-            <p className="checkout-helper">
-              Your meals begin on this date — you won&apos;t be charged for days before.
-            </p>
-            <div>
+            {/* LEFT — date hint, three-line stack ordered by importance:
+                line 1 = the rule (the WHEN — what date the customer is bound
+                  to). Navy, weighted.
+                line 2 = the consequence (charge model — answers "if I pick
+                  next month, what am I paying for?"). Smaller, muted.
+                line 3 = the constraint (picker window). Smallest, faintest.
+                The charge-model line moved here from beneath the CTA — it
+                belongs adjacent to the date input where the implication
+                actually arises, not in a stack of trust + secondary copy
+                under the button. */}
+            <div className="checkout-date-hints">
+              <p className="checkout-window-rule">
+                {activeSubscription
+                  ? <>Starts <strong>the day after your current plan ends</strong>.</>
+                  : <>Earliest start: <strong>tomorrow</strong>.</>}
+              </p>
+              <p className="checkout-window-charge">
+                Meals begin on this date — no charge for days before.
+              </p>
+              <p className="checkout-window-window">
+                Any working day in the next 30 days.
+              </p>
+            </div>
+
+            {/* RIGHT — single trust line under the CTA. */}
+            <div className="checkout-cta-captions">
               <p className="checkout-trust">
                 <Lock size={11} strokeWidth={2.4} color="#1d8a30" aria-hidden />
                 Powered by Stripe &middot; Card details never touch our servers.
@@ -403,11 +542,11 @@ export function CheckoutPanel({
         }
 
         /* Action strip — split into TWO grids so the trigger button and the
-           CTA button share a baseline (controls grid, bottom-aligned), with
-           the helper texts laid out top-aligned underneath in a separate grid.
-           Bottom-aligning the controls means: the date column (label + trigger)
-           is taller than the CTA column (button only); the CTA gets pushed
-           down so its bottom edge meets the trigger's bottom edge. */
+           CTA button share a baseline (controls grid, centre-aligned). The
+           date column now holds only label + trigger; date hint moved into
+           the helpers row, so the trigger height matches the CTA height
+           without internal padding mismatch. The helpers row mirrors the
+           same 1fr/1fr split: hint left, captions right (centred). */
         .checkout-action-controls,
         .checkout-action-helpers {
           display: grid;
@@ -415,8 +554,9 @@ export function CheckoutPanel({
           gap: 24px;
         }
         .checkout-action-helpers {
-          gap: 12px;
-          margin-top: 12px;
+          gap: 14px;
+          margin-top: 14px;
+          align-items: start;
         }
         @media (min-width: 560px) {
           .checkout-action-controls {
@@ -427,6 +567,7 @@ export function CheckoutPanel({
           .checkout-action-helpers {
             grid-template-columns: 1fr 1fr;
             gap: 32px;
+            align-items: start;
           }
         }
 
@@ -442,23 +583,70 @@ export function CheckoutPanel({
           margin-bottom: 12px;
         }
 
+        /* Date-hint stack — primary rule on top, secondary window line
+           underneath. Hierarchy comes from font-weight + colour, so the
+           user reads the *when* before the *how-far*. */
+        .checkout-date-hints {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          text-align: left;
+        }
+        /* Primary rule — gets the heavier weight + navy ink so the
+           customer's eye lands on the WHEN before the HOW FAR. */
+        .checkout-window-rule {
+          margin: 0;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          color: #091825;
+          line-height: 1.45;
+        }
+        .checkout-window-rule strong {
+          color: #091825;
+          font-weight: 800;
+        }
+        /* Charge-model line — the customer-relevant implication of the
+           start date. Sits between the rule and the picker window so the
+           reader naturally goes WHEN → CONSEQUENCE → CONSTRAINT. */
+        .checkout-window-charge {
+          margin: 4px 0 0 0;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          color: rgba(9, 24, 37, 0.55);
+          line-height: 1.5;
+        }
+        /* Secondary constraint — visually subordinated. Same colour family
+           as muted body copy elsewhere in the dashboard so it reads as a
+           supporting note, not a parallel statement. */
+        .checkout-window-window {
+          margin: 2px 0 0 0;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 11.5px;
+          font-weight: 500;
+          color: rgba(9, 24, 37, 0.50);
+          line-height: 1.45;
+        }
+
+        /* CTA caption stack — centred under the button. The helper line
+           explains the charge model; the trust line reassures about the
+           payment provider. Both centred so the eye reads them as a unit
+           directly under the orange CTA. */
+        .checkout-cta-captions {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: center;
+          text-align: center;
+        }
         .checkout-helper {
           margin: 0;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11.5px;
-          color: rgba(9, 24, 37, 0.45);
+          color: rgba(9, 24, 37, 0.55);
           line-height: 1.55;
-        }
-
-        /* 30-day window hint — sits directly under the date trigger so the
-           constraint is visible before the user opens the calendar (rather
-           than discovering it by hitting greyed-out cells). */
-        .checkout-window-hint {
-          margin: 8px 0 0;
-          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
-          font-size: 11px;
-          color: rgba(9, 24, 37, 0.50);
-          line-height: 1.5;
+          text-align: center;
         }
 
         /* Primary CTA — orange-glow only on hover (at-rest sits on the
@@ -536,16 +724,20 @@ export function CheckoutPanel({
         }
 
         /* Trust line — pairs visually with the CTA above it. Lock icon
-           reinforces the safety message at the moment of commitment. */
+           reinforces the safety message at the moment of commitment.
+           Centre-justified inside the captions stack so it sits directly
+           under the orange button. */
         .checkout-trust {
           margin: 0;
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 6px;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11px;
-          color: rgba(9, 24, 37, 0.45);
+          color: rgba(9, 24, 37, 0.50);
           line-height: 1.5;
+          text-align: center;
         }
 
         /* Error block — Norman: error messages must offer an alternative

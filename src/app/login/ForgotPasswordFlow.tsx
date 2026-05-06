@@ -250,7 +250,7 @@ export function ForgotPasswordFlow({
                                 onKeyUp={capsKeyUp}
                                 autoComplete="new-password"
                                 disabled={isPending || done}
-                                className={`${fieldClass} pr-11`}
+                                className={`${fieldClass} pr-11 ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
                             />
                             <button type="button" tabIndex={-1} onClick={() => setShowPass(v => !v)} className={eyeBtnClass}>
                                 {showPass ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
@@ -273,7 +273,7 @@ export function ForgotPasswordFlow({
                             onChange={e => setConfirm(e.target.value)}
                             autoComplete="new-password"
                             disabled={isPending || done}
-                            className={fieldClass}
+                            className={`${fieldClass} ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
                         />
                     </div>
                 </div>

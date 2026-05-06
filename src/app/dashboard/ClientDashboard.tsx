@@ -6,7 +6,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { OG, NV, BODY, S } from './_shared/tokens'
 import { NoPlanView } from './NoPlanView'
 import { ActiveDashboard } from './ActiveDashboard'
+import { ProfileBanner } from './_shared/ProfileBanner'
+import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { whatsAppHref } from '@/lib/contacts'
+import { missingProfileFields } from '@/lib/profile-completion'
 import type { Customer, Subscription } from './_shared/types'
 
 // Webhook fallback threshold — if the subscription hasn't been provisioned this
@@ -19,6 +22,7 @@ interface Props {
   customer: Customer | null
   activeSubscription: Subscription | null
   allSubscriptions: Subscription[]
+  queuedSubscription?: Subscription | null
   userEmail: string
 }
 
@@ -31,7 +35,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, userEmail }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -131,6 +135,16 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     )
   }
 
+  // Profile-completion gate — non-dismissable, blocks plan purchase. Required
+  // fields per src/lib/profile-completion.ts. Server-side checkout also
+  // re-validates so a tampered POST can't bypass.
+  const missingFields = missingProfileFields(customer)
+  // Out-of-zone gate — set at onboarding when dorm is "Other" (outside listed
+  // delivery radius). Same blocking behaviour as missingFields; cleared by
+  // customer-service via Supabase admin once delivery is confirmed.
+  const outOfZone = !!customer?.out_of_zone
+  const purchaseGated = missingFields.length > 0 || outOfZone
+
   // No active plan (with optional cancel banner) → confident plan-picker.
   // Renewal cancels (active sub + canceled param) fall through to ActiveDashboard
   // — the effect above strips the param.
@@ -138,6 +152,8 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     return (
       <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+          <OutOfZoneBanner show={outOfZone} />
+          <ProfileBanner missing={missingFields} />
           {checkoutCanceled && (
             <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
               Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
@@ -147,6 +163,8 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
             customer={customer}
             allSubscriptions={allSubscriptions}
             userEmail={userEmail}
+            purchaseGated={purchaseGated}
+            outOfZone={outOfZone}
           />
         </div>
       </div>
@@ -167,7 +185,10 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       customer={customer}
       userEmail={userEmail}
       allSubscriptions={allSubscriptions}
+      queuedSub={queuedSubscription}
       justCheckedOut={justCheckedOut}
+      profileGate={missingFields}
+      outOfZone={outOfZone}
     />
   )
 }

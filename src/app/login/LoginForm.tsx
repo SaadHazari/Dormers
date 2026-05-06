@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { Eye, EyeOff } from 'lucide-react'
 import { login } from './actions'
 import { ForgotPasswordFlow } from './ForgotPasswordFlow'
@@ -34,6 +35,27 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     const { capsOn, onKeyDown: capsKeyDown, onKeyUp: capsKeyUp } = useCapsLock()
     const [isPending, startTransition] = useTransition()
     const formRef = useRef<HTMLFormElement>(null)
+
+    // Login is light-mode by default — always. Users arriving from the
+    // dark-mode marketing site still see a clean light auth surface so the
+    // password/OTP fields stay legible.
+    //
+    // We force light on mount via setTheme (so next-themes drives the React
+    // tree consistently), and restore the user's previous preference on
+    // unmount so the marketing-site choice survives a login round-trip.
+    // The hanging-bulb toggle stays available — if the user explicitly
+    // picks dark mid-session, they get dark for the rest of that session.
+    const { theme: persistedTheme, setTheme } = useTheme()
+    useEffect(() => {
+        const prev = persistedTheme
+        setTheme('light')
+        return () => {
+            if (prev && prev !== 'light') setTheme(prev)
+        }
+        // Run once on mount; we deliberately don't react to persistedTheme
+        // changes to avoid a feedback loop with the bulb toggle.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const isLight = useIsLight()
     const tokens = authTokens(isLight)
@@ -218,7 +240,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
                                                     placeholder="••••••••"
                                                     onKeyDown={capsKeyDown}
                                                     onKeyUp={capsKeyUp}
-                                                    className={`${fieldClass} pr-11`}
+                                                    className={`${fieldClass} pr-11 ${showPassword ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
                                                 />
                                                 <button type="button" tabIndex={-1} onClick={() => setShowPassword(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-colors ${tokens.eyeBtn}`}>
                                                     {showPassword ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}

@@ -4,11 +4,14 @@ import { useState, useTransition, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X, PartyPopper } from 'lucide-react'
+import { X, PartyPopper, ChevronRight } from 'lucide-react'
 import { pauseSubscription, resumeSubscription, skipMeal } from './actions'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 import { cleanPlanName, OG, NV, BG, BODY, S } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
+import { ProfileBanner } from './_shared/ProfileBanner'
+import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
+import { vegDayNumbersFor, type WeekType } from '@/lib/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
@@ -29,11 +32,23 @@ function isSameDay(iso: string | null | undefined, ref: Date = new Date()): bool
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Build Mon–Sat of the CURRENT week (or NEXT week if today is Sunday).
-// Each item is tagged with its delivery state — past / today / future.
-// If this week has no dishes, fall back to last week's so the variable-reward
-// engine never goes flat (returns weekStatus so consumers can rephrase the header).
-function buildCurrentWeekMenu(prefIsVeg: boolean, now: Date = new Date()): { menu: MenuItem[]; weekStatus: WeekStatus } {
+// Build the working-week menu (Mon–Sat for 6DAYS, Mon–Fri for 5DAYS) starting
+// from the CURRENT week (or NEXT week if today is Sunday). Each item is
+// tagged with its delivery state — past / today / future.
+//
+// `vegDayNumbers` is the per-day veg/non-veg map produced by
+// vegDayNumbersFor() — for plain Veg/NonVeg customers it's all-or-nothing;
+// for religious-mix it reflects exactly which weekdays the customer chose
+// at checkout.
+//
+// Fallback: if the current week has no dishes at all (across both isVeg
+// variants), use last week — keeps the variable-reward engine alive when
+// the kitchen hasn't published the new week yet.
+function buildCurrentWeekMenu(
+  vegDayNumbers: Set<number>,
+  weekType: WeekType,
+  now: Date = new Date()
+): { menu: MenuItem[]; weekStatus: WeekStatus } {
   const todayMidnight = new Date(now); todayMidnight.setHours(0, 0, 0, 0)
   const todayDay = todayMidnight.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
 
@@ -43,24 +58,31 @@ function buildCurrentWeekMenu(prefIsVeg: boolean, now: Date = new Date()): { men
   monday.setDate(todayMidnight.getDate() + mondayOffset)
 
   const weekKey = getMenuWeek(monday)
-  let dishes = MENU_DATA.filter(d => d.week === weekKey && d.isVeg === prefIsVeg)
+  // Fetch ALL dishes for this week (both isVeg variants) so per-day picks
+  // can choose whichever the customer needs. Falls back to last week if the
+  // current week is empty — same heuristic as before.
+  let dishes = MENU_DATA.filter(d => d.week === weekKey)
   let usedFallback = false
   if (dishes.length === 0) {
     const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate() - 7)
     const lastKey = getMenuWeek(lastMonday)
-    const lastDishes = MENU_DATA.filter(d => d.week === lastKey && d.isVeg === prefIsVeg)
+    const lastDishes = MENU_DATA.filter(d => d.week === lastKey)
     if (lastDishes.length > 0) {
       dishes = lastDishes
       usedFallback = true
     }
   }
-  const dishByDay = new Map(dishes.map(d => [d.dayOfWeek, d]))
+  // Key by `dayOfWeek_isVeg` so each per-day lookup is one Map.get() call.
+  const dishByDayAndVeg = new Map<string, typeof dishes[number]>()
+  for (const d of dishes) dishByDayAndVeg.set(`${d.dayOfWeek}_${d.isVeg}`, d)
 
+  const W = weekType === '5DAYS' ? 5 : 6
   const out: MenuItem[] = []
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < W; i++) {
     const date = new Date(monday)
     date.setDate(monday.getDate() + i)
-    const dish = dishByDay.get(i) ?? null
+    const wantVeg = vegDayNumbers.has(i)
+    const dish = dishByDayAndVeg.get(`${i}_${wantVeg}`) ?? null
 
     let state: MealState
     if (date.getTime() < todayMidnight.getTime())     state = 'past'
@@ -72,7 +94,7 @@ function buildCurrentWeekMenu(prefIsVeg: boolean, now: Date = new Date()): { men
       date:  date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       dish:  dish?.name ?? '—',
       sub:   dish?.description ?? '',
-      tag:   prefIsVeg ? 'Veg' : 'Non Veg',
+      tag:   wantVeg ? 'Veg' : 'Non Veg',
       heat:  dish?.spiceLevel ?? 0,
       image: dish?.image ?? null,
       state,
@@ -98,20 +120,26 @@ function getGreeting() {
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, justCheckedOut = false }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
+  queuedSub?: Subscription | null
+  /** Missing-field labels — empty array = profile complete; non-empty disables purchase CTAs. */
+  profileGate?: string[]
+  /** True when the customer's dorm is outside the listed delivery radius — disables purchase CTAs and renders the OutOfZoneBanner above ProfileBanner. */
+  outOfZone?: boolean
   justCheckedOut?: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError]     = useState<string | null>(null)
   // Initial localState derived from server data:
-  //   • Paused        → if subscription.status is 'Paused' (DB-persisted)
-  //   • Skipped       → if last_skipped_date matches today (DB-persisted, since
-  //                     skipMeal doesn't flip status, only stamps the date)
-  //   • Active        → otherwise
+  //   • Paused   → status is 'Paused'
+  //   • Skipped  → status is 'Skipped' (DB-promoted) OR last_skipped_date
+  //               matches today (legacy rows that pre-date the promotion)
+  //   • Active   → otherwise
   const initialLocalState: LocalState =
     sub.status === SUBSCRIPTION_STATUS.PAUSED ? 'paused'
+    : sub.status === SUBSCRIPTION_STATUS.SKIPPED ? 'skipped'
     : isSameDay(sub.last_skipped_date) ? 'skipped'
     : 'active'
   const [localState, setLocalState]       = useState<LocalState>(initialLocalState)
@@ -124,6 +152,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
   useEffect(() => {
     setLocalState(
       sub.status === SUBSCRIPTION_STATUS.PAUSED ? 'paused'
+      : sub.status === SUBSCRIPTION_STATUS.SKIPPED ? 'skipped'
       : isSameDay(sub.last_skipped_date) ? 'skipped'
       : 'active'
     )
@@ -181,7 +210,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
   const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id), 'skipped', 'skip') }
   const handlePauseRequest = () => {
     if (isPending || isScheduled) return
+    // Resume is always allowed (even on the final day) so a paused customer
+    // can wrap their cycle cleanly. Pause is locked once it's the final day
+    // past 14:00 AE — pushing end_date out then doesn't protect tonight's
+    // already-prepped meal.
     if (localState === 'paused')                      act(() => resumeSubscription(sub.id), 'active',  'resume')
+    else if (pausePastFinalDay)                        return
     else if (canPause && localState === 'active')     setShowPauseConfirm(true)
   }
   const handlePauseConfirm = () => {
@@ -217,8 +251,19 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
   const rawName   = customer?.name ?? userEmail.split('@')[0]
   const firstName = rawName?.split(' ')[0] ?? 'there'
 
-  const prefIsVeg = !!customer?.meal_preference_type?.toLowerCase().includes('plant')
-  const { menu: weekMenu } = useMemo(() => buildCurrentWeekMenu(prefIsVeg), [prefIsVeg])
+  // Per-day veg/non-veg map. For Veg/NonVeg pref it's all-or-nothing; for
+  // religious-mix it's the customer's checkout-chosen day set, snapshotted on
+  // the active sub. Stale day names (e.g. 'Saturday' on a now-5DAYS plan)
+  // are silently dropped by vegDayNumbersFor.
+  const subWeekType: WeekType = (sub.week_type === '5DAYS' || sub.week_type === '6DAYS') ? sub.week_type : '6DAYS'
+  const vegDayNumbers = useMemo(
+    () => vegDayNumbersFor(customer?.meal_preference_type, sub.veg_days, subWeekType),
+    [customer?.meal_preference_type, sub.veg_days, subWeekType]
+  )
+  const { menu: weekMenu } = useMemo(
+    () => buildCurrentWeekMenu(vegDayNumbers, subWeekType),
+    [vegDayNumbers, subWeekType]
+  )
   const todayMeal = weekMenu.find(m => m.state === 'today') ?? null
 
   // 2 PM Asia/Dubai skip cutoff — recalculate on a 60s tick so the button
@@ -235,6 +280,30 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
     const t = setInterval(tick, 60_000)
     return () => clearInterval(t)
   }, [])
+
+  // Today (AE) is a non-delivery day for this week_type → skip is meaningless
+  // (no meal scheduled). Mirrors the server-side check in skipMeal().
+  // ISO dow: 1=Mon … 7=Sun. subWeekType is narrowed above to 5DAYS|6DAYS.
+  const skipNoDelivery = useMemo(() => {
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+    const isoDow = ((ae.getUTCDay() + 6) % 7) + 1
+    if (subWeekType === '6DAYS') return isoDow === 7
+    return isoDow === 6 || isoDow === 7  // 5DAYS
+  }, [subWeekType])
+
+  // Final-day pause lock: it's the cycle's last delivery date AND the AE
+  // wall clock has crossed 14:00 (kitchen prep cutoff). Pausing now would
+  // push end_date out by 1 calendar day, but tonight's delivery is already
+  // committed — the pause wouldn't protect anything; it'd just delay the
+  // closure. Lock it; the customer can still Resume from a paused state.
+  const pausePastFinalDay = useMemo(() => {
+    if (!skipPastCutoff) return false   // tracks the same 14:00 AE tick
+    // Compare AE wall-date to the sub's end_date. They're both calendar
+    // dates so a string compare on YYYY-MM-DD works.
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+    const aeIso = `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`
+    return aeIso === sub.end_date
+  }, [skipPastCutoff, sub.end_date])
 
   // Stagger entrance only on first visit per session — avoids 700ms hold-up on every navigation
   const [skipStagger, setSkipStagger] = useState(false)
@@ -498,6 +567,135 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
           )}
         </AnimatePresence>
 
+        {/* Out-of-zone gate — non-dismissable, blocks renewal. Customer-service
+            clears it via Supabase admin once delivery is confirmed. */}
+        <OutOfZoneBanner show={outOfZone} />
+        {/* Profile-completion gate — non-dismissable, blocks plan purchase. */}
+        <ProfileBanner missing={profileGate} />
+
+        {/* Last-day-of-cycle renew banner — shown when end_date is today and
+            no Scheduled is queued. The single highest-leverage retention moment
+            in the product. Hidden if a queued sub exists (the user has already
+            renewed). Always shown above the queued-banner so the bookend gets
+            the dominant slot. */}
+        {!queuedSub && !isScheduled && (() => {
+          const todayIsEndDate = new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
+          if (!todayIsEndDate) return null
+          return (
+            <div style={{
+              marginBottom: 18,
+              padding: '14px 18px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'linear-gradient(135deg, rgba(245,127,32,0.10) 0%, rgba(255,170,0,0.05) 100%)',
+              border: '1px solid rgba(245,127,32,0.32)',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}>
+              <div style={{
+                width: 36, height: 36, flexShrink: 0, borderRadius: '50%',
+                background: 'rgba(245,127,32,0.16)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: OG, fontFamily: BODY, fontSize: 18, fontWeight: 800,
+              }}>!</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                  Last meal of your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> tonight.
+                </div>
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+                  Renew now to keep dinner showing up — your next plan can start tomorrow.
+                </div>
+              </div>
+              {profileGate.length > 0 || outOfZone ? (
+                <span
+                  title={outOfZone ? 'Outside delivery radius — message us on WhatsApp' : 'Complete your profile first'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '10px 16px',
+                    background: 'rgba(9,24,37,0.20)', color: 'rgba(255,255,255,0.85)',
+                    borderRadius: 'var(--radius-pill)',
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    cursor: 'not-allowed', flexShrink: 0,
+                  }}
+                >
+                  Renew now <ChevronRight size={14} strokeWidth={2.6} />
+                </span>
+              ) : (
+                <Link
+                  href={`/dashboard/explore-plans?plan=${encodeURIComponent(sub.plan_name)}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '10px 16px',
+                    background: OG, color: '#fff',
+                    borderRadius: 'var(--radius-pill)',
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 12px rgba(245,127,32,0.40)',
+                    flexShrink: 0,
+                  }}
+                >
+                  Renew now <ChevronRight size={14} strokeWidth={2.6} />
+                </Link>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* Queued-renewal banner — shown only when an Active|Paused|Skipped
+            primary AND a Scheduled queue both exist. Saturated slate-blue
+            pill on a deeper-tint background so the "something's coming"
+            signal pops at a glance. The Scheduled row auto-flips to Active
+            via subscription_status_tick at midnight AE on its start_date. */}
+        {queuedSub && (
+          <div style={{
+            marginBottom: 18,
+            padding: '16px 18px',
+            borderRadius: 'var(--radius-sm)',
+            // Saturated slate-blue surface so the banner pops as a confident
+            // "something's coming" signal, not a quiet caption. Subtle inner
+            // highlight + heavier glow give it dimensional pop without
+            // shouting at the user.
+            background: 'linear-gradient(135deg, #3a6f8c 0%, #2a5470 100%)',
+            border: '1px solid rgba(58,111,140,0.55)',
+            color: '#ffffff',
+            fontFamily: BODY,
+            fontSize: 14,
+            lineHeight: 1.45,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            boxShadow: '0 8px 24px rgba(58,111,140,0.30), inset 0 1px 0 rgba(255,255,255,0.10)',
+          }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              fontSize: 10.5,
+              fontWeight: 800,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              padding: '6px 12px',
+              borderRadius: 999,
+              background: '#FFAA00',
+              color: '#3a2200',
+              boxShadow: '0 0 0 3px rgba(255,170,0,0.22), 0 4px 12px rgba(255,170,0,0.40)',
+              flexShrink: 0,
+            }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#3a2200',
+                boxShadow: '0 0 8px rgba(58,34,0,0.55)',
+              }} />
+              Up next
+            </span>
+            <span style={{ color: '#ffffff', minWidth: 0, fontWeight: 600 }}>
+              <strong style={{ fontWeight: 800 }}>{cleanPlanName(queuedSub.plan_name)}</strong>
+              <span style={{ color: 'rgba(255,255,255,0.50)', margin: '0 8px' }}>·</span>
+              <span style={{ color: '#FFD27A', fontWeight: 700 }}>
+                Starts {new Date(queuedSub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+            </span>
+          </div>
+        )}
+
         {/* 12-column grid — order:
             (1) Stats row (Deliveries/Delivered/Skips/Days)
             (2) Tonight's dish + Quick actions
@@ -508,6 +706,17 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
             todayMeal={todayMeal}
             localState={localState}
             subStartDate={isScheduled ? sub.start_date : undefined}
+            weekType={(sub.week_type === '5DAYS' || sub.week_type === '6DAYS') ? sub.week_type : '6DAYS'}
+            isDayOne={
+              !isScheduled
+              && sub.delivered_meals === 0
+              && new Date(sub.start_date + 'T00:00:00').toDateString() === new Date().toDateString()
+            }
+            isLastDayNoQueue={
+              !isScheduled
+              && !queuedSub
+              && new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
+            }
           />
           <QuickActions
             canPause={canPause}
@@ -522,7 +731,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
               ? `Available once your plan starts on ${new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}.`
               : undefined}
             skipPastCutoff={!isScheduled && skipPastCutoff}
+            skipNoDelivery={!isScheduled && skipNoDelivery}
+            pausePastFinalDay={!isScheduled && pausePastFinalDay}
           />
+          {/* PlanProgress takes the full row width on the main dashboard.
+              The Past plans card has moved to /dashboard/plan (beside the
+              Common questions block) so the live progress can breathe and
+              the historical view lives in one obvious place. */}
           <PlanProgress sub={effectiveSub} />
         </div>
 
@@ -542,21 +757,68 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
                 exit={{ opacity: 0, scale: 0.95, y: 12 }}
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 onClick={e => e.stopPropagation()}
-                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 420, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
+                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 440, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
               >
-                <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                {/* Hierarchy — three tiers, no redundancy:
+                      H1 (large, navy): the question
+                      Body (mid, muted): plain-English explanation of the
+                          ONE thing the customer needs to know — they don't
+                          lose the meal
+                      Data row (smaller, tabular): the after-state — skips
+                          left and the +1 day shift, side by side. Numbers
+                          first so the eye grabs them before the labels. */}
+                <h2 style={{ margin: 0, fontFamily: BODY, fontSize: 24, fontWeight: 800, color: NV, lineHeight: 1.15, letterSpacing: '-0.015em' }}>
                   Skip tonight&rsquo;s meal?
-                </div>
-                <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
-                  Your end date moves out by <strong style={{ color: NV }}>1 day</strong> so you don&rsquo;t lose this meal.{' '}
+                </h2>
+                <p style={{ marginTop: 10, marginBottom: 0, fontFamily: BODY, fontSize: 14, color: S.fgMuted, lineHeight: 1.6 }}>
+                  You won&rsquo;t lose this meal — your end date pushes out by one delivery day so it joins the end of your plan.
+                </p>
+
+                <div style={{
+                    marginTop: 20,
+                    padding: '14px 16px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(245,127,32,0.06)',
+                    border: '1px solid rgba(245,127,32,0.20)',
+                    display: 'grid',
+                    gridTemplateColumns: skipQuota.total > 0 ? '1fr 1fr' : '1fr',
+                    gap: 14,
+                }}>
+                  <div>
+                    <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
+                      End date
+                    </div>
+                    <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: NV, fontFeatureSettings: '"tnum"' }}>
+                      <span style={{ color: OG }}>+1 day</span>
+                    </div>
+                  </div>
                   {skipQuota.total > 0 && (
-                    <>You&rsquo;ll have <strong style={{ color: NV }}>{Math.max(0, skipQuota.left - 1)} of {skipQuota.total}</strong> skip{skipQuota.total === 1 ? '' : 's'} left after this.</>
+                    <div style={{ borderLeft: '1px solid rgba(245,127,32,0.20)', paddingLeft: 14 }}>
+                      <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
+                        Skips left
+                      </div>
+                      <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: NV, fontFeatureSettings: '"tnum"' }}>
+                        {Math.max(0, skipQuota.left - 1)}<span style={{ color: S.fgSub, fontWeight: 600 }}> / {skipQuota.total}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', color: '#9a2828', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
-                  Once you confirm, the kitchen will be informed and this can&rsquo;t be undone.
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+
+                {/* Inline irreversibility note — sits right above the CTAs,
+                    smaller and subdued so the modal isn't shouty, but
+                    coloured so the eye still snags on it before clicking. */}
+                <p style={{
+                    margin: '14px 0 0 0',
+                    fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
+                    color: '#9a2828',
+                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    lineHeight: 1.4,
+                    textAlign: 'center',
+                }}>
+                  This can&rsquo;t be undone after confirm
+                </p>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                   <button
                     onClick={() => setShowSkipConfirm(false)}
                     style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
@@ -567,7 +829,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
                     onClick={handleSkipConfirm}
                     style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
                   >
-                    Yes, skip today
+                    Skip tonight
                   </button>
                 </div>
               </motion.div>
@@ -644,6 +906,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, ju
         .dash-grid > *:nth-child(2) { animation: fadeUp 0.35s ease-out 0.07s both; }
         .dash-grid > *:nth-child(3) { animation: fadeUp 0.35s ease-out 0.14s both; }
         .dash-grid > *:nth-child(4) { animation: fadeUp 0.35s ease-out 0.21s both; }
+        .dash-grid > *:nth-child(5) { animation: fadeUp 0.35s ease-out 0.28s both; }
         .dash-grid-no-stagger > * { animation: none !important; }
         @media (prefers-reduced-motion: reduce) {
           .dash-grid > * { animation: none !important; }

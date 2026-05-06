@@ -1,12 +1,32 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { resolvePlan } from '@/lib/plans';
+import { resolvePlan, totalMealsFor, planKindOf } from '@/lib/plans';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,
   INVOICE_STATUS,
 } from '@/lib/subscription-status';
+import { computeEndDate, isoDate, type WeekType } from '@/lib/end-date';
+
+/**
+ * Forward a date to the next delivery day for the customer's week_type.
+ * Sunday is non-delivery for 6DAYS; Sat+Sun for 5DAYS. Mirrors the
+ * shift logic in compute_subscription_end_date / src/lib/end-date.ts.
+ */
+function nextDeliveryDay(d: Date, weekType: WeekType): Date {
+  const r = new Date(d);
+  for (let i = 0; i < 7; i++) {
+    const dow = r.getUTCDay() === 0 ? 7 : r.getUTCDay(); // 1=Mon..7=Sun
+    const isDelivery =
+      weekType === '7DAYS' ? true :
+      weekType === '6DAYS' ? dow !== 7 :
+      dow !== 6 && dow !== 7;
+    if (isDelivery) return r;
+    r.setUTCDate(r.getUTCDate() + 1);
+  }
+  return r; // unreachable for sane inputs
+}
 
 export async function POST(req: Request) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -56,40 +76,81 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true, deduped: true });
       }
 
-      // Resolve the plan from the metadata. Unknown plans fall back to the
-      // trial definition (1 meal, 1 day) — same defensive default as before.
-      const planDef = resolvePlan(plan) ?? {
-        label: 'One-Time Trial',
-        totalMeals: 1,
-        durationDays: 1,
-        mealsPerDay: 1,
-      };
+      // Resolve the plan from the metadata. Unknown plans fall back to trial.
+      const planDef = resolvePlan(plan) ?? resolvePlan('Trial');
+      if (!planDef) {
+        console.error('❌ Webhook Error: cannot resolve any plan');
+        return NextResponse.json({ error: 'Unknown plan' }, { status: 400 });
+      }
       const plan_name = planDef.label;
-      const total_meals = planDef.totalMeals;
-      const duration_days = planDef.durationDays;
       const meals_per_day = planDef.mealsPerDay;
 
-      // Calculate start and end dates — honor user-picked start_date if provided
-      const startDate = start_date ? new Date(start_date) : new Date();
-      // Guard against invalid date
-      if (isNaN(startDate.getTime())) startDate.setTime(Date.now());
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + duration_days);
+      // Snapshot the customer's week_type — once persisted on the sub, future
+      // changes to customer.week_type won't retroactively rewrite this row's
+      // delivery cadence or end_date math. We also fetch pending_* columns
+      // so we can prefer pending values over current when the customer has
+      // queued a change ("apply from next subscription"). Pending wins
+      // because this IS the next subscription being created.
+      const { data: customerRow } = await supabaseAdmin
+        .from('customers')
+        .select('week_type, meal_preference_type, allergens, spice_level_preference, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
+        .eq('id', user_id)
+        .maybeSingle();
+      const effectiveWeekTypeRaw =
+        customerRow?.pending_week_type ?? customerRow?.week_type;
+      const weekType: WeekType =
+        effectiveWeekTypeRaw === '5DAYS' ? '5DAYS' : '6DAYS';
 
-      // If start date is in the future, mark as Scheduled — otherwise Active immediately.
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      const status = startDate > todayMidnight ? SUBSCRIPTION_STATUS.SCHEDULED : SUBSCRIPTION_STATUS.ACTIVE;
+      // Total meal count for this (plan, week_type). For 5DAYS plans this
+      // is lower than the 6DAYS default (e.g., Monthly Premium 5DAYS = 20).
+      const total_meals = totalMealsFor(planDef.id, weekType);
 
-      // If new sub overlaps an existing Active sub for this user (same start before existing end_date),
-      // end the existing one. Future-dated subs do NOT touch the current Active.
-      if (status === SUBSCRIPTION_STATUS.ACTIVE) {
-        await supabaseAdmin
-          .from('subscriptions')
-          .update({ status: SUBSCRIPTION_STATUS.ENDED })
-          .eq('customer_id', user_id)
-          .in('status', LIVE_SUBSCRIPTION_STATUSES);
+      // ── Determine start_date by queuing after the latest live tail ─────
+      // Per state-machine spec: max 1 (Active|Paused|Skipped) + 1 Scheduled.
+      // If any live sub exists, the new sub queues behind the latest one.
+      // If nothing live, honour the user-picked start_date (or default today).
+      const { data: liveSubs } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id, end_date, status')
+        .eq('customer_id', user_id)
+        .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
+        .order('end_date', { ascending: false });
+
+      const tail = liveSubs?.[0];
+      const todayMidnightUtc = new Date(); todayMidnightUtc.setUTCHours(0, 0, 0, 0);
+
+      let startDate: Date;
+      if (tail) {
+        // Queue: start the day after tail.end_date, shifted to next delivery day
+        const dayAfter = new Date(tail.end_date + 'T00:00:00Z');
+        dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
+        startDate = nextDeliveryDay(dayAfter, weekType);
+        if (start_date) {
+          console.warn(`⚠️  User ${user_id} picked start_date ${start_date} but live sub ${tail.id} forces queue-after; using ${isoDate(startDate)}`);
+        }
+      } else {
+        // No live sub — use user pick (date-picker-validated upstream) or today
+        startDate = start_date ? new Date(start_date + 'T00:00:00Z') : new Date(todayMidnightUtc);
+        if (isNaN(startDate.getTime())) startDate = new Date(todayMidnightUtc);
+        // Shift to next delivery day in case of edge cases (e.g. trial picks a Sunday)
+        startDate = nextDeliveryDay(startDate, weekType);
       }
+
+      const status = startDate.getTime() > todayMidnightUtc.getTime()
+        ? SUBSCRIPTION_STATUS.SCHEDULED
+        : SUBSCRIPTION_STATUS.ACTIVE;
+
+      // Compute end_date upfront with the canonical formula so the inserted
+      // row is correct on first write. The DB trigger will recompute the
+      // identical value — passing it explicitly just avoids relying on the
+      // trigger and makes the value available to log/return.
+      const endDate = computeEndDate({
+        startDate,
+        planKind: planKindOf(planDef.id),
+        weekType,
+        skipCount: 0,
+        pauseDays: 0,
+      });
 
       // 1. Insert Subscription
       const { data: subData, error: subError } = await supabaseAdmin
@@ -98,14 +159,27 @@ export async function POST(req: Request) {
           customer_id: user_id,
           plan_name: plan_name,
           status: status,
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString(),
+          start_date: isoDate(startDate),
+          end_date: isoDate(endDate),
+          week_type: weekType,
           meals_per_day: meals_per_day,
           total_meals: total_meals,
           delivered_meals: 0,
           paused_days: 0,
           has_paused_before: false,
-          skipped_meals_count: 0
+          skipped_meals_count: 0,
+          // Religious-mix subs persist their per-day veg-day choices so the
+          // dashboard menu + ops can render the right dish per day. Stripe
+          // metadata is a flat string ('Monday, Wednesday'), so split back
+          // to an array and validate against the working-day set for safety.
+          veg_days: (() => {
+            if (!vegDays) return null;
+            const arr = String(vegDays).split(',').map(s => s.trim()).filter(Boolean);
+            if (arr.length === 0) return null;
+            const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']);
+            const clean = arr.filter(d => allowed.has(d));
+            return clean.length > 0 ? clean : null;
+          })(),
         })
         .select()
         .single();
@@ -141,15 +215,44 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
       }
 
-      // 3. Update Customer Profile with the latest data
+      // 3. Update Customer Profile with the latest data + drain any pending
+      // preferences. The new subscription IS the "next subscription" the
+      // pending_* values were waiting for — once it's been written, the
+      // customer's canonical fields can flip to match, and pending_* is
+      // cleared so the dashboard banner disappears.
+      //
+      // Field-by-field precedence: pending → request body → existing
+      // customer column → null. The webhook payload already carries the
+      // user's chosen veg_days; allergens / spice / week_type don't ride
+      // the payload (they're profile-only), so pending_* is the channel
+      // for those.
+      const customerPatch: Record<string, unknown> = {
+        name,
+        whatsapp_number: phone,
+        dorm_name: location,
+        meal_preference_type:
+          customerRow?.pending_meal_preference_type ?? preference,
+        week_type: weekType,
+      };
+      if (customerRow?.pending_allergens != null) {
+        customerPatch.allergens = customerRow.pending_allergens;
+      }
+      if (customerRow?.pending_spice_level_preference != null) {
+        customerPatch.spice_level_preference =
+          customerRow.pending_spice_level_preference;
+      }
+      // Always clear pending_* — even if every field was null, the explicit
+      // null-out is a no-op so the cost is negligible and it keeps the
+      // post-state predictable.
+      customerPatch.pending_meal_preference_type = null;
+      customerPatch.pending_week_type = null;
+      customerPatch.pending_allergens = null;
+      customerPatch.pending_spice_level_preference = null;
+      customerPatch.pending_veg_days = null;
+
       const { error: customerError } = await supabaseAdmin
         .from('customers')
-        .update({
-          name: name,
-          whatsapp_number: phone,
-          dorm_name: location,
-          meal_preference_type: preference
-        })
+        .update(customerPatch)
         .eq('id', user_id);
 
       if (customerError) {

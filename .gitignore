@@ -43,5 +43,16 @@ next-env.d.ts
 # Claude worktrees (embedded repos break Netlify)
 .claude/worktrees/
 
+# Local agent / Claude skill catalogues — sourced from external repos for
+# the local agents only; not part of the deployed app.
+.agents/skills/
+.claude/skills/
+
+# System-map render artefacts: regenerable screenshots, the superseded
+# LaTeX experiment, and the puppeteer renderer's own node_modules.
+docs/system-map/_screenshots/
+docs/system-map/_archive_latex/
+docs/system-map/node_modules/
+
 # Local Netlify folder
 .netlify

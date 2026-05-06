@@ -9,9 +9,20 @@
  *
  * Adding a new plan should be a one-row change here. If you find yourself
  * editing plan logic in multiple files, the consolidation has regressed.
+ *
+ * NOTE on week_type: the static `totalMeals` / `durationDays` values below
+ * reflect the 6DAYS cadence (Mon–Sat). Customers can also pick 5DAYS
+ * (Mon–Fri); when they do, downstream callers should use {@link dBase}
+ * and {@link totalMealsFor} to get the correct count rather than reading
+ * the static fields. The static values stay as the 6DAYS default for
+ * legacy callers that don't yet thread week_type through.
  */
 
+import type { WeekType } from './end-date'
+
 export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial'
+
+export type PlanKind = 'trial' | 'weekly' | 'monthly'
 
 export type PlanDefinition = {
   id: PlanId
@@ -119,4 +130,69 @@ export function resolvePlan(planString: string | null | undefined): PlanDefiniti
  */
 export function resolvePlanOrTrial(planString: string | null | undefined): PlanDefinition {
   return resolvePlan(planString) ?? PLANS.trial
+}
+
+// ── Week-type aware helpers ────────────────────────────────────────────────────
+// The PLANS registry above stores the 6DAYS values for backward compat. Use
+// these helpers when you need the correct count for a customer who has picked
+// 5DAYS (or in future, 7DAYS).
+
+/** Maps a PlanId to its plan-kind family used by end-date math. */
+export function planKindOf(id: PlanId): PlanKind {
+  if (id === 'trial') return 'trial'
+  if (id === 'weekly-flex') return 'weekly'
+  return 'monthly'
+}
+
+/** Days-per-week count for a week_type. */
+function daysPerWeek(weekType: WeekType): number {
+  if (weekType === '5DAYS') return 5
+  if (weekType === '6DAYS') return 6
+  return 7
+}
+
+/**
+ * D_base — the base number of delivery days a plan covers. Trial=1,
+ * Weekly=W, Monthly=4×W. Skips and pauses do NOT enter here — they
+ * extend the calendar window in {@link computeEndDate}, not the meal count.
+ */
+export function dBase(id: PlanId, weekType: WeekType): number {
+  const kind = planKindOf(id)
+  if (kind === 'trial') return 1
+  const W = daysPerWeek(weekType)
+  if (kind === 'weekly') return W
+  return 4 * W
+}
+
+/**
+ * Total meals delivered over the cycle for a (plan, week_type) combo.
+ * Equals D_base × mealsPerDay. Use this instead of `def.totalMeals` when
+ * the customer's week_type is known.
+ */
+export function totalMealsFor(id: PlanId, weekType: WeekType): number {
+  return dBase(id, weekType) * PLANS[id].mealsPerDay
+}
+
+/**
+ * Minimum valid checkout amount in fils (AED × 100) for (plan, week_type).
+ *
+ * The static `def.minPriceFils` field bakes in the 6DAYS meal count, so a
+ * 5DAYS customer's legit total would fail the floor check (5×19=AED 95 vs
+ * the static 6×19=AED 114 floor for Weekly Flex). Use this helper after
+ * resolving the customer's week_type so the lower bound matches their
+ * actual cycle length.
+ *
+ * Cheapest preference (Veg) × meals-for-cycle gives the floor. Religious
+ * mix and NonVeg are always >= Veg per pricing.ts, so this remains a safe
+ * lower bound.
+ */
+const VEG_PRICE_PER_MEAL: Record<PlanId, number> = {
+  'monthly-max': 17.5,
+  'monthly-premium': 18,
+  'weekly-flex': 19,
+  'trial': 20,
+}
+
+export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
+  return Math.round(VEG_PRICE_PER_MEAL[id] * totalMealsFor(id, weekType) * 100)
 }

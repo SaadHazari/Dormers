@@ -17,6 +17,25 @@ export interface Customer {
   spice_level_preference?: string | null
   email?: string | null
   created_at: string
+  // Phase 1 column. DB has NOT NULL DEFAULT '6DAYS' so reads always return
+  // a value; nullable here only because legacy queries selected '*' before
+  // the column existed and TS sees old shapes during incremental migrations.
+  week_type?: '5DAYS' | '6DAYS' | null
+  // Set during onboarding's WhatsApp OTP step or via security-actions
+  // markWhatsappVerified. Never written from the inline profile form.
+  whatsapp_verified?: boolean | null
+  // True when the customer picked "Other" for dorm at onboarding (outside
+  // listed delivery radius). Blocks plan purchase until customer-service
+  // confirms coverage and clears it via Supabase admin.
+  out_of_zone?: boolean | null
+  // Pending preferences — apply from the customer's next subscription. Set
+  // by Profile → Edit Preferences → "Save for next subscription" when a live
+  // sub exists. Cleared by the webhook after the next sub is created.
+  pending_meal_preference_type?: string | null
+  pending_week_type?: '5DAYS' | '6DAYS' | null
+  pending_allergens?: string | null
+  pending_spice_level_preference?: string | null
+  pending_veg_days?: string[] | null
 }
 
 export interface Subscription {
@@ -33,6 +52,17 @@ export interface Subscription {
   last_skipped_date?: string | null
   paused_days?: number
   created_at: string
+  // Phase 1 additions
+  week_type?: '5DAYS' | '6DAYS' | null
+  start_date_changed_at?: string | null
+  // Religious-mix subs only — list of day names (e.g. ['Monday','Wednesday'])
+  // that are veg deliveries. Length matches vegDayCount picked at checkout.
+  // Drives per-day dish selection on the dashboard + /menu page.
+  veg_days?: string[] | null
+}
+
+export interface CustomerProfile {
+  week_type?: '5DAYS' | '6DAYS' | null
 }
 
 export type MealState = 'past' | 'today' | 'future'

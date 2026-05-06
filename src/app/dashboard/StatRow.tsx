@@ -62,8 +62,10 @@ export function StatRow({ sub }: { sub: Subscription }) {
     const total = sub.total_meals
     const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
     const deliveriesDone = Math.floor(sub.delivered_meals / mealsPerDelivery)
-    const skippedDeliveries = Math.floor(sub.skipped_meals_count / mealsPerDelivery)
-    const deliveriesLeft = Math.max(0, totalDeliveries - deliveriesDone - skippedDeliveries)
+    // Skips don't reduce the deliveries-owed count — each skip extends the
+    // cycle by one make-up day so the user still receives all paid-for
+    // deliveries, just shifted later. (Matches PlanProgress's bar math.)
+    const deliveriesLeft = Math.max(0, totalDeliveries - deliveriesDone)
 
     const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
     const daysToEnd = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))

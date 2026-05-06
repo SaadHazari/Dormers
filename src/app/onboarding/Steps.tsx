@@ -5,7 +5,7 @@ import { Check } from 'lucide-react'
 import { CtaButton, FieldInput, PillCard, SelectCard } from './primitives'
 import { EmailStep } from './EmailStep'
 import { PhoneStep } from './PhoneStep'
-import { ALLERGENS, DAYS_OF_WEEK, DORMS, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, type FormState, type Step } from './data'
+import { ALLERGENS, DAYS_OF_WEEK, DORMS, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, WEEK_TYPES, type FormState, type Step } from './data'
 import { authTokens } from '@/lib/auth-theme'
 
 interface Props {
@@ -58,42 +58,86 @@ export function OnboardingSteps({
                 </div>
             )}
 
-            {/* ── Step 1.5: Veg Days (Religious only) ── */}
-            {step === 1.5 && (
+            {/* ── Step 1.25: Week type (everyone) — placed BEFORE veg-days
+                  step so the religious-mix picker can cap its options at W-1
+                  (4 of 5 for 5DAYS, 5 of 6 for 6DAYS). ── */}
+            {step === 1.25 && (
                 <div className="space-y-5">
                     <div>
-                        <p className={eyebrowCls}>Halal Mix</p>
-                        <h1 className={headlineCls}>Which days<br />do you want veg?</h1>
+                        <p className={eyebrowCls}>Delivery Days</p>
+                        <h1 className={headlineCls}>How many<br />days a week?</h1>
                         <p className={sublineCls}>
-                            Pick at least one day you want vegetarian meals.
+                            Fewer delivery days = lower price. You can change this later for future plans.
                         </p>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2.5">
-                        {DAYS_OF_WEEK.map(day => (
-                            <PillCard
-                                key={day}
-                                selected={form.vegDays.includes(day)}
-                                onClick={() => toggleVegDay(day)}
-                                label={day}
+                    <div className="space-y-2.5">
+                        {WEEK_TYPES.map(w => (
+                            <SelectCard
+                                key={w.value}
+                                selected={form.weekType === w.value}
+                                onClick={() => { set('weekType', w.value); setTimeout(advance, 180) }}
+                                emoji={w.emoji} label={w.label} desc={w.desc}
                             />
                         ))}
                     </div>
-
-                    {form.vegDays.length > 0 && (
-                        <motion.p
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                            className={captionCls}
-                        >
-                            {form.vegDays.length === 6
-                                ? 'All days vegetarian.'
-                                : `${form.vegDays.length} veg day${form.vegDays.length > 1 ? 's' : ''} · ${6 - form.vegDays.length} non-veg`}
-                        </motion.p>
-                    )}
-
-                    <CtaButton onClick={advance} disabled={form.vegDays.length === 0}>Continue →</CtaButton>
                 </div>
             )}
+
+            {/* ── Step 1.5: Veg Days (Religious only) ──
+                Cap is W-1: 5DAYS allows max 4 veg days (1 non-veg minimum),
+                6DAYS allows max 5. Picking all-veg is handled by switching the
+                top-level meal preference to 'Veg', not by maxing this picker. */}
+            {step === 1.5 && (() => {
+                const W = form.weekType === '5DAYS' ? 5 : 6
+                const visibleDays = DAYS_OF_WEEK.slice(0, W)         // Mon..Fri or Mon..Sat
+                const maxVeg = W - 1                                   // can't pick all (defeats "mix")
+                const sanitisedVeg = form.vegDays.filter(d => visibleDays.includes(d))
+                const overCap = sanitisedVeg.length > maxVeg
+                return (
+                    <div className="space-y-5">
+                        <div>
+                            <p className={eyebrowCls}>Halal Mix</p>
+                            <h1 className={headlineCls}>Which days<br />do you want veg?</h1>
+                            <p className={sublineCls}>
+                                Pick up to {maxVeg} day{maxVeg === 1 ? '' : 's'} (out of {W}) for vegetarian meals.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {visibleDays.map(day => (
+                                <PillCard
+                                    key={day}
+                                    selected={sanitisedVeg.includes(day)}
+                                    onClick={() => {
+                                        const isSelected = sanitisedVeg.includes(day)
+                                        // Block adding past the cap; allow removing at any time.
+                                        if (!isSelected && sanitisedVeg.length >= maxVeg) return
+                                        toggleVegDay(day)
+                                    }}
+                                    label={day}
+                                />
+                            ))}
+                        </div>
+
+                        {sanitisedVeg.length > 0 && (
+                            <motion.p
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                className={captionCls}
+                            >
+                                {`${sanitisedVeg.length} veg day${sanitisedVeg.length > 1 ? 's' : ''} · ${W - sanitisedVeg.length} non-veg`}
+                            </motion.p>
+                        )}
+
+                        {overCap && (
+                            <p className={`${captionCls} text-[#a36900]`}>
+                                You can have at most {maxVeg} veg days for a {W}-day week. Switch to fully vegetarian on the previous step instead.
+                            </p>
+                        )}
+
+                        <CtaButton onClick={advance} disabled={sanitisedVeg.length === 0 || overCap}>Continue →</CtaButton>
+                    </div>
+                )
+            })()}
 
             {/* ── Step 2: Allergens ── */}
             {step === 2 && (
@@ -218,7 +262,7 @@ export function OnboardingSteps({
                 </div>
             )}
 
-            {/* ── Step 6: Name + WhatsApp + OTP verification.
+            {/* Step 6: Name + WhatsApp + OTP verification.
                   Owns its own flow internally (send / verify / advance). ── */}
             {step === 6 && (
                 <PhoneStep form={form} set={set} advance={advance} />

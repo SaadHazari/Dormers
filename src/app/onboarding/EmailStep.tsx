@@ -64,6 +64,7 @@ export function EmailStep({ form, set }: {
                 spiceLevel: form.spiceLevel,
                 dorm:       finalDorm,
                 university: finalUni,
+                weekType:   form.weekType,
                 name:       form.name.trim(),
                 phone:      form.phone.trim(),
                 email:      form.email.trim(),
@@ -135,7 +136,11 @@ export function EmailStep({ form, set }: {
     const termsLinkCls   = `underline transition-colors ${tokens.termsHover}`
     const eyeBtnCls      = `absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-colors ${tokens.eyeBtn}`
 
-    const passInputCls = `w-full rounded-xl px-4 py-3 pr-11 text-[14px] outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`
+    // Standardised across login + profile change-password: bigger glyph and
+    // wider tracking when masked so the dots read as a deliberate visual.
+    // Visible (type=text) reverts to the regular 14px so the actual password
+    // doesn't dominate the column.
+    const passInputCls = `w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60 ${showPass ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'}`
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5">

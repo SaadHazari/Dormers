@@ -9,9 +9,21 @@ interface Props {
   onChange: (v: string) => void
   minDate: string
   maxDate: string
+  /** Customer's delivery cadence — when set, Sundays (and Saturdays for
+   *  5DAYS) are non-selectable so they can't be picked as a start date.
+   *  Each blocked cell still renders with a tooltip explaining why. */
+  weekType?: '5DAYS' | '6DAYS'
 }
 
-export function DateField({ value, onChange, minDate, maxDate }: Props) {
+// ISO dow for a JS Date — 1=Mon..7=Sun. AE day-of-week math elsewhere uses
+// the same convention; keeping it consistent here so the kitchen-side
+// non-delivery check matches.
+function isoDow(d: Date): number {
+  const js = d.getDay()
+  return js === 0 ? 7 : js
+}
+
+export function DateField({ value, onChange, minDate, maxDate, weekType }: Props) {
   const [open, setOpen] = useState(false)
   // 'down' = popover sits below the trigger (default); 'up' = flips above when
   // there isn't enough viewport space below. Sticky checkout panels at the bottom
@@ -88,13 +100,41 @@ export function DateField({ value, onChange, minDate, maxDate }: Props) {
     cells.push({ date: d, inMonth: false })
   }
 
+  // Non-delivery weekday (Sun for 6DAYS; Sat+Sun for 5DAYS). Returns false
+  // when no weekType is supplied — the date picker pre-dates the gating, so
+  // existing callers that haven't passed `weekType` still allow every day.
+  const isNonDeliveryDay = (d: Date): boolean => {
+    if (!weekType) return false
+    const dow = isoDow(d)  // 1=Mon..7=Sun
+    if (weekType === '5DAYS') return dow === 6 || dow === 7
+    return dow === 7
+  }
+
   const inRange    = (d: Date) => d >= minD && d <= maxD
+  const isSelectable = (d: Date) => inRange(d) && !isNonDeliveryDay(d)
   const isToday    = (d: Date) => d.getTime() === today.getTime()
   const isSelected = (d: Date) =>
     !!value && d.getTime() === new Date(value + 'T00:00:00').getTime()
 
+  // Per-cell tooltip text — explains *why* a particular date can't be picked.
+  // Mirrors the server-side reject message in changeStartDate() so the user
+  // sees the same reason whether the gate fires client-side or server-side.
+  const cellTooltip = (d: Date, inMonth: boolean): string | undefined => {
+    if (!inMonth) return undefined
+    if (isSelected(d)) return undefined
+    if (isNonDeliveryDay(d)) {
+      const dow = isoDow(d)
+      const label = dow === 7 ? 'Sundays' : 'Saturdays'
+      const week = weekType === '5DAYS' ? 'Mon–Fri' : 'Mon–Sat'
+      return `${label} aren’t a delivery day on your ${week} plan — pick a working day instead.`
+    }
+    if (d < minD) return 'Start dates can’t be in the past.'
+    if (d > maxD) return 'Outside your 30-day pick window.'
+    return undefined
+  }
+
   function pick(d: Date) {
-    if (!inRange(d)) return
+    if (!isSelectable(d)) return
     // ISO date in local time (avoids UTC-day-shift on negative tz offsets).
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     onChange(iso)
@@ -173,30 +213,42 @@ export function DateField({ value, onChange, minDate, maxDate }: Props) {
 
             <div className="checkout-date-grid" role="grid">
               {cells.map((cell, i) => {
-                const inR = cell.inMonth && inRange(cell.date)
-                const tdy = isToday(cell.date)
                 const sel = isSelected(cell.date)
+                const tdy = isToday(cell.date)
+                const selectable = cell.inMonth && isSelectable(cell.date)
+                const isNoDelivery = cell.inMonth && isNonDeliveryDay(cell.date) && inRange(cell.date)
+                const tip = cellTooltip(cell.date, cell.inMonth)
                 const cls = [
                   'checkout-date-cell',
                   sel ? 'is-selected' : '',
                   tdy && !sel ? 'is-today' : '',
                   !cell.inMonth ? 'is-outmonth' : '',
+                  isNoDelivery && !sel ? 'is-no-delivery' : '',
                 ].filter(Boolean).join(' ')
+                const aria = `${cell.date.toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}${tip ? ` — ${tip}` : ''}`
                 return (
                   <button
                     key={i}
                     type="button"
                     onClick={() => pick(cell.date)}
-                    disabled={!inR}
+                    disabled={!selectable}
                     className={cls}
-                    aria-label={cell.date.toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    title={tip}
+                    aria-label={aria}
                     aria-current={sel ? 'date' : undefined}
+                    aria-disabled={!selectable}
                   >
                     {cell.date.getDate()}
                   </button>
                 )
               })}
             </div>
+
+            {weekType && (
+              <p className="checkout-date-legend">
+                <span className="checkout-date-legend-dot" aria-hidden /> Greyed-out days aren&rsquo;t a delivery day on your <strong>{weekType === '5DAYS' ? 'Mon–Fri' : 'Mon–Sat'}</strong> plan.
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -356,9 +408,72 @@ export function DateField({ value, onChange, minDate, maxDate }: Props) {
         .checkout-date-cell:disabled {
           color: rgba(9, 24, 37, 0.20);
           cursor: not-allowed;
+          /* Title attr on a disabled <button> still surfaces the tooltip in
+             every major browser via the parent listener; pointer-events stays
+             auto so the native tooltip + aria-label both fire on hover. */
+          pointer-events: auto;
         }
         .checkout-date-cell:disabled:hover {
           background: transparent;
+        }
+
+        /* Non-delivery day — Sun for 6DAYS, Sat+Sun for 5DAYS. Visually
+           distinguished from out-of-month / out-of-window cells with a
+           diagonal hatch so the user reads it as "structurally unavailable"
+           rather than "outside the month". */
+        .checkout-date-cell.is-no-delivery {
+          color: rgba(9, 24, 37, 0.30);
+          background-image: repeating-linear-gradient(
+            135deg,
+            rgba(9, 24, 37, 0.045) 0px,
+            rgba(9, 24, 37, 0.045) 3px,
+            transparent 3px,
+            transparent 6px
+          );
+        }
+        .checkout-date-cell.is-no-delivery:hover {
+          background-image: repeating-linear-gradient(
+            135deg,
+            rgba(239, 68, 68, 0.08) 0px,
+            rgba(239, 68, 68, 0.08) 3px,
+            transparent 3px,
+            transparent 6px
+          );
+          color: rgba(154, 40, 40, 0.65);
+        }
+
+        /* Legend below the calendar grid — explains what the hatched cells
+           mean. Only renders when a weekType is supplied. */
+        .checkout-date-legend {
+          margin: 12px 0 0;
+          padding-top: 10px;
+          border-top: 1px solid rgba(9, 24, 37, 0.06);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 11px;
+          color: rgba(9, 24, 37, 0.55);
+          line-height: 1.5;
+        }
+        .checkout-date-legend strong {
+          color: #091825;
+          font-weight: 700;
+        }
+        .checkout-date-legend-dot {
+          width: 14px;
+          height: 14px;
+          border-radius: 4px;
+          flex-shrink: 0;
+          background-image: repeating-linear-gradient(
+            135deg,
+            rgba(9, 24, 37, 0.18) 0px,
+            rgba(9, 24, 37, 0.18) 3px,
+            transparent 3px,
+            transparent 6px
+          );
+          background-color: rgba(9, 24, 37, 0.04);
+          border: 1px solid rgba(9, 24, 37, 0.10);
         }
       `}</style>
     </div>

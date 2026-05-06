@@ -1,0 +1,14 @@
+{
+  "name": "dormers-system-map",
+  "version": "1.0.0",
+  "description": "Self-contained HTML + Puppeteer pipeline for the Dormers system documentation PDF.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs",
+    "inspect": "node render.mjs --screenshots"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

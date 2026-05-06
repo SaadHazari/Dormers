@@ -20,6 +20,7 @@ export default function OnboardingPage() {
     const [form, setForm] = useState<FormState>({
         preference: '', vegDays: [], allergens: [], spiceLevel: '',
         dorm: '', customDorm: '', university: '', customUniversity: '',
+        weekType: '6DAYS',
         name: '', phone: '', phoneVerified: false, email: '', password: '',
     })
 
@@ -61,25 +62,27 @@ export default function OnboardingPage() {
 
     const advance = () => {
         const f = formRef.current
-        if (step === 1)   { goTo(f.preference === 'Religious Preference' ? 1.5 : 2); return }
-        if (step === 1.5) { goTo(2); return }
-        if (step === 2)   { goTo(3); return }
-        if (step === 3)   { goTo(4); return }
-        if (step === 4)   { goTo(5); return }
-        if (step === 5)   { goTo(6); return }
-        if (step === 6)   { goTo(7); return }
+        if (step === 1)    { goTo(1.25); return }                                                  // pref → week-type
+        if (step === 1.25) { goTo(f.preference === 'Religious Preference' ? 1.5 : 2); return }     // week-type → (religious? veg-days : allergens)
+        if (step === 1.5)  { goTo(2); return }
+        if (step === 2)    { goTo(3); return }
+        if (step === 3)    { goTo(4); return }
+        if (step === 4)    { goTo(5); return }
+        if (step === 5)    { goTo(6); return }
+        if (step === 6)    { goTo(7); return }
     }
 
     const back = () => {
         const f = formRef.current
-        if (step === 1)   { router.push('/login'); return }
-        if (step === 1.5) { goTo(1); return }
-        if (step === 2)   { goTo(f.preference === 'Religious Preference' ? 1.5 : 1); return }
-        if (step === 3)   { goTo(2); return }
-        if (step === 4)   { goTo(3); return }
-        if (step === 5)   { goTo(4); return }
-        if (step === 6)   { goTo(5); return }
-        if (step === 7)   { goTo(6); return }
+        if (step === 1)    { router.push('/login'); return }
+        if (step === 1.25) { goTo(1); return }
+        if (step === 1.5)  { goTo(1.25); return }
+        if (step === 2)    { goTo(f.preference === 'Religious Preference' ? 1.5 : 1.25); return }
+        if (step === 3)    { goTo(2); return }
+        if (step === 4)    { goTo(3); return }
+        if (step === 5)    { goTo(4); return }
+        if (step === 6)    { goTo(5); return }
+        if (step === 7)    { goTo(6); return }
     }
 
     // ── form helpers ──────────────────────────────────────────────────────────

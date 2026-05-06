@@ -24,6 +24,8 @@ export function QuickActions({
     skipQuota,
     disabledReason,
     skipPastCutoff,
+    skipNoDelivery,
+    pausePastFinalDay,
 }: {
     canPause: boolean
     localState: LocalState
@@ -44,12 +46,22 @@ export function QuickActions({
     // available). When set, this overrides skipCaption with a "back tomorrow"
     // chip so the disabled state has its own visual treatment.
     skipPastCutoff?: boolean
+    // Today is a non-delivery day for this sub's week_type (Sun on 6DAYS,
+    // Sat or Sun on 5DAYS). Skip would burn a credit + push end_date for
+    // a meal that was never scheduled, so we lock it. Pause stays available.
+    skipNoDelivery?: boolean
+    // Final delivery day + after 2 PM Asia/Dubai. Pausing now would push the
+    // end_date out, but the kitchen prep window has already closed — so the
+    // pause wouldn't actually protect tonight's delivery, only deliver
+    // tomorrow's mistake. Lock the pause until the cycle ends.
+    pausePastFinalDay?: boolean
 }) {
     const isPaused = localState === 'paused'
     const isSkipped = localState === 'skipped'
     const lockedOut = !!disabledReason
-    const skipDisabled = lockedOut || skipPastCutoff
+    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery
     const skipTooltip = lockedOut ? disabledReason
+        : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
         : skipPastCutoff ? 'Skip cutoff for today is 2 PM. Try again tomorrow morning.'
         : undefined
 
@@ -58,6 +70,7 @@ export function QuickActions({
     // "Last one" / "None left" wording leans into loss-aversion when the
     // pool is running low, nudging the user to think before they tap.
     const skipCaption =
+        skipNoDelivery         ? 'No delivery' :
         skipPastCutoff         ? 'Past 2 PM' :
         skipQuota.total === 0  ? 'No skips' :
         skipQuota.left  === 0  ? 'None left' :
@@ -73,7 +86,7 @@ export function QuickActions({
         }} className="quick-actions-card">
             <Eyebrow>Quick actions</Eyebrow>
 
-            {(lockedOut || skipPastCutoff) && (
+            {(lockedOut || skipPastCutoff || skipNoDelivery) && (
                 <div
                     role="note"
                     style={{
@@ -90,7 +103,9 @@ export function QuickActions({
                 >
                     {lockedOut
                         ? disabledReason
-                        : 'Skip cutoff is 2 PM — kitchen prep starts then. Try tomorrow morning.'}
+                        : skipNoDelivery
+                            ? "No delivery scheduled today — skip is only available on a delivery day."
+                            : 'Skip cutoff is 2 PM — kitchen prep starts then. Try tomorrow morning.'}
                 </div>
             )}
 
@@ -149,19 +164,37 @@ export function QuickActions({
                 })()}
 
                 {/* Pause / Resume — Resume becomes the filled primary when paused;
-                    Pause is a secondary outline when active. Hidden if not pausable. */}
+                    Pause is a secondary outline when active. Hidden if not pausable.
+                    When the plan is in 'Skipped' state for today, pausing is
+                    disabled — today's day is already accounted for, so a pause
+                    on top would double-count against the kitchen-ops calendar.
+                    Auto-clears at midnight AE when the cron flips back to Active. */}
                 {(canPause || isPaused) && (() => {
                     const pauseIsPrimary = isPaused && !lockedOut  // resume is the call to action
+                    // isSkipped only blocks PAUSE (not Resume) — a paused user can't be skipped.
+                    const pauseBlockedBySkip = isSkipped && !isPaused
+                    // pausePastFinalDay only locks Pause (not Resume) — a
+                    // paused customer who's already on the final day can
+                    // still hit Resume to wrap up cleanly.
+                    const pauseLockedFinalDay = !!pausePastFinalDay && !isPaused
+                    const pauseDisabled = isPending || lockedOut || pauseBlockedBySkip || pauseLockedFinalDay
+                    const pauseTooltip = lockedOut
+                        ? disabledReason
+                        : pauseBlockedBySkip
+                            ? "You've skipped today's meal — pausing is available again from tomorrow."
+                            : pauseLockedFinalDay
+                                ? "It's the final day and the kitchen prep window has closed — pausing now wouldn't protect tonight's delivery."
+                                : undefined
                     const baseStyle: CSSProperties = pauseIsPrimary
                         ? { background: OG, color: '#fff', border: '1px solid transparent', boxShadow: '0 4px 16px rgba(245,127,32,0.30)' }
                         : { background: 'transparent', color: NV, border: `1px solid ${S.border2}` }
                     return (
                         <button
                             onClick={onPause}
-                            disabled={isPending || lockedOut}
+                            disabled={pauseDisabled}
                             className={pauseIsPrimary ? 'qa-row qa-row-primary' : 'qa-row qa-row-outline'}
                             aria-label={isPaused ? 'Resume plan' : 'Pause plan'}
-                            title={lockedOut ? disabledReason : undefined}
+                            title={pauseTooltip}
                             style={{
                                 ...baseStyle,
                                 display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -169,17 +202,24 @@ export function QuickActions({
                                 padding: '14px 18px', width: '100%',
                                 borderRadius: 'var(--radius-pill)',
                                 fontFamily: BODY, fontSize: 13, fontWeight: 700,
-                                cursor: lockedOut ? 'not-allowed' : 'pointer',
-                                opacity: (isPending || lockedOut) ? (lockedOut ? 0.6 : 0.75) : 1,
+                                cursor: pauseDisabled ? 'not-allowed' : 'pointer',
+                                opacity: pauseDisabled ? (lockedOut || pauseBlockedBySkip ? 0.6 : 0.75) : 1,
                                 transition: 'opacity 150ms, transform 150ms, box-shadow 150ms, background 150ms, border-color 150ms',
                             }}
                         >
                             {pendingAction === 'pause' || pendingAction === 'resume' ? (
-                                <><BtnSpinner /> <span>{isPaused ? 'Resuming…' : 'Pausing…'}</span></>
+                                // Drive the label off pendingAction directly,
+                                // NOT off isPaused. localState flips
+                                // optimistically the instant the user clicks,
+                                // so a Pause click arrives here with
+                                // isPaused=true while pendingAction='pause' —
+                                // reading isPaused would mislabel the spinner
+                                // "Resuming…" for the entire pause request.
+                                <><BtnSpinner /> <span>{pendingAction === 'resume' ? 'Resuming…' : 'Pausing…'}</span></>
                             ) : isPaused ? (
                                 <><Play size={16} strokeWidth={2.2} fill="currentColor" /> <span>Resume plan</span></>
                             ) : (
-                                <><PauseIcon size={16} strokeWidth={2.2} /> <span>Pause my plan</span></>
+                                <><PauseIcon size={16} strokeWidth={2.2} /> <span>{pauseBlockedBySkip ? 'Pause unavailable today' : pauseLockedFinalDay ? 'Pause unavailable today' : 'Pause my plan'}</span></>
                             )}
                         </button>
                     )

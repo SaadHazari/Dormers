@@ -16,6 +16,10 @@ interface Props {
   customer?: Customer | null
   allSubscriptions?: Subscription[]
   userEmail?: string
+  /** True iff customer profile is incomplete OR dorm is out of zone — disables purchase CTAs. */
+  purchaseGated?: boolean
+  /** Subset of purchaseGated: true when the gate is the out-of-zone flag (vs missing profile fields). Drives the disabled-CTA tooltip copy. */
+  outOfZone?: boolean
 }
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
@@ -33,7 +37,10 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
  * preselect param so /dashboard/explore-plans can land on the user's
  * previous tier.
  */
-export function NoPlanView({ customer, allSubscriptions = [], userEmail = '' }: Props) {
+export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false }: Props) {
+  const gateTooltip = outOfZone
+    ? 'Outside delivery radius — message us on WhatsApp'
+    : 'Complete your profile first'
   const prefersReducedMotion = useReducedMotion()
 
   const endedPlans     = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
@@ -174,33 +181,67 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '' }: 
               transition={t(0.55)}
               style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', marginTop: 6 }}
             >
-              <Link
-                href={`/dashboard/explore-plans${renewParam}`}
-                className="btn-primary"
-                style={btnStyle('primary')}
-              >
-                {isReturning ? `Renew ${lastPlanClean}` : 'Pick a plan'}
-                <ChevronRight size={16} strokeWidth={2.5} />
-              </Link>
-              {isReturning && (
-                <Link
-                  href="/dashboard/explore-plans"
+              {purchaseGated ? (
+                <span
+                  title={gateTooltip}
                   style={{
-                    fontFamily: BODY,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: S.fgMuted,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    textDecoration: 'none',
-                    padding: '12px 6px',
-                    borderBottom: `1px solid transparent`,
-                    transition: 'color 150ms, border-color 150ms',
+                    ...btnStyle('primary'),
+                    background: 'rgba(9,24,37,0.20)',
+                    color: 'rgba(255,255,255,0.85)',
+                    boxShadow: 'none',
+                    cursor: 'not-allowed',
                   }}
-                  className="noplan-secondary-link"
                 >
-                  Browse all plans
+                  {isReturning ? `Renew ${lastPlanClean}` : 'Pick a plan'}
+                  <ChevronRight size={16} strokeWidth={2.5} />
+                </span>
+              ) : (
+                <Link
+                  href={`/dashboard/explore-plans${renewParam}`}
+                  className="btn-primary"
+                  style={btnStyle('primary')}
+                >
+                  {isReturning ? `Renew ${lastPlanClean}` : 'Pick a plan'}
+                  <ChevronRight size={16} strokeWidth={2.5} />
                 </Link>
+              )}
+              {isReturning && (
+                purchaseGated ? (
+                  <span
+                    title={gateTooltip}
+                    style={{
+                      fontFamily: BODY,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: S.fgFaint,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      padding: '12px 6px',
+                      cursor: 'not-allowed',
+                    }}
+                  >
+                    Browse all plans
+                  </span>
+                ) : (
+                  <Link
+                    href="/dashboard/explore-plans"
+                    style={{
+                      fontFamily: BODY,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: S.fgMuted,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      textDecoration: 'none',
+                      padding: '12px 6px',
+                      borderBottom: `1px solid transparent`,
+                      transition: 'color 150ms, border-color 150ms',
+                    }}
+                    className="noplan-secondary-link"
+                  >
+                    Browse all plans
+                  </Link>
+                )
               )}
             </motion.div>
           </div>

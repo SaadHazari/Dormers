@@ -11,15 +11,30 @@ import {
 import { OG, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
+import { MealTag } from '../_shared/MealTag'
+import { LockedVegDays } from '../_shared/LockedVegDays'
 import { StatusDot } from '../_shared/StatusDot'
+
+/**
+ * Maps the persisted customer.meal_preference_type free-text value to the
+ * `kind` MealTag understands. Defaults to 'Non Veg' for unknown / null
+ * values so the badge always renders something rather than blanking.
+ */
+function mealPrefToTagKind(pref: string | null | undefined): 'Veg' | 'Non Veg' | 'Mix' {
+  const p = (pref ?? '').toLowerCase()
+  if (p.includes('religious')) return 'Mix'
+  if (p.includes('plant')) return 'Veg'
+  return 'Non Veg'
+}
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { CheckoutPanel } from './CheckoutPanel'
+import { effectivePreferences } from '@/lib/preferences'
 import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
 import { changeStartDate } from '../actions'
-import { pricePerMeal, totalPrice, PLANS, type PlanId, type Pref, type PlanDef } from './pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from './pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -39,17 +54,11 @@ const MEAL_PREFS = [
 const BG = 'linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%)'
 const DISPLAY = BODY
 
-interface Customer {
-  id: string; cid?: string | null; name?: string | null; email?: string | null
-  whatsapp_number?: string | null; dorm_name?: string | null; meal_preference_type?: string | null
-  allergens?: string | null; spice_level_preference?: string | null; created_at: string
-}
-interface Subscription {
-  id: string; plan_name: string; status: string; start_date: string; end_date: string
-  total_meals: number; delivered_meals: number; skipped_meals_count: number
-  has_paused_before: boolean; pause_date?: string | null; last_skipped_date?: string | null
-  paused_days?: number; created_at: string
-}
+// Customer + Subscription canonical types live in _shared/types.ts. The local
+// duplicates here drifted out of sync with downstream code during Phase 1+5
+// development. Consuming the shared definitions keeps every render path on
+// the same shape.
+import type { Customer, Subscription } from '../_shared/types'
 interface Props {
   customer: Customer | null
   activeSubscription: Subscription | null
@@ -126,7 +135,10 @@ function ChangeStartDateModal({
               Change start date
             </div>
             <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 8, lineHeight: 1.6 }}>
-              Pick any day in the next 30 days. Your end date moves with the start so the cycle stays the same length.
+              Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.22)', color: '#a35100', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+              You can only change the start date <strong>once</strong>. After saving, this option will be locked for this plan.
             </div>
 
             <div style={{ marginTop: 20 }}>
@@ -135,6 +147,7 @@ function ChangeStartDateModal({
                 onChange={setPicked}
                 minDate={minIso}
                 maxDate={maxIso}
+                weekType={sub.week_type === '5DAYS' || sub.week_type === '6DAYS' ? sub.week_type : undefined}
               />
             </div>
 
@@ -168,7 +181,11 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; onRenewClick: () => void }) {
+function ActivePlanCallout({ sub, customer, onRenewClick }: {
+  sub: Subscription | null
+  customer: Customer | null
+  onRenewClick: () => void
+}) {
   const [showChangeStart, setShowChangeStart] = useState(false)
 
   if (!sub) {
@@ -234,9 +251,23 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
               ? <>Beginning <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
               : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: NV }}>{fmtWithDay(sub.end_date)}</strong></>}
           </div>
+          {/* Meal preference — what kind of food the kitchen is sending. Picked
+              once at sign-up; surfaced here so the customer always knows what
+              they're getting without going to /profile. Editable from there. */}
+          {customer?.meal_preference_type && (
+            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
+              <span style={{ fontWeight: 700, color: S.fgSub, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: 10.5 }}>Meal type</span>
+              <MealTag kind={mealPrefToTagKind(customer.meal_preference_type)} />
+            </div>
+          )}
         </div>
         <StatusDot status={status} />
       </div>
+
+      {/* Veg-days locked snapshot (Religious mix only) — see LockedVegDays
+          for the chip rendering. Same component is reused on /profile so the
+          locked snapshot reads identically across both surfaces. */}
+      <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -262,25 +293,37 @@ function ActivePlanCallout({ sub, onRenewClick }: { sub: Subscription | null; on
           >
             Renew now →
           </button>
-        ) : startsInFuture ? (
-          <button
-            type="button"
-            onClick={() => setShowChangeStart(true)}
-            title="Pick a different start date for this plan"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 16px', borderRadius: 999,
-              fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-              border: '1px solid rgba(58,111,140,0.32)',
-              background: 'rgba(58,111,140,0.08)',
-              color: '#3a6f8c', cursor: 'pointer',
-              transition: 'background 150ms, border-color 150ms',
-            }}
-          >
-            <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
-            Change start date
-          </button>
-        ) : (
+        ) : startsInFuture ? (() => {
+          const dateChangeUsed = !!sub.start_date_changed_at
+          return (
+            <button
+              type="button"
+              onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }}
+              disabled={dateChangeUsed}
+              title={dateChangeUsed
+                ? "You can only change the start date once."
+                : "Pick a different start date (you can only do this once)"}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px', borderRadius: 999,
+                fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                border: dateChangeUsed
+                  ? '1px solid rgba(9,24,37,0.10)'
+                  : '1px solid rgba(58,111,140,0.32)',
+                background: dateChangeUsed
+                  ? 'rgba(9,24,37,0.04)'
+                  : 'rgba(58,111,140,0.08)',
+                color: dateChangeUsed ? S.fgFaint : '#3a6f8c',
+                cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
+                opacity: dateChangeUsed ? 0.7 : 1,
+                transition: 'background 150ms, border-color 150ms',
+              }}
+            >
+              <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
+              {dateChangeUsed ? 'Date already changed' : 'Change start date'}
+            </button>
+          )
+        })() : (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: NV }}>
               Plan in progress
@@ -337,23 +380,37 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // ── Veg-day slider for Religious ──────────────────────────────────────────────
-function VegDayPicker({ count, setCount }: { count: number; setCount: (n: number) => void }) {
+function VegDayPicker({ count, setCount, weekType }: {
+  count: number
+  setCount: (n: number) => void
+  weekType: WeekType
+}) {
+  // 6DAYS week → 1..5 veg days (max 5 of 6); 5DAYS week → 1..4 (max 4 of 5).
+  // The upper end is W-1 because picking all-veg defeats the "mix" purpose —
+  // those customers should switch their top-level preference to plain Veg.
+  const W = weekType === '5DAYS' ? 5 : 6
+  const maxVeg = W - 1
+  const options = Array.from({ length: maxVeg }, (_, i) => i + 1)
+  // Defensive cap: if customer's week_type changed and the stored count now
+  // exceeds the new max, clamp the displayed count.
+  const safeCount = Math.min(count, maxVeg)
+  const cols = options.length    // 4 or 5 — keeps each pill the same size
   return (
     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Eyebrow>Veg Days per Week</Eyebrow>
-        <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: OG, fontFeatureSettings: '"tnum"' }}>{count} of 6</span>
+        <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: OG, fontFeatureSettings: '"tnum"' }}>{safeCount} of {W}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-        {[1, 2, 3, 4, 5].map(n => (
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
+        {options.map(n => (
           <button
             key={n}
             type="button"
             onClick={() => setCount(n)}
             style={{
-              padding: '10px 0', borderRadius: 8, border: `1px solid ${count === n ? OG : S.border}`,
-              background: count === n ? 'rgba(245,127,32,0.12)' : 'rgba(255,255,255,0.5)',
-              color: count === n ? OG : NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, fontFeatureSettings: '"tnum"', cursor: 'pointer',
+              padding: '10px 0', borderRadius: 8, border: `1px solid ${safeCount === n ? OG : S.border}`,
+              background: safeCount === n ? 'rgba(245,127,32,0.12)' : 'rgba(255,255,255,0.5)',
+              color: safeCount === n ? OG : NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, fontFeatureSettings: '"tnum"', cursor: 'pointer',
             }}
           >
             {n}
@@ -361,7 +418,7 @@ function VegDayPicker({ count, setCount }: { count: number; setCount: (n: number
         ))}
       </div>
       <p style={{ marginTop: 10, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted }}>
-        {`${count} veg day${count === 1 ? '' : 's'} · ${6 - count} non-veg day${6 - count === 1 ? '' : 's'}.`}
+        {`${safeCount} veg day${safeCount === 1 ? '' : 's'} · ${W - safeCount} non-veg day${W - safeCount === 1 ? '' : 's'}.`}
       </p>
       <p style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, color: S.fgFaint, lineHeight: 1.5 }}>
         Want all-veg or all-non-veg? Switch your preference on{' '}
@@ -376,31 +433,50 @@ function VegDayPicker({ count, setCount }: { count: number; setCount: (n: number
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, selected, onSelect,
+  plan, pref, vegDayCount, weekType, selected, onSelect,
 }: {
   plan: PlanDef
   pref: Pref
   vegDayCount: number
+  weekType: WeekType
   selected: boolean
   onSelect: (id: PlanId) => void
 }) {
-  const price = pricePerMeal(plan.id, pref, vegDayCount)
-  const total = totalPrice(plan.id, pref, vegDayCount)
+  const price = pricePerMeal(plan.id, pref, vegDayCount, weekType)
+  const total = totalPrice(plan.id, pref, vegDayCount, weekType)
+  const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
+
+  // Static PLANS strings reflect 6DAYS. Override duration + the meals-count
+  // line in the feature list so 5DAYS customers see correct numbers.
+  const W = weekType === '5DAYS' ? 5 : 6
+  const dynamicDuration =
+    plan.id === 'Trial' ? plan.duration
+    : plan.id === 'Weekly Flex' ? `1 week · ${W} days/week`
+    : plan.id === 'Monthly Premium' ? `4 weeks · ${W} days/week`
+    : `4 weeks · ${W} days/week · 2 meals/day`
+  const dynamicMealsLine =
+    plan.id === 'Weekly Flex' ? `${meals} meals per week`
+    : plan.id === 'Monthly Premium' ? `${meals} meals per month`
+    : plan.id === 'Monthly Max' ? `${meals} meals per month (${meals / 2} days × 2)`
+    : null
+  const dynamicFeatures = dynamicMealsLine
+    ? [{ ...plan.features[0], text: dynamicMealsLine }, ...plan.features.slice(1)]
+    : plan.features
 
   // Anchor each upgrade against the entry-level plan at *equal meal count* so
   // the saving reflects the real monthly delta the user pays, not a per-meal
   // figure that hides commitment scale.
-  //   • Premium (24 meals)   vs  Weekly Flex × 4 weeks  (also 24 meals)
-  //   • Max     (48 meals)   vs  Weekly Flex × 8 weeks  (also 48 meals)
+  //   • Premium (4×W meals)   vs  Weekly Flex × 4 weeks  (also 4×W meals)
+  //   • Max     (8×W meals)   vs  Weekly Flex × 8 weeks  (also 8×W meals)
   let saveAmount: number | null = null
   let saveAgainst: string | null = null
   if (plan.id === 'Monthly Premium') {
-    const flexFourWeeks = totalPrice('Weekly Flex', pref, vegDayCount) * 4
+    const flexFourWeeks = totalPrice('Weekly Flex', pref, vegDayCount, weekType) * 4
     const diff = flexFourWeeks - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   } else if (plan.id === 'Monthly Max') {
-    const eightWeeksFlex = totalPrice('Weekly Flex', pref, vegDayCount) * 8
+    const eightWeeksFlex = totalPrice('Weekly Flex', pref, vegDayCount, weekType) * 8
     const diff = eightWeeksFlex - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   }
@@ -497,7 +573,7 @@ function PlanCard({
         <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           {total} AED{plan.period}
         </div>
-        <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{plan.duration}</div>
+        <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
         {showSave && (
           <div style={{
             marginTop: 10,
@@ -516,7 +592,7 @@ function PlanCard({
 
       {/* Features — each with its own descriptive icon */}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {plan.features.map(f => {
+        {dynamicFeatures.map(f => {
           const FeatureIcon = f.icon
           return (
             <li key={f.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontFamily: BODY, fontSize: 13, color: NV, lineHeight: 1.45 }}>
@@ -659,16 +735,23 @@ const PLAN_FAQS = [
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan' }: Props) {
   const isExplore = mode === 'explore'
-  // Pricing follows the user's saved preference — there is no toggle on the
-  // page anymore. Preference lives on /dashboard/profile (single source of
-  // truth) and propagates here via server-rendered customer state.
-  const pref: Pref = customer?.meal_preference_type?.toLowerCase().includes('plant')
+  // The next subscription uses the EFFECTIVE preferences — pending wins
+  // when the customer has queued a change in Profile, otherwise the
+  // canonical customer.* fields. This is what makes "Save for next
+  // subscription" actually flow through to the price + veg-day picker
+  // when the renewal goes through checkout.
+  const eff = effectivePreferences(customer)
+  const pref: Pref = eff.meal_preference_type?.toLowerCase().includes('plant')
     ? 'Veg'
-    : customer?.meal_preference_type?.toLowerCase().includes('religious')
+    : eff.meal_preference_type?.toLowerCase().includes('religious')
       ? 'Religious'
       : 'NonVeg'
   const prefLabel = pref === 'NonVeg' ? 'Non-Veg' : pref === 'Veg' ? 'Vegetarian' : 'Religious Mix'
-  const [vegDayCount, setVegDayCount] = useState<number>(3) // always in 1–5 range
+  const [vegDayCount, setVegDayCount] = useState<number>(
+    () => Array.isArray(eff.veg_days) && eff.veg_days.length > 0 ? eff.veg_days.length : 3
+  )
+  // Effective delivery cadence — pending wins for renewals.
+  const weekType: WeekType = eff.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
   const [selected, setSelected] = useState<PlanId | null>(null)
   const [cancelBanner, setCancelBanner] = useState(false)
 
@@ -758,7 +841,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         {/* Active plan callout — only on /plan, not /explore-plans */}
         {!isExplore && (
           <div style={{ marginBottom: 16 }}>
-            <ActivePlanCallout sub={activeSubscription} onRenewClick={openPricing} />
+            <ActivePlanCallout sub={activeSubscription} customer={customer} onRenewClick={openPricing} />
           </div>
         )}
 
@@ -855,11 +938,29 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   }}>
                     {prefLabel}
                   </span>
+                  {/* Week-type pill — sits next to the meal-pref pill so the
+                      reader sees BOTH dimensions of the customer's plan
+                      (what they eat × how many days/week) before reading the
+                      grid. Slate-blue tone keeps it visually subordinate to
+                      the orange meal-pref pill. */}
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    padding: '4px 10px', borderRadius: 999,
+                    background: 'rgba(58,111,140,0.10)',
+                    color: '#3a6f8c', fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+                  }}>
+                    {weekType === '5DAYS' ? '5 days: MON–FRI' : '6 days: MON–SAT'}
+                  </span>
                   <Link href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}>
                     Change
                   </Link>
-                  <span style={{ opacity: 0.4 }}>·</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {/* Prices in AED — pushed to the far right of the same row
+                      via marginLeft: auto. Keeps the meta info aligned to
+                      the price column on the grid below. */}
+                  <span style={{
+                    marginLeft: 'auto',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}>
                     <Info size={13} /> Prices in AED.
                   </span>
                 </div>
@@ -874,7 +975,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       transition={{ duration: 0.2 }}
                       style={{ overflow: 'hidden' }}
                     >
-                      <VegDayPicker count={vegDayCount} setCount={setVegDayCount} />
+                      <VegDayPicker count={vegDayCount} setCount={setVegDayCount} weekType={weekType} />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -892,6 +993,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     plan={p}
                     pref={pref}
                     vegDayCount={vegDayCount}
+                    weekType={weekType}
                     selected={selected === p.id}
                     onSelect={(id) => setSelected(prev => prev === id ? null : id)}
                   />
@@ -911,6 +1013,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     customer={customer}
                     userEmail={userEmail}
                     activeSubscription={activeSubscription}
+                    weekType={weekType}
                   />
                 )}
               </AnimatePresence>
@@ -926,53 +1029,51 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           </div>
         )}
 
-        {/* Past plans — only on /plan */}
-        {!isExplore && endedPlans.length > 0 && (
-          <div style={{ marginBottom: 24, maxWidth: 720 }}>
-            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Eyebrow>Past plans</Eyebrow>
-              <div style={{ flex: 1, height: 1, background: S.border }} />
-            </div>
-            {/* Compact grid — past plans are reference data, not action items.
-                Each tile holds the same info as before but stacked, so a row
-                of tiles fits where one full-width row used to live. */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 10,
-            }}>
-              {endedPlans.map(s => (
-                <div key={s.id} style={{ ...TIER3, padding: '12px 14px', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV }}>
-                      <PlanGlyph planName={s.plan_name} size={13} color={NV} />
-                      {cleanPlanName(s.plan_name)}
-                    </div>
-                    <StatusDot status="Ended" />
-                  </div>
-                  <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
-                    {fmt(s.start_date)} → {fmt(s.end_date)}
-                  </div>
-                  <div style={{ fontFamily: BODY, fontSize: 11.5, fontWeight: 600, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
-                    {s.delivered_meals}/{s.total_meals} meals
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* FAQ — only on /plan (manage mode). Explore Plans intentionally
-            keeps the page focused on the offer; the same FAQ is one click
-            away on /plan, so duplicating it here added clutter without
-            answering anything new. Constrained to ~720px so prose lines
-            stay in the comfortable 45-75 character reading range. */}
+        {/* Reference row — Common questions on the left, Past plans on the
+            right. Two equal columns on wide viewports; stacks at < 920px so
+            both sections remain readable on narrow screens. The Past plans
+            table moved here from the main dashboard so the live progress
+            card can take the full 12-grid width and the historical record
+            lives in one obvious place. */}
         {!isExplore && (
-          <div style={{ ...TIER3, padding: 28, borderRadius: 20, marginBottom: 24, maxWidth: 720 }}>
-            <Eyebrow>Pricing FAQ</Eyebrow>
-            <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Common questions</div>
-            <div style={{ marginTop: 14 }}>
-              {PLAN_FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
+          <div className="plan-reference-row" style={{ marginBottom: 24 }}>
+            <div style={{ ...TIER3, padding: 28, borderRadius: 20 }}>
+              <Eyebrow>Pricing FAQ</Eyebrow>
+              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Common questions</div>
+              <div style={{ marginTop: 14 }}>
+                {PLAN_FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
+              </div>
+            </div>
+            <div style={{ ...TIER3, padding: 28, borderRadius: 20, display: 'flex', flexDirection: 'column' }}>
+              <Eyebrow>History</Eyebrow>
+              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Past plans</div>
+              {endedPlans.length === 0 ? (
+                <div style={{ marginTop: 18, padding: '20px 4px', fontFamily: BODY, fontSize: 13, color: S.fgFaint, lineHeight: 1.55 }}>
+                  Your finished plans will appear here. Each one is a record of how many dinners we&rsquo;ve made for you so far.
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {endedPlans.map(s => (
+                    <div key={s.id} style={{ ...TIER1, padding: '12px 14px', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV, minWidth: 0 }}>
+                          <PlanGlyph planName={s.plan_name} size={13} color={NV} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {cleanPlanName(s.plan_name)}
+                          </span>
+                        </div>
+                        <StatusDot status="Ended" />
+                      </div>
+                      <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
+                        {fmt(s.start_date)} → {fmt(s.end_date)}
+                      </div>
+                      <div style={{ fontFamily: BODY, fontSize: 11.5, fontWeight: 600, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
+                        {s.delivered_meals}/{s.total_meals} meals delivered
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -999,6 +1100,18 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
            three promises stack instead of getting cramped at narrow widths. */
         @media (max-width: 720px) {
           .explore-trust-strip { grid-template-columns: 1fr !important; gap: 14px !important; }
+        }
+
+        /* Reference row — two equal columns above 920px (Common questions
+           left, Past plans right), single column below so each section
+           keeps a comfortable reading width on narrow viewports. */
+        .plan-reference-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        @media (min-width: 920px) {
+          .plan-reference-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
         }
       `}</style>
     </div>

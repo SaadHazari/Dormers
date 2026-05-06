@@ -19,10 +19,19 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
     const isMax = sub.plan_name.includes('Monthly Max')
     const mealsPerDelivery = isMax ? 2 : 1
     const total = sub.total_meals
+    // Planned deliveries = total meals ÷ meals/delivery. Doesn't change with
+    // skips — total_meals is what the user paid for and stays constant.
     const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
     const deliveriesDone = Math.floor(sub.delivered_meals / mealsPerDelivery)
-    const skippedDeliveries = Math.floor(sub.skipped_meals_count / mealsPerDelivery)
-    const left = Math.max(0, totalDeliveries - deliveriesDone - skippedDeliveries)
+    // skipped_meals_count counts SKIP EVENTS (one increment per skipMeal call),
+    // not meals. Each skip extends the cycle by one make-up delivery day, so
+    // the bar grows by one pill per skip — the skipped pill sits in addition
+    // to the planned 24 (or 6 / 1) cells, not in place of one of them.
+    const skippedDeliveries = Math.max(0, sub.skipped_meals_count)
+    const totalPills = totalDeliveries + skippedDeliveries
+    // Deliveries (and meals) still owed — does NOT subtract skips, because
+    // skipped meals are carried forward into the make-up days.
+    const left = Math.max(0, totalDeliveries - deliveriesDone)
     const mealsLeft = left * mealsPerDelivery
 
     const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
@@ -33,6 +42,10 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
     return (
         <div style={{
             ...TIER2,
+            // Full row on the main dashboard now that the Past plans card has
+            // moved to /dashboard/plan. Keeps the live progress reading as
+            // the primary "where is my cycle?" answer without competing for
+            // half the row.
             gridColumn: 'span 12',
             padding: 28, borderRadius: 'var(--radius-md)',
             display: 'flex', flexDirection: 'column', gap: 0,
@@ -63,12 +76,12 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
             <div
                 role="progressbar"
                 aria-valuemin={0}
-                aria-valuemax={totalDeliveries}
+                aria-valuemax={totalPills}
                 aria-valuenow={deliveriesDone}
                 aria-label={`${deliveriesDone} of ${totalDeliveries} ${mealsPerDelivery > 1 ? 'delivery days' : 'meals'} delivered`}
                 style={{ display: 'flex', gap: 3, height: 10 }}
             >
-                {Array.from({ length: totalDeliveries }).map((_, i) => {
+                {Array.from({ length: totalPills }).map((_, i) => {
                     const isDelivered = i < deliveriesDone
                     const isSkipped = !isDelivered && i < deliveriesDone + skippedDeliveries
                     // Always use the backgroundColor + backgroundImage longhand pair —
@@ -148,28 +161,32 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                     )}
                 </div>
 
-                {/* 5 — Action */}
+                {/* 5 — Action. Renew CTAs are auto-width pills (not full-width)
+                      so the card breathes and the button doesn't dominate the
+                      column. The "renewal opens" line is rendered as a quiet
+                      muted caption — no border, no fill — so it sits as
+                      progress info, not a competing affordance. */}
                 {mealsLeft === 0 ? (
-                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.20)' }}>
+                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.20)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                         <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV }}>Plan ended</div>
-                        <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, marginTop: 4, lineHeight: 1.5 }}>Renew to keep meals coming.</div>
-                        <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 12, width: '100%' }}>
-                            Renew plan →
+                        <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>Renew to keep meals coming.</div>
+                        <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 8, padding: '10px 18px' }}>
+                            Renew →
                         </Link>
                     </div>
                 ) : renewEligible ? (
-                    <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), width: '100%' }}>
-                        Renew plan →
-                    </Link>
+                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                        <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), padding: '10px 20px' }}>
+                            Renew →
+                        </Link>
+                    </div>
                 ) : (
                     <div style={{
-                        padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}`,
-                        fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5,
+                        fontFamily: BODY, fontSize: 11.5, color: S.fgFaint, lineHeight: 1.5,
                     }}>
                         {startsInFuture
-                            ? <>Plan begins on <strong style={{ color: NV }}>{fmt(sub.start_date)}</strong>.</>
-                            : <>Renewal opens in <strong style={{ color: NV }}>{daysUntilRenewUnlock} day{daysUntilRenewUnlock === 1 ? '' : 's'}</strong>.</>}
+                            ? <>Plan begins on <span style={{ color: S.fgMuted, fontWeight: 600 }}>{fmt(sub.start_date)}</span>.</>
+                            : <>Renewal opens in <span style={{ color: S.fgMuted, fontWeight: 600 }}>{daysUntilRenewUnlock} day{daysUntilRenewUnlock === 1 ? '' : 's'}</span>.</>}
                     </div>
                 )}
             </div>
