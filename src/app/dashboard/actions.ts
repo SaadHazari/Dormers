@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/lib/plans';
 import { requireUser } from '@/lib/auth-helpers';
 import { loadOwnedSubscription } from '@/lib/subscriptions';
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
+import { createClient } from '@/utils/supabase/server';
 
 /**
  * Saves account-detail fields that apply IMMEDIATELY (current cycle).
@@ -131,7 +132,9 @@ export async function savePendingPreferences(
 
   // No live sub — write to current fields and clear any stale pending_*
   // (e.g. customer queued a change, the queued sub never materialised, and
-  // they're now editing again with no live sub).
+  // they're now editing again with no live sub). Religious-mix users get
+  // their veg-day picks persisted to customer.veg_days so the next
+  // checkout's day picker pre-fills from this saved preference.
   const { error } = await auth.supabase
     .from('customers')
     .update({
@@ -139,6 +142,7 @@ export async function savePendingPreferences(
       week_type: input.week_type,
       allergens: input.allergens,
       spice_level_preference: input.spice_level_preference,
+      veg_days: isReligious ? cleanVegDays : null,
       pending_meal_preference_type: null,
       pending_week_type: null,
       pending_allergens: null,
@@ -177,6 +181,91 @@ export async function discardPendingPreferences(): Promise<{ ok: true } | { erro
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/profile');
   return { ok: true };
+}
+
+/**
+ * Auto-promote pending preferences when the customer's last subscription
+ * has ended without a renewal. Called from the dashboard layout so every
+ * dashboard route lands on canonical, drained data — Profile, Plan, and
+ * Menu all read post-promotion values without each having to re-check.
+ *
+ * Promotion semantics: pending_* → canonical customer.* (per-field, only
+ * for fields where pending_* is non-null), then null out all pending_*
+ * and stamp preferences_promoted_at = now(). The "queued for next sub"
+ * banner naturally disappears (pending_* are gone); the new "preferences
+ * applied" banner appears in its place (gated on preferences_promoted_at
+ * + !hasActiveSub at render time).
+ *
+ * Safe to call on every dashboard load — the live-sub guard makes it a
+ * no-op in the common case (customer has an active sub OR has no pending
+ * changes). Uses raw queries (not the React-cached helpers) because the
+ * mutation must complete before any cached read sees the row.
+ */
+export async function promotePendingPreferencesIfStale(userId: string): Promise<void> {
+  const supabase = await createClient();
+
+  // Read pending columns + a single liveness probe in parallel to keep
+  // the layout's critical path tight.
+  const [{ data: customerRow }, { data: liveSub }] = await Promise.all([
+    supabase
+      .from('customers')
+      .select('pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('customer_id', userId)
+      .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (liveSub) return;
+  if (!customerRow) return;
+
+  const hasPending =
+    customerRow.pending_meal_preference_type != null ||
+    customerRow.pending_week_type != null ||
+    customerRow.pending_allergens != null ||
+    customerRow.pending_spice_level_preference != null ||
+    (Array.isArray(customerRow.pending_veg_days) && customerRow.pending_veg_days.length > 0);
+  if (!hasPending) return;
+
+  // Per-field promotion: only fields with a queued change get overwritten;
+  // untouched fields keep their canonical value (mirrors the webhook drain
+  // logic so the promote-on-end and promote-on-renew paths produce the
+  // same end state).
+  const patch: Record<string, unknown> = {
+    pending_meal_preference_type: null,
+    pending_week_type: null,
+    pending_allergens: null,
+    pending_spice_level_preference: null,
+    pending_veg_days: null,
+    preferences_promoted_at: new Date().toISOString(),
+  };
+  if (customerRow.pending_meal_preference_type != null) {
+    patch.meal_preference_type = customerRow.pending_meal_preference_type;
+  }
+  if (customerRow.pending_week_type != null) {
+    patch.week_type = customerRow.pending_week_type;
+  }
+  if (customerRow.pending_allergens != null) {
+    patch.allergens = customerRow.pending_allergens;
+  }
+  if (customerRow.pending_spice_level_preference != null) {
+    patch.spice_level_preference = customerRow.pending_spice_level_preference;
+  }
+  // pending_veg_days drains into customer.veg_days (the canonical religious-
+  // mix preference memory, added 2026-05-07). Symmetric with the other
+  // pending fields — every queued change now lands somewhere persistent
+  // when the sub ends, so the next checkout pre-fills from the user's
+  // last-known picks instead of starting blank.
+  if (Array.isArray(customerRow.pending_veg_days) && customerRow.pending_veg_days.length > 0) {
+    patch.veg_days = customerRow.pending_veg_days;
+  }
+
+  await supabase.from('customers').update(patch).eq('id', userId);
 }
 
 export async function pauseSubscription(subscriptionId: string) {

@@ -22,6 +22,10 @@ export interface PreferencesShape {
   week_type?: WeekType | null
   allergens?: string | null
   spice_level_preference?: string | null
+  // Canonical religious-mix preferred days (added 2026-05-07). Persists
+  // across subscriptions; the fallback after pending_veg_days when
+  // computing what the next sub will use.
+  veg_days?: string[] | null
   pending_meal_preference_type?: string | null
   pending_week_type?: WeekType | null
   pending_allergens?: string | null
@@ -46,7 +50,11 @@ export function effectivePreferences(c: PreferencesShape | null | undefined): Ef
     week_type: wt,
     allergens: c?.pending_allergens ?? c?.allergens ?? null,
     spice_level_preference: c?.pending_spice_level_preference ?? c?.spice_level_preference ?? null,
-    veg_days: c?.pending_veg_days ?? null,
+    // Precedence: queued change > saved canonical preference > none.
+    // The canonical fallback (added 2026-05-07) means a returning religious-
+    // mix customer who saved [Mon,Wed,Fri] in profile gets that count
+    // pre-filled in the checkout's vegDayCount picker AND the day picker.
+    veg_days: c?.pending_veg_days ?? c?.veg_days ?? null,
   }
 }
 

@@ -140,7 +140,7 @@ export function EmailStep({ form, set }: {
     // wider tracking when masked so the dots read as a deliberate visual.
     // Visible (type=text) reverts to the regular 14px so the actual password
     // doesn't dominate the column.
-    const passInputCls = `w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60 ${showPass ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'}`
+    const passInputCls = `w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60 ${showPass ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'} placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal`
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5">

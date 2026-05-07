@@ -15,6 +15,11 @@ export interface Customer {
   meal_preference_type?: string | null
   allergens?: string | null
   spice_level_preference?: string | null
+  // Religious-mix only — canonical "preferred veg days" memory. Kitchen
+  // snapshots per-cycle into subscriptions.veg_days; this is the user's
+  // standing preference, used to pre-fill the day picker at checkout
+  // and rendered as the thumbnail chips when no live sub exists.
+  veg_days?: string[] | null
   email?: string | null
   created_at: string
   // Phase 1 column. DB has NOT NULL DEFAULT '6DAYS' so reads always return
@@ -36,6 +41,10 @@ export interface Customer {
   pending_allergens?: string | null
   pending_spice_level_preference?: string | null
   pending_veg_days?: string[] | null
+  // Timestamp of the last auto-promotion of pending_* into canonical fields
+  // (triggered when a sub ends without a renewal). Drives the post-end
+  // "preferences applied" banner; gated on !hasActiveSub at render time.
+  preferences_promoted_at?: string | null
 }
 
 export interface Subscription {

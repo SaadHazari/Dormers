@@ -160,6 +160,19 @@ export async function createAccount(
     // surfaces the WhatsApp-contact banner on the dashboard.
     const dormListed = DORMS.includes(payload.dorm) && payload.dorm !== 'Other'
 
+    // Religious-mix users pick their veg days during onboarding (Step 1.5).
+    // Persist to customer.veg_days so the choice survives across the user's
+    // very first checkout — pre-filling both the vegDayCount picker and the
+    // specific-day picker on /dashboard/plan with what they already told us
+    // here. Non-religious users get null so a future preference flip doesn't
+    // carry stale day picks forward.
+    const isReligiousOnboarding = /religious/i.test(payload.preference)
+    const cleanVegDays = isReligiousOnboarding && Array.isArray(payload.vegDays)
+        ? payload.vegDays.filter(d =>
+            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(d),
+          )
+        : []
+
     // Upsert the customer profile (trigger may or may not have run yet)
     await supabaseAdmin.from('customers').upsert({
         id: userId,
@@ -174,6 +187,7 @@ export async function createAccount(
         spice_level_preference: payload.spiceLevel,
         // Phase 1 column — defaults to 6DAYS until the onboarding step is built.
         week_type: payload.weekType ?? '6DAYS',
+        veg_days: cleanVegDays.length > 0 ? cleanVegDays : null,
         out_of_zone: !dormListed,
     })
 

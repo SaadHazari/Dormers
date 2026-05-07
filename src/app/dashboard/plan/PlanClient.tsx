@@ -380,45 +380,106 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // ── Veg-day slider for Religious ──────────────────────────────────────────────
-function VegDayPicker({ count, setCount, weekType }: {
-  count: number
+function VegDayPicker({
+  count, setCount, weekType,
+}: {
+  count: number | null                              // null = unselected (price cards show empty state)
   setCount: (n: number) => void
   weekType: WeekType
 }) {
   // 6DAYS week → 1..5 veg days (max 5 of 6); 5DAYS week → 1..4 (max 4 of 5).
-  // The upper end is W-1 because picking all-veg defeats the "mix" purpose —
+  // Upper end is W-1 because picking all-veg defeats the "mix" purpose —
   // those customers should switch their top-level preference to plain Veg.
   const W = weekType === '5DAYS' ? 5 : 6
   const maxVeg = W - 1
   const options = Array.from({ length: maxVeg }, (_, i) => i + 1)
   // Defensive cap: if customer's week_type changed and the stored count now
   // exceeds the new max, clamp the displayed count.
-  const safeCount = Math.min(count, maxVeg)
-  const cols = options.length    // 4 or 5 — keeps each pill the same size
+  const safeCount = count == null ? null : Math.min(count, maxVeg)
+  const cols = options.length     // 4 or 5 — keeps each pill the same size
+
+  // Anticipatory hint — pulsing amber dot + soft instructional copy when no
+  // count is picked yet. Communicates "this is the entry point of the
+  // configuration" without screaming. Disappears the moment the user
+  // engages with any count button.
+  const showHint = count == null
+
   return (
     <div style={{ padding: 14, borderRadius: 14, background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Eyebrow>Veg Days per Week</Eyebrow>
-        <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: OG, fontFeatureSettings: '"tnum"' }}>{safeCount} of {W}</span>
+        <span style={{
+          fontFamily: BODY, fontSize: 13, fontWeight: 700,
+          color: safeCount == null ? S.fgFaint : OG,
+          fontFeatureSettings: '"tnum"',
+        }}>
+          {safeCount == null ? `— of ${W}` : `${safeCount} of ${W}`}
+        </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
-        {options.map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setCount(n)}
-            style={{
-              padding: '10px 0', borderRadius: 8, border: `1px solid ${safeCount === n ? OG : S.border}`,
-              background: safeCount === n ? 'rgba(245,127,32,0.12)' : 'rgba(255,255,255,0.5)',
-              color: safeCount === n ? OG : NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, fontFeatureSettings: '"tnum"', cursor: 'pointer',
-            }}
-          >
-            {n}
-          </button>
-        ))}
+        {options.map(n => {
+          const active = safeCount === n
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setCount(n)}
+              style={{
+                padding: '10px 0', borderRadius: 8, border: `1px solid ${active ? OG : S.border}`,
+                background: active ? 'rgba(245,127,32,0.12)' : 'rgba(255,255,255,0.5)',
+                color: active ? OG : NV, fontFamily: BODY, fontSize: 13, fontWeight: 700,
+                fontFeatureSettings: '"tnum"', cursor: 'pointer',
+                transition: 'background 160ms, border-color 160ms, color 160ms',
+              }}
+            >
+              {n}
+            </button>
+          )
+        })}
       </div>
-      <p style={{ marginTop: 10, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted }}>
-        {`${safeCount} veg day${safeCount === 1 ? '' : 's'} · ${W - safeCount} non-veg day${W - safeCount === 1 ? '' : 's'}.`}
+
+      <AnimatePresence initial={false}>
+        {showHint && (
+          <motion.div
+            key="count-hint"
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 999,
+              background: 'rgba(245,127,32,0.08)',
+              border: '1px solid rgba(245,127,32,0.20)',
+            }}>
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block', width: 7, height: 7,
+                  borderRadius: 999, background: OG,
+                  animation: 'veg-count-pulse 2s ease-in-out infinite',
+                }}
+              />
+              <span style={{
+                fontFamily: BODY, fontSize: 11.5, fontWeight: 600,
+                color: '#a35100', letterSpacing: '0.02em',
+              }}>
+                Pick how many veg days you want — your plan adapts.
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <p style={{
+        marginTop: showHint ? 0 : 10,
+        fontFamily: BODY, fontSize: 11.5, color: S.fgMuted,
+      }}>
+        {safeCount == null
+          ? `Choose your weekly veg-day count (1–${maxVeg}).`
+          : `${safeCount} veg day${safeCount === 1 ? '' : 's'} · ${W - safeCount} non-veg day${W - safeCount === 1 ? '' : 's'}. Pick the specific days at checkout.`}
       </p>
       <p style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, color: S.fgFaint, lineHeight: 1.5 }}>
         Want all-veg or all-non-veg? Switch your preference on{' '}
@@ -427,6 +488,13 @@ function VegDayPicker({ count, setCount, weekType }: {
         </Link>
         .
       </p>
+
+      <style>{`
+        @keyframes veg-count-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.4); opacity: 0.55; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -437,13 +505,23 @@ function PlanCard({
 }: {
   plan: PlanDef
   pref: Pref
-  vegDayCount: number
+  /** null = religious-mix user hasn't picked count yet → card shows
+   *  placeholder price area instead of misleading numbers. */
+  vegDayCount: number | null
   weekType: WeekType
   selected: boolean
   onSelect: (id: PlanId) => void
 }) {
-  const price = pricePerMeal(plan.id, pref, vegDayCount, weekType)
-  const total = totalPrice(plan.id, pref, vegDayCount, weekType)
+  // Religious-mix prices DEPEND on vegDayCount (it's a weighted average),
+  // so when count is null we can't honestly show a number. Veg/NonVeg
+  // prices are independent of count, so they always render.
+  const priceUnknown = pref === 'Religious' && vegDayCount == null
+  // Pricing math uses 3 as a defensive fallback when count is null — the
+  // value is never actually displayed for that branch, but the helpers
+  // need a real number to avoid Math.floor(null) → 0 fallthrough.
+  const safeCount = vegDayCount ?? 3
+  const price = pricePerMeal(plan.id, pref, safeCount, weekType)
+  const total = totalPrice(plan.id, pref, safeCount, weekType)
   const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
 
@@ -472,15 +550,17 @@ function PlanCard({
   let saveAmount: number | null = null
   let saveAgainst: string | null = null
   if (plan.id === 'Monthly Premium') {
-    const flexFourWeeks = totalPrice('Weekly Flex', pref, vegDayCount, weekType) * 4
+    const flexFourWeeks = totalPrice('Weekly Flex', pref, safeCount, weekType) * 4
     const diff = flexFourWeeks - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   } else if (plan.id === 'Monthly Max') {
-    const eightWeeksFlex = totalPrice('Weekly Flex', pref, vegDayCount, weekType) * 8
+    const eightWeeksFlex = totalPrice('Weekly Flex', pref, safeCount, weekType) * 8
     const diff = eightWeeksFlex - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   }
-  const showSave = saveAmount !== null
+  // Hide savings badge in the no-count state — number is meaningless until
+  // the user has actually picked something for us to compare against.
+  const showSave = saveAmount !== null && !priceUnknown
   const saveLabel = saveAmount !== null
     ? (saveAmount % 1 === 0 ? `${saveAmount}` : saveAmount.toFixed(2))
     : ''
@@ -505,7 +585,9 @@ function PlanCard({
   return (
     <button
       type="button"
-      onClick={() => onSelect(plan.id)}
+      onClick={() => { if (!priceUnknown) onSelect(plan.id) }}
+      disabled={priceUnknown}
+      aria-disabled={priceUnknown}
       style={{
         ...baseTier,
         position: 'relative',
@@ -517,9 +599,10 @@ function PlanCard({
         padding: featured ? '32px 24px 28px' : 24,
         borderRadius: 24,
         border: `1.5px solid ${selected ? OG : (featured ? 'rgba(245,127,32,0.32)' : 'rgba(9,24,37,0.07)')}`,
-        transition: 'transform 150ms, border-color 200ms',
-        cursor: 'pointer',
+        transition: 'transform 150ms, border-color 200ms, opacity 200ms',
+        cursor: priceUnknown ? 'not-allowed' : 'pointer',
         transform: selected ? 'translateY(-2px)' : 'none',
+        opacity: priceUnknown ? 0.65 : 1,
       }}
     >
       {/* Floating "Most Popular" ribbon — only on the recommended card. The
@@ -564,29 +647,48 @@ function PlanCard({
         )}
       </div>
 
-      {/* Price */}
+      {/* Price — placeholder state for religious-mix users who haven't yet
+          picked a veg-day count. Showing real numbers in that state would
+          either lie (commit to a default count the user didn't choose) or
+          flicker as they shop counts. The placeholder is honest and routes
+          attention back up to the count picker. */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: NV, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
-          <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
-        </div>
-        <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {total} AED{plan.period}
-        </div>
-        <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
-        {showSave && (
-          <div style={{
-            marginTop: 10,
-            display: 'inline-flex', alignItems: 'center',
-            padding: '4px 10px',
-            borderRadius: 999,
-            background: 'rgba(245,127,32,0.10)',
-            color: '#a35100',
-            fontFamily: BODY, fontSize: 11, fontWeight: 700,
-            letterSpacing: '0.04em',
-          }}>
-            Save {saveLabel} AED/month vs {saveAgainst}
-          </div>
+        {priceUnknown ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: S.fgFaint, letterSpacing: '-0.03em', lineHeight: 1 }}>—</span>
+              <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgFaint }}>AED / meal</span>
+            </div>
+            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: '#a35100', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Set veg days first
+            </div>
+            <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: NV, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
+              <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
+            </div>
+            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {total} AED{plan.period}
+            </div>
+            <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
+            {showSave && (
+              <div style={{
+                marginTop: 10,
+                display: 'inline-flex', alignItems: 'center',
+                padding: '4px 10px',
+                borderRadius: 999,
+                background: 'rgba(245,127,32,0.10)',
+                color: '#a35100',
+                fontFamily: BODY, fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.04em',
+              }}>
+                Save {saveLabel} AED/month vs {saveAgainst}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -643,7 +745,7 @@ function PlanCard({
           featured ? '1px solid rgba(245,127,32,0.40)' :
           `1px solid ${S.border2}`,
       }}>
-        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : 'Choose plan'}
+        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : 'Choose plan')}
       </span>
     </button>
   )
@@ -747,8 +849,19 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
       ? 'Religious'
       : 'NonVeg'
   const prefLabel = pref === 'NonVeg' ? 'Non-Veg' : pref === 'Veg' ? 'Vegetarian' : 'Religious Mix'
-  const [vegDayCount, setVegDayCount] = useState<number>(
-    () => Array.isArray(eff.veg_days) && eff.veg_days.length > 0 ? eff.veg_days.length : 3
+  // Religious-mix count seed:
+  //   - eff.veg_days has values  → count = .length (returning user / saved
+  //                                profile pref / onboarding pick)
+  //   - no saved prefs           → count = null (empty state on cards;
+  //                                the configurator shows the anticipatory
+  //                                hint until the user picks a number)
+  // The actual day-of-week picker (which specific days are veg) lives
+  // inside CheckoutPanel — the customer picks the count up here while
+  // shopping plans, and the days down there during the final checkout
+  // step. Both surfaces seed from customer.veg_days for cohesion.
+  const seededVegDays = Array.isArray(eff.veg_days) ? eff.veg_days : []
+  const [vegDayCount, setVegDayCount] = useState<number | null>(
+    () => seededVegDays.length > 0 ? seededVegDays.length : null,
   )
   // Effective delivery cadence — pending wins for renewals.
   const weekType: WeekType = eff.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
@@ -975,7 +1088,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       transition={{ duration: 0.2 }}
                       style={{ overflow: 'hidden' }}
                     >
-                      <VegDayPicker count={vegDayCount} setCount={setVegDayCount} weekType={weekType} />
+                      <VegDayPicker
+                        count={vegDayCount}
+                        setCount={setVegDayCount}
+                        weekType={weekType}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1009,7 +1126,12 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   <CheckoutPanel
                     selected={selected}
                     pref={pref}
-                    vegDayCount={vegDayCount}
+                    // Religious users can't reach this point with a null
+                    // count (PlanCard click is gated on priceUnknown). For
+                    // non-religious users vegDayCount is irrelevant to
+                    // pricing; default to 3 to keep the panel's prop typed
+                    // as `number`.
+                    vegDayCount={vegDayCount ?? 3}
                     customer={customer}
                     userEmail={userEmail}
                     activeSubscription={activeSubscription}

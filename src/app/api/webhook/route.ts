@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       // because this IS the next subscription being created.
       const { data: customerRow } = await supabaseAdmin
         .from('customers')
-        .select('week_type, meal_preference_type, allergens, spice_level_preference, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
+        .select('week_type, meal_preference_type, allergens, spice_level_preference, veg_days, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
         .eq('id', user_id)
         .maybeSingle();
       const effectiveWeekTypeRaw =
@@ -240,6 +240,30 @@ export async function POST(req: Request) {
       if (customerRow?.pending_spice_level_preference != null) {
         customerPatch.spice_level_preference =
           customerRow.pending_spice_level_preference;
+      }
+      // Religious-mix veg_days: the checkout payload's vegDays IS the
+      // authoritative pick for THIS subscription (the user just confirmed
+      // it). Per Option A from the 2026-05-07 unification, those picks
+      // also become the customer's standing preference (customer.veg_days)
+      // so the next checkout's picker pre-fills from this. Order of
+      // precedence: payload > pending > existing customer column.
+      // Non-religious purchases null out customer.veg_days so a former
+      // religious-mix customer who switches preference doesn't carry
+      // stale day picks forward.
+      const isReligiousNow = /religious/i.test(preference);
+      if (isReligiousNow) {
+        const allowedDays = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']);
+        const payloadDays =
+          typeof vegDays === 'string' && vegDays.trim().length > 0
+            ? vegDays.split(',').map(s => s.trim()).filter(d => allowedDays.has(d))
+            : [];
+        if (payloadDays.length > 0) {
+          customerPatch.veg_days = payloadDays;
+        } else if (Array.isArray(customerRow?.pending_veg_days) && customerRow.pending_veg_days.length > 0) {
+          customerPatch.veg_days = customerRow.pending_veg_days;
+        }
+      } else {
+        customerPatch.veg_days = null;
       }
       // Always clear pending_* — even if every field was null, the explicit
       // null-out is a no-op so the cost is negligible and it keeps the

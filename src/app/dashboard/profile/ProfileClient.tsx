@@ -143,8 +143,11 @@ export default function ProfileClient({
   // Cap = (W-1) where W is the chosen delivery week — picking all-veg
   // defeats "mix" and the customer should switch their pref to plain Veg
   // instead. Same constraint /api/checkout enforces.
+  // Seed precedence: pending (queued change wins) → live sub snapshot
+  // (kitchen contract for current cycle) → customer canonical preference
+  // (post-end memory + standalone profile saves) → empty.
   const initialVegDays =
-    customer?.pending_veg_days ?? activeSubscription?.veg_days ?? []
+    customer?.pending_veg_days ?? activeSubscription?.veg_days ?? customer?.veg_days ?? []
   const [vegDays, setVegDays] = useState<string[]>(initialVegDays.slice())
   const isReligiousMode = /religious/i.test(mealPref)
   const W = weekType === '5DAYS' ? 5 : 6
@@ -189,7 +192,7 @@ export default function ProfileClient({
     setMealPref(eff.meal_preference_type ?? '')
     setWeekType(eff.week_type === '5DAYS' ? '5DAYS' : '6DAYS')
     setSelectedAllergens(parseAllergens(eff.allergens))
-    setVegDays((c?.pending_veg_days ?? activeSubscription?.veg_days ?? []).slice())
+    setVegDays((c?.pending_veg_days ?? activeSubscription?.veg_days ?? c?.veg_days ?? []).slice())
     setError(null)
     // activeSubscription is stable per render — included so re-opens after
     // a sub change pull in the latest veg_days seed.
@@ -263,6 +266,12 @@ export default function ProfileClient({
 
   const pendingDiff = preferenceDiff(customer)
   const showsPending = hasPendingPreferences(customer) && pendingDiff.length > 0
+
+  // Post-end auto-promotion banner: when the dashboard layout has drained
+  // pending_* into canonical because the last sub ended, show a green
+  // "preferences applied" notice in place of the now-stale orange one.
+  // Gated on !hasActiveSub so a fresh renewal hides it automatically.
+  const showsPromoted = !!customer?.preferences_promoted_at && !hasActiveSub
 
   // Pretty-print helpers for the pending banner — labels users recognise
   // (PREFERENCES.label) instead of raw db values.
@@ -515,6 +524,44 @@ export default function ProfileClient({
           </div>
         )}
 
+        {/* Post-end "preferences applied" banner — replaces the orange
+            "queued for next sub" banner once the layout's auto-promotion
+            has drained pending_* into canonical. Stays visible until the
+            customer starts a new sub (then hasActiveSub flips and the
+            banner naturally hides). */}
+        {showsPromoted && (
+          <div style={{
+            marginBottom: 20,
+            padding: '14px 18px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'linear-gradient(135deg, rgba(29,138,48,0.10) 0%, rgba(29,138,48,0.06) 100%)',
+            border: '1.5px solid rgba(29,138,48,0.32)',
+            boxShadow: '0 4px 14px rgba(29,138,48,0.08)',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 26, height: 26, borderRadius: 999,
+              background: '#1d8a30', color: '#fff', flexShrink: 0,
+              boxShadow: '0 0 0 3px rgba(29,138,48,0.18)',
+            }}>
+              <Check size={14} strokeWidth={3} aria-hidden />
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{
+                fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
+                letterSpacing: '0.16em', textTransform: 'uppercase',
+                color: '#176626',
+              }}>
+                New meal preferences applied
+              </span>
+              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: '#176626' }}>
+                Your queued changes are now your active preferences. They&rsquo;ll power your next plan&rsquo;s deliveries.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Meal preferences — read-only snapshot of what we cook for the
               CURRENT subscription. Edits go through the modal; if a live
               sub exists they're queued for the next one and surfaced via
@@ -569,15 +616,41 @@ export default function ProfileClient({
             />
             {/* Religious-mix only — show this cycle's veg days inline so
                 the customer never has to leave Profile to remember them.
-                Sourced from the live sub (kitchen's snapshot). */}
-            {activeSubscription?.veg_days && activeSubscription.veg_days.length > 0 && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <Field
-                  label="Religious-mix veg days"
-                  value={activeSubscription.veg_days.join(', ')}
-                />
-              </div>
-            )}
+                Source precedence: live sub snapshot (kitchen contract for
+                current cycle) → customer.veg_days (canonical preference,
+                used when no live sub OR for pre-checkout users). Renders
+                as 3-letter abbreviation chips in the same green palette
+                as the MealTag.Veg pill below. */}
+            {(() => {
+              const displayVegDays = activeSubscription?.veg_days ?? customer?.veg_days ?? null
+              if (!displayVegDays || displayVegDays.length === 0) return null
+              // No gridColumn span — sits as a normal cell so it lands at
+              // col 2, row 2 (right of Allergens, under Delivery week).
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted }}>
+                    Religious-mix veg days
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {displayVegDays.map(d => (
+                      <span
+                        key={d}
+                        style={{
+                          fontFamily: BODY, fontSize: 11, fontWeight: 700,
+                          letterSpacing: '0.14em', textTransform: 'uppercase',
+                          padding: '4px 10px', borderRadius: 'var(--radius-pill)',
+                          background: 'rgba(29,138,48,0.12)',
+                          color: '#1d8a30',
+                          border: '1px solid rgba(29,138,48,0.22)',
+                        }}
+                      >
+                        {d.slice(0, 3)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {saved === 'preferences-now' && (
@@ -735,39 +808,12 @@ export default function ProfileClient({
                     </div>
                   </div>
 
-                  <div>
-                    <FieldLabel>Allergens</FieldLabel>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {ALLERGENS.map(a => {
-                        const active = selectedAllergens.has(a)
-                        return (
-                          <button
-                            key={a}
-                            type="button"
-                            onClick={() => toggleAllergen(a)}
-                            style={{
-                              padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
-                              fontFamily: BODY, fontSize: 12, fontWeight: 600,
-                              border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
-                              background: active ? 'rgba(245,127,32,0.10)' : '#ffffff',
-                              color: active ? '#a35100' : NV,
-                              transition: 'background 120ms, border-color 120ms, color 120ms',
-                            }}
-                          >
-                            {a}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {selectedAllergens.size === 0 && (
-                      <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 11, color: S.fgSub }}>None selected — tap any allergen above to flag it.</div>
-                    )}
-                  </div>
-
-                  {/* Religious-mix only — veg-day picker. Shown inside the
-                      meal-prefs modal so the customer doesn't need to
-                      manage two surfaces. Cap = W-1 (picking all-veg
-                      defeats "mix"; switch to plain Veg instead). */}
+                  {/* Religious-mix only — veg-day picker. Sits right after
+                      Delivery week (it's tied to the same week_type
+                      constraint) and ABOVE Allergens so the foundational
+                      religious-mix decision is finalised before the user
+                      moves on to allergen selection. Cap = W-1 (picking
+                      all-veg defeats "mix"; switch to plain Veg instead). */}
                   {isReligiousMode && (
                     <div>
                       <FieldLabel>Religious-mix veg days</FieldLabel>
@@ -807,6 +853,35 @@ export default function ProfileClient({
                       </div>
                     </div>
                   )}
+
+                  <div>
+                    <FieldLabel>Allergens</FieldLabel>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {ALLERGENS.map(a => {
+                        const active = selectedAllergens.has(a)
+                        return (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => toggleAllergen(a)}
+                            style={{
+                              padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                              fontFamily: BODY, fontSize: 12, fontWeight: 600,
+                              border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
+                              background: active ? 'rgba(245,127,32,0.10)' : '#ffffff',
+                              color: active ? '#a35100' : NV,
+                              transition: 'background 120ms, border-color 120ms, color 120ms',
+                            }}
+                          >
+                            {a}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {selectedAllergens.size === 0 && (
+                      <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 11, color: S.fgSub }}>None selected — tap any allergen above to flag it.</div>
+                    )}
+                  </div>
 
                   <div>
                     <FieldLabel>Spice level</FieldLabel>

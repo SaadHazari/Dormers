@@ -25,6 +25,11 @@ interface Customer {
 interface ActiveSubLike {
   week_type?: '5DAYS' | '6DAYS' | null
   veg_days?: string[] | null
+  // Gates the hero's "Arriving in ~Nh" countdown — only Active subs are
+  // actually being delivered today; Paused/Skipped/Scheduled/Ended/null swap
+  // in a static status label so the hero never claims a delivery is en
+  // route when nothing is being cooked for the user.
+  status?: string | null
 }
 
 type WeekMeal = {
@@ -116,7 +121,20 @@ function todayMonIdx(): number {
 // Deliberately imprecise — see ClientDashboard.computeCountdown for rationale.
 // Rounded to the nearest hour with a "~" prefix; under 30 minutes we swap to
 // "Arriving soon" so the user doesn't latch onto a minute-accurate ETA.
-function computeCountdown(now: Date): { label: string; urgent: boolean } {
+//
+// Status gate: only Active subs actually have a delivery en route today, so
+// every other status (Paused / Skipped / Scheduled / Ended / null) short-
+// circuits to a static status-appropriate label. Without this, the hero
+// would claim "Arriving in ~5 hours" for a paused or ended customer who
+// will receive nothing tonight.
+function computeCountdown(now: Date, subStatus: string | null): { label: string; urgent: boolean } {
+  if (subStatus !== 'Active') {
+    if (subStatus === 'Paused')    return { label: 'Plan paused — no delivery today', urgent: false }
+    if (subStatus === 'Skipped')   return { label: 'Skipped today — back tomorrow', urgent: false }
+    if (subStatus === 'Scheduled') return { label: 'Plan starts soon', urgent: false }
+    return { label: 'No active plan', urgent: false }
+  }
+
   const day = now.getDay(); const hour = now.getHours()
   if (day === 0) return { label: 'No delivery today', urgent: false }
   if (hour === 19) return { label: 'Arriving now', urgent: true }
@@ -138,13 +156,18 @@ function computeCountdown(now: Date): { label: string; urgent: boolean } {
 // the dashboard's HeroToday for cross-page cohesion.
 const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
 
-function TodaySpotlight({ meal, dorm }: { meal: WeekMeal | null; dorm: string | null }) {
-  const [ct, setCt] = useState(() => computeCountdown(new Date()))
+function TodaySpotlight({ meal, dorm, subStatus }: {
+  meal: WeekMeal | null
+  dorm: string | null
+  subStatus: string | null
+}) {
+  const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
 
   useEffect(() => {
-    const t = setInterval(() => setCt(computeCountdown(new Date())), 30_000)
+    setCt(computeCountdown(new Date(), subStatus))
+    const t = setInterval(() => setCt(computeCountdown(new Date(), subStatus)), 30_000)
     return () => clearInterval(t)
-  }, [])
+  }, [subStatus])
 
   // Sunday or out-of-range — graceful empty state, full-width
   if (!meal) {
@@ -323,6 +346,25 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
   // grid and reads as the focal moment of the row.
   const baseTier = isToday ? TIER1 : isPreview ? TIER3 : TIER2
 
+  // Veg / non-veg "spine" — vertical 3px (2px in preview) edge stripe on the
+  // card's left side that lets the eye pre-attentively segment the grid into
+  // veg / non-veg without reading the footer chip. Edge-stripe geometry is
+  // intentionally different from today's perimeter ring, so the two cues
+  // coexist on different planes. Suppressed on today (focal moment owns the
+  // ornament) and off-day cards (no category). Colors come from MealTag's
+  // existing palette so the spine and the chip below it always agree:
+  //   veg → #1d8a30 (the leaf green already used by MealTag.Veg)
+  //   non-veg → #a35100 (MealTag's non-veg fg/ember; deliberately *not*
+  //     the bright OG orange, which is reserved for today's ring + the
+  //     period accent so the two oranges never compete on the same card)
+  const isVeg = meal.tag === 'Veg'
+  const showSpine = !isToday && !isOff
+  const spineColor = isVeg ? '#1d8a30' : 'rgba(165,81,0,0.85)'
+  const spineWidth = isPreview ? 2 : 3
+  // Whisper hairline traced inside the photo's rounded corners — registers
+  // only when the eye lands on the food, halos it in its category color.
+  const imageRingColor = isVeg ? 'rgba(29,138,48,0.14)' : 'rgba(165,81,0,0.16)'
+
   // Per-variant spacing + type. Preview keeps tighter spacing than full but
   // brings the footer chips back so the card has enough body content to
   // reach a proportional height (~1:1.4 aspect, near golden ratio).
@@ -395,6 +437,22 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
         transition: 'transform 220ms cubic-bezier(.22,1,.36,1), box-shadow 220ms, border-color 220ms',
       }}
     >
+      {/* Category spine — see comment above showSpine for rationale. Sits
+          inside the card's overflow:hidden + rounded corners so the stripe
+          gets clipped to the card's border radius automatically. */}
+      {showSpine && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: spineWidth,
+            background: spineColor,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       {/* ── Cell header — three slots: day (left) · state cue (center) · date (right).
             State is icon + label, colored by semantic family:
               past   → green Check        "Delivered"
@@ -459,6 +517,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
             background: 'linear-gradient(135deg, #3a2418, #1e3a4f)',
             overflow: 'hidden',
             borderRadius: 'var(--radius-sm)',
+            boxShadow: showSpine ? `inset 0 0 0 1px ${imageRingColor}` : 'none',
           }}
         >
           {meal.image && !isOff ? (
@@ -648,7 +707,7 @@ export default function MenuClient({
             <Eyebrow>Today&apos;s delivery</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
-          <TodaySpotlight meal={todayMeal} dorm={customer?.dorm_name ?? null} />
+          <TodaySpotlight meal={todayMeal} dorm={customer?.dorm_name ?? null} subStatus={activeSubscription?.status ?? null} />
         </section>
 
         {/* ── Section 2: This week (6-cell grid) ── */}

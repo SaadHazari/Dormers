@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,10 +20,20 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("/home#hero");
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const isLight = mounted && theme === "light";
 
   const navRef = useRef<HTMLElement>(null);
+  const [orbSize, setOrbSize] = useState(62);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (navRef.current) setOrbSize(navRef.current.offsetHeight);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -228,17 +238,16 @@ export default function Navbar() {
           isOpen={isMenuOpen}
           isLight={isLight}
           activeSection={activeSection}
+          theme={theme}
+          setTheme={setTheme}
           onLinkClick={handleNavClick}
         />
 
       </nav>
 
-      {/* Glassmorphism sun/moon orb — fixed top-right on the marketing site.
-          The hanging-bulb variant is reserved for the login + onboarding
-          surfaces where the playful filament treatment fits the auth funnel
-          but feels wrong against the marketing-site composition. */}
-      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 110 }}>
-        <ThemeToggleOrb />
+      {/* Theme Toggle — desktop only */}
+      <div className="hidden lg:flex items-stretch">
+        <ThemeToggleOrb size={orbSize} />
       </div>
 
     </header>

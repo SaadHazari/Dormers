@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2, Lock } from 'lucide-react'
-import { TIER1, NV, BODY, S } from '../_shared/tokens'
+import { TIER1, NV, BODY } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
@@ -17,6 +17,10 @@ interface CheckoutCustomer {
   whatsapp_number?: string | null
   dorm_name?: string | null
   week_type?: '5DAYS' | '6DAYS' | null
+  // Religious-mix only — the customer's saved veg-day preference. Used to
+  // pre-fill the day picker so returning religious-mix users don't restart
+  // from blank every checkout. They can still override any pick here.
+  veg_days?: string[] | null
 }
 
 interface CheckoutSubscription {
@@ -26,6 +30,10 @@ interface CheckoutSubscription {
 interface Props {
   selected: PlanId
   pref: Pref
+  /** Religious-mix count — gated upstream so this is always a real number
+   *  by the time the panel mounts (cards aren't selectable for religious
+   *  users without a count chosen). Non-religious users get a numeric
+   *  fallback at the call site so pricing helpers stay number-typed. */
   vegDayCount: number
   customer: CheckoutCustomer | null
   userEmail: string
@@ -111,11 +119,31 @@ export function CheckoutPanel({
     clampToDeliveryDay(computeMinIso(activeSubscription), weekType),
   )
   // Religious-mix only: which specific working days are veg. Length must
-  // equal `vegDayCount` before checkout is enabled. Reset whenever the user
-  // changes preference or veg count above (those changes invalidate the
-  // existing selection).
-  const [vegDays, setVegDays] = useState<string[]>([])
-  useEffect(() => { setVegDays([]) }, [pref, vegDayCount, weekType])
+  // equal `vegDayCount` before checkout is enabled. Pre-fills from the
+  // customer's saved veg-day preference so returning religious-mix users
+  // don't have to re-pick from scratch — they can still override any day.
+  // The seed re-applies whenever pref / count / weekType changes (those
+  // changes invalidate the previous picks); user-edited picks within a
+  // stable seed configuration are preserved.
+  const buildVegDaySeed = (
+    p: typeof pref, count: number, days: readonly string[],
+  ): string[] => {
+    if (p !== 'Religious') return []
+    return (customer?.veg_days ?? [])
+      .filter(d => (days as string[]).includes(d))
+      .slice(0, count)
+  }
+  const [vegDays, setVegDays] = useState<string[]>(() =>
+    buildVegDaySeed(pref, vegDayCount, workingDayNames),
+  )
+  useEffect(() => {
+    setVegDays(buildVegDaySeed(pref, vegDayCount, workingDayNames))
+    // customer.veg_days is request-stable; re-seed when the panel's primary
+    // inputs change (pref, count, weekType) — workingDayNames is derived
+    // from weekType so it's covered by that dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref, vegDayCount, weekType])
+  const hasSavedVegPref = (customer?.veg_days?.length ?? 0) > 0
 
   const toggleVegDay = (day: string) => {
     setVegDays(prev => {
@@ -290,10 +318,12 @@ export function CheckoutPanel({
 
         {/* ── VEG-DAY PICKER (Religious mix only) ──
             Lets the customer choose exactly which days are veg. Selection
-            count must equal vegDayCount (the slider above). The block is
-            anchored above the date+CTA so the user can't reach the CTA until
-            they've made a complete choice. Persists onto subscription.veg_days
-            via the webhook so the dashboard menu picks the right dish per day. */}
+            count must equal vegDayCount (the count picker upstream). The
+            block is anchored above the date+CTA so the user can't reach
+            the CTA until they've made a complete choice. Persists onto
+            subscription.veg_days via the webhook so the dashboard menu
+            picks the right dish per day. Pre-fills from the customer's
+            saved veg-day preference (customer.veg_days) when present. */}
         {pref === 'Religious' && (
           <div style={{
             margin: '14px 0 4px',
@@ -312,6 +342,22 @@ export function CheckoutPanel({
                 {vegDays.length} of {vegDayCount} chosen
               </span>
             </div>
+            {/* Prefill note — only when the customer has a saved veg-day
+                preference. Sets expectation that the picker is seeded from
+                Profile while making it explicit they can still change
+                anything for this plan. Hidden if no saved preference exists
+                (first-time religious-mix purchase). */}
+            {hasSavedVegPref && (
+              <p style={{
+                margin: '0 0 10px 0',
+                fontFamily: BODY, fontSize: 11.5, fontWeight: 600,
+                color: '#1d8a30', lineHeight: 1.45,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                <span aria-hidden style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 999, background: '#1d8a30' }} />
+                Pre-filled from your saved meal preferences — change anything for this plan.
+              </p>
+            )}
             <div style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${workingDayNames.length}, minmax(0, 1fr))`,
@@ -346,9 +392,6 @@ export function CheckoutPanel({
                 )
               })}
             </div>
-            <p style={{ marginTop: 10, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.45 }}>
-              These are the days the kitchen will deliver vegetarian meals. The other {workingDayNames.length - vegDayCount} day{workingDayNames.length - vegDayCount === 1 ? '' : 's'} will be non-veg.
-            </p>
           </div>
         )}
 

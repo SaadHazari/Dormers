@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getReferralCount } from '@/utils/supabase/queries'
+import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const userEmail  = user?.email ?? ''
 
   if (user) {
+    // Drain pending preferences if the customer's last sub ended without a
+    // renewal. Must run BEFORE the cached getCustomer/getActiveSubscription
+    // helpers so every nested page reads post-promotion canonical values.
+    // Idempotent: a no-op when a live/scheduled sub exists or when no
+    // pending changes are queued.
+    await promotePendingPreferencesIfStale(user.id)
+
     // Cached helpers — pages that re-call these in the same request will
     // hit React's request-scoped cache and skip the network round-trip.
     const [customer, activeSubscription, referrals] = await Promise.all([
