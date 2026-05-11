@@ -14,6 +14,7 @@ import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
 import { LockedVegDays } from '../_shared/LockedVegDays'
 import { StatusDot } from '../_shared/StatusDot'
+import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 
 /**
  * Maps the persisted customer.meal_preference_type free-text value to the
@@ -181,10 +182,11 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, customer, onRenewClick }: {
+function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
   sub: Subscription | null
   customer: Customer | null
   onRenewClick: () => void
+  outOfZone?: boolean
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
 
@@ -192,7 +194,7 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
     // Reuse the dashboard's NoPlanView so the new-customer entry point reads
     // identically across /dashboard and /dashboard/plan — same brand DNA grid,
     // same headline, same CTA. Single source of truth for the empty state.
-    return <NoPlanView />
+    return <NoPlanView outOfZone={outOfZone} purchaseGated={outOfZone} />
   }
   const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
@@ -302,21 +304,37 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
             </div>
           </div>
         ) : renewEligible ? (
-          <button
-            type="button"
-            onClick={onRenewClick}
-            title="Choose a plan + start date below."
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '11px 18px', borderRadius: 999,
-              fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-              border: 0, cursor: 'pointer',
-              background: OG, color: '#fff',
-              transition: 'opacity 150ms',
-            }}
-          >
-            Renew now →
-          </button>
+          outOfZone ? (
+            <span
+              title="Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage."
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '11px 18px', borderRadius: 999,
+                fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                border: 0, cursor: 'not-allowed',
+                background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.65)',
+                opacity: 0.6,
+              }}
+            >
+              Renew now →
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onRenewClick}
+              title="Choose a plan + start date below."
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '11px 18px', borderRadius: 999,
+                fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                border: 0, cursor: 'pointer',
+                background: OG, color: '#fff',
+                transition: 'opacity 150ms',
+              }}
+            >
+              Renew now →
+            </button>
+          )
         ) : startsInFuture ? (() => {
           const dateChangeUsed = !!sub.start_date_changed_at
           return (
@@ -862,6 +880,7 @@ const PLAN_FAQS = [
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan' }: Props) {
   const isExplore = mode === 'explore'
+  const outOfZone = !!customer?.out_of_zone
   // The next subscription uses the EFFECTIVE preferences — pending wins
   // when the customer has queued a change in Profile, otherwise the
   // canonical customer.* fields. This is what makes "Save for next
@@ -979,7 +998,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         {/* Active plan callout — only on /plan, not /explore-plans */}
         {!isExplore && (
           <div style={{ marginBottom: 16 }}>
-            <ActivePlanCallout sub={activeSubscription} customer={customer} onRenewClick={openPricing} />
+            <ActivePlanCallout sub={activeSubscription} customer={customer} onRenewClick={openPricing} outOfZone={outOfZone} />
           </div>
         )}
 
@@ -1183,6 +1202,10 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                 </AnimatePresence>
               </div>
 
+              {/* Out-of-zone gate — mirrors the dashboard-home banner so the
+                  visual language is identical wherever the user encounters it. */}
+              <OutOfZoneBanner show={outOfZone} />
+
               {/* Plan grid */}
               {/* Explicit 1 / 2 / 4 column breakpoints — skips the awkward
                   3-column zone that orphans the 4th plan. The recommended
@@ -1221,6 +1244,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     userEmail={userEmail}
                     activeSubscription={activeSubscription}
                     weekType={weekType}
+                    outOfZone={outOfZone}
                   />
                 )}
               </AnimatePresence>

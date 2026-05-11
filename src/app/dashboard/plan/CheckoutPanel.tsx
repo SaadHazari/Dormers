@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, Lock, PauseCircle } from 'lucide-react'
+import { Loader2, Lock, PauseCircle, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { TIER1, BODY, OG, S } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
@@ -49,6 +49,10 @@ interface Props {
    *  on the meal count + price (canonical-only here would silently submit
    *  6DAYS pricing for a customer who queued a 5DAYS change). */
   weekType: WeekType
+  /** Customer's dorm is outside the delivery radius — disables checkout
+   *  and shows the out-of-zone notice inline rather than waiting for a
+   *  server-side rejection after the user clicks. */
+  outOfZone?: boolean
 }
 
 // Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
@@ -105,6 +109,7 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
  */
 export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
+  outOfZone = false,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // weekType is the effective cadence (pending → canonical fallback) supplied
@@ -438,10 +443,10 @@ export function CheckoutPanel({
                 • loading    → spinner + "Redirecting…"  (press-scaled momentarily) */}
             <button
               type="button"
-              disabled={checkoutLoading || !startDate || !vegDaysReady}
+              disabled={checkoutLoading || !startDate || !vegDaysReady || outOfZone}
               onClick={handleCheckout}
-              className={`checkout-cta${(!startDate || !vegDaysReady) && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
-              title={!vegDaysReady ? `Pick ${vegDayCount} veg day${vegDayCount === 1 ? '' : 's'} above` : undefined}
+              className={`checkout-cta${((!startDate || !vegDaysReady) || outOfZone) && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
+              title={outOfZone ? 'Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.' : !vegDaysReady ? `Pick ${vegDayCount} veg day${vegDayCount === 1 ? '' : 's'} above` : undefined}
             >
               {checkoutLoading ? (
                 <>
@@ -487,6 +492,50 @@ export function CheckoutPanel({
                 <Lock size={11} strokeWidth={2.4} color="#1d8a30" aria-hidden />
                 Powered by Stripe &middot; Card details never touch our servers.
               </p>
+
+              {/* Out-of-zone gate — shown upfront, not waiting for a failed
+                  click. Matches OutOfZoneBanner tone (slate-blue) so the
+                  visual language is consistent with the banner above the grid. */}
+              {outOfZone && (
+                <div style={{
+                  marginTop: 10,
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  background: 'rgba(58,111,140,0.10)',
+                  border: '1px solid rgba(58,111,140,0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <MapPin size={16} strokeWidth={2} color="#5fa1c4" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+                    <div>
+                      <p style={{ margin: 0, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.35 }}>
+                        Your dorm is outside our delivery radius
+                      </p>
+                      <p style={{ margin: '4px 0 0', fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
+                        Message customer service on WhatsApp so we can confirm whether we can cater to you before checkout.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={whatsAppHref('Hi! My dorm is outside the listed delivery radius — could you confirm whether you can deliver to me before I check out?')}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      alignSelf: 'flex-start',
+                      padding: '9px 16px', borderRadius: 999,
+                      fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      background: '#25D366', color: '#fff', textDecoration: 'none', border: 0,
+                      boxShadow: '0 2px 8px rgba(37,211,102,0.28)',
+                    }}
+                  >
+                    Message us on WhatsApp →
+                  </a>
+                </div>
+              )}
+
               {error && (
                 errorCode === 'PLAN_PAUSED' ? (
                   /* Paused-plan block — actionable, not a dead end.
