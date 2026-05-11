@@ -58,5 +58,19 @@ export async function POST(req: NextRequest) {
         .update({ verified_at: new Date().toISOString() })
         .eq('id', otp.id)
 
+    // Phone-duplication gate — runs AFTER ownership is proven so we're not
+    // leaking account-existence info to someone who doesn't own the number.
+    // Checking at /start would allow enumeration without OTP proof.
+    const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('whatsapp_number', phone)
+        .limit(1)
+        .maybeSingle()
+
+    if (existingCustomer) {
+        return NextResponse.json({ error: 'phone_already_registered' }, { status: 409 })
+    }
+
     return NextResponse.json({ ok: true })
 }

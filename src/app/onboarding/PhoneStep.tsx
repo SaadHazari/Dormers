@@ -83,6 +83,12 @@ export function PhoneStep({
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
+                if (data?.error === 'phone_already_registered') {
+                    window.location.href = '/login?' + new URLSearchParams({
+                        message: 'This WhatsApp number is already linked to an account — sign in below.',
+                    }).toString()
+                    return
+                }
                 setError(messageForError(data?.error))
                 return
             }
@@ -244,7 +250,8 @@ function messageForError(code: unknown): string {
         case 'send_failed':        return 'Couldn’t send the WhatsApp message. Double-check your number.'
         case 'no_active_code':     return 'Code expired or never sent. Send a new one.'
         case 'incorrect_code':     return 'That code doesn’t match. Try again.'
-        case 'too_many_attempts':  return 'Too many wrong attempts. Send a new code.'
-        default:                   return 'Something went wrong. Try again.'
+        case 'too_many_attempts':         return 'Too many wrong attempts. Send a new code.'
+        case 'phone_already_registered':  return 'This number is linked to an existing account.'
+        default:                          return 'Something went wrong. Try again.'
     }
 }

@@ -129,6 +129,22 @@ export async function createAccount(
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    // Phone-duplication gate — authoritative backstop after OTP ownership is proven.
+    // The /api/whatsapp/check layer is the first guard; this handles the race
+    // condition where two simultaneous signups share the same verified number.
+    const { data: existingPhone } = await supabaseAdmin
+        .from('customers')
+        .select('id')
+        .eq('whatsapp_number', payload.phone)
+        .limit(1)
+        .maybeSingle()
+    if (existingPhone) {
+        const params = new URLSearchParams({
+            message: 'This WhatsApp number is already linked to an account — sign in below.',
+        })
+        redirect(`/login?${params.toString()}`)
+    }
+
     const { data: authData, error } = await supabase.auth.signUp({
         email: payload.email,
         password: payload.password,
