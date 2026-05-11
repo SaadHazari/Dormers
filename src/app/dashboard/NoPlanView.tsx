@@ -3,7 +3,7 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { OG, OG3, NV, BODY, S, TIER1, TIER3, cleanPlanName } from './_shared/tokens'
+import { OG, OG3, BODY, S, TIER1, TIER3, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { StatusDot } from './_shared/StatusDot'
 import { PlanGlyph } from './_shared/PlanGlyph'
@@ -63,7 +63,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
   const eyebrow  = isReturning ? 'Welcome back' : 'Get started'
   const headline = isReturning ? 'Pick up where you left off.' : 'Pick your plan.'
   const subline  = isReturning
-    ? <>Your <strong style={{ color: NV, fontWeight: 700 }}>{lastPlanClean}</strong> wrapped up. Renew it in one tap, or switch the rhythm — your kitchen, your call.</>
+    ? <>Your <strong style={{ color: S.fg, fontWeight: 700 }}>{lastPlanClean}</strong> wrapped up. Renew it in one tap, or switch the rhythm — your kitchen, your call.</>
     : <>Daily meals delivered to your dorm, 7&ndash;8&nbsp;PM. Choose what fits your week.</>
 
   // Stagger schedule — expo-out feels physical, not mechanical. Reduced
@@ -88,18 +88,18 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
             Welcome back
             {firstName && firstName !== userEmail.split('@')[0] && (
-              <>, <strong style={{ color: NV, fontWeight: 700 }}>{firstName}</strong></>
+              <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
             )}
             .
           </div>
           {totalDelivered >= 1 && (
             <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
-              <strong style={{ color: NV, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
+              <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
               {memberSinceText && <> · since {memberSinceText}</>}
               {endedPlans.length > 0 && (
                 <> · <Link
                   href="/dashboard/history"
-                  style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}
+                  style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
                 >
                   {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
                 </Link></>
@@ -126,10 +126,10 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
       >
         {/* Faint grid wash — same DNA as before, but tuned down for the light
             surface so it reads as texture, not pattern. */}
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5, pointerEvents: 'none' }} aria-hidden>
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5, pointerEvents: 'none', color: 'var(--ds-fg)' }} aria-hidden>
           <defs>
             <pattern id="noplan-grid-light" width="48" height="48" patternUnits="userSpaceOnUse">
-              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(9,24,37,0.06)" strokeWidth="1" />
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" strokeOpacity="0.06" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#noplan-grid-light)" />
@@ -151,7 +151,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
                 fontFamily: BODY,
                 fontSize: 'clamp(36px, 5.4vw, 64px)',
                 fontWeight: 700,
-                color: NV,
+                color: S.fg,
                 letterSpacing: '-0.02em',
                 lineHeight: 1.04,
                 textWrap: 'balance' as React.CSSProperties['textWrap'],
@@ -186,7 +186,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
                   title={gateTooltip}
                   style={{
                     ...btnStyle('primary'),
-                    background: 'rgba(9,24,37,0.20)',
+                    background: 'var(--ds-fg-tint)',
                     color: 'rgba(255,255,255,0.85)',
                     boxShadow: 'none',
                     cursor: 'not-allowed',
@@ -282,8 +282,8 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             {endedPlans.map(s => (
               <div key={s.id} style={{ ...TIER3, padding: '12px 14px', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV }}>
-                    <PlanGlyph planName={s.plan_name} size={13} color={NV} />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>
+                    <PlanGlyph planName={s.plan_name} size={13} color="currentColor" />
                     {cleanPlanName(s.plan_name)}
                   </div>
                   <StatusDot status="Ended" />
@@ -303,7 +303,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
       <style jsx>{`
         .noplan-root {
           font-family: ${BODY};
-          color: ${NV};
+          color: var(--ds-fg);
         }
         .noplan-grid {
           display: grid;
@@ -323,8 +323,8 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           }
         }
         .noplan-secondary-link:hover {
-          color: ${NV} !important;
-          border-color: rgba(9, 24, 37, 0.30) !important;
+          color: var(--ds-fg) !important;
+          border-color: var(--ds-border-strong) !important;
         }
       `}</style>
     </div>
@@ -351,7 +351,7 @@ function OrbitMark() {
     <svg
       viewBox="0 0 280 280"
       width="100%"
-      style={{ maxWidth: 320, display: 'block' }}
+      style={{ maxWidth: 320, display: 'block', color: 'var(--ds-fg)' }}
       role="img"
       aria-label="A meal arriving on schedule, every day"
     >
@@ -373,7 +373,7 @@ function OrbitMark() {
       <circle
         cx="140" cy="140" r="110"
         fill="none"
-        stroke={NV}
+        stroke="currentColor"
         strokeOpacity="0.22"
         strokeWidth="1.5"
         strokeDasharray="3 7"
@@ -385,14 +385,14 @@ function OrbitMark() {
       <circle
         cx="140" cy="140" r="80"
         fill="none"
-        stroke={NV}
+        stroke="currentColor"
         strokeOpacity="0.30"
         strokeWidth="1.25"
       />
 
       {/* Centre seed — anchors the composition; without it the rings feel
           unmoored. Tiny enough to read as origin, not as content. */}
-      <circle cx="140" cy="140" r="3.5" fill={NV} fillOpacity="0.55" />
+      <circle cx="140" cy="140" r="3.5" fill="currentColor" fillOpacity="0.55" />
 
       {/* Orbiting group — rotates around (140, 140) at 14s/loop. Native
           CSS, transform-only, GPU-accelerated. The dot starts at 3 o'clock

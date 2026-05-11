@@ -104,24 +104,42 @@ export async function savePendingPreferences(
   }
 
   // Decide path: live/queued sub → write to pending_*; otherwise apply now.
+  // SCHEDULED counts as "live" for this check — a queued future sub means
+  // the change must wait for the cycle after that, so it goes to pending_*
+  // just like an active sub. Mirrors promotePendingPreferencesIfStale.
   const { data: liveSub } = await auth.supabase
     .from('subscriptions')
     .select('id')
     .eq('customer_id', auth.user.id)
-    .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+    .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
     .limit(1)
     .maybeSingle();
 
   if (liveSub) {
+    // Live sub: queue the change to pending_*. Canonical fields stay put
+    // until the sub ends (kitchen contract for the current cycle).
+    //
+    // Exception — canonical veg_days when switching FROM religious TO
+    // non-religious. customer.veg_days is the religious-mix memory for the
+    // NEXT sub's pre-fill, not a kitchen-ops field. Once the user's stated
+    // intent is non-religious, the religious-day memory is invalid; leaving
+    // it makes Profile + Plan render stale "Religious-mix veg days" chips
+    // alongside a Veg / Carnivore meal-type tag (the bug that prompted
+    // this guard). Render-side gates are layered on top, but clearing here
+    // is the upstream fix.
+    const patch: Record<string, unknown> = {
+      pending_meal_preference_type: input.meal_preference_type,
+      pending_week_type: input.week_type,
+      pending_allergens: input.allergens,
+      pending_spice_level_preference: input.spice_level_preference,
+      pending_veg_days: isReligious ? cleanVegDays : null,
+    };
+    if (!isReligious) {
+      patch.veg_days = null;
+    }
     const { error } = await auth.supabase
       .from('customers')
-      .update({
-        pending_meal_preference_type: input.meal_preference_type,
-        pending_week_type: input.week_type,
-        pending_allergens: input.allergens,
-        pending_spice_level_preference: input.spice_level_preference,
-        pending_veg_days: isReligious ? cleanVegDays : null,
-      })
+      .update(patch)
       .eq('id', auth.user.id);
     if (error) return { error: 'Failed to save preferences.' };
 
@@ -261,8 +279,23 @@ export async function promotePendingPreferencesIfStale(userId: string): Promise<
   // pending fields — every queued change now lands somewhere persistent
   // when the sub ends, so the next checkout pre-fills from the user's
   // last-known picks instead of starting blank.
+  //
+  // BUT: if the drained meal preference is non-religious, canonical veg_days
+  // becomes orphaned data (UI surfaces would render "Religious-mix veg days"
+  // for a Veg / Carnivore customer). Mirror the webhook's invariant —
+  // veg_days only persists for religious-mix customers — by clearing it
+  // when the post-drain preference isn't religious. Without this, a customer
+  // who was religious, queued a change to Veg, and let the sub end ends up
+  // with stale [Tue, Thu, Sat] in customer.veg_days indefinitely.
+  const drainedMealPref =
+    customerRow.pending_meal_preference_type ?? null;
+  const willBeReligious = drainedMealPref != null
+    ? /religious/i.test(drainedMealPref)
+    : null; // unchanged → can't make a determination here
   if (Array.isArray(customerRow.pending_veg_days) && customerRow.pending_veg_days.length > 0) {
     patch.veg_days = customerRow.pending_veg_days;
+  } else if (willBeReligious === false) {
+    patch.veg_days = null;
   }
 
   await supabase.from('customers').update(patch).eq('id', userId);
@@ -323,6 +356,17 @@ export async function resumeSubscription(subscriptionId: string) {
   const { subscription } = subResult;
 
   if (subscription.status !== SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is not currently paused.' };
+
+  // Same-day resume lock. Mirrors the UI gate in QuickActions so a client
+  // bypass can't create kitchen ambiguity on the day of pause.
+  if (subscription.pause_date) {
+    const shift = 4 * 60 * 60 * 1000;
+    const todayAE = new Date(Date.now()                              + shift).toISOString().slice(0, 10);
+    const pauseAE = new Date(new Date(subscription.pause_date).getTime() + shift).toISOString().slice(0, 10);
+    if (todayAE === pauseAE) {
+      return { error: 'Your plan was paused today — resume becomes available tomorrow.' };
+    }
+  }
 
   // Apply Resume. paused_days is NOT touched — the subscription_pause_tick
   // cron has already been incrementing it by 1 for every midnight crossed
@@ -420,7 +464,7 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
     .select('id, end_date')
     .eq('customer_id', auth.user.id)
     .neq('id', subscriptionId)
-    .in('status', ['Active', 'Paused', 'Skipped'])
+    .in('status', LIVE_SUBSCRIPTION_STATUSES)
     .order('end_date', { ascending: false })
     .limit(1)
     .maybeSingle();

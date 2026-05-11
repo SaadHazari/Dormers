@@ -13,10 +13,13 @@ import type { CSSProperties, HTMLAttributes } from 'react'
 
 type SkeletonTone = 'subtle' | 'base' | 'strong'
 
+// Theme-aware skeleton tones — values resolve from globals.css.
+// In dark mode, `--ds-skeleton-base` flips to a cream-alpha so blocks read
+// as elevated panels against the deep navy page background.
 const TONE_BG: Record<SkeletonTone, string> = {
-    subtle: 'rgba(9,24,37,0.04)',
-    base: 'rgba(9,24,37,0.05)',
-    strong: 'rgba(9,24,37,0.06)',
+    subtle: 'var(--ds-skeleton-base)',
+    base:   'var(--ds-skeleton-base)',
+    strong: 'var(--ds-skeleton-shine)',
 }
 
 export function Skel({

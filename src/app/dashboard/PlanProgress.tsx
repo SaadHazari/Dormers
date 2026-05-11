@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { OG, OG3, NV, BODY, S, TIER2, cleanPlanName } from './_shared/tokens'
+import { OG, OG3, BODY, S, TIER2, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { PlanGlyph } from './_shared/PlanGlyph'
 import { fmt } from './_shared/format'
@@ -15,7 +15,7 @@ import type { Subscription } from './_shared/types'
  *
  * Was 161 inline LOC in ClientDashboard.tsx.
  */
-export function PlanProgress({ sub }: { sub: Subscription }) {
+export function PlanProgress({ sub, isPaused = false }: { sub: Subscription; isPaused?: boolean }) {
     const isMax = sub.plan_name.includes('Monthly Max')
     const mealsPerDelivery = isMax ? 2 : 1
     const total = sub.total_meals
@@ -59,7 +59,7 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
 
             {/* 2 — Meals remaining (section metric, not page hero) */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
-                <span style={{ fontFamily: BODY, fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: NV, fontFeatureSettings: '"tnum"' }}>
+                <span style={{ fontFamily: BODY, fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: S.fg, fontFeatureSettings: '"tnum"' }}>
                     {mealsLeft}
                 </span>
                 <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 500, color: S.fgMuted, lineHeight: 1.5 }}>
@@ -91,8 +91,8 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                     const backgroundColor = isDelivered
                         ? OG
                         : isSkipped
-                            ? 'rgba(9,24,37,0.40)'
-                            : 'rgba(9,24,37,0.08)'
+                            ? 'var(--ds-fg-tint)'
+                            : 'var(--ds-skeleton-base)'
                     const backgroundImage = isDelivered
                         ? `linear-gradient(180deg, ${OG} 0%, ${OG3} 100%)`
                         : isSkipped
@@ -107,7 +107,10 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                                 borderRadius: 'var(--radius-pill)',
                                 backgroundColor,
                                 backgroundImage,
-                                transition: 'background-color 200ms, background-image 200ms',
+                                // Remaining pills dim while paused — visually
+                                // communicates "frozen" without a new element.
+                                opacity: isPaused && !isDelivered && !isSkipped ? 0.4 : 1,
+                                transition: 'background-color 200ms, background-image 200ms, opacity 300ms',
                             }}
                         />
                     )
@@ -116,14 +119,14 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
             <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, color: S.fgMuted, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 7, height: 7, borderRadius: 2, background: OG, display: 'inline-block' }} />
-                    <strong style={{ color: NV, fontFeatureSettings: '"tnum"' }}>{sub.delivered_meals}</strong> delivered
+                    <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.delivered_meals}</strong> delivered
                 </span>
                 {sub.skipped_meals_count > 0 && (
                     <>
                         <span style={{ color: S.fgFaint }}>·</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 2, background: 'rgba(9,24,37,0.40)', display: 'inline-block' }} />
-                            <strong style={{ color: NV, fontFeatureSettings: '"tnum"' }}>{sub.skipped_meals_count}</strong> skipped
+                            <span style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--ds-fg-tint)', display: 'inline-block' }} />
+                            <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.skipped_meals_count}</strong> skipped
                         </span>
                     </>
                 )}
@@ -136,27 +139,46 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                         <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: startsInFuture ? OG : S.fgSub, lineHeight: 1.2 }}>
                             {startsInFuture ? 'Starting' : 'Started'}
                         </div>
-                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
+                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
                             {fmt(sub.start_date)}
                         </div>
                     </div>
                     <span style={{ color: S.fgFaint, fontSize: 14 }} aria-hidden>→</span>
                     <div>
-                        <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2 }}>
-                            Ending
+                        <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isPaused ? 'Est. ending' : 'Ending'}
+                            {isPaused && (
+                                <span style={{
+                                    fontFamily: BODY, fontSize: 9, fontWeight: 700,
+                                    letterSpacing: '0.12em', textTransform: 'uppercase',
+                                    padding: '2px 6px', borderRadius: 999,
+                                    background: 'var(--ds-skeleton-base)',
+                                    color: S.fgMuted,
+                                }}>
+                                    paused
+                                </span>
+                            )}
                         </div>
-                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
+                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: isPaused ? S.fgMuted : S.fg, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
                             {fmt(sub.end_date)}
                         </div>
                     </div>
                     {!startsInFuture && (
-                        <div style={{ marginLeft: 'auto' }}>
-                            <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2 }}>
-                                Days left
-                            </div>
-                            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 900, color: NV, marginTop: 4, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
-                                {daysLeft}
-                            </div>
+                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                            {isPaused ? (
+                                <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.55, maxWidth: 160 }}>
+                                    Extends by 1 day<br />per delivery day paused.
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2 }}>
+                                        Days left
+                                    </div>
+                                    <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 900, color: S.fg, marginTop: 4, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
+                                        {daysLeft}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -167,8 +189,8 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                       muted caption — no border, no fill — so it sits as
                       progress info, not a competing affordance. */}
                 {mealsLeft === 0 ? (
-                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.20)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                        <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV }}>Plan ended</div>
+                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                        <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>Plan ended</div>
                         <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>Renew to keep meals coming.</div>
                         <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 8, padding: '10px 18px' }}>
                             Renew →
@@ -186,7 +208,9 @@ export function PlanProgress({ sub }: { sub: Subscription }) {
                     }}>
                         {startsInFuture
                             ? <>Plan begins on <span style={{ color: S.fgMuted, fontWeight: 600 }}>{fmt(sub.start_date)}</span>.</>
-                            : <>Renewal opens in <span style={{ color: S.fgMuted, fontWeight: 600 }}>{daysUntilRenewUnlock} day{daysUntilRenewUnlock === 1 ? '' : 's'}</span>.</>}
+                            : isPaused
+                                ? <>Resume any time — your <span style={{ color: S.fgMuted, fontWeight: 600 }}>{mealsLeft} remaining meal{mealsLeft === 1 ? '' : 's'}</span> will be waiting.</>
+                                : <>Renewal opens in <span style={{ color: S.fgMuted, fontWeight: 600 }}>{daysUntilRenewUnlock} day{daysUntilRenewUnlock === 1 ? '' : 's'}</span>.</>}
                     </div>
                 )}
             </div>

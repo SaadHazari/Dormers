@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { redirect } from 'next/navigation'
+import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import HistoryClient, { type EndedPlan } from './HistoryClient'
 
 const PREVIEW_PLANS: EndedPlan[] = [
@@ -46,7 +47,7 @@ export default async function HistoryPage({
     .from('subscriptions')
     .select('id, plan_name, status, start_date, end_date, total_meals, delivered_meals, skipped_meals_count')
     .eq('customer_id', user.id)
-    .eq('status', 'Ended')
+    .eq('status', SUBSCRIPTION_STATUS.ENDED)
     .order('end_date', { ascending: false })
 
   return <HistoryClient plans={(ended ?? []) as EndedPlan[]} />

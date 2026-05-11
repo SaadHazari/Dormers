@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Heart, ChevronDown, Calendar, Pencil, X } from 'lucide-react'
 import { updateProfile, savePendingPreferences, discardPendingPreferences } from '../actions'
-import { OG, NV, NV2, CR, BG, BODY, MONO, S as BASE_S, TIER1, TIER2 } from '../_shared/tokens'
+import { OG, BG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { SecuritySection } from './SecuritySection'
 import { ALLERGENS, DORMS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
@@ -15,10 +15,12 @@ import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/l
 // serif/sans pairing. Brings Profile out of the legacy serif cohort.
 const DISPLAY = BODY
 
+// Profile uses slightly stronger muted/sub variants than the rest of the
+// dashboard so dense form labels stay readable. Variables flip in dark mode.
 const S = {
   ...BASE_S,
-  fgMuted: 'rgba(9,24,37,0.62)',
-  fgSub:   'rgba(9,24,37,0.50)',
+  fgMuted: 'var(--ds-fg-sub)',
+  fgSub:   'var(--ds-fg-faint)',
 }
 
 // Customer canonical type lives in _shared/types.ts; mirrors what
@@ -29,7 +31,7 @@ function Field({ label, value, mono = false }: { label: string; value?: string |
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted }}>{label}</div>
-      <div style={{ fontFamily: mono ? MONO : BODY, fontSize: 14, fontWeight: 500, color: value ? NV : S.fgSub }}>{value || '—'}</div>
+      <div style={{ fontFamily: mono ? MONO : BODY, fontSize: 14, fontWeight: 500, color: value ? 'var(--ds-fg)' : S.fgSub }}>{value || '—'}</div>
     </div>
   )
 }
@@ -44,11 +46,11 @@ const fieldShell = {
   padding: '0 14px',
   borderRadius: 10,
   border: `1px solid ${S.border2}`,
-  background: '#ffffff',
+  background: 'var(--ds-input-bg)',
   fontFamily: BODY,
   fontSize: 13,
   fontWeight: 500,
-  color: NV,
+  color: 'var(--ds-fg)',
   outline: 'none',
   transition: 'border-color 150ms, box-shadow 150ms',
   boxSizing: 'border-box' as const,
@@ -283,7 +285,7 @@ export default function ProfileClient({
     !v?.trim() ? 'None' : v
 
   return (
-    <div className="profile-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+    <div className="profile-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
 
         {/* Header — matches Menu/Plan: motion fade-in, single typeface, period accent */}
@@ -292,7 +294,7 @@ export default function ProfileClient({
           <h1 style={{
             margin: '10px 0 0',
             fontFamily: DISPLAY, fontSize: 'clamp(28px, 4vw, 38px)',
-            fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.05, color: NV,
+            fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.05, color: 'var(--ds-fg)',
           }}>
             Your profile<span style={{ color: OG }}>.</span>
           </h1>
@@ -300,16 +302,16 @@ export default function ProfileClient({
 
         {/* Avatar + identity card — focal moment kept on the dark NV gradient.
             Reads as a "passport" — the user's main identity card on the page. */}
-        <div style={{ padding: 28, borderRadius: 'var(--radius-md)', background: `linear-gradient(180deg, ${NV} 0%, ${NV2} 100%)`, color: CR, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20, boxShadow: '0 6px 18px rgba(9,24,37,0.10)' }}>
+        <div style={{ ...TIER_POP, padding: 28, borderRadius: 'var(--radius-md)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
           <div style={{ width: 64, height: 64, flexShrink: 0, borderRadius: '50%', background: `linear-gradient(135deg, #ffaa00, ${OG})`, color: '#fff', fontFamily: BODY, fontSize: 22, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(245,127,32,0.45)' }}>
             {initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: BODY, fontSize: 22, fontWeight: 800, color: CR, lineHeight: 1.15, letterSpacing: '-0.01em' }}>{displayName}</div>
-            <div style={{ fontFamily: BODY, fontSize: 12, color: 'rgba(237,232,218,0.65)', marginTop: 4 }}>{userEmail}</div>
+            <div style={{ fontFamily: BODY, fontSize: 22, fontWeight: 800, color: TIER_POP_TEXT.primary, lineHeight: 1.15, letterSpacing: '-0.01em' }}>{displayName}</div>
+            <div style={{ fontFamily: BODY, fontSize: 12, color: TIER_POP_TEXT.muted, marginTop: 4 }}>{userEmail}</div>
             {customer?.cid && (
               <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.15)', border: '1px solid rgba(245,127,32,0.25)' }}>
-                <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,232,218,0.65)' }}>ID</span>
+                <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: TIER_POP_TEXT.muted }}>ID</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: OG }}>{customer.cid}</span>
               </div>
             )}
@@ -345,7 +347,7 @@ export default function ProfileClient({
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px', borderRadius: 999,
                   border: `1px solid ${S.border2}`,
-                  background: '#ffffff', color: NV,
+                  background: 'var(--ds-input-bg)', color: 'var(--ds-fg)',
                   fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
                   letterSpacing: '0.06em', textTransform: 'uppercase',
                   cursor: 'pointer',
@@ -362,7 +364,7 @@ export default function ProfileClient({
             <Field label="Member since" value={customer?.created_at ? new Date(customer.created_at).toLocaleDateString('en-AE', { month: 'long', year: 'numeric' }) : undefined} />
           </div>
 
-          <div style={{ height: 1, background: 'rgba(9,24,37,0.07)', margin: '20px 0' }} />
+          <div style={{ height: 1, background: 'var(--ds-border-soft)', margin: '20px 0' }} />
 
           {/* Read-only mode by default — flips to the input pair when the
               user taps Edit details above. Save commits, Cancel reverts. */}
@@ -400,7 +402,7 @@ export default function ProfileClient({
               </div>
 
               {error && saved !== 'preferences-now' && saved !== 'preferences-next' && (
-                <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)', color: '#b91c1c', fontFamily: BODY, fontSize: 13 }}>
+                <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 13 }}>
                   {error}
                 </div>
               )}
@@ -417,7 +419,7 @@ export default function ProfileClient({
                   disabled={isPending}
                   style={{
                     padding: '12px 22px', borderRadius: 999,
-                    border: `1px solid ${S.border2}`, background: '#ffffff', color: NV,
+                    border: `1px solid ${S.border2}`, background: 'var(--ds-input-bg)', color: 'var(--ds-fg)',
                     fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
                     cursor: isPending ? 'not-allowed' : 'pointer',
                   }}
@@ -436,7 +438,7 @@ export default function ProfileClient({
           )}
 
           {saved === 'account' && (
-            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(29,138,48,0.08)', border: '1px solid rgba(29,138,48,0.22)', color: '#176626', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-success-wash)', border: '1px solid var(--ds-success-border)', color: 'var(--ds-success-fg)', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Check size={13} strokeWidth={3} aria-hidden /> Details saved.
             </div>
           )}
@@ -468,11 +470,11 @@ export default function ProfileClient({
               }}>
                 <Calendar size={11} strokeWidth={2.6} aria-hidden /> From next plan
               </span>
-              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: '#a35100' }}>
+              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: OG }}>
                 You&rsquo;ve queued these for your next subscription. Today&rsquo;s plan keeps cooking as before.
               </span>
             </div>
-            <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: BODY, fontSize: 13, color: NV, lineHeight: 1.55 }}>
+            <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: BODY, fontSize: 13, color: 'var(--ds-fg)', lineHeight: 1.55 }}>
               {pendingDiff.map(d => {
                 let from: string
                 let to: string
@@ -489,14 +491,14 @@ export default function ProfileClient({
                 }
                 return (
                   <li key={d.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#a35100', minWidth: 110 }}>
+                    <span style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: OG, minWidth: 110 }}>
                       {d.label}
                     </span>
-                    <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'rgba(9,24,37,0.40)' }}>
+                    <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'var(--ds-fg-tint)' }}>
                       {from}
                     </span>
-                    <span style={{ color: 'rgba(9,24,37,0.50)' }}>→</span>
-                    <strong style={{ color: NV, fontWeight: 700 }}>{to}</strong>
+                    <span style={{ color: 'var(--ds-fg-faint)' }}>→</span>
+                    <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{to}</strong>
                   </li>
                 )
               })}
@@ -510,7 +512,7 @@ export default function ProfileClient({
                   fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
                   letterSpacing: '0.06em', textTransform: 'uppercase',
                   background: 'transparent', border: 'none',
-                  color: '#a35100',
+                  color: OG,
                   cursor: isPending ? 'not-allowed' : 'pointer',
                   padding: '4px 0',
                   textDecoration: 'underline',
@@ -542,7 +544,7 @@ export default function ProfileClient({
             <span style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 26, height: 26, borderRadius: 999,
-              background: '#1d8a30', color: '#fff', flexShrink: 0,
+              background: 'var(--ds-success-fg)', color: '#fff', flexShrink: 0,
               boxShadow: '0 0 0 3px rgba(29,138,48,0.18)',
             }}>
               <Check size={14} strokeWidth={3} aria-hidden />
@@ -551,11 +553,11 @@ export default function ProfileClient({
               <span style={{
                 fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
                 letterSpacing: '0.16em', textTransform: 'uppercase',
-                color: '#176626',
+                color: 'var(--ds-success-fg)',
               }}>
                 New meal preferences applied
               </span>
-              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: '#176626' }}>
+              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: 'var(--ds-success-fg)' }}>
                 Your queued changes are now your active preferences. They&rsquo;ll power your next plan&rsquo;s deliveries.
               </span>
             </div>
@@ -604,7 +606,7 @@ export default function ProfileClient({
             gap: 18,
             padding: 18,
             borderRadius: 12,
-            background: 'rgba(9,24,37,0.03)',
+            background: 'var(--ds-skeleton-base)',
             border: `1px solid ${S.border}`,
           }}>
             <Field label="Meal type"     value={mealPrefLabel} />
@@ -620,8 +622,17 @@ export default function ProfileClient({
                 current cycle) → customer.veg_days (canonical preference,
                 used when no live sub OR for pre-checkout users). Renders
                 as 3-letter abbreviation chips in the same green palette
-                as the MealTag.Veg pill below. */}
+                as the MealTag.Veg pill below.
+                Hard-gated on the customer's effective meal preference being
+                religious — without this, stale veg_days from a previous
+                religious sub would render the "Religious-mix veg days"
+                badge for a customer who's now Veg / Carnivore. The data
+                hygiene fix lives in promotePendingPreferencesIfStale and
+                savePendingPreferences; this gate is the visual guardrail. */}
             {(() => {
+              const effMealPref = effectivePreferences(customer).meal_preference_type
+              const isReligiousNow = /religious/i.test(effMealPref ?? '')
+              if (!isReligiousNow) return null
               const displayVegDays = activeSubscription?.veg_days ?? customer?.veg_days ?? null
               if (!displayVegDays || displayVegDays.length === 0) return null
               // No gridColumn span — sits as a normal cell so it lands at
@@ -640,7 +651,7 @@ export default function ProfileClient({
                           letterSpacing: '0.14em', textTransform: 'uppercase',
                           padding: '4px 10px', borderRadius: 'var(--radius-pill)',
                           background: 'rgba(29,138,48,0.12)',
-                          color: '#1d8a30',
+                          color: 'var(--ds-success-fg)',
                           border: '1px solid rgba(29,138,48,0.22)',
                         }}
                       >
@@ -657,7 +668,7 @@ export default function ProfileClient({
             <div style={{
               marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
               background: 'rgba(29,138,48,0.08)', border: '1px solid rgba(29,138,48,0.22)',
-              color: '#176626', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5,
+              color: 'var(--ds-success-fg)', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5,
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
               <Check size={13} strokeWidth={3} aria-hidden /> Preferences saved.
@@ -667,7 +678,7 @@ export default function ProfileClient({
             <div style={{
               marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
               background: 'rgba(255,170,0,0.10)', border: '1px solid rgba(255,170,0,0.30)',
-              color: '#a35100', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5,
+              color: OG, fontFamily: BODY, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5,
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
               <Check size={13} strokeWidth={3} aria-hidden /> Saved for your next subscription. See the queued changes above.
@@ -676,7 +687,7 @@ export default function ProfileClient({
           {saved === 'discarded' && (
             <div style={{
               marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(9,24,37,0.04)', border: '1px solid rgba(9,24,37,0.10)',
+              background: 'var(--ds-skeleton-base)', border: '1px solid var(--ds-border-tier1)',
               color: S.fgMuted, fontFamily: BODY, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5,
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
@@ -700,7 +711,7 @@ export default function ProfileClient({
               onClick={() => !isPending && setShowPrefsModal(false)}
               style={{
                 position: 'fixed', inset: 0, zIndex: 200,
-                background: 'rgba(9,24,37,0.65)',
+                background: 'var(--ds-overlay-strong)',
                 backdropFilter: 'blur(8px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 24, overflow: 'auto',
@@ -741,7 +752,7 @@ export default function ProfileClient({
                 <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG, lineHeight: 1 }}>
                   Edit preferences
                 </div>
-                <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 22, fontWeight: 800, color: NV, lineHeight: 1.18, letterSpacing: '-0.01em', paddingRight: 28 }}>
+                <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 22, fontWeight: 800, color: 'var(--ds-fg)', lineHeight: 1.18, letterSpacing: '-0.01em', paddingRight: 28 }}>
                   Update what we cook for you.
                 </div>
                 {/* Friendly forward-looking note — not a lockout wall.
@@ -753,7 +764,7 @@ export default function ProfileClient({
                     margin: '12px 0 0 0',
                     fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55,
                   }}>
-                    Your live plan keeps cooking with its current preferences. Anything you change here applies <strong style={{ color: NV }}>from your next subscription</strong>.
+                    Your live plan keeps cooking with its current preferences. Anything you change here applies <strong style={{ color: 'var(--ds-fg)' }}>from your next subscription</strong>.
                   </p>
                 )}
 
@@ -795,8 +806,8 @@ export default function ProfileClient({
                               cursor: 'pointer',
                               fontFamily: BODY, fontSize: 13, fontWeight: 600,
                               border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
-                              background: active ? 'rgba(245,127,32,0.10)' : '#ffffff',
-                              color: active ? '#a35100' : NV,
+                              background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
+                              color: active ? OG : 'var(--ds-fg)',
                               transition: 'background 120ms, border-color 120ms, color 120ms',
                               textAlign: 'left',
                             }}
@@ -830,9 +841,9 @@ export default function ProfileClient({
                                 disabled={atCap}
                                 style={{
                                   padding: '10px 0', borderRadius: 8,
-                                  border: `1px solid ${active ? 'rgba(58,111,140,0.55)' : 'rgba(9,24,37,0.10)'}`,
-                                  background: active ? 'rgba(58,111,140,0.16)' : (atCap ? 'rgba(9,24,37,0.03)' : '#ffffff'),
-                                  color: active ? '#3a6f8c' : (atCap ? 'rgba(9,24,37,0.40)' : NV),
+                                  border: `1px solid ${active ? '#5fa1c4' : 'var(--ds-border-tier1)'}`,
+                                  background: active ? 'rgba(58,111,140,0.20)' : (atCap ? 'var(--ds-skeleton-base)' : 'var(--ds-input-bg)'),
+                                  color: active ? '#5fa1c4' : (atCap ? 'var(--ds-fg-tint)' : 'var(--ds-fg)'),
                                   fontFamily: BODY, fontSize: 12, fontWeight: 700,
                                   letterSpacing: '0.04em', textTransform: 'uppercase',
                                   cursor: atCap ? 'not-allowed' : 'pointer',
@@ -846,7 +857,7 @@ export default function ProfileClient({
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.45 }}>
                           <span>{vegDays.length} of up to {vegDayCap} chosen.</span>
-                          <span style={{ color: vegDays.length === 0 ? '#9a2828' : '#176626', fontWeight: 700 }}>
+                          <span style={{ color: vegDays.length === 0 ? 'var(--ds-danger-fg)' : 'var(--ds-success-fg)', fontWeight: 700 }}>
                             {vegDays.length === 0 ? 'Pick at least 1' : `${W - vegDays.length} day${W - vegDays.length === 1 ? '' : 's'} non-veg`}
                           </span>
                         </div>
@@ -868,8 +879,8 @@ export default function ProfileClient({
                               padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
                               fontFamily: BODY, fontSize: 12, fontWeight: 600,
                               border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
-                              background: active ? 'rgba(245,127,32,0.10)' : '#ffffff',
-                              color: active ? '#a35100' : NV,
+                              background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
+                              color: active ? OG : 'var(--ds-fg)',
                               transition: 'background 120ms, border-color 120ms, color 120ms',
                             }}
                           >
@@ -901,7 +912,7 @@ export default function ProfileClient({
                   </div>
 
                   {error && (
-                    <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', color: '#9a2828', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+                    <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
                       {error}
                     </div>
                   )}
@@ -910,7 +921,7 @@ export default function ProfileClient({
                     <button
                       onClick={() => setShowPrefsModal(false)}
                       disabled={isPending}
-                      style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: isPending ? 0.6 : 1 }}
+                      style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-input-bg)', color: 'var(--ds-fg)', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: isPending ? 0.6 : 1 }}
                     >
                       Cancel
                     </button>
@@ -953,14 +964,14 @@ export default function ProfileClient({
         }
         /* Hover + focus rings — matches across input + select for visual unity */
         .profile-field:hover:not(:disabled):not(:focus) {
-          border-color: rgba(9,24,37,0.25) !important;
+          border-color: var(--ds-fg-tint) !important;
         }
         .profile-field:focus {
-          border-color: rgba(245,127,32,0.55) !important;
+          border-color: var(--ds-og-border-strong) !important;
           box-shadow: 0 0 0 3px rgba(245,127,32,0.14) !important;
         }
         .profile-field::placeholder {
-          color: rgba(9,24,37,0.35);
+          color: var(--ds-input-placeholder);
         }
         @media (max-width: 640px) {
           .profile-grid-2 { grid-template-columns: 1fr !important; }

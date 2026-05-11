@@ -1,7 +1,7 @@
 'use client'
 
 import { MapPin } from 'lucide-react'
-import { NV, BODY, S } from './tokens'
+import { BODY, S } from './tokens'
 import { whatsAppHref } from '@/lib/contacts'
 
 const OOZ_MESSAGE =
@@ -22,20 +22,20 @@ export function OutOfZoneBanner({ show }: { show: boolean }) {
       marginBottom: 18,
       padding: '14px 18px',
       borderRadius: 'var(--radius-sm)',
-      background: 'rgba(58,111,140,0.07)',
-      border: '1px solid rgba(58,111,140,0.32)',
+      background: 'rgba(58,111,140,0.12)',
+      border: '1px solid rgba(58,111,140,0.40)',
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     }}>
       <div style={{
         width: 36, height: 36, flexShrink: 0, borderRadius: '50%',
-        background: 'rgba(58,111,140,0.16)',
+        background: 'rgba(58,111,140,0.20)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#3A6F8C',
+        color: '#5fa1c4',
       }}>
         <MapPin size={18} strokeWidth={2.4} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
           Your dorm is outside our usual delivery radius.
         </div>
         <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>

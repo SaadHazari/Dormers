@@ -10,7 +10,7 @@ import {
   CalendarDays,
   ChevronRight,
 } from 'lucide-react'
-import { OG, NV, BODY, S, TIER1 } from './_shared/tokens'
+import { OG, BODY, S, TIER1, TIER_POP, TIER_POP_TEXT } from './_shared/tokens'
 import { MealTag } from './_shared/MealTag'
 import { HeatBar } from './_shared/HeatBar'
 import type { MenuItem, LocalState } from './_shared/types'
@@ -105,28 +105,33 @@ function computePhase(now: Date, weekType: WeekType): PhaseInfo {
 
 type BadgeStatus = 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' | 'Delivered'
 
-function HeroStatusBadge({ status }: { status: BadgeStatus }) {
+function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boolean }) {
   // Bright variant for `Scheduled` — until the plan starts, this tag is the
   // only signal the user has that something's coming, so it gets a saturated
   // slate fill + soft glow (not the muted variants the others use). The other
   // states stay calm because they live on cards that *already* communicate
   // status visually (today's dish, paused/skipped headlines, etc).
   const map: Record<BadgeStatus, { bg: string; fg: string; border?: string; shadow?: string; icon: React.ReactNode }> = {
-    Active:    { bg: 'rgba(29,138,48,0.12)',   fg: '#1d8a30',            icon: <Check        size={12} strokeWidth={2.6} /> },
-    Delivered: { bg: 'rgba(29,138,48,0.16)',   fg: '#176626',            icon: <Check        size={12} strokeWidth={2.8} /> },
+    Active:    {
+      // `onDark` (TIER_POP active hero) keeps the cream-on-dark variant in
+      // both modes — that surface is dark in both light + dark themes.
+      bg: onDark ? 'rgba(86,239,172,0.14)' : 'var(--ds-success-wash)',
+      fg: onDark ? '#86efac'              : 'var(--ds-success-fg)',
+      icon: <Check size={12} strokeWidth={2.6} />,
+    },
+    Delivered: { bg: 'var(--ds-success-wash)',  fg: 'var(--ds-success-fg)', icon: <Check        size={12} strokeWidth={2.8} /> },
     Scheduled: {
       // Saturated gradient + heavier glow so the "starts on …" signal pops
-      // off the cream surface. Inner highlight gives depth so it doesn't
-      // read as a flat fill.
+      // off the surface. Reads on both cream and navy panels.
       bg: 'linear-gradient(135deg, #4585aa 0%, #2a5470 100%)',
       fg: '#ffffff',
       border: '1px solid #2a5470',
       shadow: '0 0 0 5px rgba(58,111,140,0.16), 0 6px 18px rgba(58,111,140,0.42), inset 0 1px 0 rgba(255,255,255,0.18)',
       icon: <CalendarDays size={11} strokeWidth={2.6} color="#ffffff" />,
     },
-    Paused:    { bg: 'rgba(255,170,0,0.16)',   fg: '#a36900',            icon: <PauseIcon    size={11} strokeWidth={2.4} /> },
-    Skipped:   { bg: 'rgba(9,24,37,0.08)',     fg: 'rgba(9,24,37,0.62)', icon: <SkipForward  size={11} strokeWidth={2.4} /> },
-    Off:       { bg: 'rgba(9,24,37,0.06)',     fg: 'rgba(9,24,37,0.55)', icon: <CalendarDays size={11} strokeWidth={2.2} /> },
+    Paused:    { bg: 'rgba(255,170,0,0.16)',     fg: '#c89417',                icon: <PauseIcon    size={11} strokeWidth={2.4} /> },
+    Skipped:   { bg: 'var(--ds-skeleton-shine)', fg: 'var(--ds-fg-sub)',       icon: <SkipForward  size={11} strokeWidth={2.4} /> },
+    Off:       { bg: 'var(--ds-skeleton-base)',  fg: 'var(--ds-fg-soft)',      icon: <CalendarDays size={11} strokeWidth={2.2} /> },
   }
   const c = map[status]
   return (
@@ -146,7 +151,7 @@ function HeroStatusBadge({ status }: { status: BadgeStatus }) {
   )
 }
 
-export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false }: {
+export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false, resumeLockedSameDay = false }: {
   todayMeal: MenuItem | null
   localState: LocalState
   // ISO date — when the user's plan is paid but hasn't begun yet, override the
@@ -165,6 +170,9 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   // (which is a lie when there's no tomorrow on the plan) to a warmer
   // retention-leaning line that nudges the customer toward renewing.
   isLastDayNoQueue?: boolean
+  // True on the same AE calendar day the customer paused — resume is locked
+  // until tomorrow, so the copy should reflect that rather than "when ready".
+  resumeLockedSameDay?: boolean
 }) {
   const isStartingSoon = !!subStartDate && new Date(subStartDate).getTime() > Date.now()
   const isSkipped = !isStartingSoon && localState === 'skipped'
@@ -211,7 +219,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isActive  ? phase.label
     : isDelivered ? "Tonight's meal delivered"
     : isSkipped ? "Credit safe — back tomorrow"
-    : isPaused  ? "Resume when ready"
+    : isPaused  ? (resumeLockedSameDay ? "Resume available tomorrow" : "Resume when ready")
     : phase.phase === 'no-delivery' ? "Mon–Sat, 7–8 PM"
     : /* off (no menu) */  "Menu being finalised"
 
@@ -226,7 +234,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   const offWeekCopy = weekType === '5DAYS' ? 'We deliver Mon–Fri.' : 'We deliver Mon–Sat.'
   const stateSubtitle = isStartingSoon ? `Your meals begin on ${startDateLabel}.`
     : isSkipped ? "Tomorrow's delivery is on track."
-    : isPaused ? "Tap resume when you're ready."
+    : isPaused ? (resumeLockedSameDay ? "You can resume from tomorrow onwards." : "Tap resume when you're ready.")
     : isDelivered ? (isLastDayNoQueue ? "We'd love to keep serving you more." : "Same time, same place tomorrow.")
     : isOff && phase.phase === 'no-delivery' ? `${offWeekCopy} See you tomorrow.`
     : isOff ? "Check back shortly."
@@ -242,16 +250,18 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
 
   return (
     <div className="hero-card" style={{
-      ...TIER1,
-      // Edge wash — orange enters strongest at top-left, attenuates across the
-      // full width without hitting zero. Keeps a printed-edge feel while
-      // avoiding a visible terminus mid-card. Base is the TIER1 warm white so
-      // the right edge sits on the same systematic surface scale as every
-      // other card on the page.
-      background: `
-        linear-gradient(105deg, rgba(245,127,32,0.14) 0%, rgba(245,127,32,0.08) 22%, rgba(245,127,32,0.035) 55%, rgba(245,127,32,0.018) 100%),
-        #fcf8ee
-      `,
+      // Active = one TIER_POP per page — dark navy gradient owns the spotlight.
+      // All non-operational states (delivered, off, skipped, paused, starting-soon)
+      // step back to TIER1 + orange edge-wash per the non-operational-day principle.
+      ...(isActive ? TIER_POP : {
+        ...TIER1,
+        // Orange edge-wash sits on top of the tier-1 surface variable, so it
+        // composites correctly over both cream (light) and navy (dark) panels.
+        background: `
+          linear-gradient(105deg, rgba(245,127,32,0.14) 0%, rgba(245,127,32,0.08) 22%, rgba(245,127,32,0.035) 55%, rgba(245,127,32,0.018) 100%),
+          var(--ds-surface-tier1)
+        `,
+      }),
       gridColumn: 'span 8',
       borderRadius: 'var(--radius-md)',
       padding: 'clamp(26px, 2.8vw, 36px)',
@@ -309,7 +319,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
                   // lineHeight 1.2 (not 1) so descenders like "g" in "Tagine"
                   // aren't clipped by the line-box / overflow-hidden combo.
                   lineHeight: 1.2, letterSpacing: '-0.02em',
-                  color: NV,
+                  color: TIER_POP_TEXT.primary,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}
               >
@@ -322,18 +332,18 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
             <p style={{
               margin: 0,
               fontFamily: BODY, fontSize: 13, fontWeight: 400,
-              color: S.fgMuted, lineHeight: 1.5, maxWidth: '46ch',
+              color: TIER_POP_TEXT.muted, lineHeight: 1.5, maxWidth: '46ch',
             }}>
               {todayMeal.sub}
             </p>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
-            <MealTag kind={todayMeal.tag} />
+            <MealTag kind={todayMeal.tag} onDark />
             {todayMeal.heat > 0 && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <HeatBar level={todayMeal.heat} />
-                <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: S.fgMuted }}>
+                <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: TIER_POP_TEXT.muted }}>
                   {['', 'Mild', 'Medium', 'Hot'][todayMeal.heat]}
                 </span>
               </span>
@@ -349,7 +359,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
             margin: 0,
             fontFamily: BODY, fontSize: 'clamp(26px, 2.4vw, 36px)',
             fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em',
-            color: NV,
+            color: S.fg,
           }}>
             {stateHeading}
           </h1>
@@ -367,16 +377,16 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
       <div style={{
         marginTop: 'clamp(16px, 2vw, 22px)',
         paddingTop: 14,
-        borderTop: `1px solid ${S.border}`,
+        borderTop: `1px solid ${isActive ? 'rgba(245,240,232,0.15)' : S.border}`,
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
       }}>
-        <HeroStatusBadge status={badgeStatus} />
-        <span style={{ color: 'rgba(9,24,37,0.22)' }} aria-hidden>·</span>
+        <HeroStatusBadge status={badgeStatus} onDark={isActive} />
+        <span style={{ color: isActive ? 'rgba(245,240,232,0.30)' : 'var(--ds-fg-tint)' }} aria-hidden>·</span>
         <span
           className={isActive && phase.urgent ? 'countdown-urgent' : ''}
           style={{
             fontFamily: BODY, fontSize: 12, fontWeight: 600,
-            color: isActive && phase.urgent ? OG : S.fgMuted,
+            color: isActive && phase.urgent ? OG : isActive ? TIER_POP_TEXT.muted : S.fgMuted,
             letterSpacing: 0,
           }}
         >
@@ -390,7 +400,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
             display: 'inline-flex', alignItems: 'center', gap: 4,
             fontFamily: BODY, fontSize: 11, fontWeight: 700,
             letterSpacing: '0.04em', textTransform: 'uppercase',
-            color: S.fgMuted, textDecoration: 'none',
+            color: isActive ? TIER_POP_TEXT.muted : S.fgMuted, textDecoration: 'none',
             transition: 'color 150ms',
           }}
         >

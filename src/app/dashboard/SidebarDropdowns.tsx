@@ -3,23 +3,26 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
-  Check, ChevronRight, CreditCard, LogOut, MessagesSquare, Moon, Sun,
+  Check, ChevronRight, CreditCard, LogOut, MessagesSquare,
   User as UserIcon,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
-import { OG, OG3, NV, NV2, BODY } from './_shared/tokens'
+import { OG, OG3, NV2, BODY } from './_shared/tokens'
 
-export type DropdownKind = 'notif' | 'settings' | 'profile' | 'dormwars' | null
+export type DropdownKind = 'notif' | 'profile' | 'dormwars' | null
 
-// Light-surface tokens for the dropdowns (which sit over a navy sidebar).
+// Theme-aware tokens for the dropdowns (which sit over a navy sidebar).
+// Variables flip in dark mode via globals.css → the panels remain
+// readable in either palette.
 const D = {
-  fg:       NV,
-  fgMuted:  'rgba(9,24,37,0.65)',
+  fg:       'var(--ds-fg)',
+  fgMuted:  'var(--ds-fg-muted)',
 }
 
 interface Props {
   openDropdown: DropdownKind
   setOpenDropdown: (k: DropdownKind) => void
+  onMobileClose?: () => void
   customerCid: string
   referralCount: number
   displayName: string
@@ -28,28 +31,17 @@ interface Props {
 }
 
 /**
- * Dropdown panel anchored to the sidebar's right edge — owns the four
- * conditional bodies (DormWars, Notifications, Settings, Profile) along
- * with their local state (referralCopied, theme), the outside-click /
- * Escape handlers, and the `body.dropdown-open` tooltip-suppression flag.
- *
- * Was 196 inline LOC + ~25 CSS lines + 4 effects in Sidebar.tsx.
+ * Dropdown panel anchored to the sidebar's right edge — owns the three
+ * conditional bodies (DormWars, Notifications, Profile), the referral-
+ * copy state, the outside-click / Escape handlers, and the
+ * `body.dropdown-open` tooltip-suppression flag.
  */
 export function SidebarDropdowns({
-  openDropdown, setOpenDropdown, customerCid, referralCount,
-  displayName, userEmail, initials,
+  openDropdown, setOpenDropdown, onMobileClose,
+  customerCid, referralCount, displayName, userEmail, initials,
 }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [referralCopied, setReferralCopied] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
-
-  // Persisted theme — read on mount, write on toggle.
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
-      if (s.theme) { setTheme(s.theme); applyTheme(s.theme) }
-    } catch {}
-  }, [])
 
   // Suppress all data-tooltip rendering while ANY dropdown is open + close
   // on Escape + outside-click. Body class is consumed by the global CSS rule.
@@ -73,20 +65,6 @@ export function SidebarDropdowns({
     }
   }, [openDropdown, setOpenDropdown])
 
-  function applyTheme(t: 'light' | 'dark') {
-    if (t === 'light') document.documentElement.classList.add('light')
-    else               document.documentElement.classList.remove('light')
-  }
-
-  const toggleTheme = () => {
-    const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next); applyTheme(next)
-    try {
-      const cur = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
-      localStorage.setItem('dormers-settings', JSON.stringify({ ...cur, theme: next }))
-    } catch {}
-  }
-
   const copyReferralCode = () => {
     if (!customerCid) return
     navigator.clipboard.writeText(customerCid).then(() => {
@@ -104,17 +82,19 @@ export function SidebarDropdowns({
         style={{
           position: 'absolute',
           left: 'calc(100% + 8px)',
-          // Notifications, settings, and profile all anchor near the bottom now
-          // since utilities sit just above the profile chip.
+          // Anchor each dropdown to the y-position of the icon that opens
+          // it. Theme toggle is now an inline button (no dropdown), so the
+          // 'settings' anchor is gone.
           ...(openDropdown === 'dormwars' ? { bottom: 168 } :
               openDropdown === 'notif'    ? { bottom: 110 } :
-              openDropdown === 'settings' ? { bottom: 64 }  :
                                             { bottom: 16 }),
           minWidth: 280,
-          background: 'rgba(255,255,255,0.99)',
+          background: 'var(--ds-glass-bg-strong)',
+          backdropFilter: 'blur(18px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
           borderRadius: 'var(--radius-md)',
-          border: '1px solid rgba(9,24,37,0.10)',
-          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--ds-border2)',
+          boxShadow: 'var(--ds-shadow-modal)',
           padding: openDropdown === 'profile' ? 0 : 8,
           fontFamily: BODY, zIndex: 200,
           overflow: 'hidden',
@@ -131,7 +111,7 @@ export function SidebarDropdowns({
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                     padding: '3px 8px', borderRadius: 999,
-                    background: 'rgba(29,138,48,0.12)', color: '#1d8a30',
+                    background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
                     fontSize: 11, fontWeight: 800,
                     letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1,
                     fontFeatureSettings: '"tnum"',
@@ -160,18 +140,18 @@ export function SidebarDropdowns({
                 width: '100%', padding: '14px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: referralCopied
-                  ? '1.5px dashed rgba(29,138,48,0.45)'
-                  : '1.5px dashed rgba(245,127,32,0.40)',
+                  ? '1.5px dashed var(--ds-success-border)'
+                  : '1.5px dashed var(--ds-og-border-strong)',
                 background: referralCopied
-                  ? 'rgba(29,138,48,0.06)'
-                  : 'rgba(245,127,32,0.04)',
+                  ? 'var(--ds-success-wash)'
+                  : 'var(--ds-og-wash)',
                 cursor: customerCid ? 'pointer' : 'default',
                 textAlign: 'center',
                 fontFamily: BODY,
                 transition: 'background 200ms, border-color 200ms',
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(9,24,37,0.45)', marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ds-fg-faint)', marginBottom: 6 }}>
                 Your referral code
               </div>
               <div style={{
@@ -184,7 +164,7 @@ export function SidebarDropdowns({
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-                color: referralCopied ? '#1d8a30' : D.fgMuted,
+                color: referralCopied ? 'var(--ds-success-fg)' : D.fgMuted,
               }}>
                 {referralCopied ? (
                   <><Check size={11} strokeWidth={2.6} /> Copied</>
@@ -201,9 +181,9 @@ export function SidebarDropdowns({
               onClick={() => setOpenDropdown(null)}
               style={{
                 padding: '11px 14px', borderRadius: 999,
-                background: 'rgba(37,211,102,0.09)',
-                border: '1.5px solid rgba(37,211,102,0.45)',
-                color: '#1a9e50',
+                background: 'var(--ds-success-wash)',
+                border: '1.5px solid var(--ds-success-border)',
+                color: 'var(--ds-success-fg)',
                 fontSize: 12, fontWeight: 800,
                 letterSpacing: '0.04em', textDecoration: 'none',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -218,37 +198,18 @@ export function SidebarDropdowns({
 
         {openDropdown === 'notif' && (
           <>
-            <div style={{ padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(9,24,37,0.40)' }}>
+            <div style={{ padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ds-fg-tint)' }}>
               Notifications
             </div>
-            <div style={{ padding: '24px 12px', textAlign: 'center', color: 'rgba(9,24,37,0.45)', fontSize: 13 }}>
+            <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--ds-fg-faint)', fontSize: 13 }}>
               You&rsquo;re all caught up.
             </div>
           </>
         )}
 
-        {openDropdown === 'settings' && (
-          <>
-            <div style={{ padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(9,24,37,0.40)' }}>
-              Appearance
-            </div>
-            <button
-              onClick={toggleTheme}
-              className="utility-row"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: BODY }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {theme === 'light' ? <Sun size={14} color={D.fg} /> : <Moon size={14} color={D.fg} />}
-                <span style={{ fontSize: 13, fontWeight: 500, color: D.fg }}>{theme === 'light' ? 'Light mode' : 'Dark mode'}</span>
-              </span>
-              <ToggleSwitch on={theme === 'dark'} />
-            </button>
-          </>
-        )}
-
         {openDropdown === 'profile' && (
           <>
-            <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid rgba(9,24,37,0.07)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid var(--ds-border-soft)', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg, ${OG3}, ${OG})`, color: NV2, fontFamily: BODY, fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {initials}
               </div>
@@ -266,24 +227,24 @@ export function SidebarDropdowns({
                 <Link
                   key={href}
                   href={href}
-                  onClick={() => setOpenDropdown(null)}
+                  onClick={() => { setOpenDropdown(null); onMobileClose?.() }}
                   className="utility-row"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-sm)', textDecoration: 'none', color: D.fg, fontSize: 13, fontWeight: 500 }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Icon size={14} strokeWidth={2} color={D.fg} />
+                    <Icon size={14} strokeWidth={2} color="currentColor" />
                     {label}
                   </span>
-                  <ChevronRight size={13} color="rgba(9,24,37,0.35)" />
+                  <ChevronRight size={13} color="var(--ds-fg-tint)" />
                 </Link>
               ))}
             </div>
-            <div style={{ borderTop: '1px solid rgba(9,24,37,0.07)', padding: 6 }}>
+            <div style={{ borderTop: '1px solid var(--ds-border-soft)', padding: 6 }}>
               <form action={signout}>
                 <button
                   type="submit"
                   className="utility-signout-row"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(9,24,37,0.65)', fontFamily: BODY, fontSize: 13, fontWeight: 600 }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ds-fg-muted)', fontFamily: BODY, fontSize: 13, fontWeight: 600 }}
                 >
                   <LogOut size={14} strokeWidth={2} />
                   Sign out
@@ -295,8 +256,8 @@ export function SidebarDropdowns({
       </div>
 
       <style jsx global>{`
-        .utility-row:hover { background: rgba(9,24,37,0.05) !important; }
-        .utility-signout-row:hover { background: rgba(239,68,68,0.07) !important; color: #b91c1c !important; }
+        .utility-row:hover { background: var(--ds-og-wash) !important; }
+        .utility-signout-row:hover { background: var(--ds-danger-wash) !important; color: var(--ds-danger-fg) !important; }
 
         /* Suppress all data-tooltip while a dropdown is open */
         body.dropdown-open [data-tooltip]::after,
@@ -308,10 +269,3 @@ export function SidebarDropdowns({
   )
 }
 
-function ToggleSwitch({ on }: { on: boolean }) {
-  return (
-    <span style={{ width: 36, height: 20, borderRadius: 999, background: on ? OG : 'rgba(9,24,37,0.14)', transition: 'background 200ms', position: 'relative', flexShrink: 0, display: 'inline-block' }}>
-      <span style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 200ms', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
-    </span>
-  )
-}

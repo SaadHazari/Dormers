@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { SkipForward, Pause as PauseIcon, Play, Check } from 'lucide-react'
-import { OG, NV, BODY, S, TIER1 } from './_shared/tokens'
+import { OG, BODY, S, TIER1 } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { BtnSpinner } from './_shared/buttons'
 import type { LocalState } from './_shared/types'
@@ -26,6 +26,9 @@ export function QuickActions({
     skipPastCutoff,
     skipNoDelivery,
     pausePastFinalDay,
+    resumeLockedSameDay,
+    isPausableTier,
+    isTrialPlan,
 }: {
     canPause: boolean
     localState: LocalState
@@ -55,6 +58,17 @@ export function QuickActions({
     // pause wouldn't actually protect tonight's delivery, only deliver
     // tomorrow's mistake. Lock the pause until the cycle ends.
     pausePastFinalDay?: boolean
+    // The sub was paused today (AE calendar). Resume is locked until tomorrow
+    // so the kitchen has at least one committed no-prep window before the
+    // customer can flip back. Only blocks Resume, never Pause.
+    resumeLockedSameDay?: boolean
+    // Whether this plan tier supports pausing at all (Monthly Premium / Max).
+    // False for Weekly Flex and Trial. When false the pause button is still
+    // rendered but disabled with an upsell chip rather than hidden entirely.
+    isPausableTier: boolean
+    // True for One-Time / Trial plans. Surfaces an upsell tooltip on the
+    // disabled skip button instead of silently showing "No skips".
+    isTrialPlan: boolean
 }) {
     const isPaused = localState === 'paused'
     const isSkipped = localState === 'skipped'
@@ -63,6 +77,7 @@ export function QuickActions({
     const skipTooltip = lockedOut ? disabledReason
         : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
         : skipPastCutoff ? 'Skip cutoff for today is 2 PM. Try again tomorrow morning.'
+        : isTrialPlan ? "Skipping isn't available on a one-time trial. Upgrade to a monthly plan to unlock skips."
         : undefined
 
     // Caption that lives in a small chip on the right of the skip button.
@@ -72,6 +87,7 @@ export function QuickActions({
     const skipCaption =
         skipNoDelivery         ? 'No delivery' :
         skipPastCutoff         ? 'Past 2 PM' :
+        isTrialPlan            ? 'Trial only' :
         skipQuota.total === 0  ? 'No skips' :
         skipQuota.left  === 0  ? 'None left' :
         skipQuota.left  === 1  ? 'Last one' :
@@ -93,11 +109,11 @@ export function QuickActions({
                         marginTop: -6,
                         padding: '8px 12px',
                         borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(245,127,32,0.08)',
-                        border: '1px solid rgba(245,127,32,0.22)',
+                        background: 'var(--ds-og-wash)',
+                        border: '1px solid var(--ds-og-border)',
                         fontFamily: BODY,
                         fontSize: 11.5,
-                        color: '#a35100',
+                        color: OG,
                         lineHeight: 1.45,
                     }}
                 >
@@ -116,7 +132,7 @@ export function QuickActions({
                     const skipIsPrimary = !isSkipped && !skipDisabled
                     const baseStyle: CSSProperties = skipIsPrimary
                         ? { background: OG, color: '#fff', border: '1px solid transparent', boxShadow: '0 4px 16px rgba(245,127,32,0.30)' }
-                        : { background: 'transparent', color: NV, border: `1px solid ${S.border2}` }
+                        : { background: 'transparent', color: S.fg, border: `1px solid ${S.border2}` }
                     return (
                         <button
                             onClick={onSkipRequest}
@@ -152,7 +168,7 @@ export function QuickActions({
                                 textTransform: 'uppercase',
                                 padding: '4px 9px',
                                 borderRadius: 999,
-                                background: skipIsPrimary ? 'rgba(255,255,255,0.20)' : 'rgba(9,24,37,0.07)',
+                                background: skipIsPrimary ? 'rgba(255,255,255,0.20)' : 'var(--ds-skeleton-base)',
                                 color: 'inherit',
                                 whiteSpace: 'nowrap',
                                 fontFeatureSettings: '"tnum"',
@@ -164,12 +180,14 @@ export function QuickActions({
                 })()}
 
                 {/* Pause / Resume — Resume becomes the filled primary when paused;
-                    Pause is a secondary outline when active. Hidden if not pausable.
+                    Pause is a secondary outline when active.
+                    Always rendered for non-pausable tiers (weekly / trial) as a
+                    disabled upsell rather than hidden, so the upgrade path is visible.
                     When the plan is in 'Skipped' state for today, pausing is
                     disabled — today's day is already accounted for, so a pause
                     on top would double-count against the kitchen-ops calendar.
                     Auto-clears at midnight AE when the cron flips back to Active. */}
-                {(canPause || isPaused) && (() => {
+                {(canPause || isPaused || !isPausableTier) && (() => {
                     const pauseIsPrimary = isPaused && !lockedOut  // resume is the call to action
                     // isSkipped only blocks PAUSE (not Resume) — a paused user can't be skipped.
                     const pauseBlockedBySkip = isSkipped && !isPaused
@@ -177,17 +195,26 @@ export function QuickActions({
                     // paused customer who's already on the final day can
                     // still hit Resume to wrap up cleanly.
                     const pauseLockedFinalDay = !!pausePastFinalDay && !isPaused
-                    const pauseDisabled = isPending || lockedOut || pauseBlockedBySkip || pauseLockedFinalDay
-                    const pauseTooltip = lockedOut
-                        ? disabledReason
-                        : pauseBlockedBySkip
-                            ? "You've skipped today's meal — pausing is available again from tomorrow."
-                            : pauseLockedFinalDay
-                                ? "It's the final day and the kitchen prep window has closed — pausing now wouldn't protect tonight's delivery."
-                                : undefined
+                    // resumeLockedSameDay only locks Resume (not Pause) — the kitchen
+                    // needs one committed no-prep window before the customer flips back.
+                    const resumeLockedToday = !!resumeLockedSameDay && isPaused
+                    // Non-pausable tier (weekly / trial): always disabled, show upsell.
+                    const pauseIsUpsell = !isPausableTier && !isPaused
+                    const pauseDisabled = isPending || lockedOut || pauseBlockedBySkip || pauseLockedFinalDay || resumeLockedToday || pauseIsUpsell
+                    const pauseTooltip = pauseIsUpsell
+                        ? 'Upgrade to a monthly plan to unlock pausing.'
+                        : lockedOut
+                            ? disabledReason
+                            : resumeLockedToday
+                                ? 'Your plan was paused today — resume becomes available tomorrow.'
+                                : pauseBlockedBySkip
+                                    ? "You've skipped today's meal — pausing is available again from tomorrow."
+                                    : pauseLockedFinalDay
+                                        ? "It's the final day and the kitchen prep window has closed — pausing now wouldn't protect tonight's delivery."
+                                        : undefined
                     const baseStyle: CSSProperties = pauseIsPrimary
                         ? { background: OG, color: '#fff', border: '1px solid transparent', boxShadow: '0 4px 16px rgba(245,127,32,0.30)' }
-                        : { background: 'transparent', color: NV, border: `1px solid ${S.border2}` }
+                        : { background: 'transparent', color: S.fg, border: `1px solid ${S.border2}` }
                     return (
                         <button
                             onClick={onPause}
@@ -203,7 +230,7 @@ export function QuickActions({
                                 borderRadius: 'var(--radius-pill)',
                                 fontFamily: BODY, fontSize: 13, fontWeight: 700,
                                 cursor: pauseDisabled ? 'not-allowed' : 'pointer',
-                                opacity: pauseDisabled ? (lockedOut || pauseBlockedBySkip ? 0.6 : 0.75) : 1,
+                                opacity: pauseDisabled ? (lockedOut || pauseBlockedBySkip || pauseIsUpsell ? 0.6 : 0.75) : 1,
                                 transition: 'opacity 150ms, transform 150ms, box-shadow 150ms, background 150ms, border-color 150ms',
                             }}
                         >
@@ -219,7 +246,24 @@ export function QuickActions({
                             ) : isPaused ? (
                                 <><Play size={16} strokeWidth={2.2} fill="currentColor" /> <span>Resume plan</span></>
                             ) : (
-                                <><PauseIcon size={16} strokeWidth={2.2} /> <span>{pauseBlockedBySkip ? 'Pause unavailable today' : pauseLockedFinalDay ? 'Pause unavailable today' : 'Pause my plan'}</span></>
+                                <><PauseIcon size={16} strokeWidth={2.2} /> <span>{pauseBlockedBySkip || pauseLockedFinalDay ? 'Pause unavailable today' : 'Pause my plan'}</span></>
+                            )}
+                            {pauseIsUpsell && (
+                                <span style={{
+                                    marginLeft: 'auto',
+                                    fontFamily: BODY,
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    letterSpacing: '0.10em',
+                                    textTransform: 'uppercase',
+                                    padding: '4px 9px',
+                                    borderRadius: 999,
+                                    background: 'var(--ds-skeleton-base)',
+                                    color: 'inherit',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    Monthly only
+                                </span>
                             )}
                         </button>
                     )

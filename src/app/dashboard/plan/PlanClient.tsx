@@ -8,7 +8,7 @@ import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
   CalendarDays, Unlock, Heart,
 } from 'lucide-react'
-import { OG, NV, BODY, S, TIER1, TIER2, TIER3, cleanPlanName } from '../_shared/tokens'
+import { OG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
@@ -46,12 +46,12 @@ const MEAL_PREFS = [
 ]
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
-// OG / OG3 / NV / BODY / S / TIER1-3 are pulled from the shared dashboard token
-// system so this page sits on the same surface tiers, palette, and typeface as
-// Home and Menu. DISPLAY is intentionally an alias of BODY — single typeface
-// across the dashboard; hierarchy comes from scale + weight + colour.
-// BG is a soft cream gradient kept locally for this page only.
-const BG = 'linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%)'
+// OG / S / TIER1-3 are pulled from the shared dashboard token system so this
+// page sits on the same surface tiers, palette, and typeface as Home and Menu.
+// DISPLAY is intentionally an alias of BODY — single typeface across the
+// dashboard; hierarchy comes from scale + weight + colour. BG resolves to the
+// theme-aware page gradient (cream in light, deep navy in dark).
+const BG = 'var(--ds-bg-gradient)'
 const DISPLAY = BODY
 
 // Customer + Subscription canonical types live in _shared/types.ts. The local
@@ -120,7 +120,7 @@ function ChangeStartDateModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(9,24,37,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
           onClick={onClose}
         >
           <motion.div
@@ -129,15 +129,15 @@ function ChangeStartDateModal({
             exit={{ opacity: 0, scale: 0.95, y: 12 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
             onClick={e => e.stopPropagation()}
-            style={{ background: '#ede8da', borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 460, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
+            style={{ background: 'var(--ds-content-bg)', borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 460, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
           >
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
               Change start date
             </div>
             <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 8, lineHeight: 1.6 }}>
               Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.
             </div>
-            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.22)', color: '#a35100', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
               You can only change the start date <strong>once</strong>. After saving, this option will be locked for this plan.
             </div>
 
@@ -152,7 +152,7 @@ function ChangeStartDateModal({
             </div>
 
             {error && (
-              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', color: '#9a2828', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
                 {error}
               </div>
             )}
@@ -161,7 +161,7 @@ function ChangeStartDateModal({
               <button
                 onClick={onClose}
                 disabled={pending}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: pending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: pending ? 0.6 : 1 }}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: pending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: pending ? 0.6 : 1 }}
               >
                 Cancel
               </button>
@@ -219,65 +219,89 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
   const isPremium   = sub.plan_name.includes('Monthly Premium')
   const isWeekly    = sub.plan_name.includes('Weekly Flex')
   const supportsPause = isMax || isPremium
+  const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
   const skipAllowance = isMax || isPremium ? 3 : isWeekly ? 1 : 0
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause
     ? '—'
-    : sub.status === SUBSCRIPTION_STATUS.PAUSED
-      ? 'Active'
+    : isPaused
+      ? 'In use'
       : sub.has_paused_before
         ? 'Used'
         : 'Available'
 
   return (
     <div style={{
-      ...TIER1,
-      // Hierarchy via a single orange border accent + TIER1 surface — the
-      // brand colour calls the eye without flooding the card. Shadow comes
-      // from TIER1 itself, keeping the page on one shadow scale.
+      ...TIER_POP,
       padding: 28, borderRadius: 20,
-      border: '1.5px solid rgba(245,127,32,0.32)',
       display: 'flex', flexDirection: 'column', gap: 18,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <Eyebrow color="#a35100">Your current plan</Eyebrow>
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, fontFamily: DISPLAY, fontSize: 26, fontWeight: 700, color: NV, letterSpacing: '-0.01em' }}>
-            <PlanGlyph planName={sub.plan_name} size={22} color={NV} />
+          <Eyebrow color={TIER_POP_TEXT.muted}>Your current plan</Eyebrow>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, fontFamily: DISPLAY, fontSize: 26, fontWeight: 700, color: TIER_POP_TEXT.primary, letterSpacing: '-0.01em' }}>
+            <PlanGlyph planName={sub.plan_name} size={22} />
             {cleanPlanName(sub.plan_name)}
           </div>
-          <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
+          <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: TIER_POP_TEXT.muted }}>
             {startsInFuture
-              ? <>Beginning <strong style={{ color: NV }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
-              : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: NV }}>{fmtWithDay(sub.end_date)}</strong></>}
+              ? <>Beginning <strong style={{ color: TIER_POP_TEXT.primary }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
+              : isPaused
+                ? <>Started {fmtWithDay(sub.start_date)} · <span style={{ color: TIER_POP_TEXT.faint }}>est. ends {fmtWithDay(sub.end_date)}</span></>
+                : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: TIER_POP_TEXT.primary }}>{fmtWithDay(sub.end_date)}</strong></>}
           </div>
           {/* Meal preference — what kind of food the kitchen is sending. Picked
               once at sign-up; surfaced here so the customer always knows what
               they're getting without going to /profile. Editable from there. */}
           {customer?.meal_preference_type && (
-            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
-              <span style={{ fontWeight: 700, color: S.fgSub, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: 10.5 }}>Meal type</span>
-              <MealTag kind={mealPrefToTagKind(customer.meal_preference_type)} />
+            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: BODY, fontSize: 12.5, color: TIER_POP_TEXT.muted }}>
+              <span style={{ fontWeight: 700, color: TIER_POP_TEXT.faint, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: 10.5 }}>Meal type</span>
+              <MealTag kind={mealPrefToTagKind(customer.meal_preference_type)} onDark />
             </div>
           )}
         </div>
-        <StatusDot status={status} />
+        <StatusDot status={status} onDark />
       </div>
 
       {/* Veg-days locked snapshot (Religious mix only) — see LockedVegDays
           for the chip rendering. Same component is reused on /profile so the
-          locked snapshot reads identically across both surfaces. */}
-      <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} />
+          locked snapshot reads identically across both surfaces.
+          Hard-gated on the customer's effective meal preference being
+          religious. Without this, a sub created as religious-mix whose
+          customer later switches preference to Veg / Carnivore would keep
+          rendering the chips alongside a non-religious meal-type tag. */}
+      {/religious/i.test(effectivePreferences(customer).meal_preference_type ?? '') && (
+        <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysLeft}</span>
-          <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>day{daysLeft === 1 ? '' : 's'} {startsInFuture ? 'until your plan starts' : 'left in your plan'}</span>
+          {isPaused ? (
+            <>
+              <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: TIER_POP_TEXT.faint, lineHeight: 1 }}>—</span>
+              <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: TIER_POP_TEXT.muted }}>plan paused</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysLeft}</span>
+              <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: TIER_POP_TEXT.primary }}>day{daysLeft === 1 ? '' : 's'} {startsInFuture ? 'until your plan starts' : 'left in your plan'}</span>
+            </>
+          )}
         </div>
 
-        {/* Right-side affordance: Renew when in window, Change-start-date when
-            scheduled, calm info line otherwise. Only one of the three shows. */}
-        {renewEligible ? (
+        {/* Right-side affordance: paused first (blocks renew even if within the
+            window), then renew, then change-start, then calm info line.
+            Only one of the four shows at a time. */}
+        {isPaused ? (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: TIER_POP_TEXT.primary }}>
+              Plan paused
+            </div>
+            <div style={{ fontFamily: BODY, fontSize: 11.5, color: TIER_POP_TEXT.muted, marginTop: 2 }}>
+              Resume any time — meals will be waiting.
+            </div>
+          </div>
+        ) : renewEligible ? (
           <button
             type="button"
             onClick={onRenewClick}
@@ -308,12 +332,12 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
                 padding: '10px 16px', borderRadius: 999,
                 fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                 border: dateChangeUsed
-                  ? '1px solid rgba(9,24,37,0.10)'
-                  : '1px solid rgba(58,111,140,0.32)',
+                  ? '1px solid rgba(245,240,232,0.12)'
+                  : '1px solid rgba(245,240,232,0.28)',
                 background: dateChangeUsed
-                  ? 'rgba(9,24,37,0.04)'
-                  : 'rgba(58,111,140,0.08)',
-                color: dateChangeUsed ? S.fgFaint : '#3a6f8c',
+                  ? 'rgba(245,240,232,0.05)'
+                  : 'rgba(245,240,232,0.10)',
+                color: dateChangeUsed ? TIER_POP_TEXT.faint : TIER_POP_TEXT.primary,
                 cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
                 opacity: dateChangeUsed ? 0.7 : 1,
                 transition: 'background 150ms, border-color 150ms',
@@ -325,11 +349,11 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
           )
         })() : (
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: NV }}>
+            <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: TIER_POP_TEXT.primary }}>
               Plan in progress
             </div>
-            <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, marginTop: 2 }}>
-              Renew opens {Math.max(0, daysLeft - 7)} day{Math.max(0, daysLeft - 7) === 1 ? '' : 's'} before {fmtWithDay(sub.end_date)}.
+            <div style={{ fontFamily: BODY, fontSize: 11.5, color: TIER_POP_TEXT.muted, marginTop: 2 }}>
+              Renew opens in {daysLeft - 7} day{daysLeft - 7 === 1 ? '' : 's'}.
             </div>
           </div>
         )}
@@ -346,18 +370,19 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
           plans (no activity yet). */}
       {!startsInFuture && (
         <>
-          <div style={{ height: 1, background: 'rgba(9,24,37,0.08)', margin: '4px 0' }} />
+          <div style={{ height: 1, background: 'rgba(245,240,232,0.15)', margin: '4px 0' }} />
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
             gap: 18,
           }}>
-            <Stat label="Meals delivered" value={`${sub.delivered_meals}/${sub.total_meals}`} />
+            <Stat label="Meals delivered" value={`${sub.delivered_meals}/${sub.total_meals}`} light />
             <Stat
               label="Skips left"
               value={skipAllowance > 0 ? `${skipsLeft} of ${skipAllowance}` : '—'}
+              light
             />
-            <Stat label="Pause" value={pauseStatus} />
+            <Stat label="Pause" value={pauseStatus} light />
           </div>
         </>
       )}
@@ -368,11 +393,11 @@ function ActivePlanCallout({ sub, customer, onRenewClick }: {
 // ── Mini stat tile — uppercase label over emphasised numeric value. Used
 // inside the active-plan callout so the behavioural data sits as supporting
 // info under the days-left hero number.
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, light = false }: { label: string; value: string; light?: boolean }) {
   return (
     <div>
-      <Eyebrow>{label}</Eyebrow>
-      <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 18, fontWeight: 800, color: NV, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+      <Eyebrow color={light ? TIER_POP_TEXT.muted : undefined}>{label}</Eyebrow>
+      <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 18, fontWeight: 800, color: light ? TIER_POP_TEXT.primary : S.fg, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
         {value}
       </div>
     </div>
@@ -405,7 +430,7 @@ function VegDayPicker({
   const showHint = count == null
 
   return (
-    <div style={{ padding: 14, borderRadius: 14, background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}` }}>
+    <div style={{ padding: 14, borderRadius: 14, background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <Eyebrow>Veg Days per Week</Eyebrow>
         <span style={{
@@ -427,7 +452,7 @@ function VegDayPicker({
               style={{
                 padding: '10px 0', borderRadius: 8, border: `1px solid ${active ? OG : S.border}`,
                 background: active ? 'rgba(245,127,32,0.12)' : 'rgba(255,255,255,0.5)',
-                color: active ? OG : NV, fontFamily: BODY, fontSize: 13, fontWeight: 700,
+                color: active ? OG : S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700,
                 fontFeatureSettings: '"tnum"', cursor: 'pointer',
                 transition: 'background 160ms, border-color 160ms, color 160ms',
               }}
@@ -464,7 +489,7 @@ function VegDayPicker({
               />
               <span style={{
                 fontFamily: BODY, fontSize: 11.5, fontWeight: 600,
-                color: '#a35100', letterSpacing: '0.02em',
+                color: OG, letterSpacing: '0.02em',
               }}>
                 Pick how many veg days you want — your plan adapts.
               </span>
@@ -483,7 +508,7 @@ function VegDayPicker({
       </p>
       <p style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, color: S.fgFaint, lineHeight: 1.5 }}>
         Want all-veg or all-non-veg? Switch your preference on{' '}
-        <Link href="/dashboard/profile" style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 2 }}>
+        <Link href="/dashboard/profile" style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 2 }}>
           your profile
         </Link>
         .
@@ -567,8 +592,8 @@ function PlanCard({
 
   const badgeStyle = ((): { bg: string; fg: string; border: string } => {
     if (plan.badgeTone === 'gold')   return { bg: 'rgba(212,160,23,0.12)', fg: '#a37800', border: 'rgba(212,160,23,0.30)' }
-    if (plan.badgeTone === 'orange') return { bg: 'rgba(245,127,32,0.10)', fg: '#a35100', border: 'rgba(245,127,32,0.30)' }
-    return { bg: 'rgba(9,24,37,0.05)', fg: S.fgMuted, border: S.border }
+    if (plan.badgeTone === 'orange') return { bg: 'var(--ds-og-wash-strong)', fg: OG, border: 'var(--ds-og-border-strong)' }
+    return { bg: 'var(--ds-skeleton-base)', fg: S.fgMuted, border: S.border }
   })()
 
   const planIcon = plan.id === 'Monthly Premium' ? <Gem size={16}/> :
@@ -598,7 +623,7 @@ function PlanCard({
         // card visually weighs more without breaking grid alignment.
         padding: featured ? '32px 24px 28px' : 24,
         borderRadius: 24,
-        border: `1.5px solid ${selected ? OG : (featured ? 'rgba(245,127,32,0.32)' : 'rgba(9,24,37,0.07)')}`,
+        border: `1.5px solid ${selected ? OG : (featured ? 'var(--ds-og-border-strong)' : 'var(--ds-border-tier2)')}`,
         transition: 'transform 150ms, border-color 200ms, opacity 200ms',
         cursor: priceUnknown ? 'not-allowed' : 'pointer',
         transform: selected ? 'translateY(-2px)' : 'none',
@@ -634,8 +659,8 @@ function PlanCard({
 
       {/* Header */}
       <div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: NV, fontFamily: BODY, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'rgba(9,24,37,0.06)' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: S.fg, fontFamily: BODY, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: 'var(--ds-skeleton-base)' }}>
             {planIcon}
           </span>
           {plan.id}
@@ -659,7 +684,7 @@ function PlanCard({
               <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: S.fgFaint, letterSpacing: '-0.03em', lineHeight: 1 }}>—</span>
               <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgFaint }}>AED / meal</span>
             </div>
-            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: '#a35100', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: OG, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Set veg days first
             </div>
             <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
@@ -667,7 +692,7 @@ function PlanCard({
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: NV, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
+              <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: S.fg, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
               <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
             </div>
             <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -681,7 +706,7 @@ function PlanCard({
                 padding: '4px 10px',
                 borderRadius: 999,
                 background: 'rgba(245,127,32,0.10)',
-                color: '#a35100',
+                color: OG,
                 fontFamily: BODY, fontSize: 11, fontWeight: 700,
                 letterSpacing: '0.04em',
               }}>
@@ -697,7 +722,7 @@ function PlanCard({
         {dynamicFeatures.map(f => {
           const FeatureIcon = f.icon
           return (
-            <li key={f.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontFamily: BODY, fontSize: 13, color: NV, lineHeight: 1.45 }}>
+            <li key={f.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontFamily: BODY, fontSize: 13, color: S.fg, lineHeight: 1.45 }}>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 22, height: 22, borderRadius: 7,
@@ -733,12 +758,12 @@ function PlanCard({
         padding: '12px 16px', borderRadius: 12,
         background:
           selected ? OG :
-          featured ? 'rgba(245,127,32,0.12)' :
-          'rgba(9,24,37,0.06)',
+          featured ? 'var(--ds-og-wash-strong)' :
+          'var(--ds-skeleton-base)',
         color:
           selected ? '#fff' :
-          featured ? '#a35100' :
-          NV,
+          featured ? OG :
+          S.fg,
         fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
         border:
           selected ? 0 :
@@ -771,7 +796,7 @@ function ProfileSummary({ customer }: { customer: Customer | null }) {
       <div style={{
         marginTop: 6,
         fontFamily: BODY, fontSize: 14, fontWeight: 700,
-        color: value ? NV : S.fgFaint,
+        color: value ? S.fg : S.fgFaint,
         lineHeight: 1.35,
       }}>
         {value || '—'}
@@ -784,7 +809,7 @@ function ProfileSummary({ customer }: { customer: Customer | null }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <div>
           <Eyebrow>Delivery preferences</Eyebrow>
-          <div style={{ marginTop: 6, fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: NV }}>
+          <div style={{ marginTop: 6, fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: S.fg }}>
             How we cook for you
           </div>
         </div>
@@ -794,7 +819,7 @@ function ProfileSummary({ customer }: { customer: Customer | null }) {
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', borderRadius: 999,
             fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-            border: `1px solid ${S.border2}`, background: '#fff', color: NV,
+            border: `1px solid ${S.border2}`, background: 'var(--ds-surface2)', color: S.fg,
             textDecoration: 'none',
           }}
         >
@@ -900,7 +925,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, padding: '28px 28px 48px', fontFamily: BODY, color: NV }}>
+    <div style={{ minHeight: '100vh', background: BG, padding: '28px 28px 48px', fontFamily: BODY, color: S.fg }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
 
         {cancelBanner && (
@@ -908,7 +933,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             role="status"
             style={{
               marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}`,
+              background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`,
               color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
             }}
@@ -932,7 +957,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             fontSize: 'clamp(34px, 5vw, 48px)',
             fontWeight: 700, letterSpacing: '-0.025em',
             marginTop: 0,
-            lineHeight: 1.05, color: NV,
+            lineHeight: 1.05, color: S.fg,
           }}>
             {isExplore
               ? <>Explore plans<span style={{ color: OG }}>.</span></>
@@ -958,28 +983,54 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           </div>
         )}
 
-        {/* Change-plan CTA — only on /plan */}
-        {!isExplore && activeSubscription && (
-          <div style={{ ...TIER2, marginBottom: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderRadius: 14 }}>
-            <div>
-              <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: NV }}>Want to switch plans or upgrade?</div>
-              <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, marginTop: 2 }}>Browse all plans and pricing — changes apply at your next renewal.</div>
+        {/* Change-plan CTA — only on /plan. Locked when the active plan is
+            paused: end date is unknown until resumed, so the next plan's
+            start date can't be computed yet. */}
+        {!isExplore && activeSubscription && (() => {
+          const activePlanIsPaused = activeSubscription.status === SUBSCRIPTION_STATUS.PAUSED
+          return (
+            <div style={{ ...TIER2, marginBottom: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderRadius: 14 }}>
+              <div>
+                <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg }}>Want to switch plans or upgrade?</div>
+                <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, marginTop: 2 }}>
+                  {activePlanIsPaused
+                    ? 'Resume your plan first — next plan start date can\'t be set until your current end date is confirmed.'
+                    : 'Browse all plans and pricing — changes apply at your next renewal.'}
+                </div>
+              </div>
+              {activePlanIsPaused ? (
+                <span
+                  aria-disabled="true"
+                  title="Resume your current plan before exploring new plans."
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '10px 16px', borderRadius: 999,
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    border: `1px solid ${S.border}`, background: 'transparent', color: S.fgFaint,
+                    cursor: 'not-allowed', userSelect: 'none',
+                    opacity: 0.55,
+                  }}
+                >
+                  Explore plans
+                </span>
+              ) : (
+                <Link
+                  href="/dashboard/explore-plans"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '10px 16px', borderRadius: 999,
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    border: `1px solid ${S.border2}`, background: 'var(--ds-surface2)', color: S.fg, cursor: 'pointer', textDecoration: 'none',
+                    transition: 'background 150ms, border-color 150ms',
+                  }}
+                  className="change-plan-btn"
+                >
+                  Explore plans →
+                </Link>
+              )}
             </div>
-            <Link
-              href="/dashboard/explore-plans"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '10px 16px', borderRadius: 999,
-                fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                border: `1px solid ${S.border2}`, background: '#fff', color: NV, cursor: 'pointer', textDecoration: 'none',
-                transition: 'background 150ms, border-color 150ms',
-              }}
-              className="change-plan-btn"
-            >
-              Explore plans →
-            </Link>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Pricing section. `showPricing` is bound to `isExplore` (a route-
             level prop), so it never toggles after mount — the animation is
@@ -994,6 +1045,40 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
+              {/* Paused-plan notice — shown at the top of the pricing section
+                  when the customer's current plan is paused. Browsing is fine;
+                  purchasing is blocked (server + UI) until they resume. */}
+              {activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED && (
+                <div style={{
+                  marginBottom: 20,
+                  padding: '14px 18px',
+                  borderRadius: 14,
+                  background: 'rgba(245,127,32,0.07)',
+                  border: '1px solid rgba(245,127,32,0.22)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+                }}>
+                  <div>
+                    <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>
+                      Your current plan is paused
+                    </div>
+                    <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, marginTop: 2, lineHeight: 1.5 }}>
+                      You can browse plans now, but purchasing is locked until you resume — your next plan&apos;s start date depends on when the current one ends.
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap',
+                      fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      background: OG, color: '#fff', textDecoration: 'none', border: 0,
+                    }}
+                  >
+                    Resume plan →
+                  </Link>
+                </div>
+              )}
+
               {/* Value strip — anchors the universal promise of any plan
                   before the user reads prices. Frames the offer as outcome
                   + low effort + low risk, instead of a feature list. Only
@@ -1022,7 +1107,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     }}>
                       <Icon size={16} strokeWidth={2.2} />
                     </div>
-                    <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                    <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
                       {title}
                     </div>
                     <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 400, color: S.fgMuted, lineHeight: 1.5 }}>
@@ -1047,7 +1132,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     display: 'inline-flex', alignItems: 'center',
                     padding: '4px 10px', borderRadius: 999,
                     background: 'rgba(245,127,32,0.10)',
-                    color: NV, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+                    color: S.fg, fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
                   }}>
                     {prefLabel}
                   </span>
@@ -1064,7 +1149,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   }}>
                     {weekType === '5DAYS' ? '5 days: MON–FRI' : '6 days: MON–SAT'}
                   </span>
-                  <Link href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}>
+                  <Link href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}>
                     Change
                   </Link>
                   {/* Prices in AED — pushed to the far right of the same row
@@ -1161,14 +1246,14 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           <div className="plan-reference-row" style={{ marginBottom: 24 }}>
             <div style={{ ...TIER3, padding: 28, borderRadius: 20 }}>
               <Eyebrow>Pricing FAQ</Eyebrow>
-              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Common questions</div>
+              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: S.fg }}>Common questions</div>
               <div style={{ marginTop: 14 }}>
                 {PLAN_FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
               </div>
             </div>
             <div style={{ ...TIER3, padding: 28, borderRadius: 20, display: 'flex', flexDirection: 'column' }}>
               <Eyebrow>History</Eyebrow>
-              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: NV }}>Past plans</div>
+              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: S.fg }}>Past plans</div>
               {endedPlans.length === 0 ? (
                 <div style={{ marginTop: 18, padding: '20px 4px', fontFamily: BODY, fontSize: 13, color: S.fgFaint, lineHeight: 1.55 }}>
                   Your finished plans will appear here. Each one is a record of how many dinners we&rsquo;ve made for you so far.
@@ -1178,8 +1263,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   {endedPlans.map(s => (
                     <div key={s.id} style={{ ...TIER1, padding: '12px 14px', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: NV, minWidth: 0 }}>
-                          <PlanGlyph planName={s.plan_name} size={13} color={NV} />
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg, minWidth: 0 }}>
+                          <PlanGlyph planName={s.plan_name} size={13} color="currentColor" />
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {cleanPlanName(s.plan_name)}
                           </span>

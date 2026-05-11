@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Truck, Moon, Utensils, Check, Sparkles, Clock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 
-import { OG, NV, CR, BG, BODY, S, TIER1, TIER2, TIER3 } from '../_shared/tokens'
+import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
 import { vegDayNumbersFor } from '@/lib/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
+import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -128,10 +129,10 @@ function todayMonIdx(): number {
 // would claim "Arriving in ~5 hours" for a paused or ended customer who
 // will receive nothing tonight.
 function computeCountdown(now: Date, subStatus: string | null): { label: string; urgent: boolean } {
-  if (subStatus !== 'Active') {
-    if (subStatus === 'Paused')    return { label: 'Plan paused — no delivery today', urgent: false }
-    if (subStatus === 'Skipped')   return { label: 'Skipped today — back tomorrow', urgent: false }
-    if (subStatus === 'Scheduled') return { label: 'Plan starts soon', urgent: false }
+  if (subStatus !== SUBSCRIPTION_STATUS.ACTIVE) {
+    if (subStatus === SUBSCRIPTION_STATUS.PAUSED)    return { label: 'Plan paused — no delivery today', urgent: false }
+    if (subStatus === SUBSCRIPTION_STATUS.SKIPPED)   return { label: 'Skipped today — back tomorrow', urgent: false }
+    if (subStatus === SUBSCRIPTION_STATUS.SCHEDULED) return { label: 'Plan starts soon', urgent: false }
     return { label: 'No active plan', urgent: false }
   }
 
@@ -169,7 +170,10 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
     return () => clearInterval(t)
   }, [subStatus])
 
-  // Sunday or out-of-range — graceful empty state, full-width
+  // Sunday or out-of-range — TIER1, not TIER_POP. TIER_POP is earned by
+  // having data worth anchoring; an empty rest-day slot has nothing to
+  // surface, so the card steps back to T1 (anchors the slot without
+  // overclaiming). Operational days (Mon–Sat) earn TIER_POP below.
   if (!meal) {
     return (
       <div style={{
@@ -179,7 +183,7 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
         textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
       }}>
         <Moon size={28} strokeWidth={1.6} color={S.fgMuted} />
-        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2 }}>Sunday — no delivery</div>
+        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2 }}>Sunday — no delivery</div>
         <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>
           Rest up. Next delivery Monday at 7 PM.
         </div>
@@ -189,16 +193,9 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
 
   return (
     <div className="today-spotlight" style={{
-      ...TIER1,
-      // Warm cream body — matches the this-week cards. Softer on the eye
-      // than pure white against the page's cream background.
-      background: '#faf2dd',
+      ...TIER_POP,
       borderRadius: 'var(--radius-md)', overflow: 'hidden',
-      border: `1.5px solid rgba(245,127,32,0.30)`,
       display: 'grid',
-      // Text leads (L→R reading flow), photo on the right as the visual reveal.
-      // Slightly wider text column gives the dish name + description room to
-      // breathe; image column is just-large-enough to read as a portrait.
       gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 5fr)',
       minHeight: 320,
     }}>
@@ -208,7 +205,7 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
         display: 'flex', flexDirection: 'column', gap: 16,
         justifyContent: 'center',
       }}>
-        {/* Dish name — borrows the dashboard hero's display scale + period accent */}
+        {/* Dish name — OG eyebrow + cream heading, period accent in OG */}
         <div>
           <Eyebrow color={OG}>Tonight&rsquo;s dish</Eyebrow>
           <h2 style={{
@@ -216,7 +213,7 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
             fontFamily: DISPLAY,
             fontSize: 'clamp(24px, 2.4vw, 36px)',
             fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em',
-            color: NV,
+            color: TIER_POP_TEXT.primary,
           }}>
             {meal.dish}<span style={{ color: OG }}>.</span>
           </h2>
@@ -226,66 +223,65 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
           <p style={{
             margin: 0,
             fontFamily: BODY, fontSize: 13, fontWeight: 400,
-            color: S.fgMuted, lineHeight: 1.65, maxWidth: '54ch',
+            color: TIER_POP_TEXT.muted, lineHeight: 1.65, maxWidth: '54ch',
           }}>
             {meal.sub}
           </p>
         )}
 
-        {/* Macro strip — warm ivory shelf inside the cream card body. Warm
-            hairline (desaturated brand-orange) keeps the strip in the cream/
-            orange family instead of jolting cool-navy. Inset highlight (top
-            light + bottom shadow) gives a "pressed shelf" depth without a
-            gradient — see refactoring-ui critique. */}
+        {/* Macro strip — inset dark shelf on the navy card. Cream hairline
+            border + faint top-highlight give it the same "pressed shelf"
+            depth as the light version, but tuned for a dark surface. */}
         <div style={{
           display: 'flex',
           borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-          border: '1px solid rgba(165,100,30,0.14)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(9,24,37,0.04)',
+          border: '1px solid rgba(245,240,232,0.14)',
+          boxShadow: 'inset 0 1px 0 rgba(245,240,232,0.10), inset 0 -1px 0 rgba(9,24,37,0.12)',
         }}>
-          <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: '#fff8e7' }}>
-            <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>Calories</div>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, fontFeatureSettings: '"tnum"', lineHeight: 1.2, marginTop: 4 }}>
-              {meal.cal.toFixed(0)}<span style={{ fontSize: 11, fontWeight: 500, color: S.fgMuted }}> kcal</span>
+          <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: 'rgba(245,240,232,0.06)' }}>
+            <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: TIER_POP_TEXT.faint }}>Calories</div>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: TIER_POP_TEXT.primary, fontFeatureSettings: '"tnum"', lineHeight: 1.2, marginTop: 4 }}>
+              {meal.cal.toFixed(0)}<span style={{ fontSize: 11, fontWeight: 500, color: TIER_POP_TEXT.muted }}> kcal</span>
             </div>
           </div>
-          <div style={{ width: 1, background: 'rgba(165,100,30,0.12)' }} />
-          <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: '#fff8e7' }}>
-            <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>Protein</div>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, fontFeatureSettings: '"tnum"', lineHeight: 1.2, marginTop: 4 }}>
-              {meal.protein.toFixed(0)}<span style={{ fontSize: 11, fontWeight: 500, color: S.fgMuted }}> g</span>
+          <div style={{ width: 1, background: 'rgba(245,240,232,0.12)' }} />
+          <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: 'rgba(245,240,232,0.06)' }}>
+            <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: TIER_POP_TEXT.faint }}>Protein</div>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: TIER_POP_TEXT.primary, fontFeatureSettings: '"tnum"', lineHeight: 1.2, marginTop: 4 }}>
+              {meal.protein.toFixed(0)}<span style={{ fontSize: 11, fontWeight: 500, color: TIER_POP_TEXT.muted }}> g</span>
             </div>
           </div>
           {meal.heat > 0 && (
             <>
-              <div style={{ width: 1, background: 'rgba(165,100,30,0.12)' }} />
-              <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: '#fff8e7', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>Spice</div>
+              <div style={{ width: 1, background: 'rgba(245,240,232,0.12)' }} />
+              <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: 'rgba(245,240,232,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: TIER_POP_TEXT.faint }}>Spice</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <HeatBar level={meal.heat} />
-                  <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: S.fgMuted, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span>
+                  <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: TIER_POP_TEXT.muted, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span>
                 </div>
               </div>
             </>
           )}
         </div>
 
-        {/* Live delivery countdown */}
+        {/* Live delivery countdown — urgent state keeps OG orange for the
+            urgency signal; non-urgent recedes to cream tones. */}
         <div style={{
           padding: '11px 14px', borderRadius: 'var(--radius-sm)',
-          background: ct.urgent ? 'rgba(245,127,32,0.09)' : 'rgba(9,24,37,0.04)',
-          border: `1px solid ${ct.urgent ? 'rgba(245,127,32,0.28)' : S.border}`,
+          background: ct.urgent ? 'rgba(245,127,32,0.14)' : 'rgba(245,240,232,0.07)',
+          border: `1px solid ${ct.urgent ? 'rgba(245,127,32,0.35)' : 'rgba(245,240,232,0.14)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
           transition: 'background 400ms, border-color 400ms',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Truck size={14} strokeWidth={1.9} color={ct.urgent ? OG : S.fgMuted} />
-            <span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: ct.urgent ? OG : S.fgMuted }}>
+            <Truck size={14} strokeWidth={1.9} color={ct.urgent ? OG : TIER_POP_TEXT.muted} />
+            <span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: ct.urgent ? OG : TIER_POP_TEXT.muted }}>
               {ct.label}
             </span>
           </div>
           {dorm && (
-            <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: S.fgSub, background: 'rgba(9,24,37,0.06)', padding: '2px 8px', borderRadius: 'var(--radius-pill)' }}>
+            <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: TIER_POP_TEXT.muted, background: 'rgba(245,240,232,0.10)', padding: '2px 8px', borderRadius: 'var(--radius-pill)' }}>
               {dorm}
             </span>
           )}
@@ -404,13 +400,13 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
         // the hero's edge wash, anchored top-down so it doesn't copy the
         // hero verbatim. Energy without competing for the focal slot.
         background: isOff
-          ? 'rgba(9,24,37,0.04)'
+          ? 'var(--ds-skeleton-base)'
           : isPreview
             ? `
                 linear-gradient(180deg, rgba(245,127,32,0.13) 0%, rgba(245,127,32,0.055) 28%, rgba(245,127,32,0.018) 60%, rgba(245,127,32,0) 100%),
-                #ffffff
+                var(--ds-surface2)
               `
-            : '#faf2dd',
+            : 'var(--ds-week-card-bg, #faf2dd)',
         border: isToday
           ? `2px solid rgba(245,127,32,0.32)`
           : isOff
@@ -549,7 +545,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
       <div style={{ padding: padBody, display: 'flex', flexDirection: 'column', gap: isPreview ? 6 : 8, flex: 1 }}>
         <div style={{
           fontFamily: BODY, fontSize: dishFontSize, fontWeight: 700,
-          lineHeight: 1.2, color: NV, opacity: isOff ? 0.55 : 1,
+          lineHeight: 1.2, color: S.fg, opacity: isOff ? 0.55 : 1,
           display: '-webkit-box', WebkitLineClamp: dishClampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         } as React.CSSProperties}>
           {/* Period accent only on today — same brand signature used by
@@ -585,7 +581,7 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(9,24,37,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+      style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
       onClick={onClose}
     >
       <motion.div
@@ -594,24 +590,24 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
-        style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 560, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', overflow: 'auto' }}
+        style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 560, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)', maxHeight: '90vh', overflow: 'auto' }}
       >
         {meal.image && (
-          <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 18, background: 'rgba(9,24,37,0.04)' }}>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 18, background: 'var(--ds-skeleton-base)' }}>
             <Image src={meal.image} alt={meal.dish} fill sizes="540px" style={{ objectFit: 'cover' }} />
           </div>
         )}
         <Eyebrow>{meal.day} · {meal.date}</Eyebrow>
-        <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 28, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em' }}>{meal.dish}</div>
+        <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 28, fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em' }}>{meal.dish}</div>
         <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 14, color: S.fgMuted, lineHeight: 1.65 }}>{meal.sub}</div>
         <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: '#ffffff', border: `1px solid ${S.border}` }}>
+          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-surface2)', border: `1px solid ${S.border}` }}>
             <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted }}>Calories</div>
-            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 28, fontWeight: 700, color: NV, fontFeatureSettings: '"tnum"', lineHeight: 1, letterSpacing: '-0.02em' }}>{meal.cal.toFixed(0)}<span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}> kcal</span></div>
+            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 28, fontWeight: 700, color: S.fg, fontFeatureSettings: '"tnum"', lineHeight: 1, letterSpacing: '-0.02em' }}>{meal.cal.toFixed(0)}<span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}> kcal</span></div>
           </div>
-          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: '#ffffff', border: `1px solid ${S.border}` }}>
+          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-surface2)', border: `1px solid ${S.border}` }}>
             <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted }}>Protein</div>
-            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 28, fontWeight: 700, color: NV, fontFeatureSettings: '"tnum"', lineHeight: 1, letterSpacing: '-0.02em' }}>{meal.protein.toFixed(0)}<span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}> g</span></div>
+            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 28, fontWeight: 700, color: S.fg, fontFeatureSettings: '"tnum"', lineHeight: 1, letterSpacing: '-0.02em' }}>{meal.protein.toFixed(0)}<span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}> g</span></div>
           </div>
         </div>
         <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -624,7 +620,7 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
         </div>
         <button
           type="button" onClick={onClose}
-          style={{ marginTop: 22, width: '100%', padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+          style={{ marginTop: 22, width: '100%', padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
         >
           Close
         </button>
@@ -677,12 +673,12 @@ export default function MenuClient({
   const DAY_ABBREVS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
 
         {/* ── Page header ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, color: NV }}>
+          <div style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, color: S.fg }}>
             My menu<span style={{ color: OG }}>.</span>
           </div>
           <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 14, color: S.fgMuted, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -693,7 +689,7 @@ export default function MenuClient({
                 while the current cycle keeps cooking as before. No mid-
                 cycle "locked" copy here — the modal already explains
                 the timing. */}
-            <a href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}>
+            <a href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}>
               Change
             </a>
             <span style={{ opacity: 0.4 }}>·</span>
@@ -802,8 +798,8 @@ export default function MenuClient({
            Past cards still lift on hover (positive past, fully interactive). */
         .week-day-card:not(:disabled):hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 26px rgba(9,24,37,0.10) !important;
-          border-color: rgba(245,127,32,0.28) !important;
+          box-shadow: var(--ds-shadow-elev) !important;
+          border-color: var(--ds-og-border) !important;
         }
         .week-day-card[data-state="today"]:not(:disabled):hover {
           box-shadow: 0 10px 26px rgba(245,127,32,0.20), 0 0 0 4px rgba(245,127,32,0.12) !important;
@@ -812,23 +808,23 @@ export default function MenuClient({
         .week-day-card:not(:disabled):hover .week-day-thumb img { transform: scale(1.04); }
 
         /* Today's "alive" state — orange glow halo gently breathes (4s cycle,
-           ease-in-out) layered with the static ambient ring + TIER1 lift.
-           Subtle enough to register as warmth, not movement, in peripheral
-           vision. Disabled for users who prefer reduced motion. */
+           ease-in-out) layered with the static ambient ring + tier-1 lift.
+           Brand-orange shadow stays the same in both themes; the underlying
+           depth shadow swaps to the theme's tier-1 shadow variable so the
+           cell sits properly against either palette. Disabled for users who
+           prefer reduced motion. */
         @keyframes today-pulse {
           0%, 100% {
             box-shadow:
               0 8px 28px rgba(245,127,32,0.14),
               0 0 0 4px rgba(245,127,32,0.10),
-              0 6px 18px rgba(9,24,37,0.07),
-              0 1px 3px rgba(9,24,37,0.04);
+              var(--ds-shadow-tier1);
           }
           50% {
             box-shadow:
               0 10px 32px rgba(245,127,32,0.24),
               0 0 0 4px rgba(245,127,32,0.10),
-              0 6px 18px rgba(9,24,37,0.07),
-              0 1px 3px rgba(9,24,37,0.04);
+              var(--ds-shadow-tier1);
           }
         }
         .week-day-card[data-state="today"]:not(:disabled) {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ChevronRight, AlertTriangle } from 'lucide-react'
-import { OG, NV, BODY, S } from './tokens'
+import { OG, BODY, S } from './tokens'
 
 /**
  * Persistent (non-dismissable) banner shown at the top of the dashboard
@@ -19,24 +19,24 @@ export function ProfileBanner({ missing }: { missing: string[] }) {
       marginBottom: 18,
       padding: '14px 18px',
       borderRadius: 'var(--radius-sm)',
-      background: 'rgba(245,127,32,0.07)',
-      border: '1px solid rgba(245,127,32,0.32)',
+      background: 'var(--ds-og-wash)',
+      border: '1px solid var(--ds-og-border-strong)',
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     }}>
       <div style={{
         width: 36, height: 36, flexShrink: 0, borderRadius: '50%',
-        background: 'rgba(245,127,32,0.16)',
+        background: 'var(--ds-og-wash-strong)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: OG,
       }}>
         <AlertTriangle size={18} strokeWidth={2.4} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
           Finish your profile to unlock plan purchase.
         </div>
         <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-          Still needed: <strong style={{ color: NV }}>{missing.join(', ')}</strong>.
+          Still needed: <strong style={{ color: S.fg }}>{missing.join(', ')}</strong>.
         </div>
       </div>
       <Link

@@ -44,6 +44,72 @@
   --leading-tight:   1.2;     /* titles, eyebrows, tight stacks */
   --leading-normal:  1.5;     /* body, captions */
   --leading-relaxed: 1.65;    /* long-form reading, modal copy */
+
+  /* Dashboard surface tokens */
+  --ds-page-bg:          #ffffff;
+  --ds-content-bg:       #ede8da;
+  --ds-content-border:   rgba(245,127,32,0.45);
+  --ds-bg-gradient:      linear-gradient(160deg, #f5f0e8 0%, #ede8da 60%, #e4dfd6 100%);
+
+  --ds-surface2:         #ffffff;
+  --ds-surface-tier1:    #fcf8ee;
+  --ds-surface-tier2:    #f8f3e6;
+  --ds-surface-tier3:    #f3eedf;
+  --ds-surface-pop:      linear-gradient(135deg, #1a3e4f 0%, #091825 100%);
+
+  --ds-border:           rgba(9,24,37,0.09);
+  --ds-border2:          rgba(9,24,37,0.15);
+  --ds-border-tier1:     rgba(9,24,37,0.10);
+  --ds-border-tier2:     rgba(9,24,37,0.07);
+  --ds-border-tier3:     rgba(9,24,37,0.05);
+  --ds-border-pop:       rgba(26,62,79,0.60);
+  --ds-border-soft:      rgba(9,24,37,0.07);
+  --ds-border-strong:    rgba(9,24,37,0.18);
+
+  --ds-fg:               #091825;
+  --ds-fg-muted:         rgba(9,24,37,0.65);
+  --ds-fg-sub:           rgba(9,24,37,0.62);
+  --ds-fg-faint:         rgba(9,24,37,0.45);
+  --ds-fg-soft:          rgba(9,24,37,0.55);
+  --ds-fg-tint:          rgba(9,24,37,0.35);
+
+  --ds-shadow-tier1:     0 6px 18px rgba(9,24,37,0.07), 0 1px 3px rgba(9,24,37,0.04);
+  --ds-shadow-tier2:     0 1px 3px rgba(9,24,37,0.035);
+  --ds-shadow-pop:       0 8px 32px rgba(9,24,37,0.22), 0 2px 8px rgba(9,24,37,0.14);
+  --ds-shadow-modal:     0 24px 60px -20px rgba(9,24,37,0.35), 0 8px 20px rgba(9,24,37,0.10);
+  --ds-shadow-elev:      0 4px 16px rgba(9,24,37,0.08), 0 1px 4px rgba(9,24,37,0.04);
+
+  --ds-input-bg:         #ffffff;
+  --ds-input-border:     rgba(9,24,37,0.15);
+  --ds-input-fg:         #091825;
+  --ds-input-placeholder: rgba(9,24,37,0.40);
+
+  --ds-og-wash:          rgba(245,127,32,0.06);
+  --ds-og-wash-strong:   rgba(245,127,32,0.10);
+  --ds-og-border:        rgba(245,127,32,0.22);
+  --ds-og-border-strong: rgba(245,127,32,0.45);
+
+  --ds-danger-wash:      rgba(229,62,62,0.06);
+  --ds-danger-border:    rgba(229,62,62,0.20);
+  --ds-danger-fg:        #c0392b;
+
+  --ds-success-wash:     rgba(29,138,48,0.08);
+  --ds-success-border:   rgba(29,138,48,0.30);
+  --ds-success-fg:       #1d8a30;
+
+  --ds-overlay:          rgba(9,24,37,0.45);
+  --ds-overlay-strong:   rgba(9,24,37,0.65);
+  --ds-tooltip-bg:       rgba(9,24,37,0.95);
+  --ds-tooltip-fg:       #ede8da;
+
+  --ds-skeleton-base:    rgba(9,24,37,0.04);
+  --ds-skeleton-shine:   rgba(9,24,37,0.06);
+
+  --ds-glass-bg:         rgba(255,255,255,0.85);
+  --ds-glass-bg-strong:  rgba(255,255,255,0.99);
+  --ds-mobile-menu-bg:   rgba(255,255,255,0.85);
+
+  --ds-week-card-bg:     #faf2dd;
 }
 
 @theme inline {
@@ -177,8 +243,8 @@ html.light .hiw-text-block {
 [data-tooltip]:focus-visible::after {
   content: attr(data-tooltip);
   position: absolute;
-  background: rgba(9,24,37,0.95);
-  color: #ede8da;
+  background: var(--ds-tooltip-bg);
+  color: var(--ds-tooltip-fg);
   padding: 6px 10px;
   border-radius: 8px;
   font-family: var(--font-montserrat), Arial, sans-serif;
@@ -188,7 +254,7 @@ html.light .hiw-text-block {
   white-space: nowrap;
   pointer-events: none;
   z-index: 9999;
-  box-shadow: 0 4px 16px rgba(9,24,37,0.25);
+  box-shadow: var(--ds-shadow-elev);
   opacity: 0;
   animation: tooltipIn 120ms ease-out 350ms forwards;
 }
@@ -211,7 +277,7 @@ html.light .hiw-text-block {
 [data-tooltip]:not([data-tooltip-placement]):hover::before,
 [data-tooltip][data-tooltip-placement="top"]:hover::before {
   bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%);
-  border-top-color: rgba(9,24,37,0.95);
+  border-top-color: var(--ds-tooltip-bg);
 }
 
 /* Bottom placement */
@@ -220,7 +286,7 @@ html.light .hiw-text-block {
 }
 [data-tooltip][data-tooltip-placement="bottom"]:hover::before {
   top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
-  border-bottom-color: rgba(9,24,37,0.95);
+  border-bottom-color: var(--ds-tooltip-bg);
 }
 
 /* Right placement (used for sidebar nav items) */
@@ -229,7 +295,7 @@ html.light .hiw-text-block {
 }
 [data-tooltip][data-tooltip-placement="right"]:hover::before {
   left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
-  border-right-color: rgba(9,24,37,0.95);
+  border-right-color: var(--ds-tooltip-bg);
 }
 
 @keyframes tooltipIn {

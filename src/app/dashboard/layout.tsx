@@ -36,7 +36,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    /* Cream background fills the whole viewport */
     <div style={{ minHeight: '100vh', background: '#ffffff' }}>
       <DashboardShell
         customerName={customerName}

@@ -4,10 +4,10 @@ import { useState, useTransition, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X, PartyPopper, ChevronRight } from 'lucide-react'
+import { X, PartyPopper, ChevronRight, PauseCircle } from 'lucide-react'
 import { pauseSubscription, resumeSubscription, skipMeal } from './actions'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
-import { cleanPlanName, OG, NV, BG, BODY, S } from './_shared/tokens'
+import { cleanPlanName, OG, BG, BODY, S } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
 import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
@@ -147,6 +147,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const [successAction, setSuccessAction]   = useState<'skip' | 'pause' | 'resume' | null>(null)
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [showPauseConfirm, setShowPauseConfirm] = useState(false)
+  const [showQueuedPauseWarning, setShowQueuedPauseWarning] = useState(false)
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -161,13 +162,17 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current) }, [])
 
   useEffect(() => {
-    if (!showSkipConfirm && !showPauseConfirm) return
+    if (!showSkipConfirm && !showPauseConfirm && !showQueuedPauseWarning) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setShowSkipConfirm(false); setShowPauseConfirm(false) }
+      if (e.key === 'Escape') {
+        setShowSkipConfirm(false)
+        setShowPauseConfirm(false)
+        setShowQueuedPauseWarning(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showSkipConfirm, showPauseConfirm])
+  }, [showSkipConfirm, showPauseConfirm, showQueuedPauseWarning])
 
   const isWeekly       = sub.plan_name.includes('Weekly Flex')
   const isOneTime      = sub.plan_name.includes('One-Time')
@@ -210,16 +215,31 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id), 'skipped', 'skip') }
   const handlePauseRequest = () => {
     if (isPending || isScheduled) return
-    // Resume is always allowed (even on the final day) so a paused customer
-    // can wrap their cycle cleanly. Pause is locked once it's the final day
-    // past 14:00 AE — pushing end_date out then doesn't protect tonight's
-    // already-prepped meal.
-    if (localState === 'paused')                      act(() => resumeSubscription(sub.id), 'active',  'resume')
-    else if (pausePastFinalDay)                        return
-    else if (canPause && localState === 'active')     setShowPauseConfirm(true)
+    if (localState === 'paused') {
+      // Same-day lock: kitchen needs a committed no-prep window. UI button is
+      // already disabled, but guard here too so a double-tap can't sneak through.
+      if (resumeLockedSameDay) return
+      act(() => resumeSubscription(sub.id), 'active', 'resume')
+    }
+    else if (pausePastFinalDay) return
+    else if (canPause && localState === 'active') {
+      // If the user has a queued plan, surface a warning that its start date
+      // will shift forward with each delivery day they stay paused. The DB
+      // trigger (trg_subscriptions_shift_queued_scheduled) handles the actual
+      // cascade — this modal just makes the consequence visible before the tap.
+      if (queuedSub) {
+        setShowQueuedPauseWarning(true)
+      } else {
+        setShowPauseConfirm(true)
+      }
+    }
   }
   const handlePauseConfirm = () => {
     setShowPauseConfirm(false)
+    act(() => pauseSubscription(sub.id), 'paused', 'pause')
+  }
+  const handleQueuedPauseConfirm = () => {
+    setShowQueuedPauseWarning(false)
     act(() => pauseSubscription(sub.id), 'paused', 'pause')
   }
 
@@ -231,7 +251,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     localState === 'skipped' && !isSameDay(sub.last_skipped_date)
   const effectiveSub: Subscription = {
     ...sub,
-    status: localState === 'paused' ? 'Paused' : localState === 'skipped' ? 'Skipped' : sub.status,
+    status: localState === 'paused' ? SUBSCRIPTION_STATUS.PAUSED : localState === 'skipped' ? SUBSCRIPTION_STATUS.SKIPPED : sub.status,
     skipped_meals_count: optimisticSkipPending ? sub.skipped_meals_count + 1 : sub.skipped_meals_count,
     last_skipped_date:   optimisticSkipPending ? new Date().toISOString()    : sub.last_skipped_date,
   }
@@ -291,6 +311,20 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     return isoDow === 6 || isoDow === 7  // 5DAYS
   }, [subWeekType])
 
+  // Same-day resume lock: if the sub was paused today (AE calendar) the resume
+  // button stays locked. The kitchen needs at least one committed no-prep window
+  // before the customer can flip back — same-day reversal creates operational
+  // ambiguity. Falls back to today's date during the optimistic window when
+  // sub.pause_date hasn't refreshed yet (localState flipped but server not back).
+  const resumeLockedSameDay = useMemo(() => {
+    const pd = sub.pause_date ?? (localState === 'paused' ? new Date().toISOString() : null)
+    if (!pd) return false
+    const shift = 4 * 60 * 60 * 1000
+    const todayAE = new Date(Date.now()             + shift).toISOString().slice(0, 10)
+    const pauseAE = new Date(new Date(pd).getTime() + shift).toISOString().slice(0, 10)
+    return todayAE === pauseAE
+  }, [sub.pause_date, localState])
+
   // Final-day pause lock: it's the cycle's last delivery date AND the AE
   // wall clock has crossed 14:00 (kitchen prep cutoff). Pausing now would
   // push end_date out by 1 calendar day, but tonight's delivery is already
@@ -340,7 +374,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }, [showSuccessOverlay])
 
   return (
-    <div className="dash-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+    <div className="dash-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
 
       {/* ── Success overlay — 2s emotional flourish after successful checkout.
             Animated checkmark + radial confetti burst over a softly blurred
@@ -360,7 +394,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               position: 'fixed', inset: 0, zIndex: 300,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               pointerEvents: 'none',
-              background: 'radial-gradient(circle at center, rgba(245,127,32,0.18) 0%, rgba(9,24,37,0.55) 70%)',
+              background: 'radial-gradient(circle at center, rgba(245,127,32,0.18) 0%, var(--ds-overlay-strong) 70%)',
               backdropFilter: 'blur(4px)',
               WebkitBackdropFilter: 'blur(4px)',
             }}
@@ -492,25 +526,25 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 marginBottom: 16,
                 padding: '14px 18px',
                 borderRadius: 'var(--radius-md)',
-                background: 'linear-gradient(135deg, rgba(245,127,32,0.10) 0%, rgba(255,170,0,0.05) 100%)',
-                border: '1px solid rgba(245,127,32,0.32)',
+                background: 'linear-gradient(135deg, var(--ds-og-wash-strong) 0%, var(--ds-og-wash) 100%)',
+                border: '1px solid var(--ds-og-border-strong)',
                 display: 'flex', alignItems: 'center', gap: 14,
               }}
             >
               <div style={{
                 width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
-                background: 'rgba(245,127,32,0.16)',
+                background: 'var(--ds-og-wash-strong)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: OG,
               }}>
                 <PartyPopper size={20} strokeWidth={2} aria-hidden />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
                   Your <strong style={{ color: OG }}>{cleanPlanName(justBoughtSub.plan_name)}</strong> is {new Date(justBoughtSub.start_date) > new Date() ? 'scheduled' : 'active'}.
                 </div>
                 <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-                  First meal arrives <strong style={{ color: NV }}>{fmtWithDay(justBoughtSub.start_date)}</strong>. Receipt sent to your inbox.
+                  First meal arrives <strong style={{ color: S.fg }}>{fmtWithDay(justBoughtSub.start_date)}</strong>. Receipt sent to your inbox.
                 </div>
               </div>
               <button
@@ -537,16 +571,16 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}>
-              {getGreeting()}, <strong style={{ color: NV, fontWeight: 700 }}>{firstName}</strong>.
+              {getGreeting()}, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong>.
             </div>
             {totalDelivered >= 5 && (
               <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, letterSpacing: 0, lineHeight: 1.5 }}>
-                <strong style={{ color: NV, fontWeight: 700 }}>{totalDelivered}</strong> dinners with us
+                <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinners with us
                 {memberSinceText && <> · since {memberSinceText}</>}
                 {endedPlans.length > 0 && (
                   <> · <Link
                           href="/dashboard/history"
-                          style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.20)', textUnderlineOffset: 3 }}
+                          style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
                         >
                           {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
                         </Link></>
@@ -560,7 +594,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         <AnimatePresence>
           {actionError && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)', color: '#b91c1c', fontFamily: BODY, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{actionError}</span>
               <button onClick={() => setActionError(null)} className="btn-toast-close" aria-label="Dismiss" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 6px', borderRadius: 4, transition: 'transform 100ms' }}><X size={14} strokeWidth={2.5} aria-hidden /></button>
             </motion.div>
@@ -586,18 +620,18 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               marginBottom: 18,
               padding: '14px 18px',
               borderRadius: 'var(--radius-sm)',
-              background: 'linear-gradient(135deg, rgba(245,127,32,0.10) 0%, rgba(255,170,0,0.05) 100%)',
-              border: '1px solid rgba(245,127,32,0.32)',
+              background: 'linear-gradient(135deg, var(--ds-og-wash-strong) 0%, var(--ds-og-wash) 100%)',
+              border: '1px solid var(--ds-og-border-strong)',
               display: 'flex', alignItems: 'center', gap: 14,
             }}>
               <div style={{
                 width: 36, height: 36, flexShrink: 0, borderRadius: '50%',
-                background: 'rgba(245,127,32,0.16)',
+                background: 'var(--ds-og-wash-strong)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: OG, fontFamily: BODY, fontSize: 18, fontWeight: 800,
               }}>!</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: NV, lineHeight: 1.3 }}>
+                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
                   Last meal of your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> tonight.
                 </div>
                 <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
@@ -610,7 +644,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '10px 16px',
-                    background: 'rgba(9,24,37,0.20)', color: 'rgba(255,255,255,0.85)',
+                    background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)',
                     borderRadius: 'var(--radius-pill)',
                     fontFamily: BODY, fontSize: 12, fontWeight: 700,
                     letterSpacing: '0.04em', textTransform: 'uppercase',
@@ -701,7 +735,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             (2) Tonight's dish + Quick actions
             (3) Plan progress                                                   */}
         <div className={`dash-grid${skipStagger ? ' dash-grid-no-stagger' : ''}`}>
-          <StatRow sub={effectiveSub} />
+          <StatRow sub={effectiveSub} isPaused={localState === 'paused'} />
           <HeroToday
             todayMeal={todayMeal}
             localState={localState}
@@ -717,6 +751,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               && !queuedSub
               && new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
             }
+            resumeLockedSameDay={resumeLockedSameDay}
           />
           <QuickActions
             canPause={canPause}
@@ -733,12 +768,15 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             skipPastCutoff={!isScheduled && skipPastCutoff}
             skipNoDelivery={!isScheduled && skipNoDelivery}
             pausePastFinalDay={!isScheduled && pausePastFinalDay}
+            resumeLockedSameDay={resumeLockedSameDay}
+            isPausableTier={isPausableTier}
+            isTrialPlan={isOneTime}
           />
           {/* PlanProgress takes the full row width on the main dashboard.
               The Past plans card has moved to /dashboard/plan (beside the
               Common questions block) so the live progress can breathe and
               the historical view lives in one obvious place. */}
-          <PlanProgress sub={effectiveSub} />
+          <PlanProgress sub={effectiveSub} isPaused={localState === 'paused'} />
         </div>
 
         {/* Skip confirmation modal — sharpened for irreversibility */}
@@ -748,7 +786,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(9,24,37,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+              style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
               onClick={() => setShowSkipConfirm(false)}
             >
               <motion.div
@@ -757,7 +795,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 exit={{ opacity: 0, scale: 0.95, y: 12 }}
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 onClick={e => e.stopPropagation()}
-                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 440, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
+                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 440, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
               >
                 {/* Hierarchy — three tiers, no redundancy:
                       H1 (large, navy): the question
@@ -767,7 +805,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                       Data row (smaller, tabular): the after-state — skips
                           left and the +1 day shift, side by side. Numbers
                           first so the eye grabs them before the labels. */}
-                <h2 style={{ margin: 0, fontFamily: BODY, fontSize: 24, fontWeight: 800, color: NV, lineHeight: 1.15, letterSpacing: '-0.015em' }}>
+                <h2 style={{ margin: 0, fontFamily: BODY, fontSize: 24, fontWeight: 800, color: S.fg, lineHeight: 1.15, letterSpacing: '-0.015em' }}>
                   Skip tonight&rsquo;s meal?
                 </h2>
                 <p style={{ marginTop: 10, marginBottom: 0, fontFamily: BODY, fontSize: 14, color: S.fgMuted, lineHeight: 1.6 }}>
@@ -778,8 +816,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                     marginTop: 20,
                     padding: '14px 16px',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(245,127,32,0.06)',
-                    border: '1px solid rgba(245,127,32,0.20)',
+                    background: 'var(--ds-og-wash)',
+                    border: '1px solid var(--ds-og-border)',
                     display: 'grid',
                     gridTemplateColumns: skipQuota.total > 0 ? '1fr 1fr' : '1fr',
                     gap: 14,
@@ -788,16 +826,16 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                     <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
                       End date
                     </div>
-                    <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: NV, fontFeatureSettings: '"tnum"' }}>
+                    <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: S.fg, fontFeatureSettings: '"tnum"' }}>
                       <span style={{ color: OG }}>+1 day</span>
                     </div>
                   </div>
                   {skipQuota.total > 0 && (
-                    <div style={{ borderLeft: '1px solid rgba(245,127,32,0.20)', paddingLeft: 14 }}>
+                    <div style={{ borderLeft: '1px solid var(--ds-og-border)', paddingLeft: 14 }}>
                       <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
                         Skips left
                       </div>
-                      <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: NV, fontFeatureSettings: '"tnum"' }}>
+                      <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: S.fg, fontFeatureSettings: '"tnum"' }}>
                         {Math.max(0, skipQuota.left - 1)}<span style={{ color: S.fgSub, fontWeight: 600 }}> / {skipQuota.total}</span>
                       </div>
                     </div>
@@ -810,7 +848,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 <p style={{
                     margin: '14px 0 0 0',
                     fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
-                    color: '#9a2828',
+                    color: 'var(--ds-danger-fg)',
                     letterSpacing: '0.04em', textTransform: 'uppercase',
                     lineHeight: 1.4,
                     textAlign: 'center',
@@ -821,7 +859,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                   <button
                     onClick={() => setShowSkipConfirm(false)}
-                    style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+                    style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
                   >
                     Cancel
                   </button>
@@ -844,7 +882,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(9,24,37,0.65)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+              style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
               onClick={() => setShowPauseConfirm(false)}
             >
               <motion.div
@@ -853,21 +891,21 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 exit={{ opacity: 0, scale: 0.95, y: 12 }}
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 onClick={e => e.stopPropagation()}
-                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 420, width: '100%', border: '1px solid rgba(245,127,32,0.20)', boxShadow: 'var(--shadow-lg)' }}
+                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 420, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
               >
-                <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                   Pause your plan?
                 </div>
                 <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
-                  This uses your <strong style={{ color: NV }}>1 free pause</strong> for the cycle. Your end date extends by the days you stay paused. Resume any time after tomorrow.
+                  This uses your <strong style={{ color: S.fg }}>1 free pause</strong> for the cycle. Your end date extends by the days you stay paused. Resume any time after tomorrow.
                 </div>
-                <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.08)', border: '1px solid rgba(245,127,32,0.18)', fontFamily: BODY, fontSize: 12, color: '#a35100', lineHeight: 1.5 }}>
+                <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', fontFamily: BODY, fontSize: 12, color: OG, lineHeight: 1.5 }}>
                   Pauses available: <strong>1 of 1</strong>
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                   <button
                     onClick={() => setShowPauseConfirm(false)}
-                    style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(9,24,37,0.15)', background: '#ffffff', color: NV, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+                    style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
                   >
                     Cancel
                   </button>
@@ -876,6 +914,118 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                     style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
                   >
                     Yes, pause
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Queued-plan pause warning modal — shown instead of the standard
+            pause-confirm when the user has a Scheduled next plan. Explains
+            that the queued plan's start date shifts with each delivery day
+            they stay paused (handled automatically by the DB trigger). The
+            user acknowledges and taps "Pause anyway" to proceed directly,
+            or cancels. Single confirmation — no secondary "Are you sure?" */}
+        <AnimatePresence>
+          {showQueuedPauseWarning && queuedSub && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+              onClick={() => setShowQueuedPauseWarning(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                onClick={e => e.stopPropagation()}
+                style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 460, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
+              >
+                {/* Icon medallion */}
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%',
+                  background: 'var(--ds-og-wash)',
+                  border: '1.5px solid var(--ds-og-border-strong)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 18, color: OG,
+                }}>
+                  <PauseCircle size={22} strokeWidth={2} />
+                </div>
+
+                <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 800, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+                  Your next plan will start later
+                </div>
+                <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 10, lineHeight: 1.65 }}>
+                  You have a <strong style={{ color: S.fg }}>{cleanPlanName(queuedSub.plan_name)}</strong> queued to start{' '}
+                  <strong style={{ color: S.fg }}>
+                    {new Date(queuedSub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </strong>.
+                  While paused, that start date shifts forward by one delivery day for each day you stay paused.
+                </div>
+
+                {/* Two-column impact summary */}
+                <div style={{
+                  marginTop: 18,
+                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+                }}>
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--ds-og-wash)',
+                    border: '1px solid var(--ds-og-border)',
+                  }}>
+                    <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
+                      This plan
+                    </div>
+                    <div style={{ marginTop: 5, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
+                      End date extends
+                    </div>
+                    <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.4 }}>
+                      +1 delivery day while paused
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(58,111,140,0.08)',
+                    border: '1px solid rgba(58,111,140,0.25)',
+                  }}>
+                    <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(42,84,112,0.6)' }}>
+                      Next plan
+                    </div>
+                    <div style={{ marginTop: 5, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
+                      Start date shifts too
+                    </div>
+                    <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.4 }}>
+                      Auto-updated on resume
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  marginTop: 14,
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--ds-skeleton-base)',
+                  border: '1px solid var(--ds-border-soft)',
+                  fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5,
+                }}>
+                  This uses your <strong style={{ color: S.fg }}>1 free pause</strong> for the cycle. Resume any time after tomorrow — your next plan&apos;s confirmed start date will be shown on the dashboard.
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                  <button
+                    onClick={() => setShowQueuedPauseWarning(false)}
+                    style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleQueuedPauseConfirm}
+                    style={{ flex: 2, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
+                  >
+                    Understood — pause anyway
                   </button>
                 </div>
               </motion.div>
@@ -926,8 +1076,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         .upcoming-card { will-change: transform, box-shadow; }
         .upcoming-card:hover:not(:disabled) {
           transform: translateY(-3px);
-          box-shadow: 0 10px 28px rgba(9,24,37,0.12) !important;
-          border-color: rgba(245,127,32,0.30) !important;
+          box-shadow: var(--ds-shadow-elev) !important;
+          border-color: var(--ds-og-border) !important;
         }
         .upcoming-card:hover:not(:disabled) .upcoming-thumb img { transform: scale(1.06); }
 
@@ -947,7 +1097,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         .dormwars-share-btn:hover { transform: translateY(-1px); background: rgba(37,211,102,0.16) !important; border-color: rgba(37,211,102,0.65) !important; }
         .dormwars-share-btn:active { transform: translateY(0); }
 
-        .view-menu-btn:hover { color: rgba(9,24,37,0.90) !important; }
+        .view-menu-btn:hover { color: var(--ds-fg) !important; }
         .view-menu-btn:active { opacity: 0.7; }
       `}</style>
     </div>

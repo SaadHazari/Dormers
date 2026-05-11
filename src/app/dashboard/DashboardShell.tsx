@@ -31,7 +31,7 @@ export default function DashboardShell({
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      {/* Mobile hamburger — only visible on small screens, opens the sidebar drawer */}
+      {/* Mobile hamburger — only visible on small screens, opens the sidebar drawer. */}
       <button
         type="button"
         onClick={() => setMobileOpen(true)}

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Bell, Settings, Gift,
+  X, Bell, Sun, Moon, Gift,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
@@ -47,6 +47,7 @@ export default function Sidebar({
   const router = useRouter()
   const [hover, setHover] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<DropdownKind>(null)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const drawerOpen = mobileOpen
 
   // Profile / History live in dropdowns and aren't visible at mount, so Next's
@@ -62,6 +63,44 @@ export default function Sidebar({
       router.prefetch('/dashboard/history')
     })
   }, [router])
+
+  // Collapse on navigate. Without this, dropdown links — which sit in a
+  // panel that's a DOM child of <aside> but rendered visually OUTSIDE its
+  // bounds (left: calc(100% + 8px)) — leave the sidebar stuck expanded
+  // after click: the dropdown unmounts, the cursor lands in dead space,
+  // and mouseleave never fires because the cursor never crossed <aside>'s
+  // boundary. A pathname-watching reset catches every sidebar exit, so
+  // this can't regress when new dropdown links are added later.
+  useEffect(() => {
+    setHover(false)
+    setOpenDropdown(null)
+  }, [pathname])
+
+  // Persisted theme — read on mount, write on toggle.
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
+      if (s.theme === 'light' || s.theme === 'dark') {
+        setTheme(s.theme)
+        applyTheme(s.theme)
+      }
+    } catch {}
+  }, [])
+
+  function applyTheme(t: 'light' | 'dark') {
+    if (t === 'light') document.documentElement.classList.add('light')
+    else               document.documentElement.classList.remove('light')
+  }
+
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    applyTheme(next)
+    try {
+      const cur = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
+      localStorage.setItem('dormers-settings', JSON.stringify({ ...cur, theme: next }))
+    } catch {}
+  }
 
   const displayName = customerName || userEmail.split('@')[0] || ''
   const parts = displayName.split(' ')
@@ -283,17 +322,24 @@ export default function Sidebar({
             <span style={labelStyle}>Notifications</span>
           </button>
 
+          {/* Direct theme toggle — replaces the old Settings dropdown
+              (which only ever held this single control). One tap flips
+              light/dark, no intermediate menu. Icon + label both reflect
+              the CURRENT mode, matching the previous dropdown labelling. */}
           <button
             type="button"
-            onClick={() => setOpenDropdown(d => d === 'settings' ? null : 'settings')}
-            data-tooltip="Settings"
+            onClick={toggleTheme}
+            data-tooltip={theme === 'light' ? 'Light mode — tap for dark' : 'Dark mode — tap for light'}
             data-tooltip-placement="right"
-            aria-label="Settings"
-            className={openDropdown === 'settings' ? 'sidebar-nav-active' : 'sidebar-nav-item'}
-            style={{ ...rowStyle(openDropdown === 'settings'), background: openDropdown === 'settings' ? 'rgba(237,232,218,0.08)' : 'transparent', border: '1px solid transparent', color: S.fgIdle }}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            aria-pressed={theme === 'dark'}
+            className="sidebar-nav-item"
+            style={{ ...rowStyle(false), background: 'transparent', border: '1px solid transparent', color: S.fgIdle }}
           >
-            <Settings size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
-            <span style={labelStyle}>Settings</span>
+            {theme === 'light'
+              ? <Sun  size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
+              : <Moon size={18} strokeWidth={2} style={{ flexShrink: 0 }} />}
+            <span style={labelStyle}>{theme === 'light' ? 'Light mode' : 'Dark mode'}</span>
           </button>
         </div>
 
@@ -335,6 +381,7 @@ export default function Sidebar({
         <SidebarDropdowns
           openDropdown={openDropdown}
           setOpenDropdown={setOpenDropdown}
+          onMobileClose={onMobileClose}
           customerCid={customerCid}
           referralCount={referralCount}
           displayName={displayName}

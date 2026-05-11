@@ -26,7 +26,7 @@ export function HeatBar({ level }: { level: number }) {
                             width: 5,
                             height: 9,
                             borderRadius: 1.5,
-                            background: i < level ? OG : 'rgba(9,24,37,0.10)',
+                            background: i < level ? OG : 'var(--ds-border-strong)',
                             display: 'inline-block',
                         }}
                     />

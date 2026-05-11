@@ -2,18 +2,18 @@
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { cleanPlanName, OG, NV, BODY, DISPLAY } from '../_shared/tokens'
+import { cleanPlanName, OG, BODY, DISPLAY } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { fmt } from '../_shared/format'
 
 // Translucent-surface S — History rows sit over the BG_GRADIENT page wash
-// (set by the layout), so cards use 0.60 alpha white. Diverges from the
-// canonical light-S which uses solid #ffffff.
+// (set by the layout), so cards use a soft glass over the cream/navy panel.
+// Variables flip in dark mode via globals.css.
 const S = {
-  surface2: 'rgba(255,255,255,0.60)',
-  border:   'rgba(9,24,37,0.09)',
-  fgMuted:  'rgba(9,24,37,0.65)',
-  fgSub:    'rgba(9,24,37,0.50)',
+  surface2: 'var(--ds-glass-bg)',
+  border:   'var(--ds-border)',
+  fgMuted:  'var(--ds-fg-sub)',
+  fgSub:    'var(--ds-fg-faint)',
 }
 
 export type EndedPlan = {
@@ -29,7 +29,7 @@ export type EndedPlan = {
 
 export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         {/* Back link */}
         <Link
@@ -55,7 +55,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
           <h1 style={{
             margin: '6px 0 0 0',
             fontFamily: DISPLAY, fontSize: 'clamp(28px, 4vw, 40px)',
-            fontWeight: 600, letterSpacing: '-0.01em', color: NV, lineHeight: 1.1,
+            fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ds-fg)', lineHeight: 1.1,
           }}>
             Your subscription history.
           </h1>
@@ -74,7 +74,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
               boxShadow: 'var(--shadow-sm)',
               textAlign: 'center',
             }}>
-              <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 600, color: NV }}>
+              <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 600, color: 'var(--ds-fg)' }}>
                 No past plans yet.
               </div>
               <div style={{ marginTop: 6, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
@@ -104,9 +104,9 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
                       <div style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         fontFamily: BODY, fontSize: 16, fontWeight: 600,
-                        color: NV, lineHeight: 1.25, letterSpacing: '-0.005em',
+                        color: 'var(--ds-fg)', lineHeight: 1.25, letterSpacing: '-0.005em',
                       }}>
-                        <PlanGlyph planName={p.plan_name} size={16} color={NV} />
+                        <PlanGlyph planName={p.plan_name} size={16} color="currentColor" />
                         {cleanName}
                       </div>
                       <div style={{
@@ -131,7 +131,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
       </div>
 
       <style jsx global>{`
-        .history-back:hover { color: ${NV} !important; }
+        .history-back:hover { color: var(--ds-fg) !important; }
         @media (max-width: 720px) {
           .history-row {
             grid-template-columns: 1fr !important;
@@ -155,7 +155,7 @@ function Stat({ label, value, accent = false }: { label: string; value: string; 
       <div style={{
         marginTop: 4,
         fontFamily: DISPLAY, fontSize: 18, fontWeight: 600,
-        color: accent ? OG : NV, lineHeight: 1,
+        color: accent ? OG : 'var(--ds-fg)', lineHeight: 1,
         fontFeatureSettings: '"tnum"',
       }}>
         {value}

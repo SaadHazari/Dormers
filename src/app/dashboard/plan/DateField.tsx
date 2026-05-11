@@ -162,7 +162,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
         <CalendarDays size={16} strokeWidth={2.2} aria-hidden />
         <span className={`checkout-date-label${value ? '' : ' is-empty'}`}>{labelText}</span>
         <ChevronDown size={16} strokeWidth={2.2} aria-hidden style={{
-          color: 'rgba(9,24,37,0.5)',
+          color: 'var(--ds-fg-faint)',
           transition: 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1)',
           transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
         }} />
@@ -263,9 +263,9 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           gap: 10px;
           padding: 18px 16px;
           border-radius: 14px;
-          border: 1px solid rgba(9, 24, 37, 0.15);
-          background: #fff;
-          color: rgba(9, 24, 37, 0.55);
+          border: 1px solid var(--ds-border-strong);
+          background: var(--ds-input-bg);
+          color: var(--ds-fg-soft);
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 14px;
           font-weight: 700;
@@ -277,21 +277,21 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
             background  220ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .checkout-date-trigger:hover {
-          border-color: rgba(9, 24, 37, 0.30);
+          border-color: var(--ds-fg-tint);
         }
         .checkout-date-trigger[aria-expanded="true"],
         .checkout-date-trigger:focus-visible {
-          border-color: rgba(245, 127, 32, 0.55);
+          border-color: var(--ds-og-border-strong);
           box-shadow: 0 0 0 3px rgba(245, 127, 32, 0.14);
         }
         .checkout-date-label {
           flex: 1;
           text-align: left;
-          color: #091825;
+          color: var(--ds-fg);
           font-feature-settings: 'tnum';
         }
         .checkout-date-label.is-empty {
-          color: rgba(9, 24, 37, 0.50);
+          color: var(--ds-fg-faint);
           font-weight: 600;
         }
 
@@ -303,15 +303,13 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           top: calc(100% + 8px);
           left: 0;
           z-index: 20;
-          background: #fcf8ee;
-          border: 1px solid rgba(9, 24, 37, 0.10);
+          background: var(--ds-surface-tier1);
+          border: 1px solid var(--ds-border-tier1);
           border-radius: 16px;
           padding: 16px;
           min-width: 296px;
           transform-origin: top left;
-          box-shadow:
-            0 14px 40px rgba(9, 24, 37, 0.16),
-            0 4px 12px  rgba(9, 24, 37, 0.06);
+          box-shadow: var(--ds-shadow-modal);
         }
         .checkout-date-popover-head {
           display: flex;
@@ -324,7 +322,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
           font-weight: 700;
-          color: #091825;
+          color: var(--ds-fg);
           letter-spacing: 0.10em;
           text-transform: uppercase;
         }
@@ -334,7 +332,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           border-radius: 8px;
           border: 0;
           background: transparent;
-          color: #091825;
+          color: var(--ds-fg);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -342,7 +340,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .checkout-date-nav:hover:not(:disabled) {
-          background: rgba(9, 24, 37, 0.06);
+          background: var(--ds-skeleton-base);
         }
         .checkout-date-nav:disabled {
           opacity: 0.30;
@@ -360,7 +358,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.10em;
-          color: rgba(9, 24, 37, 0.45);
+          color: var(--ds-fg-faint);
           text-transform: uppercase;
           padding: 6px 0;
         }
@@ -377,7 +375,7 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 13px;
           font-weight: 600;
-          color: #091825;
+          color: var(--ds-fg);
           cursor: pointer;
           font-feature-settings: 'tnum';
           transition:
@@ -386,8 +384,8 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
             transform  150ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .checkout-date-cell:hover:not(:disabled):not(.is-selected) {
-          background: rgba(245, 127, 32, 0.10);
-          color: #a35100;
+          background: var(--ds-og-wash-strong);
+          color: #f57f20;
         }
         .checkout-date-cell:active:not(:disabled):not(.is-selected) {
           transform: scale(0.92);
@@ -403,10 +401,10 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           box-shadow: 0 4px 12px rgba(245, 127, 32, 0.30);
         }
         .checkout-date-cell.is-outmonth {
-          color: rgba(9, 24, 37, 0.20);
+          color: var(--ds-fg-tint);
         }
         .checkout-date-cell:disabled {
-          color: rgba(9, 24, 37, 0.20);
+          color: var(--ds-fg-tint);
           cursor: not-allowed;
           /* Title attr on a disabled <button> still surfaces the tooltip in
              every major browser via the parent listener; pointer-events stays
@@ -420,26 +418,28 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
         /* Non-delivery day — Sun for 6DAYS, Sat+Sun for 5DAYS. Visually
            distinguished from out-of-month / out-of-window cells with a
            diagonal hatch so the user reads it as "structurally unavailable"
-           rather than "outside the month". */
+           rather than "outside the month". The hatch uses currentColor so it
+           tracks the cell's text color in either theme. */
         .checkout-date-cell.is-no-delivery {
-          color: rgba(9, 24, 37, 0.30);
+          color: var(--ds-fg-tint);
           background-image: repeating-linear-gradient(
             135deg,
-            rgba(9, 24, 37, 0.045) 0px,
-            rgba(9, 24, 37, 0.045) 3px,
+            currentColor 0px,
+            currentColor 3px,
             transparent 3px,
             transparent 6px
           );
+          background-blend-mode: normal;
         }
         .checkout-date-cell.is-no-delivery:hover {
           background-image: repeating-linear-gradient(
             135deg,
-            rgba(239, 68, 68, 0.08) 0px,
-            rgba(239, 68, 68, 0.08) 3px,
+            rgba(239, 68, 68, 0.20) 0px,
+            rgba(239, 68, 68, 0.20) 3px,
             transparent 3px,
             transparent 6px
           );
-          color: rgba(154, 40, 40, 0.65);
+          color: var(--ds-danger-fg);
         }
 
         /* Legend below the calendar grid — explains what the hatched cells
@@ -447,17 +447,17 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
         .checkout-date-legend {
           margin: 12px 0 0;
           padding-top: 10px;
-          border-top: 1px solid rgba(9, 24, 37, 0.06);
+          border-top: 1px solid var(--ds-border-soft);
           display: inline-flex;
           align-items: center;
           gap: 8px;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11px;
-          color: rgba(9, 24, 37, 0.55);
+          color: var(--ds-fg-soft);
           line-height: 1.5;
         }
         .checkout-date-legend strong {
-          color: #091825;
+          color: var(--ds-fg);
           font-weight: 700;
         }
         .checkout-date-legend-dot {
@@ -467,13 +467,13 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
           flex-shrink: 0;
           background-image: repeating-linear-gradient(
             135deg,
-            rgba(9, 24, 37, 0.18) 0px,
-            rgba(9, 24, 37, 0.18) 3px,
+            var(--ds-fg-tint) 0px,
+            var(--ds-fg-tint) 3px,
             transparent 3px,
             transparent 6px
           );
-          background-color: rgba(9, 24, 37, 0.04);
-          border: 1px solid rgba(9, 24, 37, 0.10);
+          background-color: var(--ds-skeleton-base);
+          border: 1px solid var(--ds-border);
         }
       `}</style>
     </div>

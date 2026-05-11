@@ -25,8 +25,8 @@ export function LockedVegDays({ vegDays, weekType }: {
   return (
     <div style={{
       padding: 14, borderRadius: 14,
-      background: 'rgba(58,111,140,0.06)',
-      border: '1px solid rgba(58,111,140,0.20)',
+      background: 'rgba(58,111,140,0.10)',
+      border: '1px solid rgba(58,111,140,0.30)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
         <Eyebrow>Your veg days</Eyebrow>
@@ -54,16 +54,16 @@ export function LockedVegDays({ vegDays, weekType }: {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '7px 12px', borderRadius: 999,
-                border: `1px solid ${isVegDay ? 'rgba(29,138,48,0.30)' : 'rgba(9,24,37,0.10)'}`,
-                background: isVegDay ? 'rgba(29,138,48,0.10)' : 'rgba(9,24,37,0.04)',
-                color: isVegDay ? '#1d8a30' : S.fgMuted,
+                border: `1px solid ${isVegDay ? 'var(--ds-success-border)' : 'var(--ds-border)'}`,
+                background: isVegDay ? 'var(--ds-success-wash)' : 'var(--ds-skeleton-base)',
+                color: isVegDay ? 'var(--ds-success-fg)' : S.fgMuted,
                 fontFamily: BODY, fontSize: 12, fontWeight: 700,
                 letterSpacing: '0.04em', textTransform: 'uppercase',
                 cursor: 'not-allowed',
                 opacity: 0.95,
               }}
             >
-              {isVegDay && <span style={{ width: 6, height: 6, borderRadius: 2, background: '#1d8a30', display: 'inline-block' }} />}
+              {isVegDay && <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--ds-success-fg)', display: 'inline-block' }} />}
               {day.slice(0, 3)}
             </span>
           )

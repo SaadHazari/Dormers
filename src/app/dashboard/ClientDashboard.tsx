@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { OG, NV, BODY, S } from './_shared/tokens'
+import { OG, BODY, S } from './_shared/tokens'
 import { NoPlanView } from './NoPlanView'
 import { ActiveDashboard } from './ActiveDashboard'
 import { ProfileBanner } from './_shared/ProfileBanner'
@@ -100,12 +100,12 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // webhook hasn't written yet.
   if (checkoutSuccess && !newSubLanded) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22, fontFamily: BODY, color: NV, padding: 32 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22, fontFamily: BODY, color: S.fg, padding: 32 }}>
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
           style={{ width: 44, height: 44, borderRadius: '50%', border: `2px solid rgba(245,127,32,0.30)`, borderTopColor: OG }} />
         {waitedTooLong ? (
           <div style={{ textAlign: 'center', maxWidth: 420 }}>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV }}>Almost there…</div>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg }}>Almost there…</div>
             <div style={{ fontSize: 14, color: S.fgMuted, marginTop: 8, lineHeight: 1.65 }}>
               Your payment went through. Setup is taking longer than usual — your plan should appear in the next minute. If it doesn’t, message us and we’ll sort it out instantly.
             </div>
@@ -127,7 +127,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
           </div>
         ) : (
           <div style={{ textAlign: 'center', maxWidth: 360 }}>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV }}>Order received!</div>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg }}>Order received!</div>
             <div style={{ fontSize: 14, color: S.fgMuted, marginTop: 8, lineHeight: 1.65 }}>Setting up your meal plan…</div>
           </div>
         )}
@@ -150,12 +150,12 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // — the effect above strips the param.
   if (!activeSubscription) {
     return (
-      <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+      <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
           <OutOfZoneBanner show={outOfZone} />
           <ProfileBanner missing={missingFields} />
           {checkoutCanceled && (
-            <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'rgba(9,24,37,0.04)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
+            <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
               Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
             </div>
           )}

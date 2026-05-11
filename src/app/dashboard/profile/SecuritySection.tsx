@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Mail, Lock, MessageCircle, ShieldCheck, ShieldAlert, X, ChevronRight, Eye, EyeOff, Check } from 'lucide-react'
-import { OG, NV, BG, BODY, S, TIER1 } from '../_shared/tokens'
+import { OG, BG, BODY, S, TIER1 } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import {
   requestEmailChange,
@@ -53,7 +53,7 @@ export function SecuritySection({
 
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 0 }}>
         <SecurityRow
-          icon={<Mail size={18} strokeWidth={2} color={NV} />}
+          icon={<Mail size={18} strokeWidth={2} color="currentColor" />}
           label="Email"
           value={email}
           status={emailConfirmed ? 'verified' : 'unverified'}
@@ -62,7 +62,7 @@ export function SecuritySection({
         />
         <Divider />
         <SecurityRow
-          icon={<Lock size={18} strokeWidth={2} color={NV} />}
+          icon={<Lock size={18} strokeWidth={2} color="currentColor" />}
           label="Password"
           value="••••••••"
           valueClassName="password-dots"
@@ -72,7 +72,7 @@ export function SecuritySection({
         />
         <Divider />
         <SecurityRow
-          icon={<MessageCircle size={18} strokeWidth={2} color={NV} />}
+          icon={<MessageCircle size={18} strokeWidth={2} color="currentColor" />}
           label="WhatsApp"
           value={whatsapp.number ?? 'Not set'}
           status={whatsapp.number ? (whatsapp.verified ? 'verified' : 'unverified') : 'unset'}
@@ -101,7 +101,7 @@ export function SecuritySection({
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: 'rgba(9,24,37,0.07)', margin: '4px 0' }} />
+  return <div style={{ height: 1, background: 'var(--ds-border-soft)', margin: '4px 0' }} />
 }
 
 function SecurityRow({
@@ -126,7 +126,7 @@ function SecurityRow({
       <div style={{
         width: 36, height: 36, flexShrink: 0,
         borderRadius: 10,
-        background: 'rgba(9,24,37,0.05)',
+        background: 'var(--ds-skeleton-base)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 160 }}>
@@ -138,7 +138,7 @@ function SecurityRow({
           className={valueClassName}
           style={{
             marginTop: 4, fontFamily: BODY, fontSize: 14, fontWeight: 600,
-            color: NV, wordBreak: 'break-all',
+            color: 'var(--ds-fg)', wordBreak: 'break-all',
           }}
         >{value}</div>
       </div>
@@ -150,9 +150,9 @@ function SecurityRow({
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '8px 14px',
           borderRadius: 999,
-          background: '#ffffff',
+          background: 'var(--ds-input-bg)',
           border: `1px solid ${S.border2}`,
-          color: NV,
+          color: 'var(--ds-fg)',
           fontFamily: BODY, fontSize: 12, fontWeight: 700,
           letterSpacing: '0.04em', textTransform: 'uppercase',
           cursor: 'pointer',
@@ -164,7 +164,7 @@ function SecurityRow({
       </button>
 
       <style jsx>{`
-        .security-action-btn:hover { background: rgba(245,127,32,0.06); border-color: rgba(245,127,32,0.30); }
+        .security-action-btn:hover { background: var(--ds-og-wash); border-color: var(--ds-og-border); }
       `}</style>
       <style jsx global>{`
         /* Password dots — overrides the default 14px row value rendering so
@@ -174,7 +174,7 @@ function SecurityRow({
           font-size: 22px !important;
           line-height: 1 !important;
           letter-spacing: 0.18em;
-          color: #091825 !important;
+          color: var(--ds-fg) !important;
           /* macOS native password fields render • at ~22px with tight
              tracking; matching that mental model so the row looks like a
              "password" instead of a list of bullet points. */
@@ -188,9 +188,9 @@ function SecurityRow({
 function StatusBadge({ status }: { status: 'verified' | 'unverified' | 'set' | 'unset' }) {
   if (status === 'set') return null // password — no badge needed
   const map = {
-    verified:   { bg: 'rgba(29,138,48,0.12)',  fg: '#1d8a30', icon: <ShieldCheck size={11} strokeWidth={2.4} />, label: 'Verified' },
-    unverified: { bg: 'rgba(255,170,0,0.16)',  fg: '#a36900', icon: <ShieldAlert size={11} strokeWidth={2.4} />, label: 'Unverified' },
-    unset:      { bg: 'rgba(9,24,37,0.06)',    fg: 'rgba(9,24,37,0.55)', icon: <ShieldAlert size={11} strokeWidth={2.4} />, label: 'Not set' },
+    verified:   { bg: 'var(--ds-success-wash)',   fg: 'var(--ds-success-fg)', icon: <ShieldCheck size={11} strokeWidth={2.4} />, label: 'Verified' },
+    unverified: { bg: 'rgba(255,170,0,0.16)',     fg: '#c89417',              icon: <ShieldAlert size={11} strokeWidth={2.4} />, label: 'Unverified' },
+    unset:      { bg: 'var(--ds-skeleton-base)',  fg: 'var(--ds-fg-soft)',    icon: <ShieldAlert size={11} strokeWidth={2.4} />, label: 'Not set' },
   }[status]
   return (
     <span style={{
@@ -232,7 +232,7 @@ function ModalShell({
           onClick={onClose}
           style={{
             position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(9,24,37,0.65)',
+            background: 'var(--ds-overlay-strong)',
             backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 24,
@@ -249,8 +249,8 @@ function ModalShell({
               borderRadius: 'var(--radius-md)',
               padding: 28,
               maxWidth: 460, width: '100%',
-              border: '1px solid rgba(245,127,32,0.20)',
-              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--ds-og-border)',
+              boxShadow: 'var(--ds-shadow-modal)',
               position: 'relative',
             }}
           >
@@ -267,7 +267,7 @@ function ModalShell({
             >
               <X size={16} strokeWidth={2.4} />
             </button>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: NV, lineHeight: 1.2, letterSpacing: '-0.01em', paddingRight: 28 }}>
+            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2, letterSpacing: '-0.01em', paddingRight: 28 }}>
               {title}
             </div>
             {subtitle && (
@@ -286,9 +286,9 @@ function ModalShell({
 // Shared field & button styles used inside the modals.
 const fieldStyle: React.CSSProperties = {
   width: '100%', height: 44, padding: '0 14px',
-  borderRadius: 10, border: '1px solid rgba(9,24,37,0.15)',
-  background: '#ffffff',
-  fontFamily: BODY, fontSize: 13, color: NV,
+  borderRadius: 10, border: '1px solid var(--ds-input-border)',
+  background: 'var(--ds-input-bg)',
+  fontFamily: BODY, fontSize: 13, color: 'var(--ds-input-fg)',
   outline: 'none',
 }
 // Password fields get a bigger glyph + wider tracking so the masked dots
@@ -321,8 +321,8 @@ const primaryBtn = (loading: boolean): React.CSSProperties => ({
 const secondaryBtn = (loading: boolean): React.CSSProperties => ({
   flex: 1, padding: '12px 0',
   borderRadius: 'var(--radius-sm)',
-  border: '1px solid rgba(9,24,37,0.15)',
-  background: '#ffffff', color: NV,
+  border: '1px solid var(--ds-border-strong)',
+  background: 'var(--ds-surface2)', color: 'var(--ds-fg)',
   fontFamily: BODY, fontSize: 13, fontWeight: 700,
   letterSpacing: '0.04em',
   cursor: loading ? 'not-allowed' : 'pointer',
@@ -335,9 +335,9 @@ function FlashError({ msg }: { msg: string | null }) {
     <div style={{
       marginTop: 12, padding: '10px 14px',
       borderRadius: 'var(--radius-sm)',
-      background: 'rgba(239,68,68,0.06)',
-      border: '1px solid rgba(239,68,68,0.18)',
-      color: '#9a2828',
+      background: 'var(--ds-danger-wash)',
+      border: '1px solid var(--ds-danger-border)',
+      color: 'var(--ds-danger-fg)',
       fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5,
     }}>{msg}</div>
   )
@@ -348,9 +348,9 @@ function FlashSuccess({ msg }: { msg: string | null }) {
     <div style={{
       marginTop: 12, padding: '10px 14px',
       borderRadius: 'var(--radius-sm)',
-      background: 'rgba(29,138,48,0.08)',
-      border: '1px solid rgba(29,138,48,0.22)',
-      color: '#176626',
+      background: 'var(--ds-success-wash)',
+      border: '1px solid var(--ds-success-border)',
+      color: 'var(--ds-success-fg)',
       fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5,
     }}>{msg}</div>
   )
@@ -411,9 +411,9 @@ function ChangeEmailModal({
             style={{
               ...secondaryBtn(resending),
               width: '100%',
-              border: '1px solid rgba(58,111,140,0.32)',
-              background: 'rgba(58,111,140,0.08)',
-              color: '#3a6f8c',
+              border: '1px solid rgba(58,111,140,0.45)',
+              background: 'rgba(58,111,140,0.14)',
+              color: '#5fa1c4',
             }}
           >
             {resending ? 'Sending…' : `Resend verification to ${currentEmail}`}
@@ -539,7 +539,7 @@ function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             autoComplete="new-password"
           />
           {confirmPassword.length > 0 && !confirmMatches && (
-            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 11.5, color: '#9a2828' }}>
+            <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 11.5, color: 'var(--ds-danger-fg)' }}>
               Doesn&rsquo;t match the new password yet.
             </div>
           )}
@@ -566,7 +566,7 @@ function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             background: 'none', border: 'none',
             color: S.fgMuted,
             fontFamily: BODY, fontSize: 12, fontWeight: 600,
-            textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.30)',
+            textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)',
             textUnderlineOffset: 3,
             cursor: pending || sendingReset ? 'not-allowed' : 'pointer',
           }}
@@ -645,8 +645,8 @@ function DashboardPasswordChecklist({ rules }: { rules: ReturnType<typeof checkP
             <span aria-hidden style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 14, height: 14, borderRadius: 999,
-              background: ok ? '#1d8a30' : '#ffffff',
-              border: `1px solid ${ok ? '#1d8a30' : 'rgba(9,24,37,0.18)'}`,
+              background: ok ? 'var(--ds-success-fg)' : 'var(--ds-input-bg)',
+              border: `1px solid ${ok ? 'var(--ds-success-fg)' : 'var(--ds-border-strong)'}`,
               transition: 'background 150ms, border-color 150ms',
               flexShrink: 0,
             }}>
@@ -654,7 +654,7 @@ function DashboardPasswordChecklist({ rules }: { rules: ReturnType<typeof checkP
             </span>
             <span style={{
               fontFamily: BODY, fontSize: 12,
-              color: ok ? NV : S.fgMuted,
+              color: ok ? 'var(--ds-fg)' : S.fgMuted,
               fontWeight: ok ? 600 : 500,
             }}>
               {r.label}
@@ -837,7 +837,7 @@ function WhatsappVerifyModal({
               background: 'none', border: 'none',
               color: S.fgMuted,
               fontFamily: BODY, fontSize: 12, fontWeight: 600,
-              textDecoration: 'underline', textDecorationColor: 'rgba(9,24,37,0.30)',
+              textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)',
               textUnderlineOffset: 3,
               cursor: (sending || verifying) ? 'not-allowed' : 'pointer',
             }}

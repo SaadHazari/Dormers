@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { NV, BODY, S, TIER2, cleanPlanName } from './_shared/tokens'
+import { BODY, S, TIER2, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { PlanGlyph } from './_shared/PlanGlyph'
 import { fmt } from './_shared/format'
@@ -78,7 +78,7 @@ export function PastPlansCard({ endedPlans }: { endedPlans: Subscription[] }) {
                                     display: 'inline-flex', alignItems: 'center', gap: 8,
                                     minWidth: 0,
                                     fontFamily: BODY, fontSize: 13, fontWeight: 700,
-                                    color: NV, lineHeight: 1.2,
+                                    color: S.fg, lineHeight: 1.2,
                                 }}>
                                     <PlanGlyph planName={s.plan_name} size={13} color={S.fgMuted} />
                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -95,7 +95,7 @@ export function PastPlansCard({ endedPlans }: { endedPlans: Subscription[] }) {
                                 </div>
                                 <div style={{
                                     fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
-                                    color: NV,
+                                    color: S.fg,
                                     fontFeatureSettings: '"tnum"',
                                     whiteSpace: 'nowrap',
                                 }}>
@@ -112,11 +112,11 @@ export function PastPlansCard({ endedPlans }: { endedPlans: Subscription[] }) {
                         gap: 8,
                     }}>
                         <span style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
-                            <strong style={{ color: NV, fontWeight: 700 }}>{sorted.length}</strong> total plan{sorted.length === 1 ? '' : 's'}
+                            <strong style={{ color: S.fg, fontWeight: 700 }}>{sorted.length}</strong> total plan{sorted.length === 1 ? '' : 's'}
                             {overflow > 0 && <> · {overflow} more</>}
                         </span>
                         <span style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgFaint, fontFeatureSettings: '"tnum"' }}>
-                            <strong style={{ color: NV, fontWeight: 700 }}>{sorted.reduce((a, x) => a + (x.delivered_meals ?? 0), 0)}</strong> meals delivered
+                            <strong style={{ color: S.fg, fontWeight: 700 }}>{sorted.reduce((a, x) => a + (x.delivered_meals ?? 0), 0)}</strong> meals delivered
                         </span>
                     </div>
                 </>

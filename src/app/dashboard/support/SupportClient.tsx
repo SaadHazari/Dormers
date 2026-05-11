@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Mail, MessageCircle, Heart } from 'lucide-react'
-import { OG, NV, BODY, MONO, S as BASE_S, TIER1, TIER2 } from '../_shared/tokens'
+import { OG, BODY, MONO, S as BASE_S, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
 import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
@@ -13,10 +13,11 @@ import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
 // cohort and into the main-app surface cohort it sits next to in the sidebar.
 const DISPLAY = BODY
 
+// Slightly stronger muted/sub variants for dense FAQ-heavy copy. Vars flip in dark mode.
 const S = {
   ...BASE_S,
-  fgMuted: 'rgba(9,24,37,0.62)',
-  fgSub: 'rgba(9,24,37,0.50)',
+  fgMuted: 'var(--ds-fg-sub)',
+  fgSub: 'var(--ds-fg-faint)',
 }
 
 const WA_GREEN = '#25D366'
@@ -71,7 +72,7 @@ export default function SupportClient({
   totalDelivered: number
 }) {
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: NV }}>
+    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
 
         {/* Header — matches Menu/Plan: motion fade-in, single-typeface display, period accent. */}
@@ -85,7 +86,7 @@ export default function SupportClient({
           <h1 style={{
             margin: '8px 0 0',
             fontFamily: DISPLAY, fontSize: 'clamp(24px, 3vw, 30px)',
-            fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, color: NV,
+            fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, color: 'var(--ds-fg)',
           }}>
             We&apos;re here for you<span style={{ color: OG }}>.</span>
           </h1>
@@ -95,7 +96,7 @@ export default function SupportClient({
           }}>
             {totalDelivered >= 5 ? (
               <>
-                <strong style={{ color: NV, fontWeight: 700 }}>{totalDelivered}</strong> dinners delivered — we&rsquo;ve got your back. Usually reply within 15 minutes.
+                <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{totalDelivered}</strong> dinners delivered — we&rsquo;ve got your back. Usually reply within 15 minutes.
               </>
             ) : (
               <>Real humans, real food, real support. Usually reply within 15 minutes.</>
@@ -118,22 +119,23 @@ export default function SupportClient({
             gap: 20,
           }}>
 
-            {/* 1. Account info — TIER1 + single OG accent border (mirrors PlanClient's
-                  ActivePlanCallout pattern). Replaces the prior orange-on-orange-on-
-                  orange treatment with a single accent + restrained dividers. */}
+            {/* 1. Account info — TIER_POP: the only data card on the page. Name,
+                  email, and customer ID are the reference the user needs before
+                  they can use either contact channel, so it earns the spotlight.
+                  Email + WhatsApp stay on TIER2 — they're channels, not data. */}
             <div style={{
-              ...TIER1,
+              ...TIER_POP,
               padding: 'clamp(20px, 2.2vw, 28px)',
               borderRadius: 'var(--radius-md)',
-              border: '1.5px solid rgba(245,127,32,0.32)',
               display: 'flex', flexDirection: 'column', gap: 14,
               minHeight: 260,
             }}>
-              <Eyebrow color="#a35100">Your reference</Eyebrow>
+              <Eyebrow color={OG}>Your reference</Eyebrow>
               <h3 style={{
                 margin: 0, fontFamily: DISPLAY,
                 fontSize: 'clamp(18px, 1.6vw, 22px)',
-                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25,
+                color: TIER_POP_TEXT.primary,
               }}>
                 Account info
               </h3>
@@ -149,19 +151,19 @@ export default function SupportClient({
                     style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
                       gap: 8, paddingBottom: 10,
-                      borderBottom: '1px solid rgba(9,24,37,0.08)',
+                      borderBottom: '1px solid rgba(245,240,232,0.12)',
                     }}
                   >
                     <span style={{
                       fontFamily: BODY, fontSize: 10, fontWeight: 600,
                       letterSpacing: '0.14em', textTransform: 'uppercase',
-                      color: S.fgMuted,
+                      color: TIER_POP_TEXT.muted,
                     }}>
                       {row.label}
                     </span>
                     <span style={{
                       fontFamily: row.mono ? MONO : BODY,
-                      fontSize: 13, fontWeight: 600, color: NV,
+                      fontSize: 13, fontWeight: 600, color: TIER_POP_TEXT.primary,
                       maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {row.value}
@@ -171,7 +173,7 @@ export default function SupportClient({
               </div>
 
               <div style={{
-                fontFamily: BODY, fontSize: 11, color: S.fgSub, lineHeight: 1.5,
+                fontFamily: BODY, fontSize: 11, color: TIER_POP_TEXT.faint, lineHeight: 1.5,
               }}>
                 Quote your ID so we can pull up your account instantly.
               </div>
@@ -193,11 +195,11 @@ export default function SupportClient({
               }}>
                 <Mail size={20} strokeWidth={2} aria-hidden />
               </div>
-              <Eyebrow color="#a35100">Within 24 hours</Eyebrow>
+              <Eyebrow color={OG}>Within 24 hours</Eyebrow>
               <h3 style={{
                 margin: 0, fontFamily: DISPLAY,
                 fontSize: 'clamp(18px, 1.6vw, 22px)',
-                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: 'var(--ds-fg)',
               }}>
                 Email us
               </h3>
@@ -251,7 +253,7 @@ export default function SupportClient({
               <h3 style={{
                 margin: 0, fontFamily: DISPLAY,
                 fontSize: 'clamp(18px, 1.6vw, 22px)',
-                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: NV,
+                fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: 'var(--ds-fg)',
               }}>
                 Chat on WhatsApp
               </h3>

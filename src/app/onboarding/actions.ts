@@ -36,6 +36,34 @@ function redirectToLoginExisting(email: string): never {
     redirect(`/login?${params.toString()}`)
 }
 
+const DORM_CODES: Record<string, string> = {
+    'The Myriad':      'MYR',
+    'KSK Homes':       'KSK',
+    'Yugo':            'YUG',
+    'DSOA Residence':  'DSO',
+    'Study World':     'STU',
+    'Other':           'OTH',
+}
+
+// Mirrors the Make.com CID formula: upper(substring(dorm; 0; 3)) + formatDate(now; mmss)
+// Produces e.g. "MYR2347" — 3-letter dorm code + zero-padded minutes + seconds.
+// For unknown dorms (future additions), strips articles and takes the first 3 letters.
+function generateCid(dorm: string): string {
+    const code =
+        DORM_CODES[dorm] ??
+        dorm
+            .replace(/\b(the|and|or|of|in|at|for)\b/gi, '')
+            .trim()
+            .replace(/\s+/g, '')
+            .slice(0, 3)
+            .toUpperCase()
+            .padEnd(3, 'X')
+    const now = new Date()
+    const mm = String(now.getMinutes()).padStart(2, '0')
+    const ss = String(now.getSeconds()).padStart(2, '0')
+    return `${code}${mm}${ss}`
+}
+
 function validateOnboardingPayload(p: OnboardingPayload): string | null {
     if (!p.email || !/^\S+@\S+\.\S+$/.test(p.email)) return 'Invalid email address.'
     if (!isPasswordStrong(p.password ?? '')) return PASSWORD_RULES_TEXT
@@ -176,6 +204,7 @@ export async function createAccount(
     // Upsert the customer profile (trigger may or may not have run yet)
     await supabaseAdmin.from('customers').upsert({
         id: userId,
+        cid: generateCid(payload.dorm),
         email: payload.email,
         name: payload.name,
         whatsapp_number: payload.phone,

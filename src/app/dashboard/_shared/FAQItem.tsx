@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BODY, NV, OG, S } from './tokens'
+import { BODY, OG, S } from './tokens'
 
 /**
  * Collapsible FAQ row with animated expand/collapse. Was duplicated
@@ -29,7 +29,7 @@ export function FAQItem({ q, a }: { q: string; a: string }) {
                     textAlign: 'left',
                 }}
             >
-                <span style={{ fontFamily: BODY, fontSize: 14, fontWeight: 600, color: NV, flex: 1 }}>
+                <span style={{ fontFamily: BODY, fontSize: 14, fontWeight: 600, color: S.fg, flex: 1 }}>
                     {q}
                 </span>
                 <span

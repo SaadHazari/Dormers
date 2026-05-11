@@ -8,18 +8,38 @@ import { BODY, OG3 } from './tokens'
  * eye-catch. The other three states stay calmer because they live next to
  * cards/copy that already communicate state.
  */
-export function StatusDot({ status }: { status: string }) {
-    const map: Record<string, { bg: string; fg: string; dot: string; border?: string; shadow?: string }> = {
-        Active:    { bg: 'rgba(9,145,14,0.14)',  fg: '#1d8a30',           dot: '#1d8a30' },
-        Paused:    { bg: 'rgba(255,170,0,0.16)', fg: '#a36900',           dot: OG3 },
-        Scheduled: {
-            bg: '#3a6f8c', fg: '#ffffff',
-            dot: '#ffffff',
-            border: '1px solid rgba(58,111,140,0.55)',
-            shadow: '0 0 0 4px rgba(58,111,140,0.14), 0 4px 12px rgba(58,111,140,0.30)',
-        },
-        Ended:     { bg: 'rgba(9,24,37,0.08)',    fg: 'rgba(9,24,37,0.55)', dot: 'rgba(9,24,37,0.45)' },
-    }
+// Theme-aware map — tuned for cream/white surfaces (light) and navy panels
+// (dark). Hue families stay constant; the underlying CSS variables flip the
+// surface tint and text alpha so each pill reads clearly in either theme.
+const LIGHT_MAP: Record<string, { bg: string; fg: string; dot: string; border?: string; shadow?: string }> = {
+    Active:    { bg: 'var(--ds-success-wash)', fg: 'var(--ds-success-fg)', dot: 'var(--ds-success-fg)' },
+    Paused:    { bg: 'rgba(255,170,0,0.18)',   fg: '#c89417',              dot: OG3 },
+    Scheduled: {
+        bg: '#3a6f8c', fg: '#ffffff',
+        dot: '#ffffff',
+        border: '1px solid rgba(58,111,140,0.55)',
+        shadow: '0 0 0 4px rgba(58,111,140,0.14), 0 4px 12px rgba(58,111,140,0.30)',
+    },
+    Ended:     { bg: 'var(--ds-skeleton-base)', fg: 'var(--ds-fg-soft)',   dot: 'var(--ds-fg-faint)' },
+}
+
+// Dark-surface map — tuned for TIER_POP (#091825 base). Bright foreground
+// values so each pill reads clearly against dark navy. Active mint ~10:1,
+// Paused amber ~8:1, Scheduled unchanged (white on blue already correct).
+const DARK_MAP: Record<string, { bg: string; fg: string; dot: string; border?: string; shadow?: string }> = {
+    Active:    { bg: 'rgba(86,239,172,0.14)', fg: '#86efac', dot: '#86efac' },
+    Paused:    { bg: 'rgba(255,208,0,0.18)',  fg: '#fcd34d', dot: '#fcd34d' },
+    Scheduled: {
+        bg: '#3a6f8c', fg: '#ffffff',
+        dot: '#ffffff',
+        border: '1px solid rgba(255,255,255,0.25)',
+        shadow: '0 0 0 4px rgba(58,111,140,0.30)',
+    },
+    Ended:     { bg: 'rgba(245,240,232,0.08)', fg: 'rgba(245,240,232,0.45)', dot: 'rgba(245,240,232,0.35)' },
+}
+
+export function StatusDot({ status, onDark }: { status: string; onDark?: boolean }) {
+    const map = onDark ? DARK_MAP : LIGHT_MAP
     const c = map[status] || map.Active
     const isScheduled = status === 'Scheduled'
     return (

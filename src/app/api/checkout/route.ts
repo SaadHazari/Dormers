@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     // uses as the cap for vegDays count.
     const { data: customerRow } = await supabase
       .from('customers')
-      .select('name, dorm_name, meal_preference_type, whatsapp_number, whatsapp_verified, week_type, out_of_zone')
+      .select('name, dorm_name, meal_preference_type, whatsapp_number, whatsapp_verified, week_type, pending_week_type, out_of_zone')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -105,10 +105,19 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
 
+    // Effective week_type — pending wins for renewals, mirroring the
+    // webhook's create-time resolution. Without the pending fallback the
+    // price-floor + veg-day caps below would judge a queued 5DAYS sub
+    // against the customer's still-canonical 6DAYS column, allowing a
+    // tampered submit (e.g. 5 veg days for a 5DAYS sub = all-veg, which
+    // defeats "Religious Mix") to slip past validation.
+    const effectiveWeekTypeRaw =
+      customerRow?.pending_week_type ?? customerRow?.week_type;
+    const customerWeekType: WeekType = effectiveWeekTypeRaw === '5DAYS' ? '5DAYS' : '6DAYS';
+
     // Minimum-price floor — week_type-aware so 5DAYS submissions don't get
     // rejected against the 6DAYS floor. Tamper-defense: prevents AED 1 /
     // Monthly Max via the cheapest-preference × cycle-meals lower bound.
-    const customerWeekType: WeekType = customerRow?.week_type === '5DAYS' ? '5DAYS' : '6DAYS';
     if (amount < minPriceFilsFor(planDef.id, customerWeekType)) {
       return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
     }
@@ -135,7 +144,7 @@ export async function POST(req: Request) {
     // 5DAYS plan and get charged the wrong-tier price, or persist a stale
     // 'Saturday' that the dashboard menu would silently drop.
     if (preference === 'Religious Preference' || /religious/i.test(preference)) {
-      const W = (customerRow?.week_type === '5DAYS') ? 5 : 6;
+      const W = customerWeekType === '5DAYS' ? 5 : 6;
       const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].slice(0, W));
       const list = Array.isArray(vegDays) ? vegDays : [];
       const n = list.length;
@@ -166,6 +175,26 @@ export async function POST(req: Request) {
       return NextResponse.json({
         error: 'QUEUE_FULL',
         message: `You already have a ${existingScheduled.plan_name} queued to start ${existingScheduled.start_date}. Wait until your current plan ends before queuing another.`,
+      }, { status: 409 });
+    }
+
+    // ── Paused-plan guard ──────────────────────────────────────────────────
+    // A paused plan's end date shifts each delivery day it stays paused, so
+    // we can't compute a valid start date for the next plan until the customer
+    // resumes and the end date is confirmed. Block checkout pre-Stripe to
+    // avoid a charge that can't be cleanly scheduled.
+    const { data: pausedSub } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('customer_id', user.id)
+      .eq('status', SUBSCRIPTION_STATUS.PAUSED)
+      .limit(1)
+      .maybeSingle();
+
+    if (pausedSub) {
+      return NextResponse.json({
+        error: 'PLAN_PAUSED',
+        message: 'Your current plan is paused — resume it first so your end date is confirmed, then you can renew.',
       }, { status: 409 });
     }
 

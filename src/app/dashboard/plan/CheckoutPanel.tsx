@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, Lock } from 'lucide-react'
-import { TIER1, NV, BODY } from '../_shared/tokens'
+import { Loader2, Lock, PauseCircle } from 'lucide-react'
+import Link from 'next/link'
+import { TIER1, BODY, OG, S } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
@@ -21,6 +22,11 @@ interface CheckoutCustomer {
   // pre-fill the day picker so returning religious-mix users don't restart
   // from blank every checkout. They can still override any pick here.
   veg_days?: string[] | null
+  // Pending wins over canonical for renewals — if the customer queued a
+  // veg-day change while their current sub is still running, the next
+  // sub's day picker should pre-fill from those queued days, not the
+  // already-superseded canonical ones. Mirrors `effectivePreferences()`.
+  pending_veg_days?: string[] | null
 }
 
 interface CheckoutSubscription {
@@ -129,7 +135,13 @@ export function CheckoutPanel({
     p: typeof pref, count: number, days: readonly string[],
   ): string[] => {
     if (p !== 'Religious') return []
-    return (customer?.veg_days ?? [])
+    // Pending wins over canonical — the queued change is what the next
+    // sub will be created with, so the picker must reflect it. Without
+    // this fallback, a customer who queued a Mon/Wed/Fri → Tue/Thu/Sat
+    // swap would see the OLD days pre-selected on renewal checkout even
+    // though the webhook drains pending_veg_days into the new sub.
+    const seed = customer?.pending_veg_days ?? customer?.veg_days ?? []
+    return seed
       .filter(d => (days as string[]).includes(d))
       .slice(0, count)
   }
@@ -143,7 +155,9 @@ export function CheckoutPanel({
     // from weekType so it's covered by that dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pref, vegDayCount, weekType])
-  const hasSavedVegPref = (customer?.veg_days?.length ?? 0) > 0
+  const hasSavedVegPref =
+    (customer?.pending_veg_days?.length ?? 0) > 0 ||
+    (customer?.veg_days?.length ?? 0) > 0
 
   const toggleVegDay = (day: string) => {
     setVegDays(prev => {
@@ -155,6 +169,7 @@ export function CheckoutPanel({
   const vegDaysReady = pref !== 'Religious' || vegDays.length === vegDayCount
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
 
   // Date picker bounds — both bounds anchored to a single starting point so
   // the user always gets a 30-day window to pick from:
@@ -201,6 +216,7 @@ export function CheckoutPanel({
   const handleCheckout = async () => {
     if (!startDate) return
     setError(null)
+    setErrorCode(null)
     setCheckoutLoading(true)
     // Mark the moment we hand off to Stripe — the dashboard uses this on
     // return to wait for a sub created *after* this timestamp before showing
@@ -230,15 +246,16 @@ export function CheckoutPanel({
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
-      } else if (data.error === 'QUEUE_FULL' || data.error === 'TRIAL_COOLDOWN' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE') {
-        // Friendly server-side rejection (1+1 stack rule, trial cooldown,
-        // profile gate). The `message` field is pre-formatted for display.
+      } else if (data.error === 'QUEUE_FULL' || data.error === 'TRIAL_COOLDOWN' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED') {
+        // Friendly server-side rejection — message is pre-formatted for display.
+        setErrorCode(data.error)
         setError(data.message ?? 'Checkout blocked — please review your account and try again.')
       } else {
-        setError(data.error ?? 'Couldn’t reach our payment system. Please try again — or message us on WhatsApp to complete your order.')
+        setErrorCode(null)
+        setError(data.error ?? "Couldn't reach our payment system. Please try again — or message us on WhatsApp to complete your order.")
       }
     } catch {
-      setError('Couldn’t reach our payment system. Check your connection and try again — or message us on WhatsApp to complete your order.')
+      setError("Couldn't reach our payment system. Check your connection and try again — or message us on WhatsApp to complete your order.")
     } finally {
       setCheckoutLoading(false)
     }
@@ -283,7 +300,7 @@ export function CheckoutPanel({
                 baseline — Crown next to "Monthly Max", Gem next to
                 "Monthly Premium", etc. */}
             <div className="checkout-plan-name">
-              <PlanGlyph planName={selected} size={24} color={NV} />
+              <PlanGlyph planName={selected} size={24} color="currentColor" />
               <span>{selected}</span>
             </div>
             <div className="checkout-plan-meta">
@@ -375,9 +392,9 @@ export function CheckoutPanel({
                     style={{
                       padding: '10px 0',
                       borderRadius: 8,
-                      border: `1px solid ${active ? '#3a6f8c' : 'rgba(9,24,37,0.10)'}`,
-                      background: active ? 'rgba(58,111,140,0.16)' : (atCap ? 'rgba(9,24,37,0.03)' : '#ffffff'),
-                      color: active ? '#3a6f8c' : (atCap ? 'rgba(9,24,37,0.40)' : NV),
+                      border: `1px solid ${active ? '#5fa1c4' : 'var(--ds-border-strong)'}`,
+                      background: active ? 'rgba(58,111,140,0.20)' : (atCap ? 'var(--ds-skeleton-base)' : 'var(--ds-surface2)'),
+                      color: active ? 'var(--ds-fg)' : (atCap ? 'var(--ds-fg-tint)' : S.fg),
                       fontFamily: BODY,
                       fontSize: 12,
                       fontWeight: 700,
@@ -471,17 +488,59 @@ export function CheckoutPanel({
                 Powered by Stripe &middot; Card details never touch our servers.
               </p>
               {error && (
-                <div className="checkout-error">
-                  <p className="checkout-error-msg">{error}</p>
-                  <a
-                    href={whatsAppHref('Hi! I had trouble checking out — could you help me complete my order?')}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="checkout-error-cta"
-                  >
-                    Message us on WhatsApp →
-                  </a>
-                </div>
+                errorCode === 'PLAN_PAUSED' ? (
+                  /* Paused-plan block — actionable, not a dead end.
+                     Orange/amber tone matches the pause visual language
+                     used throughout the dashboard. No WhatsApp link:
+                     the user can fix this themselves in one tap. */
+                  <div style={{
+                    marginTop: 10,
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    background: 'var(--ds-og-wash)',
+                    border: '1px solid var(--ds-og-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <PauseCircle size={16} strokeWidth={2} color={OG} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+                      <div>
+                        <p style={{ margin: 0, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.35 }}>
+                          Your current plan is paused
+                        </p>
+                        <p style={{ margin: '4px 0 0', fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
+                          Resume your plan first — your next plan can only start once your current end date is confirmed.
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        alignSelf: 'flex-start',
+                        padding: '9px 16px', borderRadius: 999,
+                        fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        background: OG, color: '#fff', textDecoration: 'none', border: 0,
+                        boxShadow: '0 2px 8px rgba(245,127,32,0.28)',
+                      }}
+                    >
+                      Resume my plan →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="checkout-error">
+                    <p className="checkout-error-msg">{error}</p>
+                    <a
+                      href={whatsAppHref('Hi! I had trouble checking out — could you help me complete my order?')}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="checkout-error-cta"
+                    >
+                      Message us on WhatsApp →
+                    </a>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -511,7 +570,7 @@ export function CheckoutPanel({
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: clamp(22px, 2.6vw, 28px);
           font-weight: 700;
-          color: #091825;
+          color: var(--ds-fg);
           letter-spacing: -0.02em;
           line-height: 1.05;
         }
@@ -519,14 +578,14 @@ export function CheckoutPanel({
           margin-top: 6px;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
-          color: rgba(9, 24, 37, 0.65);
+          color: var(--ds-fg-muted);
           font-feature-settings: 'tnum';
         }
         .checkout-plan-when {
           margin-top: 4px;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
-          color: rgba(9, 24, 37, 0.65);
+          color: var(--ds-fg-muted);
           font-feature-settings: 'tnum';
         }
         .checkout-plan-when strong { color: #091825; font-weight: 700; }
@@ -565,7 +624,7 @@ export function CheckoutPanel({
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11px;
           font-weight: 700;
-          color: rgba(9, 24, 37, 0.65);
+          color: var(--ds-fg-muted);
           letter-spacing: 0.14em;
           text-transform: uppercase;
         }
@@ -577,10 +636,10 @@ export function CheckoutPanel({
           margin: 28px 0;
           background: linear-gradient(
             to right,
-            rgba(9, 24, 37, 0) 0%,
-            rgba(9, 24, 37, 0.10) 18%,
-            rgba(9, 24, 37, 0.10) 82%,
-            rgba(9, 24, 37, 0) 100%
+            transparent 0%,
+            var(--ds-border) 18%,
+            var(--ds-border) 82%,
+            transparent 100%
           );
         }
 
@@ -621,7 +680,7 @@ export function CheckoutPanel({
           font-weight: 600;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: rgba(9, 24, 37, 0.65);
+          color: var(--ds-fg-muted);
           line-height: 1;
           margin-bottom: 12px;
         }
@@ -642,11 +701,11 @@ export function CheckoutPanel({
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 13px;
           font-weight: 600;
-          color: #091825;
+          color: var(--ds-fg);
           line-height: 1.45;
         }
         .checkout-window-rule strong {
-          color: #091825;
+          color: var(--ds-fg);
           font-weight: 800;
         }
         /* Charge-model line — the customer-relevant implication of the
@@ -657,7 +716,7 @@ export function CheckoutPanel({
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
           font-weight: 500;
-          color: rgba(9, 24, 37, 0.55);
+          color: var(--ds-fg-soft);
           line-height: 1.5;
         }
         /* Secondary constraint — visually subordinated. Same colour family
@@ -668,7 +727,7 @@ export function CheckoutPanel({
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11.5px;
           font-weight: 500;
-          color: rgba(9, 24, 37, 0.50);
+          color: var(--ds-fg-faint);
           line-height: 1.45;
         }
 
@@ -687,7 +746,7 @@ export function CheckoutPanel({
           margin: 0;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11.5px;
-          color: rgba(9, 24, 37, 0.55);
+          color: var(--ds-fg-soft);
           line-height: 1.55;
           text-align: center;
         }
@@ -713,7 +772,7 @@ export function CheckoutPanel({
           font-weight: 800;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          box-shadow: 0 4px 12px rgba(9, 24, 37, 0.10);
+          box-shadow: var(--ds-shadow-tier1);
           transition:
             transform   220ms cubic-bezier(0.16, 1, 0.3, 1),
             box-shadow  220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -778,7 +837,7 @@ export function CheckoutPanel({
           gap: 6px;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 11px;
-          color: rgba(9, 24, 37, 0.50);
+          color: var(--ds-fg-faint);
           line-height: 1.5;
           text-align: center;
         }
@@ -790,14 +849,14 @@ export function CheckoutPanel({
           margin-top: 10px;
           padding: 10px 12px;
           border-radius: 10px;
-          background: rgba(239, 68, 68, 0.06);
-          border: 1px solid rgba(239, 68, 68, 0.20);
+          background: var(--ds-danger-wash);
+          border: 1px solid var(--ds-danger-border);
         }
         .checkout-error-msg {
           margin: 0;
           font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
           font-size: 12px;
-          color: #b91c1c;
+          color: var(--ds-danger-fg);
           line-height: 1.5;
         }
         .checkout-error-cta {

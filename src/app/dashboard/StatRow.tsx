@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Truck, CalendarDays } from 'lucide-react'
-import { OG, NV, BODY, S } from './_shared/tokens'
+import { OG, BODY, S } from './_shared/tokens'
 import type { Subscription } from './_shared/types'
 
 /**
@@ -16,9 +16,9 @@ import type { Subscription } from './_shared/types'
 type TileColor = 'orange' | 'red' | 'default'
 
 const TILE_SURFACES: Record<TileColor, CSSProperties> = {
-    orange:  { background: '#f8f3e6', border: '1px solid rgba(245,127,32,0.18)', boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-    red:     { background: '#f8f3e6', border: '1px solid rgba(239,68,68,0.18)',  boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
-    default: { background: '#f8f3e6', border: '1px solid rgba(9,24,37,0.07)',    boxShadow: '0 1px 3px rgba(9,24,37,0.035)' },
+    orange:  { background: 'var(--ds-surface-tier2)', border: '1px solid var(--ds-og-border)',     boxShadow: 'var(--ds-shadow-tier2)' },
+    red:     { background: 'var(--ds-surface-tier2)', border: '1px solid var(--ds-danger-border)', boxShadow: 'var(--ds-shadow-tier2)' },
+    default: { background: 'var(--ds-surface-tier2)', border: '1px solid var(--ds-border-tier2)',  boxShadow: 'var(--ds-shadow-tier2)' },
 }
 
 function StatTile({ glyph, label, value, sub, color = 'default' }: {
@@ -43,7 +43,7 @@ function StatTile({ glyph, label, value, sub, color = 'default' }: {
                 <div style={{
                     fontFamily: BODY, fontSize: 28, fontWeight: 900,
                     lineHeight: 1, letterSpacing: '-0.02em',
-                    color: NV,
+                    color: S.fg,
                     fontFeatureSettings: '"tnum"',
                 }}>
                     {value}
@@ -56,7 +56,7 @@ function StatTile({ glyph, label, value, sub, color = 'default' }: {
     )
 }
 
-export function StatRow({ sub }: { sub: Subscription }) {
+export function StatRow({ sub, isPaused = false }: { sub: Subscription; isPaused?: boolean }) {
     const isMax = sub.plan_name.includes('Monthly Max')
     const mealsPerDelivery = isMax ? 2 : 1
     const total = sub.total_meals
@@ -94,8 +94,8 @@ export function StatRow({ sub }: { sub: Subscription }) {
                 glyph={
                     <div style={{
                         width: 44, height: 44, borderRadius: 16,
-                        background: 'rgba(245,127,32,0.10)',
-                        border: '1.5px solid rgba(245,127,32,0.22)',
+                        background: 'var(--ds-og-wash-strong)',
+                        border: '1.5px solid var(--ds-og-border)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                         <Truck size={20} strokeWidth={1.7} color={OG} />
@@ -106,22 +106,26 @@ export function StatRow({ sub }: { sub: Subscription }) {
                 sub={`of ${totalDeliveries} total`}
             />
 
-            {/* 2 — Days left (urgency: red < 4 days, neutral otherwise) */}
+            {/* 2 — Days left (urgency: red < 4 days, neutral otherwise).
+                    When paused the end date is indeterminate — it extends by
+                    one delivery day each paused night — so we swap the tile to
+                    a "Plan paused" holding state rather than showing a number
+                    that will silently be wrong tomorrow. */}
             <StatTile
-                color={daysColor}
+                color={isPaused ? 'default' : daysColor}
                 glyph={
                     <div style={{
                         width: 44, height: 44, borderRadius: 16,
-                        background: daysLeft <= 3 ? 'rgba(239,68,68,0.09)' : 'rgba(9,24,37,0.04)',
-                        border: daysLeft <= 3 ? '1.5px solid rgba(239,68,68,0.20)' : '1.5px solid rgba(9,24,37,0.10)',
+                        background: !isPaused && daysLeft <= 3 ? 'var(--ds-danger-wash)' : 'var(--ds-skeleton-base)',
+                        border: !isPaused && daysLeft <= 3 ? '1.5px solid var(--ds-danger-border)' : '1.5px solid var(--ds-border-tier1)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                        <CalendarDays size={20} strokeWidth={1.9} color={daysLeft <= 3 ? '#b91c1c' : NV} />
+                        <CalendarDays size={20} strokeWidth={1.9} color={!isPaused && daysLeft <= 3 ? 'var(--ds-danger-fg)' : 'var(--ds-fg)'} style={{ opacity: isPaused ? 0.45 : 1 }} />
                     </div>
                 }
-                label={startsInFuture ? 'Days to start' : 'Days left'}
-                value={daysLeft}
-                sub={startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
+                label={isPaused ? 'Plan paused' : startsInFuture ? 'Days to start' : 'Days left'}
+                value={isPaused ? '—' : daysLeft}
+                sub={isPaused ? 'resumes from where you left off' : startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
             />
 
             <style jsx>{`

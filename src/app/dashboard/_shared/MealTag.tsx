@@ -1,25 +1,38 @@
 import { BODY, OG } from './tokens'
 
+// Theme-aware palette — values resolve to CSS variables that flip in dark
+// mode. The hue family stays the same (orange/green/blue/neutral); contrast
+// is achieved by the variable swap behind the scenes. Tuned for cream/white
+// (light) and navy panel (dark) surfaces alike.
 const PALETTE: Record<string, { bg: string; fg: string; mark: string }> = {
-    'Non Veg': { bg: 'rgba(245,127,32,0.14)', fg: '#a35100', mark: OG },
-    'Veg':     { bg: 'rgba(9,145,14,0.12)',   fg: '#1d8a30', mark: '#1d8a30' },
-    // Mix — religious customers whose week alternates veg + non-veg per the
-    // sub.veg_days choice. Slate-blue (matches the Scheduled badge family)
-    // so it reads as "configured per-day" rather than either category.
-    'Mix':     { bg: 'rgba(58,111,140,0.12)', fg: '#3a6f8c', mark: '#3a6f8c' },
-    'Off':     { bg: 'rgba(9,24,37,0.06)',    fg: 'rgba(9,24,37,0.55)', mark: 'rgba(9,24,37,0.40)' },
+    'Non Veg': { bg: 'var(--ds-og-wash-strong)',  fg: OG,                       mark: OG },
+    'Veg':     { bg: 'var(--ds-success-wash)',    fg: 'var(--ds-success-fg)',   mark: 'var(--ds-success-fg)' },
+    'Mix':     { bg: 'rgba(58,111,140,0.18)',     fg: '#5fa1c4',                mark: '#5fa1c4' },
+    'Off':     { bg: 'var(--ds-skeleton-base)',   fg: 'var(--ds-fg-soft)',      mark: 'var(--ds-fg-tint)' },
+}
+
+// Dark-surface palette — tuned for TIER_POP (#091825 base). Same hue families,
+// bright foreground values so the pill shape is legible and contrast passes AA.
+// Non Veg uses OG directly (7.3:1 on #091825, brand-true orange on navy).
+// Veg + Mix use light tints of their hues (~10:1+). Off recedes to faint cream.
+const DARK_PALETTE: Record<string, { bg: string; fg: string; mark: string }> = {
+    'Non Veg': { bg: 'rgba(245,127,32,0.20)', fg: OG,        mark: OG },
+    'Veg':     { bg: 'rgba(86,239,172,0.14)', fg: '#86efac', mark: '#86efac' },
+    'Mix':     { bg: 'rgba(147,197,253,0.14)', fg: '#93c5fd', mark: '#93c5fd' },
+    'Off':     { bg: 'rgba(245,240,232,0.08)', fg: 'rgba(245,240,232,0.40)', mark: 'rgba(245,240,232,0.30)' },
 }
 
 /**
  * Pill-style tag indicating the kind of meal (Veg / Non Veg / Off-day).
  * `compact=true` shortens "Non Veg" to "N.V" for tight grids (e.g. the
- * 7-column next-week layout).
+ * 7-column next-week layout). `onDark=true` switches to the dark-surface
+ * palette for use inside TIER_POP cards.
  *
  * Was duplicated near-verbatim in ClientDashboard and MenuClient; the
  * compact variant came from MenuClient.
  */
-export function MealTag({ kind, compact }: { kind: string; compact?: boolean }) {
-    const c = PALETTE[kind] || PALETTE.Veg
+export function MealTag({ kind, compact, onDark }: { kind: string; compact?: boolean; onDark?: boolean }) {
+    const c = (onDark ? DARK_PALETTE : PALETTE)[kind] || (onDark ? DARK_PALETTE : PALETTE).Veg
     const labelText =
         kind === 'Non Veg' ? (compact ? 'N.V' : 'Non-Veg')
         : kind === 'Mix'   ? (compact ? 'Mix' : 'Religious Mix')
