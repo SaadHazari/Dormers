@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   Gift, Sparkles, ArrowRight,
   Shield, Crown, Trophy, Star, Flame, Users, SkipForward, Calendar, Pause,
   Lock, Check, ChevronUp, ChevronDown, Minus, Zap,
+  Volume2, VolumeX,
 } from 'lucide-react'
 import { OG, OG3, NV, CR, BODY, DISPLAY } from '../_shared/tokens'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
@@ -13,6 +14,87 @@ import type { Subscription } from '../_shared/types'
 
 const EXPO_OUT  = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const QUART_OUT = 'cubic-bezier(0.25, 1, 0.5, 1)'
+
+// ── Sound system (D-29) ────────────────────────────────────────────────────
+// Three synthesized clips via Web Audio API. No external library, no
+// bundled audio files. Toggle persisted in localStorage `dw-sound`.
+
+function useSound() {
+  const ctxRef = useRef<AudioContext | null>(null)
+  const [on, setOn] = useState(true) // default ON per D-29
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = localStorage.getItem('dw-sound')
+    setOn(stored === null ? true : stored === 'on')
+  }, [])
+
+  const toggle = useCallback(() => {
+    setOn(prev => {
+      const next = !prev
+      localStorage.setItem('dw-sound', next ? 'on' : 'off')
+      return next
+    })
+  }, [])
+
+  const ctx = useCallback(() => {
+    if (!ctxRef.current && typeof window !== 'undefined') {
+      // Lazy init — browsers block AudioContext before user gesture
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const Ctor = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined
+      if (Ctor) ctxRef.current = new Ctor()
+    }
+    return ctxRef.current
+  }, [])
+
+  const playCopyTick = useCallback(() => {
+    if (!on) return
+    const ac = ctx(); if (!ac) return
+    const osc = ac.createOscillator()
+    const g   = ac.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(1500, ac.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(1200, ac.currentTime + 0.08)
+    g.gain.setValueAtTime(0.08, ac.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.08)
+    osc.connect(g).connect(ac.destination)
+    osc.start(); osc.stop(ac.currentTime + 0.08)
+  }, [on, ctx])
+
+  const playMilestoneFanfare = useCallback(() => {
+    if (!on) return
+    const ac = ctx(); if (!ac) return
+    ;[523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ac.createOscillator()
+      const g   = ac.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      const t0 = ac.currentTime + i * 0.08
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.exponentialRampToValueAtTime(0.10, t0 + 0.04)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22)
+      osc.connect(g).connect(ac.destination)
+      osc.start(t0); osc.stop(t0 + 0.22)
+    })
+  }, [on, ctx])
+
+  const playDropReveal = useCallback(() => {
+    if (!on) return
+    const ac = ctx(); if (!ac) return
+    const osc = ac.createOscillator()
+    const g   = ac.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(300, ac.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(800, ac.currentTime + 0.4)
+    g.gain.setValueAtTime(0.0001, ac.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.10, ac.currentTime + 0.05)
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.4)
+    osc.connect(g).connect(ac.destination)
+    osc.start(); osc.stop(ac.currentTime + 0.4)
+  }, [on, ctx])
+
+  return { on, toggle, playCopyTick, playMilestoneFanfare, playDropReveal }
+}
 
 // ── Stub data (Wave 1 — to be wired in Waves 2-3) ─────────────────────────
 // STUB: Leaderboard rows (D-14). Real cross-dorm leaderboard query lands in a future backend phase.
@@ -132,6 +214,9 @@ interface Props {
 export default function DormWarsClient({ customerCid, customerDorm, referralData, dormStats, invites, activeSubscription }: Props) {
   const dormLabel = customerDorm || 'Your Dorm'
 
+  // ── Sound system (D-29) ─────────────────────────────────────────────────
+  const sound = useSound()
+
   // ── State machine (D-19) ─────────────────────────────────────────
   // hasClaimed: page-mode flip — at least one invitee claimed a free meal.
   // hasConverted: at least one paid conversion — unlocks credit/milestone visibility.
@@ -159,6 +244,40 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   // simplification note. cycleNumber is always 1 for the active billing window.
   const cycleNumber = 1
 
+  // ── Title-screen interstitial (D-28) ─────────────────────────────────────
+  // cycleStartISO is also reused by the milestone-fanfare effect to scope the
+  // `dw-last-milestone-played-${cycleStartISO}` key per D-18.
+  const cycleStartISO = activeSubscription ? activeSubscription.start_date : null
+  const [showTitleScreen, setShowTitleScreen] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!cycleStartISO) return // No cycle yet → Subscribe CTA handles gating
+    const key = `dw-titlescreen-${cycleStartISO}`
+    if (localStorage.getItem(key) !== '1') setShowTitleScreen(true)
+  }, [cycleStartISO])
+  function dismissTitleScreen() {
+    if (!cycleStartISO) return
+    localStorage.setItem(`dw-titlescreen-${cycleStartISO}`, '1')
+    setShowTitleScreen(false)
+  }
+
+  // ── Milestone fanfare (D-29, D-18 — cycle-scoped key) ───────────────────
+  // The key dw-last-milestone-played-${cycleStartISO} resets when the
+  // subscription renews so the fanfare correctly re-fires per cycle (D-18).
+  // An unscoped key would persist indefinitely and break D-18 semantics.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!cycleStartISO) return
+    const tiers = [1, 3, 6, 10]
+    const current = tiers.filter(t => referralData.converted >= t).pop() ?? 0
+    const key = `dw-last-milestone-played-${cycleStartISO}`
+    const last = Number(localStorage.getItem(key) ?? '0')
+    if (current > last) {
+      sound.playMilestoneFanfare()
+      localStorage.setItem(key, String(current))
+    }
+  }, [referralData.converted, sound, cycleStartISO])
+
   // ── Daily drop claim state (persisted per day, D-20) ─────────────────
   const todayKey  = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const todayDrop = useMemo(() => DAILY_DROPS[new Date().getDate() % DAILY_DROPS.length], [])
@@ -169,6 +288,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   }, [todayKey])
   function claimDrop() {
     if (claimed) return
+    sound.playDropReveal()
     setClaimed(true)
     localStorage.setItem(`dw-drop-${todayKey}`, '1')
   }
@@ -275,6 +395,13 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
 
   return (
     <div style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
+      <TitleScreenInterstitial
+        show={showTitleScreen}
+        onDismiss={dismissTitleScreen}
+        cycleNumber={cycleNumber}
+        cycleTotalDays={cycleTotalDays}
+      />
+
       <SharedKeyframes />
 
       <PulseTicker ticker={ticker} />
@@ -289,6 +416,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
           ? <CycleClock daysLeft={cycleDaysLeft} totalDays={cycleTotalDays} cycleNumber={cycleNumber} />
           : <SubscribeToEnterCTA />}
         streak={streak}
+        sound={sound}
       />
 
       <DailyDropBlock
@@ -308,7 +436,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
 
       <TrophyRoomBlock trophies={trophies} />
 
-      <ActionSurfaceBlock customerCid={customerCid} />
+      <ActionSurfaceBlock customerCid={customerCid} sound={sound} />
 
       <FinePrintBlock />
     </div>
@@ -407,6 +535,20 @@ function SharedKeyframes() {
       .dwm-action-card:active { transform: scale(0.98); }
       .dwm-action-card:focus-visible { outline: 2px solid ${OG}; outline-offset: 3px; }
 
+      /* Cycle clock hover-glow (D-30) */
+      .dwm-dial { filter: drop-shadow(0 8px 32px rgba(245,127,32,0.18)) drop-shadow(0 0 12px rgba(245,127,32,0.18)); transition: filter 320ms ${EXPO_OUT}; }
+      .dwm-dial:hover { filter: drop-shadow(0 8px 32px rgba(245,127,32,0.28)) drop-shadow(0 0 24px rgba(245,127,32,0.36)); }
+
+      /* Particle burst (D-30) */
+      @keyframes dw-particle {
+        0%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.4); }
+      }
+      .dw-particle {
+        animation: dw-particle 800ms ${EXPO_OUT} both;
+        pointer-events: none;
+      }
+
       /* Mobile reflow */
       @media (max-width: 720px) {
         .dwm-hero-grid     { flex-direction: column-reverse !important; gap: 24px !important; }
@@ -424,7 +566,8 @@ function SharedKeyframes() {
         .dwm-pulse-track,
         .dwm-headline-pre, .dwm-headline-pay, .dwm-sub, .dwm-eyebrow,
         .dwm-dial, .dwm-rank-pill, .dwm-drop-card, .dwm-claimed,
-        .dwm-ladder-card, .dwm-trophy, .dwm-action-card {
+        .dwm-ladder-card, .dwm-trophy, .dwm-action-card,
+        .dw-particle {
           animation: none; opacity: 1; transform: none;
         }
       }
@@ -480,7 +623,7 @@ function PulseTicker({ ticker }: { ticker: string[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function HeroBlock({
-  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, cycleClock, streak,
+  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, cycleClock, streak, sound,
 }: {
   dormLabel:     string
   customerCid:   string
@@ -489,6 +632,7 @@ function HeroBlock({
   hasActiveSub:  boolean
   cycleClock:    React.ReactNode
   streak:        { lastVisit: string; count: number }
+  sound:         ReturnType<typeof useSound>
 }) {
   return (
     <section style={{
@@ -576,6 +720,8 @@ function HeroBlock({
               </span>
             </span>
 
+            <SoundToggle on={sound.on} onToggle={sound.toggle} />
+
             {streak.count >= 1 && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -641,7 +787,7 @@ function CycleClock({ daysLeft, totalDays, cycleNumber = 1 }: { daysLeft: number
       className="dwm-dial"
       width={size} height={size}
       viewBox={`0 0 ${size} ${size}`}
-      style={{ display: 'block', filter: 'drop-shadow(0 8px 32px rgba(245,127,32,0.18))' }}
+      style={{ display: 'block' }}
     >
       <circle cx={cx} cy={cy} r={radius} fill="none" stroke="rgba(237,232,218,0.08)" strokeWidth={strokeW} />
       <circle
@@ -746,8 +892,35 @@ function DailyDropBlock({
               <div style={{ fontFamily: BODY, fontSize: 10, fontWeight: 900, color: '#22c55e', letterSpacing: '0.26em', textTransform: 'uppercase', marginBottom: 12 }}>
                 Claimed Today
               </div>
-              <div style={{ fontFamily: DISPLAY, fontSize: 'clamp(36px, 5.5vw, 64px)', fontWeight: 900, color: '#22c55e', letterSpacing: '-0.035em', lineHeight: 1, marginBottom: 14 }}>
-                {todayDrop.label}
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 'clamp(36px, 5.5vw, 64px)', fontWeight: 900, color: '#22c55e', letterSpacing: '-0.035em', lineHeight: 1, marginBottom: 14 }}>
+                  {todayDrop.label}
+                </div>
+                {claimed && (
+                  <>
+                    {[
+                      { dx:  60, dy: -40, delay: 0   },
+                      { dx: -60, dy: -40, delay: 60  },
+                      { dx:  80, dy:  20, delay: 120 },
+                      { dx: -80, dy:  20, delay: 180 },
+                      { dx:   0, dy: -70, delay: 240 },
+                    ].map((p, i) => (
+                      <span
+                        key={i}
+                        className="dw-particle"
+                        style={{
+                          position: 'absolute',
+                          top: '50%', left: '50%',
+                          width: 8, height: 8, borderRadius: 999,
+                          backgroundColor: '#22c55e',
+                          ['--dx' as string]: `${p.dx}px`,
+                          ['--dy' as string]: `${p.dy}px`,
+                          animationDelay: `${p.delay}ms`,
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
               <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 400, color: 'rgba(237,232,218,0.66)', lineHeight: 1.55, maxWidth: 520 }}>
                 {todayDrop.sub}
@@ -1275,11 +1448,12 @@ function TrophyRoomBlock({ trophies }: { trophies: Achievement[] }) {
 //  ACTION SURFACE  —  demoted share row; user knows the drill by here
 // ════════════════════════════════════════════════════════════════════════════
 
-function ActionSurfaceBlock({ customerCid }: { customerCid: string }) {
+function ActionSurfaceBlock({ customerCid, sound }: { customerCid: string; sound: ReturnType<typeof useSound> }) {
   const [copied, setCopied] = useState(false)
   function copyLink() {
     if (!customerCid) return
     navigator.clipboard.writeText(`https://dormers.ae/r/${customerCid}`).then(() => {
+      sound.playCopyTick()
       setCopied(true); setTimeout(() => setCopied(false), 1800)
     })
   }
@@ -1352,6 +1526,102 @@ function ActionSurfaceBlock({ customerCid }: { customerCid: string }) {
         </div>
       </div>
     </section>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  TITLE SCREEN INTERSTITIAL  —  once-per-cycle gate on first visit (D-28)
+// ════════════════════════════════════════════════════════════════════════════
+
+function TitleScreenInterstitial({
+  show, onDismiss, cycleNumber, cycleTotalDays,
+}: {
+  show: boolean
+  onDismiss: () => void
+  cycleNumber: number
+  cycleTotalDays: number
+}) {
+  if (!show) return null
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      backgroundColor: 'rgba(9,24,37,0.96)',
+      zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        maxWidth: 480, width: '100%',
+        padding: '48px 32px',
+        backgroundColor: NV,
+        border: '1px solid rgba(245,127,32,0.24)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 16,
+      }}>
+        <div style={{
+          fontFamily: BODY, fontSize: 11, fontWeight: 900,
+          color: OG, letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          {'CYCLE ' + String(cycleNumber).padStart(2, '0') + ' · ' + cycleTotalDays + ' DAYS'}
+        </div>
+        <div style={{
+          fontFamily: DISPLAY, fontSize: 48, fontWeight: 800,
+          color: CR, lineHeight: 1.1, letterSpacing: '-0.035em',
+        }}>
+          A new war begins.
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 14, fontWeight: 400,
+          color: 'rgba(237,232,218,0.65)', lineHeight: 1.6,
+        }}>
+          Every recruit, every drop, every conversion counts. Resets when the cycle ends.
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          style={{
+            marginTop: 8,
+            backgroundColor: OG, color: CR,
+            padding: '12px 32px', borderRadius: 999,
+            fontFamily: BODY, fontWeight: 700, fontSize: 13,
+            letterSpacing: 1.2, textTransform: 'uppercase',
+            border: 'none', cursor: 'pointer',
+          }}
+        >
+          Enter the war
+        </button>
+      </div>
+    </div>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SOUND TOGGLE  —  next to rank pill (D-29)
+// ════════════════════════════════════════════════════════════════════════════
+
+function SoundToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={`Sound ${on ? 'on' : 'off'}`}
+      style={{
+        width: 32, height: 32, borderRadius: '50%',
+        backgroundColor: 'transparent',
+        border: '1px solid rgba(245,127,32,0.32)',
+        color: OG,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', flexShrink: 0,
+        outline: 'none',
+      }}
+      onFocus={(e) => { e.currentTarget.style.outline = `2px solid ${OG}` }}
+      onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+    >
+      {on
+        ? <Volume2  size={14} strokeWidth={2.2} />
+        : <VolumeX  size={14} strokeWidth={2.2} />}
+    </button>
   )
 }
 
