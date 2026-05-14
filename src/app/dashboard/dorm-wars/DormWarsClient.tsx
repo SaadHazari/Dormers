@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Gift, Sparkles, ArrowRight,
+  Gift, Sparkles, ArrowRight, Send, X,
   Shield, Crown, Trophy, Star, Flame, Users, SkipForward, Calendar, Pause,
   Lock, Check, ChevronUp, ChevronDown, Minus, Zap,
   Volume2, VolumeX,
@@ -220,13 +220,29 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   // ── State machine (D-19) ─────────────────────────────────────────
   // hasClaimed: page-mode flip — at least one invitee claimed a free meal.
   // hasConverted: at least one paid conversion — unlocks credit/milestone visibility.
+  // isNewUser: zero invites sent. Triggers teaching hero + welcome overlay.
   const hasClaimed   = referralData.total >= 1
   const hasConverted = referralData.converted >= 1
-  // TODO(05-future-phase): Full zero-state visual revamp deferred per CONTEXT <deferred>. Engaged-state is the primary target.
+  const isNewUser    = referralData.total === 0
 
-  // Suppress unused-vars lint while zero-state revamp remains deferred
+  // Suppress unused-vars lint while engaged-state remains the primary target.
+  // hasClaimed/hasConverted are reserved for future zero-state branches.
   void hasClaimed
   void hasConverted
+
+  // ── Welcome overlay (one-time, new users only) ───────────────────────
+  // Fires once ever — different from TitleScreenInterstitial which fires
+  // per cycle. Teaches the game in 3 slides before any other UI is reachable.
+  const [showWelcome, setShowWelcome] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!isNewUser) return
+    if (localStorage.getItem('dw-welcome-seen') !== '1') setShowWelcome(true)
+  }, [isNewUser])
+  function dismissWelcome() {
+    localStorage.setItem('dw-welcome-seen', '1')
+    setShowWelcome(false)
+  }
 
   // ── Cycle math (D-22) ──────────────────────────────────────────────────
   // Uses start_date / end_date — the canonical Subscription fields.
@@ -395,8 +411,11 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
 
   return (
     <div style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
+      {/* Welcome takes precedence — title screen is suppressed when new user hasn't been onboarded */}
+      <WelcomeOverlay show={showWelcome} onDismiss={dismissWelcome} customerCid={customerCid} />
+
       <TitleScreenInterstitial
-        show={showTitleScreen}
+        show={showTitleScreen && !showWelcome}
         onDismiss={dismissTitleScreen}
         cycleNumber={cycleNumber}
         cycleTotalDays={cycleTotalDays}
@@ -412,6 +431,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
         cycleNumber={cycleNumber}
         cycleDaysLeft={cycleDaysLeft}
         hasActiveSub={hasActiveSub}
+        isNewUser={isNewUser}
         cycleClock={hasActiveSub
           ? <CycleClock daysLeft={cycleDaysLeft} totalDays={cycleTotalDays} cycleNumber={cycleNumber} />
           : <SubscribeToEnterCTA />}
@@ -419,14 +439,17 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
         sound={sound}
       />
 
+      {/* Active Mission comes BEFORE Daily Drop — the mission is the game,
+          the drop is a side reward. Surfacing the side reward first leaves
+          a new user unable to anchor the page's purpose. */}
+      <ActiveMissionBlock converted={referralData.converted} />
+
       <DailyDropBlock
         claimed={claimed}
         todayDrop={todayDrop}
         nextDropIn={nextDropIn}
         onClaim={claimDrop}
       />
-
-      <ActiveMissionBlock converted={referralData.converted} />
 
       <MissionLadderBlock converted={referralData.converted} />
 
@@ -623,13 +646,14 @@ function PulseTicker({ ticker }: { ticker: string[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function HeroBlock({
-  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, cycleClock, streak, sound,
+  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, isNewUser, cycleClock, streak, sound,
 }: {
   dormLabel:     string
   customerCid:   string
   cycleNumber:   number
   cycleDaysLeft: number
   hasActiveSub:  boolean
+  isNewUser:     boolean
   cycleClock:    React.ReactNode
   streak:        { lastVisit: string; count: number }
   sound:         ReturnType<typeof useSound>
@@ -674,7 +698,11 @@ function HeroBlock({
               <span style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', backgroundColor: OG, display: 'block' }} />
             </span>
             <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 900, color: OG3, letterSpacing: '0.26em', textTransform: 'uppercase' }}>
-              {hasActiveSub ? `Cycle ${String(cycleNumber).padStart(2, '0')}  ·  Live` : 'No active cycle'}
+              {isNewUser
+                ? 'Welcome to Dorm Wars'
+                : hasActiveSub
+                  ? `Cycle ${String(cycleNumber).padStart(2, '0')}  ·  Live`
+                  : 'No active cycle'}
             </span>
           </div>
 
@@ -683,7 +711,7 @@ function HeroBlock({
             color: 'rgba(237,232,218,0.62)', letterSpacing: '0.02em',
             lineHeight: 1, marginBottom: 8,
           }}>
-            This is your
+            {isNewUser ? 'Earn' : 'This is your'}
           </div>
 
           <div className="dwm-headline-pay" style={{
@@ -691,38 +719,42 @@ function HeroBlock({
             color: OG, letterSpacing: '-0.055em', lineHeight: 0.88,
             marginBottom: 28, textShadow: '0 0 60px rgba(245,127,32,0.28)',
           }}>
-            war.
+            {isNewUser ? 'AED 20.' : 'war.'}
           </div>
 
           <p className="dwm-sub" style={{
             fontFamily: BODY, fontSize: 15, fontWeight: 400,
             color: 'rgba(237,232,218,0.62)', lineHeight: 1.6,
-            margin: '0 0 24px', maxWidth: 460,
+            margin: '0 0 24px', maxWidth: 500,
           }}>
-            {hasActiveSub
-              ? <>{cycleDaysLeft} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.</>
-              : <>Subscribe to enter the war and start claiming <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span>.</>}
+            {isNewUser
+              ? <>Every time a friend joins Dormers from your invite link, <span style={{ color: CR, fontWeight: 700 }}>AED 20</span> lands in your wallet. Hit milestones for bigger rewards — free skips, free weeks, the works.</>
+              : hasActiveSub
+                ? <>{cycleDaysLeft} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.</>
+                : <>Subscribe to enter the war and start claiming <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span>.</>}
           </p>
 
           <div className="dwm-rank-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 14px', borderRadius: 999,
-              backgroundColor: 'rgba(237,232,218,0.05)',
-              border: '1px solid rgba(237,232,218,0.10)',
-            }}>
-              <Shield size={13} strokeWidth={2.4} color={OG3} />
-              <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: CR, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-                {MOCK_RANK.label}
+            {!isNewUser && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 14px', borderRadius: 999,
+                backgroundColor: 'rgba(237,232,218,0.05)',
+                border: '1px solid rgba(237,232,218,0.10)',
+              }}>
+                <Shield size={13} strokeWidth={2.4} color={OG3} />
+                <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: CR, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                  {MOCK_RANK.label}
+                </span>
+                <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 500, color: 'rgba(237,232,218,0.45)' }}>
+                  {MOCK_RANK.flavour}
+                </span>
               </span>
-              <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 500, color: 'rgba(237,232,218,0.45)' }}>
-                {MOCK_RANK.flavour}
-              </span>
-            </span>
+            )}
 
             <SoundToggle on={sound.on} onToggle={sound.toggle} />
 
-            {streak.count >= 1 && (
+            {!isNewUser && streak.count >= 1 && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '6px 12px', borderRadius: 999,
@@ -746,22 +778,109 @@ function HeroBlock({
                 backgroundColor: 'rgba(245,127,32,0.10)',
                 border: '1.5px solid rgba(245,127,32,0.55)',
                 fontFamily: BODY, fontSize: 12, fontWeight: 900,
-                color: OG3, letterSpacing: '0.16em', textTransform: 'uppercase',
+                color: OG3, letterSpacing: '0.14em', textTransform: 'uppercase',
                 textDecoration: 'none',
               }}
             >
-              Send a link <ArrowRight size={14} strokeWidth={2.5} />
+              {isNewUser
+                ? <>Invite a friend on WhatsApp <Send size={14} strokeWidth={2.5} /></>
+                : <>Send your invite link <ArrowRight size={14} strokeWidth={2.5} /></>}
             </Link>
           </div>
+
+          {isNewUser && (
+            <p style={{
+              fontFamily: BODY, fontSize: 12, fontWeight: 400,
+              color: 'rgba(237,232,218,0.42)', lineHeight: 1.6,
+              margin: '14px 0 0', maxWidth: 460,
+            }}>
+              Your unique link: <span style={{ color: OG3, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>dormers.ae/r/{customerCid}</span>
+              <span style={{ color: 'rgba(237,232,218,0.32)' }}> &nbsp;·&nbsp; scroll down to copy it</span>
+            </p>
+          )}
         </div>
 
-        <div className="dwm-hero-right" style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
-          <div className="dwm-dial-wrap">
-            {cycleClock}
-          </div>
+        <div className="dwm-hero-right" style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+          {isNewUser ? (
+            <HowItWorksCard />
+          ) : (
+            <>
+              <div className="dwm-dial-wrap">
+                {cycleClock}
+              </div>
+              {hasActiveSub && (
+                <div style={{
+                  marginTop: 16, maxWidth: 280, textAlign: 'center',
+                  fontFamily: BODY, fontSize: 11, fontWeight: 500,
+                  color: 'rgba(237,232,218,0.45)', lineHeight: 1.55, letterSpacing: '0.02em',
+                }}>
+                  Days until your milestone count resets at the end of your subscription cycle
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </section>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  HOW IT WORKS CARD — teaching surface shown to new users in place of dial
+// ════════════════════════════════════════════════════════════════════════════
+
+function HowItWorksCard() {
+  const steps: Array<{ n: string; title: string; body: string }> = [
+    { n: '01', title: 'Send your link',  body: 'One tap shares it on WhatsApp.' },
+    { n: '02', title: 'They eat free',   body: 'First meal on us — no card, no commitment.' },
+    { n: '03', title: 'You earn',        body: 'AED 20 when they subscribe. Milestones stack on top.' },
+  ]
+  return (
+    <div style={{
+      width: 'clamp(280px, 32vw, 360px)',
+      padding: 24,
+      borderRadius: 'var(--radius-md)',
+      backgroundColor: 'rgba(237,232,218,0.04)',
+      border: '1px solid rgba(237,232,218,0.08)',
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      <div style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 900,
+        color: OG, letterSpacing: '0.26em', textTransform: 'uppercase',
+      }}>
+        How it works
+      </div>
+      {steps.map((s, i) => (
+        <div key={s.n} style={{
+          display: 'flex', gap: 14, alignItems: 'flex-start',
+          paddingTop: i === 0 ? 0 : 16,
+          borderTop: i === 0 ? 'none' : '1px solid rgba(237,232,218,0.06)',
+        }}>
+          <span style={{
+            fontFamily: DISPLAY, fontSize: 22, fontWeight: 900,
+            color: OG3, letterSpacing: '-0.04em', lineHeight: 1,
+            flexShrink: 0, minWidth: 28, fontFeatureSettings: '"tnum"',
+          }}>
+            {s.n}
+          </span>
+          <div>
+            <div style={{
+              fontFamily: BODY, fontSize: 14, fontWeight: 800,
+              color: CR, lineHeight: 1.25, marginBottom: 4,
+            }}>
+              {s.title}
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 12, fontWeight: 400,
+              color: 'rgba(237,232,218,0.55)', lineHeight: 1.55,
+            }}>
+              {s.body}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -847,13 +966,20 @@ function DailyDropBlock({
       borderTop: '1px solid rgba(237,232,218,0.04)',
     }}>
       <div className="dwm-drop-card" style={{ maxWidth: 1280, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 6, flexWrap: 'wrap' }}>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: OG, letterSpacing: '0.26em', textTransform: 'uppercase' }}>
             Daily Drop
           </div>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: 'rgba(237,232,218,0.42)', letterSpacing: '0.10em', textTransform: 'uppercase', fontFeatureSettings: '"tnum"' }}>
             Next drop in {nextDropIn || '—'}
           </div>
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 13, fontWeight: 400,
+          color: 'rgba(237,232,218,0.50)', lineHeight: 1.55,
+          marginBottom: 20, maxWidth: 560,
+        }}>
+          A small surprise reward for visiting today. Open it once — comes back tomorrow.
         </div>
 
         <button
@@ -1079,8 +1205,14 @@ function MissionLadderBlock({ converted }: { converted: number }) {
             <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: OG, letterSpacing: '0.26em', textTransform: 'uppercase', marginBottom: 6 }}>
               Mission Ladder
             </div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: CR, letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: CR, letterSpacing: '-0.02em', marginBottom: 6 }}>
               The road to War Hero.
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 13, fontWeight: 400,
+              color: 'rgba(237,232,218,0.50)', lineHeight: 1.55, maxWidth: 540,
+            }}>
+              Bigger rewards as more friends subscribe through your link.
             </div>
           </div>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: 'rgba(237,232,218,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -1382,8 +1514,14 @@ function TrophyRoomBlock({ trophies }: { trophies: Achievement[] }) {
             <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: OG, letterSpacing: '0.26em', textTransform: 'uppercase', marginBottom: 6 }}>
               Trophy Room
             </div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: CR, letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: CR, letterSpacing: '-0.02em', marginBottom: 6 }}>
               <span style={{ color: '#22c55e' }}>{earnedCount}</span><span style={{ color: 'rgba(237,232,218,0.40)' }}> / {trophies.length}</span> earned.
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 13, fontWeight: 400,
+              color: 'rgba(237,232,218,0.50)', lineHeight: 1.55, maxWidth: 540,
+            }}>
+              Stamps you keep forever, even after your cycle resets.
             </div>
           </div>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: 'rgba(237,232,218,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -1590,6 +1728,163 @@ function TitleScreenInterstitial({
         >
           Enter the war
         </button>
+      </div>
+    </div>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  WELCOME OVERLAY — first-visit onboarding for new users (fires once ever)
+//  Different from TitleScreenInterstitial which fires once PER CYCLE.
+//  Teaches the loop in 3 slides; dismissal persists in `dw-welcome-seen`.
+// ════════════════════════════════════════════════════════════════════════════
+
+function WelcomeOverlay({
+  show, onDismiss, customerCid,
+}: {
+  show:        boolean
+  onDismiss:   () => void
+  customerCid: string
+}) {
+  const [step, setStep] = useState(0)
+  const slides: Array<{ Icon: typeof Send; title: string; body: string }> = [
+    { Icon: Send,     title: 'Send your link',  body: 'You have a unique invite link. Share it on WhatsApp with one tap — that\'s the whole first move.' },
+    { Icon: Gift,     title: 'They eat free',   body: 'Your friend tries Dormers on us. No card. No commitment. One full meal delivered to their dorm.' },
+    { Icon: Sparkles, title: 'You earn AED 20', body: 'The moment they subscribe, AED 20 lands in your wallet. Hit milestones (3 / 6 / 10 subscribers) for bigger rewards.' },
+  ]
+  const isLast = step === slides.length - 1
+  const slide  = slides[step]
+  const Icon   = slide.Icon
+
+  if (!show) return null
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      backgroundColor: 'rgba(9,24,37,0.96)',
+      zIndex: 110,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }}>
+      <div style={{
+        maxWidth: 480, width: '100%',
+        padding: 'clamp(28px, 5vw, 48px)',
+        backgroundColor: NV,
+        border: '1px solid rgba(245,127,32,0.24)',
+        borderRadius: 'var(--radius-md)',
+        position: 'relative',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {/* Skip / close */}
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Skip welcome"
+          style={{
+            position: 'absolute', top: 16, right: 16,
+            width: 32, height: 32, borderRadius: '50%',
+            backgroundColor: 'transparent',
+            border: '1px solid rgba(237,232,218,0.12)',
+            color: 'rgba(237,232,218,0.55)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <X size={14} strokeWidth={2.2} />
+        </button>
+
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+          {slides.map((_, i) => (
+            <span key={i} style={{
+              flex: 1, height: 3, borderRadius: 2,
+              backgroundColor: i <= step ? OG : 'rgba(237,232,218,0.10)',
+              transition: 'background 280ms ease',
+            }} />
+          ))}
+        </div>
+
+        {/* Step counter */}
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 900,
+          color: OG, letterSpacing: '0.26em', textTransform: 'uppercase',
+          marginBottom: 20,
+        }}>
+          Step 0{step + 1} / 03
+        </div>
+
+        {/* Icon */}
+        <div style={{
+          width: 48, height: 48, borderRadius: 12,
+          backgroundColor: 'rgba(245,127,32,0.14)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 20,
+        }}>
+          <Icon size={22} strokeWidth={2.2} color={OG3} />
+        </div>
+
+        {/* Title */}
+        <div style={{
+          fontFamily: DISPLAY, fontSize: 'clamp(28px, 4.5vw, 40px)', fontWeight: 800,
+          color: CR, lineHeight: 1.1, letterSpacing: '-0.03em',
+          marginBottom: 12,
+        }}>
+          {slide.title}
+        </div>
+
+        {/* Body */}
+        <div style={{
+          fontFamily: BODY, fontSize: 14, fontWeight: 400,
+          color: 'rgba(237,232,218,0.65)', lineHeight: 1.6,
+          marginBottom: 28,
+        }}>
+          {slide.body}
+        </div>
+
+        {/* Actions */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+        }}>
+          <button
+            type="button"
+            onClick={onDismiss}
+            style={{
+              fontFamily: BODY, fontSize: 12, fontWeight: 700,
+              color: 'rgba(237,232,218,0.45)', letterSpacing: '0.10em',
+              textTransform: 'uppercase', textDecoration: 'none',
+              backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
+              padding: '8px 4px',
+            }}
+          >
+            Skip
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (isLast) {
+                onDismiss()
+                // Auto-open WhatsApp share when the user completes onboarding
+                if (customerCid) {
+                  const url = `https://wa.me/?text=${encodeURIComponent(`I get fresh meals delivered to my dorm from Dormers — try your first meal free: https://dormers.ae/r/${customerCid}`)}`
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                }
+              } else {
+                setStep(step + 1)
+              }
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '12px 24px', borderRadius: 999,
+              backgroundColor: OG, color: NV,
+              fontFamily: BODY, fontWeight: 800, fontSize: 12,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              border: 'none', cursor: 'pointer',
+            }}
+          >
+            {isLast ? <>Get my link <Send size={13} strokeWidth={2.6} /></> : <>Next <ArrowRight size={13} strokeWidth={2.6} /></>}
+          </button>
+        </div>
       </div>
     </div>
   )
