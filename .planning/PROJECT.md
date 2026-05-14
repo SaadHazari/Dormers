@@ -59,4 +59,4 @@ Food photos that make you want to order — a menu you browse naturally, not nav
 | Placeholder spice/allergen data | Real data not available yet; structure must exist for future fill-in | — Pending |
 
 ---
-*Last updated: 2026-04-18 — Phase 04 complete: codebase cleanup — 13 orphaned source files, 20 unused public assets, and legacy ESLint config removed; nonveg1/ import path corrected in Menu.tsx*
+*Last updated: 2026-05-14 — Phase 05 complete: Dorm Wars page visual revamp — all-dark cinematic treatment migrated from mock to live; 11 blocks (PulseTicker → FinePrint), cycle clock wired to subscription billing window, Daily Drop + streak via localStorage, Trophy Room derived from existing referrals, leaderboard unblurred with stubbed top-3 (real counts deferred); title-screen interstitial + Web Audio sound system + particle burst; mock directory deleted.*
