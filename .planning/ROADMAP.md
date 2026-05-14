@@ -90,7 +90,7 @@ Plans:
 | 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
 | 3. Navigation + Detail View | 0/? | Not started | - |
 | 4. Codebase Cleanup | 2/2 | Complete    | 2026-04-18 |
-| 5. Dorm Wars page visual revamp | 1/3 | In Progress|  |
+| 5. Dorm Wars page visual revamp | 3/3 | Complete   | 2026-05-14 |
 
 ---
 
@@ -133,12 +133,12 @@ Plans:
 **Goal:** Replace `/dashboard/dorm-wars` with the cinematic dark "war room" treatment proven in the visual mock — pixel-fidelity migration, then wire mechanics to existing data (no new backend), then layer cinematic polish (title-screen interstitial, sound, motion refinement) and delete the mock scaffolding.
 **Requirements**: None (product-driven phase — no REQ-IDs mapped; design decisions D-01 through D-34 captured in `.planning/phases/05-dorm-wars-page-visual-revamp/05-CONTEXT.md`)
 **Depends on:** Phase 4
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 05-01-PLAN.md — Wave 1: Structure swap — replace DormWarsClient.tsx + page.tsx with the mock's structure (single-file strategy); preserve hasClaimed/hasConverted state machine; drop MockDisclaimer
 - [x] 05-02-PLAN.md — Wave 2: State mechanics — wire CycleClock to active subscription, rename Daily Drop key to canonical schema, add streak meter, derive TrophyRoom from referralData + streak, map invites to Recruits, tighten FinePrint copy
-- [ ] 05-03-PLAN.md — Wave 3: Cinematic polish + cleanup — title-screen interstitial (once per cycle), Web Audio sound system + toggle, Daily Drop particle burst, cycle-clock hover-glow, delete `src/app/dashboard/dorm-wars/mock/` directory entirely
+- [x] 05-03-PLAN.md — Wave 3: Cinematic polish + cleanup — title-screen interstitial (once per cycle), Web Audio sound system + toggle, Daily Drop particle burst, cycle-clock hover-glow, delete `src/app/dashboard/dorm-wars/mock/` directory entirely
 
 ---
 
