@@ -137,7 +137,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Wave 1: Structure swap — replace DormWarsClient.tsx + page.tsx with the mock's structure (single-file strategy); preserve hasClaimed/hasConverted state machine; drop MockDisclaimer
-- [ ] 05-02-PLAN.md — Wave 2: State mechanics — wire CycleClock to active subscription, rename Daily Drop key to canonical schema, add streak meter, derive TrophyRoom from referralData + streak, map invites to Recruits, tighten FinePrint copy
+- [x] 05-02-PLAN.md — Wave 2: State mechanics — wire CycleClock to active subscription, rename Daily Drop key to canonical schema, add streak meter, derive TrophyRoom from referralData + streak, map invites to Recruits, tighten FinePrint copy
 - [ ] 05-03-PLAN.md — Wave 3: Cinematic polish + cleanup — title-screen interstitial (once per cycle), Web Audio sound system + toggle, Daily Drop particle burst, cycle-clock hover-glow, delete `src/app/dashboard/dorm-wars/mock/` directory entirely
 
 ---
