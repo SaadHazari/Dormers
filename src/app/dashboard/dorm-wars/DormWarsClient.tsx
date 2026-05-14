@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   Gift, Sparkles, ArrowRight,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { OG, OG3, NV, CR, BODY, DISPLAY } from '../_shared/tokens'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
+import type { Subscription } from '../_shared/types'
 
 const EXPO_OUT  = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const QUART_OUT = 'cubic-bezier(0.25, 1, 0.5, 1)'
@@ -18,17 +19,21 @@ const QUART_OUT = 'cubic-bezier(0.25, 1, 0.5, 1)'
 // STUB: Recruit list (Wave 2 replaces with `invites` prop per D-13).
 // STUB: Trophy meta strings (Wave 2 derives from referralData per D-23).
 // STUB: Cycle days-left (Wave 2 reads active subscription per D-22).
-// STUB: Daily Drop localStorage key uses `dw-mock-drop-…` here; Wave 2 renames to `dw-drop-…` (D-20).
+// STUB: Daily Drop localStorage key (Wave 2 renamed to canonical `dw-drop-…` per D-20).
 
-const MOCK_CYCLE_TOTAL_DAYS = 30
-const MOCK_CYCLE_DAYS_LEFT  = 12
-const MOCK_CYCLE_NUMBER     = 3
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const MOCK_CYCLE_TOTAL_DAYS = 30  // Wave 1 stub — superseded by activeSubscription.start_date/end_date (D-22)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const MOCK_CYCLE_DAYS_LEFT  = 12  // Wave 1 stub — superseded (D-22)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const MOCK_CYCLE_NUMBER     = 3   // Wave 1 stub — superseded (D-22)
 
-const MOCK_CONVERTED = 2
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MOCK_TOTAL     = 5   // Wave 2: wired into leaderboard/hero stats
+const MOCK_CONVERTED = 2          // Wave 1 stub — superseded by referralData.converted
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MOCK_CREDIT    = 40  // Wave 2: wired into hero credit stat
+const MOCK_TOTAL     = 5          // Wave 2: wired into leaderboard/hero stats
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const MOCK_CREDIT    = 40         // Wave 2: wired into hero credit stat
 
 const PULSE_ITEMS: string[] = [
   'Sarah joined Khalidiyah Hall',
@@ -65,13 +70,14 @@ const MILESTONES: Milestone[] = [
 
 type RecruitStatus = 'converted' | 'trying' | 'past'
 interface Recruit { name: string; status: RecruitStatus; when: string; amount: string }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MOCK_RECRUITS: Recruit[] = [
   { name: 'Sara',   status: 'converted', when: '3d ago',  amount: '+AED 20' },
   { name: 'Omar',   status: 'converted', when: '6d ago',  amount: '+AED 20' },
   { name: 'Hala',   status: 'trying',    when: '1d ago',  amount: 'Trying us' },
   { name: 'Yousef', status: 'trying',    when: '2d ago',  amount: 'Trying us' },
   { name: 'Mariam', status: 'past',      when: '12d ago', amount: 'Meal delivered' },
-]
+]  // Wave 1 stub — superseded by recruits derived from invites prop (D-13)
 
 type Trend = 'up' | 'down' | 'flat'
 interface DormRow { rank: number; dorm: string; subs: number; delta: string; trend: Trend; isYou?: boolean }
@@ -90,6 +96,7 @@ interface Achievement {
   earned: boolean
   meta:   string   // "Earned May 7" when earned · "1 more conversion" when locked
 }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MOCK_TROPHIES: Achievement[] = [
   { id: 'first_recruit', label: 'First Recruit', Icon: Users,       earned: true,  meta: 'Earned May 7'           },
   { id: 'soldier',       label: 'Soldier',       Icon: Shield,      earned: true,  meta: 'Earned May 9'           },
@@ -99,21 +106,30 @@ const MOCK_TROPHIES: Achievement[] = [
   { id: 'free_week',     label: 'Free Week',     Icon: Calendar,    earned: false, meta: '4 more conversions'     },
   { id: 'war_hero',      label: 'War Hero',      Icon: Trophy,      earned: false, meta: '8 more conversions'     },
   { id: 'founder',       label: 'Founder',       Icon: Star,        earned: false, meta: 'Cycle 1 reward (missed)' },
-]
+]  // Wave 1 stub — superseded by derived trophies (D-23); kept as fallback reference
 
 const MOCK_RANK = { label: 'Soldier', flavour: "You're in the war now" }
 
-interface Props {
-  customerCid:   string
-  customerDorm?: string
-  referralData:  ReferralData
-  dormStats:     DormStats
-  invites:       InviteRow[]
+// ── Helper ────────────────────────────────────────────────────────────────────
+function timeAgoFromISO(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60)       return 'just now'
+  if (diff < 3600)     return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400)    return `${Math.floor(diff / 3600)}h ago`
+  const days = Math.floor(diff / 86400)
+  return `${days}d ago`
 }
 
-export default function DormWarsClient({ customerCid, customerDorm, referralData, dormStats, invites }: Props) {
-  // invites accepted for Wave 2 wiring (D-13); Wave 1 uses MOCK_RECRUITS instead
-  void invites
+interface Props {
+  customerCid:        string
+  customerDorm?:      string
+  referralData:       ReferralData
+  dormStats:          DormStats
+  invites:            InviteRow[]
+  activeSubscription: Subscription | null
+}
+
+export default function DormWarsClient({ customerCid, customerDorm, referralData, dormStats, invites, activeSubscription }: Props) {
   const dormLabel = customerDorm || 'Your Dorm'
 
   // ── State machine (D-19) ─────────────────────────────────────────
@@ -123,23 +139,110 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   const hasConverted = referralData.converted >= 1
   // TODO(05-future-phase): Full zero-state visual revamp deferred per CONTEXT <deferred>. Engaged-state is the primary target.
 
-  // Suppress unused-vars lint while Wave 2 wires these in
+  // Suppress unused-vars lint while zero-state revamp remains deferred
   void hasClaimed
   void hasConverted
 
-  // ── Daily drop claim state (persisted per day) ────────────────────────
+  // ── Cycle math (D-22) ──────────────────────────────────────────────────
+  // Uses start_date / end_date — the canonical Subscription fields.
+  // CONTEXT.md docs a different naming; this file uses the real types.ts names.
+  const hasActiveSub    = activeSubscription !== null
+  const cycleStart      = hasActiveSub ? new Date(activeSubscription!.start_date) : null
+  const cycleEnd        = hasActiveSub ? new Date(activeSubscription!.end_date)   : null
+  const cycleTotalDays  = cycleStart && cycleEnd
+    ? Math.max(1, Math.ceil((cycleEnd.getTime() - cycleStart.getTime()) / 86400000))
+    : 30
+  const cycleDaysLeft   = cycleEnd
+    ? Math.max(0, Math.ceil((cycleEnd.getTime() - Date.now()) / 86400000))
+    : 0
+  // Multi-cycle history is out of scope this wave — see SUMMARY for the
+  // simplification note. cycleNumber is always 1 for the active billing window.
+  const cycleNumber = 1
+
+  // ── Daily drop claim state (persisted per day, D-20) ─────────────────
   const todayKey  = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const todayDrop = useMemo(() => DAILY_DROPS[new Date().getDate() % DAILY_DROPS.length], [])
   const [claimed, setClaimed] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setClaimed(localStorage.getItem(`dw-mock-drop-${todayKey}`) === '1')
+    setClaimed(localStorage.getItem(`dw-drop-${todayKey}`) === '1')
   }, [todayKey])
   function claimDrop() {
     if (claimed) return
     setClaimed(true)
-    localStorage.setItem(`dw-mock-drop-${todayKey}`, '1')
+    localStorage.setItem(`dw-drop-${todayKey}`, '1')
   }
+
+  // ── Streak meter (D-21) ────────────────────────────────────────────────
+  const [streak, setStreak] = useState<{ lastVisit: string; count: number }>({ lastVisit: '', count: 0 })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const yesterdayISO = (() => {
+      const d = new Date(); d.setDate(d.getDate() - 1)
+      return d.toISOString().slice(0, 10)
+    })()
+    try {
+      const raw = localStorage.getItem('dw-streak')
+      const prev = raw ? JSON.parse(raw) as { lastVisit: string; count: number } : null
+      let next: { lastVisit: string; count: number }
+      if (!prev) {
+        next = { lastVisit: todayISO, count: 1 }
+      } else if (prev.lastVisit === todayISO) {
+        next = prev
+      } else if (prev.lastVisit === yesterdayISO) {
+        next = { lastVisit: todayISO, count: prev.count + 1 }
+      } else {
+        next = { lastVisit: todayISO, count: 1 }
+      }
+      setStreak(next)
+      localStorage.setItem('dw-streak', JSON.stringify(next))
+    } catch {
+      // localStorage unavailable / corrupted JSON — silent fallback
+      const todayISOFallback = new Date().toISOString().slice(0, 10)
+      setStreak({ lastVisit: todayISOFallback, count: 1 })
+    }
+  }, [])
+
+  // ── Trophy derivation (D-23) ───────────────────────────────────────────
+  const trophies: Achievement[] = useMemo(() => {
+    const converted = referralData.converted
+    const total     = referralData.total
+    return [
+      { id: 'first_recruit', label: 'First Recruit',  Icon: Users,       earned: total     >= 1,  meta: total     >= 1  ? 'Earned' : '1 recruit needed' },
+      { id: 'soldier',       label: 'Soldier',        Icon: Shield,      earned: converted >= 1,  meta: converted >= 1  ? 'Earned' : '1 more conversion' },
+      { id: 'streak_3',      label: '3-Day Streak',   Icon: Flame,       earned: streak.count >= 3, meta: streak.count >= 3 ? 'Earned' : `${3 - streak.count} more day${3 - streak.count === 1 ? '' : 's'}` },
+      { id: 'free_skip',     label: 'Free Skip',      Icon: SkipForward, earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
+      { id: 'sergeant',      label: 'Sergeant',       Icon: Crown,       earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
+      { id: 'free_week',     label: 'Free Week',      Icon: Calendar,    earned: converted >= 6,  meta: converted >= 6  ? 'Earned' : `${6 - converted} more conversion${6 - converted === 1 ? '' : 's'}` },
+      { id: 'pause',         label: 'Pause Unlocked', Icon: Pause,       earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
+      { id: 'war_hero',      label: 'War Hero',       Icon: Trophy,      earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
+      { id: 'founder',       label: 'Founder',        Icon: Star,        earned: false,           meta: 'Cycle 1 only' },
+    ]
+  }, [referralData.converted, referralData.total, streak.count])
+
+  // ── Invites → Recruit display (D-13) ───────────────────────────────────
+  const AGING_WINDOW_DAYS = 10  // matches the existing live client constant
+  const recruits: Recruit[] = useMemo(() => {
+    return invites.slice(0, 5).map((row) => {
+      const ageDays = (Date.now() - new Date(row.claimedAt).getTime()) / 86400000
+      const isAged  = ageDays >= AGING_WINDOW_DAYS && row.status === 'gift_claimed'
+      const status: RecruitStatus =
+        row.status === 'converted' ? 'converted' :
+        isAged                     ? 'past'      :
+                                     'trying'
+      const amount =
+        status === 'converted' ? '+AED 20' :
+        status === 'past'      ? 'Meal delivered' :
+                                 'Trying us'
+      return {
+        name:   row.firstName,  // queries.ts already supplies 'Friend' as the null-fallback (legacy)
+        status,
+        when:   timeAgoFromISO(row.claimedAt),
+        amount,
+      }
+    })
+  }, [invites])
 
   // ── Pulse ticker — duplicate for seamless marquee ─────────────────────
   const liveItems  = (dormStats.recent ?? []).map(r => `${r.firstName} joined ${r.planName}`)
@@ -166,9 +269,9 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   // Compose leaderboard with the user's own dorm row injected
   const leaderboardWithYou: DormRow[] = useMemo(() => {
     const rows = MOCK_LEADERBOARD.slice()
-    const youRow: DormRow = { rank: 7, dorm: dormLabel, subs: MOCK_CONVERTED, delta: `+${MOCK_CONVERTED}`, trend: 'up', isYou: true }
+    const youRow: DormRow = { rank: 7, dorm: dormLabel, subs: referralData.converted, delta: `+${referralData.converted}`, trend: 'up', isYou: true }
     return [...rows, youRow]
-  }, [dormLabel])
+  }, [dormLabel, referralData.converted])
 
   return (
     <div style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
@@ -179,6 +282,13 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
       <HeroBlock
         dormLabel={dormLabel}
         customerCid={customerCid}
+        cycleNumber={cycleNumber}
+        cycleDaysLeft={cycleDaysLeft}
+        hasActiveSub={hasActiveSub}
+        cycleClock={hasActiveSub
+          ? <CycleClock daysLeft={cycleDaysLeft} totalDays={cycleTotalDays} cycleNumber={cycleNumber} />
+          : <SubscribeToEnterCTA />}
+        streak={streak}
       />
 
       <DailyDropBlock
@@ -188,15 +298,15 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
         onClaim={claimDrop}
       />
 
-      <ActiveMissionBlock converted={MOCK_CONVERTED} />
+      <ActiveMissionBlock converted={referralData.converted} />
 
-      <MissionLadderBlock converted={MOCK_CONVERTED} />
+      <MissionLadderBlock converted={referralData.converted} />
 
-      <RecruitsBlock recruits={MOCK_RECRUITS} />
+      <RecruitsBlock recruits={recruits} />
 
       <LeaderboardBlock rows={leaderboardWithYou} />
 
-      <TrophyRoomBlock trophies={MOCK_TROPHIES} />
+      <TrophyRoomBlock trophies={trophies} />
 
       <ActionSurfaceBlock customerCid={customerCid} />
 
@@ -369,7 +479,17 @@ function PulseTicker({ ticker }: { ticker: string[] }) {
 //  HERO  —  cycle clock + dramatic typography
 // ════════════════════════════════════════════════════════════════════════════
 
-function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid: string }) {
+function HeroBlock({
+  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, cycleClock, streak,
+}: {
+  dormLabel:     string
+  customerCid:   string
+  cycleNumber:   number
+  cycleDaysLeft: number
+  hasActiveSub:  boolean
+  cycleClock:    React.ReactNode
+  streak:        { lastVisit: string; count: number }
+}) {
   return (
     <section style={{
       position: 'relative',
@@ -410,7 +530,7 @@ function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid:
               <span style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', backgroundColor: OG, display: 'block' }} />
             </span>
             <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 900, color: OG3, letterSpacing: '0.26em', textTransform: 'uppercase' }}>
-              Cycle 0{MOCK_CYCLE_NUMBER} &nbsp;·&nbsp; Live
+              {hasActiveSub ? `Cycle ${String(cycleNumber).padStart(2, '0')}  ·  Live` : 'No active cycle'}
             </span>
           </div>
 
@@ -435,7 +555,9 @@ function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid:
             color: 'rgba(237,232,218,0.62)', lineHeight: 1.6,
             margin: '0 0 24px', maxWidth: 460,
           }}>
-            {MOCK_CYCLE_DAYS_LEFT} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.
+            {hasActiveSub
+              ? <>{cycleDaysLeft} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.</>
+              : <>Subscribe to enter the war and start claiming <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span>.</>}
           </p>
 
           <div className="dwm-rank-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -453,6 +575,19 @@ function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid:
                 {MOCK_RANK.flavour}
               </span>
             </span>
+
+            {streak.count >= 1 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', borderRadius: 999,
+                backgroundColor: 'rgba(245,127,32,0.12)',
+                border: '1px solid rgba(245,127,32,0.32)',
+                color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 600,
+                letterSpacing: 0.4,
+              }}>
+                <Flame size={12} strokeWidth={2.5} /> {streak.count}-DAY STREAK
+              </span>
+            )}
 
             <Link
               href={`https://wa.me/?text=${encodeURIComponent(`I get fresh meals delivered to my dorm from Dormers — try your first meal free: https://dormers.ae/r/${customerCid}`)}`}
@@ -476,7 +611,7 @@ function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid:
 
         <div className="dwm-hero-right" style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
           <div className="dwm-dial-wrap">
-            <CycleClock daysLeft={MOCK_CYCLE_DAYS_LEFT} totalDays={MOCK_CYCLE_TOTAL_DAYS} />
+            {cycleClock}
           </div>
         </div>
       </div>
@@ -489,7 +624,7 @@ function HeroBlock({ dormLabel, customerCid }: { dormLabel: string; customerCid:
 //  CYCLE CLOCK  —  SVG dial, remaining arc shrinks clockwise
 // ════════════════════════════════════════════════════════════════════════════
 
-function CycleClock({ daysLeft, totalDays }: { daysLeft: number; totalDays: number }) {
+function CycleClock({ daysLeft, totalDays, cycleNumber = 1 }: { daysLeft: number; totalDays: number; cycleNumber?: number }) {
   const size = 320
   const cx = size / 2
   const cy = size / 2
@@ -544,7 +679,7 @@ function CycleClock({ daysLeft, totalDays }: { daysLeft: number; totalDays: numb
       <text x={cx} y={cy - 64} textAnchor="middle" dominantBaseline="middle"
         fontFamily={BODY} fontSize={9} fontWeight={800}
         fill="rgba(245,127,32,0.78)" letterSpacing="0.32em"
-      >CYCLE 0{MOCK_CYCLE_NUMBER}</text>
+      >CYCLE {String(cycleNumber).padStart(2, '0')}</text>
     </svg>
   )
 }
@@ -896,6 +1031,15 @@ function RecruitsBlock({ recruits }: { recruits: Recruit[] }) {
           borderRadius: 'var(--radius-md)',
           overflow: 'hidden',
         }}>
+          {recruits.length === 0 && (
+            <div style={{
+              padding: '32px 22px', textAlign: 'center',
+              fontFamily: BODY, fontSize: 13, fontWeight: 400,
+              color: 'rgba(237,232,218,0.40)', lineHeight: 1.55,
+            }}>
+              No recruits yet — your first invite starts the war.
+            </div>
+          )}
           {recruits.map((r, i) => {
             const isLast = i === recruits.length - 1
             const fg =
@@ -1213,6 +1357,56 @@ function ActionSurfaceBlock({ customerCid }: { customerCid: string }) {
 
 
 // ════════════════════════════════════════════════════════════════════════════
+//  SUBSCRIBE TO ENTER CTA  —  shown when no active subscription (D-22)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Wave 3 may extend with cycleNumber, cycleTotalDays for the title-screen interstitial
+type SubscribeToEnterCTAProps = Record<string, never>
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SubscribeToEnterCTA(_props: SubscribeToEnterCTAProps) {
+  return (
+    <div style={{
+      width: 320, height: 320,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 16, padding: 32,
+      backgroundColor: NV,
+      border: '1px solid rgba(245,127,32,0.18)',
+      borderRadius: 'var(--radius-md)',
+    }}>
+      <div style={{
+        fontFamily: DISPLAY, fontSize: 22, fontWeight: 700,
+        color: CR, letterSpacing: '-0.02em', lineHeight: 1.2,
+        textAlign: 'center',
+      }}>
+        Subscribe to enter the war.
+      </div>
+      <div style={{
+        fontFamily: BODY, fontSize: 13, fontWeight: 400,
+        color: 'rgba(237,232,218,0.55)', lineHeight: 1.55,
+        textAlign: 'center', maxWidth: 220,
+      }}>
+        Your cycle starts when your plan does.
+      </div>
+      <Link
+        href="/dashboard/plan"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '12px 22px', borderRadius: 999,
+          backgroundColor: OG,
+          fontFamily: BODY, fontSize: 12, fontWeight: 900,
+          color: CR, letterSpacing: '0.14em', textTransform: 'uppercase',
+          textDecoration: 'none',
+        }}
+      >
+        Start your plan <ArrowRight size={13} strokeWidth={2.5} />
+      </Link>
+    </div>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
 //  FINE PRINT  —  quiet rules at the bottom
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1233,7 +1427,7 @@ function FinePrintBlock() {
         }}>
           <li>One free meal per invitee. Each phone number and email can only claim once.</li>
           <li>Credit lands only when your invitee makes their first paid subscription.</li>
-          <li>Capped at 10 paid conversions per <strong>subscription cycle</strong>.</li>
+          <li>Capped at 10 paid conversions per subscription cycle.</li>
           <li>Milestone rewards apply within 24 hours of qualifying.</li>
           <li>Daily Drop refreshes at 00:00 local. One claim per cycle day.</li>
           <li>Dormers may void credits for suspected abuse.</li>
