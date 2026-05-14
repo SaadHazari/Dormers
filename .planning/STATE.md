@@ -88,6 +88,7 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 ### Roadmap Evolution
 
 - Phase 4 added: Codebase cleanup — audit and remove all files not referenced by the live website (unused components, dead assets, orphaned scripts, stale configs, etc.)
+- Phase 5 added: Dorm Wars page visual revamp — replace existing /dashboard/dorm-wars with all-dark cinematic treatment proven in mock at /dashboard/dorm-wars/mock. Three waves: (1) structure swap + tokens + leaderboard unblur, (2) state mechanics — Daily Drop, streak meter, cycle clock wired to subscription cycle, Trophy Room from existing data, (3) cinematic polish — title-screen interstitial, sound + toggle, motion refinement. Visual-only — no new backend tables. Mock files at src/app/dashboard/dorm-wars/mock/ are reference and deleted at migration end.
 
 ### Blockers
 

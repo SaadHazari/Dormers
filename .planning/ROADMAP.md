@@ -127,6 +127,16 @@ Plans:
 **Cleanup requirements mapped:** 5/5
 **Orphaned requirements:** 0
 
+### Phase 5: Dorm Wars page visual revamp
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)
+
 ---
 
 *Roadmap created: 2026-04-03*
