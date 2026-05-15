@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-03-PLAN.md — Wave 3 cinematic polish + mock cleanup complete (Phase 5 DONE)
-last_updated: "2026-05-14T12:08:10.150Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-05-15T15:09:23.198Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 4
   total_plans: 8
   completed_plans: 8
@@ -89,6 +89,7 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 
 - Phase 4 added: Codebase cleanup — audit and remove all files not referenced by the live website (unused components, dead assets, orphaned scripts, stale configs, etc.)
 - Phase 5 added: Dorm Wars page visual revamp — replace existing /dashboard/dorm-wars with all-dark cinematic treatment proven in mock at /dashboard/dorm-wars/mock. Three waves: (1) structure swap + tokens + leaderboard unblur, (2) state mechanics — Daily Drop, streak meter, cycle clock wired to subscription cycle, Trophy Room from existing data, (3) cinematic polish — title-screen interstitial, sound + toggle, motion refinement. Visual-only — no new backend tables. Mock files at src/app/dashboard/dorm-wars/mock/ are reference and deleted at migration end.
+- Phase 6 added: Dorm Wars game-feel pass — AV craft layer that flips perceived class from "polished web" to "studio-built game". In scope: atmosphere stack (grain/vignette/bloom/key-light/CRT-on-HUD), persistent HUD pod, three-stem ambient audio bed + recorded stinger library + ducking + spatial UI sounds + audio-reactive bloom, rank-up cinematic (letterbox + stamped card + microshake), stratified parallax + impact flash + chromatic aberration + cursor reticle, title-screen upgrade (typed callsign, ink-bleed stamp, 4s intro stinger), edge-of-viewport "INCOMING" alerts, tabular number rolls, commissioned assets (stencil icon set, anchor illustration, custom display face, audio stems, 9-slice borders). Out of scope: WebGL backdrop (own phase), color-as-story palette refactor (own phase). Scope locked 2026-05-15.
 
 ### Blockers
 
@@ -111,7 +112,7 @@ Phase 4 complete. Both plans executed:
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 05-03-PLAN.md — Wave 3 cinematic polish + mock cleanup complete (Phase 5 DONE)
+**Stopped at:** Phase 6 context gathered
 
 ---
 
