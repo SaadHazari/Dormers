@@ -166,7 +166,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — Wave 1: Atmosphere foundation (grain, vignette, bloom, parallax, reticle cursor, reduced-motion gate, perf-test gate)
-- [ ] 06-02-PLAN.md — Wave 2: Audio system (three-stem ambient bed, stinger library with ducking + spatial pan, audio-reactive bloom, ENABLE AUDIO pre-prompt; default OFF per D-16)
+- [x] 06-02-PLAN.md — Wave 2: Audio system (three-stem ambient bed, stinger library with ducking + spatial pan, audio-reactive bloom, ENABLE AUDIO pre-prompt; default OFF per D-16)
 - [ ] 06-03-PLAN.md — Wave 3: HUD pod (desktop 4-row pod + mobile collapsed pill, NumberRoll, CRT scanline overlay, mounted only on /dashboard/dorm-wars per D-12)
 - [ ] 06-04-PLAN.md — Wave 4: Cinema moments (rank-up cutscene 8-step choreography, title-screen interstitial upgrade with typed callsign + ink-bleed stamp, edge-of-viewport INCOMING alerts, chromatic aberration, impact flash + microshake)
 - [ ] 06-05-PLAN.md — Wave 5: Asset integration sweep (15-16 stencil icons, 11 real audio stems, Black Ops One stencil font, anchor war-room image with full D-07 treatment, 9-slice stamped borders)

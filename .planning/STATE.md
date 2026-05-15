@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-01-PLAN.md (Atmosphere foundation)
-last_updated: "2026-05-15T16:23:00.051Z"
+stopped_at: Completed 06-02-PLAN.md (Audio system)
+last_updated: "2026-05-15T16:46:07.107Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
   percent: 100
 ---
 
@@ -32,7 +32,7 @@ progress:
 ## Current Position
 
 Phase: 06 (dorm-wars-game-feel-pass) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 | Field | Value |
 |-------|-------|
 | Active phase | Phase 4: Codebase Cleanup |
@@ -74,6 +74,11 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | Phase 6 Wave 1: JS-only reduced-motion gate via `useReducedMotionGate` hook | Phase 5's CSS `prefers-reduced-motion` block stays unchanged (acceptance criterion); every new motion module early-returns or jumps to end-state in JS |
 | Phase 6 Wave 1: `Bloom` `audioReactive` prop wired into Wave 1 API surface | Wave 2 plugs `useAudioReactive()` into a single seam in `Bloom.tsx` without re-touching DormWarsClient or any consumer call site (D-03 architecture-first) |
 | Phase 6 Wave 1: live Chrome DevTools perf gate deferred to merge review | Parallel-executor sandbox cannot launch interactive browser; static-analysis baseline + fallback levers (FPS 24→12, blurPx 32→16) committed to `06-01-perf-baseline.json` for user to apply if regression found |
+| Phase 6 Wave 2: AudioContext shared via `sound.ctx()` between synth (Phase 5 useSound) and sample-based hooks (useAudioBed, useStingers) | Single browser AudioContext serves both pipelines; avoids autoplay-policy double-prompt and stays within browser context limits. useSound owns the ref; consumers receive it as a parameter |
+| Phase 6 Wave 2: D-16 audio default OFF persisted via NEW `dw-audio-enabled` localStorage key | Reverses Phase 5 D-29 (default ON). One-cycle back-compat reads `dw-sound` if `dw-audio-enabled` absent; once user toggles via AudioPrompt, only the new key is written and `dw-sound` dies gradually |
+| Phase 6 Wave 2: HeroBlock got new `audioAnalyser` prop instead of closing over `audioBed.analyser` | Bloom on "war." headline lives inside HeroBlock's render tree (separate function), not DormWarsClient body — analyser must be threaded through props rather than captured. Same pattern Wave 3 will follow for HUD chevron Bloom |
+| Phase 6 Wave 2: Stinger AudioBuffers cached in useRef Map; lazy fetch on first play | First play of each key incurs network + decode; subsequent plays are zero-cost. Bundle weight stays at 0 until ENABLE AUDIO is tapped AND a stinger event fires (lazy-load discipline per RESEARCH bundle budget) |
+| Phase 6 Wave 2: Silent-fail on missing audio assets (try/catch + console.warn) | Per UI-SPEC error state — audio is opt-in atmosphere, not core functionality. System wired but inaudible until Wave 5 lands real .mp3 stems; synth fallbacks (Phase 5 useSound) keep the page audible during Waves 2-4 |
 
 ### Architecture Notes
 
@@ -105,6 +110,7 @@ None at project start.
 - [ ] Run `next build` after Phase 1 to confirm no image sizing warnings
 - [ ] Verify touch scroll behavior on a real mobile device after Phase 2
 - [ ] Confirm nutrition modal still opens correctly from the new icon trigger after Phase 3
+- [ ] **Phase 6 perf-gate UAT (Wave 1 deferred to phase-end):** `npm run dev` → http://localhost:3000/dashboard/dorm-wars in incognito → DevTools Performance → 4× CPU throttle → record 10s of idle scroll. Target: ≥60fps. If regress: drop `<Grain fps={24} />` to `<Grain fps={12} />` in DormWarsClient.tsx. Verification must happen with all atmosphere + audio + HUD + cinema active (not just Wave 1) — stricter gate. Static-analysis baseline at `.planning/phases/06-dorm-wars-game-feel-pass/06-01-perf-baseline.json`.
 
 ---
 
@@ -117,7 +123,7 @@ Phase 4 complete. Both plans executed:
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 06-01-PLAN.md (Atmosphere foundation)
+**Stopped at:** Completed 06-02-PLAN.md (Audio system)
 
 ---
 
