@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-02-PLAN.md (Audio system)
-last_updated: "2026-05-15T16:46:07.107Z"
+stopped_at: Completed 06-03-PLAN.md (HUD pod)
+last_updated: "2026-05-15T17:06:04.472Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
   percent: 100
 ---
 
@@ -32,7 +32,7 @@ progress:
 ## Current Position
 
 Phase: 06 (dorm-wars-game-feel-pass) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 | Field | Value |
 |-------|-------|
 | Active phase | Phase 4: Codebase Cleanup |
@@ -79,6 +79,11 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | Phase 6 Wave 2: HeroBlock got new `audioAnalyser` prop instead of closing over `audioBed.analyser` | Bloom on "war." headline lives inside HeroBlock's render tree (separate function), not DormWarsClient body — analyser must be threaded through props rather than captured. Same pattern Wave 3 will follow for HUD chevron Bloom |
 | Phase 6 Wave 2: Stinger AudioBuffers cached in useRef Map; lazy fetch on first play | First play of each key incurs network + decode; subsequent plays are zero-cost. Bundle weight stays at 0 until ENABLE AUDIO is tapped AND a stinger event fires (lazy-load discipline per RESEARCH bundle budget) |
 | Phase 6 Wave 2: Silent-fail on missing audio assets (try/catch + console.warn) | Per UI-SPEC error state — audio is opt-in atmosphere, not core functionality. System wired but inaudible until Wave 5 lands real .mp3 stems; synth fallbacks (Phase 5 useSound) keep the page audible during Waves 2-4 |
+| Phase 6 Wave 3: HUD mobile collapse uses render-swap (instant), not 280ms layout-tween | Interpolating a 32px pill into 240×~104px pod requires either FLIP animation (out of scope) or transform-based scale that distorts content; render-swap matches reduced-motion behavior natively per D-15 (instant under both branches); future enhancement could add an opacity crossfade between renderings |
+| Phase 6 Wave 3: NumberRoll uses direct matchMedia inside imperative animate() effects, NOT useReducedMotionGate hook | RESEARCH Pitfall 4: framer-motion's imperative animate() runs outside React's render cycle — a hook re-render wouldn't propagate fast enough on live OS toggles. Synchronous matchMedia check before each animate() call is the canonical pattern for imperative motion APIs |
+| Phase 6 Wave 3: AED wallet wired to live referralData.creditBalance, NOT MOCK_CREDIT stub | Plan offered MOCK_CREDIT as fallback if .credit field didn't exist; queries.ts inspection confirmed creditBalance: number IS on the typed interface (sum of approved credits in AED). HUD becomes the first live consumer of the field, leapfrogging Phase 5's HeroBlock stub |
+| Phase 6 Wave 3: HUD mounted in DormWarsClient.tsx ONLY — layout.tsx NOT modified | D-12 enforcement: HUD is a war-room artifact, not global app chrome. Cross-page persistence would force theme-adaptive variants per dashboard page and leak war-room aesthetics into surfaces that are deliberately calm. Verified via grep returning 0 HUDPod references in layout.tsx |
+| Phase 6 Wave 3: RankChevron flash-on-change uses inline 200ms dw-rank-flash class as Wave 4 ImpactFlash placeholder | Plan explicitly notes ImpactFlash module lands in Wave 4. Migration path: wrap RankChevron with `<ImpactFlash trigger={rankChanged}>...</ImpactFlash>` and remove inline keyframes. Placeholder behavior (200ms OG glow burst, CSS @media disabled) matches spec exactly so swap is visual no-op |
 
 ### Architecture Notes
 
@@ -123,7 +128,7 @@ Phase 4 complete. Both plans executed:
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 06-02-PLAN.md (Audio system)
+**Stopped at:** Completed 06-03-PLAN.md (HUD pod)
 
 ---
 
