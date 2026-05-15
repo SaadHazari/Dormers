@@ -17,6 +17,7 @@ import { useSound }       from '../_shared/dw/audio/useSound'
 import { useAudioBed }    from '../_shared/dw/audio/useAudioBed'
 import { useStingers }    from '../_shared/dw/audio/useStingers'
 import { AudioPrompt }    from '../_shared/dw/audio/AudioPrompt'
+import { HUDPod }         from '../_shared/dw/hud/HUDPod'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
 import type { Subscription } from '../_shared/types'
 
@@ -353,6 +354,21 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
     return [...rows, youRow]
   }, [dormLabel, referralData.converted])
 
+  // ── HUD pod inputs (Phase 6 D-12 / D-13 / D-14) ────────────────────────
+  // Rank derivation matches the existing Mission Ladder + leaderboard tier logic.
+  // Soldier (0 conversions) → Sergeant (1-2) → Commander (3-5) → War Hero (6+).
+  // Founder is a future tier — Wave 5 icon present, gating in Wave 4 RankUp logic.
+  const converted = referralData.converted
+  const rankLabel =
+    converted >= 6 ? 'War Hero' :
+    converted >= 3 ? 'Commander' :
+    converted >= 1 ? 'Sergeant' :
+                     'Soldier'
+  // AED in wallet — uses real ReferralData.creditBalance field (sum of approved credits).
+  const aedInWallet = referralData.creditBalance
+  // Callsign = first name parsed from customerCid (split on whitespace or hyphen).
+  const callsign = (customerCid || 'AGENT').split(/[\s-]+/)[0]
+
   return (
     <div className="dw-reticle" style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
       {/* Welcome takes precedence — title screen is suppressed when new user hasn't been onboarded */}
@@ -374,6 +390,18 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
           sit above page content but below modals (TitleScreen / WelcomeOverlay z 10000+). */}
       <Grain />
       <Vignette />
+
+      {/* Phase 6 Wave 3 — HUD pod (D-12 scoped to /dashboard/dorm-wars only).
+          Mounted in DormWarsClient (NOT layout.tsx) so it never appears on
+          calm dashboard surfaces. Z-index 9000 — below modals (10000+),
+          above page content. Mobile (≤720px) collapses to a pill via
+          dw-hud-collapsed localStorage key. */}
+      <HUDPod
+        callsign={callsign}
+        rank={rankLabel}
+        aed={aedInWallet}
+        streakDays={streak.count}
+      />
 
       <HeroBlock
         dormLabel={dormLabel}
