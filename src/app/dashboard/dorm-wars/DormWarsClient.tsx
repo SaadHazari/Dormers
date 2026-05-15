@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import {
   Gift, Sparkles, ArrowRight, Send, X,
@@ -18,6 +18,11 @@ import { useAudioBed }    from '../_shared/dw/audio/useAudioBed'
 import { useStingers }    from '../_shared/dw/audio/useStingers'
 import { AudioPrompt }    from '../_shared/dw/audio/AudioPrompt'
 import { HUDPod }         from '../_shared/dw/hud/HUDPod'
+import { TitleScreenInterstitial } from '../_shared/dw/cinema/TitleScreenInterstitial'
+import { RankUpCutscene }          from '../_shared/dw/cinema/RankUpCutscene'
+import { EdgeAlert, type EdgeAlertKind } from '../_shared/dw/cinema/EdgeAlert'
+import { ImpactFlash }             from '../_shared/dw/cinema/ImpactFlash'
+import { triggerScreenShake }      from '../_shared/dw/utils/triggerScreenShake'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
 import type { Subscription } from '../_shared/types'
 
@@ -156,11 +161,10 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   const sound = useSound()
   const ctx = sound.ctx()
   const audioBed = useAudioBed(ctx, sound.on)
+  // Wave 4 actually consumes stingers via cinema modules (RankUpCutscene,
+  // TitleScreenInterstitial, EdgeAlert, conversion-impact effect) — Wave 2's
+  // `void stingers` placeholder has been removed.
   const stingers = useStingers(ctx, audioBed.bedGain)
-  // Suppress unused-vars: stingers is the API for Wave 3 (HUD juice) and Wave 4 (cinema)
-  // to call e.g. stingers.play('rank-up'); reserving the binding now keeps the
-  // wiring in place without re-touching this file when those waves land.
-  void stingers
 
   // ── State machine (D-19) ─────────────────────────────────────────
   // hasClaimed: page-mode flip — at least one invitee claimed a free meal.
@@ -369,22 +373,89 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   // Callsign = first name parsed from customerCid (split on whitespace or hyphen).
   const callsign = (customerCid || 'AGENT').split(/[\s-]+/)[0]
 
+  // ── Phase 6 Wave 4: Cinema state ────────────────────────────────────────
+  // Page root ref — target for triggerScreenShake on rank-up + conversion impact.
+  const pageRootRef = useRef<HTMLDivElement>(null)
+
+  // Rank tier ladder. RankUpCutscene fires once per cycle per rank tier when the
+  // user crosses upward (never on demotion). Slug is filesystem-friendly for the
+  // localStorage key dw-rankup-played-${cycleStartISO}-${rankSlug}.
+  const RANK_TIERS = ['Soldier', 'Sergeant', 'Commander', 'War Hero'] as const
+  const RANK_SLUGS: Record<string, string> = {
+    Soldier:    'soldier',
+    Sergeant:   'sergeant',
+    Commander:  'commander',
+    'War Hero': 'war-hero',
+  }
+  const [rankUpVisible, setRankUpVisible] = useState(false)
+  const [rankUpTarget, setRankUpTarget]   = useState<string>('Soldier')
+  const prevRankRef = useRef<string>(rankLabel)
+
+  useEffect(() => {
+    if (!cycleStartISO) return
+    const prev = prevRankRef.current
+    if (rankLabel !== prev) {
+      const prevIdx = RANK_TIERS.indexOf(prev as typeof RANK_TIERS[number])
+      const nextIdx = RANK_TIERS.indexOf(rankLabel as typeof RANK_TIERS[number])
+      if (nextIdx > prevIdx) {
+        const slug = RANK_SLUGS[rankLabel]
+        const key = `dw-rankup-played-${cycleStartISO}-${slug}`
+        if (typeof window !== 'undefined' && localStorage.getItem(key) !== '1') {
+          setRankUpTarget(rankLabel)
+          setRankUpVisible(true)
+        }
+      }
+      prevRankRef.current = rankLabel
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankLabel, cycleStartISO])
+
+  // Conversion-impact: ImpactFlash + microshake + EdgeAlert + conversion-impact
+  // stinger when referralData.converted increments during session.
+  const [impactTrigger, setImpactTrigger] = useState(0)
+  const [edgeAlert, setEdgeAlert] = useState<{ kind: EdgeAlertKind | null; message: string }>({ kind: null, message: '' })
+  const prevConvertedRef = useRef<number>(referralData?.converted ?? 0)
+
+  useEffect(() => {
+    const cur = referralData?.converted ?? 0
+    const prev = prevConvertedRef.current
+    if (cur > prev) {
+      setImpactTrigger(t => t + 1)
+      triggerScreenShake(pageRootRef.current, 120, 1.5)
+      stingers.play('conversion-impact', { panX: 0 })
+      setEdgeAlert({ kind: 'conversion', message: 'INCOMING — A friend converted. +AED 20' })
+      prevConvertedRef.current = cur
+    }
+  }, [referralData?.converted, stingers])
+
   return (
-    <div className="dw-reticle" style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
+    <div ref={pageRootRef} className="dw-reticle" style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
       {/* Welcome takes precedence — title screen is suppressed when new user hasn't been onboarded */}
       <WelcomeOverlay show={showWelcome} onDismiss={dismissWelcome} customerCid={customerCid} />
 
+      {/* Phase 6 Wave 4 — title-screen interstitial UPGRADE. Replaces Phase 5's
+          inline component with the typed-callsign + ink-bleed-stamp + intro-stinger
+          choreography. Once-per-cycle gating preserved (Phase 5 D-28 dw-titlescreen-${cycleStartISO}). */}
       <TitleScreenInterstitial
         show={showTitleScreen && !showWelcome}
+        customerCid={customerCid}
         onDismiss={dismissTitleScreen}
-        cycleNumber={cycleNumber}
-        cycleTotalDays={cycleTotalDays}
+        playStinger={stingers.play}
       />
 
       <SharedKeyframes />
       <CursorReticle />
 
       <PulseTicker ticker={ticker} />
+
+      {/* Phase 6 Wave 4 — edge-of-viewport INCOMING strip (z-index 8500 per UI-SPEC,
+          below HUD 9000 so HUD remains readable; above page content). */}
+      <EdgeAlert
+        kind={edgeAlert.kind}
+        message={edgeAlert.message}
+        playStinger={stingers.play}
+        onDismissed={() => setEdgeAlert({ kind: null, message: '' })}
+      />
 
       {/* Phase 6 Wave 1 — atmosphere overlays. Grain (z 9999) + Vignette (z 8000)
           sit above page content but below modals (TitleScreen / WelcomeOverlay z 10000+). */}
@@ -401,6 +472,23 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
         rank={rankLabel}
         aed={aedInWallet}
         streakDays={streak.count}
+      />
+
+      {/* Phase 6 Wave 4 — ImpactFlash full-viewport orange flash on conversion
+          (z-index 9500 — visually anchored to top-right corner where HUDPod's
+          wallet readout lives, sits above HUD but below modals). */}
+      <ImpactFlash trigger={impactTrigger} />
+
+      {/* Phase 6 Wave 4 — RankUpCutscene letterbox + PROMOTED stamp.
+          Fires once per cycle per rank tier when user crosses upward. Z-index 10000+. */}
+      <RankUpCutscene
+        visible={rankUpVisible}
+        rank={rankUpTarget}
+        rankSlug={RANK_SLUGS[rankUpTarget] || 'soldier'}
+        cycleStartISO={cycleStartISO || ''}
+        shakeTarget={pageRootRef.current}
+        playStinger={stingers.play}
+        onDismiss={() => setRankUpVisible(false)}
       />
 
       <HeroBlock
@@ -1674,69 +1762,12 @@ function ActionSurfaceBlock({ customerCid, sound }: { customerCid: string; sound
 
 
 // ════════════════════════════════════════════════════════════════════════════
-//  TITLE SCREEN INTERSTITIAL  —  once-per-cycle gate on first visit (D-28)
+//  TITLE SCREEN INTERSTITIAL — Phase 6 Wave 4 upgrade
+//  Phase 5's inline component (typed-callsign + ink-bleed + intro stinger version)
+//  has been extracted to `_shared/dw/cinema/TitleScreenInterstitial.tsx`. The
+//  composer imports it at top of file and DormWarsClient owns the show/dismiss
+//  lifecycle (dw-titlescreen-${cycleStartISO} once-per-cycle gate preserved).
 // ════════════════════════════════════════════════════════════════════════════
-
-function TitleScreenInterstitial({
-  show, onDismiss, cycleNumber, cycleTotalDays,
-}: {
-  show: boolean
-  onDismiss: () => void
-  cycleNumber: number
-  cycleTotalDays: number
-}) {
-  if (!show) return null
-  return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      backgroundColor: 'rgba(9,24,37,0.96)',
-      zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        maxWidth: 480, width: '100%',
-        padding: '48px 32px',
-        backgroundColor: NV,
-        border: '1px solid rgba(245,127,32,0.24)',
-        borderRadius: 'var(--radius-md)',
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 16,
-      }}>
-        <div style={{
-          fontFamily: BODY, fontSize: 11, fontWeight: 900,
-          color: OG, letterSpacing: 2, textTransform: 'uppercase',
-        }}>
-          {'CYCLE ' + String(cycleNumber).padStart(2, '0') + ' · ' + cycleTotalDays + ' DAYS'}
-        </div>
-        <div style={{
-          fontFamily: DISPLAY, fontSize: 48, fontWeight: 800,
-          color: CR, lineHeight: 1.1, letterSpacing: '-0.035em',
-        }}>
-          A new war begins.
-        </div>
-        <div style={{
-          fontFamily: BODY, fontSize: 14, fontWeight: 400,
-          color: 'rgba(237,232,218,0.65)', lineHeight: 1.6,
-        }}>
-          Every recruit, every drop, every conversion counts. Resets when the cycle ends.
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          style={{
-            marginTop: 8,
-            backgroundColor: OG, color: CR,
-            padding: '12px 32px', borderRadius: 999,
-            fontFamily: BODY, fontWeight: 700, fontSize: 13,
-            letterSpacing: 1.2, textTransform: 'uppercase',
-            border: 'none', cursor: 'pointer',
-          }}
-        >
-          Enter the war
-        </button>
-      </div>
-    </div>
-  )
-}
 
 
 // ════════════════════════════════════════════════════════════════════════════
