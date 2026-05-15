@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-03-PLAN.md (HUD pod)
-last_updated: "2026-05-15T17:06:04.472Z"
+stopped_at: Completed 06-04-PLAN.md (cinema moments)
+last_updated: "2026-05-15T17:30:28.277Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 100
 ---
 
@@ -32,13 +32,13 @@ progress:
 ## Current Position
 
 Phase: 06 (dorm-wars-game-feel-pass) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 | Field | Value |
 |-------|-------|
-| Active phase | Phase 4: Codebase Cleanup |
-| Active plan | None (Phase 4 complete) |
-| Phase status | Phase 1, 2, 4 complete; Phase 3 not started |
-| Overall progress | 5/5 plans complete |
+| Active phase | Phase 6: Dorm Wars Game-Feel Pass |
+| Active plan | Plan 5 (asset integration sweep) — last plan in phase |
+| Phase status | Phases 1, 2, 4, 5 complete; Phase 6 in progress (4/5 plans complete); Phase 3 not started |
+| Overall progress | 12/13 plans complete |
 
 ```
 Progress: [██████████] 100%
@@ -84,6 +84,12 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | Phase 6 Wave 3: AED wallet wired to live referralData.creditBalance, NOT MOCK_CREDIT stub | Plan offered MOCK_CREDIT as fallback if .credit field didn't exist; queries.ts inspection confirmed creditBalance: number IS on the typed interface (sum of approved credits in AED). HUD becomes the first live consumer of the field, leapfrogging Phase 5's HeroBlock stub |
 | Phase 6 Wave 3: HUD mounted in DormWarsClient.tsx ONLY — layout.tsx NOT modified | D-12 enforcement: HUD is a war-room artifact, not global app chrome. Cross-page persistence would force theme-adaptive variants per dashboard page and leak war-room aesthetics into surfaces that are deliberately calm. Verified via grep returning 0 HUDPod references in layout.tsx |
 | Phase 6 Wave 3: RankChevron flash-on-change uses inline 200ms dw-rank-flash class as Wave 4 ImpactFlash placeholder | Plan explicitly notes ImpactFlash module lands in Wave 4. Migration path: wrap RankChevron with `<ImpactFlash trigger={rankChanged}>...</ImpactFlash>` and remove inline keyframes. Placeholder behavior (200ms OG glow burst, CSS @media disabled) matches spec exactly so swap is visual no-op |
+| Phase 6 Wave 4: Letterbox bars use transform: scaleY (transformOrigin top/bottom) NOT height animation | RESEARCH Anti-Pattern Pattern 8 compliance — height triggers layout reflow, transform composites on the GPU. UI-SPEC's `height: 0 → 64px` describes visual end-state; planner mapped to GPU-friendly implementation |
+| Phase 6 Wave 4: BACK_OUT cubic-bezier(0.34, 1.56, 0.64, 1) registered as third easing curve | Per CONTEXT Claude's Discretion latitude — used for PROMOTED stamp overshoot-and-settle in RankUpCutscene step 3. Lives as const inside RankUpCutscene.tsx, NOT promoted to tokens.ts (locked per Phase 5 D-03) |
+| Phase 6 Wave 4: Rank-up cutscene fires on cross-threshold-upward only (RANK_TIERS.indexOf comparison) | Never on demotion (e.g., refund that drops Sergeant→Soldier). Matches UI-SPEC intent: cutscene celebrates promotion, not demotion |
+| Phase 6 Wave 4: Cinema modules consume stingers via optional playStinger?: callback prop, NOT direct useStingers import | Keeps modules pure-presentational + testable; clean dependency direction (modules depend on small callback type, not audio subsystem); caller controls audio source (could swap stingers.play for a synth fallback). Wave 2's `void stingers` placeholder REMOVED — stingers genuinely consumed in 5 places (3 prop wirings + 1 direct call in conversion-impact useEffect + the prop chain) |
+| Phase 6 Wave 4: TitleScreenInterstitial upgrade preserves Phase 5 D-28 once-per-cycle gating contract | DormWarsClient still owns the show/dismiss lifecycle via dw-titlescreen-${cycleStartISO}; new module is purely presentational + behavior. Adding a new key would break Phase 5's gating semantics |
+| Phase 6 Wave 4: ImpactFlash trigger uses incrementing counter pattern (setX(t => t + 1)) NOT boolean toggle | Guarantees React detects a change even if conversions land in rapid succession (two conversions within the 80ms flash window would otherwise collapse to a single render with active=true) |
 
 ### Architecture Notes
 
@@ -128,7 +134,7 @@ Phase 4 complete. Both plans executed:
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 06-03-PLAN.md (HUD pod)
+**Stopped at:** Completed 06-04-PLAN.md (cinema moments)
 
 ---
 
