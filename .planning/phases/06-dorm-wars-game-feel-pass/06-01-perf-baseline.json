@@ -1,0 +1,29 @@
+{
+  "phase": "06-dorm-wars-game-feel-pass",
+  "plan": "01",
+  "wave": 1,
+  "captured_at": "2026-05-15T16:13:00Z",
+  "method": "static-analysis (no live browser available in parallel executor sandbox)",
+  "browser": "n/a",
+  "cpu_throttle": "n/a",
+  "url": "/dashboard/dorm-wars",
+  "metrics": {
+    "avg_fps_idle_scroll": "deferred — requires interactive browser session",
+    "max_paint_time_ms": "deferred",
+    "long_tasks_count": "deferred"
+  },
+  "decision": "kept-24fps-grain",
+  "rationale": [
+    "Grain settings are already at Pitfall 3's recommended caps: numOctaves=2, OPACITY=0.06, FPS=24, FRAMES=8, stitchTiles='stitch' (tile reuse).",
+    "Bloom blur radius 32px is on a single hot target (war. headline only); other Hot Bloom Targets land in later waves.",
+    "Parallax uses a SINGLE shared rAF + passive scroll listener; only 3 layers registered (well below any contention threshold).",
+    "ParallaxLayer applies willChange:'transform' to promote GPU compositing.",
+    "All reduced-motion gates are wired — users who hit perf issues can system-toggle to bypass animations entirely.",
+    "If post-merge live perf testing finds avg FPS < 60, fallback levers are documented in Wave 1 plan: drop FPS 24→12 in Grain.tsx; drop Bloom blurPx 32→16 on war. headline."
+  ],
+  "fallback_levers_available": [
+    "src/app/dashboard/_shared/dw/atmosphere/Grain.tsx — change FPS const from 24 to 12 (single-line edit)",
+    "src/app/dashboard/dorm-wars/DormWarsClient.tsx — change <Bloom blurPx={32}> to blurPx={16} on the war. headline (single-line edit)"
+  ],
+  "follow_up": "User to run Chrome DevTools Performance recording at 4x CPU throttle on /dashboard/dorm-wars during merge review; SUMMARY.md notes this as a verification action, not a blocker for the automated perf gate."
+}

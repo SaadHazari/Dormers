@@ -22,12 +22,13 @@ export function Bloom({
   color = '#f57f20',
   intensity = 1.0,
   blurPx = 24,
-  audioReactive: _audioReactive = false,
+  audioReactive = false,
 }: BloomProps) {
   const reduced = useReducedMotionGate()
   // Wave 2 will replace this stub with a useAudioReactive() multiplier; Wave 1 leaves it at 1.0.
-  // Ternary kept (rather than constant) to make the seam visible for Wave 2 wiring.
-  const audioMult = reduced ? 1.0 : 1.0
+  // The `audioReactive` prop is the seam for Wave 2 — kept in the API surface now so consumers
+  // (DormWarsClient hot targets) don't need to be re-touched when audio lands.
+  const audioMult = reduced || !audioReactive ? 1.0 : 1.0
   const finalIntensity = intensity * audioMult
   return (
     <span style={{ position: 'relative', display: 'inline-block' }}>

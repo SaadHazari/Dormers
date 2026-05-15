@@ -9,6 +9,11 @@ import {
   Volume2, VolumeX,
 } from 'lucide-react'
 import { OG, OG3, NV, CR, BODY, DISPLAY } from '../_shared/tokens'
+import { Grain }          from '../_shared/dw/atmosphere/Grain'
+import { Vignette }       from '../_shared/dw/atmosphere/Vignette'
+import { Bloom }          from '../_shared/dw/atmosphere/Bloom'
+import { ParallaxLayer }  from '../_shared/dw/atmosphere/ParallaxLayer'
+import { CursorReticle }  from '../_shared/dw/atmosphere/CursorReticle'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
 import type { Subscription } from '../_shared/types'
 
@@ -410,7 +415,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   }, [dormLabel, referralData.converted])
 
   return (
-    <div style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
+    <div className="dw-reticle" style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
       {/* Welcome takes precedence — title screen is suppressed when new user hasn't been onboarded */}
       <WelcomeOverlay show={showWelcome} onDismiss={dismissWelcome} customerCid={customerCid} />
 
@@ -422,8 +427,14 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
       />
 
       <SharedKeyframes />
+      <CursorReticle />
 
       <PulseTicker ticker={ticker} />
+
+      {/* Phase 6 Wave 1 — atmosphere overlays. Grain (z 9999) + Vignette (z 8000)
+          sit above page content but below modals (TitleScreen / WelcomeOverlay z 10000+). */}
+      <Grain />
+      <Vignette />
 
       <HeroBlock
         dormLabel={dormLabel}
@@ -665,21 +676,38 @@ function HeroBlock({
       minHeight: 'clamp(540px, 70vh, 720px)',
       overflow: 'hidden', backgroundColor: NV,
     }}>
-      <div style={{
-        position: 'absolute', top: '-20%', left: '-10%',
-        width: '70%', height: '90%',
-        backgroundImage: 'radial-gradient(ellipse at center, rgba(245,127,32,0.10) 0%, transparent 60%)',
-        pointerEvents: 'none', animation: 'dwm-glow 6s ease-in-out infinite',
-      }} />
-
-      <svg
-        viewBox="0 0 600 600"
-        style={{ position: 'absolute', bottom: -120, right: -120, width: 620, height: 620, opacity: 0.06, pointerEvents: 'none' }}
+      {/* Phase 6 Wave 1 — Mid-layer parallax (0.85x): hero radial-glow gradient.
+          ParallaxLayer wraps a translatable div; original absolute positioning preserved on the inner div. */}
+      <ParallaxLayer
+        multiplier={0.85}
+        style={{
+          position: 'absolute', top: '-20%', left: '-10%',
+          width: '70%', height: '90%',
+          pointerEvents: 'none',
+        }}
       >
-        {[40, 100, 160, 220, 280].map(r => (
-          <circle key={r} cx="300" cy="300" r={r} fill="none" stroke={CR} strokeWidth="0.6" />
-        ))}
-      </svg>
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundColor: 'transparent',
+          backgroundImage: 'radial-gradient(ellipse at center, rgba(245,127,32,0.10) 0%, transparent 60%)',
+          animation: 'dwm-glow 6s ease-in-out infinite',
+        }} />
+      </ParallaxLayer>
+
+      {/* Phase 6 Wave 1 — Mid-layer parallax (0.85x): SVG concentric circles backdrop. */}
+      <ParallaxLayer
+        multiplier={0.85}
+        style={{ position: 'absolute', bottom: -120, right: -120, width: 620, height: 620, pointerEvents: 'none' }}
+      >
+        <svg
+          viewBox="0 0 600 600"
+          style={{ width: '100%', height: '100%', opacity: 0.06 }}
+        >
+          {[40, 100, 160, 220, 280].map(r => (
+            <circle key={r} cx="300" cy="300" r={r} fill="none" stroke={CR} strokeWidth="0.6" />
+          ))}
+        </svg>
+      </ParallaxLayer>
 
       <div className="dwm-hero-grid" style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 48,
@@ -719,20 +747,27 @@ function HeroBlock({
             color: OG, letterSpacing: '-0.055em', lineHeight: 0.88,
             marginBottom: 28, textShadow: '0 0 60px rgba(245,127,32,0.28)',
           }}>
-            {isNewUser ? 'AED 20.' : 'war.'}
+            {/* Phase 6 Wave 1 — Bloom on the "war." headline (Hot Bloom Target #1).
+                Wave 2 will plug audioReactive=true once the audio system lands. */}
+            <Bloom color={OG} intensity={1.0} blurPx={32}>
+              {isNewUser ? 'AED 20.' : 'war.'}
+            </Bloom>
           </div>
 
-          <p className="dwm-sub" style={{
-            fontFamily: BODY, fontSize: 15, fontWeight: 400,
-            color: 'rgba(237,232,218,0.62)', lineHeight: 1.6,
-            margin: '0 0 24px', maxWidth: 500,
-          }}>
-            {isNewUser
-              ? <>Every time a friend joins Dormers from your invite link, <span style={{ color: CR, fontWeight: 700 }}>AED 20</span> lands in your wallet. Hit milestones for bigger rewards — free skips, free weeks, the works.</>
-              : hasActiveSub
-                ? <>{cycleDaysLeft} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.</>
-                : <>Subscribe to enter the war and start claiming <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span>.</>}
-          </p>
+          {/* Phase 6 Wave 1 — Mid-layer parallax (0.85x) on the hero sub-headline. */}
+          <ParallaxLayer multiplier={0.85}>
+            <p className="dwm-sub" style={{
+              fontFamily: BODY, fontSize: 15, fontWeight: 400,
+              color: 'rgba(237,232,218,0.62)', lineHeight: 1.6,
+              margin: '0 0 24px', maxWidth: 500,
+            }}>
+              {isNewUser
+                ? <>Every time a friend joins Dormers from your invite link, <span style={{ color: CR, fontWeight: 700 }}>AED 20</span> lands in your wallet. Hit milestones for bigger rewards — free skips, free weeks, the works.</>
+                : hasActiveSub
+                  ? <>{cycleDaysLeft} days to claim <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span> before your cycle resets. Every invite stakes the ground.</>
+                  : <>Subscribe to enter the war and start claiming <span style={{ color: CR, fontWeight: 700 }}>{dormLabel}</span>.</>}
+            </p>
+          </ParallaxLayer>
 
           <div className="dwm-rank-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             {!isNewUser && (
