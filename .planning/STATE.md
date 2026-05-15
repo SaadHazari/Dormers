@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 6 planning complete — 5 plans verified
-last_updated: "2026-05-15T16:07:02.447Z"
+stopped_at: Completed 06-01-PLAN.md (Atmosphere foundation)
+last_updated: "2026-05-15T16:23:00.051Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 13
-  completed_plans: 8
+  completed_plans: 9
   percent: 100
 ---
 
@@ -23,7 +23,7 @@ progress:
 ## Project Reference
 
 **Core value:** Food photos that make you want to order — a menu you browse naturally, not navigate laboriously.
-**Current focus:** Phase 05 — dorm-wars-page-visual-revamp
+**Current focus:** Phase 06 — dorm-wars-game-feel-pass
 **Total phases:** 4
 **Requirements:** 20 v1 requirements, 10 complete, 10 pending
 
@@ -31,8 +31,8 @@ progress:
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
+Phase: 06 (dorm-wars-game-feel-pass) — EXECUTING
+Plan: 2 of 5
 | Field | Value |
 |-------|-------|
 | Active phase | Phase 4: Codebase Cleanup |
@@ -69,6 +69,11 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | eslint.config.mjs is sole ESLint config | .eslintrc.js (legacy) deleted; flat config verified functional post-removal |
 | Fix Menu.tsx import before deleting Nonveg/ | Safety grep caught ChickenFried_v2.jpg still referenced — updated to nonveg1/ChickenFried.jpg before deletion |
 | next build failure is pre-existing local env issue | Apostrophe in Dormer's path breaks webpack-generated JS string — confirmed present at pre-Phase-4 commit; does not affect Netlify |
+| Phase 6 Wave 1: hand-rolled rAF parallax over `react-scroll-parallax` | Single shared listener, ~50 lines, avoids provider/layout conflict with dashboard layout's overflow rules (RESEARCH Pattern 4 + Pitfall 8) |
+| Phase 6 Wave 1: SVG `feTurbulence` grain over PNG noise tile | GPU-composited via browser filter pipeline, ~200-byte inline SVG vs 6-frame ~300KB PNG cycle; numOctaves capped at 2 per Pitfall 3 to stay under mobile GPU bandwidth |
+| Phase 6 Wave 1: JS-only reduced-motion gate via `useReducedMotionGate` hook | Phase 5's CSS `prefers-reduced-motion` block stays unchanged (acceptance criterion); every new motion module early-returns or jumps to end-state in JS |
+| Phase 6 Wave 1: `Bloom` `audioReactive` prop wired into Wave 1 API surface | Wave 2 plugs `useAudioReactive()` into a single seam in `Bloom.tsx` without re-touching DormWarsClient or any consumer call site (D-03 architecture-first) |
+| Phase 6 Wave 1: live Chrome DevTools perf gate deferred to merge review | Parallel-executor sandbox cannot launch interactive browser; static-analysis baseline + fallback levers (FPS 24→12, blurPx 32→16) committed to `06-01-perf-baseline.json` for user to apply if regression found |
 
 ### Architecture Notes
 
@@ -112,7 +117,7 @@ Phase 4 complete. Both plans executed:
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Phase 6 planning complete — 5 plans verified
+**Stopped at:** Completed 06-01-PLAN.md (Atmosphere foundation)
 
 ---
 

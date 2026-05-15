@@ -91,6 +91,7 @@ Plans:
 | 3. Navigation + Detail View | 0/? | Not started | - |
 | 4. Codebase Cleanup | 2/2 | Complete    | 2026-04-18 |
 | 5. Dorm Wars page visual revamp | 3/3 | Complete   | 2026-05-14 |
+| 6. Dorm Wars game-feel pass | 1/5 | In Progress|  |
 
 ---
 
@@ -140,7 +141,37 @@ Plans:
 - [x] 05-02-PLAN.md — Wave 2: State mechanics — wire CycleClock to active subscription, rename Daily Drop key to canonical schema, add streak meter, derive TrophyRoom from referralData + streak, map invites to Recruits, tighten FinePrint copy
 - [x] 05-03-PLAN.md — Wave 3: Cinematic polish + cleanup — title-screen interstitial (once per cycle), Web Audio sound system + toggle, Daily Drop particle burst, cycle-clock hover-glow, delete `src/app/dashboard/dorm-wars/mock/` directory entirely
 
+### Phase 6: Dorm Wars game-feel pass
+
+**Goal:** Elevate `/dashboard/dorm-wars` from "polished web" to "studio-built game" through atmosphere, audio, HUD, and cinema craft. Budget includes commissioned assets (stencil icon set, anchor illustration, custom display face, audio stems). Phase 5 nailed structure and copy; this phase adds the AV craft layer that flips perceived class.
+
+**In scope:**
+- Atmosphere stack: animated film grain, vignette, real bloom on hot UI, consistent key-light direction, CRT scanline overlay on HUD only
+- Persistent HUD pod (fixed corner overlay: callsign, rank chevron, AED wallet, streak flame; survives scroll; juices on state change)
+- Audio system: three-stem layered ambient bed (drone + chatter + duct hum), recorded stinger library, ducking (-6dB) during stingers, spatial UI sounds via `StereoPannerNode`, audio-reactive bloom via `AnalyserNode`, sound default OFF with "ENABLE AUDIO" pre-prompt
+- Rank-up cinematic moment (~1.5s): letterbox bars + world dim + stamped "PROMOTED" card + stinger + 1.5px microshake (fires once per cycle max)
+- Motion craft: stratified parallax on scroll (bg 0.5x / mid 0.85x / fg 1x / HUD pinned), impact flash + microshake on conversion, chromatic aberration on stinger events, cursor reticle on interactive surfaces
+- Title-screen interstitial upgrade: typed callsign with cursor blink + key-clicks, ink-bleed "ENTER WAR ROOM" stamp, 4s riser → impact → tail intro stinger
+- Edge-of-viewport diegetic alerts ("INCOMING" strip on rank drop / friend conversion)
+- Number rolls with tabular numerals on AED/conversion counter changes
+- Commissioned assets: stencil/military icon set (~15 icons replacing all Lucide on dorm-wars), one hand-drawn HQ illustration or war-room map (anchor moment), custom stencil display face for rank labels, three audio stems for ambient bed + ~8 stinger stems, 9-slice torn-paper/stamped borders for rank pills and trophy frames
+
+**Out of scope (deferred to future phases):**
+- WebGL / Three.js animated backdrop (own phase — perf budget implications)
+- Color-as-story palette refactor (rivals desaturated, OG reserved for "you", lost states muted red — touches every component, own phase)
+
+**Requirements**: None (product-driven phase — no REQ-IDs mapped; scope locked in conversation 2026-05-15)
+**Depends on:** Phase 5
+**Plans:** 1/5 plans executed
+
+Plans:
+- [x] 06-01-PLAN.md — Wave 1: Atmosphere foundation (grain, vignette, bloom, parallax, reticle cursor, reduced-motion gate, perf-test gate)
+- [ ] 06-02-PLAN.md — Wave 2: Audio system (three-stem ambient bed, stinger library with ducking + spatial pan, audio-reactive bloom, ENABLE AUDIO pre-prompt; default OFF per D-16)
+- [ ] 06-03-PLAN.md — Wave 3: HUD pod (desktop 4-row pod + mobile collapsed pill, NumberRoll, CRT scanline overlay, mounted only on /dashboard/dorm-wars per D-12)
+- [ ] 06-04-PLAN.md — Wave 4: Cinema moments (rank-up cutscene 8-step choreography, title-screen interstitial upgrade with typed callsign + ink-bleed stamp, edge-of-viewport INCOMING alerts, chromatic aberration, impact flash + microshake)
+- [ ] 06-05-PLAN.md — Wave 5: Asset integration sweep (15-16 stencil icons, 11 real audio stems, Black Ops One stencil font, anchor war-room image with full D-07 treatment, 9-slice stamped borders)
+
 ---
 
 *Roadmap created: 2026-04-03*
-*Last updated: 2026-05-14 — Phase 5 planned (3 plans, three-wave structure)*
+*Last updated: 2026-05-15 — Phase 6 plans created (5 plans, 5 waves)*
