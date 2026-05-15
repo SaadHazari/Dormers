@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 06-04-PLAN.md (cinema moments)
-last_updated: "2026-05-15T17:30:28.277Z"
+status: ready_for_verification
+stopped_at: Completed 06-05-PLAN.md (asset integration sweep) — Phase 6 COMPLETE (5/5 plans)
+last_updated: "2026-05-15T22:30:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
   percent: 100
 ---
 
@@ -31,14 +31,14 @@ progress:
 
 ## Current Position
 
-Phase: 06 (dorm-wars-game-feel-pass) — EXECUTING
-Plan: 5 of 5
+Phase: 06 (dorm-wars-game-feel-pass) — COMPLETE
+Plan: 5 of 5 (all complete)
 | Field | Value |
 |-------|-------|
-| Active phase | Phase 6: Dorm Wars Game-Feel Pass |
-| Active plan | Plan 5 (asset integration sweep) — last plan in phase |
-| Phase status | Phases 1, 2, 4, 5 complete; Phase 6 in progress (4/5 plans complete); Phase 3 not started |
-| Overall progress | 12/13 plans complete |
+| Active phase | Phase 6: Dorm Wars Game-Feel Pass — COMPLETE (ready for verification) |
+| Active plan | Plan 5 (asset integration sweep) — DONE |
+| Phase status | Phases 1, 2, 4, 5, 6 complete; Phase 3 not started |
+| Overall progress | 13/13 plans complete |
 
 ```
 Progress: [██████████] 100%
@@ -90,6 +90,11 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | Phase 6 Wave 4: Cinema modules consume stingers via optional playStinger?: callback prop, NOT direct useStingers import | Keeps modules pure-presentational + testable; clean dependency direction (modules depend on small callback type, not audio subsystem); caller controls audio source (could swap stingers.play for a synth fallback). Wave 2's `void stingers` placeholder REMOVED — stingers genuinely consumed in 5 places (3 prop wirings + 1 direct call in conversion-impact useEffect + the prop chain) |
 | Phase 6 Wave 4: TitleScreenInterstitial upgrade preserves Phase 5 D-28 once-per-cycle gating contract | DormWarsClient still owns the show/dismiss lifecycle via dw-titlescreen-${cycleStartISO}; new module is purely presentational + behavior. Adding a new key would break Phase 5's gating semantics |
 | Phase 6 Wave 4: ImpactFlash trigger uses incrementing counter pattern (setX(t => t + 1)) NOT boolean toggle | Guarantees React detects a change even if conversions land in rapid succession (two conversions within the 80ms flash window would otherwise collapse to a single render with active=true) |
+| Phase 6 Wave 5: Audio CDNs blocked in sandbox (HTTP 403) — fell back to valid silent MPEG-1 Layer III placeholders at all 11 paths | D-02 path-exists discipline gate satisfied; useStingers/useAudioBed decode succeeds (silent frame is a valid MP3); D-16 silent-fail behavior preserved; user-curation handoff documented in public/audio/dw/ATTRIBUTION.md with per-stem source URL + license |
+| Phase 6 Wave 5: IconLike type adapter unifies Achievement.Icon to accept both Lucide and stencil icons | Render call sites use outer-span color wrap (`<span style={{ color: X, display: 'inline-flex' }}><Icon size={N} /></span>`) so stencil currentColor and Lucide color prop both flow uniformly. Single field type, single rendering pattern across the file |
+| Phase 6 Wave 5: Lucide retention scope — identity icons swap to stencil; system glyphs stay Lucide | Identity icons (ranks, drops, mission rewards, HUD-decorative) become stencil per D-04; system glyphs (X, Check, Lock, ChevronUp/Down, Minus, ArrowRight, Send) and decorative non-rank glyphs (Crown for leaderboard #1 winner accent, Users for First Recruit) stay Lucide for pan-app consistency. Acceptance criterion is "all dorm-wars surface icons are stencil OR system-glyph" not "zero Lucide". Documented in DormWarsClient import block |
+| Phase 6 Wave 5: Wave 4 D-15 carryover fix landed in Task 3 | useReducedMotionGate added to DormWarsClient body; conversion-impact useEffect's triggerScreenShake call wrapped in `if (!reduced)`. D-15 contract complete across all dorm-wars motion constructs |
+| Phase 6 Wave 5: Single anchor moment per page (D-07) — AnchorImage mounted once in HeroBlock right column behind cycle clock | Wrapped in `<ParallaxLayer multiplier={0.5}>` for slowest-stratum drift, opacity 0.55 to keep watermark not foreground photo, only shown for non-new-users. JSDoc enforces single-mount contract |
 
 ### Architecture Notes
 
@@ -127,14 +132,19 @@ None at project start.
 
 ## Session Continuity
 
-Phase 4 complete. Both plans executed:
+Phase 6 COMPLETE (5/5 plans). All waves executed:
 
-- Plan 01: Orphaned source components, legacy configs, and root artifacts deleted
-- Plan 02: Duplicate image directory, unused stock photos, and Next.js SVGs deleted; Menu.tsx import fixed
+- Plan 01 (Wave 1 — Atmosphere): Grain, Vignette, Bloom, ParallaxLayer, CursorReticle + reduced-motion gate
+- Plan 02 (Wave 2 — Audio system): useAudioBed, useStingers, ENABLE-AUDIO pre-prompt, dw-audio-enabled key
+- Plan 03 (Wave 3 — HUD pod): HUDPod, RankChevron, WalletReadout, StreakFlame, NumberRoll, ScanlineOverlay, mobile collapsed pill
+- Plan 04 (Wave 4 — Cinema moments): RankUpCutscene, TitleScreenInterstitial upgrade, EdgeAlert, ImpactFlash, ChromaticAberration, triggerScreenShake
+- Plan 05 (Wave 5 — Asset integration sweep): 16 stencil icons, NinesliceStampedBorder, Black Ops One font, AnchorImage with full D-07 treatment, anchor JPEG, 11 audio stems (silent placeholders pending user curation per ATTRIBUTION.md), Lucide identity-icon sweep, Wave 4 D-15 carryover fix
+
+Asset hand-off: 11 audio stems are valid silent MPEG-1 Layer III placeholders (Pixabay/Mixkit/Freesound CDNs blocked HTTP 403 in sandbox). User must hand-curate real CC0/CC-BY/royalty-free stems and overwrite each file in place. Source recommendations + license per stem in `public/audio/dw/ATTRIBUTION.md`. The phase does NOT ship to production with placeholders, but the wave ships with the system fully wired.
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 06-04-PLAN.md (cinema moments)
+**Stopped at:** Completed 06-05-PLAN.md (asset integration sweep) — Phase 6 COMPLETE (5/5 plans)
 
 ---
 
