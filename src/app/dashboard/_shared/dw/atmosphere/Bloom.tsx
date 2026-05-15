@@ -1,13 +1,15 @@
 'use client'
 import type { ReactNode } from 'react'
 import { useReducedMotionGate } from '../utils/useReducedMotionGate'
+import { useAudioReactive } from '../audio/useAudioReactive'
 
 type BloomProps = {
   children: ReactNode
   color?: string                  // Bloom tint — default OG
   intensity?: number              // Baseline 0..2 (default 1.0)
   blurPx?: number                 // Default 24 (UI-SPEC: filter: blur(24px) saturate(1.4))
-  audioReactive?: boolean         // Wave 2 wires real audio multiplier; this wave treats as 1.0
+  audioReactive?: boolean         // When true, intensity gets analyser multiplier 1.0..1.4
+  analyser?: AnalyserNode | null  // Wired by DormWarsClient when audio enabled
 }
 
 /**
@@ -15,7 +17,12 @@ type BloomProps = {
  * Implementation: source renders normal; absolute-positioned span behind it carries `filter: blur() saturate()`.
  * CRITICAL: blur is on the GHOST sibling, NEVER on a parent — parent blur breaks position:fixed children
  * (RESEARCH Pitfall 1 — CSS filter creates a containing block for fixed/absolute descendants).
- * Reduced-motion: ghost stays at baseline intensity, no audio-reactive bumping.
+ *
+ * Wave 1 mounted Bloom on the "war." headline with `audioReactive={false}`.
+ * Wave 2 wires the `analyser` prop from useAudioBed's AnalyserNode and lets the
+ * `audioReactive` flag pull the multiplier from useAudioReactive (1.0..1.4 range).
+ *
+ * Reduced-motion: useAudioReactive returns flat 1.0; static intensity preserved.
  */
 export function Bloom({
   children,
@@ -23,13 +30,12 @@ export function Bloom({
   intensity = 1.0,
   blurPx = 24,
   audioReactive = false,
+  analyser = null,
 }: BloomProps) {
   const reduced = useReducedMotionGate()
-  // Wave 2 will replace this stub with a useAudioReactive() multiplier; Wave 1 leaves it at 1.0.
-  // The `audioReactive` prop is the seam for Wave 2 — kept in the API surface now so consumers
-  // (DormWarsClient hot targets) don't need to be re-touched when audio lands.
-  const audioMult = reduced || !audioReactive ? 1.0 : 1.0
-  const finalIntensity = intensity * audioMult
+  const audioMult = useAudioReactive(analyser ?? null, audioReactive)
+  // When audio is disabled or reduced-motion, audioMult is 1.0 baseline → stays at static intensity.
+  const finalIntensity = reduced ? intensity : intensity * audioMult
   return (
     <span style={{ position: 'relative', display: 'inline-block' }}>
       <span
