@@ -1,11 +1,18 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties, type SVGProps } from 'react'
 import Link from 'next/link'
 import {
-  Gift, Sparkles, ArrowRight, Send, X,
-  Shield, Crown, Trophy, Star, Flame, Users, SkipForward, Calendar, Pause,
-  Lock, Check, ChevronUp, ChevronDown, Minus, Zap,
+  // Lucide system glyphs retained on dorm-wars (Phase 6 D-04 catalog covers
+  // identity icons; system glyphs stay Lucide for pan-app consistency):
+  // - ArrowRight / Send: directional CTA chrome
+  // - X: close-button chrome (used on WelcomeOverlay skip)
+  // - Lock / Check / Minus / ChevronUp / ChevronDown: pure system glyphs
+  // - Crown: leaderboard #1 winner gold accent (decorative, not the rank icon)
+  // - Users: "First Recruit" trophy (no stencil 1:1 — keeps Lucide; HudCallsign is wrong semantic fit)
+  ArrowRight, Send, X,
+  Crown, Users,
+  Lock, Check, ChevronUp, ChevronDown, Minus,
 } from 'lucide-react'
 import { OG, OG3, NV, CR, BODY, DISPLAY } from '../_shared/tokens'
 import { Grain }          from '../_shared/dw/atmosphere/Grain'
@@ -13,6 +20,7 @@ import { Vignette }       from '../_shared/dw/atmosphere/Vignette'
 import { Bloom }          from '../_shared/dw/atmosphere/Bloom'
 import { ParallaxLayer }  from '../_shared/dw/atmosphere/ParallaxLayer'
 import { CursorReticle }  from '../_shared/dw/atmosphere/CursorReticle'
+import { AnchorImage }    from '../_shared/dw/atmosphere/AnchorImage'
 import { useSound }       from '../_shared/dw/audio/useSound'
 import { useAudioBed }    from '../_shared/dw/audio/useAudioBed'
 import { useStingers }    from '../_shared/dw/audio/useStingers'
@@ -23,8 +31,23 @@ import { RankUpCutscene }          from '../_shared/dw/cinema/RankUpCutscene'
 import { EdgeAlert, type EdgeAlertKind } from '../_shared/dw/cinema/EdgeAlert'
 import { ImpactFlash }             from '../_shared/dw/cinema/ImpactFlash'
 import { triggerScreenShake }      from '../_shared/dw/utils/triggerScreenShake'
+import { useReducedMotionGate }    from '../_shared/dw/utils/useReducedMotionGate'
+// Phase 6 Wave 5 — stencil icon catalog (D-04). Replaces Lucide on identity icons
+// (ranks, drops, mission rewards, HUD-decorative). System glyphs above stay Lucide.
+import {
+  RankSoldier, RankSergeant,
+  DropCredit, DropMultiplier, DropIntel,
+  RewardFreeSkip, RewardFreeWeek, RewardPauseUnlocked,
+  HudFlame,
+} from '../_shared/dw/icons'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
 import type { Subscription } from '../_shared/types'
+
+// Phase 6 Wave 5 — generic icon component type accepted by both Lucide icons (which
+// take size + strokeWidth + color + className + style) and stencil icons (which take
+// size + style + standard SVG props). Both render an SVG; the call sites below pass
+// `style={{ color: '...' }}` for theming so currentColor flows uniformly.
+type IconLike = ComponentType<{ size?: number; style?: CSSProperties; className?: string } & SVGProps<SVGSVGElement>>
 
 const EXPO_OUT  = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const QUART_OUT = 'cubic-bezier(0.25, 1, 0.5, 1)'
@@ -113,20 +136,20 @@ const MOCK_LEADERBOARD: DormRow[] = [
 interface Achievement {
   id:     string
   label:  string
-  Icon:   typeof Shield
+  Icon:   IconLike
   earned: boolean
   meta:   string   // "Earned May 7" when earned · "1 more conversion" when locked
 }
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MOCK_TROPHIES: Achievement[] = [
-  { id: 'first_recruit', label: 'First Recruit', Icon: Users,       earned: true,  meta: 'Earned May 7'           },
-  { id: 'soldier',       label: 'Soldier',       Icon: Shield,      earned: true,  meta: 'Earned May 9'           },
-  { id: 'streak_3',      label: '3-Day Streak',  Icon: Flame,       earned: true,  meta: 'Earned May 12'          },
-  { id: 'free_skip',     label: 'Free Skip',     Icon: SkipForward, earned: false, meta: '1 more conversion'      },
-  { id: 'sergeant',      label: 'Sergeant',      Icon: Crown,       earned: false, meta: '1 more conversion'      },
-  { id: 'free_week',     label: 'Free Week',     Icon: Calendar,    earned: false, meta: '4 more conversions'     },
-  { id: 'war_hero',      label: 'War Hero',      Icon: Trophy,      earned: false, meta: '8 more conversions'     },
-  { id: 'founder',       label: 'Founder',       Icon: Star,        earned: false, meta: 'Cycle 1 reward (missed)' },
+  { id: 'first_recruit', label: 'First Recruit', Icon: Users,             earned: true,  meta: 'Earned May 7'           },
+  { id: 'soldier',       label: 'Soldier',       Icon: RankSoldier,       earned: true,  meta: 'Earned May 9'           },
+  { id: 'streak_3',      label: '3-Day Streak',  Icon: HudFlame,          earned: true,  meta: 'Earned May 12'          },
+  { id: 'free_skip',     label: 'Free Skip',     Icon: RewardFreeSkip,    earned: false, meta: '1 more conversion'      },
+  { id: 'sergeant',      label: 'Sergeant',      Icon: RankSergeant,      earned: false, meta: '1 more conversion'      },
+  { id: 'free_week',     label: 'Free Week',     Icon: RewardFreeWeek,    earned: false, meta: '4 more conversions'     },
+  { id: 'war_hero',      label: 'War Hero',      Icon: DropMultiplier,    earned: false, meta: '8 more conversions'     },
+  { id: 'founder',       label: 'Founder',       Icon: DropIntel,         earned: false, meta: 'Cycle 1 reward (missed)' },
 ]  // Wave 1 stub — superseded by derived trophies (D-23); kept as fallback reference
 
 const MOCK_RANK = { label: 'Soldier', flavour: "You're in the war now" }
@@ -294,15 +317,15 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
     const converted = referralData.converted
     const total     = referralData.total
     return [
-      { id: 'first_recruit', label: 'First Recruit',  Icon: Users,       earned: total     >= 1,  meta: total     >= 1  ? 'Earned' : '1 recruit needed' },
-      { id: 'soldier',       label: 'Soldier',        Icon: Shield,      earned: converted >= 1,  meta: converted >= 1  ? 'Earned' : '1 more conversion' },
-      { id: 'streak_3',      label: '3-Day Streak',   Icon: Flame,       earned: streak.count >= 3, meta: streak.count >= 3 ? 'Earned' : `${3 - streak.count} more day${3 - streak.count === 1 ? '' : 's'}` },
-      { id: 'free_skip',     label: 'Free Skip',      Icon: SkipForward, earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
-      { id: 'sergeant',      label: 'Sergeant',       Icon: Crown,       earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
-      { id: 'free_week',     label: 'Free Week',      Icon: Calendar,    earned: converted >= 6,  meta: converted >= 6  ? 'Earned' : `${6 - converted} more conversion${6 - converted === 1 ? '' : 's'}` },
-      { id: 'pause',         label: 'Pause Unlocked', Icon: Pause,       earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
-      { id: 'war_hero',      label: 'War Hero',       Icon: Trophy,      earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
-      { id: 'founder',       label: 'Founder',        Icon: Star,        earned: false,           meta: 'Cycle 1 only' },
+      { id: 'first_recruit', label: 'First Recruit',  Icon: Users,                earned: total     >= 1,  meta: total     >= 1  ? 'Earned' : '1 recruit needed' },
+      { id: 'soldier',       label: 'Soldier',        Icon: RankSoldier,          earned: converted >= 1,  meta: converted >= 1  ? 'Earned' : '1 more conversion' },
+      { id: 'streak_3',      label: '3-Day Streak',   Icon: HudFlame,             earned: streak.count >= 3, meta: streak.count >= 3 ? 'Earned' : `${3 - streak.count} more day${3 - streak.count === 1 ? '' : 's'}` },
+      { id: 'free_skip',     label: 'Free Skip',      Icon: RewardFreeSkip,       earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
+      { id: 'sergeant',      label: 'Sergeant',       Icon: RankSergeant,         earned: converted >= 3,  meta: converted >= 3  ? 'Earned' : `${3 - converted} more conversion${3 - converted === 1 ? '' : 's'}` },
+      { id: 'free_week',     label: 'Free Week',      Icon: RewardFreeWeek,       earned: converted >= 6,  meta: converted >= 6  ? 'Earned' : `${6 - converted} more conversion${6 - converted === 1 ? '' : 's'}` },
+      { id: 'pause',         label: 'Pause Unlocked', Icon: RewardPauseUnlocked,  earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
+      { id: 'war_hero',      label: 'War Hero',       Icon: DropMultiplier,       earned: converted >= 10, meta: converted >= 10 ? 'Earned' : `${10 - converted} more conversion${10 - converted === 1 ? '' : 's'}` },
+      { id: 'founder',       label: 'Founder',        Icon: DropIntel,            earned: false,           meta: 'Cycle 1 only' },
     ]
   }, [referralData.converted, referralData.total, streak.count])
 
@@ -415,18 +438,23 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
   const [impactTrigger, setImpactTrigger] = useState(0)
   const [edgeAlert, setEdgeAlert] = useState<{ kind: EdgeAlertKind | null; message: string }>({ kind: null, message: '' })
   const prevConvertedRef = useRef<number>(referralData?.converted ?? 0)
+  // Phase 6 Wave 5 — D-15 reduced-motion gate. Wave 4 SUMMARY's "Next Phase Readiness"
+  // logged this as a follow-up: triggerScreenShake's docstring explicitly says caller
+  // is responsible for the gate, and the conversion-impact useEffect was firing it
+  // unconditionally. Now wrapped in `if (!reduced)`.
+  const reduced = useReducedMotionGate()
 
   useEffect(() => {
     const cur = referralData?.converted ?? 0
     const prev = prevConvertedRef.current
     if (cur > prev) {
       setImpactTrigger(t => t + 1)
-      triggerScreenShake(pageRootRef.current, 120, 1.5)
+      if (!reduced) triggerScreenShake(pageRootRef.current, 120, 1.5)
       stingers.play('conversion-impact', { panX: 0 })
       setEdgeAlert({ kind: 'conversion', message: 'INCOMING — A friend converted. +AED 20' })
       prevConvertedRef.current = cur
     }
-  }, [referralData?.converted, stingers])
+  }, [referralData?.converted, stingers, reduced])
 
   return (
     <div ref={pageRootRef} className="dw-reticle" style={{ backgroundColor: NV, minHeight: '100vh', padding: 0, position: 'relative' }}>
@@ -835,8 +863,10 @@ function HeroBlock({
                 backgroundColor: 'rgba(237,232,218,0.05)',
                 border: '1px solid rgba(237,232,218,0.10)',
               }}>
-                <Shield size={13} strokeWidth={2.4} color={OG3} />
-                <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 900, color: CR, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                <span style={{ display: 'inline-flex', color: OG3 }}>
+                  <RankSoldier size={13} />
+                </span>
+                <span style={{ fontFamily: 'var(--font-dw-stencil), Impact, sans-serif', fontSize: 11, fontWeight: 400, color: CR, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
                   {MOCK_RANK.label}
                 </span>
                 <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 500, color: 'rgba(237,232,218,0.45)' }}>
@@ -856,7 +886,7 @@ function HeroBlock({
                 color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 600,
                 letterSpacing: 0.4,
               }}>
-                <Flame size={12} strokeWidth={2.5} /> {streak.count}-DAY STREAK
+                <HudFlame size={12} /> {streak.count}-DAY STREAK
               </span>
             )}
 
@@ -893,12 +923,40 @@ function HeroBlock({
           )}
         </div>
 
-        <div className="dwm-hero-right" style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+        <div className="dwm-hero-right" style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0, position: 'relative' }}>
+          {/* Phase 6 Wave 5 — D-07 anchor war-room image. Single mount per page (per D-07
+              "One specific anchor moment"). Wrapped in ParallaxLayer multiplier=0.5 so it
+              drifts slowest of the strata (foreground 1.0, mid 0.85, background 0.5).
+              Absolute-positioned behind the cycle clock as a watermark. Only shown for
+              non-new-users (HowItWorksCard owns the right column when isNewUser). */}
+          {!isNewUser && (
+            <ParallaxLayer
+              multiplier={0.5}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                opacity: 0.55,
+                zIndex: 0,
+              }}
+            >
+              <AnchorImage
+                maxWidth="min(100%, 380px)"
+                style={{
+                  width: 'min(100%, 380px)',
+                  maxWidth: '100%',
+                }}
+              />
+            </ParallaxLayer>
+          )}
           {isNewUser ? (
             <HowItWorksCard />
           ) : (
             <>
-              <div className="dwm-dial-wrap">
+              <div className="dwm-dial-wrap" style={{ position: 'relative', zIndex: 1 }}>
                 {cycleClock}
               </div>
               {hasActiveSub && (
@@ -1102,8 +1160,8 @@ function DailyDropBlock({
             transform: 'translateY(-50%)', opacity: 0.10, pointerEvents: 'none',
           }}>
             {claimed
-              ? <Sparkles size={160} color="#22c55e" strokeWidth={1.2} />
-              : <Gift     size={160} color={OG}     strokeWidth={1.2} />}
+              ? <span style={{ color: '#22c55e', display: 'inline-flex' }}><DropMultiplier size={160} /></span>
+              : <span style={{ color: OG,        display: 'inline-flex' }}><DropCredit     size={160} /></span>}
           </div>
 
           {claimed ? (
@@ -1280,12 +1338,13 @@ function ActiveMissionBlock({ converted }: { converted: number }) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function MissionLadderBlock({ converted }: { converted: number }) {
-  const rewardIcons = [
-    null,            // AED 20 — no icon, the number is the icon
-    SkipForward,     // Free Skip
-    Calendar,        // Free Week
-    Pause,           // Pause Unlocked
-  ] as const
+  // Phase 6 Wave 5 — stencil reward icons (D-04). Was Lucide SkipForward/Calendar/Pause.
+  const rewardIcons: ReadonlyArray<IconLike | null> = [
+    null,                 // AED 20 — no icon, the number is the icon
+    RewardFreeSkip,       // Free Skip
+    RewardFreeWeek,       // Free Week
+    RewardPauseUnlocked,  // Pause Unlocked
+  ]
 
   return (
     <section style={{
@@ -1357,7 +1416,7 @@ function MissionLadderBlock({ converted }: { converted: number }) {
                       {unlocked
                         ? <Check size={14} strokeWidth={3} color="#22c55e" />
                         : isCurrent
-                          ? <Zap   size={14} strokeWidth={2.6} color={OG3} />
+                          ? <span style={{ color: OG3, display: 'inline-flex' }}><DropIntel size={14} /></span>
                           : <Lock  size={12} strokeWidth={2.4} color="rgba(237,232,218,0.30)" />}
                     </span>
                   </div>
@@ -1371,7 +1430,11 @@ function MissionLadderBlock({ converted }: { converted: number }) {
                     letterSpacing: '-0.015em', lineHeight: 1.2, marginBottom: 4,
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}>
-                    {Icon ? <Icon size={16} strokeWidth={2.2} color={unlocked ? '#22c55e' : isCurrent ? OG3 : 'rgba(237,232,218,0.30)'} /> : null}
+                    {Icon
+                      ? <span style={{ color: unlocked ? '#22c55e' : isCurrent ? OG3 : 'rgba(237,232,218,0.30)', display: 'inline-flex' }}>
+                          <Icon size={16} />
+                        </span>
+                      : null}
                     {m.reward}
                   </div>
                   <div style={{ fontFamily: BODY, fontSize: 12, fontWeight: 400, color: 'rgba(237,232,218,0.45)', lineHeight: 1.45 }}>
@@ -1642,7 +1705,9 @@ function TrophyRoomBlock({ trophies }: { trophies: Achievement[] }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   filter: t.earned ? 'drop-shadow(0 0 8px rgba(34,197,94,0.30))' : 'none',
                 }}>
-                  <Icon size={20} strokeWidth={2.2} color={t.earned ? '#22c55e' : 'rgba(237,232,218,0.32)'} />
+                  <span style={{ color: t.earned ? '#22c55e' : 'rgba(237,232,218,0.32)', display: 'inline-flex' }}>
+                    <Icon size={20} />
+                  </span>
                 </div>
                 <div>
                   <div style={{
@@ -1784,10 +1849,11 @@ function WelcomeOverlay({
   customerCid: string
 }) {
   const [step, setStep] = useState(0)
-  const slides: Array<{ Icon: typeof Send; title: string; body: string }> = [
-    { Icon: Send,     title: 'Send your link',  body: 'You have a unique invite link. Share it on WhatsApp with one tap — that\'s the whole first move.' },
-    { Icon: Gift,     title: 'They eat free',   body: 'Your friend tries Dormers on us. No card. No commitment. One full meal delivered to their dorm.' },
-    { Icon: Sparkles, title: 'You earn AED 20', body: 'The moment they subscribe, AED 20 lands in your wallet. Hit milestones (3 / 6 / 10 subscribers) for bigger rewards.' },
+  // Slide icons: Send (system glyph — chrome) stays Lucide; Gift/Sparkles → DropCredit/DropMultiplier (identity icons per D-04).
+  const slides: Array<{ Icon: IconLike; title: string; body: string }> = [
+    { Icon: Send,            title: 'Send your link',  body: 'You have a unique invite link. Share it on WhatsApp with one tap — that\'s the whole first move.' },
+    { Icon: DropCredit,      title: 'They eat free',   body: 'Your friend tries Dormers on us. No card. No commitment. One full meal delivered to their dorm.' },
+    { Icon: DropMultiplier,  title: 'You earn AED 20', body: 'The moment they subscribe, AED 20 lands in your wallet. Hit milestones (3 / 6 / 10 subscribers) for bigger rewards.' },
   ]
   const isLast = step === slides.length - 1
   const slide  = slides[step]
@@ -1857,7 +1923,9 @@ function WelcomeOverlay({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 20,
         }}>
-          <Icon size={22} strokeWidth={2.2} color={OG3} />
+          <span style={{ color: OG3, display: 'inline-flex' }}>
+            <Icon size={22} />
+          </span>
         </div>
 
         {/* Title */}
