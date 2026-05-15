@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   Gift, Sparkles, ArrowRight, Send, X,
   Shield, Crown, Trophy, Star, Flame, Users, SkipForward, Calendar, Pause,
   Lock, Check, ChevronUp, ChevronDown, Minus, Zap,
-  Volume2, VolumeX,
 } from 'lucide-react'
 import { OG, OG3, NV, CR, BODY, DISPLAY } from '../_shared/tokens'
 import { Grain }          from '../_shared/dw/atmosphere/Grain'
@@ -14,92 +13,21 @@ import { Vignette }       from '../_shared/dw/atmosphere/Vignette'
 import { Bloom }          from '../_shared/dw/atmosphere/Bloom'
 import { ParallaxLayer }  from '../_shared/dw/atmosphere/ParallaxLayer'
 import { CursorReticle }  from '../_shared/dw/atmosphere/CursorReticle'
+import { useSound }       from '../_shared/dw/audio/useSound'
+import { useAudioBed }    from '../_shared/dw/audio/useAudioBed'
+import { useStingers }    from '../_shared/dw/audio/useStingers'
+import { AudioPrompt }    from '../_shared/dw/audio/AudioPrompt'
 import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
 import type { Subscription } from '../_shared/types'
 
 const EXPO_OUT  = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const QUART_OUT = 'cubic-bezier(0.25, 1, 0.5, 1)'
 
-// ── Sound system (D-29) ────────────────────────────────────────────────────
-// Three synthesized clips via Web Audio API. No external library, no
-// bundled audio files. Toggle persisted in localStorage `dw-sound`.
-
-function useSound() {
-  const ctxRef = useRef<AudioContext | null>(null)
-  const [on, setOn] = useState(true) // default ON per D-29
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = localStorage.getItem('dw-sound')
-    setOn(stored === null ? true : stored === 'on')
-  }, [])
-
-  const toggle = useCallback(() => {
-    setOn(prev => {
-      const next = !prev
-      localStorage.setItem('dw-sound', next ? 'on' : 'off')
-      return next
-    })
-  }, [])
-
-  const ctx = useCallback(() => {
-    if (!ctxRef.current && typeof window !== 'undefined') {
-      // Lazy init — browsers block AudioContext before user gesture
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const Ctor = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined
-      if (Ctor) ctxRef.current = new Ctor()
-    }
-    return ctxRef.current
-  }, [])
-
-  const playCopyTick = useCallback(() => {
-    if (!on) return
-    const ac = ctx(); if (!ac) return
-    const osc = ac.createOscillator()
-    const g   = ac.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(1500, ac.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(1200, ac.currentTime + 0.08)
-    g.gain.setValueAtTime(0.08, ac.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.08)
-    osc.connect(g).connect(ac.destination)
-    osc.start(); osc.stop(ac.currentTime + 0.08)
-  }, [on, ctx])
-
-  const playMilestoneFanfare = useCallback(() => {
-    if (!on) return
-    const ac = ctx(); if (!ac) return
-    ;[523.25, 659.25, 783.99].forEach((freq, i) => {
-      const osc = ac.createOscillator()
-      const g   = ac.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      const t0 = ac.currentTime + i * 0.08
-      g.gain.setValueAtTime(0.0001, t0)
-      g.gain.exponentialRampToValueAtTime(0.10, t0 + 0.04)
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22)
-      osc.connect(g).connect(ac.destination)
-      osc.start(t0); osc.stop(t0 + 0.22)
-    })
-  }, [on, ctx])
-
-  const playDropReveal = useCallback(() => {
-    if (!on) return
-    const ac = ctx(); if (!ac) return
-    const osc = ac.createOscillator()
-    const g   = ac.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(300, ac.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(800, ac.currentTime + 0.4)
-    g.gain.setValueAtTime(0.0001, ac.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.10, ac.currentTime + 0.05)
-    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.4)
-    osc.connect(g).connect(ac.destination)
-    osc.start(); osc.stop(ac.currentTime + 0.4)
-  }, [on, ctx])
-
-  return { on, toggle, playCopyTick, playMilestoneFanfare, playDropReveal }
-}
+// ── Sound system (Phase 6 D-09) ─────────────────────────────────────────────
+// useSound hook migrated to _shared/dw/audio/useSound.ts.
+// Phase 6 D-16: default OFF; persisted via dw-audio-enabled localStorage key.
+// Provides synth-fallback callbacks (playCopyTick / playMilestoneFanfare /
+// playDropReveal) for Waves 2-4; Wave 5 swaps to recorded stems via useStingers.
 
 // ── Stub data (Wave 1 — to be wired in Waves 2-3) ─────────────────────────
 // STUB: Leaderboard rows (D-14). Real cross-dorm leaderboard query lands in a future backend phase.
@@ -219,8 +147,19 @@ interface Props {
 export default function DormWarsClient({ customerCid, customerDorm, referralData, dormStats, invites, activeSubscription }: Props) {
   const dormLabel = customerDorm || 'Your Dorm'
 
-  // ── Sound system (D-29) ─────────────────────────────────────────────────
+  // ── Sound system (Phase 6 D-09 / D-16) ─────────────────────────────────
+  // sound: migrated useSound hook — synth fallbacks + dw-audio-enabled state.
+  // ctx: shared AudioContext (lazy-init via useSound; null until first play).
+  // audioBed: three-stem ambient bed; only loads when sound.on === true.
+  // stingers: stinger play() with -6dB ducking — wired to audioBed.bedGain.
   const sound = useSound()
+  const ctx = sound.ctx()
+  const audioBed = useAudioBed(ctx, sound.on)
+  const stingers = useStingers(ctx, audioBed.bedGain)
+  // Suppress unused-vars: stingers is the API for Wave 3 (HUD juice) and Wave 4 (cinema)
+  // to call e.g. stingers.play('rank-up'); reserving the binding now keeps the
+  // wiring in place without re-touching this file when those waves land.
+  void stingers
 
   // ── State machine (D-19) ─────────────────────────────────────────
   // hasClaimed: page-mode flip — at least one invitee claimed a free meal.
@@ -448,6 +387,7 @@ export default function DormWarsClient({ customerCid, customerDorm, referralData
           : <SubscribeToEnterCTA />}
         streak={streak}
         sound={sound}
+        audioAnalyser={audioBed.analyser}
       />
 
       {/* Active Mission comes BEFORE Daily Drop — the mission is the game,
@@ -657,7 +597,7 @@ function PulseTicker({ ticker }: { ticker: string[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function HeroBlock({
-  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, isNewUser, cycleClock, streak, sound,
+  dormLabel, customerCid, cycleNumber, cycleDaysLeft, hasActiveSub, isNewUser, cycleClock, streak, sound, audioAnalyser,
 }: {
   dormLabel:     string
   customerCid:   string
@@ -668,6 +608,7 @@ function HeroBlock({
   cycleClock:    React.ReactNode
   streak:        { lastVisit: string; count: number }
   sound:         ReturnType<typeof useSound>
+  audioAnalyser: AnalyserNode | null
 }) {
   return (
     <section style={{
@@ -747,9 +688,10 @@ function HeroBlock({
             color: OG, letterSpacing: '-0.055em', lineHeight: 0.88,
             marginBottom: 28, textShadow: '0 0 60px rgba(245,127,32,0.28)',
           }}>
-            {/* Phase 6 Wave 1 — Bloom on the "war." headline (Hot Bloom Target #1).
-                Wave 2 will plug audioReactive=true once the audio system lands. */}
-            <Bloom color={OG} intensity={1.0} blurPx={32}>
+            {/* Phase 6 Wave 2 — Bloom on the "war." headline (Hot Bloom Target #1).
+                audioReactive=true + analyser from useAudioBed → mid-band amplitude
+                drives 1.0..1.4 intensity multiplier. Reduced-motion: flat 1.0 (D-15). */}
+            <Bloom color={OG} intensity={1.0} blurPx={32} audioReactive={true} analyser={audioAnalyser}>
               {isNewUser ? 'AED 20.' : 'war.'}
             </Bloom>
           </div>
@@ -787,7 +729,7 @@ function HeroBlock({
               </span>
             )}
 
-            <SoundToggle on={sound.on} onToggle={sound.toggle} />
+            <AudioPrompt enabled={sound.on} onToggle={sound.toggle} />
 
             {!isNewUser && streak.count >= 1 && (
               <span style={{
@@ -1922,36 +1864,6 @@ function WelcomeOverlay({
         </div>
       </div>
     </div>
-  )
-}
-
-
-// ════════════════════════════════════════════════════════════════════════════
-//  SOUND TOGGLE  —  next to rank pill (D-29)
-// ════════════════════════════════════════════════════════════════════════════
-
-function SoundToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={`Sound ${on ? 'on' : 'off'}`}
-      style={{
-        width: 32, height: 32, borderRadius: '50%',
-        backgroundColor: 'transparent',
-        border: '1px solid rgba(245,127,32,0.32)',
-        color: OG,
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', flexShrink: 0,
-        outline: 'none',
-      }}
-      onFocus={(e) => { e.currentTarget.style.outline = `2px solid ${OG}` }}
-      onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
-    >
-      {on
-        ? <Volume2  size={14} strokeWidth={2.2} />
-        : <VolumeX  size={14} strokeWidth={2.2} />}
-    </button>
   )
 }
 
