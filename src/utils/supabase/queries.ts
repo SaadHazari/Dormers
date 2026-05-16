@@ -300,3 +300,45 @@ export async function getActiveLifetimeTierPercent(
   if (typeof tier === 'number' && tier >= 2) return 10
   return 0
 }
+
+// ── Dorm Wars: cycle recruits (Phase 7-03) ────────────────────────────────
+/**
+ * Count of inviter's referrals that converted to paid since the given
+ * subscription's start_date. Shared source-of-truth between the Layer 2
+ * awarder (src/lib/dorm-wars/awarder.ts) and the dorm-wars hub
+ * (src/app/dashboard/dorm-wars/page.tsx) per RESEARCH Decision #10.
+ *
+ * Accepts a caller-supplied Supabase client so it can run from the awarder
+ * (admin/service-role client) or the hub RSC (server SSR client) without
+ * instantiating its own. NOT wrapped in `cache()` — the awarder uses an
+ * admin client that bypasses RLS, and `cache()` would key on the function
+ * call site rather than the client identity, which would let the wrong
+ * call see the wrong rows. Same reasoning as `getRedeemableCredit` above.
+ *
+ * Typed as `SupabaseClient<any, any, any>` rather than the bare
+ * `SupabaseClient` so it accepts BOTH the SSR client (untyped schema) AND
+ * the bare admin client from supabase-js (which returns
+ * `SupabaseClient<any, "public", "public", any, any>` — not assignable to
+ * the bare form because schema=`"public"` is wider than `never`).
+ */
+export async function getCycleRecruits(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  customerId: string,
+  subscriptionId: string,
+): Promise<number> {
+  const { data: sub } = await sb
+    .from('subscriptions')
+    .select('start_date')
+    .eq('id', subscriptionId)
+    .maybeSingle()
+  if (!sub) return 0
+
+  const { count } = await sb
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('inviter_user_id', customerId)
+    .eq('status', 'converted')
+    .gte('converted_at', sub.start_date)
+  return count ?? 0
+}
