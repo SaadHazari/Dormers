@@ -14,7 +14,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mysteryDropValue } from './rng'
-import { CYCLE_MILESTONES, MILESTONE_15_BONUS_SKIPS } from './constants'
+import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS, TIER_4_MEALS_CREDIT_AED } from './constants'
 import { getCycleRecruits } from '@/utils/supabase/queries'
 
 // Use the wide-generic form so this matches the type returned by bare
@@ -105,5 +105,64 @@ export async function awardCycleAndTierRewards(
     }
   }
 
-  // LAYER 3 TIER LOOP APPENDED IN 07-04
+  // ── Layer 3: lifetime tiers ──
+  // Per Decision #2 / #9: tiers fire on lifetime conversion count regardless
+  // of the Layer 1 monthly cap AND regardless of whether the inviter has an
+  // active subscription. This block sits OUTSIDE the `if (subscriptionId)`
+  // guard above on purpose — a lapsed customer can still cross tier
+  // thresholds via lifetime referrals and we want the perks (esp. the 5%/10%
+  // off coupon path) to land so the next checkout picks them up.
+  //
+  // `lifetimeConverted` is unbounded — NO date filter — and idempotency is
+  // enforced by lifetime_rewards(customer_id, tier) UNIQUE: the
+  // .insert(...).select('id').maybeSingle() returns null on conflict, which
+  // gates the per-tier side effects to first-award only.
+  const { count: lifetimeConverted } = await sb
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('inviter_user_id', customerId)
+    .eq('status', 'converted')
+
+  for (const t of LIFETIME_TIERS) {
+    if ((lifetimeConverted ?? 0) < t.at) break // ascending — short-circuit
+
+    const { data: inserted } = await sb
+      .from('lifetime_rewards')
+      .insert({
+        customer_id: customerId,
+        tier: t.tier,
+        perk: t.perk,
+      })
+      .select('id')
+      .maybeSingle() // null on UNIQUE(customer_id, tier) conflict
+
+    if (!inserted) continue // already awarded — idempotent
+
+    // Side effects on first-award only:
+    if (t.tier === 2) {
+      // Tier 2 perk = 10% off forever + Early Access flag.
+      // (Discount % itself lands at checkout time via
+      // getActiveLifetimeTierPercent → synthesizePerSessionCoupon, no action here.)
+      await sb.from('customers').update({ early_access: true }).eq('id', customerId)
+    }
+    if (t.tier === 3) {
+      // Jacket + merch fulfilment is manual in Phase 7 (no fulfilment-queue
+      // table). The lifetime_rewards row itself is the ops trail; admin
+      // tooling for the physical-ship queue arrives in Phase 8 (Decision #8).
+      console.log(
+        `🧥 TIER 3 (jacket_merch) unlocked for customer ${customerId} — physical fulfilment needed (lifetime_rewards.id=${inserted.id as string})`,
+      )
+    }
+    if (t.tier === 4) {
+      // 100 free meals delivered as a 5500 AED bulk credit (Decision #7,
+      // calibrated at AED 55/meal). Partial-redeems across many future
+      // checkouts via the existing per-session synth + clamp.
+      await depositCredit(sb, customerId, TIER_4_MEALS_CREDIT_AED, 'tier_4_meals')
+      await sb.from('customers').update({ hall_wall: true }).eq('id', customerId)
+    }
+    // Tier 1 (5% off) has no immediate side effect — the discount applies at
+    // next checkout via getActiveLifetimeTierPercent + synthesizePerSessionCoupon
+    // (wired in 07-02). Same is true for the % component of tier 2/3/4 —
+    // only the FLAG and CREDIT side effects need imperative action here.
+  }
 }
