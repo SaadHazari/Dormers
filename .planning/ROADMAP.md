@@ -92,6 +92,7 @@ Plans:
 | 4. Codebase Cleanup | 2/2 | Complete    | 2026-04-18 |
 | 5. Dorm Wars page visual revamp | 3/3 | Complete   | 2026-05-14 |
 | 6. Dorm Wars game-feel pass | 5/5 | Complete   | 2026-05-15 |
+| 7. Dorm Wars reward backend | 0/6 | In progress | - |
 
 ---
 
@@ -171,7 +172,39 @@ Plans:
 - [x] 06-04-PLAN.md — Wave 4: Cinema moments (rank-up cutscene 8-step choreography, title-screen interstitial upgrade with typed callsign + ink-bleed stamp, edge-of-viewport INCOMING alerts, chromatic aberration, impact flash + microshake)
 - [x] 06-05-PLAN.md — Wave 5: Asset integration sweep (16 stencil icons + 9-slice border, Black Ops One stencil font installed and applied at 5 sites, AnchorImage with full D-07 treatment + Unsplash war-room JPEG, 11 audio stem placeholders pending user curation per ATTRIBUTION.md, Lucide identity-icon sweep on DormWarsClient, Wave 4 D-15 carryover fix)
 
+### Phase 7: Dorm Wars reward backend
+
+**Goal:** Make the Dorm Wars hub a real reward economy. After Phase 7, every reward shown in the hub is server-canonical, auto-awarded on threshold cross, and redeemable at next checkout. Closes the gaps left by Phase 6 (which delivered visual polish but kept reward state client-side / stub-only).
+
+**In scope:**
+- Schema foundation (versioned migrations for existing live tables + 4 new tables + bonus_skips column + customer perk flags)
+- Credit redemption via per-session synthesized Stripe Coupon (combines credit AED + lifetime tier % into one `amount_off` coupon)
+- Layer 2 cycle bonuses (auto-fire on 3/6/10/15/20 conversion thresholds inline in `creditInviterOnConversion`)
+- Layer 3 lifetime tier perks (auto-fire on 10/25/50/100, deliver via per-session coupon for %, credit deposit for AED rewards)
+- Daily Drop server persistence (replace localStorage roulette with `daily_drops` table + RNG endpoint)
+- Streak server persistence (replace localStorage with `streaks` table + tick endpoint)
+- HubClient wire-through to server-canonical values
+
+**Out of scope (deferred to Phase 8):**
+- Layer 4 side rewards (Google review, weekly surveys, anniversary, renew+invite combo)
+- Admin tooling (credit approval UI, review-queue UI)
+- Dorm Weekend real mechanic (group meal, voting) — Phase 7 ships a stub
+- Push notifications / email when rewards fire
+- Migration to persistent Stripe Customers
+
+**Requirements**: None (product-driven phase — design decisions captured in `.planning/phases/07-dorm-wars-reward-backend/07-CONTEXT.md` + 10 architecture decisions resolved in `07-RESEARCH.md`)
+**Depends on:** Phase 6
+**Plans:** 0/6 plans complete
+
+Plans:
+- [ ] 07-01-PLAN.md — Wave 1: Schema foundation (snapshot live referral/credits tables + 4 new tables + bonus_skips + perk flags)
+- [ ] 07-02-PLAN.md — Wave 2: Credit redemption pipeline (coupon-synth lib, checkout/webhook wiring, checkout panel UI)
+- [ ] 07-03-PLAN.md — Wave 3: Layer 2 cycle awarder (5 milestones, shared getCycleRecruits, idempotent inline fire)
+- [ ] 07-04-PLAN.md — Wave 4: Layer 3 lifetime tier perks (4 tiers, side-effect flags, tier discount baked into coupon-synth)
+- [ ] 07-05-PLAN.md — Wave 5: Daily Drop + Streak server persistence (2 API routes, server-canonical state)
+- [ ] 07-06-PLAN.md — Wave 6: Hub wire-through + integration tests + final verification
+
 ---
 
 *Roadmap created: 2026-04-03*
-*Last updated: 2026-05-15 — Phase 6 COMPLETE (5/5 plans)*
+*Last updated: 2026-05-16 — Phase 7 planned (6 plans, plan-checker PASS)*
