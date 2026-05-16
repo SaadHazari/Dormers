@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan, totalMealsFor, planKindOf } from '@/lib/plans';
+import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,
@@ -193,7 +194,7 @@ export async function POST(req: Request) {
       const amountTotal = session.amount_total ? session.amount_total / 100 : 0;
       const pricePerMeal = amountTotal / total_meals;
 
-      const { error: orderError } = await supabaseAdmin
+      const { data: orderData, error: orderError } = await supabaseAdmin
         .from('orders')
         .insert({
           order_number: session.id,
@@ -208,11 +209,49 @@ export async function POST(req: Request) {
           stripe_session_id: session.id,
           stripe_payment_id: session.payment_intent as string,
           created_at: new Date().toISOString()
-        });
+        })
+        .select('id')
+        .single();
 
-      if (orderError) {
+      if (orderError || !orderData) {
         console.error('❌ Supabase Order Error:', orderError);
         return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+      }
+
+      const orderId = orderData.id as string;
+
+      // ── Dorm Wars: flip redeemed credits to 'applied' ─────────────────
+      // Reads the credit row IDs the checkout route stamped on session
+      // metadata. The CAS guard (`.eq('status','approved')`) is the
+      // idempotency key — a Stripe webhook retry re-runs this block but
+      // matches 0 rows on the second pass, so `applied_at` / `applied_to`
+      // stay stable (RESEARCH Pitfall #2). Must run BEFORE
+      // `creditInviterOnConversion` below so the redeemed credits settle
+      // before the new conversion credit (if any) is awarded.
+      const appliedCreditIds = (session.metadata?.applied_credit_ids ?? '')
+        .split(',')
+        .filter(Boolean);
+      if (appliedCreditIds.length > 0) {
+        const { error: flipErr, count: flippedCount } = await supabaseAdmin
+          .from('credits')
+          .update(
+            {
+              status: 'applied',
+              applied_at: new Date().toISOString(),
+              applied_to: orderId,
+            },
+            { count: 'exact' },
+          )
+          .in('id', appliedCreditIds)
+          .eq('status', 'approved');
+        if (flipErr) {
+          // Non-fatal — the order is already written and Stripe has already
+          // charged the user. Surface for reconciliation rather than 500
+          // (which would trigger a webhook retry and re-attempt the flip).
+          console.error('⚠️  credit flip to applied failed (non-fatal):', flipErr);
+        } else {
+          console.log(`💳 Flipped ${flippedCount ?? 0}/${appliedCreditIds.length} credit row(s) to applied for order ${orderId}`);
+        }
       }
 
       // 3. Update Customer Profile with the latest data + drain any pending
@@ -283,6 +322,28 @@ export async function POST(req: Request) {
         // Don't fail the webhook — subscription + order are already saved.
         // Log for reconciliation between `customers` and `subscriptions`.
         console.error('⚠️  Customer profile update failed:', customerError);
+      }
+
+      // Fire referral conversion credit — idempotent, non-blocking.
+      // Runs after order is written so the inviter earns credit only on real payment.
+      creditInviterOnConversion(user_id).catch(err =>
+        console.error('⚠️  creditInviterOnConversion failed (non-fatal):', err)
+      );
+
+      // Link the invitee's new account to any referral row waiting for their user_id.
+      // The referral row was written with invitee_phone at gift-claim time;
+      // now that signup is complete we close the loop so future queries work.
+      if (phone) {
+        const { normalisePhone } = await import('@/lib/phone');
+        const phoneE164 = normalisePhone(phone);
+        supabaseAdmin
+          .from('referrals')
+          .update({ invitee_user_id: user_id })
+          .eq('invitee_phone', phoneE164)
+          .is('invitee_user_id', null)
+          .then(({ error: linkErr }) => {
+            if (linkErr) console.error('⚠️  referral user_id link failed:', linkErr);
+          });
       }
 
       console.log(`✅ Successfully processed checkout for user ${user_id}`);

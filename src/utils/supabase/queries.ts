@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { createClient } from './server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // React `cache()` deduplicates these calls inside a single render. When the
 // layout and a page both ask for the same user's customer row, only one
@@ -79,15 +80,223 @@ export const getAllSubscriptions = cache(async (userId: string) => {
   return data ?? []
 })
 
-export const getReferralCount = cache(async (userId: string) => {
+export interface ReferralData {
+  total:         number   // gift_claimed + converted (all sent referrals that got a meal)
+  converted:     number   // invitees who became paying subscribers
+  creditBalance: number   // sum of approved credits in AED
+}
+
+export const getReferralData = cache(async (userId: string): Promise<ReferralData> => {
   const supabase = await createClient()
   try {
-    const { count } = await supabase
-      .from('referrals')
-      .select('id', { count: 'exact', head: true })
-      .eq('referrer_id', userId)
-    return count ?? 0
+    const [totalRes, convertedRes, creditRes] = await Promise.all([
+      supabase
+        .from('referrals')
+        .select('id', { count: 'exact', head: true })
+        .eq('inviter_user_id', userId)
+        .in('status', ['gift_claimed', 'converted']),
+      supabase
+        .from('referrals')
+        .select('id', { count: 'exact', head: true })
+        .eq('inviter_user_id', userId)
+        .eq('status', 'converted'),
+      supabase
+        .from('credits')
+        .select('amount_aed')
+        .eq('customer_id', userId)
+        .in('status', ['approved', 'pending']),
+    ])
+    const creditBalance = (creditRes.data ?? []).reduce(
+      (sum, r) => sum + Number(r.amount_aed), 0
+    )
+    return {
+      total:         totalRes.count     ?? 0,
+      converted:     convertedRes.count ?? 0,
+      creditBalance,
+    }
   } catch {
-    return 0
+    return { total: 0, converted: 0, creditBalance: 0 }
   }
 })
+
+// Keep old export name as a thin wrapper so any external callers aren't broken.
+export const getReferralCount = cache(async (userId: string): Promise<number> => {
+  const data = await getReferralData(userId)
+  return data.total
+})
+
+// ── Dorm-level stats — Dorm Wars zero-state branching ─────────────────────
+// activeCount drives the A/B branch (≥ 5 → activity feed, < 5 → founder slots).
+// recent is what the activity feed renders. Both are scoped to a single dorm.
+export interface DormRecentSub {
+  firstName: string
+  planName:  string
+  createdAt: string
+}
+export interface DormStats {
+  activeCount: number
+  recent:      DormRecentSub[]
+}
+
+// ── Recent invites — for the engaged-state "Your invites" block ───────────
+// Returns the inviter's most-recent gift_claimed + converted referrals so the
+// UI can render a humanized pipeline view with first names + status badges.
+// The 10-day aging window (claimed → "delivered" past tense) is applied by
+// the client component, since "now" is render-time, not query-time.
+export interface InviteRow {
+  id:             string
+  firstName:      string          // 'Friend' when invitee_first_name is null (legacy)
+  status:         'gift_claimed' | 'converted'
+  claimedAt:      string
+  convertedAt:    string | null
+}
+
+export const getRecentInvites = cache(async (userId: string, limit = 10): Promise<InviteRow[]> => {
+  const supabase = await createClient()
+  try {
+    const { data } = await supabase
+      .from('referrals')
+      .select('id, invitee_first_name, status, gift_claimed_at, converted_at')
+      .eq('inviter_user_id', userId)
+      .in('status', ['gift_claimed', 'converted'])
+      .order('gift_claimed_at', { ascending: false })
+      .limit(limit)
+
+    return (data ?? []).map(r => ({
+      id:          r.id,
+      firstName:   r.invitee_first_name?.trim() || 'Friend',
+      status:      r.status as 'gift_claimed' | 'converted',
+      claimedAt:   r.gift_claimed_at,
+      convertedAt: r.converted_at,
+    }))
+  } catch {
+    return []
+  }
+})
+
+export const getDormStats = cache(async (dormName: string): Promise<DormStats> => {
+  if (!dormName) return { activeCount: 0, recent: [] }
+  const supabase = await createClient()
+  try {
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id, name')
+      .eq('dorm_name', dormName)
+
+    if (!customers || customers.length === 0) {
+      return { activeCount: 0, recent: [] }
+    }
+
+    const customerIds = customers.map(c => c.id)
+    const nameMap = new Map(customers.map(c => [c.id, c.name as string | null]))
+
+    const { data: subs } = await supabase
+      .from('subscriptions')
+      .select('customer_id, plan_name, created_at')
+      .in('customer_id', customerIds)
+      .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
+      .order('created_at', { ascending: false })
+
+    const rows = subs ?? []
+    // Dedupe by customer — each customer counts once toward density,
+    // and only their newest live sub appears in the feed.
+    const seen = new Set<string>()
+    const deduped: typeof rows = []
+    for (const s of rows) {
+      if (!seen.has(s.customer_id)) {
+        seen.add(s.customer_id)
+        deduped.push(s)
+      }
+    }
+
+    const recent: DormRecentSub[] = deduped.slice(0, 5).map(s => ({
+      firstName: ((nameMap.get(s.customer_id) ?? '').split(' ')[0]) || 'Someone',
+      planName:  (s.plan_name ?? '').replace(/\p{Emoji}/gu, '').trim() || 'a plan',
+      createdAt: s.created_at,
+    }))
+
+    return { activeCount: deduped.length, recent }
+  } catch {
+    return { activeCount: 0, recent: [] }
+  }
+})
+
+// ── Dorm Wars: credit redemption helpers (Phase 7-02) ─────────────────────
+// Shared between the checkout API route (compute coupon discount) and the
+// checkout panel SSR page (display "AED X applied" before submit). Both call
+// sites MUST read the same status filter ('approved' only — NOT 'pending')
+// so the displayed amount and the actually-redeemed amount stay in lockstep.
+//
+// Note on `status`: the live `credits.status` CHECK constraint is
+//   ('pending','approved','applied','rejected')
+// The redemption flow flips 'approved' → 'applied' on webhook completion.
+// Only 'approved' rows count toward the redeemable balance.
+
+export interface RedeemableCreditRow {
+  id:         string
+  amount_aed: number
+}
+
+export interface RedeemableCredit {
+  rows:        RedeemableCreditRow[]
+  /** Sum of `amount_aed × 100`, rounded — i.e. the redeemable balance in fils. */
+  balanceFils: number
+}
+
+/**
+ * Returns approved credit rows + their summed balance in fils for redemption.
+ * Accepts a caller-supplied Supabase client so it can run from API routes
+ * (server client) or RSC pages (server client) without instantiating its own.
+ *
+ * Used by:
+ *   • src/app/api/checkout/route.ts — compute coupon discount + record applied_credit_ids
+ *   • src/app/dashboard/plan/page.tsx — pass creditBalanceAed prop to CheckoutPanel
+ */
+export async function getRedeemableCredit(
+  sb: SupabaseClient,
+  userId: string,
+): Promise<RedeemableCredit> {
+  const { data } = await sb
+    .from('credits')
+    .select('id, amount_aed')
+    .eq('customer_id', userId)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: true })
+
+  const rows: RedeemableCreditRow[] = (data ?? []).map(r => ({
+    id:         r.id as string,
+    amount_aed: Number(r.amount_aed),
+  }))
+  const balanceFils = rows.reduce(
+    (sum, r) => sum + Math.round(r.amount_aed * 100),
+    0,
+  )
+  return { rows, balanceFils }
+}
+
+/**
+ * Returns the user's active lifetime-tier discount percent: 0 | 5 | 10.
+ *   tier 1       → 5%   (10 lifetime conversions)
+ *   tier 2,3,4   → 10%  (25+ lifetime conversions)
+ *
+ * Used by the checkout route to bake tier % into the synthesized coupon. The
+ * highest-tier row wins — `lifetime_rewards (customer_id, tier)` is UNIQUE so
+ * there is at most one row per tier per customer.
+ */
+export async function getActiveLifetimeTierPercent(
+  sb: SupabaseClient,
+  userId: string,
+): Promise<0 | 5 | 10> {
+  const { data } = await sb
+    .from('lifetime_rewards')
+    .select('tier')
+    .eq('customer_id', userId)
+    .order('tier', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const tier = data?.tier as number | undefined
+  if (tier === 1) return 5
+  if (typeof tier === 'number' && tier >= 2) return 10
+  return 0
+}

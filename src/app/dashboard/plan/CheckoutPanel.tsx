@@ -53,6 +53,12 @@ interface Props {
    *  and shows the out-of-zone notice inline rather than waiting for a
    *  server-side rejection after the user clicks. */
   outOfZone?: boolean
+  /** Sum of approved Dorm Wars credit rows in AED, threaded from the page
+   *  SSR fetch. When > 0 the panel renders a discount line above the CTA
+   *  showing how much of the plan total will be wiped out by credits.
+   *  Display amount is `min(creditBalanceAed, planTotalAed)` — mirrors the
+   *  hard cap the coupon synth applies server-side (REDEEM-03). */
+  creditBalanceAed?: number
 }
 
 // Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
@@ -63,12 +69,11 @@ interface Props {
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// Earliest date the user can start. Always **tomorrow at the earliest** —
-// today's prep window has already begun in the kitchen by the time someone is
-// checking out, so a same-day start can't be honoured. For renewals we anchor
-// to the day after the existing plan ends.
-//   • Active sub      → end_date + 1
-//   • No active sub   → today + 1
+// Earliest date the user can start. Re-evaluated each call so the picker
+// can re-tick across the 14:00 Asia/Dubai kitchen cutoff without a refresh.
+//   • Active sub                  → end_date + 1 (no overlap with current sub)
+//   • No active sub, AE < 14:00   → today (kitchen can still prep tonight)
+//   • No active sub, AE ≥ 14:00   → tomorrow (kitchen prep window has closed)
 function computeMinIso(active: { end_date: string } | null): string {
   let d: Date
   if (active) {
@@ -76,9 +81,12 @@ function computeMinIso(active: { end_date: string } | null): string {
     d.setHours(0, 0, 0, 0)
     d.setDate(d.getDate() + 1)
   } else {
+    // AE = UTC+4 year-round (no DST). Past 14:00 AE the kitchen has already
+    // started prepping tonight's run; same-day start can't be honoured.
+    const aeHour = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours()
     d = new Date()
     d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() + 1) // tomorrow, never today
+    if (aeHour >= 14) d.setDate(d.getDate() + 1)
   }
   return isoDate(d)
 }
@@ -109,7 +117,7 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
  */
 export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
-  outOfZone = false,
+  outOfZone = false, creditBalanceAed = 0,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // weekType is the effective cadence (pending → canonical fallback) supplied
@@ -177,17 +185,50 @@ export function CheckoutPanel({
   const [errorCode, setErrorCode] = useState<string | null>(null)
 
   // Date picker bounds — both bounds anchored to a single starting point so
-  // the user always gets a 30-day window to pick from:
-  //   • Active sub      → window = [end_date + 1, end_date + 31]
-  //   • No active sub   → window = [today,        today      + 30]
-  // The calendar's initial month follows `min`, so the popover lands on a
-  // relevant month even when `startDate` is still empty.
-  const dateBounds = useMemo(() => {
+  // the user always gets a 30-day window to pick from. `min` and `cutoffActive`
+  // both depend on the 14:00 Asia/Dubai kitchen cutoff, so they re-tick on a
+  // 60s interval — a tab left open across 13:59 → 14:00 will see today's cell
+  // flip from selectable to disabled, with the tooltip explaining the cutoff,
+  // without the user needing to refresh.
+  //
+  // `cutoffActive` is true only for first-time checkouts past 14:00 AE; it
+  // governs the wording of the disabled-today tooltip in DateField. Renewals
+  // (active sub) never set this flag — their constraint is "no overlap," not
+  // "kitchen cutoff," so the existing "in the past" message is correct there.
+  const [dateBounds, setDateBounds] = useState(() => {
     const minIso = computeMinIso(activeSubscription)
     const maxD = new Date(minIso + 'T00:00:00')
     maxD.setDate(maxD.getDate() + 30)
-    return { min: minIso, max: isoDate(maxD) }
+    const cutoffActive = !activeSubscription &&
+      new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours() >= 14
+    return { min: minIso, max: isoDate(maxD), cutoffActive }
+  })
+  useEffect(() => {
+    const tick = () => {
+      const minIso = computeMinIso(activeSubscription)
+      const maxD = new Date(minIso + 'T00:00:00')
+      maxD.setDate(maxD.getDate() + 30)
+      const cutoffActive = !activeSubscription &&
+        new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours() >= 14
+      setDateBounds(prev =>
+        prev.min === minIso && prev.cutoffActive === cutoffActive
+          ? prev
+          : { min: minIso, max: isoDate(maxD), cutoffActive }
+      )
+    }
+    const t = setInterval(tick, 60_000)
+    return () => clearInterval(t)
   }, [activeSubscription])
+
+  // Auto-bump startDate forward when the cutoff crosses mid-session. Without
+  // this, a customer who picked today at 13:55 could still hit the CTA at
+  // 14:01 with a now-stale value — the server would reject, but the inline
+  // error is a worse UX than silently advancing the picker.
+  useEffect(() => {
+    if (startDate && startDate < dateBounds.min) {
+      setStartDate(clampToDeliveryDay(dateBounds.min, weekType))
+    }
+  }, [dateBounds.min, startDate, weekType])
 
   // Scroll the panel into clear view on mount and when selection changes,
   // so the user sees the date picker + checkout button without hunting for
@@ -251,7 +292,7 @@ export function CheckoutPanel({
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
-      } else if (data.error === 'QUEUE_FULL' || data.error === 'TRIAL_COOLDOWN' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED') {
+      } else if (data.error === 'QUEUE_FULL' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED') {
         // Friendly server-side rejection — message is pre-formatted for display.
         setErrorCode(data.error)
         setError(data.message ?? 'Checkout blocked — please review your account and try again.')
@@ -338,6 +379,38 @@ export function CheckoutPanel({
             a soft transition, not a hard slice. */}
         <div className="checkout-divider" aria-hidden />
 
+        {/* ── DORM WARS CREDIT — applied discount row ──
+            Shown only when the customer has an approved credit balance.
+            Display amount caps at the plan total so a customer with more
+            credit than the plan costs sees "AED 200 applied" (the cap),
+            never "AED 5000 applied" against a 200 AED plan — mirrors the
+            server-side hard cap in coupon-synth (REDEEM-03).
+
+            Visual: emerald (light dashboard intent — Dashboard light vs
+            marketing dark is intentional per project memory; the dark gold/red
+            Dorm Wars palette belongs to the hub itself). Sits between the
+            divider and the action strip so the customer's eye reads:
+            plan → divider → "credit applied" → date+CTA. */}
+        {creditBalanceAed > 0 && (() => {
+          const planTotalAed = totalPrice(selected, pref, vegDayCount, weekType)
+          const appliedAed = Math.min(creditBalanceAed, planTotalAed)
+          return (
+            <div className="checkout-credit-row" role="status">
+              <div className="checkout-credit-left">
+                <span className="checkout-credit-label">
+                  Dorm Wars credit applied
+                </span>
+                <span className="checkout-credit-hint">
+                  AED {appliedAed.toFixed(0)} applied from your Dorm Wars credits
+                </span>
+              </div>
+              <span className="checkout-credit-amount">
+                − AED {appliedAed.toFixed(0)}
+              </span>
+            </div>
+          )
+        })()}
+
         {/* ── VEG-DAY PICKER (Religious mix only) ──
             Lets the customer choose exactly which days are veg. Selection
             count must equal vegDayCount (the count picker upstream). The
@@ -366,9 +439,9 @@ export function CheckoutPanel({
             </div>
             {/* Prefill note — only when the customer has a saved veg-day
                 preference. Sets expectation that the picker is seeded from
-                Profile while making it explicit they can still change
-                anything for this plan. Hidden if no saved preference exists
-                (first-time religious-mix purchase). */}
+                Profile and offers a one-click jump to edit the saved seed.
+                Hidden if no saved preference exists (first-time religious-
+                mix purchase). */}
             {hasSavedVegPref && (
               <p style={{
                 margin: '0 0 10px 0',
@@ -377,7 +450,21 @@ export function CheckoutPanel({
                 display: 'inline-flex', alignItems: 'center', gap: 6,
               }}>
                 <span aria-hidden style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 999, background: '#1d8a30' }} />
-                Pre-filled from your saved meal preferences — change anything for this plan.
+                <span>
+                  Pre-filled from your saved{' '}
+                  <Link
+                    href="/dashboard/profile#meal-preferences"
+                    style={{
+                      color: 'inherit',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: '2px',
+                      textDecorationThickness: '1px',
+                    }}
+                  >
+                    meal preferences
+                  </Link>
+                  .
+                </span>
               </p>
             )}
             <div style={{
@@ -434,6 +521,7 @@ export function CheckoutPanel({
                 minDate={dateBounds.min}
                 maxDate={dateBounds.max}
                 weekType={weekType}
+                cutoffActive={dateBounds.cutoffActive}
               />
             </div>
 
@@ -476,7 +564,9 @@ export function CheckoutPanel({
               <p className="checkout-window-rule">
                 {activeSubscription
                   ? <>Starts <strong>the day after your current plan ends</strong>.</>
-                  : <>Earliest start: <strong>tomorrow</strong>.</>}
+                  : dateBounds.cutoffActive
+                    ? <>Earliest start: <strong>tomorrow</strong>.</>
+                    : <>Earliest start: <strong>today</strong> (book by 2 PM).</>}
               </p>
               <p className="checkout-window-charge">
                 Meals begin on this date — no charge for days before.
@@ -690,6 +780,52 @@ export function CheckoutPanel({
             var(--ds-border) 82%,
             transparent 100%
           );
+        }
+
+        /* Dorm Wars credit row — discount line, emerald accent for the light
+           dashboard. Sits above the action strip so the customer reads
+           plan → divider → CREDIT APPLIED → date+CTA. Single-line on wide;
+           wraps label+hint on narrow. The amount is tabular-num so multiple
+           plans don't shift its right edge as the user toggles. */
+        .checkout-credit-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          margin: -8px 0 24px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: rgba(29, 138, 48, 0.07);
+          border: 1px solid rgba(29, 138, 48, 0.22);
+        }
+        .checkout-credit-left {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .checkout-credit-label {
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          color: #1d8a30;
+          line-height: 1.3;
+        }
+        .checkout-credit-hint {
+          margin-top: 2px;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 11.5px;
+          font-weight: 500;
+          color: var(--ds-fg-soft);
+          line-height: 1.4;
+        }
+        .checkout-credit-amount {
+          flex-shrink: 0;
+          font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+          font-size: 15px;
+          font-weight: 800;
+          color: #1d8a30;
+          letter-spacing: -0.01em;
+          font-feature-settings: 'tnum';
         }
 
         /* Action strip — split into TWO grids so the trigger button and the

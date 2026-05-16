@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/utils/supabase/queries'
+import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import PlanClient from '../plan/PlanClient'
 
@@ -39,11 +40,17 @@ export default async function ExplorePlansPage({
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
-  const [customer, activeSubscription, allSubscriptions] = await Promise.all([
+  // Same SSR fetch as /dashboard/plan — the CheckoutPanel on this route
+  // also needs the Dorm Wars approved credit balance to render the discount
+  // row before submit.
+  const supabase = await createClient()
+  const [customer, activeSubscription, allSubscriptions, redeemable] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
+    getRedeemableCredit(supabase, user.id),
   ])
+  const creditBalanceAed = redeemable.balanceFils / 100
 
   return (
     <PlanClient
@@ -52,6 +59,7 @@ export default async function ExplorePlansPage({
       allSubscriptions={allSubscriptions}
       userEmail={user.email}
       mode="explore"
+      creditBalanceAed={creditBalanceAed}
     />
   )
 }

@@ -5,9 +5,8 @@ import { resolvePlan, minPriceFilsFor } from '@/lib/plans';
 import type { WeekType } from '@/lib/end-date';
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
 import { missingProfileFields } from '@/lib/profile-completion';
-
-// 15-day cooldown between Trial purchases per customer (per user spec).
-const TRIAL_COOLDOWN_DAYS = 15;
+import { synthesizePerSessionCoupon } from '@/lib/dorm-wars/coupon-synth';
+import { getRedeemableCredit, getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
 
 export async function POST(req: Request) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -69,16 +68,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
-    // start_date must be a YYYY-MM-DD string for tomorrow ≤ start ≤ today+31
-    // (the same window the date picker enforces). Without this guard, a
-    // tampered POST could schedule a sub starting yesterday — which the webhook
-    // would store as `Active` immediately, bypassing the kitchen-prep window.
+    // start_date must be a YYYY-MM-DD inside the allowed window — the same
+    // window the date picker enforces. Without this guard, a tampered POST
+    // could schedule a sub starting yesterday — which the webhook would store
+    // as `Active` immediately, bypassing the kitchen-prep window.
+    //
+    // Window depends on whether the customer already has a live sub and on
+    // the Asia/Dubai clock:
+    //   • Live sub                    → tomorrow ≤ start ≤ today+31 (no overlap)
+    //   • No live sub, AE < 14:00 AE  → today    ≤ start ≤ today+31 (same-day allowed)
+    //   • No live sub, AE ≥ 14:00 AE  → tomorrow ≤ start ≤ today+31 (kitchen prepping)
     if (start_date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
         return NextResponse.json({ error: 'Invalid start_date format' }, { status: 400 });
       }
+      // Cheap pre-check for any live sub. If one exists, same-day starts are
+      // disallowed regardless of clock time. Mirrors LIVE_SUBSCRIPTION_STATUSES
+      // (Active | Paused | Skipped) — Scheduled is gated separately below.
+      const { data: liveSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('customer_id', user.id)
+        .in('status', ['Active', 'Paused', 'Skipped'])
+        .limit(1)
+        .maybeSingle();
+
+      // AE = UTC+4 year-round (no DST). Server-authoritative — even if the
+      // client computed the cutoff differently, this is the boundary that
+      // counts for what the kitchen can actually deliver.
+      const aeHour = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours();
+      const sameDayAllowed = !liveSub && aeHour < 14;
+
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const minStart = new Date(today); minStart.setDate(minStart.getDate() + 1);
+      const minStart = new Date(today);
+      if (!sameDayAllowed) minStart.setDate(minStart.getDate() + 1);
       const maxStart = new Date(today); maxStart.setDate(maxStart.getDate() + 31);
       const requested = new Date(start_date + 'T00:00:00');
       if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
@@ -198,30 +221,6 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
 
-    // ── Trial cooldown — 15 days between Trial purchases ───────────────────
-    if (planDef.id === 'trial') {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - TRIAL_COOLDOWN_DAYS);
-      const { data: recentTrial } = await supabase
-        .from('subscriptions')
-        .select('id, start_date')
-        .eq('customer_id', user.id)
-        .ilike('plan_name', '%trial%')
-        .gte('start_date', cutoff.toISOString().slice(0, 10))
-        .order('start_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (recentTrial) {
-        const earliestNext = new Date(recentTrial.start_date);
-        earliestNext.setDate(earliestNext.getDate() + TRIAL_COOLDOWN_DAYS);
-        return NextResponse.json({
-          error: 'TRIAL_COOLDOWN',
-          message: `You can try the trial again from ${earliestNext.toISOString().slice(0, 10)}. Pick a full plan if you'd like to start sooner.`,
-        }, { status: 409 });
-      }
-    }
-
     // Only accept same-origin paths to prevent open-redirect via Stripe.
     const safeCancelPath =
       typeof cancel_path === 'string' && /^\/[^/\\]/.test(cancel_path)
@@ -230,7 +229,32 @@ export async function POST(req: Request) {
     const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3004';
     const cancelSep = safeCancelPath.includes('?') ? '&' : '?';
 
-    const session = await stripe.checkout.sessions.create({
+    // ── Dorm Wars: credit redemption + lifetime-tier coupon synthesis ─────
+    // `amount` is fils (AED × 100). The coupon-synth helper caps credit to
+    // `amountFils` so a 5000 AED balance against a 200 AED plan applies 200,
+    // not 300 → Stripe `coupon_amount_off_too_large` is impossible to trip.
+    // RLS on `credits` + `lifetime_rewards` already permits the auth.uid()
+    // owner to SELECT, so the user-scoped `supabase` client is sufficient
+    // (no need to escalate to service-role here).
+    const { rows: creditRows, balanceFils } = await getRedeemableCredit(supabase, user.id);
+    const appliedCreditIds = creditRows.map(r => r.id);
+    const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
+
+    const couponResult = await synthesizePerSessionCoupon({
+      stripe,
+      userId: user.id,
+      amountFils: amount,
+      creditBalanceFils: balanceFils,
+      tierPercent,
+      appliedCreditIds,
+    });
+
+    // Build sessionArgs separately so we can conditionally attach `discounts`.
+    // CRITICAL (RESEARCH Pitfall #5): `discounts[]` is mutually exclusive
+    // with `allow_promotion_codes:true` — Stripe returns 400 if both are set.
+    // This route does not set allow_promotion_codes (verified — grep clean),
+    // so the discount attach is safe.
+    const sessionArgs: Stripe.Checkout.SessionCreateParams = {
       customer_email: user.email ?? email,
       payment_method_types: ['card'],
       line_items: [
@@ -271,8 +295,20 @@ export async function POST(req: Request) {
         plan,
         vegDays: vegDays ? vegDays.join(', ') : '',
         start_date: start_date ?? '',
-      }
-    });
+        // Dorm Wars redemption metadata — the webhook reads these to flip
+        // `credits.status='approved' → 'applied'` after the order insert.
+        // `coupon_id` is informational (audit trail); `applied_credit_ids`
+        // is the actual CAS target. Empty string when no discount applied.
+        coupon_id: couponResult.couponId ?? '',
+        applied_credit_ids: appliedCreditIds.join(','),
+        credit_applied_fils: String(couponResult.creditAppliedFils),
+      },
+    };
+    if (couponResult.couponId) {
+      sessionArgs.discounts = [{ coupon: couponResult.couponId }];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionArgs);
 
     return NextResponse.json({ url: session.url });
 

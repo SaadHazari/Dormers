@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/utils/supabase/queries'
+import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import PlanClient from './PlanClient'
@@ -28,11 +29,17 @@ export default async function PlanPage({
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
-  const [customer, activeSubscription, allSubscriptions] = await Promise.all([
+  // Server-fetch the Dorm Wars approved credit balance so the CheckoutPanel
+  // can render "AED X applied" before submit. RLS lets the user read their
+  // own rows, so the user-scoped server client is sufficient.
+  const supabase = await createClient()
+  const [customer, activeSubscription, allSubscriptions, redeemable] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
+    getRedeemableCredit(supabase, user.id),
   ])
+  const creditBalanceAed = redeemable.balanceFils / 100
 
   return (
     <Suspense>
@@ -41,6 +48,7 @@ export default async function PlanPage({
         activeSubscription={activeSubscription}
         allSubscriptions={allSubscriptions}
         userEmail={user.email}
+        creditBalanceAed={creditBalanceAed}
       />
     </Suspense>
   )

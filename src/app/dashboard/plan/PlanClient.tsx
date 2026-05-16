@@ -3,10 +3,10 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
-  CalendarDays, Unlock, Heart,
+  CalendarDays, Unlock, Heart, Moon,
 } from 'lucide-react'
 import { OG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -15,6 +15,7 @@ import { MealTag } from '../_shared/MealTag'
 import { LockedVegDays } from '../_shared/LockedVegDays'
 import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
+import { Tooltip } from '../_shared/Tooltip'
 
 /**
  * Maps the persisted customer.meal_preference_type free-text value to the
@@ -34,7 +35,8 @@ import { CheckoutPanel } from './CheckoutPanel'
 import { effectivePreferences } from '@/lib/preferences'
 import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
-import { changeStartDate } from '../actions'
+import { changeStartDate, cancelPlannedPause } from '../actions'
+import { whatsAppHref } from '@/lib/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from './pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
@@ -68,6 +70,11 @@ interface Props {
   // 'plan'    → /dashboard/plan: shows current plan, profile, past plans (no pricing grid).
   // 'explore' → /dashboard/explore-plans: shows ONLY pricing grid + checkout, no other sections.
   mode?: 'plan' | 'explore'
+  /** Sum of approved Dorm Wars credits in AED (server-fetched). Threaded to
+   *  CheckoutPanel so the discount row renders before submit. Optional —
+   *  defaults to 0 when the SSR fetch returns nothing (no credits / fetch
+   *  failure / preview mode). */
+  creditBalanceAed?: number
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -182,10 +189,19 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
+function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false }: {
   sub: Subscription | null
   customer: Customer | null
   onRenewClick: () => void
+  // Opens the cancel-planned-pause confirmation modal. Wired by PlanClient
+  // when a planned pause exists on the active sub. Mirrors the dashboard's
+  // planned-pause banner pattern so the customer can act from /plan too.
+  onCancelPlannedPause?: () => void
+  // True when a Scheduled sub is already queued behind this one. Gates
+  // the end-of-cycle "Renew now" nudge — if the customer has already
+  // committed to a follow-up plan, surfacing a renew button on top of
+  // the QueuedSubCallout below would be redundant noise.
+  hasQueuedSub?: boolean
   outOfZone?: boolean
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
@@ -232,6 +248,15 @@ function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
         ? 'Used'
         : 'Available'
 
+  // Future-facing state — mirrors the dashboard so /plan is in sync with
+  // whatever the customer scheduled there. Planned-pause banner fires when
+  // a future pause is set; the future-skip count surfaces planned skips
+  // that haven't fired yet so customers see the queue from this page too.
+  const plannedPauseStart = sub.planned_pause_start ?? null
+  const hasPlannedPause = !!plannedPauseStart && !isPaused
+  const todayAEIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const futureSkipCount = (sub.skipped_dates ?? []).filter(d => d > todayAEIso).length
+
   return (
     <div style={{
       ...TIER_POP,
@@ -273,7 +298,51 @@ function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
           customer later switches preference to Veg / Carnivore would keep
           rendering the chips alongside a non-religious meal-type tag. */}
       {/religious/i.test(effectivePreferences(customer).meal_preference_type ?? '') && (
-        <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} />
+        <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} onDark />
+      )}
+
+      {/* Planned-pause banner — mirrors the dashboard's PlannedPauseBanner
+          but inverted for the dark TIER_POP surface. Cream-on-dark vocabulary
+          matches LockedVegDays (onDark variant). Cancel link wired to the
+          confirm modal in PlanClient. */}
+      {hasPlannedPause && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: 10,
+          background: 'rgba(245,240,232,0.06)',
+          border: '1px solid rgba(245,240,232,0.18)',
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontFamily: BODY, fontSize: 13, color: TIER_POP_TEXT.primary, lineHeight: 1.4,
+        }}>
+          <span style={{ flex: 'none', color: '#FFD27A', display: 'inline-flex' }}>
+            <Moon size={15} strokeWidth={2} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            Pause planned for{' '}
+            <strong style={{ fontWeight: 700, fontFeatureSettings: '"tnum"', color: TIER_POP_TEXT.primary }}>
+              {new Date(plannedPauseStart + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </strong>
+          </span>
+          {onCancelPlannedPause && (
+            <button
+              type="button"
+              onClick={onCancelPlannedPause}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '4px 8px',
+                fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                color: '#FFD27A',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textUnderlineOffset: '2px',
+                textDecorationThickness: '1px',
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -303,78 +372,77 @@ function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
               Resume any time — meals will be waiting.
             </div>
           </div>
-        ) : renewEligible ? (
+        ) : renewEligible && !hasQueuedSub ? (
+          /* End-of-cycle renew nudge — last 7 days AND no queued
+             follow-up. With a queued sub already behind this one, this
+             button would just duplicate the QueuedSubCallout below;
+             surface it only when the customer genuinely hasn't committed
+             to a next plan yet. */
           outOfZone ? (
-            <span
-              title="Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage."
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '11px 18px', borderRadius: 999,
-                fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                border: 0, cursor: 'not-allowed',
-                background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.65)',
-                opacity: 0.6,
-              }}
-            >
-              Renew now →
-            </span>
+            <Tooltip label="Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.">
+              <span
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '11px 18px', borderRadius: 999,
+                  fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  border: 0, cursor: 'not-allowed',
+                  background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.65)',
+                  opacity: 0.6,
+                }}
+              >
+                Renew now →
+              </span>
+            </Tooltip>
           ) : (
-            <button
-              type="button"
-              onClick={onRenewClick}
-              title="Choose a plan + start date below."
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '11px 18px', borderRadius: 999,
-                fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                border: 0, cursor: 'pointer',
-                background: OG, color: '#fff',
-                transition: 'opacity 150ms',
-              }}
-            >
-              Renew now →
-            </button>
+            <Tooltip label="Choose a plan + start date below.">
+              <button
+                type="button"
+                onClick={onRenewClick}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '11px 18px', borderRadius: 999,
+                  fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  border: 0, cursor: 'pointer',
+                  background: OG, color: '#fff',
+                  transition: 'opacity 150ms',
+                }}
+              >
+                Renew now →
+              </button>
+            </Tooltip>
           )
         ) : startsInFuture ? (() => {
           const dateChangeUsed = !!sub.start_date_changed_at
           return (
-            <button
-              type="button"
-              onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }}
-              disabled={dateChangeUsed}
-              title={dateChangeUsed
-                ? "You can only change the start date once."
-                : "Pick a different start date (you can only do this once)"}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '10px 16px', borderRadius: 999,
-                fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                border: dateChangeUsed
-                  ? '1px solid rgba(245,240,232,0.12)'
-                  : '1px solid rgba(245,240,232,0.28)',
-                background: dateChangeUsed
-                  ? 'rgba(245,240,232,0.05)'
-                  : 'rgba(245,240,232,0.10)',
-                color: dateChangeUsed ? TIER_POP_TEXT.faint : TIER_POP_TEXT.primary,
-                cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
-                opacity: dateChangeUsed ? 0.7 : 1,
-                transition: 'background 150ms, border-color 150ms',
-              }}
-            >
-              <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
-              {dateChangeUsed ? 'Date already changed' : 'Change start date'}
-            </button>
+            <Tooltip label={dateChangeUsed
+              ? "You can only change the start date once."
+              : "Pick a different start date (you can only do this once)"}>
+              <button
+                type="button"
+                onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }}
+                disabled={dateChangeUsed}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '10px 16px', borderRadius: 999,
+                  fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  border: dateChangeUsed
+                    ? '1px solid rgba(245,240,232,0.12)'
+                    : '1px solid rgba(245,240,232,0.28)',
+                  background: dateChangeUsed
+                    ? 'rgba(245,240,232,0.05)'
+                    : 'rgba(245,240,232,0.10)',
+                  color: dateChangeUsed ? TIER_POP_TEXT.faint : TIER_POP_TEXT.primary,
+                  cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
+                  opacity: dateChangeUsed ? 0.7 : 1,
+                  transition: 'background 150ms, border-color 150ms',
+                }}
+              >
+                <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
+                {dateChangeUsed ? 'Date already changed' : 'Change start date'}
+              </button>
+            </Tooltip>
           )
-        })() : (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: TIER_POP_TEXT.primary }}>
-              Plan in progress
-            </div>
-            <div style={{ fontFamily: BODY, fontSize: 11.5, color: TIER_POP_TEXT.muted, marginTop: 2 }}>
-              Renew opens in {daysLeft - 7} day{daysLeft - 7 === 1 ? '' : 's'}.
-            </div>
-          </div>
-        )}
+        })() : null}
       </div>
 
       <ChangeStartDateModal
@@ -401,9 +469,143 @@ function ActivePlanCallout({ sub, customer, onRenewClick, outOfZone = false }: {
               light
             />
             <Stat label="Pause" value={pauseStatus} light />
+            {/* Future-skip surface — only renders when one or more skips
+                are scheduled for upcoming dates. Mirrors what the dashboard
+                shows on the calendar bar so /plan isn't blind to scheduled
+                state. Hidden when zero (avoids dead-tile clutter). */}
+            {futureSkipCount > 0 && (
+              <Stat
+                label="Skips scheduled"
+                value={`${futureSkipCount}`}
+                light
+              />
+            )}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ── Queued sub callout ────────────────────────────────────────────────────────
+// Renders the customer's Scheduled sub when one sits BEHIND a live primary
+// (Active|Paused|Skipped). Without this card, the dashboard's "Up next →
+// Manage" banner pointed at /plan but /plan never surfaced the queue —
+// classic dead-end. Visually a TIER2 card so it sits a notch below the
+// dark TIER_POP active callout above; orange left-rail signals "yours
+// too, not just decoration". The same ChangeStartDateModal that
+// ActivePlanCallout uses is reused here so the rescheduling UX is
+// identical regardless of which sub the customer is editing.
+function QueuedSubCallout({ sub, primaryIsPaused = false }: {
+  sub: Subscription
+  // When the active sub is paused or has a planned pause queued, the
+  // queued start date is tentative — it shifts as the cycle stretches.
+  // Surface the ambiguity rather than promise a date that'll move.
+  primaryIsPaused?: boolean
+}) {
+  const [showChangeStart, setShowChangeStart] = useState(false)
+  const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
+  const dateChangeUsed = !!sub.start_date_changed_at
+  const cancelHref = whatsAppHref(`Hi! I'd like to cancel my upcoming ${cleanPlanName(sub.plan_name)} subscription scheduled to start ${fmt(sub.start_date)}.`)
+
+  return (
+    <div style={{
+      ...TIER2,
+      padding: 22, borderRadius: 16,
+      marginBottom: 16,
+      display: 'flex', flexDirection: 'column', gap: 14,
+      borderLeft: `3px solid ${OG}`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <Eyebrow>Up next</Eyebrow>
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10, fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: S.fg, letterSpacing: '-0.01em' }}>
+            <PlanGlyph planName={sub.plan_name} size={18} />
+            {cleanPlanName(sub.plan_name)}
+          </div>
+          <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
+            {primaryIsPaused ? 'Est. starts ' : 'Starts '}
+            <strong style={{ color: S.fg }}>{fmtWithDay(sub.start_date)}</strong>
+            {primaryIsPaused && (
+              <Tooltip label="Shifts forward as you stay paused. Confirmed once you resume.">
+                <span style={{
+                  marginLeft: 8, padding: '2px 8px', borderRadius: 999,
+                  background: 'rgba(58,111,140,0.12)',
+                  color: '#3a6f8c',
+                  fontFamily: BODY, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  cursor: 'help',
+                }}>Tentative</span>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+        <StatusDot status={SUBSCRIPTION_STATUS.SCHEDULED} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysToStart}</span>
+          <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: S.fgMuted }}>
+            day{daysToStart === 1 ? '' : 's'} {primaryIsPaused ? 'estimated' : 'until it starts'}
+          </span>
+        </div>
+
+        <Tooltip label={dateChangeUsed
+          ? "You can only change the start date once."
+          : "Pick a different start date (you can only do this once)"}>
+          <button
+            type="button"
+            onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }}
+            disabled={dateChangeUsed}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 16px', borderRadius: 999,
+              fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+              border: dateChangeUsed ? `1px solid ${S.border}` : `1px solid ${S.border2}`,
+              background: dateChangeUsed ? 'var(--ds-skeleton-base)' : 'var(--ds-surface2)',
+              color: dateChangeUsed ? S.fgFaint : S.fg,
+              cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
+              opacity: dateChangeUsed ? 0.7 : 1,
+              transition: 'background 150ms, border-color 150ms',
+            }}
+          >
+            <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
+            {dateChangeUsed ? 'Date already changed' : 'Change start date'}
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* Cancellation fallback — there's no server action for cancelling a
+          Scheduled sub yet (refunds + state cleanup are operator-handled).
+          Soft-link to WhatsApp so the customer has an exit path instead of
+          a dead-end card. Pre-fills the chat with plan + start-date context
+          so support doesn't have to ask. */}
+      <div style={{
+        fontFamily: BODY, fontSize: 11.5, color: S.fgMuted,
+        paddingTop: 4,
+        borderTop: `1px solid ${S.border}`,
+        marginTop: 2,
+      }}>
+        Need to cancel?{' '}
+        <a
+          href={cancelHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: S.fgSub, textDecoration: 'underline',
+            textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3,
+            fontWeight: 600,
+          }}
+        >
+          Message us on WhatsApp
+        </a>
+      </div>
+
+      <ChangeStartDateModal
+        sub={sub}
+        isOpen={showChangeStart}
+        onClose={() => setShowChangeStart(false)}
+      />
     </div>
   )
 }
@@ -877,10 +1079,165 @@ const PLAN_FAQS = [
 
 // FAQItem moved to _shared/FAQItem.tsx — imported above.
 
+// ── PostCutoffOverlay ─────────────────────────────────────────────────────────
+// Full-screen modal that announces the 2 PM Asia/Dubai kitchen cutoff. Fires
+// once per session-day when a customer picks a plan after 14:00 AE so they
+// know — before paying — that their first delivery is tomorrow evening, not
+// tonight. Mirrors ResumeWelcomeOverlay's "cutoff" treatment: dark navy base
+// + amber radial glow + Moon medallion. Dismissed by CTA, backdrop click, or
+// Escape; the underlying plan-card selection stays intact so the customer can
+// proceed straight to checkout.
+function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
+  const prefersReducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onDismiss])
+
+  return (
+    <motion.div
+      key="cutoff-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: prefersReducedMotion ? 0.15 : 0.28 }}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="cutoff-overlay-title"
+      aria-describedby="cutoff-overlay-body"
+      onClick={onDismiss}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'radial-gradient(ellipse 55% 45% at center, rgba(200,148,23,0.32) 0%, transparent 70%), rgba(9,24,37,0.92)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        cursor: 'pointer',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 22, maxWidth: 460, padding: '0 24px',
+          cursor: 'default',
+        }}
+      >
+        {/* Amber Moon medallion — same treatment as the "cutoff" resume
+            overlay so the design language stays cohesive across surfaces. */}
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={prefersReducedMotion
+            ? { duration: 0.2 }
+            : { type: 'spring', stiffness: 240, damping: 16, delay: 0.04 }}
+          style={{
+            width: 96, height: 96, borderRadius: '50%',
+            background: '#c89417',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 20px 50px rgba(200,148,23,0.38), 0 0 0 8px rgba(200,148,23,0.15)',
+          }}
+        >
+          <Moon size={40} strokeWidth={1.8} color="#fff" />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={prefersReducedMotion
+            ? { duration: 0.2, delay: 0.1 }
+            : { duration: 0.46, ease: [0.16, 1, 0.3, 1], delay: 0.48 }}
+          style={{ textAlign: 'center' }}
+        >
+          <div
+            id="cutoff-overlay-title"
+            style={{
+              fontFamily: BODY, fontSize: 'clamp(26px, 4vw, 34px)',
+              fontWeight: 800, color: '#fff',
+              letterSpacing: '-0.02em', lineHeight: 1.1,
+              textShadow: '0 2px 16px rgba(9,24,37,0.25)',
+            }}
+          >
+            First meal lands tomorrow<span style={{ color: '#ffe09a' }}>.</span>
+          </div>
+          <div
+            id="cutoff-overlay-body"
+            style={{
+              marginTop: 12,
+              fontFamily: BODY, fontSize: 14.5, fontWeight: 500,
+              color: 'rgba(255,255,255,0.82)',
+              lineHeight: 1.55,
+              textShadow: '0 1px 8px rgba(9,24,37,0.30)',
+            }}
+          >
+            The 2 PM kitchen cutoff has passed — tonight&apos;s run is already prepping. Your first delivery will arrive tomorrow evening, 7–8 PM.
+          </div>
+        </motion.div>
+
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={prefersReducedMotion
+            ? { duration: 0.2, delay: 0.12 }
+            : { duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.72 }}
+          onClick={onDismiss}
+          autoFocus
+          style={{
+            marginTop: 4,
+            padding: '13px 28px', borderRadius: 999,
+            background: OG, color: '#fff',
+            border: 'none', cursor: 'pointer',
+            fontFamily: BODY, fontSize: 13, fontWeight: 700,
+            letterSpacing: '0.04em',
+            boxShadow: '0 8px 24px rgba(245,127,32,0.35)',
+            transition: 'transform 150ms, box-shadow 150ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
+        >
+          Got it, continue
+        </motion.button>
+      </div>
+    </motion.div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan' }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0 }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
+  const router = useRouter()
+  const [, startPlanTransition] = useTransition()
+
+  // Queued sub — picks the soonest Scheduled row that is NOT the primary.
+  // When the customer has a live (Active|Paused|Skipped) primary AND a
+  // Scheduled queued, the queries layer surfaces them as two distinct rows:
+  // activeSubscription is the live primary, and the Scheduled one lives
+  // inside allSubscriptions. We exclude activeSubscription.id so a customer
+  // whose primary is itself Scheduled (no live sub yet) doesn't double-
+  // render — ActivePlanCallout already handles that case.
+  const queuedSub = (!isExplore && activeSubscription)
+    ? allSubscriptions.find(s => s.status === SUBSCRIPTION_STATUS.SCHEDULED && s.id !== activeSubscription.id) ?? null
+    : null
+  const primaryIsPaused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
+    || !!activeSubscription?.planned_pause_start
+
+  // Cancel-planned-pause modal state — mirrors the dashboard's pattern.
+  // The button inside ActivePlanCallout's planned-pause banner opens this;
+  // confirming fires the cancelPlannedPause server action and refreshes
+  // the page data so the banner disappears.
+  const [showCancelPlannedPause, setShowCancelPlannedPause] = useState(false)
+  const handleCancelPlannedPause = () => {
+    if (!activeSubscription) return
+    setShowCancelPlannedPause(false)
+    startPlanTransition(async () => {
+      await cancelPlannedPause(activeSubscription.id)
+      router.refresh()
+    })
+  }
   // The next subscription uses the EFFECTIVE preferences — pending wins
   // when the customer has queued a change in Profile, otherwise the
   // canonical customer.* fields. This is what makes "Save for next
@@ -911,6 +1268,10 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   const weekType: WeekType = eff.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
   const [selected, setSelected] = useState<PlanId | null>(null)
   const [cancelBanner, setCancelBanner] = useState(false)
+  // Post-cutoff overlay — fires once per AE day per session when a customer
+  // picks a plan after 14:00 Asia/Dubai. Keyed to today's AE date so a long-
+  // lived tab still re-prompts on a new day.
+  const [showCutoffOverlay, setShowCutoffOverlay] = useState(false)
 
   // ?checkout_canceled=true → show inline banner, then scrub the param so a
   // refresh doesn't re-trigger the banner. (The bfcache reset for the inflight
@@ -925,6 +1286,20 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
   }, [])
+
+  // Trigger PostCutoffOverlay on plan selection when AE clock is past 14:00.
+  // Shows once per AE day per session so toggling between plan cards doesn't
+  // re-fire it. Uses sessionStorage (per-tab) keyed to today's AE date.
+  useEffect(() => {
+    if (!selected || typeof window === 'undefined') return
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+    if (ae.getUTCHours() < 14) return
+    const todayAE = ae.toISOString().slice(0, 10)
+    const key = `cutoff-overlay-shown:${todayAE}`
+    if (sessionStorage.getItem(key) === '1') return
+    sessionStorage.setItem(key, '1')
+    setShowCutoffOverlay(true)
+  }, [selected])
 
   // Pricing grid: in 'explore' mode it's always visible; in 'plan' mode it's
   // gone entirely (users go to /dashboard/explore-plans for it).
@@ -998,8 +1373,25 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         {/* Active plan callout — only on /plan, not /explore-plans */}
         {!isExplore && (
           <div style={{ marginBottom: 16 }}>
-            <ActivePlanCallout sub={activeSubscription} customer={customer} onRenewClick={openPricing} outOfZone={outOfZone} />
+            <ActivePlanCallout
+              sub={activeSubscription}
+              customer={customer}
+              onRenewClick={openPricing}
+              onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
+              hasQueuedSub={!!queuedSub}
+              outOfZone={outOfZone}
+            />
           </div>
+        )}
+
+        {/* Queued sub callout — sits BELOW the active callout so the
+            customer scans current → next in reading order. Only renders
+            when a Scheduled sub exists behind a live primary (handled by
+            the queuedSub derivation above). Without this card, the
+            dashboard's "Up next · Manage →" link landed on /plan with no
+            queue info — a dead-end the customer rightly flagged. */}
+        {!isExplore && queuedSub && (
+          <QueuedSubCallout sub={queuedSub} primaryIsPaused={primaryIsPaused} />
         )}
 
         {/* Change-plan CTA — only on /plan. Locked when the active plan is
@@ -1018,20 +1410,21 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                 </div>
               </div>
               {activePlanIsPaused ? (
-                <span
-                  aria-disabled="true"
-                  title="Resume your current plan before exploring new plans."
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    padding: '10px 16px', borderRadius: 999,
-                    fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                    border: `1px solid ${S.border}`, background: 'transparent', color: S.fgFaint,
-                    cursor: 'not-allowed', userSelect: 'none',
-                    opacity: 0.55,
-                  }}
-                >
-                  Explore plans
-                </span>
+                <Tooltip label="Resume your current plan before exploring new plans.">
+                  <span
+                    aria-disabled="true"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      padding: '10px 16px', borderRadius: 999,
+                      fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      border: `1px solid ${S.border}`, background: 'transparent', color: S.fgFaint,
+                      cursor: 'not-allowed', userSelect: 'none',
+                      opacity: 0.55,
+                    }}
+                  >
+                    Explore plans
+                  </span>
+                </Tooltip>
               ) : (
                 <Link
                   href="/dashboard/explore-plans"
@@ -1245,6 +1638,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     activeSubscription={activeSubscription}
                     weekType={weekType}
                     outOfZone={outOfZone}
+                    creditBalanceAed={creditBalanceAed}
                   />
                 )}
               </AnimatePresence>
@@ -1313,6 +1707,60 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           Made with <Heart size={11} fill={OG} strokeWidth={0} aria-hidden /> in Dubai
         </div>
       </div>
+
+      <AnimatePresence>
+        {showCutoffOverlay && (
+          <PostCutoffOverlay onDismiss={() => setShowCutoffOverlay(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Cancel-planned-pause confirmation — mirrors the ActiveDashboard
+          modal so the language is identical wherever the customer cancels
+          a planned pause. Refunds the pause credit on commit (server side). */}
+      <AnimatePresence>
+        {showCancelPlannedPause && activeSubscription?.planned_pause_start && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+            onClick={() => setShowCancelPlannedPause(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 420, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
+            >
+              <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                Cancel your planned pause?
+              </div>
+              <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
+                Your pause is scheduled for{' '}
+                <strong style={{ color: S.fg }}>
+                  {new Date(activeSubscription.planned_pause_start + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </strong>. Cancelling now returns your <strong style={{ color: S.fg }}>1 free pause</strong> to use later in this cycle.
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                <button
+                  onClick={() => setShowCancelPlannedPause(false)}
+                  style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+                >
+                  Keep it planned
+                </button>
+                <button
+                  onClick={handleCancelPlannedPause}
+                  style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
+                >
+                  Cancel pause
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx>{`
         .plans-grid {
