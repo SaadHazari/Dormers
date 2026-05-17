@@ -540,7 +540,7 @@ export default function HubClient({
         )
       })()}
 
-      {/* 1. TOP CHROME — minimal: identity + wallet + streak + sound */}
+      {/* 1. TOP CHROME — identity + wallet + streak chest strip + sound */}
       <TopChrome
         initials={initials}
         name={customerName || 'You'}
@@ -548,6 +548,8 @@ export default function HubClient({
         recruits={recruits}
         wallet={wallet}
         streak={streak}
+        chestState={chestState}
+        onChestClick={() => setOpen('chest')}
         soundOn={soundOn}
         onSoundToggle={() => setSoundOn(s => !s)}
         earlyAccess={earlyAccess}
@@ -562,11 +564,12 @@ export default function HubClient({
         cycleRecruits={cycleRecruits}
       />
 
-      {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Daily Drop
-          Audit P1-9: fixed `repeat(3, 1fr)` collapsed milestone dots into
-          unreadable mush at 375px. The .hub-progress-grid class in HubStyles
-          stacks single-column under 720px and two-column under 1024px so
-          phones get readable columns with the same content order. */}
+      {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Side Rewards (Layer 4)
+          Phase 8E.1: the old Daily Drop / Streak Chest column moved into the
+          TopChrome strip (chest progress visualised as 8 flame icons + chest
+          icon). The third column slot now hosts the Layer 4 side-rewards
+          list so users see all four "more ways to earn" surfaces at parity
+          with Cycle + Lifetime instead of buried in a footer ribbon. */}
       <div className="hub-progress-grid" style={{ flex: '0 0 auto' }}>
         <CycleColumn
           cycleRecruits={cycleRecruits}
@@ -582,10 +585,7 @@ export default function HubClient({
           nextTier={nextTier}
           onOpen={() => setOpen('ladder')}
         />
-        <StreakChestColumn
-          state={chestState}
-          onOpen={() => setOpen('chest')}
-        />
+        <SideRewardsColumn />
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
@@ -600,9 +600,6 @@ export default function HubClient({
           onViewAll={() => setOpen('squad')}
         />
       </div>
-
-      {/* 5. FOOTER REWARDS — side rewards quick chip list */}
-      <FooterRewards />
 
       {/* ── MODALS ── */}
       <SendScoutModal
@@ -910,14 +907,37 @@ function flameTier(count: number): FlameTier {
   return            { color: GOLD,           glow: `${GOLD}ee`,   glowSize: 24, animated: true } // supernova
 }
 
-function StreakFlame({ count }: { count: number }) {
+// Phase 8E (revised) — StreakChestStrip replaces the simple flame chip.
+// Shows the chest-progress visually: 8 flame icons that light up one at a
+// time as the user walks toward their next chest, followed by a chest icon
+// at the end. Each lit flame is brighter + more animated than the previous,
+// crescendoing toward the chest. When all 8 are lit, the chest pulses gold
+// and clicking it opens the claim modal. Streak break = back to 0 flames lit.
+//
+// The flame BASE color follows the epic-tier ladder (orange → purple → blue
+// → cyan → forest → pink → supernova-gold) so a day-50 user's strip is blue
+// instead of orange even when chest progress resets.
+function StreakChestStrip({
+  count, chestProgress, chestReady, onChestClick,
+}: {
+  count:         number   // total streak days (drives epic color tier)
+  chestProgress: number   // 0..8 — flames lit toward next chest
+  chestReady:    boolean
+  onChestClick:  () => void
+}) {
   const tier = flameTier(count)
+  const litCount = Math.max(0, Math.min(8, chestProgress))
+
   return (
     <div
-      title={`${count}-day streak — ${count >= 28 ? 'peak intensity unlocked' : `${28 - count} days to peak`}`}
+      title={
+        chestReady
+          ? `Streak chest ready — ${count}-day streak`
+          : `${count}-day streak — ${8 - litCount} more for next chest`
+      }
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '7px 12px', borderRadius: 999,
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '6px 10px', borderRadius: 999,
         backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.3) 100%)`,
         border: `1.5px solid ${tier.color}88`,
         boxShadow: tier.glowSize > 0
@@ -925,20 +945,86 @@ function StreakFlame({ count }: { count: number }) {
           : `0 4px 12px rgba(0,0,0,0.45)`,
       }}
     >
-      <span
-        style={{
-          display: 'inline-flex',
-          animation: tier.animated ? 'hub-flame-flicker 1.6s ease-in-out infinite' : undefined,
-        }}
-      >
-        <Flame size={14} strokeWidth={2.5} color={tier.color} />
-      </span>
+      {/* Total streak day count — small badge for context */}
       <span style={{
-        fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM,
+        fontFamily: BODY, fontSize: 11, fontWeight: 900, color: CREAM,
         fontFeatureSettings: '"tnum"',
+        paddingRight: 2,
       }}>
         {count}d
       </span>
+
+      {/* 8 flame icons — each lit one is brighter + more animated than the
+          previous. The position-driven intensity is the visual "crescendo"
+          toward the chest at the end. */}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+        {Array.from({ length: 8 }).map((_, i) => {
+          const lit = i < litCount
+          // 1-indexed position within the strip → intensity ramp 0.25..1.
+          const pos = (i + 1) / 8
+          const opacity = lit ? 0.35 + 0.65 * pos : 0.18
+          const dropShadow = lit ? `drop-shadow(0 0 ${Math.round(pos * 5)}px ${tier.color})` : 'none'
+          // Top 3 lit flames flicker; the rest stay still.
+          const animate = lit && i >= Math.max(0, litCount - 3)
+          return (
+            <span
+              key={i}
+              style={{
+                display: 'inline-flex',
+                opacity,
+                filter: dropShadow,
+                animation: animate ? `hub-flame-flicker ${1.4 + i * 0.05}s ease-in-out infinite` : undefined,
+              }}
+            >
+              <Flame
+                size={11}
+                strokeWidth={lit ? 2.6 : 2}
+                color={lit ? tier.color : MIST_FAINT}
+              />
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Chest at end — locked dim icon until all 8 flames lit; then
+          pulsing gold with a ring halo and click-to-claim. */}
+      <button
+        type="button"
+        onClick={onChestClick}
+        disabled={!chestReady}
+        aria-label={chestReady ? 'Open streak chest' : 'Streak chest — locked'}
+        style={{
+          position: 'relative',
+          padding: 0,
+          marginLeft: 4,
+          border: 'none',
+          background: 'transparent',
+          cursor: chestReady ? 'pointer' : 'default',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 22, height: 22, borderRadius: '50%',
+          backgroundColor: chestReady ? `${GOLD}22` : 'transparent',
+          boxShadow: chestReady ? `0 0 10px ${GOLD}88, inset 0 0 6px ${GOLD}44` : 'none',
+          transition: 'background-color 200ms ease, box-shadow 200ms ease',
+        }}
+      >
+        <Gift
+          size={14}
+          strokeWidth={2.6}
+          color={chestReady ? GOLD_LITE : MIST_DIM}
+          style={{
+            animation: chestReady ? 'hub-cta-pulse 2.2s ease-in-out infinite' : undefined,
+          }}
+        />
+        {chestReady && (
+          <span style={{
+            position: 'absolute', inset: -3, borderRadius: '50%',
+            border: `1.5px solid ${GOLD}`,
+            animation: 'hub-pulse-ring 2.2s ease-out infinite',
+            opacity: 0.55,
+            pointerEvents: 'none',
+          }} />
+        )}
+      </button>
     </div>
   )
 }
@@ -948,7 +1034,8 @@ function StreakFlame({ count }: { count: number }) {
 // ════════════════════════════════════════════════════════════════════════════
 
 function TopChrome({
-  initials, name, tier, recruits, wallet, streak, soundOn, onSoundToggle,
+  initials, name, tier, recruits, wallet, streak, chestState, onChestClick,
+  soundOn, onSoundToggle,
   earlyAccess, hallWall, lifetimeTier,
 }: {
   initials:      string
@@ -957,6 +1044,8 @@ function TopChrome({
   recruits:      number
   wallet:        number
   streak:        number
+  chestState:    StreakChestState
+  onChestClick:  () => void
   soundOn:       boolean
   onSoundToggle: () => void
   earlyAccess:   boolean
@@ -1065,7 +1154,15 @@ function TopChrome({
           </div>
         </div>
 
-        {streak > 0 && <StreakFlame count={streak} />}
+        {/* Phase 8E.1 — chest progress strip replaces the simple flame chip.
+            Shows 8 flame icons (lit toward next chest) + a chest button at
+            the end that opens the claim modal when ready. */}
+        <StreakChestStrip
+          count={streak}
+          chestProgress={Math.max(0, Math.min(8, chestState.count - chestState.lastChestDay))}
+          chestReady={chestState.chestReady}
+          onChestClick={onChestClick}
+        />
 
         <button
           type="button"
@@ -1552,130 +1649,76 @@ function LifetimeColumn({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  STREAK CHEST COLUMN — Phase 8E, replaces Daily Drop
-//  Three visual states:
-//   • chest ready (count - lastChestDay >= 8) → pulsing gold chest, "Tap to open"
-//   • cooldown (just claimed, walking toward next 8)  → "Next chest in N streak days"
-//   • brand-new (no streak)                            → "Visit daily — chest unlocks at day 8"
+//  SIDE REWARDS COLUMN — Phase 8E.1 (Layer 4 surface)
+//  Third progress column. Lists the four Layer 4 "more ways to earn" perks
+//  with status. Streak Chest moved to the TopChrome strip; the chest claim
+//  modal opens from there. Backend wiring for these rewards ships in 8G —
+//  until then each item displays as "Coming soon" so the surface honestly
+//  reflects what's actionable today.
 // ════════════════════════════════════════════════════════════════════════════
 
-function StreakChestColumn({
-  state, onOpen,
-}: {
-  state:  StreakChestState
-  onOpen: () => void
-}) {
-  const { count, chestReady, daysUntilNext } = state
-
+function SideRewardsColumn() {
   return (
-    <Column
-      eyebrow="Streak Chest"
-      title={chestReady ? "It's open · tap to claim" : `Unlocks every 8 streak days`}
-      accent={chestReady ? GOLD : MIST_DIM}
-      onOpen={onOpen}
-    >
+    <Column eyebrow="Side Rewards" title="Four more ways to earn AED" accent={GREEN}>
       <div style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
         flex: '1 1 auto',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 10, padding: '6px 0 4px',
+        marginTop: 4,
       }}>
-        {chestReady ? (
-          <>
-            {/* Ready: pulsing gold chest, tap-to-open affordance. */}
-            <div style={{
-              position: 'relative',
-              width: 64, height: 64, borderRadius: '50%',
-              backgroundImage: `radial-gradient(circle at 35% 30%, ${GOLD_LITE}66 0%, ${GOLD}22 70%, transparent 100%)`,
-              border: `2px solid ${GOLD}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 0 26px ${GOLD}88, inset 0 0 12px ${GOLD}44`,
-              animation: 'hub-cta-pulse 2.6s ease-in-out infinite',
-            }}>
-              <Gift size={32} strokeWidth={2.2} color={GOLD_LITE} />
+        {SIDE_REWARDS.map(r => {
+          const Emblem = r.Emblem
+          return (
+            <div
+              key={r.label}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 10px', borderRadius: 10,
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${r.color}33`,
+              }}
+            >
+              {/* Icon tile */}
               <span style={{
-                position: 'absolute', inset: -4, borderRadius: '50%',
-                border: `1.5px solid ${GOLD}`,
-                animation: 'hub-pulse-ring 2.2s ease-out infinite',
-                opacity: 0.55,
-              }} />
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 11, fontWeight: 900,
-              color: GOLD, letterSpacing: '0.16em', textTransform: 'uppercase',
-            }}>
-              Tap to open
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 10, fontWeight: 700,
-              color: MIST_DIM, letterSpacing: '0.04em', fontFeatureSettings: '"tnum"',
-            }}>
-              Earned at {count}-day streak
-            </div>
-          </>
-        ) : count === 0 ? (
-          // Brand-new — never visited. Tease the mechanic.
-          <>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              backgroundColor: 'rgba(255,255,255,0.04)',
-              border: `1.5px solid ${MIST_FAINT}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Lock size={26} strokeWidth={2.2} color={MIST_DIM} />
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 11, fontWeight: 800,
-              color: MIST, letterSpacing: '0.10em', textTransform: 'uppercase',
-              textAlign: 'center',
-            }}>
-              Visit daily
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 10, fontWeight: 700,
-              color: MIST_DIM, letterSpacing: '0.04em',
-            }}>
-              Chest unlocks at day 8
-            </div>
-          </>
-        ) : (
-          // Cooldown — show progress toward the next 8-day chest.
-          <>
-            <div style={{
-              position: 'relative',
-              width: 64, height: 64, borderRadius: '50%',
-              backgroundColor: 'rgba(255,255,255,0.04)',
-              border: `1.5px solid ${MIST_FAINT}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Gift size={26} strokeWidth={2.2} color={MIST_DIM} />
-              {/* Small day-count badge in the corner */}
-              <span style={{
-                position: 'absolute', bottom: -4, right: -4,
-                minWidth: 22, height: 18, padding: '0 5px', borderRadius: 9,
-                backgroundColor: BG_DEEP,
-                border: `1px solid ${MIST_FAINT}`,
+                flexShrink: 0,
+                width: 28, height: 28, borderRadius: 7,
+                backgroundColor: `${r.color}22`,
+                border: `1px solid ${r.color}55`,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: BODY, fontSize: 9, fontWeight: 900, color: CREAM,
-                fontFeatureSettings: '"tnum"',
               }}>
-                {daysUntilNext}d
+                <Emblem size={13} strokeWidth={2.4} color={r.color} />
+              </span>
+
+              {/* Label + status */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: BODY, fontSize: 12, fontWeight: 800, color: CREAM,
+                  lineHeight: 1.2,
+                }}>
+                  {r.label}
+                </div>
+                <div style={{
+                  fontFamily: BODY, fontSize: 9, fontWeight: 700,
+                  color: MIST_DIM, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  marginTop: 2,
+                }}>
+                  Coming soon
+                </div>
+              </div>
+
+              {/* Value chip */}
+              <span style={{
+                flexShrink: 0,
+                fontFamily: BODY, fontSize: 11, fontWeight: 900, color: r.color,
+                fontFeatureSettings: '"tnum"',
+                padding: '3px 8px', borderRadius: 999,
+                backgroundColor: `${r.color}14`,
+                border: `1px solid ${r.color}44`,
+              }}>
+                {r.value}
               </span>
             </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 11, fontWeight: 800,
-              color: MIST, letterSpacing: '0.10em', textTransform: 'uppercase',
-              textAlign: 'center',
-            }}>
-              {daysUntilNext === 1 ? '1 streak day' : `${daysUntilNext} streak days`}
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 10, fontWeight: 700,
-              color: MIST_DIM, letterSpacing: '0.04em',
-            }}>
-              until next chest
-            </div>
-          </>
-        )}
+          )
+        })}
       </div>
     </Column>
   )
@@ -1897,48 +1940,6 @@ function ScoutsStrip({
         </button>
       </div>
     </Column>
-  )
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  FOOTER REWARDS — Layer 4 side rewards as a quick chip strip
-// ════════════════════════════════════════════════════════════════════════════
-
-function FooterRewards() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center',
-      paddingTop: 4,
-      flexShrink: 0,
-    }}>
-      <span style={{
-        fontFamily: BODY, fontSize: 9, fontWeight: 900,
-        color: MIST_DIM, letterSpacing: '0.22em', textTransform: 'uppercase',
-      }}>
-        More ways to earn ·
-      </span>
-      {SIDE_REWARDS.map(r => (
-        <div key={r.label} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '4px 10px', borderRadius: 999,
-          backgroundColor: 'rgba(0,0,0,0.35)',
-          border: `1px solid ${r.color}44`,
-        }}>
-          <r.Emblem size={11} strokeWidth={2.4} color={r.color} />
-          <span style={{
-            fontFamily: BODY, fontSize: 10, fontWeight: 700, color: CREAM,
-          }}>
-            {r.label}
-          </span>
-          <span style={{
-            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: r.color,
-            fontFeatureSettings: '"tnum"', marginLeft: 4,
-          }}>
-            {r.value}
-          </span>
-        </div>
-      ))}
-    </div>
   )
 }
 
