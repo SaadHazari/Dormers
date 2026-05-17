@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Check, CheckCircle2 } from 'lucide-react'
 import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
 import { DORMS } from '@/app/onboarding/data'
+import { nextTrialDeliveryLabel } from '@/lib/trial-delivery'
 import { claimGift, sendTrialEmailOtp, verifyTrialEmailOtp } from './actions'
 
 // Matches the dark onboarding page exactly — same bg, same primitives, same
@@ -295,26 +296,35 @@ export default function ReferralLandingPage() {
         >
           {done ? (
             // ── Success state ────────────────────────────────────────────────
-            <div className="text-center">
-              <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
-                <Check size={24} strokeWidth={2.5} className="text-[#22c55e]" />
-              </div>
-              <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">You&apos;re in</p>
-              <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
-                Your meal is on its way.
-              </h1>
-              <p className="text-[13px] text-white/65 leading-relaxed mb-6">
-                Expect delivery tonight between <span className="text-white/85 font-semibold">7–8 PM</span>.
-                We&apos;ll WhatsApp you when it&apos;s close.
-              </p>
-              <CtaButton onClick={() => router.push('/login')}>
-                Sign up to keep going →
-              </CtaButton>
-              <p className="mt-4 text-[11px] text-white/40 text-center">
-                Your first paid plan comes with{' '}
-                <span className="text-white/65 font-semibold">20% off</span>.
-              </p>
-            </div>
+            // Delivery label is computed dynamically so a Sunday claim doesn't
+            // promise tonight (kitchen closed) and a post-14:00-AE claim doesn't
+            // promise same-day either — both push to the next operational day.
+            (() => {
+              const deliveryLabel = nextTrialDeliveryLabel()
+              const lowercased = deliveryLabel.toLowerCase()
+              return (
+                <div className="text-center">
+                  <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
+                    <Check size={24} strokeWidth={2.5} className="text-[#22c55e]" />
+                  </div>
+                  <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">You&apos;re in</p>
+                  <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                    Your meal is{deliveryLabel === 'Tonight' ? ' on its way.' : ` arriving ${lowercased}.`}
+                  </h1>
+                  <p className="text-[13px] text-white/65 leading-relaxed mb-6">
+                    Expect delivery <span className="text-white/85 font-semibold">{lowercased} between 7–8 PM</span>.
+                    We&apos;ll WhatsApp you when it&apos;s close.
+                  </p>
+                  <CtaButton onClick={() => router.push('/dashboard')}>
+                    Go to your dashboard →
+                  </CtaButton>
+                  <p className="mt-4 text-[11px] text-white/40 text-center">
+                    Your first paid plan comes with{' '}
+                    <span className="text-white/65 font-semibold">20% off</span>.
+                  </p>
+                </div>
+              )
+            })()
           ) : (
             // ── Claim form ───────────────────────────────────────────────────
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -328,7 +338,10 @@ export default function ReferralLandingPage() {
                     : <>Your friend sent<br />you a meal.</>}
                 </h1>
                 <p className="text-[13px] mt-2 text-white/65 leading-snug">
-                  No card. No commitment. Just fill in your details and expect delivery tonight between 7–8 PM.
+                  {(() => {
+                    const label = nextTrialDeliveryLabel().toLowerCase()
+                    return `No card. No commitment. Just fill in your details and expect delivery ${label} between 7–8 PM.`
+                  })()}
                 </p>
               </div>
 

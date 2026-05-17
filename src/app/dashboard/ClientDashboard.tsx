@@ -24,6 +24,11 @@ interface Props {
   allSubscriptions: Subscription[]
   queuedSubscription?: Subscription | null
   userEmail: string
+  // When the user just claimed a referral trial meal but hasn't paid for a plan
+  // yet (no `subscriptions` row), surface their incoming free meal so the
+  // no-plan dashboard doesn't feel empty. Resolved server-side from the
+  // `referrals` table — see dashboard/page.tsx.
+  trialGift?: { deliveryLabel: string; deliveryIso: string } | null
 }
 
 /**
@@ -35,7 +40,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, trialGift = null }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -157,6 +162,41 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
           {checkoutCanceled && (
             <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
               Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
+            </div>
+          )}
+          {trialGift && (
+            // Trial-meal-arriving banner. Renders only on the no-plan view —
+            // once the user buys a subscription, ActiveDashboard's HeroToday
+            // takes over and this banner is no longer reached. The label
+            // ("Tonight"/"Tomorrow"/"Monday") respects Asia/Dubai 14:00 cutoff +
+            // 6-day operational week — see src/lib/trial-delivery.ts.
+            <div
+              style={{
+                marginBottom: 22,
+                padding: '14px 20px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(34,197,94,0.07)',
+                border: '1px solid rgba(34,197,94,0.28)',
+                color: S.fg,
+                fontFamily: BODY,
+                fontSize: 13,
+                lineHeight: 1.55,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <span style={{
+                fontFamily: BODY, fontSize: 11, fontWeight: 900,
+                color: '#22c55e', letterSpacing: '0.18em', textTransform: 'uppercase',
+                flexShrink: 0,
+              }}>
+                Free trial
+              </span>
+              <span style={{ flex: 1 }}>
+                Your meal is arriving <strong>{trialGift.deliveryLabel.toLowerCase()} between 7–8 PM</strong>.
+                We&rsquo;ll WhatsApp you when it&rsquo;s close.
+              </span>
             </div>
           )}
           <NoPlanView

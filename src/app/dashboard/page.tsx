@@ -1,8 +1,10 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription } from '@/utils/supabase/queries'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
+import { computeTrialDeliveryDate, trialDeliveryLabel, type WeekType } from '@/lib/trial-delivery'
 
 const PREVIEW_CUSTOMER = {
     id: 'preview',
@@ -64,6 +66,38 @@ export default async function DashboardPage({
         getQueuedSubscription(user.id),
     ])
 
+    // ── Trial gift in flight? ──────────────────────────────────────────────
+    // When a customer claims their free meal via /r/[cid] but hasn't yet
+    // bought a paid plan, they have a `referrals` row with status='gift_claimed'
+    // pointing at their auth user id but no `subscriptions` row. Surface this
+    // as a "trial meal arriving" banner above the no-plan view so the user
+    // can see their delivery is on the way — same intent as the active-plan
+    // dashboard's HeroToday tile.
+    let trialGift: { deliveryLabel: string; deliveryIso: string } | null = null
+    if (!activeSubscription && customer) {
+        const admin = createAdminClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        )
+        const { data: pendingGift } = await admin
+            .from('referrals')
+            .select('id, gift_claimed_at')
+            .eq('invitee_user_id', user.id)
+            .eq('status', 'gift_claimed')
+            .gte('gift_claimed_at', new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString())
+            .order('gift_claimed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        if (pendingGift) {
+            const weekType = ((customer.week_type as WeekType | undefined) ?? '6DAYS')
+            const deliveryDate = computeTrialDeliveryDate(new Date(pendingGift.gift_claimed_at), weekType)
+            trialGift = {
+                deliveryLabel: trialDeliveryLabel(deliveryDate, new Date(pendingGift.gift_claimed_at)),
+                deliveryIso:   deliveryDate.toISOString(),
+            }
+        }
+    }
+
     return (
         <Suspense fallback={<Spinner />}>
             <ClientDashboard
@@ -72,6 +106,7 @@ export default async function DashboardPage({
                 allSubscriptions={allSubscriptions}
                 queuedSubscription={queuedSubscription}
                 userEmail={user.email}
+                trialGift={trialGift}
             />
         </Suspense>
     )
