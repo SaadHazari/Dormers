@@ -342,3 +342,56 @@ export async function getCycleRecruits(
     .gte('converted_at', sub.start_date)
   return count ?? 0
 }
+
+// ── Dorm Wars: Daily Drop + Streak SSR getters (Phase 7-05) ───────────────
+// Both helpers accept a caller-supplied Supabase client so they can run from
+// the dorm-wars RSC page (SSR client — RLS allows auth.uid() = customer_id)
+// or from any future admin context. NOT wrapped in `cache()` for the same
+// reason as `getRedeemableCredit`/`getCycleRecruits` above. Same
+// `SupabaseClient<any, any, any>` signature pattern as `getCycleRecruits`.
+
+/**
+ * Read today's Daily Drop record for a customer (SSR initial render).
+ * Returns null if the user has NOT yet claimed today's drop.
+ *
+ * Used by:
+ *   • src/app/dashboard/dorm-wars/page.tsx — pass initialDailyDrop prop to HubClient
+ */
+export async function getDailyDropToday(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  customerId: string,
+): Promise<{ value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null> {
+  const today = new Date().toISOString().slice(0, 10)
+  const { data } = await sb
+    .from('daily_drops')
+    .select('value_aed, rng_bucket')
+    .eq('customer_id', customerId)
+    .eq('drop_date_utc', today)
+    .maybeSingle()
+  if (!data) return null
+  return {
+    value_aed:  Number(data.value_aed),
+    rng_bucket: data.rng_bucket as 'common' | 'rare' | 'epic',
+  }
+}
+
+/**
+ * Read the customer's current streak count (SSR initial render).
+ * Returns 0 if no streak row exists yet — first hub visit ever.
+ *
+ * Used by:
+ *   • src/app/dashboard/dorm-wars/page.tsx — pass initialStreak prop to HubClient
+ */
+export async function getStreak(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  customerId: string,
+): Promise<number> {
+  const { data } = await sb
+    .from('streaks')
+    .select('count')
+    .eq('customer_id', customerId)
+    .maybeSingle()
+  return data ? Number(data.count) : 0
+}
