@@ -13,6 +13,7 @@ import {
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import HubClient from './hub/HubClient'
+import { resolvePlan } from '@/lib/plans'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
@@ -89,6 +90,13 @@ export default async function DormWarsPage() {
       ? tierRaw
       : 0
 
+  // Phase 8B — Premium+ gate. Only Monthly Premium and Monthly Max can
+  // earn Dorm Wars rewards. Weekly Flex, Trial, and no-active-sub customers
+  // see the hub blurred underneath a full-screen upsell overlay. The hub
+  // still SSRs so the user can see what they're missing through the blur.
+  const planId = resolvePlan(activeSubscription?.plan_name)?.id ?? null
+  const dormWarsEligible = planId === 'monthly-premium' || planId === 'monthly-max'
+
   return (
     <HubClient
       customerCid={customer?.cid ?? ''}
@@ -105,6 +113,8 @@ export default async function DormWarsPage() {
       earlyAccess={Boolean(perkFlagsRow.data?.early_access)}
       hallWall={Boolean(perkFlagsRow.data?.hall_wall)}
       recentRewards={recentRewards}
+      dormWarsEligible={dormWarsEligible}
+      currentPlanId={planId}
     />
   )
 }

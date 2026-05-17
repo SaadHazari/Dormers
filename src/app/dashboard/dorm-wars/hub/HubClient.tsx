@@ -149,6 +149,13 @@ interface Props {
   // event's id against a localStorage marker so the celebration only fires
   // once per event — re-renders + page-revisits stay quiet.
   recentRewards:      RewardEvent[]
+  // Phase 8B — Premium+ gate. Only Monthly Premium and Monthly Max can
+  // earn. When false, the hub renders blurred underneath a full-screen
+  // upsell overlay. The hub still SSRs so the user can see the perks
+  // they'd unlock by upgrading. `currentPlanId` powers the overlay copy
+  // (different framing for "no sub yet" vs "Weekly Flex" vs "Trial").
+  dormWarsEligible:   boolean
+  currentPlanId:      'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | null
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -182,6 +189,7 @@ export default function HubClient({
   cycleRecruits: serverCycleRecruits, lifetimeTier,
   earlyAccess, hallWall,
   recentRewards,
+  dormWarsEligible, currentPlanId,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
@@ -573,6 +581,11 @@ export default function HubClient({
       <Modal open={open === 'squad'} onClose={() => setOpen(null)} title="Your Squad" accent={PINK}>
         <SquadScreen scouts={scouts} onScoutTap={(s) => { setOpen(null); setViewingScout(s) }} />
       </Modal>
+
+      {/* Phase 8B — Premium+ gate. Renders on top of the entire hub when
+          the user isn't on Monthly Premium / Monthly Max. Hub still SSRs
+          underneath (blurred) so the user can see the perks they'd unlock. */}
+      {!dormWarsEligible && <PremiumGateOverlay currentPlanId={currentPlanId} />}
     </div>
   )
 }
@@ -612,6 +625,182 @@ function EliteDormerBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
       <Trophy size={iconSize} strokeWidth={2.6} color={GOLD_LITE} />
       Elite Dormer
     </span>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PREMIUM+ GATE OVERLAY — Phase 8B
+//  Renders on top of the entire hub when the user isn't on Monthly Premium
+//  or Monthly Max. backdrop-filter: blur(12px) blurs the hub content beneath
+//  (which still SSRs so the perk tease is visually backed by the real UI).
+//  The card sells the upgrade with a perk teaser list + an upgrade CTA that
+//  routes to /dashboard/plan (where the customer can change plan).
+// ════════════════════════════════════════════════════════════════════════════
+
+function PremiumGateOverlay({
+  currentPlanId,
+}: {
+  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | null
+}) {
+  // Copy adapts to the current plan so the upsell lands honestly.
+  const sub =
+    currentPlanId === 'trial' ? "You're on a trial — upgrade to a Monthly Premium plan to start earning."
+    : currentPlanId === 'weekly-flex' ? "Weekly Flex doesn't include Dorm Wars. Upgrade to Monthly Premium to start earning."
+    : "Start a Monthly Premium plan to unlock cash for inviting friends, monthly milestones, and lifetime perks."
+
+  const ctaLabel =
+    currentPlanId === 'trial' || currentPlanId === 'weekly-flex'
+      ? 'Upgrade my plan'
+      : 'Pick a plan'
+  const ctaHref =
+    currentPlanId === 'trial' || currentPlanId === 'weekly-flex'
+      ? '/dashboard/plan'
+      : '/dashboard/explore-plans'
+
+  const perks: { icon: typeof Gift; label: string; sub: string; color: string }[] = [
+    { icon: Coins,    label: 'Cash for every friend',  sub: 'AED 25–40 per conversion',     color: GREEN },
+    { icon: Gift,     label: 'Monthly milestones',     sub: 'Mystery Cash Drops up to AED 90', color: PURPLE },
+    { icon: Percent,  label: 'Lifetime % off',         sub: '5–10% off your plan forever',  color: CYAN },
+    { icon: Shirt,    label: 'Dormers jacket',         sub: 'Tier 3 — yours to keep',        color: GOLD },
+    { icon: Trophy,   label: 'Elite Dormer status',    sub: '100 invites = 100 free meals', color: GOLD_LITE },
+    { icon: Flame,    label: 'Streak Chests',          sub: 'Open every 8 days for AED + jackpots', color: ORANGE },
+  ]
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="premium-gate-title"
+      style={{
+        position: 'fixed', inset: 0,
+        zIndex: 9000,
+        // Backdrop blur: this blurs whatever SSRs underneath, so the user
+        // sees the real hub through frosted glass. Layered dark wash on top
+        // keeps text legible regardless of underlying contrast.
+        backdropFilter: 'blur(14px) saturate(120%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(120%)',
+        backgroundColor: 'rgba(9,24,37,0.72)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 20px',
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        style={{
+          width: '100%', maxWidth: 460,
+          backgroundColor: 'rgba(22,47,64,0.92)',
+          border: `1px solid ${GOLD}55`,
+          borderRadius: 18,
+          padding: '28px 24px 26px',
+          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 32px ${GOLD}22, inset 0 1px 0 ${GOLD_LITE}22`,
+          textAlign: 'center',
+        }}
+      >
+        {/* Eyebrow lock */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '4px 10px 4px 8px', borderRadius: 999,
+          backgroundColor: `${GOLD}1a`, border: `1px solid ${GOLD}55`,
+          marginBottom: 14,
+        }}>
+          <Lock size={11} strokeWidth={2.6} color={GOLD} />
+          <span style={{
+            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+          }}>
+            Premium perk
+          </span>
+        </div>
+
+        <h2
+          id="premium-gate-title"
+          style={{
+            fontFamily: DISPLAY, fontSize: 24, fontWeight: 900, color: CREAM,
+            letterSpacing: '-0.015em', lineHeight: 1.15,
+            margin: '0 0 10px',
+          }}
+        >
+          Dorm Wars is a Premium reward.
+        </h2>
+        <p style={{
+          fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
+          lineHeight: 1.55, margin: '0 0 20px',
+        }}>
+          {sub}
+        </p>
+
+        {/* Perk teaser grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: 8,
+          marginBottom: 22,
+          textAlign: 'left',
+        }}>
+          {perks.map(p => {
+            const Icon = p.icon
+            return (
+              <div key={p.label} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '10px 10px',
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 10,
+              }}>
+                <div style={{
+                  flexShrink: 0,
+                  width: 24, height: 24, borderRadius: 6,
+                  backgroundColor: `${p.color}1f`,
+                  border: `1px solid ${p.color}44`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginTop: 1,
+                }}>
+                  <Icon size={12} strokeWidth={2.4} color={p.color} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: BODY, fontSize: 11, fontWeight: 800, color: CREAM,
+                    lineHeight: 1.25, marginBottom: 2,
+                  }}>
+                    {p.label}
+                  </div>
+                  <div style={{
+                    fontFamily: BODY, fontSize: 10, fontWeight: 500, color: MIST,
+                    lineHeight: 1.35,
+                  }}>
+                    {p.sub}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* CTA */}
+        <a
+          href={ctaHref}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '13px 28px', borderRadius: 999,
+            backgroundColor: GOLD, color: BG_DEEP,
+            fontFamily: BODY, fontSize: 13, fontWeight: 900,
+            letterSpacing: '0.12em', textTransform: 'uppercase',
+            textDecoration: 'none',
+            boxShadow: `0 10px 28px ${GOLD}55`,
+          }}
+        >
+          {ctaLabel}
+          <ArrowRight size={14} strokeWidth={2.6} />
+        </a>
+
+        <p style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+          letterSpacing: '0.04em', margin: '14px 0 0',
+        }}>
+          Available on Monthly Premium + Monthly Max
+        </p>
+      </div>
+    </div>
   )
 }
 
