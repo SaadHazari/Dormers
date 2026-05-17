@@ -4,9 +4,9 @@ import { useState, useMemo, useEffect } from 'react'
 import {
   Gift, Users, Send, Flame, Lock, Check, X, ArrowRight,
   Volume2, VolumeX, Star, Trophy, Percent, Shirt,
-  Calendar, Coins, KeyRound, Zap, Target,
+  Calendar, Coins, KeyRound, Zap,
 } from 'lucide-react'
-import type { ReferralData, DormStats, InviteRow } from '@/utils/supabase/queries'
+import type { ReferralData, DormStats, InviteRow, RewardEvent } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -128,6 +128,11 @@ interface Props {
   // the flags flip in the DB but the user sees nothing change.
   earlyAccess:        boolean
   hallWall:           boolean
+  // Recent reward events (referral conversions, milestones, tier unlocks)
+  // power the celebratory banner at the top. The hub compares the newest
+  // event's id against a localStorage marker so the celebration only fires
+  // once per event — re-renders + page-revisits stay quiet.
+  recentRewards:      RewardEvent[]
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -160,6 +165,7 @@ export default function HubClient({
   initialStreak, initialDailyDrop,
   cycleRecruits: serverCycleRecruits, lifetimeTier,
   earlyAccess, hallWall,
+  recentRewards,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
@@ -273,6 +279,67 @@ export default function HubClient({
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  // ── Celebration banner — fires on the freshest unseen reward event ────────
+  // Compares the newest event id from the server against a localStorage marker
+  // so the banner only shows ONCE per event. Dismissing or auto-timing out
+  // updates the marker. Without the marker the banner would reappear on every
+  // page load until the next reward came in.
+  const REWARD_SEEN_KEY = 'dw-hub:reward-event-seen'
+  const newestReward    = recentRewards[0] ?? null
+  const [celebration, setCelebration] = useState<RewardEvent | null>(null)
+  useEffect(() => {
+    if (!newestReward) return
+    if (typeof window === 'undefined') return
+    try {
+      const lastSeen = localStorage.getItem(REWARD_SEEN_KEY)
+      if (lastSeen !== newestReward.id) setCelebration(newestReward)
+    } catch { /* private mode — fall through and just show it */ }
+  }, [newestReward])
+  function dismissCelebration() {
+    if (!celebration) return
+    try { localStorage.setItem(REWARD_SEEN_KEY, celebration.id) } catch {}
+    setCelebration(null)
+  }
+  // Auto-dismiss after 14s so the banner doesn't camp on the hub forever.
+  useEffect(() => {
+    if (!celebration) return
+    const t = setTimeout(dismissCelebration, 14_000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebration?.id])
+
+  // Build celebration copy from the source string. Each branch has its own
+  // headline + sub so the banner reads like an event, not a credit row.
+  function celebrationCopy(ev: RewardEvent): { headline: string; sub: string; accent: string } {
+    if (ev.source === 'referral_conversion') {
+      return {
+        headline: `🎉 ${ev.invitee_name ?? 'A friend'} joined Dormers!`,
+        sub:      `+AED ${ev.amount_aed} credit landed in your wallet`,
+        accent:   GREEN,
+      }
+    }
+    if (ev.source.startsWith('cycle_milestone_')) {
+      const at = ev.source.replace('cycle_milestone_', '')
+      return {
+        headline: `🎯 Cycle milestone ${at} unlocked`,
+        sub:      `+AED ${ev.amount_aed} credit deposited`,
+        accent:   GOLD,
+      }
+    }
+    if (ev.source === 'tier_4_meals') {
+      return {
+        headline: '🏆 TIER 4 UNLOCKED — Hall of Fame',
+        sub:      `+AED ${ev.amount_aed} jackpot credit deposited`,
+        accent:   GOLD_LITE,
+      }
+    }
+    return {
+      headline: '🎁 New reward unlocked',
+      sub:      `+AED ${ev.amount_aed} credit deposited`,
+      accent:   CYAN,
+    }
+  }
+
   return (
     <div style={{
       backgroundColor: BG_DEEP,
@@ -284,6 +351,63 @@ export default function HubClient({
       overflow: 'hidden',
     }}>
       <HubStyles />
+
+      {/* CELEBRATION BANNER — fires when a fresh reward landed since last
+          page open. Slides down from the top with a gradient bar, dismissable
+          (X) + auto-dismiss after 14s. The localStorage marker key on the
+          newest event id means the same banner never shows twice. */}
+      {celebration && (() => {
+        const copy = celebrationCopy(celebration)
+        return (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              flexShrink: 0,
+              padding: '14px 20px',
+              borderRadius: 14,
+              backgroundImage: `linear-gradient(90deg, ${copy.accent}24 0%, ${copy.accent}10 60%, transparent 100%)`,
+              border: `1px solid ${copy.accent}55`,
+              boxShadow: `0 8px 24px ${copy.accent}1f, inset 0 1px 0 ${copy.accent}33`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 14,
+              animation: 'hub-rise 600ms cubic-bezier(0.16,1,0.3,1) both',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+              <span style={{
+                fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: CREAM,
+                letterSpacing: '-0.005em',
+              }}>
+                {copy.headline}
+              </span>
+              <span style={{
+                fontFamily: BODY, fontSize: 12, fontWeight: 700, color: MIST,
+                letterSpacing: '0.02em',
+              }}>
+                {copy.sub} · Wallet now <span style={{ color: copy.accent, fontWeight: 900 }}>AED {wallet}</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={dismissCelebration}
+              aria-label="Dismiss"
+              style={{
+                flexShrink: 0,
+                width: 32, height: 32, borderRadius: '50%',
+                border: `1px solid ${copy.accent}55`,
+                backgroundColor: `${copy.accent}1a`,
+                color: CREAM,
+                cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background-color 220ms ease',
+              }}
+            >
+              <X size={14} strokeWidth={2.6} />
+            </button>
+          </div>
+        )
+      })()}
 
       {/* 1. TOP CHROME — minimal: identity + wallet + streak + sound */}
       <TopChrome
@@ -582,29 +706,31 @@ function HeroCTA({
         Earn <span style={{ color: GOLD_LITE, fontWeight: 800 }}>AED 20</span> every time a friend joins Dormers.
       </div>
 
-      {/* THE button */}
+      {/* THE button — restrained sizing per top-design audit. Previous scale
+          dominated the viewport without delivering more action affordance. */}
       <button
         type="button"
         onClick={onClick}
         className="hub-cta"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          gap: 18,
-          padding: 'clamp(20px, 2.4vw, 30px) clamp(36px, 5vw, 60px)',
+          gap: 12,
+          padding: 'clamp(13px, 1.6vw, 18px) clamp(26px, 3.6vw, 40px)',
           borderRadius: 999,
           backgroundImage: `linear-gradient(135deg, ${ORANGE} 0%, ${GOLD} 50%, ${ORANGE_LITE} 100%)`,
-          border: '3px solid rgba(255,225,140,0.95)',
+          border: '2px solid rgba(255,225,140,0.95)',
           color: BG_DEEP,
-          fontFamily: BODY, fontSize: 'clamp(18px, 2vw, 24px)', fontWeight: 900,
-          letterSpacing: '0.08em', textTransform: 'uppercase',
+          fontFamily: BODY, fontSize: 'clamp(14px, 1.5vw, 17px)', fontWeight: 900,
+          letterSpacing: '0.10em', textTransform: 'uppercase',
           cursor: 'pointer',
           animation: 'hub-cta-pulse 2.6s ease-in-out infinite, hub-cta-bob 4s ease-in-out infinite',
-          minWidth: 320,
+          minWidth: 240,
+          boxShadow: `0 12px 32px ${ORANGE}55, 0 0 0 1px rgba(0,0,0,0.2)`,
         }}
       >
-        <Send size={26} strokeWidth={2.8} />
+        <Send size={18} strokeWidth={2.8} />
         Send a link
-        <ArrowRight size={26} strokeWidth={2.8} />
+        <ArrowRight size={18} strokeWidth={2.8} />
       </button>
 
       {/* Helper text — sets up what happens */}
@@ -616,7 +742,9 @@ function HeroCTA({
         Opens WhatsApp · they eat their first meal free · you earn when they subscribe
       </div>
 
-      {/* If there's a near-term milestone, hint it directly under the CTA */}
+      {/* If there's a near-term milestone, hint it directly under the CTA.
+          Explicit RECRUITS unit + Users icon so the number reads as a
+          quantity of people, not an abstract counter. */}
       {nextCycleMilestone && (
         <div style={{
           marginTop: 4,
@@ -628,8 +756,12 @@ function HeroCTA({
           color: CREAM,
           letterSpacing: '0.04em',
         }}>
-          <Target size={12} strokeWidth={2.6} color={nextCycleMilestone.color} />
-          <span><span style={{ color: nextCycleMilestone.color, fontWeight: 900, fontFeatureSettings: '"tnum"' }}>{recruitsLeft}</span> more this cycle unlocks <span style={{ color: nextCycleMilestone.color, fontWeight: 900 }}>{nextCycleMilestone.label}</span></span>
+          <Users size={12} strokeWidth={2.6} color={nextCycleMilestone.color} />
+          <span>
+            <span style={{ color: nextCycleMilestone.color, fontWeight: 900, fontFeatureSettings: '"tnum"' }}>{recruitsLeft}</span>
+            {' '}more {recruitsLeft === 1 ? 'recruit' : 'recruits'} {recruitsLeft === 1 ? 'unlocks' : 'unlock'}{' '}
+            <span style={{ color: nextCycleMilestone.color, fontWeight: 900 }}>{nextCycleMilestone.label}</span>
+          </span>
         </div>
       )}
     </section>
@@ -653,15 +785,21 @@ function Column({
     <div
       onClick={onOpen}
       style={{
-        padding: 16,
-        borderRadius: 14,
-        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.22) 100%)`,
-        border: `1px solid ${accent}33`,
-        boxShadow: `0 6px 16px rgba(0,0,0,0.4), inset 0 1px 0 ${accent}1c`,
+        padding: 18,
+        borderRadius: 16,
+        // Tinted-glass surface — separates each card from the navy backdrop
+        // with a hairline accent wash + brighter top edge + ambient shadow.
+        // Single biggest readability fix per top-design audit.
+        backgroundColor: `${accent}10`,
+        backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.012) 100%)`,
+        border: `1px solid ${accent}55`,
+        boxShadow: `0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)`,
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
         display: 'flex', flexDirection: 'column',
         gap: 10,
         cursor: onOpen ? 'pointer' : 'default',
-        transition: 'transform 220ms ease, border-color 220ms ease',
+        transition: 'transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms ease, background-color 220ms ease',
       }}
       className={onOpen ? 'hub-column-tap' : undefined}
     >
@@ -676,10 +814,16 @@ function Column({
           {eyebrow}
         </div>
         {onOpen && (
+          // Brighter pill rather than near-invisible dim text — the affordance
+          // was getting lost in the card chrome. Accent-tinted bg + clear border.
           <span style={{
-            fontFamily: BODY, fontSize: 9, fontWeight: 800,
-            color: MIST_DIM, letterSpacing: '0.10em', textTransform: 'uppercase',
-            display: 'inline-flex', alignItems: 'center', gap: 3,
+            fontFamily: BODY, fontSize: 10, fontWeight: 800,
+            color: accent, letterSpacing: '0.10em', textTransform: 'uppercase',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '4px 10px', borderRadius: 999,
+            backgroundColor: `${accent}1f`,
+            border: `1px solid ${accent}55`,
+            transition: 'background-color 220ms ease',
           }}>
             Details <ArrowRight size={10} strokeWidth={2.6} />
           </span>
@@ -715,8 +859,10 @@ function CycleColumn({
 
   return (
     <Column eyebrow="This Cycle" title="Burst goals for big bonuses" accent={GOLD} onOpen={onOpen}>
-      {/* Progress bar with milestone stops */}
-      <div style={{ position: 'relative', height: 36, marginTop: 4 }}>
+      {/* Progress bar — bumped to 44px so the gift icons inside each
+          milestone have breathing room. The bare-dot version made each
+          stop unreadable; now every stop shows what it actually unlocks. */}
+      <div style={{ position: 'relative', height: 44, marginTop: 6 }}>
         {/* Track */}
         <div style={{
           position: 'absolute', left: 0, right: 0, top: '50%',
@@ -733,20 +879,59 @@ function CycleColumn({
           boxShadow: `0 0 8px ${GOLD}88`,
           transition: 'width 1s cubic-bezier(0.16,1,0.3,1)',
         }} />
-        {/* Stops */}
+        {/* "You are here" head marker — a small white pulsing dot at the
+            fill position so the user sees their current progress as a live
+            cursor, distinct from the static milestone stops. Hidden at 0%
+            (nothing achieved) and at 100% (final stop already glows). */}
+        {fillPct > 0 && fillPct < 100 && (
+          <div style={{
+            position: 'absolute', left: `${fillPct}%`, top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 10, height: 10, borderRadius: '50%',
+            backgroundColor: CREAM,
+            border: '2px solid rgba(255,255,255,0.95)',
+            zIndex: 3,
+            animation: 'hub-head-pulse 1.8s ease-in-out infinite',
+          }} />
+        )}
+        {/* Stops — each shows its gift icon (Gift/Calendar/Trophy/etc) so
+            users can see what each milestone unlocks at a glance. */}
         {CYCLE_MILESTONES.map(m => {
           const leftPct = (m.at / max) * 100
           const earned = cycleRecruits >= m.at
           const isNext = m.at === nextMilestone?.at
+          const Emblem = m.Emblem
           return (
             <div key={m.at} style={{
               position: 'absolute', left: `${leftPct}%`, top: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 16, height: 16, borderRadius: '50%',
-              backgroundColor: earned ? m.color : 'rgba(0,0,0,0.75)',
-              border: earned ? `2px solid ${m.color}` : isNext ? `2px solid ${m.color}` : `1.5px solid ${MIST_FAINT}`,
-              boxShadow: earned ? `0 0 8px ${m.color}aa` : isNext ? `0 0 6px ${m.color}66` : 'none',
-            }} />
+              width: 26, height: 26, borderRadius: '50%',
+              backgroundColor: earned ? m.color : 'rgba(0,0,0,0.85)',
+              border: earned
+                ? `2px solid ${m.color}`
+                : isNext ? `2px solid ${m.color}`
+                : `1.5px solid ${MIST_FAINT}`,
+              boxShadow: earned ? `0 0 10px ${m.color}aa` : isNext ? `0 0 8px ${m.color}77` : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 2,
+            }}>
+              <Emblem
+                size={12}
+                strokeWidth={2.4}
+                color={earned ? BG_DEEP : isNext ? m.color : MIST_DIM}
+              />
+              {/* Outward halo on the NEXT goal — drives attention to the
+                  achievable target without screaming. Slow + soft. */}
+              {isNext && (
+                <span style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: '100%', height: '100%', borderRadius: '50%',
+                  border: `2px solid ${m.color}`,
+                  pointerEvents: 'none',
+                  animation: 'hub-milestone-halo 2.4s ease-out infinite',
+                }} />
+              )}
+            </div>
           )
         })}
       </div>
@@ -767,20 +952,28 @@ function CycleColumn({
         ))}
       </div>
 
-      {/* Status block */}
+      {/* Status block — explicit RECRUITS unit + Users icon so the number
+          reads as a quantity of people, not an abstract counter. */}
       <div style={{ marginTop: 'auto', paddingTop: 4 }}>
         <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
           fontFamily: BODY, fontSize: 12, fontWeight: 800, color: CREAM,
           letterSpacing: '-0.005em', marginBottom: 6,
         }}>
+          <Users size={12} strokeWidth={2.6} color={GOLD_LITE} />
           <span style={{ color: GOLD_LITE, fontFeatureSettings: '"tnum"' }}>{cycleRecruits}</span>
-          <span style={{ color: MIST_DIM, fontWeight: 600 }}> of {max} recruits this cycle</span>
+          <span style={{ color: MIST_DIM, fontWeight: 600 }}>
+            of {max} <span style={{ letterSpacing: '0.10em', textTransform: 'uppercase', fontSize: 10, fontWeight: 900 }}>recruits</span> this cycle
+          </span>
         </div>
         {nextMilestone && (
           <div style={{
             fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
           }}>
-            <span style={{ color: nextMilestone.color, fontWeight: 900 }}>{nextMilestone.at - cycleRecruits} more</span> for {nextMilestone.label}
+            <span style={{ color: nextMilestone.color, fontWeight: 900 }}>
+              {nextMilestone.at - cycleRecruits} more {nextMilestone.at - cycleRecruits === 1 ? 'recruit' : 'recruits'}
+            </span>
+            {' '}for {nextMilestone.label}
           </div>
         )}
         <div style={{
@@ -819,8 +1012,10 @@ function LifetimeColumn({
 
   return (
     <Column eyebrow="Lifetime Path" title="Permanent perks unlock as you climb" accent={CYAN} onOpen={onOpen}>
-      {/* Progress bar with tier stops */}
-      <div style={{ position: 'relative', height: 36, marginTop: 4 }}>
+      {/* Progress bar — matches CycleColumn dimensions so the two bars feel
+          like one design system. Tier stops show the perk icon (Percent /
+          Shirt / Trophy) for at-a-glance "what does this unlock?". */}
+      <div style={{ position: 'relative', height: 44, marginTop: 6 }}>
         <div style={{
           position: 'absolute', left: 0, right: 0, top: '50%',
           height: 4, transform: 'translateY(-50%)',
@@ -835,19 +1030,53 @@ function LifetimeColumn({
           boxShadow: `0 0 8px ${CYAN}88`,
           transition: 'width 1s cubic-bezier(0.16,1,0.3,1)',
         }} />
+        {/* "You are here" head marker — matches CycleColumn. */}
+        {fillPct > 0 && fillPct < 100 && (
+          <div style={{
+            position: 'absolute', left: `${fillPct}%`, top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 10, height: 10, borderRadius: '50%',
+            backgroundColor: CREAM,
+            border: '2px solid rgba(255,255,255,0.95)',
+            zIndex: 3,
+            animation: 'hub-head-pulse 1.8s ease-in-out infinite',
+          }} />
+        )}
         {LIFETIME_TIERS.map(t => {
           const leftPct = (t.at / max) * 100
           const earned = recruits >= t.at
           const isNext = t.at === nextTier?.threshold
+          const Emblem = t.Emblem
           return (
             <div key={t.at} style={{
               position: 'absolute', left: `${leftPct}%`, top: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 16, height: 16, borderRadius: '50%',
-              backgroundColor: earned ? t.color : 'rgba(0,0,0,0.75)',
-              border: earned ? `2px solid ${t.color}` : isNext ? `2px solid ${t.color}` : `1.5px solid ${MIST_FAINT}`,
-              boxShadow: earned ? `0 0 8px ${t.color}aa` : isNext ? `0 0 6px ${t.color}66` : 'none',
-            }} />
+              width: 26, height: 26, borderRadius: '50%',
+              backgroundColor: earned ? t.color : 'rgba(0,0,0,0.85)',
+              border: earned
+                ? `2px solid ${t.color}`
+                : isNext ? `2px solid ${t.color}`
+                : `1.5px solid ${MIST_FAINT}`,
+              boxShadow: earned ? `0 0 10px ${t.color}aa` : isNext ? `0 0 8px ${t.color}77` : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 2,
+            }}>
+              <Emblem
+                size={12}
+                strokeWidth={2.4}
+                color={earned ? BG_DEEP : isNext ? t.color : MIST_DIM}
+              />
+              {/* Outward halo on the next-tier marker — same as cycle bar. */}
+              {isNext && (
+                <span style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: '100%', height: '100%', borderRadius: '50%',
+                  border: `2px solid ${t.color}`,
+                  pointerEvents: 'none',
+                  animation: 'hub-milestone-halo 2.4s ease-out infinite',
+                }} />
+              )}
+            </div>
           )
         })}
       </div>
@@ -867,14 +1096,20 @@ function LifetimeColumn({
         ))}
       </div>
 
-      {/* Status block */}
+      {/* Status block — Users icon + explicit RECRUITS unit, parity with
+          CycleColumn. The lifetime number was reading as an abstract
+          counter; framing it as people-converted is the clarity win. */}
       <div style={{ marginTop: 'auto', paddingTop: 4 }}>
         <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
           fontFamily: BODY, fontSize: 12, fontWeight: 800, color: CREAM,
           letterSpacing: '-0.005em', marginBottom: 6,
         }}>
+          <Users size={12} strokeWidth={2.6} color={GOLD_LITE} />
           <span style={{ color: GOLD_LITE, fontFeatureSettings: '"tnum"' }}>{recruits}</span>
-          <span style={{ color: MIST_DIM, fontWeight: 600 }}> lifetime invites</span>
+          <span style={{ color: MIST_DIM, fontWeight: 600 }}>
+            lifetime <span style={{ letterSpacing: '0.10em', textTransform: 'uppercase', fontSize: 10, fontWeight: 900 }}>recruits</span>
+          </span>
         </div>
         <div style={{
           fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
@@ -888,7 +1123,7 @@ function LifetimeColumn({
             fontFamily: BODY, fontSize: 10, fontWeight: 700,
             color: nextTier.color, letterSpacing: '0.04em',
           }}>
-            Tier {nextTier.num} ({nextTier.threshold - recruits} more): {nextTier.perk}
+            Tier {nextTier.num} ({nextTier.threshold - recruits} more {nextTier.threshold - recruits === 1 ? 'recruit' : 'recruits'}): {nextTier.perk}
           </div>
         )}
       </div>
@@ -1229,6 +1464,21 @@ function HubStyles() {
       @keyframes hub-pulse-fade-in {
         from { opacity: 0; transform: translateY(-4px); }
         to   { opacity: 1; transform: translateY(0); }
+      }
+      /* Halo for the nearest-milestone marker on cycle + lifetime progress
+         bars. Outward ring at 2.6× scale drives the eye to the goal in
+         play. Uses a centred ::after via inline style on the wrapper. */
+      @keyframes hub-milestone-halo {
+        0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.65; }
+        70%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
+        100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
+      }
+      /* "You are here" head marker — sits on top of the fill at the user's
+         current position, distinct from milestone stops. Pulses in scale to
+         signal "live cursor", not a static marker. */
+      @keyframes hub-head-pulse {
+        0%, 100% { box-shadow: 0 0 0 0    rgba(255,255,255,0.45), 0 0 10px rgba(255,255,255,0.55); }
+        50%      { box-shadow: 0 0 0 4px  rgba(255,255,255,0.10), 0 0 14px rgba(255,255,255,0.75); }
       }
 
       .hub-column-tap {

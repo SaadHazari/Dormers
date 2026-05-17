@@ -8,6 +8,7 @@ import {
   getDailyDropToday,
   getStreak,
   getCycleRecruits,
+  getRecentRewardEvents,
 } from '@/utils/supabase/queries'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
@@ -40,6 +41,7 @@ export default async function DormWarsPage() {
     activeSubscription,
     initialDailyDrop,
     initialStreak,
+    recentRewards,
   ] = await Promise.all([
     getCustomer(user.id),
     getReferralData(user.id),
@@ -47,6 +49,11 @@ export default async function DormWarsPage() {
     getActiveSubscription(user.id),
     getDailyDropToday(user.id),
     getStreak(user.id),
+    // Reward events (referral conversion / cycle milestone / lifetime tier)
+    // power the celebratory banner at the top of HubClient when a friend
+    // converts. HubClient compares the newest event's id against a
+    // localStorage marker to decide whether to celebrate or stay quiet.
+    getRecentRewardEvents(user.id, 5),
   ])
 
   // ── Server-canonical reward state (RESEARCH Decision #10 + Pitfall #3) ──
@@ -97,6 +104,7 @@ export default async function DormWarsPage() {
       lifetimeTier={lifetimeTier}
       earlyAccess={Boolean(perkFlagsRow.data?.early_access)}
       hallWall={Boolean(perkFlagsRow.data?.hall_wall)}
+      recentRewards={recentRewards}
     />
   )
 }

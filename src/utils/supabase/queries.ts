@@ -398,6 +398,60 @@ export async function getDailyDropToday(
 }
 
 /**
+ * Read the customer's most recent "reward" events for the celebration banner
+ * at the top of the Dorm Wars hub. Joins credits → referrals so we can show
+ * the invitee's first name on conversion credits.
+ *
+ * Returns up to `limit` events sorted newest-first. Each row is a credit
+ * insert that the user should be celebrated for: a friend converting,
+ * a cycle milestone firing, or a lifetime tier unlocking.
+ *
+ * Source-prefix matching mirrors the awarder's source string conventions:
+ *   • 'referral_conversion'      → Layer 1 cash on friend conversion
+ *   • 'cycle_milestone_*'        → Layer 2 cycle bonus
+ *   • 'tier_4_meals'             → Layer 3 tier 4 jackpot
+ *   • 'daily_drop'               → excluded (not a referral-driven event)
+ */
+export interface RewardEvent {
+  id:           string
+  amount_aed:   number
+  source:       string
+  created_at:   string
+  invitee_name: string | null   // populated only for referral_conversion source
+}
+export async function getRecentRewardEvents(
+  customerId: string,
+  limit = 5,
+): Promise<RewardEvent[]> {
+  const sb = rewardsAdmin()
+  const { data } = await sb
+    .from('credits')
+    .select('id, amount_aed, source, created_at, referral_id, referrals(invitee_first_name)')
+    .eq('customer_id', customerId)
+    .in('status', ['approved', 'applied'])
+    // Source prefix filter — anything reward-driven, no daily drops.
+    .or('source.eq.referral_conversion,source.like.cycle_milestone_%,source.like.tier_%')
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return (data ?? []).map(r => {
+    // PostgREST returns the joined row as an object or array depending on FK
+    // direction; we treat both shapes defensively.
+    const ref = (r.referrals ?? null) as { invitee_first_name?: string | null } | { invitee_first_name?: string | null }[] | null
+    const inviteeName = Array.isArray(ref)
+      ? ref[0]?.invitee_first_name ?? null
+      : ref?.invitee_first_name ?? null
+    return {
+      id:           r.id as string,
+      amount_aed:   Number(r.amount_aed),
+      source:       r.source as string,
+      created_at:   r.created_at as string,
+      invitee_name: inviteeName,
+    }
+  })
+}
+
+/**
  * Read the customer's current streak count (SSR initial render).
  * Returns 0 if no streak row exists yet — first hub visit ever.
  *

@@ -572,9 +572,28 @@ export function CheckoutPanel({
               <p className="checkout-window-rule">
                 {activeSubscription
                   ? <>Starts <strong>the day after your current plan ends</strong>.</>
-                  : dateBounds.cutoffActive
-                    ? <>Earliest start: <strong>tomorrow</strong>.</>
-                    : <>Earliest start: <strong>today</strong> (book by 2 PM).</>}
+                  : (() => {
+                      // The actual earliest start date already accounts for the
+                      // 2 PM AE cutoff (via computeMinIso) AND the non-delivery
+                      // day clamp (via clampToDeliveryDay). Derive the label
+                      // from that clamped value so a Sunday morning visit
+                      // doesn't promise "today" when the real earliest is Monday.
+                      const earliestIso = clampToDeliveryDay(dateBounds.min, weekType)
+                      const today = new Date(); today.setHours(0, 0, 0, 0)
+                      const todayIso = isoDate(today)
+                      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
+                      const tomorrowIso = isoDate(tomorrow)
+                      if (earliestIso === todayIso) {
+                        return <>Earliest start: <strong>today</strong> (book by 2 PM).</>
+                      }
+                      if (earliestIso === tomorrowIso) {
+                        return <>Earliest start: <strong>tomorrow</strong>.</>
+                      }
+                      // Further out (e.g. Sunday → Monday, or queued past
+                      // weekend) — show the weekday name so the user knows.
+                      const weekday = new Date(earliestIso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' })
+                      return <>Earliest start: <strong>{weekday}</strong>.</>
+                    })()}
               </p>
               <p className="checkout-window-charge">
                 Meals begin on this date — no charge for days before.
