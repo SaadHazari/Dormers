@@ -221,53 +221,86 @@ export async function POST(req: Request) {
       const orderId = orderData.id as string;
 
       // ── Dorm Wars: flip redeemed credits to 'applied' ─────────────────
-      // Primary path: read the credit row IDs the checkout route stamped on
-      // session metadata. The CAS guard (`.eq('status','approved')`) is the
-      // idempotency key — a Stripe webhook retry re-runs this block but
-      // matches 0 rows on the second pass (RESEARCH Pitfall #2).
+      // Resolves which credit rows to flip + which boundary row to split from
+      // session metadata (primary path) or by re-deriving from the user's
+      // approved balance + Stripe's reported discount (fallback path).
       //
-      // Fallback path: if metadata IDs are missing but Stripe shows a
-      // discount was applied to this session, re-derive the credits to flip
-      // from the approved-credit balance in created_at order. This handles
-      // metadata loss in transit and partial-discount scenarios.
+      // Primary signal is metadata.credit_applied_fils > 0 (set by the
+      // checkout route). Even if applied_credit_ids is empty — which happens
+      // when the FIRST credit row already exceeds the cap — the split fields
+      // tell us what to do. Falling back to a FIFO walk when metadata is
+      // genuinely missing must ALSO honor split-row semantics or it will
+      // greedily burn the first row entirely (a 5500 AED row used to cover
+      // a 1024 AED plan would have lost the user 4476 AED).
+      //
+      // Idempotency is via CAS guard (`.eq('status','approved')`) on the
+      // flip + UNIQUE-like check on the split row before inserting the
+      // remainder. Webhook retries match 0 rows the second time around.
       //
       // Must run BEFORE `creditInviterOnConversion` below so the redeemed
       // credits settle before any new conversion credit is awarded.
-      const metaIds = (session.metadata?.applied_credit_ids ?? '')
-        .split(',')
-        .filter(Boolean);
-      const discountFils =
+
+      const metaCreditFils = Number(session.metadata?.credit_applied_fils ?? '0') || 0;
+      const metaTierFils = Number(session.metadata?.tier_applied_fils ?? '0') || 0;
+      const stripeDiscountFils =
         (session.amount_subtotal ?? 0) - (session.amount_total ?? 0);
 
-      console.log(
-        `💳 credit flip — session ${session.id} order ${orderId} ` +
-        `metadataIds=[${metaIds.join(',')}] discountFils=${discountFils}`
-      );
+      let fullRowIds: string[] = [];
+      let splitToProcess: { id: string; useFils: number } | null = null;
 
-      let idsToFlip: string[] = metaIds;
-      if (idsToFlip.length === 0 && discountFils > 0) {
-        // Fallback — pull approved credits, take in order until we cover the discount.
-        const { data: candidates } = await supabaseAdmin
-          .from('credits')
-          .select('id, amount_aed')
-          .eq('customer_id', user_id)
-          .eq('status', 'approved')
-          .order('created_at', { ascending: true });
-        let acc = 0;
-        const picked: string[] = [];
-        for (const c of candidates ?? []) {
-          if (acc >= discountFils) break;
-          picked.push(c.id as string);
-          acc += Math.round(Number(c.amount_aed) * 100);
+      if (metaCreditFils > 0) {
+        // Trust metadata — primary path.
+        fullRowIds = (session.metadata?.applied_credit_ids ?? '')
+          .split(',')
+          .filter(Boolean);
+        const splitId = session.metadata?.split_credit_id ?? '';
+        const splitUseFils = Number(session.metadata?.split_credit_use_fils ?? '0') || 0;
+        if (splitId && splitUseFils > 0) {
+          splitToProcess = { id: splitId, useFils: splitUseFils };
         }
-        idsToFlip = picked;
         console.log(
-          `💳 metadata-loss fallback — picked ${picked.length} credit row(s) ` +
-          `summing to ${acc} fils to cover ${discountFils} fils discount`
+          `💳 credit flip (metadata) — session ${session.id} order ${orderId} ` +
+          `creditFils=${metaCreditFils} fullIds=[${fullRowIds.join(',')}] ` +
+          `split=${splitId || 'none'}:${splitUseFils}`
+        );
+      } else if (stripeDiscountFils > 0) {
+        // Fallback — Stripe shows a discount but our metadata is empty.
+        // Re-derive what should have been applied: discount minus tier %.
+        const targetCreditFils = stripeDiscountFils - metaTierFils;
+        if (targetCreditFils > 0) {
+          const { data: candidates } = await supabaseAdmin
+            .from('credits')
+            .select('id, amount_aed')
+            .eq('customer_id', user_id)
+            .eq('status', 'approved')
+            .order('created_at', { ascending: true });
+          let acc = 0;
+          for (const c of candidates ?? []) {
+            const cFils = Math.round(Number(c.amount_aed) * 100);
+            if (acc + cFils <= targetCreditFils) {
+              fullRowIds.push(c.id as string);
+              acc += cFils;
+              if (acc === targetCreditFils) break;
+            } else {
+              const useFils = targetCreditFils - acc;
+              if (useFils > 0) splitToProcess = { id: c.id as string, useFils };
+              break;
+            }
+          }
+          console.log(
+            `💳 credit flip (fallback) — session ${session.id} order ${orderId} ` +
+            `targetCreditFils=${targetCreditFils} fullIds=[${fullRowIds.join(',')}] ` +
+            `split=${splitToProcess?.id ?? 'none'}:${splitToProcess?.useFils ?? 0}`
+          );
+        }
+      } else {
+        console.log(
+          `💳 credit flip skipped — no discount on session ${session.id}`
         );
       }
 
-      if (idsToFlip.length > 0) {
+      // Apply the full-row flips with CAS guard.
+      if (fullRowIds.length > 0) {
         const { error: flipErr, count: flippedCount } = await supabaseAdmin
           .from('credits')
           .update(
@@ -278,45 +311,36 @@ export async function POST(req: Request) {
             },
             { count: 'exact' },
           )
-          .in('id', idsToFlip)
+          .in('id', fullRowIds)
           .eq('status', 'approved');
         if (flipErr) {
           console.error('⚠️  credit flip to applied failed (non-fatal):', flipErr);
         } else {
           console.log(
-            `💳 Flipped ${flippedCount ?? 0}/${idsToFlip.length} credit row(s) ` +
+            `💳 Flipped ${flippedCount ?? 0}/${fullRowIds.length} credit row(s) ` +
             `to applied for order ${orderId}`
           );
         }
       }
 
-      // Split-row handling: when balance > plan total, the checkout route
-      // partitions credits into full-redeem rows + one boundary "split" row
-      // that should be partially consumed. We flip the original row to
-      // 'applied' (so it's tied to this order in the ledger) and insert a
-      // fresh status='approved' row for the unused remainder so the user
-      // keeps the leftover credit for next time. Without this, a 6800 AED
-      // balance against a 1024 AED plan would burn the whole wallet.
-      const splitId = session.metadata?.split_credit_id ?? '';
-      const splitUseFils = Number(session.metadata?.split_credit_use_fils ?? '0') || 0;
-      if (splitId && splitUseFils > 0) {
+      // Handle the split boundary row: flip the original AND insert a fresh
+      // 'approved' row for the unused remainder. Without this, partial
+      // redemption (wallet > plan total) burns the boundary row entirely.
+      if (splitToProcess) {
         const { data: splitRow } = await supabaseAdmin
           .from('credits')
           .select('id, amount_aed, source, status')
-          .eq('id', splitId)
+          .eq('id', splitToProcess.id)
           .eq('status', 'approved')
           .maybeSingle();
         if (!splitRow) {
           console.warn(
-            `⚠️  split credit row ${splitId} not found or not approved — ` +
-            `skipping split (this may leak credit if hit; investigate)`
+            `⚠️  split credit row ${splitToProcess.id} not found or not approved — ` +
+            `skipping split (idempotent re-run, or external state change)`
           );
         } else {
           const totalFils = Math.round(Number(splitRow.amount_aed) * 100);
-          const remainderFils = totalFils - splitUseFils;
-          // Flip the original boundary row to 'applied' (whole row attaches
-          // to this order — convention: applied row's amount is the original
-          // total; the new approved row carries the remainder forward).
+          const remainderFils = totalFils - splitToProcess.useFils;
           const { error: splitFlipErr } = await supabaseAdmin
             .from('credits')
             .update({
@@ -324,7 +348,7 @@ export async function POST(req: Request) {
               applied_at: new Date().toISOString(),
               applied_to: orderId,
             })
-            .eq('id', splitId)
+            .eq('id', splitToProcess.id)
             .eq('status', 'approved');
           if (splitFlipErr) {
             console.error('⚠️  split credit flip failed (non-fatal):', splitFlipErr);
@@ -342,12 +366,14 @@ export async function POST(req: Request) {
               );
             } else {
               console.log(
-                `💳 Split credit ${splitId}: used ${splitUseFils} fils for order ` +
-                `${orderId}, carried ${remainderFils} fils forward as new row`
+                `💳 Split credit ${splitToProcess.id}: used ${splitToProcess.useFils} ` +
+                `fils for order ${orderId}, carried ${remainderFils} fils forward`
               );
             }
           } else {
-            console.log(`💳 Split credit ${splitId}: fully consumed (remainder=0)`);
+            console.log(
+              `💳 Split credit ${splitToProcess.id}: fully consumed (remainder=0)`
+            );
           }
         }
       }
