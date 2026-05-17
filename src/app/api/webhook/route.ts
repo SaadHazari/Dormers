@@ -551,7 +551,7 @@ export async function POST(req: Request) {
     //   • Clear applied_at, applied_to so the rows look untouched
     //   • Mark the order as refunded (invoice_status='Refunded')
     //
-    // Mystery Drop / cycle / tier deposits that landed AFTER the refunded
+    // Mystery Cash Drop / cycle / tier deposits that landed AFTER the refunded
     // checkout are intentionally NOT clawed back — those are independent
     // rewards. Only the credits redeemed AT the refunded checkout flip back.
     if (event.type === 'charge.refunded') {

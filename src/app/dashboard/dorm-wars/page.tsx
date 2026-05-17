@@ -62,7 +62,7 @@ export default async function DormWarsPage() {
   // a milestone may render as "earned" in the hub before the awarder fires
   // (or vice versa). Parallelize the remaining reads.
   // Audit FIX 15: also fetch the tier-2 / tier-4 side-effect flags so the
-  // hub renders the perks (Early Access, Hall of Fame) the awarder promised.
+  // hub renders the perks (Early Access, Elite Dormer) the awarder promised.
   const [dormStats, cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
     getDormStats(customer?.dorm_name ?? ''),
     activeSubscription

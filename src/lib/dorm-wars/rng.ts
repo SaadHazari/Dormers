@@ -8,16 +8,20 @@
 import { randomInt } from 'node:crypto'
 
 /**
- * Mystery Drop value (Layer 2 milestone 3). Weighted to feel surprising:
- *   50% → 30..70   (common — small wins)
- *   35% → 71..120  (uncommon — solid wins)
- *   15% → 121..150 (rare — jackpot tier)
+ * Mystery Cash Drop value (Layer 2 milestone 3). Phase 8 rebalance:
+ * range narrowed (no AED 30-only "is that it?" rolls) and a real jackpot
+ * tier added. Every drop is now at least dinner money.
+ *   50% → 30..50  (common — solid)
+ *   30% → 50..70  (uncommon — strong)
+ *   15% → 70..80  (rare — premium)
+ *    5% → 80..90  (jackpot)
  */
 export function mysteryDropValue(): number {
   const roll = randomInt(0, 100)   // 0..99 inclusive lower, exclusive upper
-  if (roll < 50) return randomInt(30, 71)     // 30..70   (50%)
-  if (roll < 85) return randomInt(71, 121)    // 71..120  (35%)
-  return randomInt(121, 151)                  // 121..150 (15%)
+  if (roll < 50) return randomInt(30, 51)     // 30..50  (50%)
+  if (roll < 80) return randomInt(50, 71)     // 50..70  (30%)
+  if (roll < 95) return randomInt(70, 81)     // 70..80  (15%)
+  return randomInt(80, 91)                    // 80..90  (5%)
 }
 
 /**

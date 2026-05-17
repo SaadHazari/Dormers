@@ -75,9 +75,9 @@ const LAYER1_LADDER = [
 // Layer 2 — per-cycle milestones
 interface CycleMilestone { at: number; label: string; value: string; color: string; Emblem: typeof Gift; rare?: boolean }
 const CYCLE_MILESTONES: CycleMilestone[] = [
-  { at: 3,  label: 'Mystery Drop',       value: '30–150 cr', color: PURPLE, Emblem: Gift },
-  { at: 6,  label: 'Free Week',          value: '~132 cr',   color: CYAN,   Emblem: Calendar },
-  { at: 10, label: 'Free Month',         value: '~528 cr',   color: GOLD,   Emblem: Trophy },
+  { at: 3,  label: 'Mystery Cash Drop',  value: 'AED 30–90', color: PURPLE, Emblem: Gift },
+  { at: 6,  label: 'Free Week',          value: '~AED 132',  color: CYAN,   Emblem: Calendar },
+  { at: 10, label: 'Free Month',         value: '~AED 528',  color: GOLD,   Emblem: Trophy },
   { at: 15, label: '500 cr + 5 Skips',   value: '500 cr',    color: PINK,   Emblem: Coins, rare: true },
   { at: 20, label: 'Dorm Weekend',       value: 'For all',   color: RED,    Emblem: Users, rare: true },
 ]
@@ -93,7 +93,7 @@ const LIFETIME_TIERS: LifetimeTier[] = [
 
 // Layer 4 — side rewards (footer ribbon)
 const SIDE_REWARDS = [
-  { label: 'Google review',         value: '+AED 30',  color: GREEN, Emblem: Star },
+  { label: 'Google review',         value: '+AED 25',  color: GREEN, Emblem: Star },
   { label: '4 weekly surveys',      value: '+AED 20',  color: CYAN,  Emblem: KeyRound },
   { label: '1-year anniversary',    value: '+AED 50',  color: PURPLE, Emblem: Calendar },
   { label: 'Renew & invite combo',  value: '+AED 10',  color: ORANGE, Emblem: Zap },
@@ -360,7 +360,7 @@ export default function HubClient({
     }
     if (ev.source === 'tier_4_meals') {
       return {
-        headline: '🏆 TIER 4 UNLOCKED — Hall of Fame',
+        headline: '🏆 TIER 4 UNLOCKED — Elite Dormer',
         sub:      `+AED ${ev.amount_aed} jackpot credit deposited`,
         accent:   GOLD_LITE,
       }
@@ -561,7 +561,7 @@ export default function HubClient({
         />}
       </Modal>
 
-      <Modal open={open === 'quests'} onClose={() => setOpen(null)} title="This Cycle's Rewards" accent={GOLD}>
+      <Modal open={open === 'quests'} onClose={() => setOpen(null)} title="This Month's Rewards" accent={GOLD}>
         <QuestsScreen recruitsCycle={cycleRecruits} />
       </Modal>
       <Modal open={open === 'ladder'} onClose={() => setOpen(null)} title="Lifetime Path" accent={CYAN}>
@@ -574,6 +574,44 @@ export default function HubClient({
         <SquadScreen scouts={scouts} onScoutTap={(s) => { setOpen(null); setViewingScout(s) }} />
       </Modal>
     </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  ELITE DORMER BADGE — Tier 4 apex perk visual
+//  Custom-shaped (not a pill) so it reads as the rarest possible status:
+//  thin gold border + warm glow + crown emblem + tracked SCREAMING-CAPS
+//  label. Two sizes: `sm` for TopChrome inline, `md` for activity feed tags.
+// ════════════════════════════════════════════════════════════════════════════
+
+function EliteDormerBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
+  const isSm = size === 'sm'
+  const padY = isSm ? 3 : 5
+  const padX = isSm ? 8 : 11
+  const font = isSm ? 9 : 10
+  const iconSize = isSm ? 9 : 11
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: `${padY}px ${padX}px`,
+        // Subtle clip-path: chevron tail on the right edge — gives the
+        // tag a "stamped insignia" silhouette instead of a pill.
+        clipPath: 'polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%)',
+        paddingRight: padX + 5,
+        backgroundImage: `linear-gradient(135deg, ${GOLD}38 0%, ${GOLD_LITE}20 100%)`,
+        border: `1px solid ${GOLD}aa`,
+        borderRight: 'none',
+        fontFamily: BODY,
+        fontSize: font, fontWeight: 900, color: GOLD,
+        letterSpacing: '0.16em', textTransform: 'uppercase',
+        boxShadow: `0 0 14px ${GOLD}55, inset 0 1px 0 ${GOLD_LITE}33`,
+      }}
+    >
+      <Trophy size={iconSize} strokeWidth={2.6} color={GOLD_LITE} />
+      Elite Dormer
+    </span>
   )
 }
 
@@ -650,20 +688,13 @@ function TopChrome({
                 Early Access
               </span>
             )}
-            {/* Tier-4 perk badge: Hall of Fame unlocked. Driven by the
+            {/* Tier-4 perk badge: Elite Dormer unlocked. Driven by the
                 customers.hall_wall flag the awarder flips at 100 lifetime
-                conversions. Sits next to Early Access when both fire. */}
+                conversions. Custom shape (chevron tail + crown emblem)
+                so it stands apart from the pill-shaped Early Access tag —
+                this is the apex prize and needs to feel rarer than a chip. */}
             {hallWall && (
-              <span style={{
-                padding: '3px 9px', borderRadius: 999,
-                backgroundColor: `${GOLD}24`,
-                border: `1px solid ${GOLD}88`,
-                fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD,
-                letterSpacing: '0.14em', textTransform: 'uppercase',
-                boxShadow: `0 0 12px ${GOLD}55`,
-              }}>
-                Hall of Fame
-              </span>
+              <EliteDormerBadge size="sm" />
             )}
           </div>
           <div style={{
@@ -931,7 +962,7 @@ function CycleColumn({
   const nextMilestone = CYCLE_MILESTONES.find(m => cycleRecruits < m.at)
 
   return (
-    <Column eyebrow="This Cycle" title="Burst goals for big bonuses" accent={GOLD} onOpen={onOpen}>
+    <Column eyebrow="This Month" title="Burst goals for big bonuses" accent={GOLD} onOpen={onOpen}>
       {/* Progress bar — bumped to 44px so the gift icons inside each
           milestone have breathing room. The bare-dot version made each
           stop unreadable; now every stop shows what it actually unlocks. */}
@@ -1036,7 +1067,7 @@ function CycleColumn({
           <Users size={12} strokeWidth={2.6} color={GOLD_LITE} />
           <span style={{ color: GOLD_LITE, fontFeatureSettings: '"tnum"' }}>{cycleRecruits}</span>
           <span style={{ color: MIST_DIM, fontWeight: 600 }}>
-            of {max} <span style={{ letterSpacing: '0.10em', textTransform: 'uppercase', fontSize: 10, fontWeight: 900 }}>recruits</span> this cycle
+            of {max} <span style={{ letterSpacing: '0.10em', textTransform: 'uppercase', fontSize: 10, fontWeight: 900 }}>recruits</span> this month
           </span>
         </div>
         {nextMilestone && (
@@ -1852,14 +1883,14 @@ function QuestsScreen({ recruitsCycle }: { recruitsCycle: number }) {
         fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
         lineHeight: 1.6, margin: '0 0 12px',
       }}>
-        Hit these recruit counts <strong style={{ color: CREAM }}>in this cycle</strong> for big bonuses. Resets when your subscription renews.
+        Hit these recruit counts <strong style={{ color: CREAM }}>this month</strong> for big bonuses. Resets when your subscription renews.
       </p>
       <div style={{
         marginBottom: 18,
         fontFamily: BODY, fontSize: 11, fontWeight: 800, color: RED,
         letterSpacing: '0.12em', textTransform: 'uppercase',
       }}>
-        <span style={{ fontFeatureSettings: '"tnum"' }}>{recruitsCycle}</span> recruits this cycle
+        <span style={{ fontFeatureSettings: '"tnum"' }}>{recruitsCycle}</span> recruits this month
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {CYCLE_MILESTONES.map(m => {
