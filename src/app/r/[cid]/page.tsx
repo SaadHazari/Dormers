@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Check, CheckCircle2 } from 'lucide-react'
+import { Check, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
+import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
+import { isPasswordStrong } from '@/lib/validation'
 import { DORMS } from '@/app/onboarding/data'
 import { nextTrialDeliveryLabel } from '@/lib/trial-delivery'
-import { claimGift, sendTrialEmailOtp, verifyTrialEmailOtp } from './actions'
+import { claimGift, sendTrialEmailOtp, setTrialPassword, verifyTrialEmailOtp } from './actions'
 
 // Matches the dark onboarding page exactly — same bg, same primitives, same
 // OTP affordances (Send code → Verify & continue) as PhoneStep + EmailStep.
@@ -42,6 +44,16 @@ export default function ReferralLandingPage() {
   const [error,       setError]       = useState('')
   const [done,        setDone]        = useState(false)
   const [isClaiming,  startClaiming]  = useTransition()
+
+  // Post-claim "lock in your account" step. The user is already authenticated
+  // via the email OTP session cookie — we just need to set a password so they
+  // can come back via /login (which expects email+password). Skipping is
+  // allowed but they'd have to use the email OTP path to log back in.
+  const [password,      setPassword]      = useState('')
+  const [showPassword,  setShowPassword]  = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSaved, setPasswordSaved] = useState(false)
+  const [savingPassword, startSavingPassword] = useTransition()
 
   // Phone OTP state
   const [phoneStage,    setPhoneStage]    = useState<Stage>('enter')
@@ -250,6 +262,26 @@ export default function ReferralLandingPage() {
     })
   }
 
+  // ── Save password on the success state ────────────────────────────────────
+  function savePassword() {
+    if (savingPassword || passwordSaved) return
+    setPasswordError('')
+    if (!isPasswordStrong(password)) {
+      setPasswordError('Pick a stronger password — see the rules below.')
+      return
+    }
+    startSavingPassword(async () => {
+      const result = await setTrialPassword(password)
+      if ('error' in result) {
+        setPasswordError(result.error)
+        return
+      }
+      setPasswordSaved(true)
+      // Brief beat so the user sees the green confirmation before redirect.
+      setTimeout(() => router.push('/dashboard'), 700)
+    })
+  }
+
   const labelCls    = 'block text-[11px] font-bold uppercase tracking-widest mb-1.5 text-white/65'
   const selectCls   = 'w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/55'
   const otpBoxCls   = 'w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.35em] text-center outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/30 disabled:opacity-60'
@@ -296,29 +328,108 @@ export default function ReferralLandingPage() {
         >
           {done ? (
             // ── Success state ────────────────────────────────────────────────
+            // After the gift claim succeeds, prompt the user to lock in a
+            // password so they can come back via /login (email+password). The
+            // session cookie is already set from verifyTrialEmailOtp, so
+            // setTrialPassword just runs auth.updateUser({ password }) on the
+            // authed user. Skipping is allowed but flagged — the user would
+            // need to use the email-OTP path next time, which /login doesn't
+            // support yet.
+            //
             // Delivery label is computed dynamically so a Sunday claim doesn't
             // promise tonight (kitchen closed) and a post-14:00-AE claim doesn't
             // promise same-day either — both push to the next operational day.
             (() => {
               const deliveryLabel = nextTrialDeliveryLabel()
-              const lowercased = deliveryLabel.toLowerCase()
+              const lowercased    = deliveryLabel.toLowerCase()
+              const passOk        = isPasswordStrong(password)
               return (
-                <div className="text-center">
-                  <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
-                    <Check size={24} strokeWidth={2.5} className="text-[#22c55e]" />
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
+                      <Check size={24} strokeWidth={2.5} className="text-[#22c55e]" />
+                    </div>
+                    <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">You&apos;re in</p>
+                    <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                      Your meal is{deliveryLabel === 'Tonight' ? ' on its way.' : ` arriving ${lowercased}.`}
+                    </h1>
+                    <p className="text-[13px] text-white/65 leading-relaxed">
+                      Expect delivery <span className="text-white/85 font-semibold">{lowercased} between 7–8 PM</span>.
+                      We&apos;ll WhatsApp you when it&apos;s close.
+                    </p>
                   </div>
-                  <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">You&apos;re in</p>
-                  <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
-                    Your meal is{deliveryLabel === 'Tonight' ? ' on its way.' : ` arriving ${lowercased}.`}
-                  </h1>
-                  <p className="text-[13px] text-white/65 leading-relaxed mb-6">
-                    Expect delivery <span className="text-white/85 font-semibold">{lowercased} between 7–8 PM</span>.
-                    We&apos;ll WhatsApp you when it&apos;s close.
-                  </p>
-                  <CtaButton onClick={() => router.push('/dashboard')}>
-                    Go to your dashboard →
-                  </CtaButton>
-                  <p className="mt-4 text-[11px] text-white/40 text-center">
+
+                  {/* Lock-in step — required for normal email+password login later */}
+                  <div className="space-y-3 pt-6 border-t border-white/[0.08]">
+                    <div>
+                      <p className="text-[#f57f20] text-[11px] font-bold uppercase tracking-widest mb-1.5">
+                        Last step
+                      </p>
+                      <h2 className="text-[18px] font-black text-white tracking-tight leading-tight">
+                        Lock in your account
+                      </h2>
+                      <p className="text-[12px] text-white/55 leading-snug mt-1.5">
+                        Set a password so you can come back, track your meal, and order more without re-verifying every time.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-widest mb-1.5 text-white/65">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Choose a strong password"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          autoComplete="new-password"
+                          disabled={passwordSaved || savingPassword}
+                          className={`w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/55 disabled:opacity-60 ${showPassword ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'} placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal`}
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowPassword(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/55 hover:text-white/85 transition-colors"
+                        >
+                          {showPassword ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
+                        </button>
+                      </div>
+                      {!passwordSaved && <PasswordChecklist password={password} />}
+                    </div>
+
+                    {passwordError && (
+                      <div className="px-4 py-3 rounded-xl bg-red-500/[0.08] border border-red-500/[0.18] text-[13px] text-center text-red-400 leading-snug">
+                        {passwordError}
+                      </div>
+                    )}
+
+                    {passwordSaved ? (
+                      <CtaButton type="button" disabled>
+                        Password saved ✓ Redirecting…
+                      </CtaButton>
+                    ) : (
+                      <CtaButton
+                        type="button"
+                        onClick={savePassword}
+                        disabled={!passOk || savingPassword}
+                      >
+                        {savingPassword ? 'Saving…' : 'Save password & continue →'}
+                      </CtaButton>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => router.push('/dashboard')}
+                      disabled={savingPassword || passwordSaved}
+                      className="block w-full text-center text-[11px] text-white/45 hover:text-white/70 underline transition-colors disabled:pointer-events-none"
+                    >
+                      Skip for now — I&apos;ll set a password later
+                    </button>
+                  </div>
+
+                  <p className="mt-5 text-[11px] text-white/40 text-center">
                     Your first paid plan comes with{' '}
                     <span className="text-white/65 font-semibold">20% off</span>.
                   </p>

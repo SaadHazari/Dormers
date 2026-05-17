@@ -100,6 +100,32 @@ export async function sendTrialEmailOtp(email: string): Promise<SendTrialEmailOt
   return { ok: true }
 }
 
+// ─── Set password on the trial user's account ─────────────────────────────
+// After the gift claim, prompt the user to lock in a password so they can
+// log back in later via /login. Without this, the only way back is another
+// email OTP (which a user signing in fresh might not realise).
+// The session cookie is already set from verifyTrialEmailOtp, so we can
+// just call supabase.auth.updateUser({ password }) on the authed user.
+
+export type SetTrialPasswordResult = { ok: true } | { error: string }
+
+export async function setTrialPassword(password: string): Promise<SetTrialPasswordResult> {
+  // Server-side validation mirrors the strength rules used by main onboarding
+  // so a tampered client can't sneak a weak password through.
+  const { isPasswordStrong, PASSWORD_RULES_TEXT } = await import('@/lib/validation')
+  if (!isPasswordStrong(password)) {
+    return { error: PASSWORD_RULES_TEXT }
+  }
+  const supabase = await createClient()
+  // The trial flow's verifyTrialEmailOtp already established a session cookie
+  // via the SSR client. updateUser sets the password on the authed user.
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) {
+    return { error: error.message }
+  }
+  return { ok: true }
+}
+
 export type VerifyTrialEmailOtpResult = { ok: true } | { error: string }
 
 export async function verifyTrialEmailOtp(
