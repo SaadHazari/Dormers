@@ -8,7 +8,11 @@ import { generateCid } from '@/lib/customer-cid'
 import { awardCycleAndTierRewards } from '@/lib/dorm-wars/awarder'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
-const MAX_PENDING_INVITES    = 5   // inviter can have at most this many pending gifts at once
+// Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
+// but claimGift always inserts 'gift_claimed' — the limit never fired. The
+// semantic intent was "open invites not yet converted to paid", so we now
+// count 'gift_claimed' rows. Constant renamed to make the intent obvious.
+const MAX_OPEN_GIFT_CLAIMS   = 5   // inviter can have at most this many claimed-but-unconverted invites at once
 const MAX_CONVERSIONS_MONTH  = 10  // inviter earns credit on at most this many paid conversions/month
 const MAX_INVITES_7_DAYS     = 20  // inviter can send at most this many invites in a rolling 7-day window
 const MAX_CLAIMS_PER_IP_24H  = 5   // hard cap on gift claims from a single IP per day (fraud signal)
@@ -295,12 +299,15 @@ export async function claimGift(payload: {
   }
 
   // ── 6. Inviter rate limits ─────────────────────────────────────────────────
-  const [pendingRes, sevenDayRes] = await Promise.all([
+  // Open-gift cap counts gift_claimed referrals that haven't converted yet —
+  // limits how many friends can be sitting on a "free meal" status without
+  // any of them subscribing. Caps abuse + keeps the funnel honest.
+  const [openGiftRes, sevenDayRes] = await Promise.all([
     supabaseAdmin
       .from('referrals')
       .select('id', { count: 'exact', head: true })
       .eq('inviter_cid', inviterCid)
-      .eq('status', 'pending'),
+      .eq('status', 'gift_claimed'),
     supabaseAdmin
       .from('referrals')
       .select('id', { count: 'exact', head: true })
@@ -308,10 +315,10 @@ export async function claimGift(payload: {
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
   ])
 
-  if ((pendingRes.count ?? 0) >= MAX_PENDING_INVITES) {
+  if ((openGiftRes.count ?? 0) >= MAX_OPEN_GIFT_CLAIMS) {
     return {
       blocked: true,
-      reason: `Your friend has ${MAX_PENDING_INVITES} invites waiting to activate. Once a few subscribe, they can send more.`,
+      reason: `Your friend has ${MAX_OPEN_GIFT_CLAIMS} invites waiting to activate. Once a few subscribe, they can send more.`,
     }
   }
   if ((sevenDayRes.count ?? 0) >= MAX_INVITES_7_DAYS) {

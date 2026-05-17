@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Gift, Users, Send, Flame, Lock, Check, X, ArrowRight,
   Volume2, VolumeX, Star, Trophy, Percent, Shirt,
@@ -190,7 +190,12 @@ export default function HubClient({
   const recruits = referralData.converted              // lifetime paid conversions
   const wallet   = Math.round(referralData.creditBalance)
 
-  // Cycle window — derived from active subscription dates
+  // Cycle window — derived from active subscription dates.
+  // Audit P1-13: a Scheduled (not-yet-started) sub used to read as
+  // "30 days left in cycle" because cycleEndTime - now wasn't sub-second
+  // away from cycleStartTime. We now also surface cycleStartsInDays so the
+  // CycleColumn can swap copy to "Starts in N days" when the cycle hasn't
+  // begun yet, instead of pretending it's already counting down.
   const hasActiveSub   = activeSubscription !== null
   const cycleStartTime = hasActiveSub ? new Date(activeSubscription!.start_date).getTime() : 0
   const cycleEndTime   = hasActiveSub ? new Date(activeSubscription!.end_date).getTime()   : 0
@@ -199,6 +204,9 @@ export default function HubClient({
     : 30
   const cycleDaysLeft  = hasActiveSub
     ? Math.max(0, Math.ceil((cycleEndTime - Date.now()) / 86_400_000))
+    : 0
+  const cycleStartsInDays = hasActiveSub
+    ? Math.max(0, Math.ceil((cycleStartTime - Date.now()) / 86_400_000))
     : 0
 
   // Cycle recruits — server-canonical (Phase 7-06). The page.tsx fetches this
@@ -264,9 +272,13 @@ export default function HubClient({
   const [sendStep, setSendStep]   = useState<SendStep>('closed')
   const [scoutName, setScoutName] = useState('')
 
-  // Rotating pulse text
+  // Rotating pulse text — audit P2: only run the interval when there's
+  // actually more than one item to rotate through. Single-item case (e.g.
+  // the "No recent activity in your dorm yet" fallback) was re-rendering
+  // a fade-in animation every 4.5s with no content change — pure noise.
   const [pulseIdx, setPulseIdx] = useState(0)
   useEffect(() => {
+    if (pulseItems.length <= 1) return
     const id = setInterval(() => setPulseIdx(i => (i + 1) % pulseItems.length), 4500)
     return () => clearInterval(id)
   }, [pulseItems.length])
@@ -281,8 +293,12 @@ export default function HubClient({
     const text = `I get fresh meals delivered to my dorm from Dormers — try your first meal free: https://dormers.ae/r/${customerCid}`
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`
     window.open(url, '_blank', 'noopener,noreferrer')
-    const newScout: Scout = { id: `sc-${Date.now()}`, name: trimmed, stage: 'sent', daysAgo: 0 }
-    setScouts(s => [newScout, ...s])
+    // Audit P1-11: do NOT optimistically add a phantom scout to the local
+    // list — if the user closes WhatsApp without sending, the phantom would
+    // sit in the squad as a lie until page reload. Real scouts only appear
+    // in `invites` (via the server-side referrals table) when the friend
+    // actually claims the gift on /r/[cid]. The user gets confirmation
+    // from the sent-step modal, not a fake list entry.
     setSendStep('sent')
   }
   function closeSendFlow() {
@@ -482,16 +498,17 @@ export default function HubClient({
         cycleRecruits={cycleRecruits}
       />
 
-      {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Daily Drop */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)', gap: 14,
-        flex: '0 0 auto',
-      }}>
+      {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Daily Drop
+          Audit P1-9: fixed `repeat(3, 1fr)` collapsed milestone dots into
+          unreadable mush at 375px. The .hub-progress-grid class in HubStyles
+          stacks single-column under 720px and two-column under 1024px so
+          phones get readable columns with the same content order. */}
+      <div className="hub-progress-grid" style={{ flex: '0 0 auto' }}>
         <CycleColumn
           cycleRecruits={cycleRecruits}
           cycleDaysLeft={cycleDaysLeft}
           cycleTotalDays={cycleTotalDays}
+          cycleStartsInDays={cycleStartsInDays}
           onOpen={() => setOpen('quests')}
         />
         <LifetimeColumn
@@ -503,11 +520,10 @@ export default function HubClient({
         <DailyDropColumn drop={dailyDrop} onOpen={() => setOpen('daily')} />
       </div>
 
-      {/* 4. ACTIVITY + SCOUTS — two-column lower row */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 14,
-        flex: '1 1 auto', minHeight: 0,
-      }}>
+      {/* 4. ACTIVITY + SCOUTS — two-column lower row
+          Same responsive treatment via .hub-activity-grid — stacks under
+          720px so Activity feed and Scouts each get full width on phones. */}
+      <div className="hub-activity-grid" style={{ flex: '1 1 auto', minHeight: 0 }}>
         <ActivityFeed pulseText={pulseItems[pulseIdx]} pulseItems={pulseItems} />
         <ScoutsStrip
           scouts={scouts}
@@ -527,10 +543,11 @@ export default function HubClient({
         onNameChange={setScoutName}
         onSend={sendLink}
         onClose={closeSendFlow}
-        onTrackJourney={() => {
-          closeSendFlow()
-          if (scouts[0]) setViewingScout(scouts[0])
-        }}
+        // "Track journey" used to open a phantom scout's journey screen,
+        // but we no longer optimistically add a phantom (P1-11 fix). The
+        // CTA now just closes the modal — the real scout will appear in
+        // the strip once the friend claims the gift on /r/[cid].
+        onTrackJourney={closeSendFlow}
       />
 
       <Modal open={viewingScout !== null} onClose={() => setViewingScout(null)}
@@ -896,14 +913,19 @@ function Column({
 // ════════════════════════════════════════════════════════════════════════════
 
 function CycleColumn({
-  cycleRecruits, cycleDaysLeft, cycleTotalDays, onOpen,
+  cycleRecruits, cycleDaysLeft, cycleTotalDays, cycleStartsInDays, onOpen,
 }: {
-  cycleRecruits:  number
-  cycleDaysLeft:  number
-  cycleTotalDays: number
-  onOpen:         () => void
+  cycleRecruits:     number
+  cycleDaysLeft:     number
+  cycleTotalDays:    number
+  cycleStartsInDays: number
+  onOpen:            () => void
 }) {
   void cycleTotalDays
+  // cycleStartsInDays > 0 means the user's sub hasn't started yet (Scheduled
+  // status, queued after a current sub). Show "Starts in N days" instead of
+  // "N days left in cycle" — the cycle is not counting down yet.
+  const notYetStarted = cycleStartsInDays > 0
   const max = CYCLE_MILESTONES[CYCLE_MILESTONES.length - 1].at
   const fillPct = Math.min(100, (cycleRecruits / max) * 100)
   const nextMilestone = CYCLE_MILESTONES.find(m => cycleRecruits < m.at)
@@ -1033,7 +1055,10 @@ function CycleColumn({
           fontFamily: BODY, fontSize: 10, fontWeight: 700,
           color: CYAN, letterSpacing: '0.04em',
         }}>
-          <Calendar size={10} strokeWidth={2.6} /> {cycleDaysLeft} days left in cycle
+          <Calendar size={10} strokeWidth={2.6} />
+          {notYetStarted
+            ? <>Starts in {cycleStartsInDays} {cycleStartsInDays === 1 ? 'day' : 'days'}</>
+            : <>{cycleDaysLeft} {cycleDaysLeft === 1 ? 'day' : 'days'} left in cycle</>}
         </div>
       </div>
     </Column>
@@ -1549,6 +1574,28 @@ function HubStyles() {
         border-color: rgba(245,127,32,0.55);
       }
 
+      /* Responsive grids — audit P1-9. Fixed repeat(3, 1fr) made each
+         progress column ~110px wide at 375px, colliding milestone dots
+         with their numeric labels. Collapse to two columns at <1024px,
+         single column at <720px so phones get readable, scrollable cards. */
+      .hub-progress-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .hub-activity-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1.1fr 1fr;
+      }
+      @media (max-width: 1024px) {
+        .hub-progress-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 720px) {
+        .hub-progress-grid,
+        .hub-activity-grid  { grid-template-columns: 1fr; }
+      }
+
       .hub-scouts-scroll::-webkit-scrollbar { display: none; }
 
       @keyframes hub-modal-in {
@@ -1604,6 +1651,31 @@ function Modal({
   accent: string
   children: React.ReactNode
 }) {
+  // Audit P1-7: a11y wiring — Escape key dismiss, focus moves into the
+  // dialog on open + returns to the trigger on close, role/aria attrs so
+  // screen readers announce it as a modal. Without this, the modal looked
+  // like a div to assistive tech and trapped keyboard users.
+  const dialogRef    = useRef<HTMLDivElement>(null)
+  const titleId      = useRef(`hub-modal-title-${Math.random().toString(36).slice(2, 8)}`).current
+  useEffect(() => {
+    if (!open) return
+    const previouslyFocused = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    // Defer focus until after the open animation kicks off so the focus
+    // ring doesn't flash before the modal is visible.
+    const t = setTimeout(() => dialogRef.current?.focus(), 60)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('keydown', handleKey)
+      // Restore focus to whatever triggered the modal so keyboard users
+      // don't lose their place when it closes.
+      previouslyFocused?.focus?.()
+    }
+  }, [open, onClose])
+
   if (!open) return null
   return (
     <div
@@ -1617,6 +1689,11 @@ function Modal({
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: 640, width: '100%', maxHeight: '88vh', overflow: 'auto',
@@ -1625,6 +1702,7 @@ function Modal({
           borderRadius: 18,
           boxShadow: `0 24px 64px rgba(0,0,0,0.6), 0 0 32px ${accent}28`,
           animation: 'hub-modal-in 280ms cubic-bezier(0.16,1,0.3,1) both',
+          outline: 'none',
         }}
       >
         <div style={{
@@ -1633,10 +1711,13 @@ function Modal({
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           backgroundImage: `linear-gradient(180deg, ${accent}14 0%, transparent 100%)`,
         }}>
-          <div style={{
-            fontFamily: DISPLAY, fontSize: 18, fontWeight: 900,
-            color: CREAM, letterSpacing: '-0.01em',
-          }}>
+          <div
+            id={titleId}
+            style={{
+              fontFamily: DISPLAY, fontSize: 18, fontWeight: 900,
+              color: CREAM, letterSpacing: '-0.01em',
+            }}
+          >
             {title}
           </div>
           <button
@@ -2055,6 +2136,22 @@ function SendScoutModal({
   onClose:        () => void
   onTrackJourney: () => void
 }) {
+  // a11y parity with Modal (audit P1-7) — Escape dismiss + focus management.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId   = 'hub-send-modal-title'
+  useEffect(() => {
+    if (step === 'closed') return
+    const prev = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    const t = setTimeout(() => dialogRef.current?.focus(), 60)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('keydown', handleKey)
+      prev?.focus?.()
+    }
+  }, [step, onClose])
+
   if (step === 'closed') return null
   const trimmed = scoutName.trim()
   const canSend = trimmed.length > 0
@@ -2066,15 +2163,24 @@ function SendScoutModal({
       backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        maxWidth: 440, width: '100%',
-        backgroundImage: `linear-gradient(180deg, ${BG_MID} 0%, ${BG_DEEP} 100%)`,
-        border: `1.5px solid ${ORANGE}55`,
-        borderRadius: 18,
-        boxShadow: `0 24px 64px rgba(0,0,0,0.6), 0 0 32px ${ORANGE}28`,
-        animation: 'hub-modal-in 280ms cubic-bezier(0.16,1,0.3,1) both',
-        overflow: 'hidden',
-      }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: 440, width: '100%',
+          backgroundImage: `linear-gradient(180deg, ${BG_MID} 0%, ${BG_DEEP} 100%)`,
+          border: `1.5px solid ${ORANGE}55`,
+          borderRadius: 18,
+          boxShadow: `0 24px 64px rgba(0,0,0,0.6), 0 0 32px ${ORANGE}28`,
+          animation: 'hub-modal-in 280ms cubic-bezier(0.16,1,0.3,1) both',
+          overflow: 'hidden',
+          outline: 'none',
+        }}
+      >
         <div style={{
           padding: '14px 18px',
           borderBottom: `1px solid ${ORANGE}28`,
@@ -2083,10 +2189,13 @@ function SendScoutModal({
         }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <Send size={14} strokeWidth={2.4} color={GOLD_LITE} />
-            <span style={{
-              fontFamily: BODY, fontSize: 11, fontWeight: 900, color: GOLD_LITE,
-              letterSpacing: '0.20em', textTransform: 'uppercase',
-            }}>
+            <span
+              id={titleId}
+              style={{
+                fontFamily: BODY, fontSize: 11, fontWeight: 900, color: GOLD_LITE,
+                letterSpacing: '0.20em', textTransform: 'uppercase',
+              }}
+            >
               Send a link
             </span>
           </div>
@@ -2189,10 +2298,13 @@ function SentConfirmation({ name, onClose, onTrackJourney }: { name: string; onC
           <Check size={32} strokeWidth={3} color={GREEN} />
         </div>
         <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: CREAM, marginBottom: 8 }}>
-          Link sent to <span style={{ color: GOLD_LITE }}>{name}</span>
+          Off to <span style={{ color: GOLD_LITE }}>{name}</span>
         </div>
+        {/* Copy reflects the no-phantom-scout reality (P1-11) — there's
+            nothing in your squad yet; their entry appears the moment they
+            claim the gift on /r/[cid]. */}
         <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 400, color: MIST, lineHeight: 1.55, marginBottom: 22 }}>
-          Now watch them go from link sent → meal scheduled → subscribed.
+          Once {name} claims the free meal, they&rsquo;ll appear in your squad — and you&rsquo;ll get notified the moment they subscribe.
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button type="button" onClick={onTrackJourney} style={{
@@ -2205,7 +2317,7 @@ function SentConfirmation({ name, onClose, onTrackJourney }: { name: string; onC
             letterSpacing: '0.10em', textTransform: 'uppercase',
             cursor: 'pointer',
           }}>
-            Track journey <ArrowRight size={13} strokeWidth={2.6} />
+            Got it <ArrowRight size={13} strokeWidth={2.6} />
           </button>
           <button type="button" onClick={onClose} style={{
             padding: '11px 18px', borderRadius: 999,
@@ -2216,7 +2328,7 @@ function SentConfirmation({ name, onClose, onTrackJourney }: { name: string; onC
             letterSpacing: '0.10em', textTransform: 'uppercase',
             cursor: 'pointer',
           }}>
-            Done
+            Send another
           </button>
         </div>
       </div>
@@ -2466,50 +2578,6 @@ function CoinIcon({ size = 20 }: { size?: number }) {
       <ellipse cx="9.5" cy="8" rx="1.2" ry="0.7" fill="rgba(255,255,255,0.95)" transform="rotate(-25 9.5 8)" />
       <circle cx="16" cy="16" r="14" fill={`url(#${id}-rim)`} />
       <path d="M 5 13 A 14 14 0 0 1 27 13" fill={`url(#${id}-shineArc)`} opacity="0.5" />
-    </svg>
-  )
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function TrophyIcon({ size = 20 }: { size?: number }) {
-  const id = useMemo(nextIconId, [])
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32"
-      style={{
-        display: 'inline-block', verticalAlign: 'middle',
-        filter: 'drop-shadow(0 2px 5px rgba(120,55,0,0.55)) drop-shadow(0 0 8px rgba(245,158,11,0.35))',
-        overflow: 'visible',
-      }}
-    >
-      <defs>
-        <linearGradient id={`${id}-body`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%"   stopColor="#fffbeb" />
-          <stop offset="15%"  stopColor="#fde68a" />
-          <stop offset="45%"  stopColor="#fbbf24" />
-          <stop offset="75%"  stopColor="#d97706" />
-          <stop offset="100%" stopColor="#92400e" />
-        </linearGradient>
-        <linearGradient id={`${id}-handle`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"  stopColor="#a16207" />
-          <stop offset="50%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#a16207" />
-        </linearGradient>
-        <linearGradient id={`${id}-base`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%"  stopColor="#d97706" />
-          <stop offset="50%" stopColor="#a16207" />
-          <stop offset="100%" stopColor="#5c2a00" />
-        </linearGradient>
-      </defs>
-      <path d="M 9 7 Q 3 8 3 13 Q 3 17 8 17" fill="none" stroke={`url(#${id}-handle)`} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M 23 7 Q 29 8 29 13 Q 29 17 24 17" fill="none" stroke={`url(#${id}-handle)`} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M 8 5 L 24 5 L 24 13 Q 24 20 16 22 Q 8 20 8 13 Z" fill={`url(#${id}-body)`} stroke="#5c2a00" strokeWidth="0.7" strokeLinejoin="round" />
-      <rect x="7.5" y="5" width="17" height="1.6" rx="0.6" fill="rgba(255,255,255,0.55)" />
-      <g transform="translate(16 13)">
-        <path d="M 0 -3.6 L 1.08 -1.13 L 3.6 -0.7 L 1.77 1.03 L 2.15 3.55 L 0 2.27 L -2.15 3.55 L -1.77 1.03 L -3.6 -0.7 L -1.08 -1.13 Z" fill="#5c2a00" opacity="0.6" />
-      </g>
-      <rect x="14" y="22" width="4" height="3" fill={`url(#${id}-base)`} />
-      <rect x="9" y="25" width="14" height="3.6" rx="1.4" fill={`url(#${id}-base)`} stroke="#3d1900" strokeWidth="0.5" />
-      <rect x="11" y="28.6" width="10" height="1.6" rx="0.7" fill="#3d1900" />
     </svg>
   )
 }

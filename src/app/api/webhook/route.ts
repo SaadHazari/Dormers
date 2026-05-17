@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan, totalMealsFor, planKindOf } from '@/lib/plans';
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
+import { getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,
@@ -292,8 +293,25 @@ export async function POST(req: Request) {
         );
       } else if (stripeDiscountFils > 0) {
         // Fallback — Stripe shows a discount but our metadata is empty.
-        // Re-derive what should have been applied: discount minus tier %.
-        const targetCreditFils = stripeDiscountFils - metaTierFils;
+        // Audit P1-15: the naive `stripeDiscountFils - metaTierFils` was
+        // wrong because when metadata is missing metaTierFils is ALSO 0,
+        // so the whole discount got attributed to credit and we over-burned
+        // rows that should have been the tier % portion. Re-derive the
+        // tier % from the user's current lifetime tier so the math matches
+        // what coupon-synth would have produced at checkout time.
+        let derivedTierFils = metaTierFils;
+        if (derivedTierFils === 0) {
+          const tierPercent = await getActiveLifetimeTierPercent(supabaseAdmin, user_id);
+          if (tierPercent > 0) {
+            const planFils = session.amount_subtotal ?? 0;
+            derivedTierFils = Math.floor((planFils * tierPercent) / 100);
+            console.log(
+              `💳 fallback tier derivation — tierPercent=${tierPercent}% on ` +
+              `planFils=${planFils} → tierFils=${derivedTierFils}`
+            );
+          }
+        }
+        const targetCreditFils = stripeDiscountFils - derivedTierFils;
         if (targetCreditFils > 0) {
           const { data: candidates } = await supabaseAdmin
             .from('credits')
