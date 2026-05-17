@@ -31,11 +31,27 @@ interface ActiveSubLike {
   // in a static status label so the hero never claims a delivery is en
   // route when nothing is being cooked for the user.
   status?: string | null
+  // Set by resumeSubscription when a customer resumes after the 2 PM kitchen
+  // cutoff on a delivery day. The menu page reads this to suppress the
+  // TodaySpotlight and today's WeekDayCard active treatment — no meal was
+  // prepped, so we must not imply one is arriving.
+  resume_cutoff_date?: string | null
+  // AE-wall-date ledger of every skip event (past + future). Drives the
+  // per-day "skipped" treatment on WeekDayCard. Past skips display as
+  // historical no-deliveries; future skips display as scheduled "off"
+  // days. Matches the dashboard's calendar bar source-of-truth.
+  skipped_dates?: string[] | null
+  // AE wall date when a pre-scheduled pause should activate. Days from
+  // this date onward render as "Paused" on the weekly grid. The start
+  // day gets a "Pause begins" label so the customer can see exactly when
+  // their planned pause kicks in.
+  planned_pause_start?: string | null
 }
 
 type WeekMeal = {
   day: string        // 'Monday' … 'Sunday'
-  date: string       // 'Apr 28'
+  date: string       // 'Apr 28' — display string
+  iso: string        // 'YYYY-MM-DD' — used for matching against skipped_dates / planned_pause_start
   dish: string
   sub: string
   tag: 'Veg' | 'Non Veg' | 'Off'
@@ -97,9 +113,15 @@ function buildFullMenu(
       const cal     = dish ? parseFloat(String(dish.nutrients.calories).replace(/[^\d.]/g, '')) || 0 : 0
       const protein = dish ? parseFloat(String(dish.nutrients.protein).replace(/[^\d.]/g, '')) || 0 : 0
 
+      // YYYY-MM-DD using local components (matches AE wall date for the
+      // Dubai-based customer base). Used downstream to match against the
+      // sub's skipped_dates ledger + planned_pause_start.
+      const iso = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+
       meals.push({
         day:   FULL_DAYS[i],
         date:  day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        iso,
         dish:  isOff ? (i === 6 ? 'Sunday OFF' : 'Off') : dish?.name ?? 'Menu coming soon',
         sub:   isOff ? 'No delivery — rest day' : dish?.description ?? '',
         tag:   isOff ? 'Off' : (wantVeg ? 'Veg' : 'Non Veg'),
@@ -116,6 +138,23 @@ function buildFullMenu(
 function todayMonIdx(): number {
   const d = new Date().getDay()
   return d === 0 ? 6 : d - 1
+}
+
+// Next AE delivery day label — mirrors HeroToday's helper for the menu page.
+// "tomorrow evening" in the common case; short date string when the next slot
+// skips the weekend (Fri/Sat on 5DAYS, Sat on 6DAYS).
+function nextDeliveryLabel(weekType: '5DAYS' | '6DAYS'): string {
+  const aeShift = 4 * 60 * 60 * 1000
+  for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
+    const candidate = new Date(Date.now() + aeShift + daysAhead * 86_400_000)
+    const isoDow = candidate.getUTCDay() === 0 ? 7 : candidate.getUTCDay()
+    const isDelivery =
+      weekType === '5DAYS' ? (isoDow !== 6 && isoDow !== 7) : isoDow !== 7
+    if (!isDelivery) continue
+    if (daysAhead === 1) return 'tomorrow evening'
+    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })} evening`
+  }
+  return 'your next delivery day'
 }
 
 // ── Today's delivery countdown ────────────────────────────────────────────────
@@ -157,10 +196,12 @@ function computeCountdown(now: Date, subStatus: string | null): { label: string;
 // the dashboard's HeroToday for cross-page cohesion.
 const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
 
-function TodaySpotlight({ meal, dorm, subStatus }: {
+function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, weekType = '6DAYS' }: {
   meal: WeekMeal | null
   dorm: string | null
   subStatus: string | null
+  resumedAfterCutoff?: boolean
+  weekType?: '5DAYS' | '6DAYS'
 }) {
   const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
 
@@ -188,6 +229,51 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
           Rest up. Next delivery Monday at 7 PM.
         </div>
       </div>
+    )
+  }
+
+  // Resumed after kitchen cutoff (2 PM AE) — no meal was prepped tonight.
+  // Step back to TIER1 with orange edge-wash so the card still anchors the
+  // section without falsely implying something is on its way.
+  if (resumedAfterCutoff) {
+    const nextDelivery = nextDeliveryLabel(weekType)
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          ...TIER1,
+          background: `
+            linear-gradient(105deg, rgba(245,127,32,0.11) 0%, rgba(245,127,32,0.06) 22%, rgba(245,127,32,0.025) 55%, rgba(245,127,32,0.01) 100%),
+            var(--ds-surface-tier1)
+          `,
+          borderRadius: 'var(--radius-md)',
+          padding: 'clamp(32px, 3.2vw, 48px) clamp(24px, 2.8vw, 40px)',
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}
+      >
+        {/* Visual anchor — same treatment as the Sunday rest-day card */}
+        <Moon size={28} strokeWidth={1.6} color="rgba(200,148,23,0.80)" />
+        <div style={{
+          fontFamily: BODY, fontSize: 'clamp(24px, 2.2vw, 32px)',
+          fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em',
+        }}>
+          No delivery tonight<span style={{ color: OG }}>.</span>
+        </div>
+        <p style={{
+          margin: 0, fontFamily: BODY, fontSize: 14,
+          color: S.fgMuted, lineHeight: 1.6, maxWidth: '52ch',
+        }}>
+          You resumed after the 2 PM kitchen cutoff — your first delivery is <strong style={{ fontWeight: 700, color: S.fg }}>{nextDelivery}</strong>, 7–8 PM.
+        </p>
+        <p style={{
+          margin: 0, fontFamily: BODY, fontSize: 12,
+          color: S.fgMuted, opacity: 0.60, lineHeight: 1.5, maxWidth: '52ch',
+        }}>
+          {"Tonight's meal slot has been moved to the end of your plan — nothing is lost."}
+        </p>
+      </motion.div>
     )
   }
 
@@ -324,23 +410,43 @@ function TodaySpotlight({ meal, dorm, subStatus }: {
 // half the visual weight so the eye reads "preview, not primary."
 type WeekDayState = 'past' | 'today' | 'future'
 type WeekDayVariant = 'full' | 'preview'
-function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
+// Reasons a day card might show "no delivery" treatment. All visually
+// collapse into the same dim-card-with-moon-icon pattern; only the chip
+// label differs so the customer reads the cause at a glance. Same family
+// across past skips, today skips, future scheduled skips, and planned-
+// pause-affected days — Refactoring UI's constrained scale.
+type NoDeliveryReason =
+  | 'today-skipped'    // status === 'Skipped' OR resumed-after-cutoff (today)
+  | 'past-skipped'     // past day, date is in skipped_dates ledger
+  | 'future-skipped'   // future day, scheduled via Plan a Skip
+  | 'pause-start'      // future day, customer's planned_pause_start date
+  | 'in-pause'         // future day after planned_pause_start (open-ended)
+function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, onClick }: {
   meal: WeekMeal
   dayLabel: string
   state: WeekDayState
   variant?: WeekDayVariant
+  // When set, the card renders in its dim "no delivery" state with a
+  // reason-specific label. Replaces the previous boolean `isSkippedTonight`
+  // — same default treatment, more granular reasons. Null = normal day.
+  noDeliveryReason?: NoDeliveryReason | null
   onClick: () => void
 }) {
   const isOff     = meal.tag === 'Off'
   const isToday   = state === 'today'
   const isPast    = state === 'past'
   const isPreview = variant === 'preview'
+  // Any no-delivery reason strips today's focal treatment (no orange
+  // border / pulse / Sparkles chip). Past-day reasons override the
+  // "Delivered" chip with the right reason label.
+  const hasNoDelivery = noDeliveryReason !== null
+  const effectiveIsToday = isToday && !hasNoDelivery
 
   // Surface tier — preview cards sit on TIER3 (flat, near-flush with the
   // page) so they recede behind the TIER2 this-week cards. Today gets bumped
   // to TIER1 (matches HeroToday + TodaySpotlight) so it visibly lifts off the
   // grid and reads as the focal moment of the row.
-  const baseTier = isToday ? TIER1 : isPreview ? TIER3 : TIER2
+  const baseTier = effectiveIsToday ? TIER1 : hasNoDelivery ? TIER2 : isPreview ? TIER3 : TIER2
 
   // Veg / non-veg "spine" — vertical 3px (2px in preview) edge stripe on the
   // card's left side that lets the eye pre-attentively segment the grid into
@@ -354,7 +460,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
   //     the bright OG orange, which is reserved for today's ring + the
   //     period accent so the two oranges never compete on the same card)
   const isVeg = meal.tag === 'Veg'
-  const showSpine = !isToday && !isOff
+  const showSpine = !effectiveIsToday && !hasNoDelivery && !isOff
   const spineColor = isVeg ? '#1d8a30' : 'rgba(165,81,0,0.85)'
   const spineWidth = isPreview ? 2 : 3
   // Whisper hairline traced inside the photo's rounded corners — registers
@@ -384,7 +490,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
       type="button"
       onClick={onClick}
       disabled={isOff}
-      data-state={state}
+      data-state={noDeliveryReason ?? state}
       data-variant={variant}
       className="week-day-card"
       style={{
@@ -407,7 +513,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
                 var(--ds-surface2)
               `
             : 'var(--ds-week-card-bg, #faf2dd)',
-        border: isToday
+        border: effectiveIsToday
           ? `2px solid rgba(245,127,32,0.32)`
           : isOff
             ? `1px solid ${S.border}`
@@ -420,7 +526,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
         //   • TIER1 neutral lift
         boxShadow: isOff
           ? 'none'
-          : isToday
+          : effectiveIsToday
             ? `0 8px 28px rgba(245,127,32,0.18), 0 0 0 4px rgba(245,127,32,0.10), ${TIER1.boxShadow}`
             : baseTier.boxShadow,
         borderRadius: 'var(--radius-md)',
@@ -463,18 +569,32 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
         <div style={{
           fontFamily: BODY, fontSize: dayFontSize, fontWeight: 700,
           letterSpacing: '0.18em', textTransform: 'uppercase',
-          color: isToday ? OG : isPast ? S.fgFaint : S.fgMuted,
+          color: effectiveIsToday ? OG : isPast ? S.fgFaint : S.fgMuted,
           flexShrink: 0,
         }}>
           {dayLabel}
         </div>
 
         {!isOff && (() => {
-          const stateConfig = isPast
-            ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
-            : isToday
-              ? { Icon: Sparkles, label: 'Today',   color: OG }
-              : { Icon: Clock,    label: 'Upcoming',color: 'rgba(29,95,163,0.65)' }
+          // No-delivery reasons override the past/today/future chip with a
+          // reason-specific label. All share the Moon icon family +
+          // muted-tan color so they read as a coherent "no meal" zone.
+          // Pause reasons use a slightly cooler tone to differentiate from
+          // skip reasons — Refactoring UI's hierarchy via subtle color shift.
+          const noDeliveryConfig: Record<NoDeliveryReason, { label: string; color: string }> = {
+            'today-skipped':  { label: 'Not tonight',  color: 'rgba(140,110,60,0.70)' },
+            'past-skipped':   { label: 'Skipped',      color: 'rgba(140,110,60,0.70)' },
+            'future-skipped': { label: 'Skipped',      color: 'rgba(140,110,60,0.70)' },
+            'pause-start':    { label: 'Pause begins', color: 'rgba(30,58,79,0.75)'   },
+            'in-pause':       { label: 'Paused',       color: 'rgba(30,58,79,0.70)'   },
+          }
+          const stateConfig = noDeliveryReason
+            ? { Icon: Moon, ...noDeliveryConfig[noDeliveryReason] }
+            : isPast
+              ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
+              : effectiveIsToday
+              ? { Icon: Sparkles, label: 'Today',     color: OG }
+              : { Icon: Clock,    label: 'Upcoming',  color: 'rgba(29,95,163,0.65)' }
           const { Icon, label, color } = stateConfig
           const chipFont = isPreview ? 10 : 11
           const chipIcon = isPreview ? 10 : 11
@@ -549,8 +669,9 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', onClick }: {
           display: '-webkit-box', WebkitLineClamp: dishClampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         } as React.CSSProperties}>
           {/* Period accent only on today — same brand signature used by
-              HeroToday and the page header (`My menu.`). */}
-          {meal.dish}{isToday && <span style={{ color: OG }}>.</span>}
+              HeroToday and the page header (`My menu.`). Suppressed when
+              resumed-after-cutoff so the muted state reads cleanly. */}
+          {meal.dish}{effectiveIsToday && <span style={{ color: OG }}>.</span>}
         </div>
 
         {!isOff && (
@@ -648,6 +769,59 @@ export default function MenuClient({
         ? customer.week_type
         : '6DAYS'
 
+  // Today's AE wall date — used both for the resume-after-cutoff check
+  // and for classifying each WeekDayCard's "today / past / future" state
+  // when comparing against ISO dates from skipped_dates / planned_pause_start.
+  const todayAEIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  // True when the customer resumed after the 2 PM kitchen cutoff today. The DB
+  // column `resume_cutoff_date` is set by resumeSubscription and stale by
+  // tomorrow — compare against today's AE date (UTC+4) for correctness.
+  const resumedAfterCutoff = activeSubscription?.resume_cutoff_date === todayAEIso
+
+  // Set-based lookup for the skip ledger so per-day classification is O(1).
+  const skippedDateSet = new Set(activeSubscription?.skipped_dates ?? [])
+  const plannedPauseStart = activeSubscription?.planned_pause_start ?? null
+  const subIsCurrentlyPaused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
+  const subIsSkippedToday    = activeSubscription?.status === SUBSCRIPTION_STATUS.SKIPPED
+
+  // Per-meal "no delivery" classifier — returns one of the five reasons
+  // (today-skipped / past-skipped / future-skipped / pause-start / in-pause)
+  // or null when the day is operationally normal. Precedence:
+  //   1. Currently paused → every future day (incl. today) is "in-pause"
+  //   2. Planned pause: start day vs in-range
+  //   3. Skipped (today vs past vs future based on the day's relative state)
+  // Off-days (Sunday / non-working) are caller-handled (already rendered as
+  // 'Off' tag); this function isn't asked about those.
+  function classifyNoDelivery(meal: WeekMeal, dayState: WeekDayState): NoDeliveryReason | null {
+    if (meal.tag === 'Off') return null
+
+    // Currently-paused sub: paint everything from today onward as "in-pause"
+    // so the customer sees a clear paused zone on the menu page.
+    if (subIsCurrentlyPaused && dayState !== 'past') {
+      return 'in-pause'
+    }
+
+    // Planned pause (open-ended). The cron flips status to Paused on the
+    // start date — but in the brief window before that, classification by
+    // date still gives the correct picture.
+    if (plannedPauseStart && meal.iso >= plannedPauseStart && dayState !== 'past') {
+      return meal.iso === plannedPauseStart ? 'pause-start' : 'in-pause'
+    }
+
+    // Skip ledger membership. Past skips show as "Skipped" (overriding the
+    // default "Delivered" chip), today's skip shows as "Not tonight" (or
+    // sub.status === Skipped which mirrors the same kitchen-ops state).
+    const inSkipLedger = skippedDateSet.has(meal.iso)
+    if (dayState === 'today') {
+      if (subIsSkippedToday || resumedAfterCutoff || inSkipLedger) return 'today-skipped'
+      return null
+    }
+    if (dayState === 'past' && inSkipLedger) return 'past-skipped'
+    if (dayState === 'future' && inSkipLedger) return 'future-skipped'
+    return null
+  }
+
   const vegDayNumbers = vegDayNumbersFor(
     customer?.meal_preference_type,
     activeSubscription?.veg_days,
@@ -700,10 +874,16 @@ export default function MenuClient({
         {/* ── Section 1: Today (full-width hero) ── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Eyebrow>Today&apos;s delivery</Eyebrow>
+            <Eyebrow>{resumedAfterCutoff ? 'Tonight' : "Today's delivery"}</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
-          <TodaySpotlight meal={todayMeal} dorm={customer?.dorm_name ?? null} subStatus={activeSubscription?.status ?? null} />
+          <TodaySpotlight
+            meal={todayMeal}
+            dorm={customer?.dorm_name ?? null}
+            subStatus={activeSubscription?.status ?? null}
+            resumedAfterCutoff={resumedAfterCutoff}
+            weekType={weekType}
+          />
         </section>
 
         {/* ── Section 2: This week (6-cell grid) ── */}
@@ -718,12 +898,14 @@ export default function MenuClient({
                 i < thisTodayIdx  ? 'past'
                 : i === thisTodayIdx ? 'today'
                 : 'future'
+              const noDeliveryReason = classifyNoDelivery(meal, state)
               return (
                 <WeekDayCard
                   key={i}
                   meal={meal}
                   dayLabel={DAY_ABBREVS[i]}
                   state={state}
+                  noDeliveryReason={noDeliveryReason}
                   onClick={() => setOpenMeal(meal)}
                 />
               )
@@ -749,6 +931,7 @@ export default function MenuClient({
                 dayLabel={DAY_ABBREVS[i]}
                 state="future"
                 variant="preview"
+                noDeliveryReason={classifyNoDelivery(meal, 'future')}
                 onClick={() => setOpenMeal(meal)}
               />
             ))}

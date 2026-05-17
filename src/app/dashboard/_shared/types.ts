@@ -68,6 +68,19 @@ export interface Subscription {
   // that are veg deliveries. Length matches vegDayCount picked at checkout.
   // Drives per-day dish selection on the dashboard + /menu page.
   veg_days?: string[] | null
+  // AE-wall-date ledger of every skip event on this sub (YYYY-MM-DD strings).
+  // Drives per-pill state lookup in PlanProgress's calendar bar. Always
+  // monotonically grows by skipMeal(); never rewritten. For legacy multi-skip
+  // rows pre-dating the column, only the most recent skip is represented;
+  // older skips are untraced and the bar renders them as a count-only fallback.
+  skipped_dates?: string[] | null
+  // Pre-scheduled pause start (AE wall date, YYYY-MM-DD). Set by planPause()
+  // when a customer schedules a future pause; cleared by the status_tick cron
+  // at 00:05 AE on the start date when it flips status to Paused. Also cleared
+  // by cancelPlannedPause() or by pauseSubscription() (manual pause-now
+  // overrides a planned pause). has_paused_before is set to true the moment
+  // this is written — the pause credit is consumed at plan-time.
+  planned_pause_start?: string | null
 }
 
 export interface CustomerProfile {

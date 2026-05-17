@@ -4,10 +4,12 @@ import { useState, useTransition, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X, PartyPopper, ChevronRight, PauseCircle } from 'lucide-react'
-import { pauseSubscription, resumeSubscription, skipMeal } from './actions'
+import { X, PartyPopper, ChevronRight, PauseCircle, Truck, Moon } from 'lucide-react'
+import { cancelPlannedPause, pauseSubscription, planPause, resumeSubscription, skipFutureDate, skipMeal, unskipFutureDate } from './actions'
+import { FutureSkipModal, type FutureSkipMode } from './_shared/FutureSkipModal'
+import { PlanPauseModal } from './_shared/PlanPauseModal'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
-import { cleanPlanName, OG, BG, BODY, S } from './_shared/tokens'
+import { cleanPlanName, OG, BG, BODY, S, NV2 } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
 import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
@@ -112,6 +114,197 @@ function getGreeting() {
   return 'Good evening'
 }
 
+// Next AE delivery day — "tomorrow evening" or a short date string if the
+// next slot skips the weekend. Mirrors HeroToday's helper.
+function nextDeliveryLabel(weekType: '5DAYS' | '6DAYS'): string {
+  const aeShift = 4 * 60 * 60 * 1000
+  for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
+    const candidate = new Date(Date.now() + aeShift + daysAhead * 86_400_000)
+    const isoDow = candidate.getUTCDay() === 0 ? 7 : candidate.getUTCDay()
+    const isDelivery =
+      weekType === '5DAYS' ? (isoDow !== 6 && isoDow !== 7) : isoDow !== 7
+    if (!isDelivery) continue
+    if (daysAhead === 1) return 'tomorrow evening'
+    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })} evening`
+  }
+  return 'your next delivery day'
+}
+
+// Three-phase full-screen overlay fired after a successful resume action.
+// Phase 1 'checking': spinning ring + "Checking if your meal can make it
+//   tonight..." — makes the server-side cutoff check feel personal, not instant.
+// Phase 2 'delivery': confetti + Truck medallion — meal IS coming tonight.
+// Phase 2 'cutoff':  no confetti + Moon medallion (warm amber) — honest but warm.
+// The outer backdrop stays mounted across phase 1→2; AnimatePresence mode="wait"
+// sequences the inner content exit→enter without re-mounting the backdrop.
+type ResumePhase = 'checking' | 'delivery' | 'cutoff'
+function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDelivery }: {
+  phase: ResumePhase
+  firstName: string
+  prefersReducedMotion: boolean | null
+  nextDelivery: string
+}) {
+  return (
+    <motion.div
+      key="resume-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: prefersReducedMotion ? 0.15 : 0.28 }}
+      aria-live="polite"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none',
+        // Dark base first so white text is always readable — the radial glow
+        // sits on top as a warm accent, not as the only colour layer. The
+        // previous version started near-transparent at center, making white
+        // text invisible against the cream dashboard background.
+        background: phase === 'cutoff'
+          ? 'radial-gradient(ellipse 55% 45% at center, rgba(200,148,23,0.32) 0%, transparent 70%), rgba(9,24,37,0.90)'
+          : 'radial-gradient(ellipse 55% 45% at center, rgba(245,127,32,0.30) 0%, transparent 70%), rgba(9,24,37,0.90)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
+    >
+      {/* Confetti — delivery result only; cutoff is warm but not a party */}
+      {phase === 'delivery' && !prefersReducedMotion && Array.from({ length: 20 }).map((_, i) => {
+        const angle = (Math.PI * 2 * i) / 20 + (i % 2 === 0 ? 0 : 0.16)
+        const distance = 180 + ((i * 41) % 100)
+        const x = Math.cos(angle) * distance
+        const y = Math.sin(angle) * distance
+        const palette = [OG, '#ffaa00', '#1ea34d', '#ede8da', '#fff']
+        const colour = palette[i % palette.length]
+        const isSquare = i % 3 === 0
+        return (
+          <motion.div
+            key={i}
+            initial={{ x: 0, y: 0, opacity: 1, scale: 0.8, rotate: 0 }}
+            animate={{ x, y, opacity: 0, scale: 0.3, rotate: i % 2 === 0 ? 300 : -260 }}
+            transition={{ duration: 1.3, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
+            style={{
+              position: 'absolute',
+              width: isSquare ? 8 : 7, height: isSquare ? 8 : 7,
+              borderRadius: isSquare ? 2 : '50%',
+              background: colour,
+              boxShadow: `0 0 10px ${colour}55`,
+            }}
+          />
+        )
+      })}
+
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+        <AnimatePresence mode="wait" initial={false}>
+          {phase === 'checking' ? (
+            <motion.div
+              key="checking"
+              initial={{ opacity: 0, scale: 0.88 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}
+            >
+              {/* Spinning ring — language-neutral "checking" signal */}
+              <motion.div
+                animate={prefersReducedMotion ? {} : { rotate: 360 }}
+                transition={{ duration: 1.1, ease: 'linear', repeat: Infinity }}
+                style={{
+                  width: 88, height: 88, borderRadius: '50%',
+                  border: '3px solid rgba(245,127,32,0.28)',
+                  borderTopColor: OG,
+                  flexShrink: 0,
+                }}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1], delay: 0.14 }}
+                style={{ textAlign: 'center', maxWidth: 300 }}
+              >
+                <div style={{
+                  fontFamily: BODY, fontSize: 20, fontWeight: 700,
+                  color: '#fff', lineHeight: 1.5,
+                  textShadow: '0 2px 16px rgba(9,24,37,0.40)',
+                }}>
+                  Checking if your meal<br />can make it tonight…
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, scale: 0.86, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93 }}
+              transition={{
+                duration: prefersReducedMotion ? 0.2 : 0.42,
+                ease: [0.34, 1.56, 0.64, 1],
+              }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}
+            >
+              {/* Medallion — OG orange for delivery; warm amber for cutoff */}
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.2 }
+                    : { type: 'spring', stiffness: 240, damping: 16, delay: 0.04 }
+                }
+                style={{
+                  width: 96, height: 96, borderRadius: '50%',
+                  background: phase === 'delivery' ? OG : '#c89417',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: phase === 'delivery'
+                    ? '0 20px 50px rgba(245,127,32,0.45), 0 0 0 8px rgba(245,127,32,0.18)'
+                    : '0 20px 50px rgba(200,148,23,0.38), 0 0 0 8px rgba(200,148,23,0.15)',
+                }}
+              >
+                {phase === 'delivery'
+                  ? <Truck size={40} strokeWidth={1.8} color="#fff" />
+                  : <Moon  size={38} strokeWidth={1.8} color="#fff" />}
+              </motion.div>
+
+              {/* Text — delayed until the medallion spring settles */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.2, delay: 0.08 }
+                    : { duration: 0.46, ease: [0.16, 1, 0.3, 1], delay: 0.50 }
+                }
+                style={{ textAlign: 'center', maxWidth: 340, padding: '0 24px' }}
+              >
+                <div style={{
+                  fontFamily: BODY, fontSize: 'clamp(26px, 4vw, 34px)',
+                  fontWeight: 800, color: '#fff',
+                  letterSpacing: '-0.02em', lineHeight: 1.1,
+                  textShadow: '0 2px 16px rgba(9,24,37,0.25)',
+                }}>
+                  Welcome back{firstName !== 'there' ? `, ${firstName}` : ''}
+                  <span style={{ color: phase === 'delivery' ? '#ffaa00' : '#ffe09a' }}>.</span>
+                </div>
+                <div style={{
+                  marginTop: 10,
+                  fontFamily: BODY, fontSize: 14, fontWeight: 500,
+                  color: 'rgba(255,255,255,0.82)',
+                  lineHeight: 1.55,
+                  textShadow: '0 1px 8px rgba(9,24,37,0.30)',
+                }}>
+                  {phase === 'delivery'
+                    ? "Dinner's arriving tonight — same time, same place."
+                    : `The 2 PM kitchen cutoff has passed — first delivery ${nextDelivery}, 7–8 PM.`}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}
+
 /**
  * State-owning dashboard for customers with an active subscription.
  * Composes HeroToday / PlanProgress / StatRow / QuickActions, owns the
@@ -143,12 +336,45 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     : isSameDay(sub.last_skipped_date) ? 'skipped'
     : 'active'
   const [localState, setLocalState]       = useState<LocalState>(initialLocalState)
-  const [pendingAction, setPendingAction]   = useState<'skip' | 'pause' | 'resume' | null>(null)
-  const [successAction, setSuccessAction]   = useState<'skip' | 'pause' | 'resume' | null>(null)
+  // ActionKey expanded for the new planning verbs. Each pending → success
+  // microinteraction runs on its OWN key so QuickActions can render the
+  // correct feedback per button. The original three keys (skip/pause/resume)
+  // are the same-day actions that also flip localState optimistically;
+  // the four new keys (plan-skip/unskip/plan-pause/cancel-plan-pause) are
+  // future-facing — no localState change, just visual lifecycle.
+  type ActionKey = 'skip' | 'pause' | 'resume' | 'plan-skip' | 'unskip' | 'plan-pause' | 'cancel-plan-pause'
+  const [pendingAction, setPendingAction]   = useState<ActionKey | null>(null)
+  const [successAction, setSuccessAction]   = useState<ActionKey | null>(null)
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [showPauseConfirm, setShowPauseConfirm] = useState(false)
   const [showQueuedPauseWarning, setShowQueuedPauseWarning] = useState(false)
+  // Future-skip / un-skip modal state. mode keys what UI variant renders;
+  // date pre-fills for confirm modes (pill click), absent for picker mode
+  // (QuickActions "Plan a skip" button).
+  const [futureSkipModal, setFutureSkipModal] = useState<{ mode: FutureSkipMode; date?: string } | null>(null)
+  // Plan-a-pause picker modal (open-ended, Variant B).
+  const [planPauseModalOpen, setPlanPauseModalOpen] = useState(false)
+  // Cancel-planned-pause confirmation modal — when sub has planned_pause_start
+  // and customer taps the (now-transformed) Pause button.
+  const [showCancelPlannedPause, setShowCancelPlannedPause] = useState(false)
+  // Optimistic state for the four future-facing operations. The bar reads
+  // through this so it reflects the change the instant the customer confirms,
+  // before router.refresh delivers canonical data. Key insight: the button's
+  // success state must NOT lead the bar's visual change — that creates the
+  // unsettling lag where the button says "scheduled" but the bar hasn't moved
+  // yet. With optimisticOp set immediately on confirm, the bar updates first;
+  // the button's success state lands ~200ms later when the server confirms.
+  // Cleared on error (rollback) or by the convergence useEffect below when
+  // canonical data catches up.
+  type OptimisticFutureOp =
+    | { kind: 'plan-skip'; date: string }
+    | { kind: 'unskip'; date: string }
+    | { kind: 'plan-pause'; date: string }
+    | { kind: 'cancel-plan-pause' }
+  const [optimisticOp, setOptimisticOp] = useState<OptimisticFutureOp | null>(null)
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [resumeOverlayPhase, setResumeOverlayPhase] = useState<ResumePhase | null>(null)
+  const resumeOverlayTimers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   useEffect(() => {
     setLocalState(
@@ -159,20 +385,24 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     )
   }, [sub.status, sub.last_skipped_date])
 
-  useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current) }, [])
+  useEffect(() => () => {
+    if (successTimer.current) clearTimeout(successTimer.current)
+    resumeOverlayTimers.current.forEach(clearTimeout)
+  }, [])
 
   useEffect(() => {
-    if (!showSkipConfirm && !showPauseConfirm && !showQueuedPauseWarning) return
+    if (!showSkipConfirm && !showPauseConfirm && !showQueuedPauseWarning && !showCancelPlannedPause) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setShowSkipConfirm(false)
         setShowPauseConfirm(false)
         setShowQueuedPauseWarning(false)
+        setShowCancelPlannedPause(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showSkipConfirm, showPauseConfirm, showQueuedPauseWarning])
+  }, [showSkipConfirm, showPauseConfirm, showQueuedPauseWarning, showCancelPlannedPause])
 
   const isWeekly       = sub.plan_name.includes('Weekly Flex')
   const isOneTime      = sub.plan_name.includes('One-Time')
@@ -207,6 +437,26 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       if (successTimer.current) clearTimeout(successTimer.current)
       setSuccessAction(actionKey)
       successTimer.current = setTimeout(() => setSuccessAction(null), 1400)
+      if (actionKey === 'resume') {
+        const isAfterCutoff = skipPastCutoff && !skipNoDelivery
+        if (isAfterCutoff) {
+          try {
+            const todayAE = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+            sessionStorage.setItem('dorm-resumed-after-cutoff', todayAE)
+          } catch {}
+          setResumedAfterCutoff(true)
+        }
+        // Clear any stale overlay timers before starting fresh
+        resumeOverlayTimers.current.forEach(clearTimeout)
+        resumeOverlayTimers.current = []
+        setResumeOverlayPhase('checking')
+        const t1 = setTimeout(() => {
+          setResumeOverlayPhase(isAfterCutoff ? 'cutoff' : 'delivery')
+          const t2 = setTimeout(() => setResumeOverlayPhase(null), 3400)
+          resumeOverlayTimers.current.push(t2)
+        }, 1800)
+        resumeOverlayTimers.current.push(t1)
+      }
       router.refresh()
     })
   }
@@ -215,6 +465,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id), 'skipped', 'skip') }
   const handlePauseRequest = () => {
     if (isPending || isScheduled) return
+    // Already-scheduled planned pause: tapping the button opens the cancel
+    // confirmation. This is the third state of the merged button (next to
+    // "Pause now" and "Resume plan").
+    if (sub.planned_pause_start && localState === 'active') {
+      setShowCancelPlannedPause(true)
+      return
+    }
     if (localState === 'paused') {
       // Same-day lock: kitchen needs a committed no-prep window. UI button is
       // already disabled, but guard here too so a double-tap can't sneak through.
@@ -243,17 +500,158 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     act(() => pauseSubscription(sub.id), 'paused', 'pause')
   }
 
+  // Future-skip handlers. Differ from `act()` for skip/pause because
+  // future-skip doesn't change `localState` (today's UI stays as-is —
+  // we're scheduling a skip for a different day, not flipping current
+  // status). On confirmation we close the modal, fire the server action,
+  // and refresh so the calendar bar picks up the new skipped_dates entry.
+  const openFutureSkipModal   = (date: string) => setFutureSkipModal({ mode: 'confirm-skip', date })
+  const openFutureUnskipModal = (date: string) => setFutureSkipModal({ mode: 'confirm-unskip', date })
+  const openPlanSkipPicker    = () => setFutureSkipModal({ mode: 'pick-then-skip' })
+  const closeFutureSkipModal  = () => setFutureSkipModal(null)
+
+  // Shared microinteraction runner for future-facing actions. Mirrors the
+  // pending → success → steady choreography of `act()` without the
+  // optimistic localState flip (these actions don't affect today's status).
+  //
+  // CRITICAL ORDERING: optimisticOp is set BEFORE pendingAction in the same
+  // render. React batches these so the next paint shows the bar already
+  // updated AND the spinner showing — visually they appear in lockstep. The
+  // success state is only reached AFTER the server confirms, so the customer
+  // never sees a "scheduled" button before the bar has moved.
+  //
+  // The success state auto-clears after 1.4s — long enough to read, short
+  // enough to feel snappy. Pending and success are keyed so QuickActions
+  // can render the correct microinteraction on the correct button.
+  const runFutureAction = (
+    fn: () => Promise<{ error?: string } | { success: boolean }>,
+    actionKey: ActionKey,
+    optimistic: OptimisticFutureOp,
+  ) => {
+    setActionError(null)
+    setOptimisticOp(optimistic)
+    setPendingAction(actionKey)
+    startTransition(async () => {
+      let result: { error?: string } | { success: boolean } | null = null
+      let threw: Error | null = null
+      try { result = await fn() }
+      catch (e) { threw = e as Error }
+      setPendingAction(null)
+      if (threw || (result && 'error' in result && result.error)) {
+        // Rollback: clear optimistic state so the bar reverts to canonical.
+        setOptimisticOp(null)
+        setActionError(threw ? `Server error: ${threw.message}` : (result as { error: string }).error)
+        return
+      }
+      if (successTimer.current) clearTimeout(successTimer.current)
+      setSuccessAction(actionKey)
+      successTimer.current = setTimeout(() => setSuccessAction(null), 1400)
+      router.refresh()
+      // Note: optimisticOp stays set until canonical data catches up. The
+      // convergence effect below detects the match and clears it then.
+    })
+  }
+  const handleConfirmFutureSkip = (date: string) => {
+    setFutureSkipModal(null)
+    runFutureAction(() => skipFutureDate(sub.id, date), 'plan-skip', { kind: 'plan-skip', date })
+  }
+  const handleConfirmFutureUnskip = (date: string) => {
+    setFutureSkipModal(null)
+    runFutureAction(() => unskipFutureDate(sub.id, date), 'unskip', { kind: 'unskip', date })
+  }
+
+  // Plan-a-pause handlers. Follow the same shape as future-skip — picker
+  // modal commits via server action, no localState flip (status stays
+  // Active until the cron activates the pause on the scheduled date).
+  const openPlanPausePicker = () => setPlanPauseModalOpen(true)
+  const closePlanPauseModal  = () => setPlanPauseModalOpen(false)
+  const handleConfirmPlanPause = (startDateIso: string) => {
+    setPlanPauseModalOpen(false)
+    runFutureAction(() => planPause(sub.id, startDateIso), 'plan-pause', { kind: 'plan-pause', date: startDateIso })
+  }
+  const handleCancelPlannedPause = () => {
+    setShowCancelPlannedPause(false)
+    runFutureAction(() => cancelPlannedPause(sub.id), 'cancel-plan-pause', { kind: 'cancel-plan-pause' })
+  }
+
+  // Convergence detector — clears optimisticOp once the canonical sub prop
+  // reflects the customer's change. Runs after router.refresh propagates new
+  // server data through the layout. While optimisticOp is set, the bar reads
+  // through it (so canonical+optimistic produces the same effective state as
+  // canonical alone once they agree). Without this, optimisticOp would linger
+  // indefinitely and conflict with subsequent operations.
+  useEffect(() => {
+    if (!optimisticOp) return
+    const canonicalSkipped = sub.skipped_dates ?? []
+    let caughtUp = false
+    switch (optimisticOp.kind) {
+      case 'plan-skip':
+        caughtUp = canonicalSkipped.includes(optimisticOp.date)
+        break
+      case 'unskip':
+        caughtUp = !canonicalSkipped.includes(optimisticOp.date)
+        break
+      case 'plan-pause':
+        caughtUp = sub.planned_pause_start === optimisticOp.date
+        break
+      case 'cancel-plan-pause':
+        caughtUp = !sub.planned_pause_start
+        break
+    }
+    if (caughtUp) setOptimisticOp(null)
+  }, [sub.skipped_dates, sub.planned_pause_start, optimisticOp])
+
   // When the user just clicked Skip, the optimistic localState flips to 'skipped'
   // before router.refresh() lands. During that window the server count is still
   // stale — bump it locally so StatRow's "Skips used" tile and the PlanProgress
   // bar move in lockstep with the status change instead of a beat behind.
   const optimisticSkipPending =
     localState === 'skipped' && !isSameDay(sub.last_skipped_date)
+  // Today's AE wall date — appended to skipped_dates optimistically so the
+  // calendar bar paints today's pill as hatched the instant the customer
+  // clicks Skip, before the server round-trip completes.
+  const todayAEIso = (() => {
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+    return `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`
+  })()
+  // Compose the optimistic + canonical view of skipped_dates, planned_pause,
+  // and the related counters. Two layers stack:
+  //   1. Same-day skip (existing optimisticSkipPending)
+  //   2. Future-facing op (new optimisticOp)
+  // Each layer is dedup-safe — if canonical data already reflects the change
+  // (router.refresh landed before the convergence effect ran), the effective
+  // values stay correct.
+  let effSkippedDates: string[] = sub.skipped_dates ?? []
+  let effSkippedCount = sub.skipped_meals_count
+  let effPlannedPauseStart: string | null = sub.planned_pause_start ?? null
+  let effHasPausedBefore = sub.has_paused_before
+  if (optimisticSkipPending && !effSkippedDates.includes(todayAEIso)) {
+    effSkippedDates = [...effSkippedDates, todayAEIso]
+    effSkippedCount += 1
+  }
+  if (optimisticOp?.kind === 'plan-skip' && !effSkippedDates.includes(optimisticOp.date)) {
+    effSkippedDates = [...effSkippedDates, optimisticOp.date]
+    effSkippedCount += 1
+  } else if (optimisticOp?.kind === 'unskip' && effSkippedDates.includes(optimisticOp.date)) {
+    effSkippedDates = effSkippedDates.filter(d => d !== optimisticOp.date)
+    effSkippedCount = Math.max(0, effSkippedCount - 1)
+  } else if (optimisticOp?.kind === 'plan-pause') {
+    effPlannedPauseStart = optimisticOp.date
+    effHasPausedBefore = true
+  } else if (optimisticOp?.kind === 'cancel-plan-pause') {
+    effPlannedPauseStart = null
+    effHasPausedBefore = false
+  }
+  effSkippedDates = effSkippedDates.slice().sort()
+
   const effectiveSub: Subscription = {
     ...sub,
     status: localState === 'paused' ? SUBSCRIPTION_STATUS.PAUSED : localState === 'skipped' ? SUBSCRIPTION_STATUS.SKIPPED : sub.status,
-    skipped_meals_count: optimisticSkipPending ? sub.skipped_meals_count + 1 : sub.skipped_meals_count,
-    last_skipped_date:   optimisticSkipPending ? new Date().toISOString()    : sub.last_skipped_date,
+    skipped_meals_count: effSkippedCount,
+    last_skipped_date:   optimisticSkipPending ? new Date().toISOString() : sub.last_skipped_date,
+    skipped_dates: effSkippedDates,
+    planned_pause_start: effPlannedPauseStart,
+    has_paused_before: effHasPausedBefore,
   }
 
   // Skip allowance per plan tier — `total: 0` means the plan doesn't include
@@ -311,6 +709,20 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     return isoDow === 6 || isoDow === 7  // 5DAYS
   }, [subWeekType])
 
+  // The user resumed after the 2 PM kitchen cutoff on a delivery day. Persisted
+  // through router.refresh() via sessionStorage (keyed to today's AE date) so
+  // the hero doesn't revert to a false "Arriving in ~Nh" or "Delivered" state
+  // after the server responds. Cleared automatically on the next calendar day.
+  const [resumedAfterCutoff, setResumedAfterCutoff] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('dorm-resumed-after-cutoff')
+      if (!stored) return false
+      const todayAE = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      if (stored !== todayAE) { sessionStorage.removeItem('dorm-resumed-after-cutoff'); return false }
+      return true
+    } catch { return false }
+  })
+
   // Same-day resume lock: if the sub was paused today (AE calendar) the resume
   // button stays locked. The kitchen needs at least one committed no-prep window
   // before the customer can flip back — same-day reversal creates operational
@@ -325,19 +737,18 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     return todayAE === pauseAE
   }, [sub.pause_date, localState])
 
-  // Final-day pause lock: it's the cycle's last delivery date AND the AE
-  // wall clock has crossed 14:00 (kitchen prep cutoff). Pausing now would
-  // push end_date out by 1 calendar day, but tonight's delivery is already
-  // committed — the pause wouldn't protect anything; it'd just delay the
-  // closure. Lock it; the customer can still Resume from a paused state.
+  // Final-day pause lock — ANY time on the literal end_date. Pausing on the
+  // last delivery day doesn't protect a future meal (cycle ends after that
+  // day), is operationally meaningless, AND is a potential abuse vector
+  // (pause-on-last-day → never resume → paused_days drags end_date forever).
+  // Stricter than the previous 14:00 AE gate — now blocks the full day.
+  // Whether end_date is a natural last day or a make-up day, that specific
+  // day is off-limits. Customer can still Resume from a paused state.
   const pausePastFinalDay = useMemo(() => {
-    if (!skipPastCutoff) return false   // tracks the same 14:00 AE tick
-    // Compare AE wall-date to the sub's end_date. They're both calendar
-    // dates so a string compare on YYYY-MM-DD works.
     const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
     const aeIso = `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`
-    return aeIso === sub.end_date
-  }, [skipPastCutoff, sub.end_date])
+    return aeIso >= sub.end_date
+  }, [sub.end_date])
 
   // Stagger entrance only on first visit per session — avoids 700ms hold-up on every navigation
   const [skipStagger, setSkipStagger] = useState(false)
@@ -375,6 +786,23 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
 
   return (
     <div className="dash-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
+
+      {/* ── Resume welcome overlay — 3-phase emotional moment on plan resume.
+            Phase 1 'checking': spinning ring + "Checking if your meal can make
+              it tonight…" — converts the server round-trip into a narrative beat.
+            Phase 2 'delivery': confetti + Truck medallion — meal coming tonight.
+            Phase 2 'cutoff':  Moon medallion (warm amber) — honest but warm.
+            pointer-events: none throughout — dashboard stays interactive. ── */}
+      <AnimatePresence>
+        {resumeOverlayPhase && (
+          <ResumeWelcomeOverlay
+            phase={resumeOverlayPhase}
+            firstName={firstName}
+            prefersReducedMotion={prefersReducedMotion}
+            nextDelivery={nextDeliveryLabel(subWeekType)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Success overlay — 2s emotional flourish after successful checkout.
             Animated checkmark + radial confetti burst over a softly blurred
@@ -562,32 +990,33 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           )}
         </AnimatePresence>
 
-        {/* Greeting ribbon — name + accumulated equity (loyalty as endowed progress, not guilt) */}
+        {/* Greeting ribbon — name + accumulated equity (loyalty as endowed
+            progress, not guilt). Queued-renewal pill moved out of this
+            row to below the plan-progress section — see the
+            {queuedSub && (...)} block after the dash-grid closes. */}
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}
+          style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}>
-              {getGreeting()}, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong>.
-            </div>
-            {totalDelivered >= 5 && (
-              <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, letterSpacing: 0, lineHeight: 1.5 }}>
-                <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinners with us
-                {memberSinceText && <> · since {memberSinceText}</>}
-                {endedPlans.length > 0 && (
-                  <> · <Link
-                          href="/dashboard/history"
-                          style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
-                        >
-                          {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
-                        </Link></>
-                )}
-              </div>
-            )}
+          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted, letterSpacing: 0 }}>
+            {getGreeting()}, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong>.
           </div>
+          {totalDelivered >= 5 && (
+            <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, letterSpacing: 0, lineHeight: 1.5 }}>
+              <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinners with us
+              {memberSinceText && <> · since {memberSinceText}</>}
+              {endedPlans.length > 0 && (
+                <> · <Link
+                        href="/dashboard/history"
+                        style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
+                      >
+                        {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
+                      </Link></>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* Error toast */}
@@ -607,14 +1036,36 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         {/* Profile-completion gate — non-dismissable, blocks plan purchase. */}
         <ProfileBanner missing={profileGate} />
 
-        {/* Last-day-of-cycle renew banner — shown when end_date is today and
-            no Scheduled is queued. The single highest-leverage retention moment
-            in the product. Hidden if a queued sub exists (the user has already
-            renewed). Always shown above the queued-banner so the bookend gets
-            the dominant slot. */}
+        {/* End-of-cycle renew banner — visibility window scales with plan
+            length so longer plans get a longer lead-time:
+              · Monthly   → last 4 days  (4-day heads-up on a ~30-day cycle)
+              · Weekly    → last 2 days  (28% of a 7-day cycle)
+              · Trial/etc → last day only (high-urgency final-meal nudge)
+            Hidden if a queued sub already exists (customer's already
+            committed to a follow-up) or the primary is Scheduled (no live
+            cycle to end). Always sits above the queued-banner slot so the
+            retention bookend gets the dominant position. */}
         {!queuedSub && !isScheduled && (() => {
-          const todayIsEndDate = new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
-          if (!todayIsEndDate) return null
+          const renewWindow = sub.plan_name.includes('Monthly') ? 4
+            : sub.plan_name.includes('Weekly') ? 2
+            : 1
+          const todayMidnight = new Date(new Date().toDateString()).getTime()
+          const endMidnight = new Date(sub.end_date + 'T00:00:00').getTime()
+          const daysToEnd = Math.round((endMidnight - todayMidnight) / 86400000)
+          if (daysToEnd < 0 || daysToEnd > renewWindow - 1) return null
+
+          // Copy adapts to where in the window we are. Today=end preserves
+          // the high-conversion "Last meal tonight" punch; further out
+          // softens to a heads-up while keeping the same CTA.
+          const headline = daysToEnd === 0
+            ? <>Last meal of your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> tonight.</>
+            : daysToEnd === 1
+              ? <>Final day of your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> tomorrow.</>
+              : <>Your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> ends in {daysToEnd} days.</>
+          const subline = daysToEnd === 0
+            ? 'Renew now to keep dinner showing up — your next plan can start tomorrow.'
+            : 'Renew now to keep dinner showing up — pick when your next plan starts.'
+
           return (
             <div style={{
               marginBottom: 18,
@@ -632,10 +1083,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               }}>!</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
-                  Last meal of your <strong style={{ color: OG }}>{cleanPlanName(sub.plan_name)}</strong> tonight.
+                  {headline}
                 </div>
                 <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-                  Renew now to keep dinner showing up — your next plan can start tomorrow.
+                  {subline}
                 </div>
               </div>
               {profileGate.length > 0 || outOfZone ? (
@@ -675,60 +1126,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           )
         })()}
 
-        {/* Queued-renewal banner — shown only when an Active|Paused|Skipped
-            primary AND a Scheduled queue both exist. Saturated slate-blue
-            pill on a deeper-tint background so the "something's coming"
-            signal pops at a glance. The Scheduled row auto-flips to Active
-            via subscription_status_tick at midnight AE on its start_date. */}
-        {queuedSub && (
-          <div style={{
-            marginBottom: 18,
-            padding: '16px 18px',
-            borderRadius: 'var(--radius-sm)',
-            // Saturated slate-blue surface so the banner pops as a confident
-            // "something's coming" signal, not a quiet caption. Subtle inner
-            // highlight + heavier glow give it dimensional pop without
-            // shouting at the user.
-            background: 'linear-gradient(135deg, #3a6f8c 0%, #2a5470 100%)',
-            border: '1px solid rgba(58,111,140,0.55)',
-            color: '#ffffff',
-            fontFamily: BODY,
-            fontSize: 14,
-            lineHeight: 1.45,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            boxShadow: '0 8px 24px rgba(58,111,140,0.30), inset 0 1px 0 rgba(255,255,255,0.10)',
-          }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              fontSize: 10.5,
-              fontWeight: 800,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: '#FFAA00',
-              color: '#3a2200',
-              boxShadow: '0 0 0 3px rgba(255,170,0,0.22), 0 4px 12px rgba(255,170,0,0.40)',
-              flexShrink: 0,
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#3a2200',
-                boxShadow: '0 0 8px rgba(58,34,0,0.55)',
-              }} />
-              Up next
-            </span>
-            <span style={{ color: '#ffffff', minWidth: 0, fontWeight: 600 }}>
-              <strong style={{ fontWeight: 800 }}>{cleanPlanName(queuedSub.plan_name)}</strong>
-              <span style={{ color: 'rgba(255,255,255,0.50)', margin: '0 8px' }}>·</span>
-              <span style={{ color: '#FFD27A', fontWeight: 700 }}>
-                Starts {new Date(queuedSub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}
-              </span>
-            </span>
-          </div>
-        )}
+        {/* Queued-renewal pill moved into the greeting ribbon above — see
+            the {queuedSub && (...)} block inside the motion.div there. */}
 
         {/* 12-column grid — order:
             (1) Stats row (Deliveries/Delivered/Skips/Days)
@@ -752,12 +1151,14 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               && new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
             }
             resumeLockedSameDay={resumeLockedSameDay}
+            resumedAfterCutoff={resumedAfterCutoff}
           />
           <QuickActions
             canPause={canPause}
             localState={localState}
             onPause={handlePauseRequest}
             onSkipRequest={handleSkipRequest}
+            onPlanSkip={openPlanSkipPicker}
             isPending={isPending}
             pendingAction={pendingAction}
             successAction={successAction}
@@ -771,13 +1172,142 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             resumeLockedSameDay={resumeLockedSameDay}
             isPausableTier={isPausableTier}
             isTrialPlan={isOneTime}
+            plannedPauseDate={sub.planned_pause_start ?? null}
           />
           {/* PlanProgress takes the full row width on the main dashboard.
               The Past plans card has moved to /dashboard/plan (beside the
               Common questions block) so the live progress can breathe and
               the historical view lives in one obvious place. */}
-          <PlanProgress sub={effectiveSub} isPaused={localState === 'paused'} />
+          <PlanProgress
+            sub={effectiveSub}
+            isPaused={localState === 'paused'}
+            maxSkips={skipTotal}
+            onPillSkip={openFutureSkipModal}
+            onPillUnskip={openFutureUnskipModal}
+            onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
+          />
         </div>
+
+        {/* Queued-renewal coda — chromeless. Per Nielsen H8 "aesthetic and
+            minimalist design": every element earns its place. The pill
+            container (border + fill) didn't earn its place at footer-level
+            so it's gone — the yellow chip + plan info + Manage link float
+            inline on the cream page, right-aligned. White space is now the
+            framing. The chip is the only visual anchor; nothing competes
+            with it for volume. */}
+        {queuedSub && (
+          <div style={{
+            marginTop: 28,
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}>
+            <div style={{
+              color: S.fg,
+              fontFamily: BODY,
+              fontSize: 12.5,
+              lineHeight: 1.4,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 12,
+              maxWidth: '100%',
+            }}>
+              {/* Left-edge marker — typographic "begins here" anchor. A
+                  1.5px hairline bar at low opacity (no chrome, no box) so
+                  the right-aligned coda has a visual starting point
+                  without re-introducing container weight. */}
+              <span aria-hidden style={{
+                width: 1.5, height: 14, borderRadius: 1,
+                background: 'rgba(9,24,37,0.25)',
+                flexShrink: 0,
+              }} />
+
+              {/* Up next chip — flipped from filled to outlined. The gold
+                  is now the 1.5px ring (via inset boxShadow so the chip
+                  keeps its exact dimensions); the interior is a 10%
+                  yellow wash that composites with the cream page for a
+                  barely-there warm tint. Same brand-yellow vocabulary,
+                  significantly less visual volume — outlined badges feel
+                  like quiet labels, filled badges feel like alerts. */}
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: 9.5,
+                fontWeight: 800,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: 'rgba(245,184,46,0.10)',
+                color: '#3a2200',
+                boxShadow: 'inset 0 0 0 1.5px #F5B82E',
+                flexShrink: 0,
+              }}>
+                <span aria-hidden style={{
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: '#3a2200',
+                }} />
+                Up next
+              </span>
+
+              <span style={{
+                color: S.fg,
+                minWidth: 0,
+                fontWeight: 600,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                <strong style={{ fontWeight: 800, color: S.fg }}>{cleanPlanName(queuedSub.plan_name)}</strong>
+                <span style={{ color: S.fgFaint, margin: '0 7px' }}>·</span>
+                <span style={{ color: NV2, fontWeight: 700 }}>
+                  {(localState === 'paused' || sub.planned_pause_start) ? 'Est. starts ' : 'Starts '}
+                  {new Date(queuedSub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </span>
+                {(localState === 'paused' || sub.planned_pause_start) && (
+                  <span
+                    title="Shifts forward as you stay paused. Confirmed once you resume."
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: 6,
+                      padding: '2px 6px',
+                      borderRadius: 999,
+                      background: 'rgba(30,58,79,0.08)',
+                      border: '1px solid rgba(30,58,79,0.22)',
+                      fontFamily: BODY,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      color: NV2,
+                      cursor: 'help',
+                    }}
+                  >
+                    Tentative
+                  </span>
+                )}
+              </span>
+
+              {/* Manage link — demoted to a quiet gray hover-link. The
+                  orange + arrow combo was a second warm anchor competing
+                  with the yellow chip; here in a coda, the chip is the
+                  only visual signal and the link just needs to be
+                  scannable as a click target on hover. */}
+              <Link
+                href="/dashboard/plan"
+                className="queued-manage-link"
+                style={{
+                  flexShrink: 0,
+                  fontFamily: BODY,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Manage
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Skip confirmation modal — sharpened for irreversibility */}
         <AnimatePresence>
@@ -902,6 +1432,23 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', fontFamily: BODY, fontSize: 12, color: OG, lineHeight: 1.5 }}>
                   Pauses available: <strong>1 of 1</strong>
                 </div>
+                {/* Pause-later affordance — opens the PlanPauseModal so customers
+                    can schedule the pause for a future date instead of pausing
+                    immediately. Same credit, just a different start moment. */}
+                <button
+                  type="button"
+                  onClick={() => { setShowPauseConfirm(false); openPlanPausePicker() }}
+                  style={{
+                    marginTop: 12,
+                    background: 'transparent', border: 'none', padding: 0,
+                    fontFamily: BODY, fontSize: 12.5, fontWeight: 600,
+                    color: S.fgMuted, cursor: 'pointer',
+                    textDecoration: 'underline', textUnderlineOffset: '2px',
+                    textDecorationThickness: '1px',
+                  }}
+                >
+                  Pause from a future date instead →
+                </button>
                 <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                   <button
                     onClick={() => setShowPauseConfirm(false)}
@@ -1014,6 +1561,21 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                   This uses your <strong style={{ color: S.fg }}>1 free pause</strong> for the cycle. Resume any time after tomorrow — your next plan&apos;s confirmed start date will be shown on the dashboard.
                 </div>
 
+                <button
+                  type="button"
+                  onClick={() => { setShowQueuedPauseWarning(false); openPlanPausePicker() }}
+                  style={{
+                    marginTop: 12,
+                    background: 'transparent', border: 'none', padding: 0,
+                    fontFamily: BODY, fontSize: 12.5, fontWeight: 600,
+                    color: S.fgMuted, cursor: 'pointer',
+                    textDecoration: 'underline', textUnderlineOffset: '2px',
+                    textDecorationThickness: '1px',
+                  }}
+                >
+                  Pause from a future date instead →
+                </button>
+
                 <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                   <button
                     onClick={() => setShowQueuedPauseWarning(false)}
@@ -1037,6 +1599,30 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
 
       <style jsx global>{`
         .dash-root { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+        /* Queued-renewal pill — gradient ring around a TRUE translucent
+           interior. The interior's rgba(30,58,79,0.10) composites with the
+           cream page beneath, so the pill reads as a barely-there navy hue
+           (not a solid block). The dual-gradient + background-clip trick
+           can't do this because the outer-clip gradient paints opaque
+           navy across the whole box first, so the inner translucent
+           gradient ends up layered over opaque navy — back to a dark
+           pill. Putting the gradient ring on a masked pseudo-element
+           leaves the container's real background to composite with the
+           page properly. */
+        /* Queued-coda Manage link — quiet gray default, darkens on hover.
+           Replaces the brand-orange + arrow treatment; here the link sits
+           in a chromeless coda where the yellow chip is the only visual
+           anchor, so the link should be scannable on hover, not always
+           shouting. */
+        .queued-manage-link {
+          color: rgba(9,24,37,0.48);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          text-decoration-thickness: 1px;
+          transition: color 150ms;
+        }
+        .queued-manage-link:hover { color: rgba(9,24,37,0.85); }
 
         .dash-grid {
           display: grid;
@@ -1072,6 +1658,20 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         .btn-secondary:not(:disabled):hover { background: rgba(237,232,218,0.22) !important; border-color: rgba(237,232,218,0.45) !important; }
         .btn-ghost:not(:disabled):hover { background: rgba(237,232,218,0.10) !important; }
 
+        /* Resume-success pop — one-shot spring scale when the plan resumes */
+        @keyframes resumeSuccessPop {
+          0%   { transform: scale(1); box-shadow: 0 4px 16px rgba(245,127,32,0.30); }
+          40%  { transform: scale(1.032); box-shadow: 0 10px 32px rgba(245,127,32,0.58); }
+          100% { transform: scale(1); box-shadow: 0 4px 16px rgba(245,127,32,0.30); }
+        }
+        .qa-resume-success {
+          animation: resumeSuccessPop 0.40s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+          will-change: transform;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .qa-resume-success { animation: none !important; }
+        }
+
         /* Upcoming menu card hover */
         .upcoming-card { will-change: transform, box-shadow; }
         .upcoming-card:hover:not(:disabled) {
@@ -1100,6 +1700,83 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         .view-menu-btn:hover { color: var(--ds-fg) !important; }
         .view-menu-btn:active { opacity: 0.7; }
       `}</style>
+
+      {/* Future-skip / un-skip modal — opens from PlanProgress pill clicks
+          (confirm-skip / confirm-unskip) or from QuickActions "Plan a skip"
+          (pick-then-skip). Owns its own AnimatePresence + escape handling.
+          When a renewal is queued, the modal shows a warning banner so the
+          customer knows the queued start date will shift forward. */}
+      <FutureSkipModal
+        open={!!futureSkipModal}
+        onClose={closeFutureSkipModal}
+        mode={futureSkipModal?.mode ?? 'pick-then-skip'}
+        initialDate={futureSkipModal?.date}
+        sub={effectiveSub}
+        maxSkips={skipTotal}
+        queuedSub={queuedSub}
+        isPending={isPending}
+        onConfirmSkip={handleConfirmFutureSkip}
+        onConfirmUnskip={handleConfirmFutureUnskip}
+      />
+
+      {/* Plan-a-pause picker modal — opened from the existing Pause confirm
+          modal's "Pause from a future date instead →" link. */}
+      <PlanPauseModal
+        open={planPauseModalOpen}
+        onClose={closePlanPauseModal}
+        sub={effectiveSub}
+        queuedSub={queuedSub}
+        isPending={isPending}
+        onConfirm={handleConfirmPlanPause}
+      />
+
+      {/* Cancel-planned-pause confirmation. Opens when the customer taps
+          the "Pause planned · [date]" state of the Pause button. Single
+          confirmation — refunds the pause credit on commit. */}
+      <AnimatePresence>
+        {showCancelPlannedPause && sub.planned_pause_start && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'var(--ds-overlay-strong)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(8px)' }}
+            onClick={() => setShowCancelPlannedPause(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 420, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)' }}
+            >
+              <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                Cancel your planned pause?
+              </div>
+              <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
+                Your pause is scheduled for{' '}
+                <strong style={{ color: S.fg }}>
+                  {new Date(sub.planned_pause_start + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </strong>. Cancelling now returns your <strong style={{ color: S.fg }}>1 free pause</strong> to use later in this cycle.
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                <button
+                  onClick={() => setShowCancelPlannedPause(false)}
+                  style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+                >
+                  Keep it planned
+                </button>
+                <button
+                  onClick={handleCancelPlannedPause}
+                  style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
+                >
+                  Cancel pause
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

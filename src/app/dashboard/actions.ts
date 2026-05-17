@@ -315,13 +315,34 @@ export async function pauseSubscription(subscriptionId: string) {
   if (!resolvePlan(subscription.plan_name)?.canPause) {
     return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
   }
-  if (subscription.has_paused_before) return { error: 'You have already used your 1 allowed pause for this subscription.' };
+  // has_paused_before with no planned_pause_start means the credit is already
+  // spent (customer paused + resumed earlier this cycle). Reject.
+  // has_paused_before WITH planned_pause_start means the credit is consumed by
+  // a future-scheduled pause — pausing-now is a valid override that substitutes
+  // "now" for the planned date. Allow it (the planned row is cleared below).
+  const planExists = !!subscription.planned_pause_start;
+  if (subscription.has_paused_before && !planExists) {
+    return { error: 'You have already used your 1 allowed pause for this subscription.' };
+  }
+
+  // Block pause on the literal last day of the cycle. Pausing on end_date
+  // doesn't protect any future meal (cycle ends after that day), and is a
+  // potential abuse vector (pause-on-last-day → never resume → cycle drags
+  // forever via paused_days extensions). Whether end_date is a natural
+  // last day or a make-up day, that specific day is off-limits.
+  const aeTodayForPause = aeTodayIso();
+  if (subscription.end_date && aeTodayForPause >= subscription.end_date) {
+    return { error: 'Can\'t pause on your last delivery day — there\'s no future meal to protect.' };
+  }
 
   // Apply Pause. Note: paused_days is NOT touched here — the daily
   // subscription_pause_tick cron at 00:10 AE increments it by 1 for every
   // day the sub stays Paused, and the trigger pushes end_date out via the
   // canonical formula on each increment. has_paused_before stays true even
   // after resume so the 1-pause-per-cycle rule sticks.
+  // planned_pause_start is force-cleared — if the customer had scheduled a
+  // future pause and is now pausing manually, the plan is superseded by the
+  // immediate action.
   // CAS guard: only flip Active → Paused. Stops a double-tap from re-pausing
   // an already-Paused row (which would no-op but reset pause_date) or racing
   // against a same-window skip.
@@ -330,7 +351,8 @@ export async function pauseSubscription(subscriptionId: string) {
     .update({
       status: SUBSCRIPTION_STATUS.PAUSED,
       pause_date: new Date().toISOString(),
-      has_paused_before: true
+      has_paused_before: true,
+      planned_pause_start: null,
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
@@ -359,14 +381,30 @@ export async function resumeSubscription(subscriptionId: string) {
 
   // Same-day resume lock. Mirrors the UI gate in QuickActions so a client
   // bypass can't create kitchen ambiguity on the day of pause.
+  const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  const todayAE = aeNow.toISOString().slice(0, 10);
+
   if (subscription.pause_date) {
-    const shift = 4 * 60 * 60 * 1000;
-    const todayAE = new Date(Date.now()                              + shift).toISOString().slice(0, 10);
-    const pauseAE = new Date(new Date(subscription.pause_date).getTime() + shift).toISOString().slice(0, 10);
+    const pauseAE = new Date(new Date(subscription.pause_date).getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
     if (todayAE === pauseAE) {
       return { error: 'Your plan was paused today — resume becomes available tomorrow.' };
     }
   }
+
+  // Detect post-cutoff resume on a delivery day. When the customer resumes
+  // after 2 PM AE, the sub flips Active before delivery_tick fires at 20:00 AE,
+  // which would otherwise increment delivered_meals even though no meal was
+  // prepped. Setting resume_cutoff_date = today tells delivery_tick to skip
+  // the row. The end_date is already correct — pause_tick ran at 00:10 AE and
+  // extended it before any afternoon resume could happen.
+  const aeHour = aeNow.getUTCHours();
+  const aeIsoDow = ((aeNow.getUTCDay() + 6) % 7) + 1;
+  const wt = subscription.week_type ?? '6DAYS';
+  const isDeliveryToday =
+    wt === '7DAYS' ? true :
+    wt === '6DAYS' ? aeIsoDow !== 7 :
+    /* 5DAYS */     aeIsoDow !== 6 && aeIsoDow !== 7;
+  const setResumeCutoff = aeHour >= 14 && isDeliveryToday;
 
   // Apply Resume. paused_days is NOT touched — the subscription_pause_tick
   // cron has already been incrementing it by 1 for every midnight crossed
@@ -379,6 +417,7 @@ export async function resumeSubscription(subscriptionId: string) {
     .update({
       status: SUBSCRIPTION_STATUS.ACTIVE,
       pause_date: null,
+      ...(setResumeCutoff ? { resume_cutoff_date: todayAE } : {}),
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.PAUSED)
@@ -541,6 +580,13 @@ export async function skipMeal(subscriptionId: string) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
   }
 
+  // Today's AE wall date as YYYY-MM-DD. aeNow was already shifted by +4h
+  // above, so getUTCFullYear/getUTCMonth/getUTCDate give AE date components
+  // regardless of the server's local tz. Drives the new skipped_dates ledger
+  // that the dashboard's calendar progress bar reads pill-by-pill.
+  const todayAEIso = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
+  const nextSkippedDates = [...(subscription.skipped_dates ?? []), todayAEIso]
+
   // Promote skip to a real DB status — flips Active → Skipped. The
   // subscription_status_tick cron at 00:05 AE auto-reverts to Active so
   // tomorrow's delivery proceeds. The end_date trigger fires on the
@@ -548,13 +594,16 @@ export async function skipMeal(subscriptionId: string) {
   // The .eq('status', Active) is a CAS guard against double-tap / concurrent
   // skip racing past the in-memory check above. If status has flipped between
   // the SELECT and this UPDATE, the WHERE matches zero rows and we surface
-  // a "didn't take" error rather than incrementing the count twice.
+  // a "didn't take" error rather than incrementing the count twice — and the
+  // append to skipped_dates is also guarded by the same CAS, so we never
+  // double-append for the same skip event.
   const { data: skipRows, error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
       status: SUBSCRIPTION_STATUS.SKIPPED,
       skipped_meals_count: subscription.skipped_meals_count + 1,
       last_skipped_date: new Date().toISOString(),
+      skipped_dates: nextSkippedDates,
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
@@ -567,6 +616,375 @@ export async function skipMeal(subscriptionId: string) {
 
   // Revalidate at layout level so the sidebar/topbar plan badge + every nested
   // route under /dashboard sees the new status.
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
+// ── Future-skip helpers (module-local) ────────────────────────────────────────
+
+function aeTodayIso(): string {
+  const ae = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  return `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`;
+}
+
+function isWorkingDayForWeekType(d: Date, weekType: string): boolean {
+  const isoDow = ((d.getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+  if (weekType === '7DAYS') return true;
+  if (weekType === '6DAYS') return isoDow !== 7;
+  // 5DAYS
+  return isoDow !== 6 && isoDow !== 7;
+}
+
+// 1-indexed position of `targetIso` among working days starting at `startIso`.
+// Returns -1 if target is before start, or isn't a working day.
+function workingDayPosition(startIso: string, targetIso: string, weekType: string): number {
+  const target = new Date(targetIso + 'T00:00:00');
+  const d = new Date(startIso + 'T00:00:00');
+  if (target.getTime() < d.getTime()) return -1;
+  let position = 0;
+  while (d.getTime() <= target.getTime()) {
+    if (isWorkingDayForWeekType(d, weekType)) {
+      position++;
+      if (d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate()) {
+        return position;
+      }
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return -1;
+}
+
+/**
+ * Schedule a skip for a FUTURE date. Customer registers an intent to skip a
+ * specific upcoming delivery day; the date lands in `skipped_dates`, the
+ * skip count increments, and the end_date trigger extends the cycle by one
+ * working day. On the morning of the skip date, the status_tick cron at
+ * 00:05 AE promotes the sub from Active → Skipped so the existing 20:00 AE
+ * delivery cron sees the right state and doesn't increment delivered_meals.
+ *
+ * Distinct from same-day skipMeal:
+ *   • skipMeal      — today only, before 2 PM AE, irreversible. Flips status.
+ *   • skipFutureDate — strictly future dates, reversible via unskipFutureDate
+ *                       until the day BEFORE the skip. Doesn't flip status now.
+ */
+export async function skipFutureDate(subscriptionId: string, dateIso: string) {
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
+
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
+
+  // Active or Skipped only. Paused/Scheduled/Ended subs can't queue skips —
+  // Paused has unstable end_date, Scheduled isn't delivering yet, Ended is done.
+  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
+    return { error: 'Skips can only be scheduled on an active subscription.' };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+    return { error: 'Invalid date format.' };
+  }
+
+  // Strictly future. Today's skip goes through the same-day skipMeal path
+  // (with the 2 PM cutoff). Keeps the two flows from stepping on each other.
+  const todayIso = aeTodayIso();
+  if (dateIso <= todayIso) {
+    return { error: 'Pick a date in the future. Use the same-day skip button to skip today\'s meal.' };
+  }
+
+  // Within the current cycle window
+  if (dateIso > subscription.end_date) {
+    return { error: 'Pick a date inside your current cycle.' };
+  }
+
+  // Working day for this week_type
+  const wt = subscription.week_type ?? '6DAYS';
+  const targetD = new Date(dateIso + 'T00:00:00');
+  if (!isWorkingDayForWeekType(targetD, wt)) {
+    return { error: 'That isn\'t a delivery day for your plan — there\'s nothing to skip.' };
+  }
+
+  // Already scheduled?
+  const existing: string[] = subscription.skipped_dates ?? [];
+  if (existing.includes(dateIso)) {
+    return { error: 'You\'ve already scheduled a skip for that day.' };
+  }
+
+  // Skip credits
+  const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
+  if (subscription.skipped_meals_count >= maxSkips) {
+    return { error: `You've used all ${maxSkips} of your skips for this cycle.` };
+  }
+
+  // Make-up day check. The cycle's "intrinsic" length is totalDeliveries
+  // working days from start; anything past that is a make-up day earned by
+  // earlier skips. Disallowing make-up skips prevents a runaway extension
+  // loop (skip make-up → cycle extends → more make-up days → skip again…).
+  const mealsPerDelivery = subscription.meals_per_day ?? 1;
+  const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
+  const targetPosition = workingDayPosition(subscription.start_date, dateIso, wt);
+  if (targetPosition > totalDeliveries) {
+    return { error: 'Make-up days can\'t be skipped — they\'re already extra days earned by earlier skips.' };
+  }
+
+  // Block skips inside (or on) a planned pause window. Variant B is open-
+  // ended (no end date), so EVERY day from planned_pause_start onwards is
+  // covered by the pause. Skipping inside that window would burn a credit
+  // for no delivery — the pause already covers that day. Customer should
+  // cancel the planned pause first if they want to skip a specific day in
+  // the would-be pause range.
+  if (subscription.planned_pause_start && dateIso >= subscription.planned_pause_start) {
+    return { error: 'That day is inside your planned pause — no need to skip. Cancel the planned pause first if you want to skip this day specifically.' };
+  }
+
+  // Note on queued renewals: this used to reject, but the DB trigger
+  // `trg_subscriptions_shift_queued_scheduled` (which fires on
+  // skipped_meals_count changes) automatically shifts the queued sub's
+  // start_date forward when end_date moves. The customer sees the
+  // cascade explained via a banner in the FutureSkipModal — we let
+  // the action proceed and trust the trigger to keep the dates clean.
+
+  // Append + increment. CAS on skipped_meals_count guards against concurrent
+  // skip requests racing past the credit check above.
+  const nextSkippedDates = [...existing, dateIso].sort();
+  const { data: rows, error: updateError } = await auth.supabase
+    .from('subscriptions')
+    .update({
+      skipped_meals_count: subscription.skipped_meals_count + 1,
+      skipped_dates: nextSkippedDates,
+    })
+    .eq('id', subscriptionId)
+    .eq('skipped_meals_count', subscription.skipped_meals_count)
+    .select('id');
+
+  if (updateError) return { error: 'Failed to schedule skip.' };
+  if (!rows || rows.length === 0) {
+    return { error: 'Couldn\'t schedule the skip — please refresh and try again.' };
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
+/**
+ * Reverse a scheduled future skip. Only works for STRICTLY FUTURE dates —
+ * today's same-day skips remain irreversible per the operational policy
+ * (kitchen prep has already started by the time the customer's looking).
+ *
+ * Removes the date from `skipped_dates`, decrements `skipped_meals_count`,
+ * and the existing end_date trigger contracts the cycle by one working day.
+ */
+export async function unskipFutureDate(subscriptionId: string, dateIso: string) {
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
+
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
+
+  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
+    return { error: 'Cannot un-skip on an inactive subscription.' };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+    return { error: 'Invalid date format.' };
+  }
+
+  // Same-day un-skip is intentionally not supported. Today's path goes through
+  // skipMeal which is irreversible per project policy (kitchen ops cascade).
+  const todayIso = aeTodayIso();
+  if (dateIso <= todayIso) {
+    return { error: 'Past skips and today\'s skip can\'t be undone.' };
+  }
+
+  const existing: string[] = subscription.skipped_dates ?? [];
+  if (!existing.includes(dateIso)) {
+    return { error: 'That day isn\'t scheduled as a skip.' };
+  }
+
+  const nextSkippedDates = existing.filter((d: string) => d !== dateIso);
+  const newCount = Math.max(0, subscription.skipped_meals_count - 1);
+
+  const { data: rows, error: updateError } = await auth.supabase
+    .from('subscriptions')
+    .update({
+      skipped_meals_count: newCount,
+      skipped_dates: nextSkippedDates,
+    })
+    .eq('id', subscriptionId)
+    .eq('skipped_meals_count', subscription.skipped_meals_count)
+    .select('id');
+
+  if (updateError) return { error: 'Failed to un-skip.' };
+  if (!rows || rows.length === 0) {
+    return { error: 'Couldn\'t un-skip — please refresh and try again.' };
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
+/**
+ * Schedule a FUTURE pause start date (Variant B — open-ended).
+ *
+ * The customer specifies WHEN the pause begins; they resume manually when
+ * they're back. On the start date AE, the subscription_status_tick cron at
+ * 00:05 AE promotes Active|Skipped → Paused and clears planned_pause_start.
+ *
+ * Credit accounting: has_paused_before is set true at plan-time. The "1 free
+ * pause per cycle" rule is now anchored on plan-commit, not pause-activation.
+ * cancelPlannedPause refunds the credit (sets has_paused_before back to false)
+ * BEFORE activation; once the cron flips status, the credit is fully spent.
+ *
+ * Distinct from immediate pauseSubscription:
+ *   • pauseSubscription — flips status now. Cascade end_date as paused_days grow.
+ *   • planPause         — sets a future date. No status change yet. Customer
+ *                          can still pauseSubscription manually to override.
+ */
+export async function planPause(subscriptionId: string, startDateIso: string) {
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
+
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
+
+  // Status: Active or Skipped only. Paused/Scheduled/Ended can't queue a
+  // future pause for the same reasons they can't queue a future skip.
+  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
+    return { error: 'Pauses can only be scheduled on an active subscription.' };
+  }
+
+  // Tier gate — only Monthly Premium / Max can pause.
+  if (!resolvePlan(subscription.plan_name)?.canPause) {
+    return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
+  }
+
+  // Credit check. has_paused_before with no existing plan means the credit is
+  // spent (manual pause + resume happened earlier this cycle). With an existing
+  // plan, the customer is trying to re-plan — that's a no-op error: they should
+  // cancel the existing plan first.
+  if (subscription.planned_pause_start) {
+    return { error: 'You already have a pause scheduled. Cancel it first to pick a different date.' };
+  }
+  if (subscription.has_paused_before) {
+    return { error: 'You\'ve already used your 1 allowed pause for this subscription.' };
+  }
+
+  // Date validation
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateIso)) {
+    return { error: 'Invalid date format.' };
+  }
+
+  // Strictly future — same-day pause should use pauseSubscription directly.
+  const todayIso = aeTodayIso();
+  if (startDateIso <= todayIso) {
+    return { error: 'Pick a date in the future. Use Pause now to pause today.' };
+  }
+
+  // Within the current cycle, AND not on the literal last day. Pausing on
+  // end_date is meaningless (cycle ends after that day) and a potential
+  // abuse vector — same rule as same-day pauseSubscription.
+  if (startDateIso >= subscription.end_date) {
+    return { error: 'Pick a date before your last delivery day — pausing on the final day doesn\'t save a meal.' };
+  }
+
+  // Working day for this week_type — pausing on a non-delivery day burns the
+  // credit without protecting any meal that day (none was scheduled). Better
+  // to start the pause on the next working day.
+  const wt = subscription.week_type ?? '6DAYS';
+  const targetD = new Date(startDateIso + 'T00:00:00');
+  if (!isWorkingDayForWeekType(targetD, wt)) {
+    return { error: 'Pick a delivery day — pausing on a non-delivery day doesn\'t save a meal.' };
+  }
+
+  // Not a make-up day (cycle's intrinsic length only).
+  const mealsPerDelivery = subscription.meals_per_day ?? 1;
+  const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
+  const targetPosition = workingDayPosition(subscription.start_date, startDateIso, wt);
+  if (targetPosition > totalDeliveries) {
+    return { error: 'Pauses can\'t start on a make-up day — those are extra days earned by earlier skips.' };
+  }
+
+  // Auto-cancel any scheduled future skips that fall inside the new pause
+  // window. Skipping inside a pause is wasted credit (the pause covers
+  // the day) and double-extends the cycle. Refund those credits in the
+  // same atomic update so the customer's net state is clean. The modal
+  // surfaces this list as a warning before confirm, so this isn't a
+  // silent side effect.
+  const existingSkippedDates: string[] = subscription.skipped_dates ?? [];
+  const skipsToKeep = existingSkippedDates.filter(d => d < startDateIso);
+  const cancelledSkipsCount = existingSkippedDates.length - skipsToKeep.length;
+  const newSkippedMealsCount = Math.max(0, subscription.skipped_meals_count - cancelledSkipsCount);
+
+  // Commit. CAS on has_paused_before AND on skipped_meals_count guards
+  // against concurrent plan-pause / skip-cancel races.
+  const { data: rows, error: updateError } = await auth.supabase
+    .from('subscriptions')
+    .update({
+      planned_pause_start: startDateIso,
+      has_paused_before: true,
+      skipped_dates: skipsToKeep,
+      skipped_meals_count: newSkippedMealsCount,
+    })
+    .eq('id', subscriptionId)
+    .eq('has_paused_before', false)
+    .eq('skipped_meals_count', subscription.skipped_meals_count)
+    .is('planned_pause_start', null)
+    .select('id');
+
+  if (updateError) return { error: 'Failed to schedule pause.' };
+  if (!rows || rows.length === 0) {
+    return { error: 'Couldn\'t schedule the pause — please refresh and try again.' };
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
+/**
+ * Cancel a pre-scheduled pause. Only valid BEFORE activation (the cron has
+ * not yet flipped the sub to Paused). Refunds the pause credit by resetting
+ * has_paused_before to false — the customer is restored to "1 unused pause"
+ * for this cycle.
+ *
+ * Once the cron activates the pause (status → Paused), this action no longer
+ * applies — the customer is genuinely paused and needs to call
+ * resumeSubscription to come back.
+ */
+export async function cancelPlannedPause(subscriptionId: string) {
+  const auth = await requireUser();
+  if (!auth.ok) return { error: auth.error };
+
+  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
+  if (!subResult.ok) return { error: subResult.error };
+  const { subscription } = subResult;
+
+  if (!subscription.planned_pause_start) {
+    return { error: 'No pause is scheduled.' };
+  }
+  // If the sub has already activated into Paused, the customer should use
+  // resume, not cancel. The planned_pause_start column gets cleared on
+  // activation so this should be unreachable in practice — defensive check.
+  if (subscription.status === SUBSCRIPTION_STATUS.PAUSED) {
+    return { error: 'Your pause is already active — use Resume to come back.' };
+  }
+
+  const { data: rows, error: updateError } = await auth.supabase
+    .from('subscriptions')
+    .update({
+      planned_pause_start: null,
+      has_paused_before: false,
+    })
+    .eq('id', subscriptionId)
+    .eq('planned_pause_start', subscription.planned_pause_start)
+    .select('id');
+
+  if (updateError) return { error: 'Failed to cancel scheduled pause.' };
+  if (!rows || rows.length === 0) {
+    return { error: 'Couldn\'t cancel — please refresh and try again.' };
+  }
+
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }

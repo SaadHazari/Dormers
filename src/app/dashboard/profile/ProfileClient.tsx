@@ -569,7 +569,7 @@ export default function ProfileClient({
               sub exists they're queued for the next one and surfaced via
               the pending banner above. The card itself never blocks or
               greys out — just opens the modal. */}
-        <div style={{ ...TIER1, padding: 24, borderRadius: 'var(--radius-md)', border: '1.5px solid rgba(245,127,32,0.20)', marginBottom: 20 }}>
+        <div id="meal-preferences" style={{ ...TIER1, padding: 24, borderRadius: 'var(--radius-md)', border: '1.5px solid rgba(245,127,32,0.20)', marginBottom: 20, scrollMarginTop: 80 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
               <Eyebrow color="#a35100">Meal preferences</Eyebrow>

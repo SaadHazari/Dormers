@@ -2,25 +2,12 @@ import Script from "next/script";
 import "./globals.css";
 import type { Metadata } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
-import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-montserrat",
-});
-
-const lora = localFont({
-  src: [
-    { path: "./fonts/Lora-Regular.ttf",          weight: "400", style: "normal"  },
-    { path: "./fonts/Lora-Italic.ttf",           weight: "400", style: "italic"  },
-    { path: "./fonts/Lora-SemiBold.ttf",         weight: "600", style: "normal"  },
-    { path: "./fonts/Lora-SemiBoldItalic.ttf",   weight: "600", style: "italic"  },
-    { path: "./fonts/Lora-Bold.ttf",             weight: "700", style: "normal"  },
-    { path: "./fonts/Lora-BoldItalic.ttf",       weight: "700", style: "italic"  },
-  ],
-  variable: "--font-lora",
 });
 
 const poppins = Poppins({
@@ -51,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body className={`${montserrat.variable} ${poppins.variable} ${lora.variable} ${jetbrains.variable}`} style={{ fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif' }}>
+      <body className={`${montserrat.variable} ${poppins.variable} ${jetbrains.variable}`} style={{ fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif' }}>
         {/* --- START OF GOOGLE ADS CODE --- */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=AW-17901506705"

@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Check, ChevronRight, CreditCard, LogOut, MessagesSquare,
-  User as UserIcon,
+  User as UserIcon, Gift, ArrowRight,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { OG, OG3, NV2, BODY } from './_shared/tokens'
+import type { ReferralData } from '@/utils/supabase/queries'
 
 export type DropdownKind = 'notif' | 'profile' | 'dormwars' | null
 
@@ -19,26 +20,29 @@ const D = {
   fgMuted:  'var(--ds-fg-muted)',
 }
 
+// Milestones earned on paid conversions. Must stay in sync with the reward
+// tiers in the referral program design doc.
+const MILESTONES = [
+  { at: 1,  label: 'AED 20 credit'           },
+  { at: 3,  label: '+1 skip this cycle'       },
+  { at: 6,  label: 'Free week / AED 100 off' },
+  { at: 10, label: 'Pause unlock'            },
+]
+
 interface Props {
   openDropdown: DropdownKind
   setOpenDropdown: (k: DropdownKind) => void
   onMobileClose?: () => void
   customerCid: string
-  referralCount: number
+  referralData: ReferralData
   displayName: string
   userEmail: string
   initials: string
 }
 
-/**
- * Dropdown panel anchored to the sidebar's right edge — owns the three
- * conditional bodies (DormWars, Notifications, Profile), the referral-
- * copy state, the outside-click / Escape handlers, and the
- * `body.dropdown-open` tooltip-suppression flag.
- */
 export function SidebarDropdowns({
   openDropdown, setOpenDropdown, onMobileClose,
-  customerCid, referralCount, displayName, userEmail, initials,
+  customerCid, referralData, displayName, userEmail, initials,
 }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [referralCopied, setReferralCopied] = useState(false)
@@ -65,13 +69,19 @@ export function SidebarDropdowns({
     }
   }, [openDropdown, setOpenDropdown])
 
-  const copyReferralCode = () => {
-    if (!customerCid) return
-    navigator.clipboard.writeText(customerCid).then(() => {
+  const shareUrl = customerCid ? `https://dormers.ae/r/${customerCid}` : ''
+
+  const copyShareLink = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
       setReferralCopied(true)
-      setTimeout(() => setReferralCopied(false), 1500)
+      setTimeout(() => setReferralCopied(false), 1800)
     })
   }
+
+  // Next milestone the inviter hasn't yet reached.
+  const nextMilestone = MILESTONES.find(m => referralData.converted < m.at)
+  const prevMilestone = MILESTONES.slice().reverse().find(m => referralData.converted >= m.at)
 
   if (!openDropdown) return null
 
@@ -101,86 +111,76 @@ export function SidebarDropdowns({
         }}
       >
         {openDropdown === 'dormwars' && (
-          <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG }}>
-                  Dorm Wars
-                </div>
-                {referralCount > 0 && (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '3px 8px', borderRadius: 999,
-                    background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
-                    fontSize: 11, fontWeight: 800,
-                    letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1,
-                    fontFeatureSettings: '"tnum"',
-                  }}>
-                    <Check size={10} strokeWidth={2.6} />
-                    {referralCount} referred
-                  </span>
-                )}
+          <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* ── Header ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG }}>
+                Refer &amp; Earn
               </div>
-              <div style={{ marginTop: 8, fontSize: 16, fontWeight: 800, color: D.fg, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-                Refer a friend, earn a meal.
-              </div>
-              <div style={{ marginTop: 4, fontSize: 12, color: D.fgMuted, lineHeight: 1.5 }}>
-                {referralCount > 0
-                  ? 'Keep the streak going — share your code below.'
-                  : 'Be the first in your dorm to send your code.'}
-              </div>
+              {referralData.creditBalance > 0 && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', borderRadius: 999,
+                  background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
+                  fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', lineHeight: 1, fontFeatureSettings: '"tnum"',
+                }}>
+                  <Gift size={9} strokeWidth={2.8} />
+                  AED {referralData.creditBalance.toFixed(0)} credit
+                </span>
+              )}
             </div>
 
+            {/* ── Next milestone — single line ── */}
+            {nextMilestone && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: D.fgMuted }}>
+                <span style={{ fontWeight: 800, color: OG, fontFeatureSettings: '"tnum"' }}>
+                  {referralData.converted}/{nextMilestone.at}
+                </span>
+                {' '}subscribers → <span style={{ fontWeight: 700, color: D.fg }}>{nextMilestone.label}</span>
+              </div>
+            )}
+            {prevMilestone && !nextMilestone && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ds-success-fg)' }}>
+                All rewards unlocked
+              </div>
+            )}
+
+            {/* ── Copy link ── */}
             <button
               type="button"
-              onClick={copyReferralCode}
+              onClick={copyShareLink}
               disabled={!customerCid}
-              aria-label={customerCid ? `Copy referral code ${customerCid}` : 'No referral code yet'}
+              aria-label="Copy your referral link"
               style={{
-                width: '100%', padding: '14px 12px',
+                width: '100%', padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: referralCopied
                   ? '1.5px dashed var(--ds-success-border)'
                   : '1.5px dashed var(--ds-og-border-strong)',
-                background: referralCopied
-                  ? 'var(--ds-success-wash)'
-                  : 'var(--ds-og-wash)',
+                background: referralCopied ? 'var(--ds-success-wash)' : 'var(--ds-og-wash)',
                 cursor: customerCid ? 'pointer' : 'default',
-                textAlign: 'center',
-                fontFamily: BODY,
+                textAlign: 'center', fontFamily: BODY,
                 transition: 'background 200ms, border-color 200ms',
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ds-fg-faint)', marginBottom: 6 }}>
-                Your referral code
+              <div style={{ fontSize: 12, fontWeight: 700, color: D.fg, fontFeatureSettings: '"tnum"', marginBottom: 3, wordBreak: 'break-all' }}>
+                {customerCid ? `dormers.ae/r/${customerCid}` : '—'}
               </div>
-              <div style={{
-                fontSize: 28, fontWeight: 900, color: D.fg,
-                letterSpacing: '0.10em', fontFeatureSettings: '"tnum"',
-                lineHeight: 1, marginBottom: 6,
-              }}>
-                {customerCid || '—'}
-              </div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-                color: referralCopied ? 'var(--ds-success-fg)' : D.fgMuted,
-              }}>
-                {referralCopied ? (
-                  <><Check size={11} strokeWidth={2.6} /> Copied</>
-                ) : (
-                  <>Tap to copy</>
-                )}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: referralCopied ? 'var(--ds-success-fg)' : D.fgMuted }}>
+                {referralCopied ? <><Check size={11} strokeWidth={2.6} /> Copied</> : <>Tap to copy</>}
               </div>
             </button>
 
+            {/* ── WhatsApp share ── */}
             <a
-              href={`https://wa.me/?text=I%20get%20fresh%20meals%20delivered%20to%20my%20dorm%20from%20Dormers%27%20using%20code%20${customerCid}%20%E2%80%94%20try%20it%3A%20dormers.ae`}
+              href={`https://wa.me/?text=I%20get%20fresh%20meals%20delivered%20to%20my%20dorm%20from%20Dormers%20%E2%80%94%20try%20your%20first%20meal%20free%3A%20https%3A%2F%2Fdormers.ae%2Fr%2F${customerCid}`}
               target="_blank"
               rel="noreferrer"
               onClick={() => setOpenDropdown(null)}
               style={{
-                padding: '11px 14px', borderRadius: 999,
+                padding: '10px 14px', borderRadius: 999,
                 background: 'var(--ds-success-wash)',
                 border: '1.5px solid var(--ds-success-border)',
                 color: 'var(--ds-success-fg)',
@@ -193,6 +193,21 @@ export function SidebarDropdowns({
               Share on WhatsApp
               <ChevronRight size={14} strokeWidth={2.4} />
             </a>
+
+            {/* ── Link to full page ── */}
+            <Link
+              href="/dashboard/dorm-wars"
+              onClick={() => setOpenDropdown(null)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+                color: D.fgMuted, textDecoration: 'none',
+                textTransform: 'uppercase',
+              }}
+            >
+              View Dorm Wars
+              <ArrowRight size={11} strokeWidth={2.4} />
+            </Link>
           </div>
         )}
 

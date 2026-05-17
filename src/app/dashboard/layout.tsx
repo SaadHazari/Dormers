@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getReferralCount } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
 import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
 
@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let customerCid  = ''
   let customerDorm = ''
   let planName     = ''
-  let referralCount = 0
+  let referralData: ReferralData = { total: 0, converted: 0, creditBalance: 0 }
   const userEmail  = user?.email ?? ''
 
   if (user) {
@@ -26,13 +26,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const [customer, activeSubscription, referrals] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
-      getReferralCount(user.id),
+      getReferralData(user.id),
     ])
-    customerName  = customer?.name      ?? ''
-    customerCid   = customer?.cid       ?? ''
-    customerDorm  = customer?.dorm_name ?? ''
-    planName      = activeSubscription?.plan_name ?? ''
-    referralCount = referrals
+    customerName = customer?.name      ?? ''
+    customerCid  = customer?.cid       ?? ''
+    customerDorm = customer?.dorm_name ?? ''
+    planName     = activeSubscription?.plan_name ?? ''
+    referralData = referrals
   }
 
   return (
@@ -43,7 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         customerDorm={customerDorm}
         userEmail={userEmail}
         planName={planName}
-        referralCount={referralCount}
+        referralData={referralData}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div style={{ display: 'flex', paddingTop: 16 }}>

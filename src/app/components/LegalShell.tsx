@@ -33,7 +33,7 @@ export function LegalShell({
                 <div className="text-center mb-12">
                     <h1
                         className="text-4xl sm:text-5xl font-bold text-white mb-4"
-                        style={{ fontFamily: "'Lora', Georgia, serif" }}
+                        style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif" }}
                     >
                         {title}
                     </h1>

@@ -6,7 +6,7 @@ const WORDS = [...Array(12)].map(() => "DORMERS’");
 const ROW_WORDS = [...WORDS, ...WORDS];
 
 const spanStyle: React.CSSProperties = {
-  fontFamily: "'Lora', Georgia, serif",
+  fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif",
   fontSize: "18px",
   fontWeight: 700,
   lineHeight: "100%",

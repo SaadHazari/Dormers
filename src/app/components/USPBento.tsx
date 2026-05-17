@@ -112,7 +112,7 @@ export default function USPBento() {
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 13 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} className="text-center" style={{ marginBottom: "34px" }}>
             <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#FF7F00", marginBottom: "8px" }}>Exclusive to Dormers</p>
-            <h2 className={isLight ? "text-[#1E3A4F]" : "text-white"} style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1 }}>Why only Dormers?</h2>
+            <h2 className={isLight ? "text-[#1E3A4F]" : "text-white"} style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(29px, 4vw, 47px)", lineHeight: 1.1, fontWeight: 800 }}>Why only Dormers?</h2>
           </motion.div>
           <motion.div variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} className="hidden lg:grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(5, auto)", gap: "13px" }}>
             {cards.map((card, i) => (

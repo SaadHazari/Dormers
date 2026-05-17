@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
+import type { ReferralData } from '@/utils/supabase/queries'
 
 // Surface tokens for the navy sidebar — opacities tuned for AA contrast against #1e3a4f
 const S = {
@@ -24,9 +25,11 @@ const NAV: NavItem[] = [
   { label: 'My Menu',         href: '/dashboard/menu',           icon: Utensils       },
   { label: 'My Plan',         href: '/dashboard/plan',           icon: CalendarDays   },
   { label: 'Explore Plans',   href: '/dashboard/explore-plans',  icon: Compass        },
-  { label: 'Dorm Wars',       href: '/dashboard/dorm-wars',      icon: Trophy, soon: true },
+  { label: 'Dorm Wars',       href: '/dashboard/dorm-wars',      icon: Trophy },
   { label: 'Help & Support',  href: '/dashboard/support',        icon: MessagesSquare },
 ]
+
+const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 0 }
 
 interface Props {
   customerName: string
@@ -34,14 +37,14 @@ interface Props {
   customerDorm: string
   userEmail: string
   notificationCount?: number
-  referralCount?: number
+  referralData?: ReferralData
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
 export default function Sidebar({
   customerName, customerCid, customerDorm, userEmail,
-  notificationCount = 0, referralCount = 0, mobileOpen = false, onMobileClose,
+  notificationCount = 0, referralData = DEFAULT_REFERRAL, mobileOpen = false, onMobileClose,
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
@@ -261,7 +264,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={() => setOpenDropdown(d => d === 'dormwars' ? null : 'dormwars')}
-            data-tooltip={referralCount > 0 ? `Refer & earn — ${referralCount} referred` : 'Refer a friend, earn a meal'}
+            data-tooltip={referralData.total > 0 ? `Refer & earn — ${referralData.total} referred` : 'Refer a friend, earn a meal'}
             data-tooltip-placement="right"
             aria-label="Refer a friend"
             className={openDropdown === 'dormwars' ? 'sidebar-nav-active' : 'sidebar-dormwars-row'}
@@ -283,7 +286,7 @@ export default function Sidebar({
           >
             <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
               <Gift size={18} strokeWidth={2.2} />
-              {referralCount > 0 && (
+              {referralData.total > 0 && (
                 <span style={{
                   position: 'absolute', top: -5, right: -5,
                   minWidth: 14, height: 14, borderRadius: 999,
@@ -292,7 +295,7 @@ export default function Sidebar({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   padding: '0 3px', lineHeight: 1,
                 }}>
-                  {referralCount > 9 ? '9+' : referralCount}
+                  {referralData.total > 9 ? '9+' : referralData.total}
                 </span>
               )}
             </span>
@@ -383,7 +386,7 @@ export default function Sidebar({
           setOpenDropdown={setOpenDropdown}
           onMobileClose={onMobileClose}
           customerCid={customerCid}
-          referralCount={referralCount}
+          referralData={referralData}
           displayName={displayName}
           userEmail={userEmail}
           initials={initials}

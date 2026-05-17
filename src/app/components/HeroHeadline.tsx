@@ -53,10 +53,7 @@ export function HeroHeadline({
                         style={{
                             display: "inline-block",
                             marginRight: "0.24em",
-                            fontFamily:
-                                word === "home"
-                                    ? "'Lora', Georgia, serif"
-                                    : "Montserrat,sans-serif",
+                            fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif",
                             fontWeight: 700,
                         }}
                     >

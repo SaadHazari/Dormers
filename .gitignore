@@ -56,3 +56,9 @@ docs/system-map/node_modules/
 
 # Local Netlify folder
 .netlify
+
+# Supabase CLI scratch
+supabase/.temp/
+
+# Personal secrets — never commit
+Backup-codes-*.txt

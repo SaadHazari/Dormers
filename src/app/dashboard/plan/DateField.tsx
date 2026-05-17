@@ -13,6 +13,12 @@ interface Props {
    *  5DAYS) are non-selectable so they can't be picked as a start date.
    *  Each blocked cell still renders with a tooltip explaining why. */
   weekType?: '5DAYS' | '6DAYS'
+  /** First-time checkout past the 14:00 Asia/Dubai kitchen cutoff. When
+   *  true, the disabled today cell shows a "kitchen cutoff" tooltip instead
+   *  of the generic "in the past" message. Renewals don't set this — their
+   *  unavailable-today is about overlap with the current sub, not the
+   *  kitchen prep window. */
+  cutoffActive?: boolean
 }
 
 // ISO dow for a JS Date — 1=Mon..7=Sun. AE day-of-week math elsewhere uses
@@ -23,7 +29,7 @@ function isoDow(d: Date): number {
   return js === 0 ? 7 : js
 }
 
-export function DateField({ value, onChange, minDate, maxDate, weekType }: Props) {
+export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffActive }: Props) {
   const [open, setOpen] = useState(false)
   // 'down' = popover sits below the trigger (default); 'up' = flips above when
   // there isn't enough viewport space below. Sticky checkout panels at the bottom
@@ -128,7 +134,15 @@ export function DateField({ value, onChange, minDate, maxDate, weekType }: Props
       const week = weekType === '5DAYS' ? 'Mon–Fri' : 'Mon–Sat'
       return `${label} aren’t a delivery day on your ${week} plan — pick a working day instead.`
     }
-    if (d < minD) return 'Start dates can’t be in the past.'
+    if (d < minD) {
+      // Past 14:00 AE, today's cell is unavailable because the kitchen has
+      // already started prepping tonight's run — give the customer the
+      // precise reason rather than the generic "in the past" message.
+      if (cutoffActive && d.getTime() === today.getTime()) {
+        return 'The 2 PM kitchen cutoff has passed — tonight’s run is already prepping. Pick tomorrow or later.'
+      }
+      return 'Start dates can’t be in the past.'
+    }
     if (d > maxD) return 'Outside your 30-day pick window.'
     return undefined
   }

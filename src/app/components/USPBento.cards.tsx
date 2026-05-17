@@ -31,7 +31,7 @@ export const cards: CardData[] = [
         <div className="flex flex-col gap-[13px]">
           <RotateCcw size={21} strokeWidth={2.5} style={iconStyle} />
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(47px, 8vw, 76px)", lineHeight: 1 }}>48</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(18px, 2.5vw, 29px)", lineHeight: 1.15, fontWeight: 700 }}>Dishes Every Month</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(18px, 2.5vw, 29px)", lineHeight: 1.15, fontWeight: 700 }}>Dishes Every Month</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px", opacity: 0.6, marginTop: "2px" }}>New dish daily · Monthly rotating menu</p>
         </div>
         <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(76px, 12vw, 123px)", lineHeight: 1, opacity: 0.07, userSelect: "none", alignSelf: "flex-end" }}>48</p>
@@ -49,7 +49,7 @@ export const cards: CardData[] = [
         <Globe size={21} strokeWidth={1.5} style={iconStyle} />
         <div className="flex flex-col gap-[8px]">
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(34px, 5vw, 47px)", lineHeight: 1, color: "#FF7F00" }}>11+</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(13px, 1.5vw, 18px)", fontWeight: 700, lineHeight: 1.25 }}>International Cuisines</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(13px, 1.5vw, 18px)", fontWeight: 700, lineHeight: 1.25 }}>International Cuisines</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px", opacity: 0.5 }}>From all over the world</p>
         </div>
       </div>
@@ -66,7 +66,7 @@ export const cards: CardData[] = [
         <ShieldCheck size={21} strokeWidth={1.5} style={iconStyle} />
         <div className="flex flex-col gap-[8px]">
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(34px, 5vw, 47px)", lineHeight: 1 }}>100%</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(13px, 1.5vw, 18px)", fontWeight: 700, lineHeight: 1.25 }}>Refund Policy</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(13px, 1.5vw, 18px)", fontWeight: 700, lineHeight: 1.25 }}>Refund Policy</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px", opacity: 0.55 }}>On all remaining meals</p>
         </div>
       </div>
@@ -83,7 +83,7 @@ export const cards: CardData[] = [
         <SkipForward size={18} strokeWidth={2} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(29px, 4vw, 34px)", lineHeight: 1 }}>3×</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.3 }}>Meal Skips</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.3 }}>Meal Skips</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>Per month</p>
         </div>
       </div>
@@ -99,7 +99,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <PauseCircle size={21} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Pause<br />Anytime</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Pause<br />Anytime</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.5 }}>Going on vacation? Pause and come back.</p>
         </div>
       </div>
@@ -116,7 +116,7 @@ export const cards: CardData[] = [
         <Truck size={29} strokeWidth={1.5} style={{ ...iconStyle, color: "#FF7F00" }} />
         <div className="flex flex-col gap-[8px]">
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(47px, 8vw, 76px)", lineHeight: 1, color: "#FF7F00" }}>FREE</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(18px, 2.5vw, 29px)", fontWeight: 700, lineHeight: 1.15 }}>Delivery</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(18px, 2.5vw, 29px)", fontWeight: 700, lineHeight: 1.15 }}>Delivery</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", opacity: 0.55 }}>To all dorms across Dubai</p>
         </div>
       </div>
@@ -132,7 +132,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <Utensils size={18} strokeWidth={1.5} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Veg, Non-Veg<br />& Religious</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Veg, Non-Veg<br />& Religious</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>We respect your preferences</p>
         </div>
       </div>
@@ -149,7 +149,7 @@ export const cards: CardData[] = [
         <LayoutGrid size={18} strokeWidth={2} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
           <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(29px, 4vw, 34px)", lineHeight: 1 }}>3</p>
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700 }}>Plans</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700 }}>Plans</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.6 }}>Monthly · Weekly · Trial</p>
         </div>
       </div>
@@ -165,7 +165,7 @@ export const cards: CardData[] = [
       <div className="flex items-start h-full gap-[21px]">
         <div className="flex flex-col gap-[13px]">
           <CreditCard size={21} strokeWidth={1.5} style={iconStyle} />
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Flexible Payments</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Flexible Payments</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "2px" }}>
             {["Cash", "Card", "Online", "Bank Transfer", "Crypto"].map((m) => (
               <span key={m} style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", background: "rgba(255,255,255,0.1)", color: "#ffffff", borderRadius: "999px", padding: "3px 10px" }}>{m}</span>
@@ -185,7 +185,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <Leaf size={18} strokeWidth={1.5} style={{ ...iconStyle, color: "#4ade80" }} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Eco-Friendly<br />Packaging</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Eco-Friendly<br />Packaging</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.5 }}>Sustainably made</p>
         </div>
       </div>
@@ -201,7 +201,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <Activity size={18} strokeWidth={2} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Calculated<br />Macros</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Calculated<br />Macros</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.6 }}>Know exactly what you eat</p>
         </div>
       </div>
@@ -217,7 +217,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <Headphones size={18} strokeWidth={1.5} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Dedicated<br />Student Support</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Dedicated<br />Student Support</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.55 }}>Always here for you</p>
         </div>
       </div>
@@ -233,7 +233,7 @@ export const cards: CardData[] = [
       <div className="flex flex-col justify-between h-full gap-[8px]">
         <Wallet size={18} strokeWidth={1.5} style={iconStyle} />
         <div className="flex flex-col gap-[5px]">
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Student<br />Budget Friendly</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(11px, 1.2vw, 13px)", fontWeight: 700, lineHeight: 1.35 }}>Student<br />Budget Friendly</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "10px", opacity: 0.5 }}>Made for your wallet</p>
         </div>
       </div>
@@ -249,7 +249,7 @@ export const cards: CardData[] = [
       <div className="flex items-center justify-between h-full gap-[21px]">
         <div className="flex flex-col gap-[13px]">
           <Star size={21} strokeWidth={1.5} style={iconStyle} />
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Best Quality Ingredients</p>
+          <p style={{ fontFamily: "var(--font-montserrat), Arial, Helvetica, sans-serif", fontSize: "clamp(13px, 1.8vw, 18px)", fontWeight: 700 }}>Best Quality Ingredients</p>
           <p style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px", opacity: 0.55 }}>No compromises on what goes into your meals</p>
         </div>
         <p style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: "clamp(76px, 10vw, 110px)", lineHeight: 1, opacity: 0.06, userSelect: "none", flexShrink: 0 }}>★</p>

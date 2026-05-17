@@ -17,7 +17,7 @@ export const CR  = '#ede8da'
 
 // ── Typography ────────────────────────────────────────────────────────────────
 export const BODY    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
-export const DISPLAY = 'var(--font-lora), Georgia, "Times New Roman", serif'
+export const DISPLAY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 export const MONO    = 'var(--font-jetbrains), ui-monospace, monospace'
 
 // ── Surface tokens ────────────────────────────────────────────────────────────

@@ -103,6 +103,25 @@ function computePhase(now: Date, weekType: WeekType): PhaseInfo {
   }
 }
 
+// Next AE delivery day label — "tomorrow evening" in the common case, or a
+// specific short date (e.g. "Mon, 13 May evening") when the next delivery day
+// skips the weekend (Fri/Sat 5DAYS, Sat 6DAYS).
+function nextDeliveryLabel(weekType: WeekType): string {
+  const aeShift = 4 * 60 * 60 * 1000
+  for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
+    const candidate = new Date(Date.now() + aeShift + daysAhead * 86_400_000)
+    const isoDow = candidate.getUTCDay() === 0 ? 7 : candidate.getUTCDay()
+    const isDelivery =
+      weekType === '7DAYS' ? true :
+      weekType === '6DAYS' ? isoDow !== 7 :
+      (isoDow !== 6 && isoDow !== 7)
+    if (!isDelivery) continue
+    if (daysAhead === 1) return 'tomorrow evening'
+    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })} evening`
+  }
+  return 'your next delivery day'
+}
+
 type BadgeStatus = 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' | 'Delivered'
 
 function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boolean }) {
@@ -151,7 +170,7 @@ function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boo
   )
 }
 
-export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false, resumeLockedSameDay = false }: {
+export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false, resumeLockedSameDay = false, resumedAfterCutoff = false }: {
   todayMeal: MenuItem | null
   localState: LocalState
   // ISO date — when the user's plan is paid but hasn't begun yet, override the
@@ -173,6 +192,10 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   // True on the same AE calendar day the customer paused — resume is locked
   // until tomorrow, so the copy should reflect that rather than "when ready".
   resumeLockedSameDay?: boolean
+  // True when the customer resumed AFTER the 2 PM kitchen cutoff on a delivery
+  // day. Overrides the normal delivery phase display so the hero doesn't show
+  // a false countdown or "Delivered" badge for a meal that was never prepped.
+  resumedAfterCutoff?: boolean
 }) {
   const isStartingSoon = !!subStartDate && new Date(subStartDate).getTime() > Date.now()
   const isSkipped = !isStartingSoon && localState === 'skipped'
@@ -194,12 +217,16 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   const isOff = !isStartingSoon && !isSkipped && !isPaused && (
     phase.phase === 'no-delivery' || todayMeal === null
   )
+  // Kitchen cutoff passed on a delivery day and the customer just resumed —
+  // override both isActive and isDelivered so the hero doesn't show a false
+  // countdown or "Tonight's meal is delivered" for a meal that wasn't prepped.
+  const isResumedAfterCutoff = resumedAfterCutoff && !isPaused && !isStartingSoon && !isOff && !isSkipped
   // Active rendering = a delivery day with a known meal AND a phase that's
   // not yet "delivered". Once delivered, switch to the same calm closure
   // language as off/skipped (no need to keep showing "tonight's dish").
-  const isActive = !isStartingSoon && !isOff && !isSkipped && !isPaused
+  const isActive = !isStartingSoon && !isOff && !isSkipped && !isPaused && !isResumedAfterCutoff
     && phase.phase !== 'delivered'
-  const isDelivered = !isStartingSoon && !isOff && !isSkipped && !isPaused
+  const isDelivered = !isStartingSoon && !isOff && !isSkipped && !isPaused && !isResumedAfterCutoff
     && phase.phase === 'delivered'
 
   const badgeStatus: BadgeStatus =
@@ -214,8 +241,11 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     ? new Date(subStartDate + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
     : ''
 
+  const nextDelivery = isResumedAfterCutoff ? nextDeliveryLabel(weekType) : ''
+
   const footerCaption =
     isStartingSoon ? `First meal arrives ${startDateLabel} at 7 PM`
+    : isResumedAfterCutoff ? `First delivery ${nextDelivery}, 7–8 PM`
     : isActive  ? phase.label
     : isDelivered ? "Tonight's meal delivered"
     : isSkipped ? "Credit safe — back tomorrow"
@@ -227,6 +257,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   const stateHeading = isStartingSoon ? "You're all set."
     : isSkipped ? 'You skipped today.'
     : isPaused ? 'Your plan is paused.'
+    : isResumedAfterCutoff ? "You're back."
     : isDelivered ? "Tonight's meal is delivered."
     : isOff && phase.phase === 'no-delivery' ? 'No delivery today.'
     : isOff ? 'No menu set yet.'
@@ -235,6 +266,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   const stateSubtitle = isStartingSoon ? `Your meals begin on ${startDateLabel}.`
     : isSkipped ? "Tomorrow's delivery is on track."
     : isPaused ? (resumeLockedSameDay ? "You can resume from tomorrow onwards." : "Tap resume when you're ready.")
+    : isResumedAfterCutoff ? `The 2 PM kitchen cutoff has passed — first delivery ${nextDelivery}.`
     : isDelivered ? (isLastDayNoQueue ? "We'd love to keep serving you more." : "Same time, same place tomorrow.")
     : isOff && phase.phase === 'no-delivery' ? `${offWeekCopy} See you tomorrow.`
     : isOff ? "Check back shortly."
@@ -354,23 +386,59 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
 
       {/* ── Inactive states (incl. starting-soon for paid+future-start subs) ── */}
       {!isActive && (
-        <div className="hero-active" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <h1 style={{
-            margin: 0,
-            fontFamily: BODY, fontSize: 'clamp(26px, 2.4vw, 36px)',
-            fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em',
-            color: S.fg,
-          }}>
-            {stateHeading}
-          </h1>
-          <p style={{
-            margin: 0,
-            fontFamily: BODY, fontSize: 13, fontWeight: 400,
-            color: S.fgMuted, lineHeight: 1.5, maxWidth: '46ch',
-          }}>
-            {stateSubtitle}
-          </p>
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={
+              isResumedAfterCutoff ? 'resumed-after-cutoff'
+              : isStartingSoon ? 'scheduled'
+              : isPaused ? 'paused'
+              : isSkipped ? 'skipped'
+              : isDelivered ? 'delivered'
+              : 'off'
+            }
+            initial={{ opacity: 0, y: 7 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.30, ease: [0.16, 1, 0.3, 1] }}
+            className="hero-active"
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
+            <h1 style={{
+              margin: 0,
+              fontFamily: BODY, fontSize: 'clamp(26px, 2.4vw, 36px)',
+              fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em',
+              color: S.fg,
+            }}>
+              {stateHeading}
+            </h1>
+            <motion.p
+              initial={isResumedAfterCutoff ? { opacity: 0, y: 4 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.30, ease: [0.16, 1, 0.3, 1], delay: isResumedAfterCutoff ? 0.09 : 0 }}
+              style={{
+                margin: 0,
+                fontFamily: BODY, fontSize: 13, fontWeight: 400,
+                color: S.fgMuted, lineHeight: 1.5, maxWidth: '46ch',
+              }}
+            >
+              {stateSubtitle}
+            </motion.p>
+            {isResumedAfterCutoff && (
+              <motion.p
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.30, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+                style={{
+                  margin: 0,
+                  fontFamily: BODY, fontSize: 12, fontWeight: 400,
+                  color: S.fgMuted, opacity: 0.60, lineHeight: 1.5, maxWidth: '46ch',
+                }}
+              >
+                {"Tonight's slot has been moved to the end of your plan — nothing is lost."}
+              </motion.p>
+            )}
+          </motion.div>
+        </AnimatePresence>
       )}
 
       {/* ── Footer: status pill + caption + view menu ───────────────────────── */}
@@ -404,7 +472,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
             transition: 'color 150ms',
           }}
         >
-          View dish <ChevronRight size={11} strokeWidth={2.4} />
+          {isResumedAfterCutoff ? 'View menu' : 'View dish'} <ChevronRight size={11} strokeWidth={2.4} />
         </Link>
       </div>
 
