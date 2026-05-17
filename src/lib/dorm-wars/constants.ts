@@ -9,8 +9,8 @@
 
 export const CYCLE_MILESTONES = [
   { at: 3,  kind: 'mystery_drop',   value: null }, // RNG computed at fire-time (Mystery Cash Drop)
-  { at: 6,  kind: 'free_week',      value: 132 },  // ~AED 132 = 1 week at avg plan rate (Phase 8D: meal-type-aware)
-  { at: 10, kind: 'free_month',     value: 528 },  // ~AED 528 = 1 month (Phase 8D: meal-type-aware)
+  { at: 6,  kind: 'free_week',      value: null }, // Phase 8D — meal-aware: pricePerMeal × mealsPerWeek
+  { at: 10, kind: 'free_month',     value: null }, // Phase 8D — meal-aware: pricePerMeal × totalMealsInPlan
   { at: 15, kind: 'cash_and_skips', value: 500 },  // 500 cr + 5 bonus_skips (handled separately)
   { at: 20, kind: 'dorm_weekend',   value: null }, // placeholder action (Decision #8)
 ] as const
@@ -57,9 +57,10 @@ export const TIER_DISCOUNT_PERCENT = {
   4: 10,
 } as const
 
-// Tier 4 perk: "100 free meals" delivered as bulk credit (Decision #7).
-// AED 55/meal × 100 meals = AED 5500.
-export const TIER_4_MEALS_CREDIT_AED = 5500
+// Phase 8D — TIER_4_MEALS_CREDIT_AED removed. Tier 4 now computes
+// pricePerMeal × 100 at fire-time via resolveMealPriceContext + tier4MealsValue
+// in src/lib/dorm-wars/meal-pricing.ts. Old flat AED 5500 over-credited every
+// customer (assumed AED 55/meal, far above any real per-meal price).
 
 // Milestone 15 side effect: free skips added to subscription.bonus_skips.
 export const MILESTONE_15_BONUS_SKIPS = 5

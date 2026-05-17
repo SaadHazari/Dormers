@@ -14,6 +14,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import HubClient from './hub/HubClient'
 import { resolvePlan } from '@/lib/plans'
+import { resolveMealPriceContext } from '@/lib/dorm-wars/meal-pricing'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
@@ -101,6 +102,18 @@ export default async function DormWarsPage() {
   const planId = resolvePlan(activeSubscription?.plan_name)?.id ?? null
   const dormWarsEligible = planId === 'monthly-premium' || planId === 'monthly-max'
 
+  // Phase 8D — meal-pricing context for the rewards display. Uses the SAME
+  // resolver the awarder calls at fire-time, so what the user sees ("Free
+  // Week → ~AED 132") matches what eventually lands in their wallet. For
+  // ineligible users the context resolves via the fallback path (most
+  // recent Premium+ sub OR Monthly Premium NonVeg defaults) — fine, the
+  // hub is blurred under the upsell overlay anyway.
+  const mealPriceContext = await resolveMealPriceContext(
+    supabase,
+    user.id,
+    activeSubscription?.id ?? null,
+  )
+
   return (
     <HubClient
       customerCid={customer?.cid ?? ''}
@@ -119,6 +132,7 @@ export default async function DormWarsPage() {
       dormWarsEligible={dormWarsEligible}
       currentPlanId={planId}
       crossDormRecent={crossDormRecent}
+      mealPriceContext={mealPriceContext}
     />
   )
 }

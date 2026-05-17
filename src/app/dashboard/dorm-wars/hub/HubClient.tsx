@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
+import type { MealPriceContext } from '@/lib/dorm-wars/meal-pricing'
+import { freeWeekValue, freeMonthValue } from '@/lib/dorm-wars/meal-pricing'
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PALETTE — Dormers brand translation (2026-05-18)
@@ -72,15 +74,20 @@ const LAYER1_LADDER = [
   { range: '10+',  cash: 40 },
 ]
 
-// Layer 2 — per-cycle milestones
+// Layer 2 — per-cycle milestones. Phase 8D: Free Week / Free Month values
+// are computed at render-time from the customer's mealPriceContext so the
+// hub shows the actual AED they'll get (Veg Premium = AED 108, NonVeg Max
+// = AED 258, etc.) instead of the old hardcoded ~132 / ~528.
 interface CycleMilestone { at: number; label: string; value: string; color: string; Emblem: typeof Gift; rare?: boolean }
-const CYCLE_MILESTONES: CycleMilestone[] = [
-  { at: 3,  label: 'Mystery Cash Drop',  value: 'AED 30–90', color: PURPLE, Emblem: Gift },
-  { at: 6,  label: 'Free Week',          value: '~AED 132',  color: CYAN,   Emblem: Calendar },
-  { at: 10, label: 'Free Month',         value: '~AED 528',  color: GOLD,   Emblem: Trophy },
-  { at: 15, label: '500 cr + 5 Skips',   value: '500 cr',    color: PINK,   Emblem: Coins, rare: true },
-  { at: 20, label: 'Dorm Weekend',       value: 'For all',   color: RED,    Emblem: Users, rare: true },
-]
+function buildCycleMilestones(ctx: MealPriceContext): CycleMilestone[] {
+  return [
+    { at: 3,  label: 'Mystery Cash Drop',  value: 'AED 30–90',                       color: PURPLE, Emblem: Gift },
+    { at: 6,  label: 'Free Week',          value: `~AED ${freeWeekValue(ctx)}`,      color: CYAN,   Emblem: Calendar },
+    { at: 10, label: 'Free Month',         value: `~AED ${freeMonthValue(ctx)}`,     color: GOLD,   Emblem: Trophy },
+    { at: 15, label: '500 cr + 5 Skips',   value: '500 cr',                          color: PINK,   Emblem: Coins, rare: true },
+    { at: 20, label: 'Dorm Weekend',       value: 'For all',                         color: RED,    Emblem: Users, rare: true },
+  ]
+}
 
 // Layer 3 — lifetime tier rewards (matches TIERS above; redundant but explicit)
 interface LifetimeTier { at: number; label: string; color: string; Emblem: typeof Percent }
@@ -159,6 +166,10 @@ interface Props {
   // firstName + dormName + isElite (hall_wall flag) so the feed can tag
   // Elite Dormers inline as rare social proof.
   crossDormRecent:    CrossDormRecentSub[]
+  // Phase 8D — meal-pricing context for Free Week / Free Month display
+  // values. SAME shape the awarder reads at fire-time, so the displayed
+  // "~AED N" matches what eventually lands in the wallet.
+  mealPriceContext:   MealPriceContext
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -194,6 +205,7 @@ export default function HubClient({
   recentRewards,
   dormWarsEligible, currentPlanId,
   crossDormRecent,
+  mealPriceContext,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
@@ -246,6 +258,14 @@ export default function HubClient({
   // an Elite Dormer tag inline next to Tier-4 customers. Empty-array
   // fallback renders a single placeholder line below.
   const pulseItems = crossDormRecent
+
+  // Phase 8D — meal-aware milestone display. The Free Week / Free Month
+  // values shown in the hub now match what the awarder will actually
+  // deposit. Recomputed only when the priceContext shape changes.
+  const cycleMilestones = useMemo(
+    () => buildCycleMilestones(mealPriceContext),
+    [mealPriceContext],
+  )
 
   // ── DERIVED ─────────────────────────────────────────────────────────────
   // Current tier from lifetime recruits
@@ -504,7 +524,7 @@ export default function HubClient({
       {/* 2. HERO CTA — one massive button, the focal point */}
       <HeroCTA
         onClick={startSendFlow}
-        nextCycleMilestone={CYCLE_MILESTONES.find(m => cycleRecruits < m.at)}
+        nextCycleMilestone={cycleMilestones.find(m => cycleRecruits < m.at)}
         cycleRecruits={cycleRecruits}
       />
 
@@ -520,6 +540,7 @@ export default function HubClient({
           cycleTotalDays={cycleTotalDays}
           cycleStartsInDays={cycleStartsInDays}
           onOpen={() => setOpen('quests')}
+          milestones={cycleMilestones}
         />
         <LifetimeColumn
           recruits={recruits}
@@ -572,7 +593,7 @@ export default function HubClient({
       </Modal>
 
       <Modal open={open === 'quests'} onClose={() => setOpen(null)} title="This Month's Rewards" accent={GOLD}>
-        <QuestsScreen recruitsCycle={cycleRecruits} />
+        <QuestsScreen recruitsCycle={cycleRecruits} milestones={cycleMilestones} />
       </Modal>
       <Modal open={open === 'ladder'} onClose={() => setOpen(null)} title="Lifetime Path" accent={CYAN}>
         <TrophyLadderScreen recruits={recruits} />
@@ -1135,22 +1156,23 @@ function Column({
 // ════════════════════════════════════════════════════════════════════════════
 
 function CycleColumn({
-  cycleRecruits, cycleDaysLeft, cycleTotalDays, cycleStartsInDays, onOpen,
+  cycleRecruits, cycleDaysLeft, cycleTotalDays, cycleStartsInDays, onOpen, milestones,
 }: {
   cycleRecruits:     number
   cycleDaysLeft:     number
   cycleTotalDays:    number
   cycleStartsInDays: number
   onOpen:            () => void
+  milestones:        CycleMilestone[]
 }) {
   void cycleTotalDays
   // cycleStartsInDays > 0 means the user's sub hasn't started yet (Scheduled
   // status, queued after a current sub). Show "Starts in N days" instead of
   // "N days left in cycle" — the cycle is not counting down yet.
   const notYetStarted = cycleStartsInDays > 0
-  const max = CYCLE_MILESTONES[CYCLE_MILESTONES.length - 1].at
+  const max = milestones[milestones.length - 1].at
   const fillPct = Math.min(100, (cycleRecruits / max) * 100)
-  const nextMilestone = CYCLE_MILESTONES.find(m => cycleRecruits < m.at)
+  const nextMilestone = milestones.find(m => cycleRecruits < m.at)
 
   return (
     <Column eyebrow="This Month" title="Burst goals for big bonuses" accent={GOLD} onOpen={onOpen}>
@@ -1191,7 +1213,7 @@ function CycleColumn({
         )}
         {/* Stops — each shows its gift icon (Gift/Calendar/Trophy/etc) so
             users can see what each milestone unlocks at a glance. */}
-        {CYCLE_MILESTONES.map(m => {
+        {milestones.map(m => {
           const leftPct = (m.at / max) * 100
           const earned = cycleRecruits >= m.at
           const isNext = m.at === nextMilestone?.at
@@ -1233,7 +1255,7 @@ function CycleColumn({
 
       {/* Threshold numbers under bar */}
       <div style={{ position: 'relative', height: 12 }}>
-        {CYCLE_MILESTONES.map(m => (
+        {milestones.map(m => (
           <span key={m.at} style={{
             position: 'absolute',
             left: `${(m.at / max) * 100}%`,
@@ -2128,7 +2150,7 @@ function TrophyLadderScreen({ recruits }: { recruits: number }) {
   )
 }
 
-function QuestsScreen({ recruitsCycle }: { recruitsCycle: number }) {
+function QuestsScreen({ recruitsCycle, milestones }: { recruitsCycle: number; milestones: CycleMilestone[] }) {
   return (
     <div>
       <p style={{
@@ -2145,9 +2167,9 @@ function QuestsScreen({ recruitsCycle }: { recruitsCycle: number }) {
         <span style={{ fontFeatureSettings: '"tnum"' }}>{recruitsCycle}</span> recruits this month
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {CYCLE_MILESTONES.map(m => {
+        {milestones.map(m => {
           const earned = recruitsCycle >= m.at
-          const isNext = !earned && m.at === CYCLE_MILESTONES.find(x => recruitsCycle < x.at)?.at
+          const isNext = !earned && m.at === milestones.find(x => recruitsCycle < x.at)?.at
           return (
             <div key={m.at} style={{
               position: 'relative',

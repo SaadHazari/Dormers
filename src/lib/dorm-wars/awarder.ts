@@ -14,8 +14,9 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mysteryDropValue } from './rng'
-import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS, TIER_4_MEALS_CREDIT_AED } from './constants'
+import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from './constants'
 import { getCycleRecruits } from '@/utils/supabase/queries'
+import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from './meal-pricing'
 
 // Use the wide-generic form so this matches the type returned by bare
 // createClient(url, key) — which is SupabaseClient<any, "public", "public", any, any>.
@@ -71,6 +72,13 @@ export async function awardCycleAndTierRewards(
 ): Promise<void> {
   const sb = admin()
 
+  // Phase 8D — meal-aware price context. Free Week / Free Month / Tier 4
+  // payouts now scale to the customer's actual plan + meal preference
+  // instead of using hardcoded AED 132 / 528 / 5500. Computed once here
+  // and reused for both Layer 2 and Layer 3 so any Veg customer who hits
+  // multiple milestones in the same call gets consistent valuations.
+  const priceCtx = await resolveMealPriceContext(sb, customerId, subscriptionId)
+
   // ── Layer 2: cycle milestones ──
   // Per Decision #9: skip Layer 2 entirely when no active sub.
   // Per Pitfall #7: Layer 2 ticks regardless of Layer 1 monthly cap — INTENTIONAL.
@@ -83,7 +91,14 @@ export async function awardCycleAndTierRewards(
     const sortedMilestones = [...CYCLE_MILESTONES].sort((a, b) => a.at - b.at)
     for (const m of sortedMilestones) {
       if (cycleRecruits < m.at) continue // not reached yet — skip, keep looking
-      const value = m.kind === 'mystery_drop' ? mysteryDropValue() : m.value
+
+      // Phase 8D — meal-type-aware value resolution. mystery_drop still RNG.
+      // free_week / free_month read priceCtx; everything else uses m.value.
+      let value: number | null
+      if (m.kind === 'mystery_drop') value = mysteryDropValue()
+      else if (m.kind === 'free_week') value = freeWeekValue(priceCtx)
+      else if (m.kind === 'free_month') value = freeMonthValue(priceCtx)
+      else value = m.value
 
       const { data: inserted } = await sb
         .from('cycle_rewards')
@@ -102,7 +117,7 @@ export async function awardCycleAndTierRewards(
       // Side effects on first-award only:
       if (m.kind === 'mystery_drop' || m.kind === 'free_week' || m.kind === 'free_month') {
         // value is non-null at this point: mystery resolved via RNG,
-        // free_week/month carry numeric constants from CYCLE_MILESTONES.
+        // free_week/month resolved via meal-aware priceCtx above.
         await depositCredit(sb, customerId, value!, `cycle_milestone_${m.at}`)
       }
       if (m.kind === 'cash_and_skips') {
@@ -174,10 +189,17 @@ export async function awardCycleAndTierRewards(
       )
     }
     if (t.tier === 4) {
-      // 100 free meals delivered as a 5500 AED bulk credit (Decision #7,
-      // calibrated at AED 55/meal). Partial-redeems across many future
-      // checkouts via the existing per-session synth + clamp.
-      await depositCredit(sb, customerId, TIER_4_MEALS_CREDIT_AED, 'tier_4_meals')
+      // Phase 8D — "100 free meals" now scales to the customer's actual
+      // plan + meal preference instead of the old flat AED 5500 (which
+      // assumed AED 55/meal, far above any real per-meal price). Typical
+      // payouts: AED 1750 (Monthly Max Veg) → AED 2200 (Monthly Premium
+      // NonVeg). Partial-redeems across many future checkouts via the
+      // existing per-session synth + clamp.
+      //
+      // priceCtx for a lapsed customer (no active sub) falls back to the
+      // most recent Premium+ sub they ever had, then to Monthly Premium
+      // NonVeg if there's no Premium+ history. See meal-pricing.ts.
+      await depositCredit(sb, customerId, tier4MealsValue(priceCtx), 'tier_4_meals')
       await sb.from('customers').update({ hall_wall: true }).eq('id', customerId)
     }
     // Tier 1 (5% off) has no immediate side effect — the discount applies at
