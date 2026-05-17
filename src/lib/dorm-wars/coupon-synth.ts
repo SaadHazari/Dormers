@@ -84,7 +84,12 @@ export async function synthesizePerSessionCoupon(
     max_redemptions: 1,
     // Auto-purge abandoned-checkout coupons after 24h (RESEARCH Pitfall #1).
     redeem_by: Math.floor(Date.now() / 1000) + 86400,
-    name: `Dorm Wars rewards (${creditAppliedFils / 100} AED credit + ${tierPercent}% tier)`,
+    // Stripe caps coupon name at 40 chars. Worst-case "Dorm Wars: 9999 AED + 10% off" = 29.
+    name: tierPercent > 0 && creditAppliedFils > 0
+      ? `Dorm Wars: ${creditAppliedFils / 100} AED + ${tierPercent}% off`
+      : tierPercent > 0
+      ? `Dorm Wars: ${tierPercent}% tier discount`
+      : `Dorm Wars: ${creditAppliedFils / 100} AED credit`,
     metadata: {
       user_id: userId,
       credit_applied_fils: String(creditAppliedFils),
