@@ -5,7 +5,7 @@ import {
   getCrossDormRecent,
   getRecentInvites,
   getActiveSubscription,
-  getDailyDropToday,
+  getStreakChestState,
   getStreak,
   getCycleRecruits,
   getRecentRewardEvents,
@@ -40,7 +40,7 @@ export default async function DormWarsPage() {
     referralData,
     invites,
     activeSubscription,
-    initialDailyDrop,
+    initialChestState,
     initialStreak,
     recentRewards,
     crossDormRecent,
@@ -49,7 +49,10 @@ export default async function DormWarsPage() {
     getReferralData(user.id),
     getRecentInvites(user.id),
     getActiveSubscription(user.id),
-    getDailyDropToday(user.id),
+    // Phase 8E — Streak Chest replaces Daily Drop. State includes streak
+    // count + chest cooldown (last_chest_day) + the most recent claim row
+    // so the hub can render "your chest is ready" or "you just opened…".
+    getStreakChestState(user.id),
     getStreak(user.id),
     // Reward events (referral conversion / cycle milestone / lifetime tier)
     // power the celebratory banner at the top of HubClient when a friend
@@ -123,7 +126,7 @@ export default async function DormWarsPage() {
       invites={invites}
       activeSubscription={activeSubscription}
       initialStreak={initialStreak}
-      initialDailyDrop={initialDailyDrop}
+      initialChestState={initialChestState}
       cycleRecruits={cycleRecruits}
       lifetimeTier={lifetimeTier}
       earlyAccess={Boolean(perkFlagsRow.data?.early_access)}

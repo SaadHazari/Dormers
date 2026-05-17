@@ -370,37 +370,73 @@ function rewardsAdmin() {
   )
 }
 
+// Phase 8E — Streak Chest replaces Daily Drop. The chest unlocks every 8
+// unbroken streak days; breaking the streak resets chest progress to 0.
+// See migration phase_8e_streak_chest_replaces_daily_drop.
+export type StreakChestBucket = 'cash_5_8' | 'cash_8_10' | 'cash_10_12' | 'doubler'
+
+export interface StreakChestState {
+  count:         number                              // streak.count
+  lastChestDay:  number                              // streak.last_chest_day
+  chestReady:    boolean                             // count - lastChestDay >= 8
+  daysUntilNext: number                              // 8 - (count - lastChestDay), >= 0
+  recentChest:   {                                   // most recent claim, for "you just got" UI
+    rng_bucket:         StreakChestBucket
+    value_aed:          number | null                // null for doubler
+    claimed_at:         string
+    doubler_expires_at: string | null
+    streak_day:         number
+  } | null
+}
+
 /**
- * Read the customer's most recent Daily Drop, scoped to the 20-hour cooldown
- * window. Returns null if the cooldown has fully elapsed (user can claim
- * again). Used to seed the hub's "claimed today" tile + modal state.
- *
- * Cooldown semantics match the POST endpoint at
- * src/app/api/dorm-wars/daily-drop/route.ts — both must agree so a UAE user
- * doesn't see "tap to claim" on the hub then hit "already claimed" on the
- * server when they tap.
+ * Fetch the customer's streak + chest state in a single round-trip pair.
+ * Both reads use the admin client for the same reason getStreak does
+ * (SSR-RLS-readback drift for these tables). The recent-chest read pulls
+ * the single newest row regardless of cooldown — the UI uses claimed_at
+ * to decide whether to render a celebration.
  *
  * Used by:
- *   • src/app/dashboard/dorm-wars/page.tsx — pass initialDailyDrop prop to HubClient
+ *   • src/app/dashboard/dorm-wars/page.tsx — initialChestState prop
  */
-export async function getDailyDropToday(
+export async function getStreakChestState(
   customerId: string,
-): Promise<{ value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null> {
-  const COOLDOWN_HOURS = 20
-  const { data } = await rewardsAdmin()
-    .from('daily_drops')
-    .select('value_aed, rng_bucket, created_at')
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!data) return null
-  const elapsedHours =
-    (Date.now() - new Date(data.created_at).getTime()) / 3_600_000
-  if (elapsedHours >= COOLDOWN_HOURS) return null
+): Promise<StreakChestState> {
+  const sb = rewardsAdmin()
+
+  const [streakRow, chestRow] = await Promise.all([
+    sb.from('streaks')
+      .select('count, last_chest_day')
+      .eq('customer_id', customerId)
+      .maybeSingle(),
+    sb.from('streak_chests')
+      .select('rng_bucket, value_aed, claimed_at, doubler_expires_at, streak_day')
+      .eq('customer_id', customerId)
+      .order('claimed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const count = streakRow.data ? Number(streakRow.data.count) : 0
+  const lastChestDay = streakRow.data ? Number(streakRow.data.last_chest_day) : 0
+  const gap = Math.max(0, count - lastChestDay)
+  const chestReady = gap >= 8
+  const daysUntilNext = chestReady ? 0 : Math.max(0, 8 - gap)
+
   return {
-    value_aed:  Number(data.value_aed),
-    rng_bucket: data.rng_bucket as 'common' | 'rare' | 'epic',
+    count,
+    lastChestDay,
+    chestReady,
+    daysUntilNext,
+    recentChest: chestRow.data
+      ? {
+          rng_bucket:         chestRow.data.rng_bucket as StreakChestBucket,
+          value_aed:          chestRow.data.value_aed === null ? null : Number(chestRow.data.value_aed),
+          claimed_at:         chestRow.data.claimed_at as string,
+          doubler_expires_at: (chestRow.data.doubler_expires_at as string | null) ?? null,
+          streak_day:         Number(chestRow.data.streak_day),
+        }
+      : null,
   }
 }
 

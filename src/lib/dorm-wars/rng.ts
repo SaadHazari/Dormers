@@ -24,17 +24,7 @@ export function mysteryDropValue(): number {
   return randomInt(80, 91)                    // 80..90  (5%)
 }
 
-/**
- * Daily Drop value (Layer 4 / 07-05). Heavily weighted toward small wins to
- * keep the engagement loop honest — most days you get pocket change, rare
- * days you hit something memorable.
- *   60% → 1..10    (common)
- *   30% → 11..50   (uncommon)
- *   10% → 51..200  (rare)
- */
-export function dailyDropValue(): number {
-  const roll = randomInt(0, 100)
-  if (roll < 60) return randomInt(1, 11)      // 1..10    (60%)
-  if (roll < 90) return randomInt(11, 51)     // 11..50   (30%)
-  return randomInt(51, 201)                   // 51..200  (10%)
-}
+// Phase 8E — dailyDropValue removed. Daily Drop is gone; the replacement
+// Streak Chest does its RNG inside the Postgres claim_streak_chest function
+// so the roll + insert + last_chest_day update are atomic. See migration
+// phase_8e_streak_chest_replaces_daily_drop.

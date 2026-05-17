@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Star, Trophy, Percent, Shirt,
   Calendar, Coins, KeyRound, Zap,
 } from 'lucide-react'
-import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub } from '@/utils/supabase/queries'
+import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub, StreakChestState, StreakChestBucket } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
 import type { MealPriceContext } from '@/lib/dorm-wars/meal-pricing'
 import { freeWeekValue, freeMonthValue } from '@/lib/dorm-wars/meal-pricing'
@@ -121,7 +121,7 @@ function stageIndex(stage: ScoutStage): number {
   return STAGES.findIndex(s => s.key === stage)
 }
 
-type SubScreen = null | 'ladder' | 'quests' | 'daily' | 'squad'
+type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad'
 type SendStep  = 'closed' | 'naming' | 'sent'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -135,10 +135,12 @@ interface Props {
   referralData:       ReferralData
   invites:            InviteRow[]
   activeSubscription: Subscription | null
-  // Phase 7-05 — server-canonical initial state for Daily Drop + Streak.
-  // Replaces the localStorage-only useStreak() and DailyDropScreen mock RNG.
+  // Phase 7-05 — server-canonical streak count (SSR seed).
   initialStreak:      number
-  initialDailyDrop:   { value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null
+  // Phase 8E — Streak Chest replaces Daily Drop. Carries count + cooldown
+  // (last_chest_day) + most recent claim payload so the hub can render
+  // "chest ready" / "you just opened…" / "next chest in N days".
+  initialChestState:  StreakChestState
   // Phase 7-06 — server-canonical cycle recruits + lifetime tier.
   // cycleRecruits comes from getCycleRecruits (same SQL the Layer 2 awarder
   // reads) — see RESEARCH Pitfall #3. lifetimeTier is the highest unlocked
@@ -172,8 +174,18 @@ interface Props {
   mealPriceContext:   MealPriceContext
 }
 
-// Server-shape for today's Daily Drop, mirrored in the API response payload.
-type DailyDropState = { value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null
+// Phase 8E — bucket → palette mapping for the Streak Chest UI. Cash buckets
+// scale common→rare; doubler is its own gold-epic class.
+const CHEST_BUCKET_COLOR: Record<StreakChestBucket, string> = {
+  cash_5_8:    '#5fb479',   // forest green — common
+  cash_8_10:   '#5cb4c9',   // teal — uncommon
+  cash_10_12:  '#b58af0',   // mulberry — rare
+  doubler:     '#ffaa00',   // gold — epic
+}
+function chestBucketLabel(b: StreakChestBucket): string {
+  if (b === 'doubler') return 'Week-long Doubler'
+  return 'Cash chest'
+}
 
 // Map InviteRow (status = 'gift_claimed' | 'converted') to one of the 4 visible
 // scout stages. The 5th stage ('sent' but not yet claimed) requires a backend
@@ -199,7 +211,7 @@ function daysAgoFromISO(iso: string): number {
 export default function HubClient({
   customerCid, customerName, customerDorm,
   referralData, invites, activeSubscription,
-  initialStreak, initialDailyDrop,
+  initialStreak, initialChestState,
   cycleRecruits: serverCycleRecruits, lifetimeTier,
   earlyAccess, hallWall,
   recentRewards,
@@ -274,7 +286,12 @@ export default function HubClient({
 
   // Streak — server-canonical (Phase 7-05). Seeded from SSR prop, then
   // ticked on mount; the post-tick count overrides the seed if it changed.
+  // Phase 8E: tick_streak also reset last_chest_day on streak break, so we
+  // refresh chest state (count + lastChestDay) in the same effect when the
+  // count changes.
   const [streak, setStreak] = useState(initialStreak)
+  const [chestState, setChestState] = useState<StreakChestState>(initialChestState)
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/dorm-wars/streak/tick', { method: 'POST' })
@@ -282,15 +299,32 @@ export default function HubClient({
       .then(data => {
         if (!cancelled && data && typeof data.count === 'number') {
           setStreak(data.count)
+          // If the count changed vs SSR seed, the chest gap may have
+          // shifted (or last_chest_day was reset on break). Re-derive
+          // chestReady from the new count + the seed lastChestDay; the
+          // chest endpoint will give us authoritative state if the user
+          // hits the chest UI.
+          setChestState(prev => {
+            const newCount = data.count as number
+            // The tick endpoint doesn't return last_chest_day. If the count
+            // dropped vs prev (streak broke), the RPC also reset
+            // last_chest_day to 0 — mirror that locally so the UI shows
+            // "8 days until next chest" instead of stale "ready".
+            const newLastChestDay = newCount < prev.count ? 0 : prev.lastChestDay
+            const gap = Math.max(0, newCount - newLastChestDay)
+            return {
+              ...prev,
+              count: newCount,
+              lastChestDay: newLastChestDay,
+              chestReady: gap >= 8,
+              daysUntilNext: gap >= 8 ? 0 : Math.max(0, 8 - gap),
+            }
+          })
         }
       })
       .catch(() => { /* silent — keep the SSR-seeded value */ })
     return () => { cancelled = true }
   }, [])
-
-  // Daily Drop — server-canonical (Phase 7-05). Seeded from SSR prop; flips
-  // to the claimed payload after the user taps "claim" in DailyDropScreen.
-  const [dailyDrop, setDailyDrop] = useState<DailyDropState>(initialDailyDrop)
 
   // ── STATE ────────────────────────────────────────────────────────────────
   const [soundOn, setSoundOn]   = useState(true)
@@ -548,7 +582,10 @@ export default function HubClient({
           nextTier={nextTier}
           onOpen={() => setOpen('ladder')}
         />
-        <DailyDropColumn drop={dailyDrop} onOpen={() => setOpen('daily')} />
+        <StreakChestColumn
+          state={chestState}
+          onOpen={() => setOpen('chest')}
+        />
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
@@ -598,8 +635,11 @@ export default function HubClient({
       <Modal open={open === 'ladder'} onClose={() => setOpen(null)} title="Lifetime Path" accent={CYAN}>
         <TrophyLadderScreen recruits={recruits} />
       </Modal>
-      <Modal open={open === 'daily'} onClose={() => setOpen(null)} title="Daily Drop" accent={GOLD}>
-        <DailyDropScreen drop={dailyDrop} onClaimed={setDailyDrop} />
+      <Modal open={open === 'chest'} onClose={() => setOpen(null)} title="Streak Chest" accent={GOLD}>
+        <StreakChestScreen
+          state={chestState}
+          onClaimed={(next) => setChestState(next)}
+        />
       </Modal>
       <Modal open={open === 'squad'} onClose={() => setOpen(null)} title="Your Squad" accent={PINK}>
         <SquadScreen scouts={scouts} onScoutTap={(s) => { setOpen(null); setViewingScout(s) }} />
@@ -828,6 +868,82 @@ function PremiumGateOverlay({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  STREAK FLAME — Phase 8E intensity tiers
+//
+//  Days 1-7    : pale orange (warming up)
+//  Days 8-14   : solid orange + glow (chest 1 earned)
+//  Days 15-21  : bright orange + stronger glow
+//  Days 22-28  : peak orange + animated flame (cap for one plan cycle)
+//  Days 29-39  : peak orange (sustaining beyond cap — needs new plan)
+//  Days 40-49  : purple flame (epic tier 1)
+//  Days 50-59  : blue flame (epic tier 2)
+//  Days 60-69  : cyan flame (epic tier 3)
+//  Days 70-79  : forest green flame (epic tier 4)
+//  Days 80-89  : pink flame (epic tier 5)
+//  Days 90+    : gold supernova (epic tier 6, uncapped)
+//
+//  Each post-28 tier adds intensity (deeper glow + pulsing). Day-28 is the
+//  intentional "peak for a single plan cycle" — to push higher the user must
+//  renew/extend their plan and continue visiting daily.
+// ════════════════════════════════════════════════════════════════════════════
+
+interface FlameTier {
+  color:     string
+  glow:      string   // box-shadow color value
+  glowSize:  number   // px
+  animated:  boolean  // true for peak + epic tiers
+}
+
+function flameTier(count: number): FlameTier {
+  // Pre-cap ladder
+  if (count < 8)  return { color: '#ff9466', glow: '#ff946622', glowSize: 0,  animated: false } // pale
+  if (count < 15) return { color: '#f57f20', glow: `${GOLD}44`, glowSize: 6,  animated: false } // chest-1
+  if (count < 22) return { color: '#f57f20', glow: `${GOLD}77`, glowSize: 10, animated: false } // brighter
+  if (count < 29) return { color: GOLD_LITE, glow: `${GOLD}bb`, glowSize: 14, animated: true  } // peak (cap)
+  // Post-28 epic tiers — every 10 days a new color
+  if (count < 40) return { color: GOLD_LITE, glow: `${GOLD}bb`, glowSize: 14, animated: true  } // sustain peak
+  if (count < 50) return { color: PURPLE,    glow: `${PURPLE}bb`, glowSize: 16, animated: true } // purple
+  if (count < 60) return { color: '#4fa9d6', glow: '#4fa9d6bb',   glowSize: 16, animated: true } // blue
+  if (count < 70) return { color: CYAN,      glow: `${CYAN}bb`,   glowSize: 18, animated: true } // cyan
+  if (count < 80) return { color: GREEN,     glow: `${GREEN}bb`,  glowSize: 18, animated: true } // forest
+  if (count < 90) return { color: PINK,      glow: `${PINK}bb`,   glowSize: 20, animated: true } // pink
+  return            { color: GOLD,           glow: `${GOLD}ee`,   glowSize: 24, animated: true } // supernova
+}
+
+function StreakFlame({ count }: { count: number }) {
+  const tier = flameTier(count)
+  return (
+    <div
+      title={`${count}-day streak — ${count >= 28 ? 'peak intensity unlocked' : `${28 - count} days to peak`}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '7px 12px', borderRadius: 999,
+        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.3) 100%)`,
+        border: `1.5px solid ${tier.color}88`,
+        boxShadow: tier.glowSize > 0
+          ? `0 4px 12px rgba(0,0,0,0.45), 0 0 ${tier.glowSize}px ${tier.glow}`
+          : `0 4px 12px rgba(0,0,0,0.45)`,
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          animation: tier.animated ? 'hub-flame-flicker 1.6s ease-in-out infinite' : undefined,
+        }}
+      >
+        <Flame size={14} strokeWidth={2.5} color={tier.color} />
+      </span>
+      <span style={{
+        fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM,
+        fontFeatureSettings: '"tnum"',
+      }}>
+        {count}d
+      </span>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  TOP CHROME — single horizontal row with identity + wallet + streak + sound
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -949,23 +1065,7 @@ function TopChrome({
           </div>
         </div>
 
-        {streak > 0 && (
-          <div title="Daily visits in a row" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 12px', borderRadius: 999,
-            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.3) 100%)`,
-            border: `1.5px solid ${RED}55`,
-            boxShadow: `0 4px 12px rgba(0,0,0,0.45)`,
-          }}>
-            <Flame size={14} strokeWidth={2.5} color={RED} />
-            <span style={{
-              fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM,
-              fontFeatureSettings: '"tnum"',
-            }}>
-              {streak}d
-            </span>
-          </div>
-        )}
+        {streak > 0 && <StreakFlame count={streak} />}
 
         <button
           type="button"
@@ -1452,71 +1552,36 @@ function LifetimeColumn({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DAILY DROP COLUMN — Layer 4, focal claim affordance
+//  STREAK CHEST COLUMN — Phase 8E, replaces Daily Drop
+//  Three visual states:
+//   • chest ready (count - lastChestDay >= 8) → pulsing gold chest, "Tap to open"
+//   • cooldown (just claimed, walking toward next 8)  → "Next chest in N streak days"
+//   • brand-new (no streak)                            → "Visit daily — chest unlocks at day 8"
 // ════════════════════════════════════════════════════════════════════════════
 
-function DailyDropColumn({ drop, onOpen }: { drop: DailyDropState; onOpen: () => void }) {
-  // Compute "next drop in" countdown
-  const [nextDrop, setNextDrop] = useState('')
-  useEffect(() => {
-    function tick() {
-      const now = new Date()
-      const end = new Date(now)
-      end.setHours(24, 0, 0, 0)
-      const ms = end.getTime() - now.getTime()
-      const h = Math.floor(ms / 3_600_000)
-      const m = Math.floor((ms % 3_600_000) / 60_000)
-      setNextDrop(`${h}h ${m}m`)
-    }
-    tick()
-    const id = setInterval(tick, 30_000)
-    return () => clearInterval(id)
-  }, [])
-
-  const claimed = drop !== null
-  // Bucket → palette mapping (parity with DailyDropScreen): epic=gold, rare=purple, common=green.
-  const bucketColor =
-    drop?.rng_bucket === 'epic' ? GOLD :
-    drop?.rng_bucket === 'rare' ? PURPLE :
-    GREEN
+function StreakChestColumn({
+  state, onOpen,
+}: {
+  state:  StreakChestState
+  onOpen: () => void
+}) {
+  const { count, chestReady, daysUntilNext } = state
 
   return (
-    <Column eyebrow="Today's Drop" title="One mystery reward · per day" accent={claimed ? bucketColor : GOLD} onOpen={onOpen}>
+    <Column
+      eyebrow="Streak Chest"
+      title={chestReady ? "It's open · tap to claim" : `Unlocks every 8 streak days`}
+      accent={chestReady ? GOLD : MIST_DIM}
+      onOpen={onOpen}
+    >
       <div style={{
         flex: '1 1 auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 10, padding: '6px 0 4px',
       }}>
-        {claimed && drop ? (
+        {chestReady ? (
           <>
-            {/* Claimed: bucket-colored Check disc + value readout */}
-            <div style={{
-              position: 'relative',
-              width: 64, height: 64, borderRadius: '50%',
-              backgroundImage: `radial-gradient(circle at 35% 30%, ${bucketColor}66 0%, ${bucketColor}22 70%, transparent 100%)`,
-              border: `2px solid ${bucketColor}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: `0 0 26px ${bucketColor}88, inset 0 0 12px ${bucketColor}44`,
-            }}>
-              <Check size={32} strokeWidth={3} color={bucketColor} />
-            </div>
-            <div style={{
-              fontFamily: DISPLAY, fontSize: 16, fontWeight: 900,
-              color: bucketColor, letterSpacing: '0.02em',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}>
-              <CoinIcon size={14} /> +{drop.value_aed} cr
-            </div>
-            <div style={{
-              fontFamily: BODY, fontSize: 10, fontWeight: 700,
-              color: MIST_DIM, letterSpacing: '0.10em', textTransform: 'uppercase',
-            }}>
-              Claimed · back in {nextDrop || '—'}
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Unclaimed: pulsing gold gift, tap-to-claim affordance */}
+            {/* Ready: pulsing gold chest, tap-to-open affordance. */}
             <div style={{
               position: 'relative',
               width: 64, height: 64, borderRadius: '50%',
@@ -1538,13 +1603,76 @@ function DailyDropColumn({ drop, onOpen }: { drop: DailyDropState; onOpen: () =>
               fontFamily: BODY, fontSize: 11, fontWeight: 900,
               color: GOLD, letterSpacing: '0.16em', textTransform: 'uppercase',
             }}>
-              Tap to claim
+              Tap to open
             </div>
             <div style={{
               fontFamily: BODY, fontSize: 10, fontWeight: 700,
               color: MIST_DIM, letterSpacing: '0.04em', fontFeatureSettings: '"tnum"',
             }}>
-              Next drop in {nextDrop || '—'}
+              Earned at {count}-day streak
+            </div>
+          </>
+        ) : count === 0 ? (
+          // Brand-new — never visited. Tease the mechanic.
+          <>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              border: `1.5px solid ${MIST_FAINT}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Lock size={26} strokeWidth={2.2} color={MIST_DIM} />
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 11, fontWeight: 800,
+              color: MIST, letterSpacing: '0.10em', textTransform: 'uppercase',
+              textAlign: 'center',
+            }}>
+              Visit daily
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 700,
+              color: MIST_DIM, letterSpacing: '0.04em',
+            }}>
+              Chest unlocks at day 8
+            </div>
+          </>
+        ) : (
+          // Cooldown — show progress toward the next 8-day chest.
+          <>
+            <div style={{
+              position: 'relative',
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              border: `1.5px solid ${MIST_FAINT}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Gift size={26} strokeWidth={2.2} color={MIST_DIM} />
+              {/* Small day-count badge in the corner */}
+              <span style={{
+                position: 'absolute', bottom: -4, right: -4,
+                minWidth: 22, height: 18, padding: '0 5px', borderRadius: 9,
+                backgroundColor: BG_DEEP,
+                border: `1px solid ${MIST_FAINT}`,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: BODY, fontSize: 9, fontWeight: 900, color: CREAM,
+                fontFeatureSettings: '"tnum"',
+              }}>
+                {daysUntilNext}d
+              </span>
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 11, fontWeight: 800,
+              color: MIST, letterSpacing: '0.10em', textTransform: 'uppercase',
+              textAlign: 'center',
+            }}>
+              {daysUntilNext === 1 ? '1 streak day' : `${daysUntilNext} streak days`}
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 700,
+              color: MIST_DIM, letterSpacing: '0.04em',
+            }}>
+              until next chest
             </div>
           </>
         )}
@@ -1869,6 +1997,15 @@ function HubStyles() {
       @keyframes hub-head-pulse {
         0%, 100% { box-shadow: 0 0 0 0    rgba(255,255,255,0.45), 0 0 10px rgba(255,255,255,0.55); }
         50%      { box-shadow: 0 0 0 4px  rgba(255,255,255,0.10), 0 0 14px rgba(255,255,255,0.75); }
+      }
+      /* Phase 8E — streak flame flicker for peak (day 22+) and epic
+         (day 40+) tiers. Subtle scale + opacity pulse so the chip feels
+         alive without being distracting. */
+      @keyframes hub-flame-flicker {
+        0%, 100% { transform: scale(1)    rotate(-1deg); opacity: 1;   }
+        25%      { transform: scale(1.08) rotate(1deg);  opacity: 0.92; }
+        50%      { transform: scale(0.96) rotate(-2deg); opacity: 1;   }
+        75%      { transform: scale(1.05) rotate(1.5deg); opacity: 0.95; }
       }
 
       .hub-column-tap {
@@ -2220,59 +2357,81 @@ function QuestsScreen({ recruitsCycle, milestones }: { recruitsCycle: number; mi
   )
 }
 
-// Phase 7-05 — server-canonical Daily Drop screen.
-// Outcome is determined by POST /api/dorm-wars/daily-drop (server RNG +
-// idempotent insert). The button drives a brief "claiming…" state while
-// the request is in flight, then renders the locked-in result.
-//
-// On modal-open, if the user already claimed today, we receive that state
-// from props (seeded server-side via getDailyDropToday) and render the
-// claimed view immediately — no fetch needed.
-function DailyDropScreen({
-  drop, onClaimed,
+// Phase 8E — Streak Chest claim screen. POST /api/dorm-wars/streak-chest
+// returns the RNG outcome. The doubler outcome is intentionally NOT teased
+// pre-open ("Credits · or something epic") so the rare 5% hit is a genuine
+// surprise instead of a let-down most of the time.
+function StreakChestScreen({
+  state, onClaimed,
 }: {
-  drop:      DailyDropState
-  onClaimed: (next: DailyDropState) => void
+  state:     StreakChestState
+  onClaimed: (next: StreakChestState) => void
 }) {
   const [claiming, setClaiming] = useState(false)
   const [error, setError]       = useState<string | null>(null)
-  const claimed = drop !== null
+  const [justClaimed, setJustClaimed] = useState<{
+    rng_bucket:         StreakChestBucket
+    value_aed:          number | null
+    doubler_expires_at: string | null
+    streak_day:         number
+  } | null>(null)
 
-  // Bucket → palette mapping. Epic = gold/jackpot, rare = purple, common = green.
-  const bucketColor =
-    drop?.rng_bucket === 'epic' ? GOLD :
-    drop?.rng_bucket === 'rare' ? PURPLE :
-    GREEN
+  // If the user already claimed at the current streak day, show that as the
+  // result. Otherwise show whatever they just opened in-modal.
+  const showResult = justClaimed ?? (
+    state.recentChest && state.recentChest.streak_day === state.lastChestDay
+      ? state.recentChest
+      : null
+  )
+  const bucketColor = showResult ? CHEST_BUCKET_COLOR[showResult.rng_bucket] : GOLD
 
   async function handleClaim() {
-    if (claimed || claiming) return
+    if (!state.chestReady || claiming) return
     setClaiming(true)
     setError(null)
     try {
-      const res = await fetch('/api/dorm-wars/daily-drop', { method: 'POST' })
+      const res = await fetch('/api/dorm-wars/streak-chest', { method: 'POST' })
       const data = await res.json().catch(() => null) as {
-        claimed?: boolean
-        alreadyClaimed?: boolean
-        value_aed?: number
-        rng_bucket?: 'common' | 'rare' | 'epic'
-        error?: string
+        claimed?:           boolean
+        reason?:            string
+        rng_bucket?:        StreakChestBucket
+        value_aed?:         number | null
+        doubler_expires_at?: string | null
+        streak_day?:        number
+        error?:             string
       } | null
       if (!res.ok) {
-        // 401 unauth = session expired; 500 credit_deposit_failed = back-end
-        // committed the daily_drops row but failed the credit insert (ops
-        // reconciliation will land it). Either way surface a real message
-        // so the user knows the tap registered.
         if (res.status === 401) {
           setError('Your session expired. Refresh the page and try again.')
+        } else if (res.status === 409) {
+          setError('This chest is already opened — your streak needs to grow before the next one.')
         } else if (data?.error === 'credit_deposit_failed') {
-          setError('Drop logged but credit deposit hit a snag. We\'ll reconcile within the hour.')
+          setError('Chest opened but credit deposit hit a snag. We\'ll reconcile within the hour.')
         } else {
-          setError('Could not claim right now. Please try again in a moment.')
+          setError('Could not open the chest right now. Please try again in a moment.')
         }
         return
       }
-      if (typeof data?.value_aed === 'number' && data.rng_bucket) {
-        onClaimed({ value_aed: data.value_aed, rng_bucket: data.rng_bucket })
+      if (data?.rng_bucket && typeof data.streak_day === 'number') {
+        const claim = {
+          rng_bucket:         data.rng_bucket,
+          value_aed:          data.value_aed ?? null,
+          doubler_expires_at: data.doubler_expires_at ?? null,
+          streak_day:         data.streak_day,
+        }
+        setJustClaimed(claim)
+        // Sync the hub-wide chest state: advance lastChestDay so the column
+        // flips to "cooldown" and the badge updates.
+        onClaimed({
+          ...state,
+          lastChestDay:  data.streak_day,
+          chestReady:    false,
+          daysUntilNext: 8,
+          recentChest:   {
+            ...claim,
+            claimed_at: new Date().toISOString(),
+          },
+        })
       }
     } catch {
       setError('Network error. Check your connection and try again.')
@@ -2287,40 +2446,53 @@ function DailyDropScreen({
         fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
         lineHeight: 1.6, margin: '0 0 20px',
       }}>
-        A small reward, just for opening the page today. One claim per 24 hours.
+        Every 8 unbroken streak days unlocks a chest. Break the streak and the
+        chest resets — re-earn 8 days from scratch.
       </p>
+
       <button
         type="button"
         onClick={handleClaim}
-        disabled={claimed || claiming}
+        disabled={!state.chestReady || claiming || showResult !== null}
         style={{
           margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: 14,
           padding: '28px 36px', borderRadius: 18,
-          backgroundImage: claimed
+          backgroundImage: showResult
             ? `linear-gradient(135deg, ${bucketColor}28 0%, ${bucketColor}10 100%)`
-            : `linear-gradient(135deg, ${GOLD}28 0%, ${ORANGE}10 100%)`,
-          border: `1.5px solid ${(claimed ? bucketColor : GOLD)}66`,
-          cursor: (claimed || claiming) ? 'default' : 'pointer',
+            : state.chestReady
+              ? `linear-gradient(135deg, ${GOLD}28 0%, ${ORANGE}10 100%)`
+              : `linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)`,
+          border: `1.5px solid ${(showResult ? bucketColor : state.chestReady ? GOLD : MIST_FAINT)}66`,
+          cursor: (!state.chestReady || claiming || showResult !== null) ? 'default' : 'pointer',
           minWidth: 320,
           opacity: claiming ? 0.85 : 1,
           transition: 'opacity 200ms ease',
         }}
       >
-        {claimed && drop ? (
+        {showResult ? (
           <>
             <span style={{
               width: 52, height: 52, borderRadius: 14,
               backgroundColor: bucketColor,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Check size={28} strokeWidth={3} color={BG_DEEP} />
+              {showResult.rng_bucket === 'doubler'
+                ? <Zap size={28} strokeWidth={2.6} color={BG_DEEP} />
+                : <Check size={28} strokeWidth={3} color={BG_DEEP} />}
             </span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: bucketColor, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <CoinIcon size={18} /> +{drop.value_aed} credits
+              <div style={{
+                fontFamily: DISPLAY, fontSize: 22, fontWeight: 900, color: bucketColor,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                {showResult.rng_bucket === 'doubler'
+                  ? <>2× rewards · 7 days</>
+                  : <><CoinIcon size={18} /> +{showResult.value_aed} credits</>}
               </div>
-              <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST, textTransform: 'capitalize' }}>
-                {drop.rng_bucket} · back tomorrow
+              <div style={{
+                fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
+              }}>
+                {chestBucketLabel(showResult.rng_bucket)} · earned at day {showResult.streak_day}
               </div>
             </div>
           </>
@@ -2328,22 +2500,30 @@ function DailyDropScreen({
           <>
             <span style={{
               width: 52, height: 52, borderRadius: 14,
-              backgroundColor: GOLD,
+              backgroundColor: state.chestReady ? GOLD : 'rgba(255,255,255,0.05)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Gift size={28} strokeWidth={2.4} color={BG_DEEP} />
+              {state.chestReady
+                ? <Gift size={28} strokeWidth={2.4} color={BG_DEEP} />
+                : <Lock size={26} strokeWidth={2.4} color={MIST_DIM} />}
             </span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: CREAM }}>
-                {claiming ? 'Opening…' : 'Tap to open'}
+              <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: state.chestReady ? CREAM : MIST }}>
+                {claiming ? 'Opening…' : state.chestReady ? 'Tap to open' : 'Locked'}
               </div>
-              <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: GOLD_LITE, letterSpacing: '0.10em' }}>
-                Credits · multiplier · or a jackpot
+              <div style={{
+                fontFamily: BODY, fontSize: 11, fontWeight: 700,
+                color: state.chestReady ? GOLD_LITE : MIST_DIM, letterSpacing: '0.10em',
+              }}>
+                {state.chestReady
+                  ? 'Credits · or something epic'
+                  : `${state.daysUntilNext} more streak day${state.daysUntilNext === 1 ? '' : 's'}`}
               </div>
             </div>
           </>
         )}
       </button>
+
       {error && (
         <div style={{
           marginTop: 16,
@@ -2357,6 +2537,14 @@ function DailyDropScreen({
           {error}
         </div>
       )}
+
+      <p style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+        lineHeight: 1.5, margin: '20px 0 0',
+      }}>
+        Cash chests are dropped instantly into your wallet · doubler boosts
+        cycle + per-conversion rewards for 7 days
+      </p>
     </div>
   )
 }

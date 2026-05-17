@@ -39,13 +39,9 @@ export const MYSTERY_DROP_BUCKETS = {
   ranges: [[30, 51], [50, 71], [70, 81], [80, 91]] as const,
 }
 
-export const DAILY_DROP_BUCKETS = {
-  // 60% chance: 1-10 AED
-  // 30% chance: 11-50 AED
-  // 10% chance: 51-200 AED
-  thresholds: [60, 90] as const,
-  ranges: [[1, 11], [11, 51], [51, 201]] as const,
-}
+// Phase 8E — DAILY_DROP_BUCKETS removed. Daily Drop killed; Streak Chest
+// RNG lives inside the claim_streak_chest Postgres function. See
+// phase_8e_streak_chest_replaces_daily_drop migration.
 
 // Tier → discount percent. Used by 07-02 coupon-synth and 07-04 tier-loop.
 // Tier 0 = no tier yet (no lifetime_rewards row).
