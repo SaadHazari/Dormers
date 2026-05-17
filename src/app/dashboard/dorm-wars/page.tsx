@@ -7,6 +7,7 @@ import {
   getActiveSubscription,
   getDailyDropToday,
   getStreak,
+  getCycleRecruits,
 } from '@/utils/supabase/queries'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
@@ -18,13 +19,15 @@ export default async function DormWarsPage() {
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
-  // SSR Supabase client — RLS on `daily_drops` and `streaks` lets the user
-  // read their own rows (auth.uid() = customer_id), so we use the SSR client
-  // (not the admin client) for these initial-state fetches.
+  // SSR Supabase client — RLS on `daily_drops`, `streaks`, and
+  // `lifetime_rewards` lets the user read their own rows
+  // (auth.uid() = customer_id), so we use the SSR client (not the admin
+  // client) for these initial-state fetches.
   const supabase = await createClient()
 
   // Six independent reads happen in parallel; dormStats then waits on
-  // customer.dorm_name (we need the dorm before we can ask about it).
+  // customer.dorm_name (we need the dorm before we can ask about it),
+  // and cycleRecruits waits on activeSubscription (needs its start_date).
   const [
     customer,
     referralData,
@@ -41,7 +44,31 @@ export default async function DormWarsPage() {
     getStreak(supabase, user.id),
   ])
 
-  const dormStats = await getDormStats(customer?.dorm_name ?? '')
+  // ── Server-canonical reward state (RESEARCH Decision #10 + Pitfall #3) ──
+  // cycleRecruits MUST be sourced from the same SQL the Layer 2 awarder reads
+  // (getCycleRecruits) — otherwise the hub UI and the awarder can drift and
+  // a milestone may render as "earned" in the hub before the awarder fires
+  // (or vice versa). Parallelize the remaining two reads.
+  const [dormStats, cycleRecruits, latestTierRow] = await Promise.all([
+    getDormStats(customer?.dorm_name ?? ''),
+    activeSubscription
+      ? getCycleRecruits(supabase, user.id, activeSubscription.id)
+      : Promise.resolve(0),
+    supabase
+      .from('lifetime_rewards')
+      .select('tier')
+      .eq('customer_id', user.id)
+      .order('tier', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  // Highest tier the user has unlocked (null → 0).
+  const tierRaw = (latestTierRow.data?.tier ?? 0) as number
+  const lifetimeTier: 0 | 1 | 2 | 3 | 4 =
+    tierRaw === 1 || tierRaw === 2 || tierRaw === 3 || tierRaw === 4
+      ? tierRaw
+      : 0
 
   return (
     <HubClient
@@ -54,6 +81,8 @@ export default async function DormWarsPage() {
       activeSubscription={activeSubscription}
       initialStreak={initialStreak}
       initialDailyDrop={initialDailyDrop}
+      cycleRecruits={cycleRecruits}
+      lifetimeTier={lifetimeTier}
     />
   )
 }

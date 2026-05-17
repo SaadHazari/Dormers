@@ -117,6 +117,12 @@ interface Props {
   // Replaces the localStorage-only useStreak() and DailyDropScreen mock RNG.
   initialStreak:      number
   initialDailyDrop:   { value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null
+  // Phase 7-06 — server-canonical cycle recruits + lifetime tier.
+  // cycleRecruits comes from getCycleRecruits (same SQL the Layer 2 awarder
+  // reads) — see RESEARCH Pitfall #3. lifetimeTier is the highest unlocked
+  // Layer 3 row (0 = none unlocked yet).
+  cycleRecruits:      number
+  lifetimeTier:       0 | 1 | 2 | 3 | 4
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -147,8 +153,10 @@ export default function HubClient({
   customerCid, customerName, customerDorm,
   referralData, dormStats, invites, activeSubscription,
   initialStreak, initialDailyDrop,
+  cycleRecruits: serverCycleRecruits, lifetimeTier,
 }: Props) {
-  void customerDorm // reserved for future dorm-specific copy
+  void customerDorm   // reserved for future dorm-specific copy
+  void lifetimeTier   // prop plumbed for Phase 8 tier-badge UI (not yet wired)
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
 
   // ── REAL DATA from Supabase ─────────────────────────────────────────────
@@ -166,15 +174,15 @@ export default function HubClient({
     ? Math.max(0, Math.ceil((cycleEndTime - Date.now()) / 86_400_000))
     : 0
 
-  // Cycle recruits — count of invites converted since cycle start
-  const cycleRecruits = useMemo(() => {
-    if (!hasActiveSub) return 0
-    return invites.filter(i =>
-      i.status === 'converted' &&
-      i.convertedAt &&
-      new Date(i.convertedAt).getTime() >= cycleStartTime
-    ).length
-  }, [invites, hasActiveSub, cycleStartTime])
+  // Cycle recruits — server-canonical (Phase 7-06). The page.tsx fetches this
+  // via getCycleRecruits — the same SQL the Layer 2 awarder reads — so the
+  // hub UI and the awarder cannot drift (RESEARCH Pitfall #3).
+  //
+  // The page is server-rendered on every navigation and there is no realtime
+  // channel for invites, so we do NOT also derive from the invites array.
+  // If realtime ever ships, re-introduce a Math.max(serverCycleRecruits,
+  // clientComputed) fallback here.
+  const cycleRecruits = serverCycleRecruits
 
   // Scouts — map real invites to visible journey stages, most recent first
   const initialScouts: Scout[] = useMemo(() => invites.map(row => ({
