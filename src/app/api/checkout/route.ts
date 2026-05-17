@@ -236,17 +236,15 @@ export async function POST(req: Request) {
     // RLS on `credits` + `lifetime_rewards` already permits the auth.uid()
     // owner to SELECT, so the user-scoped `supabase` client is sufficient
     // (no need to escalate to service-role here).
-    const { rows: creditRows, balanceFils } = await getRedeemableCredit(supabase, user.id);
-    const appliedCreditIds = creditRows.map(r => r.id);
+    const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
     const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
 
     const couponResult = await synthesizePerSessionCoupon({
       stripe,
       userId: user.id,
       amountFils: amount,
-      creditBalanceFils: balanceFils,
       tierPercent,
-      appliedCreditIds,
+      creditRows,
     });
 
     // Build sessionArgs separately so we can conditionally attach `discounts`.
@@ -297,11 +295,16 @@ export async function POST(req: Request) {
         start_date: start_date ?? '',
         // Dorm Wars redemption metadata — the webhook reads these to flip
         // `credits.status='approved' → 'applied'` after the order insert.
-        // `coupon_id` is informational (audit trail); `applied_credit_ids`
-        // is the actual CAS target. Empty string when no discount applied.
+        // `applied_credit_ids` lists rows to flip wholesale; `split_credit_*`
+        // identifies the boundary row that should be flipped AND have a fresh
+        // approved row inserted for the unused remainder (when balance > plan).
         coupon_id: couponResult.couponId ?? '',
-        applied_credit_ids: appliedCreditIds.join(','),
+        applied_credit_ids: couponResult.appliedCreditIdsFull.join(','),
         credit_applied_fils: String(couponResult.creditAppliedFils),
+        split_credit_id: couponResult.splitCredit?.id ?? '',
+        split_credit_use_fils: couponResult.splitCredit
+          ? String(couponResult.splitCredit.useFils)
+          : '0',
       },
     };
     if (couponResult.couponId) {

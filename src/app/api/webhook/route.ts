@@ -290,6 +290,68 @@ export async function POST(req: Request) {
         }
       }
 
+      // Split-row handling: when balance > plan total, the checkout route
+      // partitions credits into full-redeem rows + one boundary "split" row
+      // that should be partially consumed. We flip the original row to
+      // 'applied' (so it's tied to this order in the ledger) and insert a
+      // fresh status='approved' row for the unused remainder so the user
+      // keeps the leftover credit for next time. Without this, a 6800 AED
+      // balance against a 1024 AED plan would burn the whole wallet.
+      const splitId = session.metadata?.split_credit_id ?? '';
+      const splitUseFils = Number(session.metadata?.split_credit_use_fils ?? '0') || 0;
+      if (splitId && splitUseFils > 0) {
+        const { data: splitRow } = await supabaseAdmin
+          .from('credits')
+          .select('id, amount_aed, source, status')
+          .eq('id', splitId)
+          .eq('status', 'approved')
+          .maybeSingle();
+        if (!splitRow) {
+          console.warn(
+            `⚠️  split credit row ${splitId} not found or not approved — ` +
+            `skipping split (this may leak credit if hit; investigate)`
+          );
+        } else {
+          const totalFils = Math.round(Number(splitRow.amount_aed) * 100);
+          const remainderFils = totalFils - splitUseFils;
+          // Flip the original boundary row to 'applied' (whole row attaches
+          // to this order — convention: applied row's amount is the original
+          // total; the new approved row carries the remainder forward).
+          const { error: splitFlipErr } = await supabaseAdmin
+            .from('credits')
+            .update({
+              status: 'applied',
+              applied_at: new Date().toISOString(),
+              applied_to: orderId,
+            })
+            .eq('id', splitId)
+            .eq('status', 'approved');
+          if (splitFlipErr) {
+            console.error('⚠️  split credit flip failed (non-fatal):', splitFlipErr);
+          } else if (remainderFils > 0) {
+            const { error: insertErr } = await supabaseAdmin.from('credits').insert({
+              customer_id: user_id,
+              amount_aed: remainderFils / 100,
+              source: `${splitRow.source}_split_remainder`,
+              status: 'approved',
+            });
+            if (insertErr) {
+              console.error(
+                '⚠️  split remainder insert failed — user may have lost credit:',
+                insertErr,
+              );
+            } else {
+              console.log(
+                `💳 Split credit ${splitId}: used ${splitUseFils} fils for order ` +
+                `${orderId}, carried ${remainderFils} fils forward as new row`
+              );
+            }
+          } else {
+            console.log(`💳 Split credit ${splitId}: fully consumed (remainder=0)`);
+          }
+        }
+      }
+
       // 3. Update Customer Profile with the latest data + drain any pending
       // preferences. The new subscription IS the "next subscription" the
       // pending_* values were waiting for — once it's been written, the

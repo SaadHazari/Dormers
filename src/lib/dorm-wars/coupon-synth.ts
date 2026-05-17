@@ -11,11 +11,25 @@
 //   2. Apply tier % to the post-credit remainder: `tierApplied = floor((amount - creditApplied) * pct / 100)`
 //   3. Total discount: `creditApplied + tierApplied`
 //
+// Partial-row redemption: when balance > plan total, we walk credit rows in
+// FIFO (created_at ASC) order. Rows that fully fit go in `appliedCreditIdsFull`
+// — webhook flips them to status='applied'. If the cap falls mid-row, that
+// boundary row becomes the `splitCredit`: webhook flips the original row AND
+// inserts a fresh status='approved' row for the unused remainder so the user
+// keeps the leftover. Without this, a 6800 AED balance against a 1024 AED plan
+// would burn the whole 6800 instead of 1024.
+//
 // The coupon is single-use (`max_redemptions: 1`) and expires in 24 hours
 // (`redeem_by`) so abandoned-checkout coupons auto-purge from Stripe (Pitfall #1).
 // ============================================================================
 
 import type Stripe from 'stripe'
+
+export interface CreditRowForSynth {
+  id: string
+  /** AED amount (e.g. 196.00). Will be ×100 internally to fils. */
+  amount_aed: number
+}
 
 export interface CouponSynthInput {
   /** Stripe instance from the caller — reuses the same `apiVersion` pin. */
@@ -24,12 +38,13 @@ export interface CouponSynthInput {
   userId: string
   /** Plan total the user is paying, in fils (AED × 100). */
   amountFils: number
-  /** Sum of redeemable (status='approved') credit rows × 100, in fils. */
-  creditBalanceFils: number
   /** Lifetime-tier discount: 0 (no tier), 5 (tier 1), or 10 (tier 2+). */
   tierPercent: 0 | 5 | 10
-  /** Credit row IDs that will flip to status='applied' on webhook success. */
-  appliedCreditIds: string[]
+  /**
+   * Approved credit rows in FIFO order (oldest first). The synth walks them
+   * in order to compute which rows fully redeem vs which one splits.
+   */
+  creditRows: CreditRowForSynth[]
 }
 
 export interface CouponSynthResult {
@@ -41,23 +56,46 @@ export interface CouponSynthResult {
   creditAppliedFils: number
   /** Portion of discount attributable to lifetime-tier %. */
   tierAppliedFils: number
+  /** Credit row IDs that should flip status='applied' wholesale on webhook. */
+  appliedCreditIdsFull: string[]
+  /**
+   * Boundary credit row that should be flipped to 'applied' AND have a fresh
+   * 'approved' row inserted for the unused remainder. Null when no split is
+   * needed (cap aligned with row sum or balance fully consumed).
+   */
+  splitCredit: { id: string; useFils: number } | null
 }
 
 export async function synthesizePerSessionCoupon(
   input: CouponSynthInput,
 ): Promise<CouponSynthResult> {
-  const {
-    stripe,
-    userId,
-    amountFils,
-    creditBalanceFils,
-    tierPercent,
-    appliedCreditIds,
-  } = input
+  const { stripe, userId, amountFils, tierPercent, creditRows } = input
 
   // Credit applied = min(balance, plan total). Hard cap per REDEEM-03 — Stripe
   // rejects coupons larger than the session amount (`coupon_amount_off_too_large`).
-  const creditAppliedFils = Math.min(creditBalanceFils, amountFils)
+  const balanceFils = creditRows.reduce(
+    (s, r) => s + Math.round(r.amount_aed * 100),
+    0,
+  )
+  const creditAppliedFils = Math.min(balanceFils, amountFils)
+
+  // Walk credits FIFO and partition into full-redeem vs split.
+  const appliedCreditIdsFull: string[] = []
+  let splitCredit: { id: string; useFils: number } | null = null
+  let consumedFils = 0
+  for (const row of creditRows) {
+    const rowFils = Math.round(row.amount_aed * 100)
+    if (consumedFils + rowFils <= creditAppliedFils) {
+      appliedCreditIdsFull.push(row.id)
+      consumedFils += rowFils
+      if (consumedFils === creditAppliedFils) break
+    } else {
+      // This row straddles the cap. Use only what's needed and split the rest.
+      const useFils = creditAppliedFils - consumedFils
+      if (useFils > 0) splitCredit = { id: row.id, useFils }
+      break
+    }
+  }
 
   // Tier discount applies to the post-credit remainder so the user gets the
   // full tier % off what they would otherwise pay, not off the gross amount.
@@ -74,6 +112,8 @@ export async function synthesizePerSessionCoupon(
       discountFils: 0,
       creditAppliedFils: 0,
       tierAppliedFils: 0,
+      appliedCreditIdsFull: [],
+      splitCredit: null,
     }
   }
 
@@ -95,7 +135,9 @@ export async function synthesizePerSessionCoupon(
       credit_applied_fils: String(creditAppliedFils),
       tier_percent: String(tierPercent),
       tier_applied_fils: String(tierAppliedFils),
-      applied_credit_ids: appliedCreditIds.join(','),
+      applied_credit_ids: appliedCreditIdsFull.join(','),
+      split_credit_id: splitCredit?.id ?? '',
+      split_credit_use_fils: splitCredit ? String(splitCredit.useFils) : '0',
     },
   })
 
@@ -104,5 +146,7 @@ export async function synthesizePerSessionCoupon(
     discountFils,
     creditAppliedFils,
     tierAppliedFils,
+    appliedCreditIdsFull,
+    splitCredit,
   }
 }
