@@ -194,17 +194,17 @@ Plans:
 
 **Requirements**: None (product-driven phase — design decisions captured in `.planning/phases/07-dorm-wars-reward-backend/07-CONTEXT.md` + 10 architecture decisions resolved in `07-RESEARCH.md`)
 **Depends on:** Phase 6
-**Plans:** 0/6 plans complete
+**Plans:** 6/6 plans complete ✅ (completed 2026-05-17)
 
 Plans:
-- [ ] 07-01-PLAN.md — Wave 1: Schema foundation (snapshot live referral/credits tables + 4 new tables + bonus_skips + perk flags)
-- [ ] 07-02-PLAN.md — Wave 2: Credit redemption pipeline (coupon-synth lib, checkout/webhook wiring, checkout panel UI)
-- [ ] 07-03-PLAN.md — Wave 3: Layer 2 cycle awarder (5 milestones, shared getCycleRecruits, idempotent inline fire)
-- [ ] 07-04-PLAN.md — Wave 4: Layer 3 lifetime tier perks (4 tiers, side-effect flags, tier discount baked into coupon-synth)
-- [ ] 07-05-PLAN.md — Wave 5: Daily Drop + Streak server persistence (2 API routes, server-canonical state)
-- [ ] 07-06-PLAN.md — Wave 6: Hub wire-through + integration tests + final verification
+- [x] 07-01-PLAN.md — Wave 1: Schema foundation (4 new tables: daily_drops/streaks/cycle_rewards/lifetime_rewards + bonus_skips + early_access/hall_wall flags; snapshot migration of pre-existing referral/credits tables DROPPED — already versioned remotely)
+- [x] 07-02-PLAN.md — Wave 2: Credit redemption pipeline (coupon-synth library creates per-session single-use Stripe Coupons, checkout route attach, webhook flips approved → applied, CheckoutPanel "AED X applied" UI)
+- [x] 07-03-PLAN.md — Wave 3: Layer 2 cycle awarder (5 milestones at 3/6/10/15/20 conversions fire inline in creditInviterOnConversion, shared getCycleRecruits source-of-truth, UNIQUE-constraint idempotency)
+- [x] 07-04-PLAN.md — Wave 4: Layer 3 lifetime tier perks (4 tiers at 10/25/50/100 lifetime conversions, early_access + hall_wall flag side-effects, tier % stacked into coupon-synth)
+- [x] 07-05-PLAN.md — Wave 5: Daily Drop + Streak server persistence (POST /api/dorm-wars/daily-drop + POST /api/dorm-wars/streak/tick API routes; HubClient localStorage fully purged)
+- [x] 07-06-PLAN.md — Wave 6: Hub wire-through + integration test scaffold + final verification (cycleRecruits + lifetimeTier flow server-canonical into HubClient via props; scripts/test-phase-07-integration.mjs covers credit / daily-drop / streak SQL invariants)
 
 ---
 
-*Roadmap created: 2026-04-03*
+*Roadmap created: 2026-04-03 — Phase 7 complete 2026-05-17*
 *Last updated: 2026-05-16 — Phase 7 planned (6 plans, plan-checker PASS)*
