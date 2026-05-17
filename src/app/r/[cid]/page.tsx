@@ -21,7 +21,7 @@ import { claimGift, sendTrialEmailOtp, verifyTrialEmailOtp } from './actions'
 // customers table from day one (single source of truth).
 
 const PHONE_OTP_LENGTH = 6 // WhatsApp template — /api/whatsapp/start uses randomInt(100000, 1000000)
-const EMAIL_OTP_LENGTH = 8 // Supabase Auth — `{{ .Token }}` from the Magic Link email template
+const EMAIL_OTP_LENGTH = 6 // Supabase Auth — `{{ .Token }}` from the Magic Link email template (setting flipped 2026-05-17)
 
 type Stage = 'enter' | 'sent' | 'verified'
 
