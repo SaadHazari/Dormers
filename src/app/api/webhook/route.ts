@@ -221,17 +221,53 @@ export async function POST(req: Request) {
       const orderId = orderData.id as string;
 
       // ── Dorm Wars: flip redeemed credits to 'applied' ─────────────────
-      // Reads the credit row IDs the checkout route stamped on session
-      // metadata. The CAS guard (`.eq('status','approved')`) is the
+      // Primary path: read the credit row IDs the checkout route stamped on
+      // session metadata. The CAS guard (`.eq('status','approved')`) is the
       // idempotency key — a Stripe webhook retry re-runs this block but
-      // matches 0 rows on the second pass, so `applied_at` / `applied_to`
-      // stay stable (RESEARCH Pitfall #2). Must run BEFORE
-      // `creditInviterOnConversion` below so the redeemed credits settle
-      // before the new conversion credit (if any) is awarded.
-      const appliedCreditIds = (session.metadata?.applied_credit_ids ?? '')
+      // matches 0 rows on the second pass (RESEARCH Pitfall #2).
+      //
+      // Fallback path: if metadata IDs are missing but Stripe shows a
+      // discount was applied to this session, re-derive the credits to flip
+      // from the approved-credit balance in created_at order. This handles
+      // metadata loss in transit and partial-discount scenarios.
+      //
+      // Must run BEFORE `creditInviterOnConversion` below so the redeemed
+      // credits settle before any new conversion credit is awarded.
+      const metaIds = (session.metadata?.applied_credit_ids ?? '')
         .split(',')
         .filter(Boolean);
-      if (appliedCreditIds.length > 0) {
+      const discountFils =
+        (session.amount_subtotal ?? 0) - (session.amount_total ?? 0);
+
+      console.log(
+        `💳 credit flip — session ${session.id} order ${orderId} ` +
+        `metadataIds=[${metaIds.join(',')}] discountFils=${discountFils}`
+      );
+
+      let idsToFlip: string[] = metaIds;
+      if (idsToFlip.length === 0 && discountFils > 0) {
+        // Fallback — pull approved credits, take in order until we cover the discount.
+        const { data: candidates } = await supabaseAdmin
+          .from('credits')
+          .select('id, amount_aed')
+          .eq('customer_id', user_id)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: true });
+        let acc = 0;
+        const picked: string[] = [];
+        for (const c of candidates ?? []) {
+          if (acc >= discountFils) break;
+          picked.push(c.id as string);
+          acc += Math.round(Number(c.amount_aed) * 100);
+        }
+        idsToFlip = picked;
+        console.log(
+          `💳 metadata-loss fallback — picked ${picked.length} credit row(s) ` +
+          `summing to ${acc} fils to cover ${discountFils} fils discount`
+        );
+      }
+
+      if (idsToFlip.length > 0) {
         const { error: flipErr, count: flippedCount } = await supabaseAdmin
           .from('credits')
           .update(
@@ -242,15 +278,15 @@ export async function POST(req: Request) {
             },
             { count: 'exact' },
           )
-          .in('id', appliedCreditIds)
+          .in('id', idsToFlip)
           .eq('status', 'approved');
         if (flipErr) {
-          // Non-fatal — the order is already written and Stripe has already
-          // charged the user. Surface for reconciliation rather than 500
-          // (which would trigger a webhook retry and re-attempt the flip).
           console.error('⚠️  credit flip to applied failed (non-fatal):', flipErr);
         } else {
-          console.log(`💳 Flipped ${flippedCount ?? 0}/${appliedCreditIds.length} credit row(s) to applied for order ${orderId}`);
+          console.log(
+            `💳 Flipped ${flippedCount ?? 0}/${idsToFlip.length} credit row(s) ` +
+            `to applied for order ${orderId}`
+          );
         }
       }
 

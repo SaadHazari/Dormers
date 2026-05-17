@@ -40,8 +40,8 @@ export default async function DormWarsPage() {
     getReferralData(user.id),
     getRecentInvites(user.id),
     getActiveSubscription(user.id),
-    getDailyDropToday(supabase, user.id),
-    getStreak(supabase, user.id),
+    getDailyDropToday(user.id),
+    getStreak(user.id),
   ])
 
   // ── Server-canonical reward state (RESEARCH Decision #10 + Pitfall #3) ──

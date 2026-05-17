@@ -344,11 +344,24 @@ export async function getCycleRecruits(
 }
 
 // ── Dorm Wars: Daily Drop + Streak SSR getters (Phase 7-05) ───────────────
-// Both helpers accept a caller-supplied Supabase client so they can run from
-// the dorm-wars RSC page (SSR client — RLS allows auth.uid() = customer_id)
-// or from any future admin context. NOT wrapped in `cache()` for the same
-// reason as `getRedeemableCredit`/`getCycleRecruits` above. Same
-// `SupabaseClient<any, any, any>` signature pattern as `getCycleRecruits`.
+// Use the service-role admin client (not the SSR/RLS-bound client).
+// Originally these took a caller-supplied SSR client and relied on the
+// `customer_id = auth.uid()` RLS policy, but in practice the SSR client's
+// auth context was returning null for these tables in the dorm-wars RSC page
+// — the row exists, but SELECT comes back empty under RLS, so the hub keeps
+// rendering "tap to claim" even after a successful claim. Switching to the
+// admin client side-steps the broken RLS resolution. Security is unchanged:
+// the customerId comes from `getUserFromHeaders()` which middleware sets
+// from the verified session — callers cannot pass an arbitrary id.
+
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+function rewardsAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 /**
  * Read today's Daily Drop record for a customer (SSR initial render).
@@ -358,12 +371,10 @@ export async function getCycleRecruits(
  *   • src/app/dashboard/dorm-wars/page.tsx — pass initialDailyDrop prop to HubClient
  */
 export async function getDailyDropToday(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: SupabaseClient<any, any, any>,
   customerId: string,
 ): Promise<{ value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null> {
   const today = new Date().toISOString().slice(0, 10)
-  const { data } = await sb
+  const { data } = await rewardsAdmin()
     .from('daily_drops')
     .select('value_aed, rng_bucket')
     .eq('customer_id', customerId)
@@ -383,12 +394,8 @@ export async function getDailyDropToday(
  * Used by:
  *   • src/app/dashboard/dorm-wars/page.tsx — pass initialStreak prop to HubClient
  */
-export async function getStreak(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: SupabaseClient<any, any, any>,
-  customerId: string,
-): Promise<number> {
-  const { data } = await sb
+export async function getStreak(customerId: string): Promise<number> {
+  const { data } = await rewardsAdmin()
     .from('streaks')
     .select('count')
     .eq('customer_id', customerId)
