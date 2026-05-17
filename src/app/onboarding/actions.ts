@@ -219,12 +219,12 @@ export async function createAccount(
 export type VerifyEmailOtpResult = { ok: true } | { error: string }
 
 export async function verifyEmailOtp(email: string, token: string): Promise<VerifyEmailOtpResult> {
-    // Email OTP is exactly 6 digits — configured in Supabase Dashboard →
-    // Auth → Email OTP length. If you change the dashboard setting, also
-    // bump EmailStep.tsx OTP_LENGTH and this regex AND the matching regex
-    // in src/app/r/[cid]/actions.ts verifyTrialEmailOtp.
-    if (!email?.trim() || !/^\d{6}$/.test(token ?? '')) {
-        return { error: 'Enter the 6-digit code from your email.' }
+    // Supabase email OTP length is 6–10 digits (this project ships 8).
+    // Accept any value in that range so this validator stays correct if the
+    // Supabase setting changes — actual length-check happens client-side
+    // and on Supabase's verifyOtp call.
+    if (!email?.trim() || !/^\d{6,10}$/.test(token ?? '')) {
+        return { error: 'Enter the verification code from your email.' }
     }
 
     const supabase = await createClient()

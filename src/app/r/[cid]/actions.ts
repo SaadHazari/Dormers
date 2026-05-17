@@ -108,11 +108,11 @@ export async function verifyTrialEmailOtp(
 ): Promise<VerifyTrialEmailOtpResult> {
   const trimmedEmail = email.trim().toLowerCase()
   const trimmedToken = token.trim()
-  // 6 digits exactly. Must stay in lockstep with the Supabase Dashboard
-  // setting (Auth → Email OTP length) and the matching regex in
-  // src/app/onboarding/actions.ts verifyEmailOtp.
-  if (!trimmedEmail || !/^\d{6}$/.test(trimmedToken)) {
-    return { error: 'Enter the 6-digit code from your email.' }
+  // Supabase email OTP length is 6–10 digits (this project's Supabase emits 8).
+  // Mirror the broad regex from onboarding's verifyEmailOtp so a future
+  // dashboard tweak doesn't silently break the flow.
+  if (!trimmedEmail || !/^\d{6,10}$/.test(trimmedToken)) {
+    return { error: 'Enter the verification code from your email.' }
   }
   const supabase = await createClient()
   // type:'email' validates the OTP and sets the session cookie via the SSR

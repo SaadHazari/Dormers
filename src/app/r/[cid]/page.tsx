@@ -4,21 +4,26 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Check } from 'lucide-react'
-import { FieldInput, CtaButton } from '@/app/onboarding/primitives'
+import { Check, CheckCircle2 } from 'lucide-react'
+import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
 import { DORMS } from '@/app/onboarding/data'
 import { claimGift, sendTrialEmailOtp, verifyTrialEmailOtp } from './actions'
 
-// Matches the dark onboarding page exactly — same bg, same blur orbs,
-// same primitives. Do not change the visual language here.
+// Matches the dark onboarding page exactly — same bg, same primitives, same
+// OTP affordances (Send code → Verify & continue) as PhoneStep + EmailStep.
 //
-// Verification gates: both the WhatsApp number AND the email must be OTP-
-// verified before the claim submit unlocks. Mirrors the main onboarding
-// PhoneStep / EmailStep behavior. The email OTP also creates the auth.users
-// row (passwordless) so claimGift can insert into the customers table.
+// Two independent OTP gates run inline:
+//   • WhatsApp OTP via the project's existing /api/whatsapp/* endpoints — 6 digits.
+//   • Email OTP via Supabase Auth — 8 digits (the project's Auth setting).
+//
+// The email OTP verification ALSO creates the passwordless auth.users row that
+// claimGift links the customers table to, so trial users land in the main
+// customers table from day one (single source of truth).
 
-const OTP_LENGTH = 6
-type Stage = 'idle' | 'sending' | 'awaiting-code' | 'verifying' | 'verified'
+const PHONE_OTP_LENGTH = 6 // WhatsApp template — /api/whatsapp/start uses randomInt(100000, 1000000)
+const EMAIL_OTP_LENGTH = 8 // Supabase Auth — `{{ .Token }}` from the Magic Link email template
+
+type Stage = 'enter' | 'sent' | 'verified'
 
 export default function ReferralLandingPage() {
   const params   = useParams()
@@ -35,22 +40,38 @@ export default function ReferralLandingPage() {
   const [preference,  setPreference]  = useState('')
   const [error,       setError]       = useState('')
   const [done,        setDone]        = useState(false)
-  const [isPending,   startTransition] = useTransition()
+  const [isClaiming,  startClaiming]  = useTransition()
 
-  // Phone verification state
-  const [phoneStage,    setPhoneStage]    = useState<Stage>('idle')
+  // Phone OTP state
+  const [phoneStage,    setPhoneStage]    = useState<Stage>('enter')
   const [phoneOtp,      setPhoneOtp]      = useState('')
-  const [phoneOtpError, setPhoneOtpError] = useState('')
+  const [phoneError,    setPhoneError]    = useState('')
+  const [phoneBusy,     setPhoneBusy]     = useState(false)
+  const [phoneResendIn, setPhoneResendIn] = useState(0)
   const phoneOtpRef = useRef<HTMLInputElement>(null)
 
-  // Email verification state
-  const [emailStage,    setEmailStage]    = useState<Stage>('idle')
+  // Email OTP state
+  const [emailStage,    setEmailStage]    = useState<Stage>('enter')
   const [emailOtp,      setEmailOtp]      = useState('')
-  const [emailOtpError, setEmailOtpError] = useState('')
+  const [emailError,    setEmailError]    = useState('')
+  const [emailBusy,     setEmailBusy]     = useState(false)
+  const [emailResendIn, setEmailResendIn] = useState(0)
   const emailOtpRef = useRef<HTMLInputElement>(null)
 
   const phoneVerified = phoneStage === 'verified'
   const emailVerified = emailStage === 'verified'
+
+  // Resend cooldown tickers — match PhoneStep / EmailStep behavior.
+  useEffect(() => {
+    if (phoneResendIn <= 0) return
+    const t = setTimeout(() => setPhoneResendIn(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [phoneResendIn])
+  useEffect(() => {
+    if (emailResendIn <= 0) return
+    const t = setTimeout(() => setEmailResendIn(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [emailResendIn])
 
   // Resolve the inviter's first name from the CID so the page can be
   // personalised ("Sara sent you a meal") without exposing the full customer row.
@@ -63,154 +84,143 @@ export default function ReferralLandingPage() {
       .finally(() => setLoading(false))
   }, [cid])
 
-  // ── Phone OTP flow ─────────────────────────────────────────────────────────
+  // ── Phone OTP: send → verify ────────────────────────────────────────────────
   async function sendPhoneCode() {
-    if (phoneStage === 'sending' || phoneStage === 'verifying') return
-    setPhoneOtpError('')
+    if (phoneBusy) return
+    setPhoneError('')
     setError('')
-    const trimmed = phone.trim()
-    if (!/^\+\d{8,15}$/.test(trimmed)) {
-      setPhoneOtpError('Use international format, e.g. +9715XXXXXXXX')
+    if (!/^\+\d{8,15}$/.test(phone)) {
+      setPhoneError('Pick a country and enter your local number.')
       return
     }
-    setPhoneStage('sending')
+    setPhoneBusy(true)
     try {
       const res = await fetch('/api/whatsapp/start', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: trimmed }),
+        body:    JSON.stringify({ phone }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setPhoneStage('idle')
-        setPhoneOtpError(
-          data?.error === 'too_many_requests' ? 'Too many tries — wait an hour and retry.' :
-          data?.error === 'cooldown'          ? 'Just sent a code — wait a few seconds.' :
-          data?.error === 'invalid_phone'     ? 'That phone number doesn\'t look right.' :
-                                                'Could not send the code. Try again.'
-        )
+        setPhoneError(messageForPhoneError(data?.error))
+        if (data?.error === 'cooldown' && data.retryAfter) setPhoneResendIn(data.retryAfter)
         return
       }
-      setPhoneStage('awaiting-code')
+      setPhoneStage('sent')
+      setPhoneResendIn(30)
       setPhoneOtp('')
       setTimeout(() => phoneOtpRef.current?.focus(), 50)
     } catch {
-      setPhoneStage('idle')
-      setPhoneOtpError('Network error. Try again.')
+      setPhoneError('Network error. Try again.')
+    } finally {
+      setPhoneBusy(false)
     }
   }
-
-  async function verifyPhoneCode(code: string) {
-    if (phoneStage === 'verifying' || phoneStage === 'verified') return
-    if (code.length !== OTP_LENGTH) return
-    setPhoneStage('verifying')
-    setPhoneOtpError('')
+  async function verifyPhoneCode() {
+    if (phoneBusy) return
+    if (phoneOtp.length !== PHONE_OTP_LENGTH) return
+    setPhoneBusy(true)
+    setPhoneError('')
     try {
       const res = await fetch('/api/whatsapp/check', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), code }),
+        body:    JSON.stringify({ phone, code: phoneOtp }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setPhoneStage('awaiting-code')
-        setPhoneOtpError(
-          data?.error === 'incorrect_code'    ? 'Wrong code — try again.' :
-          data?.error === 'too_many_attempts' ? 'Too many tries — request a new code.' :
-          data?.error === 'no_active_code'    ? 'Code expired — request a new one.' :
-                                                'Verification failed. Try again.'
-        )
+        setPhoneError(messageForPhoneError(data?.error))
         return
       }
       setPhoneStage('verified')
     } catch {
-      setPhoneStage('awaiting-code')
-      setPhoneOtpError('Network error. Try again.')
+      setPhoneError('Network error. Try again.')
+    } finally {
+      setPhoneBusy(false)
     }
   }
+  // Auto-verify on full code typed (matches onboarding PhoneStep behavior).
   useEffect(() => {
-    if (phoneOtp.length === OTP_LENGTH && phoneStage === 'awaiting-code') {
-      verifyPhoneCode(phoneOtp)
-    }
+    if (phoneOtp.length === PHONE_OTP_LENGTH && phoneStage === 'sent' && !phoneBusy) verifyPhoneCode()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phoneOtp])
+  function editPhone() {
+    setPhoneStage('enter')
+    setPhoneOtp('')
+    setPhoneError('')
+    setPhoneResendIn(0)
+  }
 
-  // ── Email OTP flow ─────────────────────────────────────────────────────────
+  // ── Email OTP: send → verify ────────────────────────────────────────────────
   async function sendEmailCode() {
-    if (emailStage === 'sending' || emailStage === 'verifying') return
-    setEmailOtpError('')
+    if (emailBusy) return
+    setEmailError('')
     setError('')
-    const trimmed = email.trim()
-    if (!/^\S+@\S+\.\S+$/.test(trimmed)) {
-      setEmailOtpError('That email doesn\'t look right.')
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setEmailError('That email doesn\'t look right.')
       return
     }
-    setEmailStage('sending')
-    const result = await sendTrialEmailOtp(trimmed)
+    setEmailBusy(true)
+    const result = await sendTrialEmailOtp(email.trim())
+    setEmailBusy(false)
     if ('error' in result) {
-      setEmailStage('idle')
-      setEmailOtpError(result.error)
+      setEmailError(prettifyEmailError(result.error))
       return
     }
-    setEmailStage('awaiting-code')
+    setEmailStage('sent')
+    setEmailResendIn(45)
     setEmailOtp('')
     setTimeout(() => emailOtpRef.current?.focus(), 50)
   }
-
-  async function verifyEmailCode(code: string) {
-    if (emailStage === 'verifying' || emailStage === 'verified') return
-    if (code.length !== OTP_LENGTH) return
-    setEmailStage('verifying')
-    setEmailOtpError('')
-    const result = await verifyTrialEmailOtp(email.trim(), code)
+  async function verifyEmailCode() {
+    if (emailBusy) return
+    if (emailOtp.length < 6) return
+    setEmailBusy(true)
+    setEmailError('')
+    const result = await verifyTrialEmailOtp(email.trim(), emailOtp)
+    setEmailBusy(false)
     if ('error' in result) {
-      setEmailStage('awaiting-code')
-      setEmailOtpError(
-        /expired/i.test(result.error)   ? 'Code expired — request a new one.' :
-        /invalid|wrong/i.test(result.error) ? 'Wrong code — try again.' :
-                                              result.error
-      )
+      setEmailError(prettifyEmailError(result.error))
       return
     }
     setEmailStage('verified')
   }
+  // Auto-verify on full code typed (matches onboarding EmailStep behavior).
   useEffect(() => {
-    if (emailOtp.length === OTP_LENGTH && emailStage === 'awaiting-code') {
-      verifyEmailCode(emailOtp)
-    }
+    if (emailOtp.length === EMAIL_OTP_LENGTH && emailStage === 'sent' && !emailBusy) verifyEmailCode()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emailOtp])
+  function editEmail() {
+    setEmailStage('enter')
+    setEmailOtp('')
+    setEmailError('')
+    setEmailResendIn(0)
+  }
 
-  // ── Reset verification when the underlying value changes ───────────────────
-  // If the user edits their phone/email AFTER verifying, the verification no
-  // longer corresponds to what they entered. Drop to idle so they re-verify.
-  // We deliberately do NOT depend on phoneStage/emailStage — including them
-  // would re-fire the effect when the stage advances and snap us back to idle.
+  // Edits to phone/email after verification drop back to enter stage.
   useEffect(() => {
-    if (phoneStage !== 'idle') { setPhoneStage('idle'); setPhoneOtp('') }
+    if (phoneStage !== 'enter') editPhone()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone])
   useEffect(() => {
-    if (emailStage !== 'idle') { setEmailStage('idle'); setEmailOtp('') }
+    if (emailStage !== 'enter') editEmail()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ── Claim submit ──────────────────────────────────────────────────────────
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (isPending || done) return
+    if (isClaiming || done) return
     setError('')
     if (!firstName.trim()) { setError('Please enter your first name.'); return }
-    if (!phone.trim())     { setError('Please enter your WhatsApp number.'); return }
-    if (!phoneVerified)    { setError('Please verify your WhatsApp number with the 6-digit code.'); return }
-    if (!email.trim())     { setError('Please enter your email.'); return }
-    if (!emailVerified)    { setError('Please verify your email with the 6-digit code.'); return }
+    if (!phoneVerified)    { setError('Please verify your WhatsApp number above.'); return }
+    if (!emailVerified)    { setError('Please verify your email above.'); return }
     if (!dorm)             { setError('Please select your dorm.'); return }
     if (!preference)       { setError('Please choose a meal preference.'); return }
 
     // Stable per-browser device fingerprint — random UUID persisted in
     // localStorage. Catches the easy burner-farm case where the same browser
-    // claims via multiple disposable phone/email combos. Server-side soft-flag
-    // in claimGift logs to referral_review_queue when a fp is reused.
+    // claims via multiple disposable phone/email combos.
     let deviceFp: string | undefined
     if (typeof window !== 'undefined') {
       try {
@@ -222,7 +232,7 @@ export default function ReferralLandingPage() {
       } catch { /* storage disabled (private mode) — skip the fingerprint */ }
     }
 
-    startTransition(async () => {
+    startClaiming(async () => {
       const result = await claimGift({
         inviterCid:  cid,
         firstName:   firstName.trim(),
@@ -241,8 +251,9 @@ export default function ReferralLandingPage() {
 
   const labelCls    = 'block text-[11px] font-bold uppercase tracking-widest mb-1.5 text-white/65'
   const selectCls   = 'w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/55'
-  const otpCls      = 'w-full rounded-xl px-4 py-3 text-[18px] tracking-[0.5em] text-center outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/30 font-mono'
-  const sendBtnCls  = 'w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#f57f20]/40 text-[#f57f20] hover:bg-[#f57f20]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+  const otpBoxCls   = 'w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.35em] text-center outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-white/30 disabled:opacity-60'
+  const otpVerifyCls= 'w-full rounded-xl px-4 py-3 text-[13px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+  const otpSendCls  = 'w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#f57f20]/40 text-[#f57f20] hover:bg-[#f57f20]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   const verifiedCls = 'flex items-center justify-center gap-2 w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#22c55e]/40 text-[#22c55e] bg-[#22c55e]/[0.06]'
 
   if (loading) {
@@ -321,7 +332,7 @@ export default function ReferralLandingPage() {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <FieldInput
                   label="First Name"
                   type="text"
@@ -331,61 +342,83 @@ export default function ReferralLandingPage() {
                   autoComplete="given-name"
                 />
 
-                {/* WhatsApp number + inline OTP verification */}
+                {/* WhatsApp number — PhoneField gives the country-code picker */}
                 <div className="space-y-2">
-                  <FieldInput
+                  <PhoneField
                     label="WhatsApp Number"
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="+971 50 000 0000"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    autoComplete="tel"
-                    disabled={phoneVerified}
+                    onChange={setPhone}
+                    disabled={phoneStage !== 'enter'}
                   />
-                  {phoneStage === 'idle' && (
-                    <button
-                      type="button"
-                      onClick={sendPhoneCode}
-                      disabled={!phone.trim()}
-                      className={sendBtnCls}
-                    >
-                      Send WhatsApp code
-                    </button>
-                  )}
-                  {phoneStage === 'sending' && (
-                    <button type="button" disabled className={sendBtnCls}>Sending…</button>
-                  )}
-                  {(phoneStage === 'awaiting-code' || phoneStage === 'verifying') && (
+
+                  {phoneStage === 'enter' && (
                     <>
-                      <input
-                        ref={phoneOtpRef}
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={OTP_LENGTH}
-                        value={phoneOtp}
-                        onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                        placeholder={'•'.repeat(OTP_LENGTH)}
-                        className={otpCls}
-                        disabled={phoneStage === 'verifying'}
-                      />
+                      <p className="text-[11px] text-white/50 -mt-1">
+                        We&apos;ll send a 6-digit code to verify this is your number.
+                      </p>
                       <button
                         type="button"
                         onClick={sendPhoneCode}
-                        className="block w-full text-center text-[11px] text-white/50 hover:text-white/80 underline mt-1"
+                        disabled={!phone.trim() || phoneBusy}
+                        className={otpSendCls}
                       >
-                        Didn&apos;t get it? Send again
+                        {phoneBusy ? 'Sending…' : 'Send WhatsApp code'}
                       </button>
                     </>
                   )}
-                  {phoneStage === 'verified' && (
+
+                  {phoneStage === 'sent' && (
+                    <>
+                      <label className={labelCls}>WhatsApp Code</label>
+                      <div className="relative">
+                        <input
+                          ref={phoneOtpRef}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={PHONE_OTP_LENGTH}
+                          value={phoneOtp}
+                          onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, PHONE_OTP_LENGTH))}
+                          placeholder={'•'.repeat(PHONE_OTP_LENGTH)}
+                          disabled={phoneBusy}
+                          className={otpBoxCls}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={verifyPhoneCode}
+                        disabled={phoneOtp.length !== PHONE_OTP_LENGTH || phoneBusy}
+                        className={otpVerifyCls}
+                      >
+                        {phoneBusy ? 'Verifying…' : 'Verify WhatsApp'}
+                      </button>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-[11px] text-white/55 flex-1">
+                          Sent to <span className="text-white/85 font-medium font-mono">{phone}</span>.{' '}
+                          <button type="button" onClick={editPhone} className="text-[#f57f20] hover:text-[#ff8f36] font-semibold transition-colors">
+                            Wrong number?
+                          </button>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={sendPhoneCode}
+                          disabled={phoneResendIn > 0 || phoneBusy}
+                          className="text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none disabled:text-white/40 whitespace-nowrap"
+                        >
+                          {phoneResendIn > 0 ? `Resend in ${phoneResendIn}s` : 'Resend code'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {phoneVerified && (
                     <div className={verifiedCls}>
-                      <Check size={14} strokeWidth={3} /> WhatsApp verified
+                      <CheckCircle2 size={14} strokeWidth={3} /> WhatsApp verified
                     </div>
                   )}
-                  {phoneOtpError && (
-                    <p className="text-[12px] text-red-400 leading-snug">{phoneOtpError}</p>
+
+                  {phoneError && (
+                    <p className="text-[12px] text-red-400 leading-snug">{phoneError}</p>
                   )}
                 </div>
 
@@ -398,51 +431,77 @@ export default function ReferralLandingPage() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     autoComplete="email"
-                    disabled={emailVerified}
+                    disabled={emailStage !== 'enter'}
                   />
-                  {emailStage === 'idle' && (
-                    <button
-                      type="button"
-                      onClick={sendEmailCode}
-                      disabled={!email.trim()}
-                      className={sendBtnCls}
-                    >
-                      Send email code
-                    </button>
-                  )}
-                  {emailStage === 'sending' && (
-                    <button type="button" disabled className={sendBtnCls}>Sending…</button>
-                  )}
-                  {(emailStage === 'awaiting-code' || emailStage === 'verifying') && (
+
+                  {emailStage === 'enter' && (
                     <>
-                      <input
-                        ref={emailOtpRef}
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={OTP_LENGTH}
-                        value={emailOtp}
-                        onChange={e => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                        placeholder={'•'.repeat(OTP_LENGTH)}
-                        className={otpCls}
-                        disabled={emailStage === 'verifying'}
-                      />
+                      <p className="text-[11px] text-white/50 -mt-1">
+                        We&apos;ll email an {EMAIL_OTP_LENGTH}-digit code to verify your address.
+                      </p>
                       <button
                         type="button"
                         onClick={sendEmailCode}
-                        className="block w-full text-center text-[11px] text-white/50 hover:text-white/80 underline mt-1"
+                        disabled={!email.trim() || emailBusy}
+                        className={otpSendCls}
                       >
-                        Didn&apos;t get it? Send again
+                        {emailBusy ? 'Sending…' : 'Send email code'}
                       </button>
                     </>
                   )}
-                  {emailStage === 'verified' && (
+
+                  {emailStage === 'sent' && (
+                    <>
+                      <label className={labelCls}>Email Code</label>
+                      <div className="relative">
+                        <input
+                          ref={emailOtpRef}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={EMAIL_OTP_LENGTH}
+                          value={emailOtp}
+                          onChange={e => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, EMAIL_OTP_LENGTH))}
+                          placeholder={'•'.repeat(EMAIL_OTP_LENGTH)}
+                          disabled={emailBusy}
+                          className={otpBoxCls}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={verifyEmailCode}
+                        disabled={emailOtp.length !== EMAIL_OTP_LENGTH || emailBusy}
+                        className={otpVerifyCls}
+                      >
+                        {emailBusy ? 'Verifying…' : 'Verify email'}
+                      </button>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-[11px] text-white/55 flex-1">
+                          Sent to <span className="text-white/85 font-medium break-all">{email}</span>.{' '}
+                          <button type="button" onClick={editEmail} className="text-[#f57f20] hover:text-[#ff8f36] font-semibold transition-colors">
+                            Wrong email?
+                          </button>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={sendEmailCode}
+                          disabled={emailResendIn > 0 || emailBusy}
+                          className="text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none disabled:text-white/40 whitespace-nowrap"
+                        >
+                          {emailResendIn > 0 ? `Resend in ${emailResendIn}s` : 'Resend code'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {emailVerified && (
                     <div className={verifiedCls}>
-                      <Check size={14} strokeWidth={3} /> Email verified
+                      <CheckCircle2 size={14} strokeWidth={3} /> Email verified
                     </div>
                   )}
-                  {emailOtpError && (
-                    <p className="text-[12px] text-red-400 leading-snug">{emailOtpError}</p>
+
+                  {emailError && (
+                    <p className="text-[12px] text-red-400 leading-snug">{emailError}</p>
                   )}
                 </div>
 
@@ -470,12 +529,8 @@ export default function ReferralLandingPage() {
                     <option value="" disabled>Select preference</option>
                     <option value="Non-Veg">Non-Veg</option>
                     <option value="Veg">Veg</option>
-                    {/* Religious mix is a multi-day split (N veg days + M non-veg
-                        days per cycle) that only makes sense on a Weekly Flex
-                        or larger plan — a single trial meal can't be "mixed".
-                        We disable the option here and surface the gating copy
-                        as the disabled label so the user knows it's available
-                        once they subscribe. */}
+                    {/* Religious mix is a multi-day split — only meaningful on
+                        Weekly+ plans. Gated here, visible as a teaser. */}
                     <option value="Religious Preference" disabled>
                       Religious mix — pick a Weekly plan or higher
                     </option>
@@ -489,8 +544,8 @@ export default function ReferralLandingPage() {
                 </div>
               )}
 
-              <CtaButton type="submit" disabled={isPending || !phoneVerified || !emailVerified}>
-                {isPending ? 'Claiming your meal…' : 'Claim my free meal →'}
+              <CtaButton type="submit" disabled={isClaiming || !phoneVerified || !emailVerified}>
+                {isClaiming ? 'Claiming your meal…' : 'Claim my free meal →'}
               </CtaButton>
 
               {(!phoneVerified || !emailVerified) && (
@@ -510,4 +565,27 @@ export default function ReferralLandingPage() {
       </div>
     </div>
   )
+}
+
+// Map server error codes to customer-facing copy. Mirrors onboarding's
+// messageForError so the trial flow feels consistent.
+function messageForPhoneError(code: unknown): string {
+  switch (code) {
+    case 'invalid_phone':      return 'That number doesn\'t look right. Check the country code and try again.'
+    case 'invalid_code':       return 'Code must be 6 digits.'
+    case 'cooldown':           return 'Hold on a moment before resending.'
+    case 'too_many_requests':  return 'Too many requests. Try again in an hour.'
+    case 'send_failed':        return 'Couldn\'t send the WhatsApp message. Double-check your number.'
+    case 'no_active_code':     return 'Code expired or never sent. Send a new one.'
+    case 'incorrect_code':     return 'That code doesn\'t match. Try again.'
+    case 'too_many_attempts':  return 'Too many wrong attempts. Send a new code.'
+    default:                   return 'Something went wrong. Try again.'
+  }
+}
+
+function prettifyEmailError(msg: string): string {
+  const lower = msg.toLowerCase()
+  if (lower.includes('expired') || lower.includes('invalid')) return 'That code is wrong or expired. Try again or resend.'
+  if (lower.includes('rate') || lower.includes('too many'))    return 'Too many attempts. Wait a minute and try again.'
+  return msg
 }
