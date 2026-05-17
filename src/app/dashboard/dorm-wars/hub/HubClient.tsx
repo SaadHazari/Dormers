@@ -10,23 +10,39 @@ import type { ReferralData, DormStats, InviteRow, RewardEvent } from '@/utils/su
 import type { Subscription } from '../../_shared/types'
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PALETTE — disciplined: navy ground, gold action, cream text, green achieved
+//  PALETTE — Dormers brand translation (2026-05-18)
+//
+//  Ground = marketing hero navy (#091825 → #1e3a4f). Action = burnt orange
+//  (#f57f20). Text = cream (#ede8da). Tier accents kept differentiated for
+//  hierarchy but ALL warmed: cyan → teal, neon green → forest, neon purple
+//  → mulberry, neon pink → coral. The hub now lives in the same late-night
+//  dorm world as the rest of the site, just with its own gamified rhythm.
 // ════════════════════════════════════════════════════════════════════════════
 
-const BG_DEEP    = '#08051f'
-const BG_MID     = '#1a1140'
+// Ground — pulled verbatim from the marketing hero gradient stops so the
+// page sits in the same atmosphere as the site's "you didn't leave home"
+// landing. BG_DEEP is the navy floor, BG_MID is the teal-navy upper third.
+const BG_DEEP    = '#091825'
+const BG_MID     = '#1e3a4f'
+const BG_GLOW    = '#162f40'  // gradient endpoint for the radial wash
 
-const GOLD       = '#f59e0b'
-const GOLD_LITE  = '#fbbf24'
+// Action — burnt orange is the brand heartbeat. GOLD here means the warm
+// orange family the marketing CTAs use, not the yellow-gold of the prior
+// neon palette. GOLD_LITE is the brand's gradient secondary (#ffaa00).
+const GOLD       = '#f57f20'   // primary action — matches Navbar CTA / hero stress
+const GOLD_LITE  = '#ffaa00'   // gradient partner — matches the Navbar gradient end
 const ORANGE     = '#f57f20'
 const ORANGE_LITE = '#ffaa00'
 
-const CYAN       = '#22d3ee'
-const GREEN      = '#22c55e'
-const PURPLE     = '#c084fc'
-const VIOLET     = '#a855f7'
-const PINK       = '#ec4899'
-const RED        = '#f87171'
+// Tier accents — kept differentiated for hierarchy but every value pulled
+// toward warmer hues so the hub feels like one continuous mood, not a
+// rainbow of neon. Saturations reduced ~15-20% from the original gamer set.
+const CYAN       = '#5cb4c9'   // teal — closer to BG_MID; was #22d3ee
+const GREEN      = '#5fb479'   // forest green; was #22c55e
+const PURPLE     = '#b58af0'   // soft mulberry; was #c084fc
+const VIOLET     = '#a878dc'   // similar but darker; was #a855f7
+const PINK       = '#e57b9a'   // coral pink; was #ec4899
+const RED        = '#e0716e'   // brick red; was #f87171
 
 const CREAM      = '#ede8da'
 const MIST       = 'rgba(237,232,218,0.55)'
@@ -341,16 +357,51 @@ export default function HubClient({
   }
 
   return (
-    <div style={{
-      backgroundColor: BG_DEEP,
-      backgroundImage: `radial-gradient(ellipse at 50% -10%, rgba(40,28,90,0.45) 0%, transparent 55%)`,
-      minHeight: '100vh',
-      display: 'flex', flexDirection: 'column',
-      padding: 'clamp(16px, 2vw, 24px) clamp(20px, 3vw, 32px)',
-      gap: 16,
-      overflow: 'hidden',
-    }}>
+    <div
+      className="hub-root"
+      style={{
+        backgroundColor: BG_DEEP,
+        // Three-layer ground:
+        //   1. Soft orange top-glow — picks up the brand heartbeat without
+        //      shouting it (the same warm tone that haloes the marketing CTA)
+        //   2. Marketing hero vertical gradient — navy → teal-navy → deeper navy,
+        //      so the hub sits in the same late-night world as the landing page
+        //   3. Backed by the BG_DEEP solid for any uncovered corners
+        backgroundImage: `
+          radial-gradient(ellipse at 50% -15%, rgba(245,127,32,0.14) 0%, transparent 55%),
+          linear-gradient(180deg, ${BG_DEEP} 0%, ${BG_MID} 55%, ${BG_GLOW} 100%)
+        `,
+        minHeight: '100vh',
+        display: 'flex', flexDirection: 'column',
+        padding: 'clamp(16px, 2vw, 24px) clamp(20px, 3vw, 32px)',
+        gap: 16,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       <HubStyles />
+      {/* Marketing-grade SVG grain — same recipe the hero uses (turbulence
+          filter at 0.05 opacity) so the hub picks up the brand's tactile
+          film-grain warmth instead of feeling like flat digital glass.
+          The .hub-root CSS rule (in HubStyles) bumps every direct child to
+          z-index 1 so the grain sits underneath everything cleanly. */}
+      <svg
+        aria-hidden="true"
+        className="hub-grain"
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          pointerEvents: 'none',
+          opacity: 0.05,
+          mixBlendMode: 'overlay',
+        }}
+      >
+        <filter id="hub-grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" seed="3" />
+          <feColorMatrix values="0 0 0 0 1   0 0 0 0 0.65   0 0 0 0 0.30   0 0 0 0.8 0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#hub-grain)" />
+      </svg>
 
       {/* CELEBRATION BANNER — fires when a fresh reward landed since last
           page open. Slides down from the top with a gradient bar, dismissable
@@ -1442,9 +1493,18 @@ function HubStyles() {
     <style>{`
       ::selection { background: rgba(245,127,32,0.32); }
 
+      /* The grain layer is absolutely positioned and would render ABOVE
+         non-positioned siblings. Make every direct child of .hub-root sit
+         in its own stacking layer at z-index 1 so the grain stays under. */
+      .hub-root > * { position: relative; z-index: 1; }
+      .hub-root > .hub-grain { z-index: 0; }
+
+      /* Retuned to brand burnt orange (#f57f20) — the prior #f59e0b was
+         the yellow-gold of the prior neon palette; this matches the
+         marketing-site CTA glow recipe (0 8px 32px rgba(255,127,0,0.5)). */
       @keyframes hub-cta-pulse {
-        0%, 100% { box-shadow: 0 0 24px rgba(245,158,11,0.45), 0 0 48px rgba(245,158,11,0.20), inset 0 0 0 1.5px rgba(255,200,80,0.85); }
-        50%      { box-shadow: 0 0 40px rgba(245,158,11,0.7),  0 0 80px rgba(245,158,11,0.36), inset 0 0 0 1.5px rgba(255,200,80,1); }
+        0%, 100% { box-shadow: 0 0 22px rgba(245,127,32,0.45), 0 0 48px rgba(245,127,32,0.18), inset 0 0 0 1.5px rgba(255,200,140,0.85); }
+        50%      { box-shadow: 0 0 38px rgba(245,127,32,0.7),  0 0 80px rgba(245,127,32,0.34), inset 0 0 0 1.5px rgba(255,200,140,1); }
       }
       @keyframes hub-cta-bob {
         0%, 100% { transform: translateY(0); }
@@ -1486,7 +1546,7 @@ function HubStyles() {
       }
       .hub-column-tap:hover {
         transform: translateY(-2px);
-        border-color: rgba(245,158,11,0.5);
+        border-color: rgba(245,127,32,0.55);
       }
 
       .hub-scouts-scroll::-webkit-scrollbar { display: none; }
