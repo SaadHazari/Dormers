@@ -141,10 +141,20 @@ export async function claimGift(payload: {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  const phoneE164  = normalisePhone(payload.phone)
-  const emailNorm  = normaliseEmail(payload.email)
-  const inviterCid = payload.inviterCid.toUpperCase().trim()
-  const firstName  = sanitizeFirstName(payload.firstName)
+  const phoneE164    = normalisePhone(payload.phone)
+  // Two flavors of email:
+  //   • emailLiteral  — what the user TYPED, lowercased. Goes into customers.email
+  //     and matches what Supabase stored on auth.users.email when verifyOtp ran.
+  //     Use this to send transactional email (so +tag aliases land in the right
+  //     inbox) and to compare against the verified user id.
+  //   • emailNorm     — dedupe canonical form (Gmail dots/+tags stripped,
+  //     googlemail folded). Goes into referral_gifts_claimed.email_norm so the
+  //     UNIQUE constraint blocks the same Gmail account claiming twice via
+  //     different aliases.
+  const emailLiteral = payload.email.trim().toLowerCase()
+  const emailNorm    = normaliseEmail(payload.email)
+  const inviterCid   = payload.inviterCid.toUpperCase().trim()
+  const firstName    = sanitizeFirstName(payload.firstName)
 
   if (!firstName) {
     return { blocked: true, reason: 'Please enter your first name.' }
@@ -168,7 +178,11 @@ export async function claimGift(payload: {
   // trial-customers table, single source of truth.
   const ssrClient = await createClient()
   const { data: { user: verifiedUser } } = await ssrClient.auth.getUser()
-  if (!verifiedUser || verifiedUser.email?.toLowerCase() !== emailNorm) {
+  // Compare against the LITERAL form the user typed, not the normalized one —
+  // Supabase stores `saadhazari01+test5@gmail.com` verbatim, while emailNorm
+  // strips +tags to `saadhazari01@gmail.com` for dedupe-only use. Comparing
+  // literal-to-literal so Gmail +tag testing aliases match.
+  if (!verifiedUser || verifiedUser.email?.toLowerCase() !== emailLiteral) {
     return {
       error: 'Please verify your email address with the code we sent before claiming.',
     }
@@ -327,7 +341,9 @@ export async function claimGift(payload: {
       inviter_cid:        inviterCid,
       inviter_user_id:    inviter.id,
       invitee_phone:      phoneE164,
-      invitee_email:      emailNorm,
+      // Store the LITERAL email for human-readable display + transactional
+      // mail; the dedupe canonical form lives in referral_gifts_claimed.email_norm.
+      invitee_email:      emailLiteral,
       invitee_first_name: firstName,
       status:             'gift_claimed',
       device_fp:          payload.deviceFp ?? null,
@@ -390,7 +406,11 @@ export async function claimGift(payload: {
       id:                   verifiedUser.id,
       cid:                  customerCid,
       name:                 firstName,
-      email:                emailNorm,
+      // Literal (lowercased) email — matches what Supabase stored on auth.users
+      // and what the user expects in their inbox for transactional mail.
+      // emailNorm (dots/+ stripped) is the dedupe key for referral_gifts_claimed
+      // and is NOT what we want as the contact address.
+      email:                emailLiteral,
       whatsapp_number:      phoneE164,
       whatsapp_verified:    true,
       whatsapp_verified_at: new Date().toISOString(),
