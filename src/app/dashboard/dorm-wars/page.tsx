@@ -15,6 +15,11 @@ import HubClient from './hub/HubClient'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
+// Skip the Router Cache so the wallet / streak / drop status reflect the
+// latest state after a checkout-success redirect. Without this, Next.js may
+// serve a cached snapshot for up to 30s and the user sees stale numbers.
+export const dynamic = 'force-dynamic'
+
 export default async function DormWarsPage() {
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
@@ -48,8 +53,10 @@ export default async function DormWarsPage() {
   // cycleRecruits MUST be sourced from the same SQL the Layer 2 awarder reads
   // (getCycleRecruits) — otherwise the hub UI and the awarder can drift and
   // a milestone may render as "earned" in the hub before the awarder fires
-  // (or vice versa). Parallelize the remaining two reads.
-  const [dormStats, cycleRecruits, latestTierRow] = await Promise.all([
+  // (or vice versa). Parallelize the remaining reads.
+  // Audit FIX 15: also fetch the tier-2 / tier-4 side-effect flags so the
+  // hub renders the perks (Early Access, Hall of Fame) the awarder promised.
+  const [dormStats, cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
     getDormStats(customer?.dorm_name ?? ''),
     activeSubscription
       ? getCycleRecruits(supabase, user.id, activeSubscription.id)
@@ -60,6 +67,11 @@ export default async function DormWarsPage() {
       .eq('customer_id', user.id)
       .order('tier', { ascending: false })
       .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('customers')
+      .select('early_access, hall_wall')
+      .eq('id', user.id)
       .maybeSingle(),
   ])
 
@@ -83,6 +95,8 @@ export default async function DormWarsPage() {
       initialDailyDrop={initialDailyDrop}
       cycleRecruits={cycleRecruits}
       lifetimeTier={lifetimeTier}
+      earlyAccess={Boolean(perkFlagsRow.data?.early_access)}
+      hallWall={Boolean(perkFlagsRow.data?.hall_wall)}
     />
   )
 }

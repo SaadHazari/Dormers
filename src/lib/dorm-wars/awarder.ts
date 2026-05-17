@@ -45,12 +45,24 @@ async function depositCredit(
   amountAed: number,
   source: string,
 ): Promise<void> {
-  await sb.from('credits').insert({
+  // The cycle_rewards / lifetime_rewards marker row that triggered this call
+  // is ALREADY inserted by the caller — its UNIQUE constraint blocks retry.
+  // If this credit insert silently fails we permanently lose the deposit.
+  // Throw so the caller's try/catch surfaces the failure to logs (and to the
+  // outer webhook telemetry) instead of leaking money.
+  const { error } = await sb.from('credits').insert({
     customer_id: customerId,
     amount_aed: amountAed,
     source,
     status: 'approved',
   })
+  if (error) {
+    console.error(
+      `❌ depositCredit failed — customer=${customerId} amount=${amountAed} source=${source}:`,
+      error,
+    )
+    throw new Error(`depositCredit failed: ${error.message}`)
+  }
 }
 
 export async function awardCycleAndTierRewards(
@@ -65,8 +77,12 @@ export async function awardCycleAndTierRewards(
   if (subscriptionId) {
     const cycleRecruits = await getCycleRecruits(sb, customerId, subscriptionId)
 
-    for (const m of CYCLE_MILESTONES) {
-      if (cycleRecruits < m.at) break // ascending — short-circuit
+    // Defensive sort — CYCLE_MILESTONES is currently ascending but we don't
+    // want a future reorder of the constant to silently stop awards. Use
+    // `continue` instead of `break` so a non-monotonic threshold also works.
+    const sortedMilestones = [...CYCLE_MILESTONES].sort((a, b) => a.at - b.at)
+    for (const m of sortedMilestones) {
+      if (cycleRecruits < m.at) continue // not reached yet — skip, keep looking
       const value = m.kind === 'mystery_drop' ? mysteryDropValue() : m.value
 
       const { data: inserted } = await sb
@@ -123,8 +139,12 @@ export async function awardCycleAndTierRewards(
     .eq('inviter_user_id', customerId)
     .eq('status', 'converted')
 
-  for (const t of LIFETIME_TIERS) {
-    if ((lifetimeConverted ?? 0) < t.at) break // ascending — short-circuit
+  // Defensive sort for the same reason as Layer 2 — never let constant
+  // reordering silently stop tier awards.
+  const sortedTiers = [...LIFETIME_TIERS].sort((a, b) => a.at - b.at)
+  const lifetimeCount = lifetimeConverted ?? 0
+  for (const t of sortedTiers) {
+    if (lifetimeCount < t.at) continue // not reached yet — skip, keep looking
 
     const { data: inserted } = await sb
       .from('lifetime_rewards')

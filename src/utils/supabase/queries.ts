@@ -364,8 +364,14 @@ function rewardsAdmin() {
 }
 
 /**
- * Read today's Daily Drop record for a customer (SSR initial render).
- * Returns null if the user has NOT yet claimed today's drop.
+ * Read the customer's most recent Daily Drop, scoped to the 20-hour cooldown
+ * window. Returns null if the cooldown has fully elapsed (user can claim
+ * again). Used to seed the hub's "claimed today" tile + modal state.
+ *
+ * Cooldown semantics match the POST endpoint at
+ * src/app/api/dorm-wars/daily-drop/route.ts — both must agree so a UAE user
+ * doesn't see "tap to claim" on the hub then hit "already claimed" on the
+ * server when they tap.
  *
  * Used by:
  *   • src/app/dashboard/dorm-wars/page.tsx — pass initialDailyDrop prop to HubClient
@@ -373,14 +379,18 @@ function rewardsAdmin() {
 export async function getDailyDropToday(
   customerId: string,
 ): Promise<{ value_aed: number; rng_bucket: 'common' | 'rare' | 'epic' } | null> {
-  const today = new Date().toISOString().slice(0, 10)
+  const COOLDOWN_HOURS = 20
   const { data } = await rewardsAdmin()
     .from('daily_drops')
-    .select('value_aed, rng_bucket')
+    .select('value_aed, rng_bucket, created_at')
     .eq('customer_id', customerId)
-    .eq('drop_date_utc', today)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (!data) return null
+  const elapsedHours =
+    (Date.now() - new Date(data.created_at).getTime()) / 3_600_000
+  if (elapsedHours >= COOLDOWN_HOURS) return null
   return {
     value_aed:  Number(data.value_aed),
     rng_bucket: data.rng_bucket as 'common' | 'rare' | 'epic',

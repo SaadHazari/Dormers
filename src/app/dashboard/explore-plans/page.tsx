@@ -17,6 +17,11 @@ const PREVIEW_CUSTOMER = {
   created_at: '2026-02-01T00:00:00Z',
 }
 
+// Skip the Router Cache so creditBalanceAed reflects the latest wallet
+// state after checkout. Without this, the CheckoutPanel can show stale
+// balance for ~30s post-redirect.
+export const dynamic = 'force-dynamic'
+
 export default async function ExplorePlansPage({
   searchParams,
 }: {

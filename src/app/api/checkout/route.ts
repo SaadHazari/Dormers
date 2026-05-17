@@ -233,9 +233,29 @@ export async function POST(req: Request) {
     // `amount` is fils (AED × 100). The coupon-synth helper caps credit to
     // `amountFils` so a 5000 AED balance against a 200 AED plan applies 200,
     // not 300 → Stripe `coupon_amount_off_too_large` is impossible to trip.
-    // RLS on `credits` + `lifetime_rewards` already permits the auth.uid()
-    // owner to SELECT, so the user-scoped `supabase` client is sufficient
-    // (no need to escalate to service-role here).
+    //
+    // RESERVATION (audit P0-7): we use the service-role admin client here
+    // because we need to FLIP credit rows to status='reserved' before the
+    // Stripe coupon is created. Without this reservation, a user with two
+    // browser tabs could synthesize two coupons against the same credit
+    // rows and apply both discounts within the 24h coupon window. With it,
+    // the second tab's reservation CAS fails on the already-reserved rows
+    // and its coupon has nothing to apply.
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    // Lazy release: free any prior reservations for this customer whose 24h
+    // hold has elapsed (e.g. user opened checkout earlier but never paid).
+    await supabaseAdmin
+      .from('credits')
+      .update({ status: 'approved', reserved_token: null, reserved_until: null })
+      .eq('customer_id', user.id)
+      .eq('status', 'reserved')
+      .lt('reserved_until', new Date().toISOString());
+
     const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
     const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
 
@@ -246,6 +266,41 @@ export async function POST(req: Request) {
       tierPercent,
       creditRows,
     });
+
+    // Reserve the credit rows the coupon actually consumed. Done AFTER synth
+    // so we know exactly which IDs to lock. CAS on status='approved' means
+    // a concurrent checkout that beat us to a row will silently skip it.
+    let reservationToken: string | null = null;
+    const allReservedIds = [
+      ...couponResult.appliedCreditIdsFull,
+      ...(couponResult.splitCredit ? [couponResult.splitCredit.id] : []),
+    ];
+    if (allReservedIds.length > 0) {
+      reservationToken = crypto.randomUUID();
+      const reservedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const { count: lockedCount } = await supabaseAdmin
+        .from('credits')
+        .update(
+          { status: 'reserved', reserved_token: reservationToken, reserved_until: reservedUntil },
+          { count: 'exact' },
+        )
+        .in('id', allReservedIds)
+        .eq('status', 'approved');
+      if ((lockedCount ?? 0) < allReservedIds.length) {
+        // A concurrent checkout swallowed one of our credit rows between the
+        // synth and the reservation. The coupon Stripe will create no longer
+        // matches the credits we can actually claim — abort and ask the
+        // user to retry from a fresh balance read.
+        console.warn(
+          `checkout reservation race — wanted ${allReservedIds.length} ` +
+          `but locked ${lockedCount ?? 0}; aborting to prevent overdraw`
+        );
+        return NextResponse.json(
+          { error: 'Credit balance changed mid-checkout. Please refresh and try again.' },
+          { status: 409 },
+        );
+      }
+    }
 
     // Build sessionArgs separately so we can conditionally attach `discounts`.
     // CRITICAL (RESEARCH Pitfall #5): `discounts[]` is mutually exclusive
@@ -305,13 +360,31 @@ export async function POST(req: Request) {
         split_credit_use_fils: couponResult.splitCredit
           ? String(couponResult.splitCredit.useFils)
           : '0',
+        // Reservation token — webhook uses this to flip reserved → applied
+        // for exactly the rows this session locked. Empty when no credit
+        // was reserved (zero-balance checkout, tier-only discount, etc.).
+        reservation_token: reservationToken ?? '',
       },
     };
     if (couponResult.couponId) {
       sessionArgs.discounts = [{ coupon: couponResult.couponId }];
     }
 
-    const session = await stripe.checkout.sessions.create(sessionArgs);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionArgs);
+    } catch (err) {
+      // Stripe rejected the session — release the reservation immediately so
+      // the credit returns to the wallet for the user's next attempt.
+      if (reservationToken) {
+        await supabaseAdmin
+          .from('credits')
+          .update({ status: 'approved', reserved_token: null, reserved_until: null })
+          .eq('reserved_token', reservationToken)
+          .eq('status', 'reserved');
+      }
+      throw err;
+    }
 
     return NextResponse.json({ url: session.url });
 

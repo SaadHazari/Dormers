@@ -123,6 +123,11 @@ interface Props {
   // Layer 3 row (0 = none unlocked yet).
   cycleRecruits:      number
   lifetimeTier:       0 | 1 | 2 | 3 | 4
+  // Phase 7 audit FIX 15 — surface the tier-2 / tier-4 side-effect flags
+  // so the hub can render the perks the awarder promised. Without these
+  // the flags flip in the DB but the user sees nothing change.
+  earlyAccess:        boolean
+  hallWall:           boolean
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -154,9 +159,9 @@ export default function HubClient({
   referralData, dormStats, invites, activeSubscription,
   initialStreak, initialDailyDrop,
   cycleRecruits: serverCycleRecruits, lifetimeTier,
+  earlyAccess, hallWall,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
-  void lifetimeTier   // prop plumbed for Phase 8 tier-badge UI (not yet wired)
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
 
   // ── REAL DATA from Supabase ─────────────────────────────────────────────
@@ -290,6 +295,9 @@ export default function HubClient({
         streak={streak}
         soundOn={soundOn}
         onSoundToggle={() => setSoundOn(s => !s)}
+        earlyAccess={earlyAccess}
+        hallWall={hallWall}
+        lifetimeTier={lifetimeTier}
       />
 
       {/* 2. HERO CTA — one massive button, the focal point */}
@@ -317,7 +325,7 @@ export default function HubClient({
           nextTier={nextTier}
           onOpen={() => setOpen('ladder')}
         />
-        <DailyDropColumn onOpen={() => setOpen('daily')} />
+        <DailyDropColumn drop={dailyDrop} onOpen={() => setOpen('daily')} />
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row */}
@@ -383,6 +391,7 @@ export default function HubClient({
 
 function TopChrome({
   initials, name, tier, recruits, wallet, streak, soundOn, onSoundToggle,
+  earlyAccess, hallWall, lifetimeTier,
 }: {
   initials:      string
   name:          string
@@ -392,6 +401,9 @@ function TopChrome({
   streak:        number
   soundOn:       boolean
   onSoundToggle: () => void
+  earlyAccess:   boolean
+  hallWall:      boolean
+  lifetimeTier:  0 | 1 | 2 | 3 | 4
 }) {
   return (
     <header style={{
@@ -432,12 +444,44 @@ function TopChrome({
                 Tier {tier.num}
               </span>
             )}
+            {/* Tier-2 perk badge: early menu peek unlocked. Driven by the
+                customers.early_access flag the awarder flips at 25 lifetime
+                conversions. Without this badge the perk is invisible. */}
+            {earlyAccess && (
+              <span style={{
+                padding: '3px 9px', borderRadius: 999,
+                backgroundColor: `${GREEN}1f`,
+                border: `1px solid ${GREEN}66`,
+                fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GREEN,
+                letterSpacing: '0.14em', textTransform: 'uppercase',
+              }}>
+                Early Access
+              </span>
+            )}
+            {/* Tier-4 perk badge: Hall of Fame unlocked. Driven by the
+                customers.hall_wall flag the awarder flips at 100 lifetime
+                conversions. Sits next to Early Access when both fire. */}
+            {hallWall && (
+              <span style={{
+                padding: '3px 9px', borderRadius: 999,
+                backgroundColor: `${GOLD}24`,
+                border: `1px solid ${GOLD}88`,
+                fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD,
+                letterSpacing: '0.14em', textTransform: 'uppercase',
+                boxShadow: `0 0 12px ${GOLD}55`,
+              }}>
+                Hall of Fame
+              </span>
+            )}
           </div>
           <div style={{
             fontFamily: BODY, fontSize: 10, fontWeight: 700, color: MIST_DIM,
             letterSpacing: '0.04em', marginTop: 2, fontFeatureSettings: '"tnum"',
           }}>
             {recruits} lifetime invites
+            {lifetimeTier > 0 && (
+              <> · <span style={{ color: CREAM, fontWeight: 800 }}>{lifetimeTier === 1 ? '5% off forever' : '10% off forever'}</span></>
+            )}
           </div>
         </div>
       </div>
@@ -856,7 +900,7 @@ function LifetimeColumn({
 //  DAILY DROP COLUMN — Layer 4, focal claim affordance
 // ════════════════════════════════════════════════════════════════════════════
 
-function DailyDropColumn({ onOpen }: { onOpen: () => void }) {
+function DailyDropColumn({ drop, onOpen }: { drop: DailyDropState; onOpen: () => void }) {
   // Compute "next drop in" countdown
   const [nextDrop, setNextDrop] = useState('')
   useEffect(() => {
@@ -874,43 +918,81 @@ function DailyDropColumn({ onOpen }: { onOpen: () => void }) {
     return () => clearInterval(id)
   }, [])
 
+  const claimed = drop !== null
+  // Bucket → palette mapping (parity with DailyDropScreen): epic=gold, rare=purple, common=green.
+  const bucketColor =
+    drop?.rng_bucket === 'epic' ? GOLD :
+    drop?.rng_bucket === 'rare' ? PURPLE :
+    GREEN
+
   return (
-    <Column eyebrow="Today's Drop" title="One mystery reward · per day" accent={GOLD} onOpen={onOpen}>
+    <Column eyebrow="Today's Drop" title="One mystery reward · per day" accent={claimed ? bucketColor : GOLD} onOpen={onOpen}>
       <div style={{
         flex: '1 1 auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 10, padding: '6px 0 4px',
       }}>
-        {/* Glowing gift icon */}
-        <div style={{
-          position: 'relative',
-          width: 64, height: 64, borderRadius: '50%',
-          backgroundImage: `radial-gradient(circle at 35% 30%, ${GOLD_LITE}66 0%, ${GOLD}22 70%, transparent 100%)`,
-          border: `2px solid ${GOLD}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 0 26px ${GOLD}88, inset 0 0 12px ${GOLD}44`,
-          animation: 'hub-cta-pulse 2.6s ease-in-out infinite',
-        }}>
-          <Gift size={32} strokeWidth={2.2} color={GOLD_LITE} />
-          <span style={{
-            position: 'absolute', inset: -4, borderRadius: '50%',
-            border: `1.5px solid ${GOLD}`,
-            animation: 'hub-pulse-ring 2.2s ease-out infinite',
-            opacity: 0.55,
-          }} />
-        </div>
-        <div style={{
-          fontFamily: BODY, fontSize: 11, fontWeight: 900,
-          color: GOLD, letterSpacing: '0.16em', textTransform: 'uppercase',
-        }}>
-          Tap to claim
-        </div>
-        <div style={{
-          fontFamily: BODY, fontSize: 10, fontWeight: 700,
-          color: MIST_DIM, letterSpacing: '0.04em', fontFeatureSettings: '"tnum"',
-        }}>
-          Next drop in {nextDrop || '—'}
-        </div>
+        {claimed && drop ? (
+          <>
+            {/* Claimed: bucket-colored Check disc + value readout */}
+            <div style={{
+              position: 'relative',
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundImage: `radial-gradient(circle at 35% 30%, ${bucketColor}66 0%, ${bucketColor}22 70%, transparent 100%)`,
+              border: `2px solid ${bucketColor}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 26px ${bucketColor}88, inset 0 0 12px ${bucketColor}44`,
+            }}>
+              <Check size={32} strokeWidth={3} color={bucketColor} />
+            </div>
+            <div style={{
+              fontFamily: DISPLAY, fontSize: 16, fontWeight: 900,
+              color: bucketColor, letterSpacing: '0.02em',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              <CoinIcon size={14} /> +{drop.value_aed} cr
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 700,
+              color: MIST_DIM, letterSpacing: '0.10em', textTransform: 'uppercase',
+            }}>
+              Claimed · back in {nextDrop || '—'}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Unclaimed: pulsing gold gift, tap-to-claim affordance */}
+            <div style={{
+              position: 'relative',
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundImage: `radial-gradient(circle at 35% 30%, ${GOLD_LITE}66 0%, ${GOLD}22 70%, transparent 100%)`,
+              border: `2px solid ${GOLD}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 26px ${GOLD}88, inset 0 0 12px ${GOLD}44`,
+              animation: 'hub-cta-pulse 2.6s ease-in-out infinite',
+            }}>
+              <Gift size={32} strokeWidth={2.2} color={GOLD_LITE} />
+              <span style={{
+                position: 'absolute', inset: -4, borderRadius: '50%',
+                border: `1.5px solid ${GOLD}`,
+                animation: 'hub-pulse-ring 2.2s ease-out infinite',
+                opacity: 0.55,
+              }} />
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 11, fontWeight: 900,
+              color: GOLD, letterSpacing: '0.16em', textTransform: 'uppercase',
+            }}>
+              Tap to claim
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 700,
+              color: MIST_DIM, letterSpacing: '0.04em', fontFeatureSettings: '"tnum"',
+            }}>
+              Next drop in {nextDrop || '—'}
+            </div>
+          </>
+        )}
       </div>
     </Column>
   )
@@ -1457,6 +1539,7 @@ function DailyDropScreen({
   onClaimed: (next: DailyDropState) => void
 }) {
   const [claiming, setClaiming] = useState(false)
+  const [error, setError]       = useState<string | null>(null)
   const claimed = drop !== null
 
   // Bucket → palette mapping. Epic = gold/jackpot, rare = purple, common = green.
@@ -1468,23 +1551,35 @@ function DailyDropScreen({
   async function handleClaim() {
     if (claimed || claiming) return
     setClaiming(true)
+    setError(null)
     try {
       const res = await fetch('/api/dorm-wars/daily-drop', { method: 'POST' })
-      if (!res.ok) {
-        setClaiming(false)
-        return
-      }
-      const data = await res.json() as {
+      const data = await res.json().catch(() => null) as {
         claimed?: boolean
         alreadyClaimed?: boolean
         value_aed?: number
         rng_bucket?: 'common' | 'rare' | 'epic'
+        error?: string
+      } | null
+      if (!res.ok) {
+        // 401 unauth = session expired; 500 credit_deposit_failed = back-end
+        // committed the daily_drops row but failed the credit insert (ops
+        // reconciliation will land it). Either way surface a real message
+        // so the user knows the tap registered.
+        if (res.status === 401) {
+          setError('Your session expired. Refresh the page and try again.')
+        } else if (data?.error === 'credit_deposit_failed') {
+          setError('Drop logged but credit deposit hit a snag. We\'ll reconcile within the hour.')
+        } else {
+          setError('Could not claim right now. Please try again in a moment.')
+        }
+        return
       }
-      if (typeof data.value_aed === 'number' && data.rng_bucket) {
+      if (typeof data?.value_aed === 'number' && data.rng_bucket) {
         onClaimed({ value_aed: data.value_aed, rng_bucket: data.rng_bucket })
       }
     } catch {
-      // Swallow — leave button enabled for retry on transient error
+      setError('Network error. Check your connection and try again.')
     } finally {
       setClaiming(false)
     }
@@ -1553,6 +1648,19 @@ function DailyDropScreen({
           </>
         )}
       </button>
+      {error && (
+        <div style={{
+          marginTop: 16,
+          padding: '10px 14px',
+          borderRadius: 8,
+          backgroundColor: `${RED}18`,
+          border: `1px solid ${RED}55`,
+          fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+          textAlign: 'left',
+        }}>
+          {error}
+        </div>
+      )}
     </div>
   )
 }

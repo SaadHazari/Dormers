@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { generateCid } from '@/lib/customer-cid'
 import { DORMS } from './data'
 
 export interface OnboardingPayload {
@@ -36,33 +37,9 @@ function redirectToLoginExisting(email: string): never {
     redirect(`/login?${params.toString()}`)
 }
 
-const DORM_CODES: Record<string, string> = {
-    'The Myriad':      'MYR',
-    'KSK Homes':       'KSK',
-    'Yugo':            'YUG',
-    'DSOA Residence':  'DSO',
-    'Study World':     'STU',
-    'Other':           'OTH',
-}
-
-// Mirrors the Make.com CID formula: upper(substring(dorm; 0; 3)) + formatDate(now; mmss)
-// Produces e.g. "MYR2347" — 3-letter dorm code + zero-padded minutes + seconds.
-// For unknown dorms (future additions), strips articles and takes the first 3 letters.
-function generateCid(dorm: string): string {
-    const code =
-        DORM_CODES[dorm] ??
-        dorm
-            .replace(/\b(the|and|or|of|in|at|for)\b/gi, '')
-            .trim()
-            .replace(/\s+/g, '')
-            .slice(0, 3)
-            .toUpperCase()
-            .padEnd(3, 'X')
-    const now = new Date()
-    const mm = String(now.getMinutes()).padStart(2, '0')
-    const ss = String(now.getSeconds()).padStart(2, '0')
-    return `${code}${mm}${ss}`
-}
+// generateCid + DORM_CODES extracted to @/lib/customer-cid so the referral
+// trial-claim flow can reuse the same formula. Same cid format whether the
+// customer arrives via main onboarding or a referral claim.
 
 function validateOnboardingPayload(p: OnboardingPayload): string | null {
     if (!p.email || !/^\S+@\S+\.\S+$/.test(p.email)) return 'Invalid email address.'
@@ -242,12 +219,12 @@ export async function createAccount(
 export type VerifyEmailOtpResult = { ok: true } | { error: string }
 
 export async function verifyEmailOtp(email: string, token: string): Promise<VerifyEmailOtpResult> {
-    // Supabase email OTP length is configurable in Auth settings (6–10 digits).
-    // Accept any value in that range so this validator stays correct if the
-    // dashboard setting changes — actual length-checking happens client-side
-    // and on Supabase's verifyOtp call.
-    if (!email?.trim() || !/^\d{6,10}$/.test(token ?? '')) {
-        return { error: 'Enter the verification code from your email.' }
+    // Email OTP is exactly 6 digits — configured in Supabase Dashboard →
+    // Auth → Email OTP length. If you change the dashboard setting, also
+    // bump EmailStep.tsx OTP_LENGTH and this regex AND the matching regex
+    // in src/app/r/[cid]/actions.ts verifyTrialEmailOtp.
+    if (!email?.trim() || !/^\d{6}$/.test(token ?? '')) {
+        return { error: 'Enter the 6-digit code from your email.' }
     }
 
     const supabase = await createClient()

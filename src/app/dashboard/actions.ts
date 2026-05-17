@@ -574,7 +574,13 @@ export async function skipMeal(subscriptionId: string) {
     return { error: 'Today isn\'t a delivery day for your plan, so there\'s nothing to skip.' };
   }
 
-  const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
+  // Bonus skips from Dorm Wars cycle milestone 15 (awarded via
+  // increment_bonus_skips RPC) extend the plan's base skip cap. Without
+  // this `+ bonus_skips` the milestone-15 reward is invisible to the user —
+  // they get the badge but can never use the extra skips.
+  const baseMaxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
+  const bonusSkips   = (subscription as { bonus_skips?: number | null }).bonus_skips ?? 0;
+  const maxSkips     = baseMaxSkips + bonusSkips;
 
   if (subscription.skipped_meals_count >= maxSkips) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
@@ -710,8 +716,10 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
     return { error: 'You\'ve already scheduled a skip for that day.' };
   }
 
-  // Skip credits
-  const maxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
+  // Skip credits — base plan cap + Dorm Wars milestone-15 bonus.
+  const baseMaxSkipsP = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
+  const bonusSkipsP   = (subscription as { bonus_skips?: number | null }).bonus_skips ?? 0;
+  const maxSkips      = baseMaxSkipsP + bonusSkipsP;
   if (subscription.skipped_meals_count >= maxSkips) {
     return { error: `You've used all ${maxSkips} of your skips for this cycle.` };
   }

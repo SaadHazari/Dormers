@@ -393,7 +393,15 @@ export function CheckoutPanel({
             plan → divider → "credit applied" → date+CTA. */}
         {creditBalanceAed > 0 && (() => {
           const planTotalAed = totalPrice(selected, pref, vegDayCount, weekType)
-          const appliedAed = Math.min(creditBalanceAed, planTotalAed)
+          const appliedAed   = Math.min(creditBalanceAed, planTotalAed)
+          const leftoverAed  = Math.max(0, creditBalanceAed - appliedAed)
+          // Hint copy depends on whether there's leftover credit. Without
+          // this, a user with 5000 AED wallet buying a 200 AED plan sees
+          // "AED 200 applied" and thinks the rest evaporated. The leftover
+          // line reassures them the remaining AED 4800 stays redeemable.
+          const hint = leftoverAed > 0
+            ? `AED ${appliedAed.toFixed(0)} applied · AED ${leftoverAed.toFixed(0)} stays in your wallet`
+            : `AED ${appliedAed.toFixed(0)} applied from your Dorm Wars credits`
           return (
             <div className="checkout-credit-row" role="status">
               <div className="checkout-credit-left">
@@ -401,7 +409,7 @@ export function CheckoutPanel({
                   Dorm Wars credit applied
                 </span>
                 <span className="checkout-credit-hint">
-                  AED {appliedAed.toFixed(0)} applied from your Dorm Wars credits
+                  {hint}
                 </span>
               </div>
               <span className="checkout-credit-amount">

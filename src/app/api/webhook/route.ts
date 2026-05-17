@@ -65,17 +65,24 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
       }
 
-      // Idempotency — Stripe retries on 5xx / timeout. If we've already seen this session, exit early.
+      // Idempotency with checkpointing (fixes audit P0-2). Stripe retries
+      // on 5xx / timeout. We distinguish:
+      //   1. webhook_completed_at IS NOT NULL → fully processed, skip all
+      //   2. webhook_completed_at IS NULL     → order saved but downstream
+      //      may have failed (credit flip, awarder, etc.). Skip the
+      //      non-idempotent parts (subscription/order insert + customer
+      //      patch) and resume the idempotent downstream steps from below.
       const { data: existingOrder } = await supabaseAdmin
         .from('orders')
-        .select('id')
+        .select('id, subscription_id, webhook_completed_at')
         .eq('stripe_session_id', session.id)
         .maybeSingle();
 
-      if (existingOrder) {
-        console.log(`⏭️  Duplicate webhook for session ${session.id} — skipping`);
+      if (existingOrder?.webhook_completed_at) {
+        console.log(`⏭️  Duplicate webhook for session ${session.id} — fully processed before, skipping`);
         return NextResponse.json({ received: true, deduped: true });
       }
+      const resumeMode = Boolean(existingOrder); // truthy when order exists but webhook_completed_at is null
 
       // Resolve the plan from the metadata. Unknown plans fall back to trial.
       const planDef = resolvePlan(plan) ?? resolvePlan('Trial');
@@ -153,72 +160,85 @@ export async function POST(req: Request) {
         pauseDays: 0,
       });
 
-      // 1. Insert Subscription
-      const { data: subData, error: subError } = await supabaseAdmin
-        .from('subscriptions')
-        .insert({
-          customer_id: user_id,
-          plan_name: plan_name,
-          status: status,
-          start_date: isoDate(startDate),
-          end_date: isoDate(endDate),
-          week_type: weekType,
-          meals_per_day: meals_per_day,
-          total_meals: total_meals,
-          delivered_meals: 0,
-          paused_days: 0,
-          has_paused_before: false,
-          skipped_meals_count: 0,
-          // Religious-mix subs persist their per-day veg-day choices so the
-          // dashboard menu + ops can render the right dish per day. Stripe
-          // metadata is a flat string ('Monday, Wednesday'), so split back
-          // to an array and validate against the working-day set for safety.
-          veg_days: (() => {
-            if (!vegDays) return null;
-            const arr = String(vegDays).split(',').map(s => s.trim()).filter(Boolean);
-            if (arr.length === 0) return null;
-            const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']);
-            const clean = arr.filter(d => allowed.has(d));
-            return clean.length > 0 ? clean : null;
-          })(),
-        })
-        .select()
-        .single();
+      // ── Subscription + Order insert (skipped in resume mode) ───────────
+      // Both are non-idempotent (would create duplicates), so on retry of a
+      // partially-completed webhook we reuse the existing IDs and jump
+      // straight to the idempotent downstream steps.
+      let orderId: string;
+      if (resumeMode) {
+        orderId = existingOrder!.id as string;
+        console.log(
+          `🔁 Resuming webhook for session ${session.id} — order ${orderId} ` +
+          `already saved, replaying downstream steps`
+        );
+      } else {
+        // 1. Insert Subscription
+        const { data: subData, error: subError } = await supabaseAdmin
+          .from('subscriptions')
+          .insert({
+            customer_id: user_id,
+            plan_name: plan_name,
+            status: status,
+            start_date: isoDate(startDate),
+            end_date: isoDate(endDate),
+            week_type: weekType,
+            meals_per_day: meals_per_day,
+            total_meals: total_meals,
+            delivered_meals: 0,
+            paused_days: 0,
+            has_paused_before: false,
+            skipped_meals_count: 0,
+            // Religious-mix subs persist their per-day veg-day choices so the
+            // dashboard menu + ops can render the right dish per day. Stripe
+            // metadata is a flat string ('Monday, Wednesday'), so split back
+            // to an array and validate against the working-day set for safety.
+            veg_days: (() => {
+              if (!vegDays) return null;
+              const arr = String(vegDays).split(',').map(s => s.trim()).filter(Boolean);
+              if (arr.length === 0) return null;
+              const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']);
+              const clean = arr.filter(d => allowed.has(d));
+              return clean.length > 0 ? clean : null;
+            })(),
+          })
+          .select()
+          .single();
 
-      if (subError) {
-        console.error('❌ Supabase Subscription Error:', subError);
-        return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 });
+        if (subError) {
+          console.error('❌ Supabase Subscription Error:', subError);
+          return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 });
+        }
+
+        // 2. Insert Order
+        const amountTotal = session.amount_total ? session.amount_total / 100 : 0;
+        const pricePerMeal = amountTotal / total_meals;
+
+        const { data: orderData, error: orderError } = await supabaseAdmin
+          .from('orders')
+          .insert({
+            order_number: session.id,
+            customer_id: user_id,
+            subscription_id: subData.id,
+            plan: plan_name,
+            meal_preference: vegDays ? `${preference} (${vegDays})` : preference,
+            meals_count: total_meals,
+            price_per_meal: pricePerMeal,
+            invoice_status: INVOICE_STATUS.PAID,
+            checkout_url: session.url,
+            stripe_session_id: session.id,
+            stripe_payment_id: session.payment_intent as string,
+            created_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (orderError || !orderData) {
+          console.error('❌ Supabase Order Error:', orderError);
+          return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+        }
+
+        orderId = orderData.id as string;
       }
-
-      // 2. Insert Order
-      const amountTotal = session.amount_total ? session.amount_total / 100 : 0;
-      const pricePerMeal = amountTotal / total_meals;
-
-      const { data: orderData, error: orderError } = await supabaseAdmin
-        .from('orders')
-        .insert({
-          order_number: session.id,
-          customer_id: user_id,
-          subscription_id: subData.id,
-          plan: plan_name,
-          meal_preference: vegDays ? `${preference} (${vegDays})` : preference,
-          meals_count: total_meals,
-          price_per_meal: pricePerMeal,
-          invoice_status: INVOICE_STATUS.PAID,
-          checkout_url: session.url,
-          stripe_session_id: session.id,
-          stripe_payment_id: session.payment_intent as string,
-          created_at: new Date().toISOString()
-        })
-        .select('id')
-        .single();
-
-      if (orderError || !orderData) {
-        console.error('❌ Supabase Order Error:', orderError);
-        return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
-      }
-
-      const orderId = orderData.id as string;
 
       // ── Dorm Wars: flip redeemed credits to 'applied' ─────────────────
       // Resolves which credit rows to flip + which boundary row to split from
@@ -242,8 +262,15 @@ export async function POST(req: Request) {
 
       const metaCreditFils = Number(session.metadata?.credit_applied_fils ?? '0') || 0;
       const metaTierFils = Number(session.metadata?.tier_applied_fils ?? '0') || 0;
+      const reservationToken = session.metadata?.reservation_token ?? '';
       const stripeDiscountFils =
         (session.amount_subtotal ?? 0) - (session.amount_total ?? 0);
+
+      // CAS source: when checkout reserved the rows (new flow), they're now
+      // status='reserved' and we flip reserved→applied keyed by token. Older
+      // sessions (pre-reservation deploy) or fallback path use the legacy
+      // status='approved' CAS.
+      const flipFromStatus = reservationToken ? 'reserved' : 'approved';
 
       let fullRowIds: string[] = [];
       let splitToProcess: { id: string; useFils: number } | null = null;
@@ -299,7 +326,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // Apply the full-row flips with CAS guard.
+      // Apply the full-row flips with CAS guard. Source status is 'reserved'
+      // when the reservation system locked them at checkout time (new flow),
+      // 'approved' otherwise (legacy / fallback).
       if (fullRowIds.length > 0) {
         const { error: flipErr, count: flippedCount } = await supabaseAdmin
           .from('credits')
@@ -308,17 +337,19 @@ export async function POST(req: Request) {
               status: 'applied',
               applied_at: new Date().toISOString(),
               applied_to: orderId,
+              reserved_token: null,
+              reserved_until: null,
             },
             { count: 'exact' },
           )
           .in('id', fullRowIds)
-          .eq('status', 'approved');
+          .eq('status', flipFromStatus);
         if (flipErr) {
           console.error('⚠️  credit flip to applied failed (non-fatal):', flipErr);
         } else {
           console.log(
             `💳 Flipped ${flippedCount ?? 0}/${fullRowIds.length} credit row(s) ` +
-            `to applied for order ${orderId}`
+            `from ${flipFromStatus} to applied for order ${orderId}`
           );
         }
       }
@@ -331,12 +362,13 @@ export async function POST(req: Request) {
           .from('credits')
           .select('id, amount_aed, source, status')
           .eq('id', splitToProcess.id)
-          .eq('status', 'approved')
+          .eq('status', flipFromStatus)
           .maybeSingle();
         if (!splitRow) {
           console.warn(
-            `⚠️  split credit row ${splitToProcess.id} not found or not approved — ` +
-            `skipping split (idempotent re-run, or external state change)`
+            `⚠️  split credit row ${splitToProcess.id} not found in expected ` +
+            `status (${flipFromStatus}) — skipping split (idempotent re-run, ` +
+            `or external state change)`
           );
         } else {
           const totalFils = Math.round(Number(splitRow.amount_aed) * 100);
@@ -347,9 +379,11 @@ export async function POST(req: Request) {
               status: 'applied',
               applied_at: new Date().toISOString(),
               applied_to: orderId,
+              reserved_token: null,
+              reserved_until: null,
             })
             .eq('id', splitToProcess.id)
-            .eq('status', 'approved');
+            .eq('status', flipFromStatus);
           if (splitFlipErr) {
             console.error('⚠️  split credit flip failed (non-fatal):', splitFlipErr);
           } else if (remainderFils > 0) {
@@ -379,16 +413,12 @@ export async function POST(req: Request) {
       }
 
       // 3. Update Customer Profile with the latest data + drain any pending
-      // preferences. The new subscription IS the "next subscription" the
-      // pending_* values were waiting for — once it's been written, the
-      // customer's canonical fields can flip to match, and pending_* is
-      // cleared so the dashboard banner disappears.
-      //
-      // Field-by-field precedence: pending → request body → existing
-      // customer column → null. The webhook payload already carries the
-      // user's chosen veg_days; allergens / spice / week_type don't ride
-      // the payload (they're profile-only), so pending_* is the channel
-      // for those.
+      // preferences. Skipped in resume mode — the first attempt already
+      // patched the customer; re-running could clobber subsequent user
+      // edits to pending_*.
+      if (resumeMode) {
+        console.log(`🔁 Resume mode — skipping customer patch (already applied)`);
+      } else {
       const customerPatch: Record<string, unknown> = {
         name,
         whatsapp_number: phone,
@@ -447,30 +477,103 @@ export async function POST(req: Request) {
         // Log for reconciliation between `customers` and `subscriptions`.
         console.error('⚠️  Customer profile update failed:', customerError);
       }
+      } // end of !resumeMode
 
-      // Fire referral conversion credit — idempotent, non-blocking.
-      // Runs after order is written so the inviter earns credit only on real payment.
-      creditInviterOnConversion(user_id).catch(err =>
-        console.error('⚠️  creditInviterOnConversion failed (non-fatal):', err)
-      );
-
-      // Link the invitee's new account to any referral row waiting for their user_id.
-      // The referral row was written with invitee_phone at gift-claim time;
-      // now that signup is complete we close the loop so future queries work.
+      // Link the invitee's new account to any referral row waiting for their
+      // user_id. The referral row was written with invitee_phone at
+      // gift-claim time; now that signup is complete we close the loop so
+      // future queries work. This MUST run BEFORE creditInviterOnConversion
+      // so the awarder's queries (which key on inviter_user_id and look up
+      // referrals.invitee_user_id) see the linked row.
       if (phone) {
         const { normalisePhone } = await import('@/lib/phone');
         const phoneE164 = normalisePhone(phone);
-        supabaseAdmin
+        const { error: linkErr } = await supabaseAdmin
           .from('referrals')
           .update({ invitee_user_id: user_id })
           .eq('invitee_phone', phoneE164)
-          .is('invitee_user_id', null)
-          .then(({ error: linkErr }) => {
-            if (linkErr) console.error('⚠️  referral user_id link failed:', linkErr);
-          });
+          .is('invitee_user_id', null);
+        if (linkErr) console.error('⚠️  referral user_id link failed:', linkErr);
       }
 
-      console.log(`✅ Successfully processed checkout for user ${user_id}`);
+      // Fire referral conversion credit — MUST be awaited. On serverless
+      // (Netlify Functions) the function instance can be torn down as soon as
+      // the response is sent, killing any in-flight Promise. A fire-and-forget
+      // here would intermittently drop Layer 1 (AED 20) credits and entire
+      // Layer 2/3 milestone fires under load. Idempotent on retry via the
+      // referrals.status='gift_claimed' guard inside creditInviterOnConversion.
+      try {
+        await creditInviterOnConversion(user_id);
+      } catch (err) {
+        console.error('⚠️  creditInviterOnConversion failed (non-fatal):', err);
+      }
+
+      // Mark the order as fully processed so retries see the checkpoint and
+      // skip re-running downstream steps. If this update fails (extremely
+      // unlikely — pure UPDATE on a known row), the worst case is the next
+      // retry redoes the idempotent downstream work, which is safe by design.
+      const { error: completeErr } = await supabaseAdmin
+        .from('orders')
+        .update({ webhook_completed_at: new Date().toISOString() })
+        .eq('id', orderId);
+      if (completeErr) {
+        console.error('⚠️  failed to mark webhook_completed_at:', completeErr);
+      }
+
+      console.log(`✅ Successfully processed checkout for user ${user_id} (resume=${resumeMode})`);
+    }
+
+    // ── charge.refunded — restore burned credits when ops refunds an order
+    // Fixes audit P0-11. Without this branch a refund flow leaves the user
+    // with status='applied' credit rows tied to a charge that no longer
+    // exists, AND Stripe gives them cash back — net result is the user loses
+    // the credit they "spent" on the refunded purchase. We undo the flip:
+    //   • Find the order by stripe_payment_id (the charge.id)
+    //   • Flip every credits row with applied_to=<order.id> back to approved
+    //   • Clear applied_at, applied_to so the rows look untouched
+    //   • Mark the order as refunded (invoice_status='Refunded')
+    //
+    // Mystery Drop / cycle / tier deposits that landed AFTER the refunded
+    // checkout are intentionally NOT clawed back — those are independent
+    // rewards. Only the credits redeemed AT the refunded checkout flip back.
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id;
+      if (!paymentIntentId) {
+        console.warn(`charge.refunded ${charge.id} had no payment_intent — skipping credit restore`);
+        return NextResponse.json({ received: true, refund_handled: false });
+      }
+      const { data: orderRow } = await supabaseAdmin
+        .from('orders')
+        .select('id, customer_id, invoice_status')
+        .eq('stripe_payment_id', paymentIntentId)
+        .maybeSingle();
+      if (!orderRow) {
+        console.warn(`charge.refunded for payment_intent=${paymentIntentId} matches no order — skipping`);
+        return NextResponse.json({ received: true, refund_handled: false });
+      }
+      // Restore credits: applied → approved, clear the linkage.
+      const { count: restoredCount, error: restoreErr } = await supabaseAdmin
+        .from('credits')
+        .update(
+          { status: 'approved', applied_at: null, applied_to: null },
+          { count: 'exact' },
+        )
+        .eq('applied_to', orderRow.id)
+        .eq('status', 'applied');
+      if (restoreErr) {
+        console.error(`❌ refund credit restore failed for order ${orderRow.id}:`, restoreErr);
+      } else {
+        console.log(`↩️  Refund — restored ${restoredCount ?? 0} credit row(s) for order ${orderRow.id}`);
+      }
+      // Mark the order so dashboards / reports reflect the refund.
+      await supabaseAdmin
+        .from('orders')
+        .update({ invoice_status: 'Refunded' })
+        .eq('id', orderRow.id);
+      return NextResponse.json({ received: true, refund_handled: true, restored: restoredCount ?? 0 });
     }
 
     return NextResponse.json({ received: true });

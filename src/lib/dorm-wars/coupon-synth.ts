@@ -6,10 +6,19 @@
 // coupon + a lifetime-tier % coupon — so we synthesize a single fresh
 // `amount_off` coupon per checkout that mathematically combines both effects.
 //
-// Order of operations (matters — see RESEARCH Pitfall #4):
-//   1. Apply credit, capped at the plan total: `creditApplied = min(balance, amount)`
-//   2. Apply tier % to the post-credit remainder: `tierApplied = floor((amount - creditApplied) * pct / 100)`
-//   3. Total discount: `creditApplied + tierApplied`
+// Order of operations (REVISED 2026-05-17 — see audit P0-12):
+//   1. Apply lifetime-tier % to the gross plan total first:
+//        `tierApplied = floor(amount * pct / 100)`
+//   2. Apply credit to the remainder, capped at the post-tier amount:
+//        `creditApplied = min(balance, amount - tierApplied)`
+//   3. Total discount: `tierApplied + creditApplied`
+//
+// Why this order: applying credit first defeats the tier % whenever the
+// credit balance already covers the plan (postCredit = 0 → tier × 0 = 0).
+// A tier-4 user with a 5500 AED wallet buying a 5000 AED plan would lose
+// the 10% lifetime perk entirely under the old "credit first" rule. With
+// tier-first, the tier always lands (saving real cash even when credit
+// covers the rest) and credit only fills what's still owed.
 //
 // Partial-row redemption: when balance > plan total, we walk credit rows in
 // FIFO (created_at ASC) order. Rows that fully fit go in `appliedCreditIdsFull`
@@ -71,13 +80,20 @@ export async function synthesizePerSessionCoupon(
 ): Promise<CouponSynthResult> {
   const { stripe, userId, amountFils, tierPercent, creditRows } = input
 
-  // Credit applied = min(balance, plan total). Hard cap per REDEEM-03 — Stripe
-  // rejects coupons larger than the session amount (`coupon_amount_off_too_large`).
+  // Tier discount FIRST against the gross plan total — this preserves the
+  // lifetime perk even when credit covers the rest. See order-of-operations
+  // comment above.
+  const tierAppliedFils = Math.floor((amountFils * tierPercent) / 100)
+
+  // Credit fills the remaining balance owed after the tier discount, capped
+  // at the post-tier amount so the total discount never exceeds plan total
+  // (REDEEM-03 — Stripe rejects coupon_amount_off_too_large).
   const balanceFils = creditRows.reduce(
     (s, r) => s + Math.round(r.amount_aed * 100),
     0,
   )
-  const creditAppliedFils = Math.min(balanceFils, amountFils)
+  const postTierFils      = amountFils - tierAppliedFils
+  const creditAppliedFils = Math.min(balanceFils, postTierFils)
 
   // Walk credits FIFO and partition into full-redeem vs split.
   const appliedCreditIdsFull: string[] = []
@@ -96,11 +112,6 @@ export async function synthesizePerSessionCoupon(
       break
     }
   }
-
-  // Tier discount applies to the post-credit remainder so the user gets the
-  // full tier % off what they would otherwise pay, not off the gross amount.
-  const postCreditFils = amountFils - creditAppliedFils
-  const tierAppliedFils = Math.floor((postCreditFils * tierPercent) / 100)
 
   const discountFils = creditAppliedFils + tierAppliedFils
 

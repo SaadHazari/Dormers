@@ -13,10 +13,10 @@ import { authTokens } from '@/lib/auth-theme'
 import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 
-// Supabase email OTPs in this project are 8 digits (configured in
-// Auth → Settings → Email OTP length). Bump this if you change that setting;
-// if it's ever made variable per-locale we'd plumb it through the API instead.
-const OTP_LENGTH = 8
+// Email OTP is 6 digits across the codebase (matches WhatsApp OTP). The
+// length is configured in Supabase Dashboard → Auth → Email OTP length;
+// any change there must be mirrored here AND in the verifyEmailOtp regex.
+const OTP_LENGTH = 6
 
 // Step 7: account credentials with inline OTP verification — mirrors PhoneStep
 // (one logical step, two phases). Email + password stay visible (disabled)

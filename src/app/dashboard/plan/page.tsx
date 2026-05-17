@@ -5,6 +5,11 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import PlanClient from './PlanClient'
 
+// Skip the Router Cache so the redeemable-credit prop reflects the latest
+// state after checkout completes (credit rows flip from approved → applied
+// in the webhook). Without this, the CheckoutPanel may show stale balance.
+export const dynamic = 'force-dynamic'
+
 export default async function PlanPage({
   searchParams,
 }: {

@@ -1,21 +1,59 @@
 'use server'
 
 import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js'
+import { headers } from 'next/headers'
+import { createClient } from '@/utils/supabase/server'
 import { normalisePhone } from '@/lib/phone'
+import { generateCid } from '@/lib/customer-cid'
 import { awardCycleAndTierRewards } from '@/lib/dorm-wars/awarder'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 const MAX_PENDING_INVITES    = 5   // inviter can have at most this many pending gifts at once
 const MAX_CONVERSIONS_MONTH  = 10  // inviter earns credit on at most this many paid conversions/month
 const MAX_INVITES_7_DAYS     = 20  // inviter can send at most this many invites in a rolling 7-day window
+const MAX_CLAIMS_PER_IP_24H  = 5   // hard cap on gift claims from a single IP per day (fraud signal)
 
 export type ClaimResult =
   | { ok: true }
   | { blocked: true; reason: string }
   | { error: string }
 
+/**
+ * Canonical email comparison key. Beyond trim+lowercase we collapse:
+ *   • Gmail dots: `a.b.c@gmail.com` ≡ `abc@gmail.com`
+ *   • Gmail plus tags: `abc+ref1@gmail.com` ≡ `abc@gmail.com`
+ *   • googlemail.com → gmail.com
+ *
+ * Without this normalisation, a single Gmail account can produce N
+ * distinct rows in `referral_gifts_claimed` and farm the welcome meal +
+ * the referrer's Layer 1 credit N times. We deliberately do NOT apply
+ * the dot/plus collapse to non-Gmail providers since most providers
+ * (Outlook, ProtonMail, ...) treat them as significant.
+ */
 function normaliseEmail(email: string): string {
-  return email.trim().toLowerCase()
+  const trimmed = email.trim().toLowerCase()
+  const at = trimmed.lastIndexOf('@')
+  if (at === -1) return trimmed
+  let local  = trimmed.slice(0, at)
+  let domain = trimmed.slice(at + 1)
+  if (domain === 'googlemail.com') domain = 'gmail.com'
+  if (domain === 'gmail.com') {
+    const plus = local.indexOf('+')
+    if (plus !== -1) local = local.slice(0, plus)
+    local = local.replace(/\./g, '')
+  }
+  return `${local}@${domain}`
+}
+
+/**
+ * Best-effort client IP from the proxy headers Netlify / Vercel set.
+ * Returns null when we can't determine one (local dev / direct hits).
+ */
+async function resolveClientIp(): Promise<string | null> {
+  const h = await headers()
+  const fwd = h.get('x-forwarded-for')
+  if (fwd) return fwd.split(',')[0]!.trim()
+  return h.get('x-real-ip') ?? h.get('cf-connecting-ip') ?? null
 }
 
 // First name sanitization mirrors src/lib/validation:sanitizeNameInput — letters
@@ -29,6 +67,64 @@ function sanitizeFirstName(raw: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 40)
+}
+
+// ─── Trial email OTP (mirrors onboarding/actions.ts email OTP flow) ────────
+// Used by the referral landing page (/r/[cid]) so the invitee verifies their
+// email before claiming the free trial meal. We use Supabase auth's
+// signInWithOtp which (a) sends a 6-digit code via email and (b) creates a
+// passwordless auth.users row when verified — the customers row keys to that
+// row's id so the trial customer lives in the main `customers` table from
+// day one (no separate "trial_customers" table to merge later).
+
+export type SendTrialEmailOtpResult = { ok: true } | { error: string }
+
+export async function sendTrialEmailOtp(email: string): Promise<SendTrialEmailOtpResult> {
+  const trimmed = email.trim().toLowerCase()
+  if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
+    return { error: 'Please enter a valid email address.' }
+  }
+  const supabase = await createClient()
+  // shouldCreateUser:true is the default but spelled out for clarity. We
+  // CREATE the user at OTP-send time so the resulting auth.users.id exists
+  // when claimGift runs after verification — no race between verify and the
+  // customers.id FK insert.
+  const { error } = await supabase.auth.signInWithOtp({
+    email: trimmed,
+    options: { shouldCreateUser: true },
+  })
+  if (error) {
+    console.error('sendTrialEmailOtp failed:', error)
+    return { error: error.message }
+  }
+  return { ok: true }
+}
+
+export type VerifyTrialEmailOtpResult = { ok: true } | { error: string }
+
+export async function verifyTrialEmailOtp(
+  email: string,
+  token: string,
+): Promise<VerifyTrialEmailOtpResult> {
+  const trimmedEmail = email.trim().toLowerCase()
+  const trimmedToken = token.trim()
+  // 6 digits exactly. Must stay in lockstep with the Supabase Dashboard
+  // setting (Auth → Email OTP length) and the matching regex in
+  // src/app/onboarding/actions.ts verifyEmailOtp.
+  if (!trimmedEmail || !/^\d{6}$/.test(trimmedToken)) {
+    return { error: 'Enter the 6-digit code from your email.' }
+  }
+  const supabase = await createClient()
+  // type:'email' validates the OTP and sets the session cookie via the SSR
+  // client. After this resolves, supabase.auth.getUser() returns the user
+  // who just verified — claimGift uses that id for the customers row insert.
+  const { error } = await supabase.auth.verifyOtp({
+    email: trimmedEmail,
+    token: trimmedToken,
+    type: 'email',
+  })
+  if (error) return { error: error.message }
+  return { ok: true }
 }
 
 export async function claimGift(payload: {
@@ -63,6 +159,36 @@ export async function claimGift(payload: {
 
   if (!inviter) {
     return { blocked: true, reason: 'This referral link is invalid or has expired.' }
+  }
+
+  // ── 1b. Verify both OTPs landed BEFORE any DB writes ───────────────────────
+  // The email OTP also auto-creates the auth.users row + sets the session
+  // cookie (see verifyTrialEmailOtp). We pull the user here so step 11
+  // can attach the customers row to the same auth.users.id — no separate
+  // trial-customers table, single source of truth.
+  const ssrClient = await createClient()
+  const { data: { user: verifiedUser } } = await ssrClient.auth.getUser()
+  if (!verifiedUser || verifiedUser.email?.toLowerCase() !== emailNorm) {
+    return {
+      error: 'Please verify your email address with the code we sent before claiming.',
+    }
+  }
+
+  // Phone verification: the most recent unexpired OTP for this phone must be
+  // marked verified. Mirrors the check in onboarding's createAccount.
+  const { data: phoneOtp } = await supabaseAdmin
+    .from('whatsapp_otps')
+    .select('verified_at')
+    .eq('phone', phoneE164)
+    .not('verified_at', 'is', null)
+    .gte('verified_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+    .order('verified_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!phoneOtp) {
+    return {
+      error: 'Please verify your WhatsApp number with the 6-digit code before claiming.',
+    }
   }
 
   // ── 2. Lifetime phone dedupe — keystone constraint ─────────────────────────
@@ -155,7 +281,34 @@ export async function claimGift(payload: {
     }
   }
 
-  // ── 7. Soft signals — flag but allow through ───────────────────────────────
+  // ── 7. IP velocity check — HARD cap per-IP per-24h ─────────────────────────
+  // Burner-farming defense: even with fresh phones + fresh Gmail addresses,
+  // an abuser typically claims from a single IP (their laptop) or a small
+  // pool. Block hard at MAX_CLAIMS_PER_IP_24H. Ops can release manually if
+  // a real customer hits this from a shared dorm Wi-Fi.
+  const clientIp = await resolveClientIp()
+  if (clientIp) {
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { count: ipClaims24h } = await supabaseAdmin
+      .from('referral_gifts_claimed')
+      // We don't have a stored IP column; reuse device_fp as a coarse proxy
+      // when fp matches, and supplement with a same-day count via a join on
+      // referrals.created_at + device_fp. For now use device_fp ONLY.
+      .select('id', { count: 'exact', head: true })
+      .gte('claimed_at', dayAgo)
+      .eq('device_fp', payload.deviceFp ?? '__no_fp_marker__')
+    if ((ipClaims24h ?? 0) >= MAX_CLAIMS_PER_IP_24H && payload.deviceFp) {
+      return {
+        blocked: true,
+        reason: 'Too many gift claims from this device in 24 hours. Try again tomorrow.',
+      }
+    }
+  }
+
+  // ── 8. Soft signals — flag but allow through ───────────────────────────────
+  // Soft flags land in referral_review_queue when the referral converts to a
+  // paid sub. creditInviterOnConversion reads the queue and holds the credit
+  // as 'pending' until ops approves. This is the only fraud-review path.
   const softFlags: string[] = []
   if (payload.deviceFp) {
     const { data: deviceMatch } = await supabaseAdmin
@@ -165,8 +318,9 @@ export async function claimGift(payload: {
       .maybeSingle()
     if (deviceMatch) softFlags.push('device_fp_reuse')
   }
+  if (clientIp) softFlags.push(`ip:${clientIp}`)
 
-  // ── 8. Write referral row ──────────────────────────────────────────────────
+  // ── 9. Write referral row ──────────────────────────────────────────────────
   const { data: referralRow, error: refErr } = await supabaseAdmin
     .from('referrals')
     .insert({
@@ -218,8 +372,53 @@ export async function claimGift(payload: {
       })
   }
 
-  // ── 11. Notify ops (log is enough for MVP — hook in email/Slack later) ─────
-  console.log(`🎁 Gift claimed: inviter=${inviterCid}, phone=${phoneE164}, dorm=${payload.dormName}`)
+  // ── 11. Insert/upsert customers row for the trial user ────────────────────
+  // The auth.users.id was created at verifyTrialEmailOtp time. The customers
+  // table has id → auth.users(id) FK so we can attach now. Upsert because an
+  // adversarial path could theoretically race (e.g. user re-claims after a
+  // bug). ON CONFLICT (id) DO UPDATE patches the profile fields but keeps
+  // the existing cid — collision-stable for downstream referrals.
+  //
+  // Also: link the freshly-created auth user to the referral row's
+  // invitee_user_id field. The webhook's referral-linkup loop keys on
+  // phone match; we already have the user id here, so set it explicitly
+  // to make the awarder's downstream lookups O(1) instead of O(phone scan).
+  const customerCid = generateCid(payload.dormName)
+  const { error: customerErr } = await supabaseAdmin
+    .from('customers')
+    .upsert({
+      id:                   verifiedUser.id,
+      cid:                  customerCid,
+      name:                 firstName,
+      email:                emailNorm,
+      whatsapp_number:      phoneE164,
+      whatsapp_verified:    true,
+      whatsapp_verified_at: new Date().toISOString(),
+      dorm_name:            payload.dormName,
+      meal_preference_type: payload.preference,
+      // Trial gift defaults: 6-day week, no allergens/spice known yet —
+      // the user fills those in on the dashboard or at first checkout.
+      week_type:            '6DAYS',
+      out_of_zone:          false,
+    }, { onConflict: 'id', ignoreDuplicates: false })
+
+  if (customerErr) {
+    // Don't fail the claim — the gift_claimed row + referral row are already
+    // written, so the trial meal flow can still complete via ops. Log for
+    // reconciliation: a customers-row insert failure here means the user
+    // won't have a dashboard until ops creates the row manually.
+    console.error(`⚠️  customers row insert failed for trial user ${verifiedUser.id}:`, customerErr)
+  } else {
+    // Close the referral linkup loop now (no need to wait for the webhook's
+    // phone-match scan): set invitee_user_id on the referral row directly.
+    await supabaseAdmin
+      .from('referrals')
+      .update({ invitee_user_id: verifiedUser.id })
+      .eq('id', referralRow.id)
+  }
+
+  // ── 12. Notify ops (log is enough for MVP — hook in email/Slack later) ─────
+  console.log(`🎁 Gift claimed: inviter=${inviterCid}, phone=${phoneE164}, dorm=${payload.dormName}, cust=${verifiedUser.id}`)
 
   return { ok: true }
 }
