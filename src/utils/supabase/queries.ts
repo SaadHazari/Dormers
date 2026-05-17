@@ -125,19 +125,6 @@ export const getReferralCount = cache(async (userId: string): Promise<number> =>
   return data.total
 })
 
-// ── Dorm-level stats — Dorm Wars zero-state branching ─────────────────────
-// activeCount drives the A/B branch (≥ 5 → activity feed, < 5 → founder slots).
-// recent is what the activity feed renders. Both are scoped to a single dorm.
-export interface DormRecentSub {
-  firstName: string
-  planName:  string
-  createdAt: string
-}
-export interface DormStats {
-  activeCount: number
-  recent:      DormRecentSub[]
-}
-
 // ── Recent invites — for the engaged-state "Your invites" block ───────────
 // Returns the inviter's most-recent gift_claimed + converted referrals so the
 // UI can render a humanized pipeline view with first names + status badges.
@@ -174,32 +161,38 @@ export const getRecentInvites = cache(async (userId: string, limit = 10): Promis
   }
 })
 
-export const getDormStats = cache(async (dormName: string): Promise<DormStats> => {
-  if (!dormName) return { activeCount: 0, recent: [] }
-  const supabase = await createClient()
+// Phase 8C — Cross-dorm activity feed. The Happening Now feed used to be
+// scoped to the user's own dorm; users with empty dorms saw "no recent
+// activity" forever. Cross-dorm makes the feed feel alive everywhere and
+// surfaces Elite Dormers (hall_wall === true) so their status reads as
+// rare social proof for other users.
+export interface CrossDormRecentSub {
+  firstName: string
+  dormName:  string
+  planName:  string
+  createdAt: string
+  isElite:   boolean
+}
+
+export const getCrossDormRecent = cache(async (limit = 8): Promise<CrossDormRecentSub[]> => {
+  // Service-role read — we expose firstName + dormName + hall_wall only
+  // (no email / phone / id), which is the same shape getDormStats already
+  // surfaces inside a single dorm. RLS on customers blocks cross-dorm reads
+  // for the SSR client, so the admin client is required here.
+  const sb = rewardsAdmin()
   try {
-    const { data: customers } = await supabase
-      .from('customers')
-      .select('id, name')
-      .eq('dorm_name', dormName)
-
-    if (!customers || customers.length === 0) {
-      return { activeCount: 0, recent: [] }
-    }
-
-    const customerIds = customers.map(c => c.id)
-    const nameMap = new Map(customers.map(c => [c.id, c.name as string | null]))
-
-    const { data: subs } = await supabase
+    const { data: subs } = await sb
       .from('subscriptions')
       .select('customer_id, plan_name, created_at')
-      .in('customer_id', customerIds)
       .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
       .order('created_at', { ascending: false })
+      .limit(60) // overfetch — dedupe by customer can drop a lot
 
     const rows = subs ?? []
-    // Dedupe by customer — each customer counts once toward density,
-    // and only their newest live sub appears in the feed.
+    if (rows.length === 0) return []
+
+    // Dedupe by customer — each customer counts once toward the feed,
+    // and only their newest live sub appears.
     const seen = new Set<string>()
     const deduped: typeof rows = []
     for (const s of rows) {
@@ -209,15 +202,29 @@ export const getDormStats = cache(async (dormName: string): Promise<DormStats> =
       }
     }
 
-    const recent: DormRecentSub[] = deduped.slice(0, 5).map(s => ({
-      firstName: ((nameMap.get(s.customer_id) ?? '').split(' ')[0]) || 'Someone',
-      planName:  (s.plan_name ?? '').replace(/\p{Emoji}/gu, '').trim() || 'a plan',
-      createdAt: s.created_at,
-    }))
+    const customerIds = deduped.slice(0, limit).map(s => s.customer_id)
+    const { data: customers } = await sb
+      .from('customers')
+      .select('id, name, dorm_name, hall_wall')
+      .in('id', customerIds)
 
-    return { activeCount: deduped.length, recent }
+    type CRow = { id: string; name: string | null; dorm_name: string | null; hall_wall: boolean | null }
+    const cMap = new Map<string, CRow>((customers ?? []).map((c) => [c.id as string, c as CRow]))
+
+    return deduped.slice(0, limit).map(s => {
+      const c = cMap.get(s.customer_id)
+      const first = ((c?.name ?? '').split(' ')[0]) || 'Someone'
+      const dorm  = (c?.dorm_name ?? '').trim() || 'a dorm'
+      return {
+        firstName: first,
+        dormName:  dorm,
+        planName:  (s.plan_name ?? '').replace(/\p{Emoji}/gu, '').trim() || 'a plan',
+        createdAt: s.created_at,
+        isElite:   Boolean(c?.hall_wall),
+      }
+    })
   } catch {
-    return { activeCount: 0, recent: [] }
+    return []
   }
 })
 

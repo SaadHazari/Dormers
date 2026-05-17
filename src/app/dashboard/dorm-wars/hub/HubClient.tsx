@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Star, Trophy, Percent, Shirt,
   Calendar, Coins, KeyRound, Zap,
 } from 'lucide-react'
-import type { ReferralData, DormStats, InviteRow, RewardEvent } from '@/utils/supabase/queries'
+import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -126,7 +126,6 @@ interface Props {
   customerName:       string
   customerDorm?:      string
   referralData:       ReferralData
-  dormStats:          DormStats
   invites:            InviteRow[]
   activeSubscription: Subscription | null
   // Phase 7-05 — server-canonical initial state for Daily Drop + Streak.
@@ -156,6 +155,10 @@ interface Props {
   // (different framing for "no sub yet" vs "Weekly Flex" vs "Trial").
   dormWarsEligible:   boolean
   currentPlanId:      'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | null
+  // Phase 8C — Happening Now feed is cross-dorm now. Each item carries
+  // firstName + dormName + isElite (hall_wall flag) so the feed can tag
+  // Elite Dormers inline as rare social proof.
+  crossDormRecent:    CrossDormRecentSub[]
 }
 
 // Server-shape for today's Daily Drop, mirrored in the API response payload.
@@ -184,12 +187,13 @@ function daysAgoFromISO(iso: string): number {
 
 export default function HubClient({
   customerCid, customerName, customerDorm,
-  referralData, dormStats, invites, activeSubscription,
+  referralData, invites, activeSubscription,
   initialStreak, initialDailyDrop,
   cycleRecruits: serverCycleRecruits, lifetimeTier,
   earlyAccess, hallWall,
   recentRewards,
   dormWarsEligible, currentPlanId,
+  crossDormRecent,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
@@ -237,13 +241,11 @@ export default function HubClient({
     ),
   })), [invites])
 
-  // Pulse feed — built from same-dorm recent subscribers (dormStats.recent)
-  const pulseItems = useMemo(() => {
-    const fromDorm = (dormStats.recent ?? []).map(r =>
-      `${r.firstName} joined ${customerDorm || 'your dorm'}`
-    )
-    return fromDorm.length > 0 ? fromDorm : ['No recent activity in your dorm yet']
-  }, [dormStats.recent, customerDorm])
+  // Phase 8C — Pulse feed is now cross-dorm. Each item carries structured
+  // data (firstName + dormName + isElite) so the ActivityFeed can render
+  // an Elite Dormer tag inline next to Tier-4 customers. Empty-array
+  // fallback renders a single placeholder line below.
+  const pulseItems = crossDormRecent
 
   // ── DERIVED ─────────────────────────────────────────────────────────────
   // Current tier from lifetime recruits
@@ -532,7 +534,7 @@ export default function HubClient({
           Same responsive treatment via .hub-activity-grid — stacks under
           720px so Activity feed and Scouts each get full width on phones. */}
       <div className="hub-activity-grid" style={{ flex: '1 1 auto', minHeight: 0 }}>
-        <ActivityFeed pulseText={pulseItems[pulseIdx]} pulseItems={pulseItems} />
+        <ActivityFeed pulseItem={pulseItems[pulseIdx]} pulseItems={pulseItems} />
         <ScoutsStrip
           scouts={scouts}
           onScoutTap={setViewingScout}
@@ -1533,8 +1535,59 @@ function DailyDropColumn({ drop, onOpen }: { drop: DailyDropState; onOpen: () =>
 //  ACTIVITY FEED — left side of lower row; live pulse + recent items
 // ════════════════════════════════════════════════════════════════════════════
 
-function ActivityFeed({ pulseText, pulseItems }: { pulseText: string; pulseItems: string[] }) {
-  const recent = useMemo(() => pulseItems.slice(0, 3), [pulseItems])
+// Compact inline variant of the Elite Dormer badge — sized for activity-feed
+// rows where space is tight. Just the crown + tracked label, no chevron tail.
+function EliteTag() {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 3,
+        padding: '1px 6px', borderRadius: 4,
+        backgroundColor: `${GOLD}22`,
+        border: `1px solid ${GOLD}66`,
+        fontFamily: BODY, fontSize: 8, fontWeight: 900, color: GOLD,
+        letterSpacing: '0.14em', textTransform: 'uppercase',
+        boxShadow: `0 0 6px ${GOLD}44`,
+        flexShrink: 0,
+        verticalAlign: 'middle',
+      }}
+    >
+      <Trophy size={7} strokeWidth={2.6} color={GOLD_LITE} />
+      Elite
+    </span>
+  )
+}
+
+function ActivityFeed({
+  pulseItem, pulseItems,
+}: {
+  pulseItem: CrossDormRecentSub | undefined
+  pulseItems: CrossDormRecentSub[]
+}) {
+  // Recent list: skip the currently-highlighted pulse item so it doesn't
+  // appear twice (once highlighted at the top, once muted below).
+  const recent = useMemo(() => {
+    if (!pulseItem) return pulseItems.slice(0, 3)
+    return pulseItems.filter(p => p.createdAt !== pulseItem.createdAt || p.firstName !== pulseItem.firstName).slice(0, 3)
+  }, [pulseItems, pulseItem])
+
+  // Empty-state fallback. Cross-dorm + no live subs = brand-new database;
+  // very unlikely in production but the UI shouldn't render blank.
+  if (!pulseItem) {
+    return (
+      <Column eyebrow="Happening Now" title="" accent={GREEN}>
+        <div style={{
+          flex: '1 1 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: BODY, fontSize: 12, fontWeight: 600, color: MIST,
+          letterSpacing: '0.02em',
+        }}>
+          Quiet across the dorms right now.
+        </div>
+      </Column>
+    )
+  }
+
   return (
     <Column eyebrow="Happening Now" title="" accent={GREEN}>
       <div style={{
@@ -1544,13 +1597,14 @@ function ActivityFeed({ pulseText, pulseItems }: { pulseText: string; pulseItems
       }}>
         {/* Live pulse — the highlighted "just happened" line */}
         <div
-          key={pulseText}
+          key={`${pulseItem.firstName}-${pulseItem.createdAt}`}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '7px 12px', borderRadius: 8,
             backgroundColor: `${GREEN}14`,
             border: `1px solid ${GREEN}44`,
             animation: 'hub-pulse-fade-in 600ms ease-out',
+            flexWrap: 'wrap',
           }}
         >
           <span style={{
@@ -1562,23 +1616,32 @@ function ActivityFeed({ pulseText, pulseItems }: { pulseText: string; pulseItems
             fontFamily: BODY, fontSize: 12, fontWeight: 700, color: CREAM,
             letterSpacing: '0.02em',
           }}>
-            {pulseText}
+            <strong style={{ fontWeight: 900 }}>{pulseItem.firstName}</strong>
+            {' joined '}
+            <span style={{ color: CREAM, opacity: 0.85 }}>{pulseItem.dormName}</span>
           </span>
+          {pulseItem.isElite && <EliteTag />}
         </div>
 
-        {/* Recent items list (static) */}
-        {recent.filter(r => r !== pulseText).slice(0, 3).map((item, i) => (
-          <div key={i} style={{
+        {/* Recent items list (static, muted) */}
+        {recent.map((item, i) => (
+          <div key={`${item.firstName}-${item.createdAt}-${i}`} style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '5px 12px',
             fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST,
             letterSpacing: '0.02em',
+            flexWrap: 'wrap',
           }}>
             <span style={{
               width: 4, height: 4, borderRadius: '50%',
               backgroundColor: MIST_DIM, flexShrink: 0,
             }} />
-            {item}
+            <span>
+              <strong style={{ fontWeight: 800, color: CREAM }}>{item.firstName}</strong>
+              {' · '}
+              <span style={{ opacity: 0.85 }}>{item.dormName}</span>
+            </span>
+            {item.isElite && <EliteTag />}
           </div>
         ))}
       </div>

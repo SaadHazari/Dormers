@@ -2,7 +2,7 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import {
   getCustomer,
   getReferralData,
-  getDormStats,
+  getCrossDormRecent,
   getRecentInvites,
   getActiveSubscription,
   getDailyDropToday,
@@ -32,9 +32,8 @@ export default async function DormWarsPage() {
   // client) for these initial-state fetches.
   const supabase = await createClient()
 
-  // Six independent reads happen in parallel; dormStats then waits on
-  // customer.dorm_name (we need the dorm before we can ask about it),
-  // and cycleRecruits waits on activeSubscription (needs its start_date).
+  // Eight independent reads happen in parallel. cycleRecruits waits on
+  // activeSubscription (needs its start_date).
   const [
     customer,
     referralData,
@@ -43,6 +42,7 @@ export default async function DormWarsPage() {
     initialDailyDrop,
     initialStreak,
     recentRewards,
+    crossDormRecent,
   ] = await Promise.all([
     getCustomer(user.id),
     getReferralData(user.id),
@@ -55,6 +55,11 @@ export default async function DormWarsPage() {
     // converts. HubClient compares the newest event's id against a
     // localStorage marker to decide whether to celebrate or stay quiet.
     getRecentRewardEvents(user.id, 5),
+    // Phase 8C — cross-dorm "Happening Now" feed. Used to be scoped to
+    // the user's own dorm only; empty-dorm users saw "no recent activity"
+    // forever. Cross-dorm keeps the feed alive everywhere AND surfaces
+    // Elite Dormers (hall_wall === true) as rare social proof.
+    getCrossDormRecent(8),
   ])
 
   // ── Server-canonical reward state (RESEARCH Decision #10 + Pitfall #3) ──
@@ -64,8 +69,7 @@ export default async function DormWarsPage() {
   // (or vice versa). Parallelize the remaining reads.
   // Audit FIX 15: also fetch the tier-2 / tier-4 side-effect flags so the
   // hub renders the perks (Early Access, Elite Dormer) the awarder promised.
-  const [dormStats, cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
-    getDormStats(customer?.dorm_name ?? ''),
+  const [cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
     activeSubscription
       ? getCycleRecruits(supabase, user.id, activeSubscription.id)
       : Promise.resolve(0),
@@ -103,7 +107,6 @@ export default async function DormWarsPage() {
       customerName={customer?.name ?? ''}
       customerDorm={customer?.dorm_name ?? ''}
       referralData={referralData}
-      dormStats={dormStats}
       invites={invites}
       activeSubscription={activeSubscription}
       initialStreak={initialStreak}
@@ -115,6 +118,7 @@ export default async function DormWarsPage() {
       recentRewards={recentRewards}
       dormWarsEligible={dormWarsEligible}
       currentPlanId={planId}
+      crossDormRecent={crossDormRecent}
     />
   )
 }
