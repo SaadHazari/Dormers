@@ -375,6 +375,14 @@ function rewardsAdmin() {
 // See migration phase_8e_streak_chest_replaces_daily_drop.
 export type StreakChestBucket = 'cash_5_8' | 'cash_8_10' | 'cash_10_12' | 'doubler'
 
+// Phase 8F — week-long doubler state. Non-null when the customer has an
+// unexpired doubler chest outcome. The hub uses this to render a "2×
+// rewards active · Nd left" banner so the user feels the chest paying off.
+export interface ActiveDoubler {
+  expiresAt:   string  // ISO timestamp
+  msRemaining: number  // ms until expiry at fetch-time
+}
+
 export interface StreakChestState {
   count:         number                              // streak.count
   lastChestDay:  number                              // streak.last_chest_day
@@ -387,6 +395,7 @@ export interface StreakChestState {
     doubler_expires_at: string | null
     streak_day:         number
   } | null
+  activeDoubler: ActiveDoubler | null                // Phase 8F — non-null when an unexpired doubler is in effect
 }
 
 /**
@@ -423,6 +432,27 @@ export async function getStreakChestState(
   const chestReady = gap >= 8
   const daysUntilNext = chestReady ? 0 : Math.max(0, 8 - gap)
 
+  // Phase 8F — derive active-doubler state from the latest doubler chest.
+  // The chest-row read above only returns the single most recent chest of
+  // ANY bucket; if that one isn't a doubler we need to query specifically.
+  // Most users won't have a doubler at all, so a small extra read is fine.
+  let activeDoubler: ActiveDoubler | null = null
+  const { data: latestDoubler } = await sb
+    .from('streak_chests')
+    .select('doubler_expires_at')
+    .eq('customer_id', customerId)
+    .eq('rng_bucket', 'doubler')
+    .order('claimed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latestDoubler?.doubler_expires_at) {
+    const expiryMs = new Date(latestDoubler.doubler_expires_at as string).getTime()
+    const msRemaining = expiryMs - Date.now()
+    if (msRemaining > 0) {
+      activeDoubler = { expiresAt: latestDoubler.doubler_expires_at as string, msRemaining }
+    }
+  }
+
   return {
     count,
     lastChestDay,
@@ -437,6 +467,7 @@ export async function getStreakChestState(
           streak_day:         Number(chestRow.data.streak_day),
         }
       : null,
+    activeDoubler,
   }
 }
 
@@ -473,7 +504,7 @@ export async function getRecentRewardEvents(
     .eq('customer_id', customerId)
     .in('status', ['approved', 'applied'])
     // Source prefix filter — anything reward-driven, no daily drops.
-    .or('source.eq.referral_conversion,source.like.cycle_milestone_%,source.like.tier_%')
+    .or('source.like.referral_conversion%,source.like.cycle_milestone_%,source.like.tier_%')
     .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false })
     .limit(limit)

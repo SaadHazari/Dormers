@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/server'
 import { normalisePhone } from '@/lib/phone'
 import { generateCid } from '@/lib/customer-cid'
 import { awardCycleAndTierRewards } from '@/lib/dorm-wars/awarder'
+import { isDoublerActive, applyDoubler } from '@/lib/dorm-wars/doubler'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -532,17 +533,24 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
 
   const creditStatus = reviewItem ? 'pending' : 'approved'
 
+  // Phase 8F — week-long doubler. If the inviter has an active doubler
+  // chest outcome (rolled the 5% bucket in the last 7 days), Layer 1 cash
+  // doubles. Source string carries the '_2x' suffix so ops analytics can
+  // measure how much extra AED the doubler distributes.
+  const doublerActive = await isDoublerActive(supabaseAdmin, referral.inviter_user_id)
+  const { value: cashAmount, source: cashSource } = applyDoubler(20, 'referral_conversion', doublerActive)
+
   await supabaseAdmin
     .from('credits')
     .insert({
       customer_id: referral.inviter_user_id,
-      amount_aed:  20,
-      source:      'referral_conversion',
+      amount_aed:  cashAmount,
+      source:      cashSource,
       referral_id: referral.id,
       status:      creditStatus,
     })
 
-  console.log(`✅ Credit AED 20 → inviter ${referral.inviter_cid} (status: ${creditStatus})`)
+  console.log(`✅ Credit AED ${cashAmount} → inviter ${referral.inviter_cid} (status: ${creditStatus}${doublerActive ? ', 2x doubler' : ''})`)
 
   // Layer 2/3 reward fire — runs AFTER the Layer 1 credit insert so the
   // cycle/lifetime counts (which both filter on referrals.status='converted')

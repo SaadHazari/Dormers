@@ -17,6 +17,7 @@ import { mysteryDropValue } from './rng'
 import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from './constants'
 import { getCycleRecruits } from '@/utils/supabase/queries'
 import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from './meal-pricing'
+import { isDoublerActive, applyDoubler } from './doubler'
 
 // Use the wide-generic form so this matches the type returned by bare
 // createClient(url, key) — which is SupabaseClient<any, "public", "public", any, any>.
@@ -79,6 +80,12 @@ export async function awardCycleAndTierRewards(
   // multiple milestones in the same call gets consistent valuations.
   const priceCtx = await resolveMealPriceContext(sb, customerId, subscriptionId)
 
+  // Phase 8F — week-long doubler. Active if the customer has an unexpired
+  // doubler chest outcome. Doubles Layer 2 milestone payouts (mystery,
+  // free_week, free_month, cash_and_skips). Layer 3 lifetime tiers are
+  // NOT doubled — that's by design per user spec.
+  const doublerActive = await isDoublerActive(sb, customerId)
+
   // ── Layer 2: cycle milestones ──
   // Per Decision #9: skip Layer 2 entirely when no active sub.
   // Per Pitfall #7: Layer 2 ticks regardless of Layer 1 monthly cap — INTENTIONAL.
@@ -114,14 +121,18 @@ export async function awardCycleAndTierRewards(
 
       if (!inserted) continue // already awarded — idempotent
 
-      // Side effects on first-award only:
+      // Side effects on first-award only. Phase 8F: applyDoubler tags the
+      // source with '_2x' and doubles the AED when the doubler is active,
+      // so analytics can attribute the boosted payout to the chest.
       if (m.kind === 'mystery_drop' || m.kind === 'free_week' || m.kind === 'free_month') {
-        // value is non-null at this point: mystery resolved via RNG,
-        // free_week/month resolved via meal-aware priceCtx above.
-        await depositCredit(sb, customerId, value!, `cycle_milestone_${m.at}`)
+        const { value: paid, source } = applyDoubler(value!, `cycle_milestone_${m.at}`, doublerActive)
+        await depositCredit(sb, customerId, paid, source)
       }
       if (m.kind === 'cash_and_skips') {
-        await depositCredit(sb, customerId, 500, 'cycle_milestone_15')
+        const { value: paid, source } = applyDoubler(500, 'cycle_milestone_15', doublerActive)
+        await depositCredit(sb, customerId, paid, source)
+        // Bonus skips are NOT doubled — operational kitchen impact would
+        // double too, which we don't want. Only the AED component scales.
         await sb.rpc('increment_bonus_skips', {
           p_sub_id: subscriptionId,
           p_amount: MILESTONE_15_BONUS_SKIPS,

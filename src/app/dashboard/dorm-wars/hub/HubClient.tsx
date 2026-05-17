@@ -187,6 +187,17 @@ function chestBucketLabel(b: StreakChestBucket): string {
   return 'Cash chest'
 }
 
+// Phase 8F — humanize the doubler remaining-time. Days for >24h, hours for
+// <24h. Banner is intentionally imprecise — minutes would feel anxious.
+function formatDoublerRemaining(msRemaining: number): string {
+  const hours = Math.floor(msRemaining / 3_600_000)
+  if (hours >= 24) {
+    const days = Math.ceil(hours / 24)
+    return `${days}d`
+  }
+  return `${Math.max(1, hours)}h`
+}
+
 // Map InviteRow (status = 'gift_claimed' | 'converted') to one of the 4 visible
 // scout stages. The 5th stage ('sent' but not yet claimed) requires a backend
 // change to expose pre-claim invite rows — flagged for Phase 2.
@@ -406,23 +417,29 @@ export default function HubClient({
 
   // Build celebration copy from the source string. Each branch has its own
   // headline + sub so the banner reads like an event, not a credit row.
+  // Phase 8F: '_2x' suffix on source = doubler was active; surface that in
+  // copy so the user sees their chest paying off in real time.
   function celebrationCopy(ev: RewardEvent): { headline: string; sub: string; accent: string } {
-    if (ev.source === 'referral_conversion') {
+    const doubled = ev.source.endsWith('_2x')
+    const baseSrc = doubled ? ev.source.slice(0, -3) : ev.source
+    const doublerTag = doubled ? ' · 2× doubler' : ''
+
+    if (baseSrc === 'referral_conversion') {
       return {
         headline: `🎉 ${ev.invitee_name ?? 'A friend'} joined Dormers!`,
-        sub:      `+AED ${ev.amount_aed} credit landed in your wallet`,
+        sub:      `+AED ${ev.amount_aed} credit landed in your wallet${doublerTag}`,
         accent:   GREEN,
       }
     }
-    if (ev.source.startsWith('cycle_milestone_')) {
-      const at = ev.source.replace('cycle_milestone_', '')
+    if (baseSrc.startsWith('cycle_milestone_')) {
+      const at = baseSrc.replace('cycle_milestone_', '')
       return {
         headline: `🎯 Cycle milestone ${at} unlocked`,
-        sub:      `+AED ${ev.amount_aed} credit deposited`,
+        sub:      `+AED ${ev.amount_aed} credit deposited${doublerTag}`,
         accent:   GOLD,
       }
     }
-    if (ev.source === 'tier_4_meals') {
+    if (baseSrc === 'tier_4_meals') {
       return {
         headline: '🏆 TIER 4 UNLOCKED — Elite Dormer',
         sub:      `+AED ${ev.amount_aed} jackpot credit deposited`,
@@ -431,7 +448,7 @@ export default function HubClient({
     }
     return {
       headline: '🎁 New reward unlocked',
-      sub:      `+AED ${ev.amount_aed} credit deposited`,
+      sub:      `+AED ${ev.amount_aed} credit deposited${doublerTag}`,
       accent:   CYAN,
     }
   }
@@ -539,6 +556,44 @@ export default function HubClient({
           </div>
         )
       })()}
+
+      {/* Phase 8F — DOUBLER ACTIVE BANNER. Renders when the customer has
+          an unexpired doubler chest outcome. Layer 1 cash + Layer 2 cycle
+          payouts double during this window, so showing the banner makes
+          the boost legible while it's earning. Auto-disappears at expiry
+          (next page load won't pass it from SSR). */}
+      {chestState.activeDoubler && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            flexShrink: 0,
+            padding: '10px 16px',
+            borderRadius: 12,
+            backgroundImage: `linear-gradient(90deg, ${GOLD}28 0%, ${GOLD_LITE}10 60%, transparent 100%)`,
+            border: `1px solid ${GOLD}66`,
+            boxShadow: `0 6px 18px ${GOLD}1f, inset 0 1px 0 ${GOLD_LITE}33`,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}
+        >
+          <Zap size={16} strokeWidth={2.6} color={GOLD_LITE} />
+          <span style={{
+            fontFamily: BODY, fontSize: 12, fontWeight: 900, color: CREAM,
+            letterSpacing: '0.04em',
+          }}>
+            2× rewards active
+          </span>
+          <span style={{
+            fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
+            letterSpacing: '0.02em',
+          }}>
+            · Cash for invites + cycle milestones doubled for{' '}
+            <span style={{ color: GOLD_LITE, fontWeight: 900 }}>
+              {formatDoublerRemaining(chestState.activeDoubler.msRemaining)}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* 1. TOP CHROME — identity + wallet + streak chest strip + sound */}
       <TopChrome
