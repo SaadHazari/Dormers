@@ -11,9 +11,13 @@ import { authTokens } from '@/lib/auth-theme'
 import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 
-// Supabase email OTPs in this project are 8 digits (Auth → Settings).
-// If you change that setting, bump this constant.
-const OTP_LENGTH = 8
+// Supabase email OTPs in this project are 6 digits (Auth → Settings).
+// Set in Supabase Auth → Settings → "Email OTP length" on 2026-05-17.
+// Mirrors the constants in onboarding/EmailStep.tsx and r/[cid]/page.tsx.
+// IMPORTANT: the "Reset Password" email template in Supabase must include
+// `{{ .Token }}` for the 6-digit code to render in the email body —
+// otherwise the user only sees a magic LINK and has no code to type here.
+const OTP_LENGTH = 6
 
 type Phase = 'request' | 'verify' | 'reset'
 
