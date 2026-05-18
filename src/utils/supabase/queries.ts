@@ -498,19 +498,37 @@ export async function getRecentRewardEvents(
   limit = 5,
 ): Promise<RewardEvent[]> {
   const sb = rewardsAdmin()
-  const { data } = await sb
-    .from('credits')
-    .select('id, amount_aed, source, created_at, referral_id, referrals(invitee_first_name)')
-    .eq('customer_id', customerId)
-    .in('status', ['approved', 'applied'])
-    // Source prefix filter — anything reward-driven, no daily drops.
-    .or('source.like.referral_conversion%,source.like.cycle_milestone_%,source.like.tier_%')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  return (data ?? []).map(r => {
-    // PostgREST returns the joined row as an object or array depending on FK
-    // direction; we treat both shapes defensively.
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Two parallel reads: credits-based events (the bulk) + tier 3 lifetime
+  // unlocks (which DON'T have a credit row because the jacket is physical
+  // merch, not AED). Both feed the same celebration banner pipeline.
+  const [creditsRes, tier3Res] = await Promise.all([
+    sb
+      .from('credits')
+      .select('id, amount_aed, source, created_at, referral_id, referrals(invitee_first_name)')
+      .eq('customer_id', customerId)
+      .in('status', ['approved', 'applied'])
+      // Source prefix filter — anything reward-driven, no daily drops.
+      .or('source.like.referral_conversion%,source.like.cycle_milestone_%,source.like.tier_%,source.like.layer4_%')
+      .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    // Phase 8I — synthesize a celebration event for tier 3 jacket unlocks.
+    // There's no credits row for tier 3 (jacket is physical, no AED), so
+    // we read lifetime_rewards directly and inject a pseudo-event with
+    // source='tier_3_jacket'. The hub's celebrationCopy renders the
+    // "we'll WhatsApp you" message off that source string.
+    sb
+      .from('lifetime_rewards')
+      .select('id, awarded_at')
+      .eq('customer_id', customerId)
+      .eq('tier', 3)
+      .gte('awarded_at', thirtyDaysAgo)
+      .maybeSingle(),
+  ])
+
+  const events: RewardEvent[] = (creditsRes.data ?? []).map(r => {
     const ref = (r.referrals ?? null) as { invitee_first_name?: string | null } | { invitee_first_name?: string | null }[] | null
     const inviteeName = Array.isArray(ref)
       ? ref[0]?.invitee_first_name ?? null
@@ -523,6 +541,23 @@ export async function getRecentRewardEvents(
       invitee_name: inviteeName,
     }
   })
+
+  if (tier3Res.data) {
+    // Prefix the id with 'tier3:' so the hub's "have I already celebrated
+    // this event?" localStorage marker doesn't collide with credits.id UUIDs.
+    events.push({
+      id:           `tier3:${tier3Res.data.id as string}`,
+      amount_aed:   0,                                // not displayed; jacket is physical
+      source:       'tier_3_jacket',
+      created_at:   tier3Res.data.awarded_at as string,
+      invitee_name: null,
+    })
+  }
+
+  // Sort merged set by created_at desc + trim to limit (in case tier 3
+  // pushed us over).
+  events.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  return events.slice(0, limit)
 }
 
 /**

@@ -192,11 +192,22 @@ export async function awardCycleAndTierRewards(
       await sb.from('customers').update({ early_access: true }).eq('id', customerId)
     }
     if (t.tier === 3) {
-      // Jacket + merch fulfilment is manual in Phase 7 (no fulfilment-queue
-      // table). The lifetime_rewards row itself is the ops trail; admin
-      // tooling for the physical-ship queue arrives in Phase 8 (Decision #8).
+      // Jacket + merch fulfilment is manual + handled entirely over WhatsApp
+      // per user spec ("any details of the jacket merch will be discussed
+      // over whatsapp"). No in-app sizing / address capture. Enrich the ops
+      // log with the customer's WhatsApp number + name so the fulfilment
+      // team can reach out without a second lookup.
+      const { data: contact } = await sb
+        .from('customers')
+        .select('name, whatsapp_number')
+        .eq('id', customerId)
+        .maybeSingle()
       console.log(
-        `🧥 TIER 3 (jacket_merch) unlocked for customer ${customerId} — physical fulfilment needed (lifetime_rewards.id=${inserted.id as string})`,
+        `🧥 TIER 3 (jacket_merch) unlocked — reach out on WhatsApp to confirm size + delivery.`,
+        `\n   customer_id=${customerId}`,
+        `\n   name=${(contact?.name as string | null) ?? '(unknown)'}`,
+        `\n   whatsapp=${(contact?.whatsapp_number as string | null) ?? '(missing)'}`,
+        `\n   lifetime_rewards.id=${inserted.id as string}`,
       )
     }
     if (t.tier === 4) {

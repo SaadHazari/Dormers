@@ -452,6 +452,23 @@ export default function HubClient({
         accent:   GOLD_LITE,
       }
     }
+    // Phase 8I — tier 3 jacket. Synthesized celebration (no credit row;
+    // jacket is physical merch). All sizing + delivery details over
+    // WhatsApp per user spec — no in-app capture flow.
+    if (baseSrc === 'tier_3_jacket') {
+      return {
+        headline: "🧥 TIER 3 UNLOCKED — Your jacket's on its way",
+        sub:      "We'll WhatsApp you to confirm size + delivery details",
+        accent:   PURPLE,
+      }
+    }
+    if (baseSrc === 'layer4_anniversary') {
+      return {
+        headline: '🎂 1-YEAR ANNIVERSARY',
+        sub:      `+AED ${ev.amount_aed} credit deposited — thanks for sticking with us`,
+        accent:   PURPLE,
+      }
+    }
     return {
       headline: '🎁 New reward unlocked',
       sub:      `+AED ${ev.amount_aed} credit deposited${doublerTag}`,
@@ -539,7 +556,13 @@ export default function HubClient({
                 fontFamily: BODY, fontSize: 12, fontWeight: 700, color: MIST,
                 letterSpacing: '0.02em',
               }}>
-                {copy.sub} · Wallet now <span style={{ color: copy.accent, fontWeight: 900 }}>AED {wallet}</span>
+                {copy.sub}
+                {/* Wallet appendage only when the event actually moved AED.
+                    Tier 3 jacket has amount_aed = 0 (physical merch, no
+                    cash) — appending "Wallet now AED X" would feel off. */}
+                {celebration.amount_aed > 0 && (
+                  <> · Wallet now <span style={{ color: copy.accent, fontWeight: 900 }}>AED {wallet}</span></>
+                )}
               </span>
             </div>
             <button
