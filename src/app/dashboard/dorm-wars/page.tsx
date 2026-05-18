@@ -11,10 +11,12 @@ import {
   getRecentRewardEvents,
 } from '@/utils/supabase/queries'
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import HubClient from './hub/HubClient'
 import { resolvePlan } from '@/lib/plans'
 import { resolveMealPriceContext } from '@/lib/dorm-wars/meal-pricing'
+import { maybeFireAnniversary, getLayer4Rewards } from '@/lib/dorm-wars/layer4'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
@@ -117,6 +119,22 @@ export default async function DormWarsPage() {
     activeSubscription?.id ?? null,
   )
 
+  // Phase 8G — Layer 4 side rewards. Anniversary auto-fires on hub load
+  // when the customer is >= 365 days old and hasn't claimed for that year
+  // (insert + credit happen inside the helper, idempotent via UNIQUE).
+  // Then we fetch the full layer4 ledger to drive per-kind status in the
+  // Side Rewards column.
+  const adminClient = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  await maybeFireAnniversary(adminClient, user.id).catch((err) => {
+    // Anniversary fire-and-forget — never block hub load on it. The next
+    // hub visit retries idempotently if this one failed.
+    console.error('maybeFireAnniversary failed:', err)
+  })
+  const layer4Rewards = await getLayer4Rewards(adminClient, user.id)
+
   return (
     <HubClient
       customerCid={customer?.cid ?? ''}
@@ -136,6 +154,7 @@ export default async function DormWarsPage() {
       currentPlanId={planId}
       crossDormRecent={crossDormRecent}
       mealPriceContext={mealPriceContext}
+      layer4Rewards={layer4Rewards}
     />
   )
 }

@@ -10,6 +10,7 @@ import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub, StreakCh
 import type { Subscription } from '../../_shared/types'
 import type { MealPriceContext } from '@/lib/dorm-wars/meal-pricing'
 import { freeWeekValue, freeMonthValue } from '@/lib/dorm-wars/meal-pricing'
+import type { Layer4Row, Layer4Kind } from '@/lib/dorm-wars/layer4'
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PALETTE — Dormers brand translation (2026-05-18)
@@ -172,6 +173,10 @@ interface Props {
   // values. SAME shape the awarder reads at fire-time, so the displayed
   // "~AED N" matches what eventually lands in the wallet.
   mealPriceContext:   MealPriceContext
+  // Phase 8G — Layer 4 side-rewards ledger (anniversary, google_review,
+  // and once spec lands: weekly_survey + renew_invite_combo). Drives the
+  // per-kind status chip in SideRewardsColumn (Earned / Pending / Locked).
+  layer4Rewards:      Layer4Row[]
 }
 
 // Phase 8E — bucket → palette mapping for the Streak Chest UI. Cash buckets
@@ -229,6 +234,7 @@ export default function HubClient({
   dormWarsEligible, currentPlanId,
   crossDormRecent,
   mealPriceContext,
+  layer4Rewards,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
   const initials = useMemo(() => deriveInitials(customerName), [customerName])
@@ -640,7 +646,7 @@ export default function HubClient({
           nextTier={nextTier}
           onOpen={() => setOpen('ladder')}
         />
-        <SideRewardsColumn />
+        <SideRewardsColumn layer4Rewards={layer4Rewards} />
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
@@ -1704,15 +1710,76 @@ function LifetimeColumn({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  SIDE REWARDS COLUMN — Phase 8E.1 (Layer 4 surface)
-//  Third progress column. Lists the four Layer 4 "more ways to earn" perks
-//  with status. Streak Chest moved to the TopChrome strip; the chest claim
-//  modal opens from there. Backend wiring for these rewards ships in 8G —
-//  until then each item displays as "Coming soon" so the surface honestly
-//  reflects what's actionable today.
+//  SIDE REWARDS COLUMN — Phase 8G (Layer 4 wired)
+//
+//  Per-kind status:
+//    • anniversary        — auto-fired on hub load; row exists when earned
+//    • google_review      — self-attest button → pending review queue
+//    • weekly_survey      — Coming soon (product spec pending)
+//    • renew_invite_combo — Coming soon (product spec pending)
+//
+//  Status chip variants:
+//    • Earned (status='auto_approved' or 'approved')
+//    • Pending (status='pending', awaiting ops review)
+//    • Tap to claim (no row yet, can be self-attested)
+//    • Coming soon (no spec yet)
 // ════════════════════════════════════════════════════════════════════════════
 
-function SideRewardsColumn() {
+// Map the SIDE_REWARDS display rows to canonical Layer4 kinds for status lookup.
+const LAYER4_KIND_BY_LABEL: Record<string, Layer4Kind> = {
+  'Google review':         'google_review',
+  '4 weekly surveys':      'weekly_survey',
+  '1-year anniversary':    'anniversary',
+  'Renew & invite combo':  'renew_invite_combo',
+}
+
+function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
+  // Build a {kind → most recent row} lookup. Rows are already newest-first
+  // from getLayer4Rewards, so the first hit per kind wins.
+  const latestByKind = useMemo(() => {
+    const m = new Map<Layer4Kind, Layer4Row>()
+    for (const r of layer4Rewards) {
+      if (!m.has(r.kind)) m.set(r.kind, r)
+    }
+    return m
+  }, [layer4Rewards])
+
+  const [claimingReview, setClaimingReview] = useState(false)
+  const [reviewClaimMsg, setReviewClaimMsg] = useState<string | null>(null)
+  // Optimistic local state: after a successful claim we don't re-fetch
+  // server state; we synthesize a pending row so the UI flips immediately.
+  const [optimisticReviewPending, setOptimisticReviewPending] = useState(false)
+
+  async function handleGoogleReviewClaim() {
+    if (claimingReview) return
+    // Open the review page in a new tab BEFORE the POST so the user actually
+    // sees the Google review form. We don't gate the "claim" on whether
+    // they completed it — ops verifies before approving.
+    window.open('https://g.page/r/dormers-ae/review', '_blank', 'noopener,noreferrer')
+
+    setClaimingReview(true)
+    setReviewClaimMsg(null)
+    try {
+      const res = await fetch('/api/dorm-wars/layer4/google-review', { method: 'POST' })
+      const data = await res.json().catch(() => null) as { claimed?: boolean; alreadyClaimed?: boolean; error?: string } | null
+      if (!res.ok) {
+        setReviewClaimMsg('Could not log your claim. Please try again in a moment.')
+        return
+      }
+      if (data?.alreadyClaimed) {
+        setReviewClaimMsg('Already submitted — pending review.')
+        setOptimisticReviewPending(true)
+        return
+      }
+      setOptimisticReviewPending(true)
+      setReviewClaimMsg("Logged! We'll verify and credit your wallet within 24h.")
+    } catch {
+      setReviewClaimMsg('Network error. Please try again.')
+    } finally {
+      setClaimingReview(false)
+    }
+  }
+
   return (
     <Column eyebrow="Side Rewards" title="Four more ways to earn AED" accent={GREEN}>
       <div style={{
@@ -1722,6 +1789,56 @@ function SideRewardsColumn() {
       }}>
         {SIDE_REWARDS.map(r => {
           const Emblem = r.Emblem
+          const kind = LAYER4_KIND_BY_LABEL[r.label]
+          const row = kind ? latestByKind.get(kind) : undefined
+
+          // Determine status chip + interactivity per kind.
+          let chipLabel = 'Coming soon'
+          let chipColor = MIST_DIM
+          let chipBg    = 'transparent'
+          let chipBorder = MIST_FAINT
+          let clickable = false
+          let onClick: (() => void) | undefined = undefined
+
+          if (kind === 'anniversary') {
+            if (row && (row.status === 'auto_approved' || row.status === 'approved')) {
+              chipLabel = 'Earned'
+              chipColor = GREEN
+              chipBg    = `${GREEN}14`
+              chipBorder = `${GREEN}55`
+            } else {
+              chipLabel = 'Locked'
+              chipColor = MIST_DIM
+              chipBorder = MIST_FAINT
+            }
+          } else if (kind === 'google_review') {
+            if ((row && row.status === 'approved') || (row && row.status === 'auto_approved')) {
+              chipLabel = 'Earned'
+              chipColor = GREEN
+              chipBg    = `${GREEN}14`
+              chipBorder = `${GREEN}55`
+            } else if ((row && row.status === 'pending') || optimisticReviewPending) {
+              chipLabel = 'Pending'
+              chipColor = GOLD_LITE
+              chipBg    = `${GOLD}14`
+              chipBorder = `${GOLD}55`
+            } else if (row && row.status === 'rejected') {
+              chipLabel = 'Not verified'
+              chipColor = RED
+              chipBg    = `${RED}14`
+              chipBorder = `${RED}55`
+            } else {
+              chipLabel = claimingReview ? 'Opening…' : 'Tap to claim'
+              chipColor = r.color
+              chipBg    = `${r.color}14`
+              chipBorder = `${r.color}55`
+              clickable = true
+              onClick   = handleGoogleReviewClaim
+            }
+          }
+          // weekly_survey + renew_invite_combo fall through to the "Coming
+          // soon" default — product spec needs to land before they wire.
+
           return (
             <div
               key={r.label}
@@ -1743,7 +1860,7 @@ function SideRewardsColumn() {
                 <Emblem size={13} strokeWidth={2.4} color={r.color} />
               </span>
 
-              {/* Label + status */}
+              {/* Label + value */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontFamily: BODY, fontSize: 12, fontWeight: 800, color: CREAM,
@@ -1752,28 +1869,60 @@ function SideRewardsColumn() {
                   {r.label}
                 </div>
                 <div style={{
-                  fontFamily: BODY, fontSize: 9, fontWeight: 700,
-                  color: MIST_DIM, letterSpacing: '0.12em', textTransform: 'uppercase',
-                  marginTop: 2,
+                  fontFamily: BODY, fontSize: 10, fontWeight: 700,
+                  color: r.color, marginTop: 2, fontFeatureSettings: '"tnum"',
                 }}>
-                  Coming soon
+                  {r.value}
                 </div>
               </div>
 
-              {/* Value chip */}
-              <span style={{
-                flexShrink: 0,
-                fontFamily: BODY, fontSize: 11, fontWeight: 900, color: r.color,
-                fontFeatureSettings: '"tnum"',
-                padding: '3px 8px', borderRadius: 999,
-                backgroundColor: `${r.color}14`,
-                border: `1px solid ${r.color}44`,
-              }}>
-                {r.value}
-              </span>
+              {/* Status chip (clickable for google_review when unclaimed) */}
+              {clickable ? (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  disabled={claimingReview}
+                  style={{
+                    flexShrink: 0, cursor: 'pointer',
+                    fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
+                    letterSpacing: '0.10em', textTransform: 'uppercase',
+                    padding: '4px 10px', borderRadius: 999,
+                    backgroundColor: chipBg,
+                    border: `1px solid ${chipBorder}`,
+                    opacity: claimingReview ? 0.7 : 1,
+                  }}
+                >
+                  {chipLabel}
+                </button>
+              ) : (
+                <span style={{
+                  flexShrink: 0,
+                  fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
+                  letterSpacing: '0.10em', textTransform: 'uppercase',
+                  padding: '4px 10px', borderRadius: 999,
+                  backgroundColor: chipBg,
+                  border: `1px solid ${chipBorder}`,
+                }}>
+                  {chipLabel}
+                </span>
+              )}
             </div>
           )
         })}
+
+        {reviewClaimMsg && (
+          <div style={{
+            marginTop: 4,
+            padding: '8px 10px',
+            borderRadius: 8,
+            backgroundColor: `${GOLD}10`,
+            border: `1px solid ${GOLD}44`,
+            fontFamily: BODY, fontSize: 10, fontWeight: 700, color: CREAM,
+            letterSpacing: '0.02em',
+          }}>
+            {reviewClaimMsg}
+          </div>
+        )}
       </div>
     </Column>
   )
