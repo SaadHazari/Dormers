@@ -1810,6 +1810,12 @@ function SideRewardsColumn({
           let clickable = false
           let onClick: (() => void) | undefined = undefined
 
+          // Secondary line under the label. Defaults to the AED value;
+          // overridden per kind/state below to give the row a useful
+          // status sentence instead of just the chip in the corner.
+          let subLine: string = r.value
+          let subColor: string = r.color
+
           if (kind === 'anniversary') {
             const row = latestByKind.get(kind)
             if (row && (row.status === 'auto_approved' || row.status === 'approved')) {
@@ -1817,6 +1823,8 @@ function SideRewardsColumn({
               chipColor = GREEN
               chipBg    = `${GREEN}14`
               chipBorder = `${GREEN}55`
+              subLine = 'Already in your wallet'
+              subColor = GREEN
             } else {
               chipLabel = 'Locked'
               chipColor = MIST_DIM
@@ -1829,11 +1837,16 @@ function SideRewardsColumn({
               chipColor = GREEN
               chipBg    = `${GREEN}14`
               chipBorder = `${GREEN}55`
+              subLine = 'Claim again next monthly subscription'
+              subColor = GREEN
+              // Stays in earned state — no click needed. Row remains non-interactive.
             } else if (row && row.status === 'pending') {
               chipLabel = 'Pending'
               chipColor = GOLD_LITE
               chipBg    = `${GOLD}14`
               chipBorder = `${GOLD}55`
+              subLine = 'In manual review · tap to upload a better shot'
+              subColor = GOLD_LITE
               clickable = true
               onClick   = onOpenGoogleReview // let user upload a better screenshot
             } else {
@@ -1841,6 +1854,8 @@ function SideRewardsColumn({
               chipColor = r.color
               chipBg    = `${r.color}14`
               chipBorder = `${r.color}55`
+              subLine = '+AED 25 in seconds · tap to start'
+              subColor = r.color
               clickable = true
               onClick   = onOpenGoogleReview
             }
@@ -1848,16 +1863,11 @@ function SideRewardsColumn({
           // weekly_survey + renew_invite_combo fall through to the "Coming
           // soon" default — product spec needs to land before they wire.
 
-          return (
-            <div
-              key={r.label}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 10px', borderRadius: 10,
-                backgroundColor: 'rgba(255,255,255,0.03)',
-                border: `1px solid ${r.color}33`,
-              }}
-            >
+          // Visual content shared by both the interactive (button) and the
+          // static (div) variants of the row. Extracted so we don't have to
+          // duplicate the JSX across two branches.
+          const rowInner = (
+            <>
               {/* Icon tile */}
               <span style={{
                 flexShrink: 0,
@@ -1869,7 +1879,7 @@ function SideRewardsColumn({
                 <Emblem size={13} strokeWidth={2.4} color={r.color} />
               </span>
 
-              {/* Label + value */}
+              {/* Label + state-aware sub-line */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontFamily: BODY, fontSize: 12, fontWeight: 800, color: CREAM,
@@ -1879,40 +1889,58 @@ function SideRewardsColumn({
                 </div>
                 <div style={{
                   fontFamily: BODY, fontSize: 10, fontWeight: 700,
-                  color: r.color, marginTop: 2, fontFeatureSettings: '"tnum"',
+                  color: subColor, marginTop: 2, fontFeatureSettings: '"tnum"',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {r.value}
+                  {subLine}
                 </div>
               </div>
 
-              {/* Status chip (clickable for google_review) */}
-              {clickable ? (
-                <button
-                  type="button"
-                  onClick={onClick}
-                  style={{
-                    flexShrink: 0, cursor: 'pointer',
-                    fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
-                    letterSpacing: '0.10em', textTransform: 'uppercase',
-                    padding: '4px 10px', borderRadius: 999,
-                    backgroundColor: chipBg,
-                    border: `1px solid ${chipBorder}`,
-                  }}
-                >
-                  {chipLabel}
-                </button>
-              ) : (
-                <span style={{
-                  flexShrink: 0,
-                  fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
-                  letterSpacing: '0.10em', textTransform: 'uppercase',
-                  padding: '4px 10px', borderRadius: 999,
-                  backgroundColor: chipBg,
-                  border: `1px solid ${chipBorder}`,
-                }}>
-                  {chipLabel}
-                </span>
-              )}
+              {/* Status chip — rendered as <span> always; the wrapping
+                  button/div carries the click + hover lift. Avoids nested
+                  interactive elements. */}
+              <span style={{
+                flexShrink: 0,
+                fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
+                letterSpacing: '0.10em', textTransform: 'uppercase',
+                padding: '4px 10px', borderRadius: 999,
+                backgroundColor: chipBg,
+                border: `1px solid ${chipBorder}`,
+              }}>
+                {chipLabel}
+              </span>
+            </>
+          )
+
+          const rowStyle: React.CSSProperties = {
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 10px', borderRadius: 10,
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            border: `1px solid ${r.color}33`,
+            width: '100%',
+            font: 'inherit',
+            color: 'inherit',
+          }
+
+          // Interactive variant: <button> wraps the row, gets hover lift via
+          // .hub-side-rewards-row, all keyboard + screen-reader behavior for free.
+          if (clickable) {
+            return (
+              <button
+                key={r.label}
+                type="button"
+                onClick={onClick}
+                className="hub-side-rewards-row"
+                style={rowStyle}
+              >
+                {rowInner}
+              </button>
+            )
+          }
+          // Static variant: <div>, no hover, no cursor pointer.
+          return (
+            <div key={r.label} style={rowStyle}>
+              {rowInner}
             </div>
           )
         })}
@@ -2204,6 +2232,100 @@ function HubStyles() {
         25%      { transform: scale(1.08) rotate(1deg);  opacity: 0.92; }
         50%      { transform: scale(0.96) rotate(-2deg); opacity: 1;   }
         75%      { transform: scale(1.05) rotate(1.5deg); opacity: 0.95; }
+      }
+
+      /* Phase 8K — Google review CELEBRATION OVERLAY signature moment.
+         Six staggered animations compose the moment:
+         (a) hub-celebration-fade-in: backdrop wash fades in
+         (b) hub-celebration-pop: card scales up from 0.92 with a tiny overshoot
+         (c) hub-check-circle-draw: SVG circle traces around the tick
+         (d) hub-check-tick-draw: the checkmark itself draws in
+         (e) hub-celebration-text-rise: headline/sub/body/button cascade up
+         (f) hub-confetti-fall: 24 squares rain past with rotation + drift
+      */
+      @keyframes hub-celebration-fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes hub-celebration-pop {
+        0%   { transform: scale(0.92); opacity: 0; }
+        60%  { transform: scale(1.03); opacity: 1; }
+        100% { transform: scale(1);    opacity: 1; }
+      }
+      @keyframes hub-check-circle-draw {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes hub-check-tick-draw {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes hub-celebration-text-rise {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0);   }
+      }
+      @keyframes hub-confetti-fall {
+        0%   { transform: translate(0, 0)                              rotate(0deg);   opacity: 0;   }
+        10%  { opacity: 0.92; }
+        100% { transform: translate(var(--confetti-drift, 0), 110vh)   rotate(720deg); opacity: 0;   }
+      }
+      /* Respect reduced-motion. Strip animations to fades only — keep the
+         function (overlay + content), drop the motion. */
+      @media (prefers-reduced-motion: reduce) {
+        .hub-celebration-overlay * {
+          animation-duration: 1ms !important;
+          animation-delay: 0ms !important;
+        }
+      }
+
+      /* Phase 8K — Google review modal microinteractions.
+         (a) hub-step-row: hover-lift on the two-step CTA rows (open review + upload)
+         (b) hub-cta-claim: hover-lift + press-state on the primary CTA
+         (c) hub-preview-rise: gentle scale+fade on the picked-screenshot preview
+         (d) hub-error-shake: light shake on invalid file / network error
+         (e) hub-spinner: indeterminate spinner inside the CTA while submitting
+      */
+      .hub-step-row {
+        transform: translateY(0);
+      }
+      .hub-step-row:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.30);
+        border-color: rgba(245,127,32,0.55);
+      }
+      .hub-step-row:active {
+        transform: translateY(0);
+      }
+      .hub-cta-claim:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 36px rgba(245,127,32,0.55);
+      }
+      .hub-cta-claim:not(:disabled):active {
+        transform: translateY(0);
+      }
+      @keyframes hub-preview-rise {
+        from { opacity: 0; transform: scale(0.96); }
+        to   { opacity: 1; transform: scale(1);    }
+      }
+      @keyframes hub-error-shake {
+        0%, 100% { transform: translateX(0); }
+        15%, 45%, 75% { transform: translateX(-4px); }
+        30%, 60%, 90% { transform: translateX(4px); }
+      }
+      @keyframes hub-spinner {
+        to { transform: rotate(360deg); }
+      }
+      /* Phase 8K — clickable side-rewards row (Google review). */
+      .hub-side-rewards-row {
+        cursor: pointer;
+        transition: transform 180ms cubic-bezier(0.16,1,0.3,1), border-color 180ms ease, background-color 180ms ease;
+        text-align: left;
+      }
+      .hub-side-rewards-row:hover {
+        transform: translateY(-1px);
+        border-color: rgba(245,127,32,0.55) !important;
+        background-color: rgba(255,255,255,0.05) !important;
+      }
+      .hub-side-rewards-row:active {
+        transform: translateY(0);
       }
 
       .hub-column-tap {
@@ -2768,14 +2890,196 @@ type ReviewSubmitResult =
   | { decision: 'auto_rejected';  reason: string }
   | { decision: 'already_credited'; valueAed: number }
 
+// ── CELEBRATION OVERLAY ─────────────────────────────────────────────────────
+// Signature moment for the auto-approved verdict. Full-page frosted-glass
+// wash + animated checkmark (SVG stroke-draw) + falling confetti in the
+// brand palette + headline showing the credit landed. Auto-dismisses after
+// 6s OR on backdrop click. Per /microinteractions Saffer: this is a
+// signature moment — restraint matters; we only fire on auto_approve (not
+// manual_review or already_credited which use the calmer in-modal screen).
+
+const CONFETTI_COLORS = [GOLD, GOLD_LITE, GREEN, CYAN, PURPLE, PINK, CREAM]
+
+function CelebrationOverlay({ valueAed, onDismiss }: { valueAed: number; onDismiss: () => void }) {
+  // Auto-dismiss after 6s (long enough to read; short enough not to nag).
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 6000)
+    return () => clearTimeout(t)
+  }, [onDismiss])
+
+  // Allow Escape to dismiss (accessibility).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onDismiss() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onDismiss])
+
+  return (
+    <div
+      className="hub-celebration-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="celebration-title"
+      onClick={onDismiss}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 99999,
+        backgroundColor: 'rgba(9,24,37,0.84)',
+        backdropFilter: 'blur(10px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(10px) saturate(140%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+        cursor: 'pointer',
+        animation: 'hub-celebration-fade-in 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Confetti — 24 small colored squares falling with slight rotation. */}
+      {Array.from({ length: 24 }).map((_, i) => {
+        const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
+        const leftPct = (i * 4.3) % 100
+        const delay = (i % 6) * 0.12
+        const drift = ((i % 5) - 2) * 8  // -16..+16px horizontal drift
+        return (
+          <span
+            key={i}
+            style={{
+              position: 'absolute',
+              top: '-20px',
+              left: `${leftPct}%`,
+              width: 8, height: 12,
+              backgroundColor: color,
+              opacity: 0.92,
+              borderRadius: 1.5,
+              transform: `rotate(${i * 27}deg)`,
+              animation: `hub-confetti-fall 2.6s ${delay}s cubic-bezier(0.33, 1, 0.68, 1) forwards`,
+              ['--confetti-drift' as string]: `${drift}px`,
+              pointerEvents: 'none',
+            } as React.CSSProperties}
+          />
+        )
+      })}
+
+      {/* Centered card */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          width: '100%', maxWidth: 380,
+          padding: '32px 28px 26px',
+          borderRadius: 22,
+          backgroundColor: 'rgba(22,47,64,0.96)',
+          border: `1.5px solid ${GREEN}66`,
+          boxShadow: `0 32px 80px rgba(0,0,0,0.6), 0 0 48px ${GREEN}33, inset 0 1px 0 ${GREEN}44`,
+          textAlign: 'center',
+          cursor: 'default',
+          animation: 'hub-celebration-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms backwards',
+        }}
+      >
+        {/* Animated checkmark — SVG with stroke-dasharray draw-in */}
+        <div style={{ marginBottom: 18 }}>
+          <svg
+            width={84} height={84} viewBox="0 0 84 84"
+            style={{ filter: `drop-shadow(0 0 12px ${GREEN}88)` }}
+          >
+            <circle
+              cx="42" cy="42" r="38"
+              fill="none"
+              stroke={GREEN}
+              strokeWidth="3"
+              style={{
+                strokeDasharray: 240,
+                strokeDashoffset: 240,
+                animation: 'hub-check-circle-draw 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms forwards',
+              }}
+            />
+            <path
+              d="M 25 43 L 37 55 L 60 30"
+              fill="none"
+              stroke={GREEN}
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                strokeDasharray: 60,
+                strokeDashoffset: 60,
+                animation: 'hub-check-tick-draw 420ms cubic-bezier(0.5, 0, 0.5, 1) 700ms forwards',
+              }}
+            />
+          </svg>
+        </div>
+
+        {/* Headline */}
+        <h2
+          id="celebration-title"
+          style={{
+            fontFamily: DISPLAY, fontSize: 28, fontWeight: 900, color: CREAM,
+            letterSpacing: '-0.02em', lineHeight: 1.1,
+            margin: '0 0 4px',
+            animation: 'hub-celebration-text-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) 350ms backwards',
+          }}
+        >
+          You earned{' '}
+          <span style={{
+            color: GOLD_LITE,
+            textShadow: `0 0 18px ${GOLD}77`,
+            fontFeatureSettings: '"tnum"',
+          }}>
+            AED {valueAed}
+          </span>
+        </h2>
+
+        <p style={{
+          fontFamily: BODY, fontSize: 12, fontWeight: 800, color: GREEN,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+          margin: '0 0 18px',
+          animation: 'hub-celebration-text-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) 420ms backwards',
+        }}>
+          Added to your wallet
+        </p>
+
+        {/* Body copy */}
+        <p style={{
+          fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
+          lineHeight: 1.6, margin: '0 0 22px',
+          animation: 'hub-celebration-text-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) 500ms backwards',
+        }}>
+          Thanks for the review — it really helps other students find Dormers.
+          You can claim another <strong style={{ color: CREAM, fontWeight: 800 }}>AED 25</strong> on your next monthly subscription.
+        </p>
+
+        {/* Done button */}
+        <button
+          type="button"
+          onClick={onDismiss}
+          style={{
+            padding: '12px 36px', borderRadius: 999,
+            backgroundColor: GREEN,
+            color: BG_DEEP,
+            fontFamily: BODY, fontSize: 12, fontWeight: 900,
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+            border: 'none', cursor: 'pointer',
+            boxShadow: `0 10px 28px ${GREEN}55`,
+            animation: 'hub-celebration-text-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) 580ms backwards',
+          }}
+        >
+          Sweet
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
-  void onClose // reserved — may auto-close on success in a future revision
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ReviewSubmitResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Page-wide celebration overlay fires only on auto_approved. Lives at
+  // hub level (via portal-like fixed position) so it overlays everything
+  // including this modal.
+  const [showCelebration, setShowCelebration] = useState<{ valueAed: number } | null>(null)
 
   // Clean up object URLs to avoid memory leaks on file swap / unmount.
   useEffect(() => {
@@ -2828,6 +3132,10 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
       const valueAed = data?.row?.value_aed ?? 25
       if (data?.decision === 'auto_approved') {
         setResult({ decision: 'auto_approved', reason: data.reason ?? '', valueAed })
+        // Fire the signature-moment overlay. The in-modal screen STILL
+        // renders behind it (so when the overlay dismisses, the user lands
+        // on the calm "verified · come back next month" view).
+        setShowCelebration({ valueAed })
       } else if (data?.decision === 'already_credited') {
         setResult({ decision: 'already_credited', valueAed })
       } else if (data?.decision === 'auto_rejected') {
@@ -2854,34 +3162,56 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
   if (result) {
     if (result.decision === 'auto_approved' || result.decision === 'already_credited') {
       return (
-        <div style={{ textAlign: 'center', padding: '8px 0' }}>
-          <div style={{
-            margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
-            backgroundColor: `${GREEN}22`, border: `2px solid ${GREEN}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 0 24px ${GREEN}55`,
-          }}>
-            <Check size={32} strokeWidth={3} color={GREEN} />
+        <>
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{
+              margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
+              backgroundColor: `${GREEN}22`, border: `2px solid ${GREEN}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 24px ${GREEN}55`,
+            }}>
+              <Check size={32} strokeWidth={3} color={GREEN} />
+            </div>
+            <h3 style={{
+              fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: CREAM,
+              margin: '0 0 6px',
+            }}>
+              {result.decision === 'auto_approved' ? 'Verified!' : 'Already credited'}
+            </h3>
+            <p style={{
+              fontFamily: BODY, fontSize: 14, fontWeight: 700, color: GREEN,
+              margin: '0 0 16px',
+            }}>
+              +AED {result.valueAed} in your wallet
+            </p>
+            <p style={{
+              fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
+              lineHeight: 1.55, margin: '0 0 18px',
+            }}>
+              Thanks for the review — it really helps other students discover Dormers. You can claim again next monthly subscription.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '10px 22px', borderRadius: 999,
+                backgroundColor: 'transparent',
+                color: CREAM,
+                fontFamily: BODY, fontSize: 11, fontWeight: 800,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                border: `1px solid ${MIST_FAINT}`, cursor: 'pointer',
+              }}
+            >
+              Done
+            </button>
           </div>
-          <h3 style={{
-            fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: CREAM,
-            margin: '0 0 6px',
-          }}>
-            {result.decision === 'auto_approved' ? 'Verified!' : 'Already credited'}
-          </h3>
-          <p style={{
-            fontFamily: BODY, fontSize: 14, fontWeight: 700, color: GREEN,
-            margin: '0 0 16px',
-          }}>
-            +AED {result.valueAed} in your wallet
-          </p>
-          <p style={{
-            fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
-            lineHeight: 1.55, margin: 0,
-          }}>
-            Thanks for the review — it really helps other students discover Dormers. You can claim again next month with a new subscription cycle.
-          </p>
-        </div>
+          {showCelebration && (
+            <CelebrationOverlay
+              valueAed={showCelebration.valueAed}
+              onDismiss={() => setShowCelebration(null)}
+            />
+          )}
+        </>
       )
     }
     if (result.decision === 'auto_rejected') {
@@ -2949,29 +3279,81 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
     )
   }
 
-  // Default: pick + submit UI.
+  // ─── DEFAULT: pick + submit UI ─────────────────────────────────────────
+  // State-aware CTA copy:
+  //   no file       → "Add screenshot to continue" (disabled)
+  //   file picked   → "Verify & claim AED 25"  (primary action, gold)
+  //   submitting    → "Verifying your review…"  (locked, spinner-style)
+  const ctaCopy = submitting
+    ? 'Verifying your review…'
+    : file
+      ? 'Verify & claim AED 25'
+      : 'Add a screenshot to continue'
+
   return (
     <div>
       <p style={{
         fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
-        lineHeight: 1.6, margin: '0 0 16px',
+        lineHeight: 1.6, margin: '0 0 14px',
       }}>
-        Leave us a Google review and upload the screenshot — we&rsquo;ll auto-credit
-        your wallet with AED 25. One per monthly subscription.
+        Leave us a Google review, screenshot it, upload it here — we&rsquo;ll
+        verify and drop <strong style={{ color: CREAM, fontWeight: 800 }}>AED 25</strong> into
+        your wallet. One per monthly subscription.
       </p>
 
-      {/* Step 1 — open Google review */}
+      {/* ── BEST PRACTICES — fastest-approval tips ─────────────────────
+          Per /microinteractions Saffer: rules should be transparent.
+          Showing the AI's checklist up-front prevents the user from
+          guessing what passes — turns "manual review" into a rare miss
+          rather than the default outcome. */}
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: 10,
+          backgroundColor: `${GOLD}10`,
+          border: `1px solid ${GOLD}33`,
+          marginBottom: 14,
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          marginBottom: 8,
+        }}>
+          <Zap size={12} strokeWidth={2.6} color={GOLD_LITE} />
+          <span style={{
+            fontFamily: BODY, fontSize: 9, fontWeight: 900, color: GOLD,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+          }}>
+            For instant approval
+          </span>
+        </div>
+        <ul style={{
+          margin: 0, paddingLeft: 18,
+          fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST,
+          lineHeight: 1.6,
+        }}>
+          <li>
+            <strong style={{ color: CREAM, fontWeight: 800 }}>&ldquo;Dormers&rdquo;</strong> visible in the shot (header, business card, or in your review text)
+          </li>
+          <li>Star rating in frame (1-5 stars)</li>
+          <li>Sharp screenshot — not blurry or cropped</li>
+        </ul>
+      </div>
+
+      {/* ── STEP 1 — open Google review ──────────────────────────────── */}
       <a
         href={GOOGLE_REVIEW_URL}
         target="_blank"
         rel="noopener noreferrer"
+        className="hub-step-row"
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 16px', borderRadius: 12,
           backgroundImage: `linear-gradient(135deg, ${GREEN}28 0%, ${GREEN}10 100%)`,
           border: `1.5px solid ${GREEN}66`,
           color: CREAM, textDecoration: 'none',
-          marginBottom: 12,
+          marginBottom: 10,
+          transition: 'transform 180ms cubic-bezier(0.16,1,0.3,1), box-shadow 180ms ease, border-color 180ms ease',
         }}
       >
         <span style={{
@@ -2984,7 +3366,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM, lineHeight: 1.2 }}>
-            Step 1 · Leave a Google review
+            1 · Leave a Google review
           </div>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST, marginTop: 2 }}>
             Opens the Dormers business page
@@ -2993,9 +3375,10 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         <ExternalLink size={16} strokeWidth={2.4} color={GREEN} />
       </a>
 
-      {/* Step 2 — upload screenshot. The hidden <input type="file"> + label
-          pattern lets us style the button freely while keeping the native
-          OS picker (gallery / camera / files on mobile). */}
+      {/* ── STEP 2 — file picker ───────────────────────────────────────
+          Hidden native <input type="file"> + visible styled button. On
+          mobile the native picker shows "Take Photo / Photo Library /
+          Browse" — no dropdown of our own needed. */}
       <input
         ref={fileInputRef}
         type="file"
@@ -3006,6 +3389,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
+        className="hub-step-row"
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 16px', borderRadius: 12,
@@ -3015,6 +3399,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
           border: `1.5px solid ${file ? `${GOLD}66` : MIST_FAINT}`,
           color: CREAM, cursor: 'pointer',
           marginBottom: 12,
+          transition: 'transform 180ms cubic-bezier(0.16,1,0.3,1), box-shadow 180ms ease, border-color 180ms ease, background-image 220ms ease',
         }}
       >
         <span style={{
@@ -3022,12 +3407,15 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
           width: 36, height: 36, borderRadius: 9,
           backgroundColor: file ? GOLD : 'rgba(255,255,255,0.06)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background-color 220ms ease',
         }}>
-          <Upload size={18} strokeWidth={2.6} color={file ? BG_DEEP : MIST} />
+          {file
+            ? <Check size={18} strokeWidth={2.8} color={BG_DEEP} />
+            : <Upload size={18} strokeWidth={2.6} color={MIST} />}
         </span>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
           <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM, lineHeight: 1.2 }}>
-            {file ? `Step 2 · ${file.name.slice(0, 28)}${file.name.length > 28 ? '…' : ''}` : 'Step 2 · Upload screenshot'}
+            {file ? `2 · ${file.name.slice(0, 28)}${file.name.length > 28 ? '…' : ''}` : '2 · Upload screenshot'}
           </div>
           <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST, marginTop: 2 }}>
             {file ? `${(file.size / 1024).toFixed(0)} KB — tap to swap` : 'From your gallery, camera, or files'}
@@ -3035,17 +3423,23 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         </div>
       </button>
 
-      {/* Preview thumb when a file is picked */}
+      {/* Preview thumb when a file is picked — fades + scales in. Per
+          /microinteractions Saffer: feedback should be immediate; the
+          preview confirms the pick registered without a separate toast. */}
       {previewUrl && (
-        <div style={{
-          marginBottom: 14,
-          borderRadius: 10,
-          overflow: 'hidden',
-          border: `1px solid ${MIST_FAINT}`,
-          maxHeight: 220,
-          display: 'flex', justifyContent: 'center',
-          backgroundColor: 'rgba(0,0,0,0.35)',
-        }}>
+        <div
+          key={previewUrl}
+          style={{
+            marginBottom: 14,
+            borderRadius: 10,
+            overflow: 'hidden',
+            border: `1px solid ${MIST_FAINT}`,
+            maxHeight: 220,
+            display: 'flex', justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            animation: 'hub-preview-rise 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
           { /* eslint-disable-next-line @next/next/no-img-element */ }
           <img
             src={previewUrl}
@@ -3060,14 +3454,18 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
       )}
 
       {error && (
-        <div style={{
-          padding: '10px 14px',
-          borderRadius: 8,
-          backgroundColor: `${RED}18`,
-          border: `1px solid ${RED}55`,
-          fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
-          marginBottom: 12,
-        }}>
+        <div
+          role="alert"
+          style={{
+            padding: '10px 14px',
+            borderRadius: 8,
+            backgroundColor: `${RED}18`,
+            border: `1px solid ${RED}55`,
+            fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+            marginBottom: 12,
+            animation: 'hub-error-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+          }}
+        >
           {error}
         </div>
       )}
@@ -3076,26 +3474,45 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         type="button"
         onClick={handleSubmit}
         disabled={!file || submitting}
+        aria-live="polite"
+        className="hub-cta-claim"
         style={{
           width: '100%',
-          padding: '13px 22px', borderRadius: 999,
-          backgroundColor: !file || submitting ? 'rgba(255,255,255,0.06)' : GOLD,
+          padding: '14px 22px', borderRadius: 999,
+          backgroundImage: !file || submitting
+            ? 'none'
+            : `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LITE} 100%)`,
+          backgroundColor: !file || submitting ? 'rgba(255,255,255,0.06)' : undefined,
           color: !file || submitting ? MIST_DIM : BG_DEEP,
           fontFamily: BODY, fontSize: 13, fontWeight: 900,
-          letterSpacing: '0.12em', textTransform: 'uppercase',
+          letterSpacing: '0.10em', textTransform: 'uppercase',
           border: 'none',
           cursor: !file || submitting ? 'default' : 'pointer',
-          boxShadow: !file || submitting ? 'none' : `0 10px 28px ${GOLD}55`,
+          boxShadow: !file || submitting ? 'none' : `0 12px 30px ${GOLD}66`,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          transition: 'transform 180ms cubic-bezier(0.16,1,0.3,1), box-shadow 180ms ease, background-color 180ms ease',
         }}
       >
-        {submitting ? 'Verifying…' : 'Submit for AED 25'}
+        {submitting && (
+          <span
+            aria-hidden="true"
+            style={{
+              width: 14, height: 14, borderRadius: '50%',
+              border: `2px solid ${MIST_FAINT}`,
+              borderTopColor: CREAM,
+              animation: 'hub-spinner 720ms linear infinite',
+              display: 'inline-block',
+            }}
+          />
+        )}
+        {ctaCopy}
       </button>
 
       <p style={{
         fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
         lineHeight: 1.5, margin: '14px 0 0', textAlign: 'center',
       }}>
-        Auto-verified in seconds via AI · falls back to manual review if anything looks off
+        Auto-verified by AI in seconds · queued for manual review if anything looks off
       </p>
     </div>
   )

@@ -64,7 +64,12 @@ The user uploaded a screenshot. Inspect it and answer the following AS A JSON OB
 
 Field meanings:
 - isGoogleReviewScreenshot: true if the image clearly shows a Google review interface (Google logo, Google Maps review card, Google search business panel, or the "Write a review" / "Your review" surface). False for non-Google reviews, screenshots of other apps, marketing material, or unrelated content.
-- businessMatchesDormers: true ONLY if the business name "Dormers" (or a close variant like "Dormers Meals", "Dormers UAE", "dormers.ae") is visibly mentioned in the screenshot. False if it's a Google review of a different business.
+- businessMatchesDormers: true if ANY of these brand-name signals are visible anywhere in the screenshot — header, business card, page title, URL, OR the review text itself:
+    • "Dormers" / "dormers" (any case)
+    • "Dormer" / "dormer" (singular form — acceptable, often how Google renders the brand or how users type it)
+    • "Dormers UAE", "Dormers Meals", "Dormers Dubai"
+    • "dormers.ae" (the URL)
+  The word "dormer" in the review body is a valid positive signal — accept it. Only return false if there is NO mention of the brand anywhere in the screenshot.
 - hasVisibleRating: true if you can see a star rating (1-5 stars) on the review. False if no rating is visible.
 - reviewerNameVisible: the displayed reviewer name if you can read it, else null. ${nameHint}
 - confidence: "high" only when isGoogleReviewScreenshot AND businessMatchesDormers AND hasVisibleRating are all true AND the screenshot is sharp and unambiguous. "medium" if one signal is weak (e.g. partial business name match, blurry rating). "low" for anything ambiguous, partially cropped, or where you cannot tell.
