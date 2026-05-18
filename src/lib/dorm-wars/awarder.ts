@@ -15,7 +15,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mysteryDropValue } from './rng'
 import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from './constants'
-import { getCycleRecruits } from '@/utils/supabase/queries'
+import { getCycleRecruits, getCycleChainSubIds } from '@/utils/supabase/queries'
 import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from './meal-pricing'
 import { isDoublerActive, applyDoubler } from './doubler'
 
@@ -92,12 +92,28 @@ export async function awardCycleAndTierRewards(
   if (subscriptionId) {
     const cycleRecruits = await getCycleRecruits(sb, customerId, subscriptionId)
 
+    // Phase 8J — dedupe milestones across the cancel-resub chain. Without
+    // this, a user could cancel + re-sub to farm milestone 3 (Mystery Cash
+    // Drop) on a fresh subscription_id even though their recruit count
+    // continues from the chain start. The within-sub UNIQUE constraint on
+    // cycle_rewards covers same-sub idempotency; this check covers cross-sub.
+    const chainSubIds = await getCycleChainSubIds(sb, customerId, subscriptionId)
+    const { data: chainAwarded } = await sb
+      .from('cycle_rewards')
+      .select('milestone')
+      .eq('customer_id', customerId)
+      .in('subscription_id', chainSubIds)
+    const alreadyAwardedInChain = new Set<number>(
+      ((chainAwarded ?? []) as { milestone: number }[]).map(r => r.milestone),
+    )
+
     // Defensive sort — CYCLE_MILESTONES is currently ascending but we don't
     // want a future reorder of the constant to silently stop awards. Use
     // `continue` instead of `break` so a non-monotonic threshold also works.
     const sortedMilestones = [...CYCLE_MILESTONES].sort((a, b) => a.at - b.at)
     for (const m of sortedMilestones) {
       if (cycleRecruits < m.at) continue // not reached yet — skip, keep looking
+      if (alreadyAwardedInChain.has(m.at)) continue // earned earlier in chain — skip
 
       // Phase 8D — meal-type-aware value resolution. mystery_drop still RNG.
       // free_week / free_month read priceCtx; everything else uses m.value.

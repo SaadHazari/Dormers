@@ -334,20 +334,99 @@ export async function getCycleRecruits(
   customerId: string,
   subscriptionId: string,
 ): Promise<number> {
-  const { data: sub } = await sb
-    .from('subscriptions')
-    .select('start_date')
-    .eq('id', subscriptionId)
-    .maybeSingle()
-  if (!sub) return 0
+  // Phase 8J — count from the chain start, not the current sub start.
+  // A cancel-then-resub-within-30-days is treated as a continuous cycle
+  // (anti-gaming: user can't reset milestone progress by cancelling).
+  const chainStart = await getCycleChainStart(sb, customerId, subscriptionId)
+  if (!chainStart) return 0
 
   const { count } = await sb
     .from('referrals')
     .select('id', { count: 'exact', head: true })
     .eq('inviter_user_id', customerId)
     .eq('status', 'converted')
-    .gte('converted_at', sub.start_date)
+    .gte('converted_at', chainStart)
   return count ?? 0
+}
+
+/**
+ * Phase 8J — walk back through subscriptions to find the effective "cycle
+ * window start" for the given sub. A re-subscription created within 30
+ * days of the previous sub's end_date is treated as a continuation of
+ * that previous cycle (which itself may chain backward further).
+ *
+ * The walk terminates the first time a previous sub doesn't exist OR
+ * ended more than 30 days before the current chain's earliest start.
+ * Returns the earliest sub's start_date in the chain.
+ *
+ * Anti-gaming intent: without this, cancelling mid-cycle + re-subbing
+ * resets cycle_recruits to 0, letting users farm milestone 3 (Mystery
+ * Cash Drop) by repeatedly cancelling and re-subbing. With the chain
+ * window, cycle_recruits and cycle_rewards both span the continuous
+ * window — milestones can only be earned once per chain.
+ */
+export async function getCycleChainStart(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  customerId: string,
+  subscriptionId: string,
+): Promise<string | null> {
+  const { data: current } = await sb
+    .from('subscriptions')
+    .select('start_date')
+    .eq('id', subscriptionId)
+    .maybeSingle()
+  if (!current?.start_date) return null
+
+  let earliestStart = current.start_date as string
+
+  // Walk back up to 12 hops max (defense-in-depth against ever forming a
+  // cycle via bad data; in practice a chain rarely exceeds 2-3 links).
+  for (let hop = 0; hop < 12; hop++) {
+    const cutoffMs = new Date(earliestStart).getTime() - 30 * 86_400_000
+    const cutoffIso = new Date(cutoffMs).toISOString()
+
+    const { data: prev } = await sb
+      .from('subscriptions')
+      .select('start_date, end_date')
+      .eq('customer_id', customerId)
+      .lt('end_date', earliestStart)
+      .gte('end_date', cutoffIso)
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!prev?.start_date) break
+    earliestStart = prev.start_date as string
+  }
+
+  return earliestStart
+}
+
+/**
+ * Phase 8J — list every subscription id in the continuous chain (used by
+ * the awarder to dedupe cycle_rewards across the chain). Includes the
+ * starting sub itself.
+ */
+export async function getCycleChainSubIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  customerId: string,
+  subscriptionId: string,
+): Promise<string[]> {
+  const chainStart = await getCycleChainStart(sb, customerId, subscriptionId)
+  if (!chainStart) return [subscriptionId]
+
+  const { data: subs } = await sb
+    .from('subscriptions')
+    .select('id')
+    .eq('customer_id', customerId)
+    .gte('start_date', chainStart)
+
+  const ids = ((subs ?? []) as { id: string }[]).map(s => s.id)
+  // Always include the caller's sub even if a transient read misses it.
+  if (!ids.includes(subscriptionId)) ids.push(subscriptionId)
+  return ids
 }
 
 // ── Dorm Wars: Daily Drop + Streak SSR getters (Phase 7-05) ───────────────
