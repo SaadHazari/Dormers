@@ -175,24 +175,33 @@ export async function maybeFireAnniversary(
 }
 
 /**
- * Self-attest Google review claim. User taps "I've reviewed" → we insert
- * a layer4 row with status='pending'. Credit DOES NOT deposit until an
- * admin manually verifies the review on Google and flips status='approved'.
+ * Phase 8K — Google review claim, scoped to ONE per monthly subscription.
+ * `subscriptionId` is the active sub's id; it becomes the period_key so
+ * the UNIQUE(customer_id, 'google_review', period_key) constraint allows
+ * a new claim each new subscription cycle.
  *
- * Returns the inserted row, or the existing row if the customer already
- * claimed (one google_review claim per customer lifetime).
+ * Statuses returned by this call:
+ *   • status='pending'        → manual queue (legacy self-attest)
+ *   • status='auto_approved'  → screenshot verified by Gemini, credit deposited
+ *   • status='approved'       → ops-verified later, credit deposited
+ *
+ * The screenshot-verify endpoint calls claimGoogleReview + then runs
+ * verifyReviewScreenshot, deciding which status to set.
  */
 export async function claimGoogleReview(
   sb: AdminClient,
   customerId: string,
+  subscriptionId: string,
   notes?: string,
 ): Promise<{ row: Layer4Row; alreadyClaimed: boolean }> {
   // Check first to avoid an unnecessary UNIQUE-conflict-then-read round-trip.
+  // Per-sub idempotency: existence is per subscription, not per customer.
   const { data: existing } = await sb
     .from('layer4_rewards')
     .select('id, kind, period_key, status, value_aed, claimed_at, awarded_at')
     .eq('customer_id', customerId)
     .eq('kind', 'google_review')
+    .eq('period_key', subscriptionId)
     .maybeSingle()
 
   if (existing) {
@@ -204,7 +213,7 @@ export async function claimGoogleReview(
     .insert({
       customer_id: customerId,
       kind:        'google_review',
-      period_key:  null,
+      period_key:  subscriptionId,
       value_aed:   LAYER4_VALUE_AED.google_review,
       status:      'pending',
       notes:       notes ?? null,
@@ -217,4 +226,78 @@ export async function claimGoogleReview(
   }
 
   return { row: inserted as Layer4Row, alreadyClaimed: false }
+}
+
+/**
+ * Mark an existing layer4_rewards row as auto_approved (Gemini verified
+ * the screenshot) and deposit the credit. Idempotent: a second call when
+ * the row is already auto_approved/approved is a no-op.
+ *
+ * Used by the screenshot-verify endpoint after a 'high' confidence pass.
+ */
+export async function autoApproveLayer4Reward(
+  sb: AdminClient,
+  rowId: string,
+  customerId: string,
+  valueAed: number,
+  source: string,                // e.g. 'layer4_google_review'
+  notes: string,
+): Promise<void> {
+  // Re-read with row-level interpretation: skip if already finalized.
+  const { data: row } = await sb
+    .from('layer4_rewards')
+    .select('id, status, credit_id')
+    .eq('id', rowId)
+    .maybeSingle()
+  if (!row) throw new Error(`autoApprove: row ${rowId} not found`)
+  if (row.status === 'auto_approved' || row.status === 'approved') {
+    return // already credited
+  }
+
+  // Deposit credit first; on failure the layer4 row stays 'pending' so the
+  // user / ops can retry without double-crediting.
+  const { data: credit, error: creditErr } = await sb
+    .from('credits')
+    .insert({
+      customer_id: customerId,
+      amount_aed:  valueAed,
+      source,
+      status:      'approved',
+    })
+    .select('id')
+    .maybeSingle()
+  if (creditErr || !credit) {
+    throw new Error(`autoApprove: credit insert failed: ${creditErr?.message ?? 'unknown'}`)
+  }
+
+  await sb
+    .from('layer4_rewards')
+    .update({
+      status:      'auto_approved',
+      credit_id:   credit.id,
+      awarded_at:  new Date().toISOString(),
+      reviewed_at: new Date().toISOString(),
+      notes,
+    })
+    .eq('id', rowId)
+}
+
+/**
+ * Mark a row as rejected (Gemini high-confidence said it's not a Google
+ * review screenshot). No credit deposit; user sees a "couldn't verify"
+ * message and can re-claim with a better screenshot in the same cycle.
+ *
+ * Because the UNIQUE on (customer_id, 'google_review', period_key) would
+ * block a fresh insert in the same sub, we DELETE the rejected row so the
+ * user can try again with a new screenshot. The rejection reason was
+ * logged in notes before delete via the verifier's auto-write — but we
+ * also log to the server console for ops visibility.
+ */
+export async function autoRejectLayer4Reward(
+  sb: AdminClient,
+  rowId: string,
+  reason: string,
+): Promise<void> {
+  console.warn(`layer4 auto-reject — row=${rowId} reason=${reason}`)
+  await sb.from('layer4_rewards').delete().eq('id', rowId)
 }

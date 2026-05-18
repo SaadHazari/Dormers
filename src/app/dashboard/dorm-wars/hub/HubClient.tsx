@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Gift, Users, Send, Flame, Lock, Check, X, ArrowRight,
   Volume2, VolumeX, Star, Trophy, Percent, Shirt,
-  Calendar, Coins, KeyRound, Zap,
+  Calendar, Coins, KeyRound, Zap, Upload, ExternalLink,
 } from 'lucide-react'
 import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub, StreakChestState, StreakChestBucket } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
@@ -122,7 +122,7 @@ function stageIndex(stage: ScoutStage): number {
   return STAGES.findIndex(s => s.key === stage)
 }
 
-type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad'
+type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review'
 type SendStep  = 'closed' | 'naming' | 'sent'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -669,7 +669,11 @@ export default function HubClient({
           nextTier={nextTier}
           onOpen={() => setOpen('ladder')}
         />
-        <SideRewardsColumn layer4Rewards={layer4Rewards} />
+        <SideRewardsColumn
+          layer4Rewards={layer4Rewards}
+          activeSubscriptionId={activeSubscription?.id ?? null}
+          onOpenGoogleReview={() => setOpen('google-review')}
+        />
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
@@ -724,6 +728,9 @@ export default function HubClient({
       </Modal>
       <Modal open={open === 'squad'} onClose={() => setOpen(null)} title="Your Squad" accent={PINK}>
         <SquadScreen scouts={scouts} onScoutTap={(s) => { setOpen(null); setViewingScout(s) }} />
+      </Modal>
+      <Modal open={open === 'google-review'} onClose={() => setOpen(null)} title="Google Review · AED 25" accent={GREEN}>
+        <GoogleReviewScreen onClose={() => setOpen(null)} />
       </Modal>
 
       {/* Phase 8B — Premium+ gate. Renders on top of the entire hub when
@@ -1756,7 +1763,13 @@ const LAYER4_KIND_BY_LABEL: Record<string, Layer4Kind> = {
   'Renew & invite combo':  'renew_invite_combo',
 }
 
-function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
+function SideRewardsColumn({
+  layer4Rewards, activeSubscriptionId, onOpenGoogleReview,
+}: {
+  layer4Rewards:        Layer4Row[]
+  activeSubscriptionId: string | null
+  onOpenGoogleReview:   () => void
+}) {
   // Build a {kind → most recent row} lookup. Rows are already newest-first
   // from getLayer4Rewards, so the first hit per kind wins.
   const latestByKind = useMemo(() => {
@@ -1767,41 +1780,16 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
     return m
   }, [layer4Rewards])
 
-  const [claimingReview, setClaimingReview] = useState(false)
-  const [reviewClaimMsg, setReviewClaimMsg] = useState<string | null>(null)
-  // Optimistic local state: after a successful claim we don't re-fetch
-  // server state; we synthesize a pending row so the UI flips immediately.
-  const [optimisticReviewPending, setOptimisticReviewPending] = useState(false)
-
-  async function handleGoogleReviewClaim() {
-    if (claimingReview) return
-    // Open the review page in a new tab BEFORE the POST so the user actually
-    // sees the Google review form. We don't gate the "claim" on whether
-    // they completed it — ops verifies before approving.
-    window.open('https://g.page/r/dormers-ae/review', '_blank', 'noopener,noreferrer')
-
-    setClaimingReview(true)
-    setReviewClaimMsg(null)
-    try {
-      const res = await fetch('/api/dorm-wars/layer4/google-review', { method: 'POST' })
-      const data = await res.json().catch(() => null) as { claimed?: boolean; alreadyClaimed?: boolean; error?: string } | null
-      if (!res.ok) {
-        setReviewClaimMsg('Could not log your claim. Please try again in a moment.')
-        return
-      }
-      if (data?.alreadyClaimed) {
-        setReviewClaimMsg('Already submitted — pending review.')
-        setOptimisticReviewPending(true)
-        return
-      }
-      setOptimisticReviewPending(true)
-      setReviewClaimMsg("Logged! We'll verify and credit your wallet within 24h.")
-    } catch {
-      setReviewClaimMsg('Network error. Please try again.')
-    } finally {
-      setClaimingReview(false)
-    }
-  }
+  // Phase 8K — Google review is per-monthly-subscription, not lifetime.
+  // The "is this claimable" check needs the active sub's id matched
+  // against the row's period_key. If the user has a row from a previous
+  // sub, that doesn't block claiming again in the current sub.
+  const googleReviewForCurrentSub = useMemo(() => {
+    if (!activeSubscriptionId) return undefined
+    return layer4Rewards.find(
+      r => r.kind === 'google_review' && r.period_key === activeSubscriptionId,
+    )
+  }, [layer4Rewards, activeSubscriptionId])
 
   return (
     <Column eyebrow="Side Rewards" title="Four more ways to earn AED" accent={GREEN}>
@@ -1813,7 +1801,6 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
         {SIDE_REWARDS.map(r => {
           const Emblem = r.Emblem
           const kind = LAYER4_KIND_BY_LABEL[r.label]
-          const row = kind ? latestByKind.get(kind) : undefined
 
           // Determine status chip + interactivity per kind.
           let chipLabel = 'Coming soon'
@@ -1824,6 +1811,7 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
           let onClick: (() => void) | undefined = undefined
 
           if (kind === 'anniversary') {
+            const row = latestByKind.get(kind)
             if (row && (row.status === 'auto_approved' || row.status === 'approved')) {
               chipLabel = 'Earned'
               chipColor = GREEN
@@ -1835,28 +1823,26 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
               chipBorder = MIST_FAINT
             }
           } else if (kind === 'google_review') {
-            if ((row && row.status === 'approved') || (row && row.status === 'auto_approved')) {
+            const row = googleReviewForCurrentSub
+            if (row && (row.status === 'approved' || row.status === 'auto_approved')) {
               chipLabel = 'Earned'
               chipColor = GREEN
               chipBg    = `${GREEN}14`
               chipBorder = `${GREEN}55`
-            } else if ((row && row.status === 'pending') || optimisticReviewPending) {
+            } else if (row && row.status === 'pending') {
               chipLabel = 'Pending'
               chipColor = GOLD_LITE
               chipBg    = `${GOLD}14`
               chipBorder = `${GOLD}55`
-            } else if (row && row.status === 'rejected') {
-              chipLabel = 'Not verified'
-              chipColor = RED
-              chipBg    = `${RED}14`
-              chipBorder = `${RED}55`
+              clickable = true
+              onClick   = onOpenGoogleReview // let user upload a better screenshot
             } else {
-              chipLabel = claimingReview ? 'Opening…' : 'Tap to claim'
+              chipLabel = 'Tap to claim'
               chipColor = r.color
               chipBg    = `${r.color}14`
               chipBorder = `${r.color}55`
               clickable = true
-              onClick   = handleGoogleReviewClaim
+              onClick   = onOpenGoogleReview
             }
           }
           // weekly_survey + renew_invite_combo fall through to the "Coming
@@ -1899,12 +1885,11 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
                 </div>
               </div>
 
-              {/* Status chip (clickable for google_review when unclaimed) */}
+              {/* Status chip (clickable for google_review) */}
               {clickable ? (
                 <button
                   type="button"
                   onClick={onClick}
-                  disabled={claimingReview}
                   style={{
                     flexShrink: 0, cursor: 'pointer',
                     fontFamily: BODY, fontSize: 10, fontWeight: 900, color: chipColor,
@@ -1912,7 +1897,6 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
                     padding: '4px 10px', borderRadius: 999,
                     backgroundColor: chipBg,
                     border: `1px solid ${chipBorder}`,
-                    opacity: claimingReview ? 0.7 : 1,
                   }}
                 >
                   {chipLabel}
@@ -1932,20 +1916,6 @@ function SideRewardsColumn({ layer4Rewards }: { layer4Rewards: Layer4Row[] }) {
             </div>
           )
         })}
-
-        {reviewClaimMsg && (
-          <div style={{
-            marginTop: 4,
-            padding: '8px 10px',
-            borderRadius: 8,
-            backgroundColor: `${GOLD}10`,
-            border: `1px solid ${GOLD}44`,
-            fontFamily: BODY, fontSize: 10, fontWeight: 700, color: CREAM,
-            letterSpacing: '0.02em',
-          }}>
-            {reviewClaimMsg}
-          </div>
-        )}
       </div>
     </Column>
   )
@@ -2772,6 +2742,360 @@ function StreakChestScreen({
       }}>
         Cash chests are dropped instantly into your wallet · doubler boosts
         cycle + per-conversion rewards for 7 days
+      </p>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GOOGLE REVIEW SCREEN — Phase 8K (screenshot upload + Gemini verification)
+//
+//  Two-step user flow inside the modal:
+//   1. "Open Google review" button — opens the business page in a new tab.
+//   2. File picker — accept="image/*" triggers the OS native picker on
+//      mobile (Take Photo / Photo Library / Browse) and a file dialog on
+//      desktop. After pick: preview thumbnail + Submit button.
+//   3. Submit → POST multipart to /api/dorm-wars/layer4/google-review.
+//      Server decides auto_approve / auto_reject / manual_review and the
+//      result is rendered inline.
+// ════════════════════════════════════════════════════════════════════════════
+
+const GOOGLE_REVIEW_URL = 'https://g.page/r/dormers-ae/review' // TODO: swap for canonical Dormers business profile URL
+
+type ReviewSubmitResult =
+  | { decision: 'auto_approved'; reason: string; valueAed: number }
+  | { decision: 'manual_review';  reason: string }
+  | { decision: 'auto_rejected';  reason: string }
+  | { decision: 'already_credited'; valueAed: number }
+
+function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
+  void onClose // reserved — may auto-close on success in a future revision
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState<ReviewSubmitResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Clean up object URLs to avoid memory leaks on file swap / unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
+  function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (f.size > 5 * 1024 * 1024) {
+      setError('Screenshot is over 5 MB — try a smaller one.')
+      return
+    }
+    setError(null)
+    setResult(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setFile(f)
+    setPreviewUrl(URL.createObjectURL(f))
+  }
+
+  async function handleSubmit() {
+    if (!file || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const form = new FormData()
+      form.append('screenshot', file)
+      const res = await fetch('/api/dorm-wars/layer4/google-review', {
+        method: 'POST',
+        body: form,
+      })
+      const data = await res.json().catch(() => null) as {
+        decision?: ReviewSubmitResult['decision']
+        reason?:   string
+        row?:      { value_aed: number }
+        error?:    string
+      } | null
+
+      if (!res.ok) {
+        if (res.status === 413) setError('Screenshot is too large (max 5 MB).')
+        else if (res.status === 415) setError('Use a JPEG, PNG, WebP, or HEIC screenshot.')
+        else if (res.status === 403) setError('Google review reward is for Monthly Premium plans and up.')
+        else if (res.status === 401) setError('Your session expired. Refresh the page and try again.')
+        else setError(data?.error ?? 'Something went wrong. Please try again.')
+        return
+      }
+
+      const valueAed = data?.row?.value_aed ?? 25
+      if (data?.decision === 'auto_approved') {
+        setResult({ decision: 'auto_approved', reason: data.reason ?? '', valueAed })
+      } else if (data?.decision === 'already_credited') {
+        setResult({ decision: 'already_credited', valueAed })
+      } else if (data?.decision === 'auto_rejected') {
+        setResult({ decision: 'auto_rejected', reason: data.reason ?? "We couldn't tell this was a Google review of Dormers." })
+      } else {
+        setResult({ decision: 'manual_review', reason: data?.reason ?? "We'll verify within 24h." })
+      }
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function handleTryAgain() {
+    setResult(null)
+    setFile(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    fileInputRef.current?.click()
+  }
+
+  // Result screens take over the modal body when we have a verdict.
+  if (result) {
+    if (result.decision === 'auto_approved' || result.decision === 'already_credited') {
+      return (
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{
+            margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
+            backgroundColor: `${GREEN}22`, border: `2px solid ${GREEN}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 0 24px ${GREEN}55`,
+          }}>
+            <Check size={32} strokeWidth={3} color={GREEN} />
+          </div>
+          <h3 style={{
+            fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: CREAM,
+            margin: '0 0 6px',
+          }}>
+            {result.decision === 'auto_approved' ? 'Verified!' : 'Already credited'}
+          </h3>
+          <p style={{
+            fontFamily: BODY, fontSize: 14, fontWeight: 700, color: GREEN,
+            margin: '0 0 16px',
+          }}>
+            +AED {result.valueAed} in your wallet
+          </p>
+          <p style={{
+            fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
+            lineHeight: 1.55, margin: 0,
+          }}>
+            Thanks for the review — it really helps other students discover Dormers. You can claim again next month with a new subscription cycle.
+          </p>
+        </div>
+      )
+    }
+    if (result.decision === 'auto_rejected') {
+      return (
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{
+            margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
+            backgroundColor: `${RED}22`, border: `2px solid ${RED}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={32} strokeWidth={3} color={RED} />
+          </div>
+          <h3 style={{
+            fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM,
+            margin: '0 0 8px',
+          }}>
+            We couldn&rsquo;t verify this one
+          </h3>
+          <p style={{
+            fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
+            lineHeight: 1.55, margin: '0 0 18px',
+          }}>
+            {result.reason} Make sure the screenshot clearly shows your Google review of <strong style={{ color: CREAM }}>Dormers</strong> with the star rating visible.
+          </p>
+          <button
+            type="button"
+            onClick={handleTryAgain}
+            style={{
+              padding: '11px 22px', borderRadius: 999,
+              backgroundColor: GOLD, color: BG_DEEP,
+              fontFamily: BODY, fontSize: 12, fontWeight: 900,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              border: 'none', cursor: 'pointer',
+              boxShadow: `0 8px 22px ${GOLD}44`,
+            }}
+          >
+            Try another screenshot
+          </button>
+        </div>
+      )
+    }
+    // manual_review
+    return (
+      <div style={{ textAlign: 'center', padding: '8px 0' }}>
+        <div style={{
+          margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
+          backgroundColor: `${GOLD}22`, border: `2px solid ${GOLD}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <KeyRound size={28} strokeWidth={2.6} color={GOLD_LITE} />
+        </div>
+        <h3 style={{
+          fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM,
+          margin: '0 0 8px',
+        }}>
+          Submitted for review
+        </h3>
+        <p style={{
+          fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
+          lineHeight: 1.55, margin: 0,
+        }}>
+          We&rsquo;ll double-check this manually and credit your wallet within 24h.
+        </p>
+      </div>
+    )
+  }
+
+  // Default: pick + submit UI.
+  return (
+    <div>
+      <p style={{
+        fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
+        lineHeight: 1.6, margin: '0 0 16px',
+      }}>
+        Leave us a Google review and upload the screenshot — we&rsquo;ll auto-credit
+        your wallet with AED 25. One per monthly subscription.
+      </p>
+
+      {/* Step 1 — open Google review */}
+      <a
+        href={GOOGLE_REVIEW_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 16px', borderRadius: 12,
+          backgroundImage: `linear-gradient(135deg, ${GREEN}28 0%, ${GREEN}10 100%)`,
+          border: `1.5px solid ${GREEN}66`,
+          color: CREAM, textDecoration: 'none',
+          marginBottom: 12,
+        }}
+      >
+        <span style={{
+          flexShrink: 0,
+          width: 36, height: 36, borderRadius: 9,
+          backgroundColor: GREEN,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Star size={18} strokeWidth={2.6} color={BG_DEEP} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM, lineHeight: 1.2 }}>
+            Step 1 · Leave a Google review
+          </div>
+          <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST, marginTop: 2 }}>
+            Opens the Dormers business page
+          </div>
+        </div>
+        <ExternalLink size={16} strokeWidth={2.4} color={GREEN} />
+      </a>
+
+      {/* Step 2 — upload screenshot. The hidden <input type="file"> + label
+          pattern lets us style the button freely while keeping the native
+          OS picker (gallery / camera / files on mobile). */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/*"
+        onChange={handlePick}
+        style={{ display: 'none' }}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 16px', borderRadius: 12,
+          backgroundImage: file
+            ? `linear-gradient(135deg, ${GOLD}28 0%, ${GOLD}10 100%)`
+            : `linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)`,
+          border: `1.5px solid ${file ? `${GOLD}66` : MIST_FAINT}`,
+          color: CREAM, cursor: 'pointer',
+          marginBottom: 12,
+        }}
+      >
+        <span style={{
+          flexShrink: 0,
+          width: 36, height: 36, borderRadius: 9,
+          backgroundColor: file ? GOLD : 'rgba(255,255,255,0.06)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Upload size={18} strokeWidth={2.6} color={file ? BG_DEEP : MIST} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+          <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: CREAM, lineHeight: 1.2 }}>
+            {file ? `Step 2 · ${file.name.slice(0, 28)}${file.name.length > 28 ? '…' : ''}` : 'Step 2 · Upload screenshot'}
+          </div>
+          <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST, marginTop: 2 }}>
+            {file ? `${(file.size / 1024).toFixed(0)} KB — tap to swap` : 'From your gallery, camera, or files'}
+          </div>
+        </div>
+      </button>
+
+      {/* Preview thumb when a file is picked */}
+      {previewUrl && (
+        <div style={{
+          marginBottom: 14,
+          borderRadius: 10,
+          overflow: 'hidden',
+          border: `1px solid ${MIST_FAINT}`,
+          maxHeight: 220,
+          display: 'flex', justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.35)',
+        }}>
+          { /* eslint-disable-next-line @next/next/no-img-element */ }
+          <img
+            src={previewUrl}
+            alt="Review screenshot preview"
+            style={{
+              maxWidth: '100%', maxHeight: 220,
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: 8,
+          backgroundColor: `${RED}18`,
+          border: `1px solid ${RED}55`,
+          fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+          marginBottom: 12,
+        }}>
+          {error}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={!file || submitting}
+        style={{
+          width: '100%',
+          padding: '13px 22px', borderRadius: 999,
+          backgroundColor: !file || submitting ? 'rgba(255,255,255,0.06)' : GOLD,
+          color: !file || submitting ? MIST_DIM : BG_DEEP,
+          fontFamily: BODY, fontSize: 13, fontWeight: 900,
+          letterSpacing: '0.12em', textTransform: 'uppercase',
+          border: 'none',
+          cursor: !file || submitting ? 'default' : 'pointer',
+          boxShadow: !file || submitting ? 'none' : `0 10px 28px ${GOLD}55`,
+        }}
+      >
+        {submitting ? 'Verifying…' : 'Submit for AED 25'}
+      </button>
+
+      <p style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+        lineHeight: 1.5, margin: '14px 0 0', textAlign: 'center',
+      }}>
+        Auto-verified in seconds via AI · falls back to manual review if anything looks off
       </p>
     </div>
   )
