@@ -49,6 +49,12 @@ export function ForgotPasswordFlow({
     const [done,     setDone]     = useState(false)
     const [error,    setError]    = useState('')
     const [resendIn, setResendIn] = useState(0)
+    // Soft "did you check your inbox?" hint that surfaces ~60s after the
+    // code was sent if the user is still sitting on the verify screen
+    // without having typed anything. Keeps Supabase enumeration protection
+    // intact (we never confirm/deny existence) but nudges legit users
+    // whose email is mistyped — the most common cause of a missing code.
+    const [showInboxHint, setShowInboxHint] = useState(false)
     const [isPending, startTransition] = useTransition()
     const otpRef  = useRef<HTMLInputElement>(null)
     const passRef = useRef<HTMLInputElement>(null)
@@ -80,8 +86,25 @@ export function ForgotPasswordFlow({
             setPhase('verify')
             setResendIn(45)
             setOtp('')
+            setShowInboxHint(false)
         })
     }
+
+    // Surface the "not seeing a code?" hint 60s after each send. Cleared
+    // on resend or as soon as the user types any OTP digits. Effect is
+    // re-armed every time resendIn drops back to 45 (= a fresh send).
+    useEffect(() => {
+        if (phase !== 'verify') return
+        if (resendIn !== 45) return // only arm on a fresh send, not every tick
+        setShowInboxHint(false)
+        const t = setTimeout(() => setShowInboxHint(true), 60_000)
+        return () => clearTimeout(t)
+    }, [phase, resendIn])
+
+    // Typing any digits hides the hint — user clearly got the code.
+    useEffect(() => {
+        if (otp.length > 0 && showInboxHint) setShowInboxHint(false)
+    }, [otp, showInboxHint])
 
     const verify = (token: string) => {
         if (isPending || verified || token.length !== OTP_LENGTH) return
@@ -107,6 +130,7 @@ export function ForgotPasswordFlow({
             if ('error' in res) { setError(res.error); return }
             setResendIn(45)
             setOtp('')
+            setShowInboxHint(false)
             otpRef.current?.focus()
         })
     }
@@ -234,6 +258,25 @@ export function ForgotPasswordFlow({
                                 {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
                             </button>
                         </div>
+                        {/* Soft inbox-check nudge after 60s of no code typed.
+                            We never confirm or deny that the email exists
+                            (enumeration protection) — just suggest checking
+                            spam and the email itself, which catches the most
+                            common cause: typo in the email field. */}
+                        {showInboxHint && (
+                            <div
+                                role="status"
+                                className={`mt-2 rounded-md border px-3 py-2 text-[11px] font-medium leading-snug ${
+                                    isLight
+                                        ? 'border-[#f57f20]/30 bg-[#f57f20]/8 text-[#091825]/75'
+                                        : 'border-[#f57f20]/30 bg-[#f57f20]/10 text-white/75'
+                                }`}
+                            >
+                                Not seeing a code? Check your spam folder, and make sure{' '}
+                                <strong className={isLight ? 'text-[#091825]' : 'text-white'}>{email}</strong>{' '}
+                                is the email you signed up with. Typos here are the most common cause.
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
