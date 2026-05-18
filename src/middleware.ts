@@ -10,12 +10,14 @@ export const config = {
     // performs an auth.getUser() round-trip to Supabase, so we keep this
     // narrow on purpose.
     //   /dashboard/:path*  → redirect to /login if not authed
+    //   /admin/:path*      → session needed so requireAdmin() can read x-user-email
     //   /login             → redirect authed users to /dashboard (or ?next)
     //   /onboarding        → same redirect-when-authed treatment
     // Public pages, API routes (which do their own auth), the Supabase auth
     // callback, and static assets are intentionally excluded.
     matcher: [
         '/dashboard/:path*',
+        '/admin/:path*',
         '/login',
         '/onboarding',
     ],

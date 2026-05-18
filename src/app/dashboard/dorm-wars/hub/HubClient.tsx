@@ -2760,7 +2760,7 @@ function StreakChestScreen({
 //      result is rendered inline.
 // ════════════════════════════════════════════════════════════════════════════
 
-const GOOGLE_REVIEW_URL = 'https://g.page/r/dormers-ae/review' // TODO: swap for canonical Dormers business profile URL
+const GOOGLE_REVIEW_URL = 'https://maps.app.goo.gl/sBTUwJeYXqzbm1Ut7'
 
 type ReviewSubmitResult =
   | { decision: 'auto_approved'; reason: string; valueAed: number }

@@ -39,7 +39,9 @@ export const updateSession = async (request: NextRequest) => {
         : null;
 
     const isPreview = process.env.NODE_ENV === 'development' && request.nextUrl.searchParams.get('preview') === '1'
-    const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard');
+    const isProtectedRoute =
+        request.nextUrl.pathname.startsWith('/dashboard') ||
+        request.nextUrl.pathname.startsWith('/admin');
 
     const applyBufferedCookies = (res: NextResponse) => {
         cookiesToSetOnResponse.forEach(({ name, value, options }) =>
