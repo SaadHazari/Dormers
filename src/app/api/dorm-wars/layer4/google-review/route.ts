@@ -35,13 +35,23 @@ import {
 } from '@/lib/dorm-wars/google-review-verify'
 import { resolvePlan } from '@/lib/plans'
 
+// Netlify default function timeout is 10s; Gemini Vision on a screenshot
+// typically takes 5-15s. Without this export the function gets killed
+// mid-call and the client sees an infinite spinner. 60s leaves comfortable
+// headroom under the SDK's 45s timeout (set in verifyReviewScreenshot).
+export const maxDuration = 60
+
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024 // 5 MB — mirrors bucket limit
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
 
 export async function POST(req: Request) {
+  const t0 = Date.now()
+  const log = (msg: string) => console.log(`[google-review-verify ${Date.now() - t0}ms] ${msg}`)
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauth' }, { status: 401 })
+  log(`auth ok customer=${user.id}`)
 
   const admin = createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,6 +78,7 @@ export async function POST(req: Request) {
   if (!ALLOWED_MIME.has(file.type)) {
     return NextResponse.json({ error: 'unsupported_mime', got: file.type }, { status: 415 })
   }
+  log(`file ok type=${file.type} bytes=${file.size}`)
 
   // ── Premium+ gate (backend defense — hub UI already blocks non-Monthly) ──
   const { data: activeSub } = await admin
@@ -85,6 +96,7 @@ export async function POST(req: Request) {
   if (planId !== 'monthly-premium' && planId !== 'monthly-max') {
     return NextResponse.json({ error: 'plan_not_eligible' }, { status: 403 })
   }
+  log(`plan eligible sub=${activeSub.id} plan=${planId}`)
 
   // ── Fetch customer name (used as a soft hint to Gemini) ──
   const { data: customer } = await admin
@@ -128,7 +140,10 @@ export async function POST(req: Request) {
     // bytes in memory). Log + continue. The user gets a verdict; ops
     // loses the audit trail for this one claim.
     console.error('review-screenshot storage upload failed:', uploadErr)
+  } else {
+    log(`storage upload ok path=${path}`)
   }
+  log(`starting Gemini verification…`)
 
   // ── Run Gemini verification ──
   let verdict: VerifyResult
@@ -145,6 +160,7 @@ export async function POST(req: Request) {
   }
 
   const decision = decideFromVerdict(verdict)
+  log(`Gemini verdict decision=${decision} confidence=${verdict.confidence}`)
   const verdictNote =
     `Gemini: ${decision} (confidence=${verdict.confidence}, isGoogleReview=${verdict.isGoogleReviewScreenshot}, ` +
     `isDormers=${verdict.businessMatchesDormers}, hasRating=${verdict.hasVisibleRating}, ` +

@@ -73,7 +73,9 @@ Field meanings:
 Output JSON only. Do not wrap in code fences. Do not include any text before or after the JSON.`
 
   let raw: string
+  const t0 = Date.now()
   try {
+    console.log(`[review-verify] calling Gemini (mime=${mimeType}, bytes=${imageBytes.byteLength})`)
     const result = await generateText({
       model: google('gemini-2.5-flash'),
       messages: [
@@ -85,17 +87,25 @@ Output JSON only. Do not wrap in code fences. Do not include any text before or 
           ],
         },
       ],
+      // SDK-level timeout — fires a clean abort before the surrounding
+      // Netlify function maxDuration kills the whole request. 45s leaves
+      // ~15s headroom under maxDuration=60 for upload + DB writes.
+      abortSignal: AbortSignal.timeout(45_000),
     })
     raw = result.text.trim()
+    console.log(`[review-verify] Gemini responded in ${Date.now() - t0}ms (${raw.length} chars)`)
   } catch (err) {
-    console.error('verifyReviewScreenshot — Gemini call failed:', err)
+    const elapsed = Date.now() - t0
+    console.error(`[review-verify] Gemini call failed after ${elapsed}ms:`, err)
     return {
       isGoogleReviewScreenshot: false,
       businessMatchesDormers:    false,
       hasVisibleRating:          false,
       reviewerNameVisible:       null,
       confidence:                'low',
-      reason:                    'Verification service unavailable — queued for manual review',
+      reason:                    elapsed >= 45_000
+        ? 'Verification timed out — queued for manual review'
+        : 'Verification service unavailable — queued for manual review',
     }
   }
 
