@@ -33,21 +33,29 @@ export default async function ReferralReviewQueuePage({
     const sp = (await searchParams) ?? {}
     const focusId = sp.focus ?? null
 
-    // Pull pending rows + the bits of context the admin needs to decide:
-    // who invited, who joined, when, why it was flagged, how much AED is
-    // locked. Done as one PostgREST nested-select for round-trip economy.
-    const { data: rows } = await sb
+    // Pull pending queue rows. Originally tried a PostgREST nested
+    // select (queue → referrals → customers) but the FK-hint syntax was
+    // returning empty joins. Two simpler queries are bulletproof and
+    // the extra round-trip is negligible for an admin queue page.
+    const { data: queueRows, error: queueErr } = await sb
         .from('referral_review_queue')
-        .select(`
-            id, reason, flags, status, created_at, alerted_at,
-            referral:referrals!referral_review_queue_referral_id_fkey (
-                id, invitee_first_name, invitee_phone, invitee_email,
-                inviter_cid, inviter_user_id, converted_at, gift_claimed_at
-            )
-        `)
+        .select('id, reason, flags, status, created_at, alerted_at, referral_id')
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
 
+    if (queueErr) {
+        console.error('referral-review-queue page: queue read failed', queueErr)
+    }
+
+    type QueueRow = {
+        id: string
+        reason: string
+        flags: Record<string, unknown> | null
+        status: string
+        created_at: string
+        alerted_at: string | null
+        referral_id: string
+    }
     type ReferralJoin = {
         id: string
         invitee_first_name: string | null
@@ -58,30 +66,31 @@ export default async function ReferralReviewQueuePage({
         converted_at: string | null
         gift_claimed_at: string | null
     }
-    type RawRow = {
-        id: string
-        reason: string
-        flags: Record<string, unknown> | null
-        status: string
-        created_at: string
-        alerted_at: string | null
-        // PostgREST returns one-to-one joins as either object or single-element
-        // array depending on how the FK is declared; normalize below.
-        referral: ReferralJoin | ReferralJoin[] | null
+
+    const queueList = (queueRows ?? []) as QueueRow[]
+    const referralIds = queueList.map(r => r.referral_id).filter(Boolean)
+
+    // Hydrate the linked referrals in one batched lookup.
+    const referralMap = new Map<string, ReferralJoin>()
+    if (referralIds.length > 0) {
+        const { data: refs, error: refErr } = await sb
+            .from('referrals')
+            .select('id, invitee_first_name, invitee_phone, invitee_email, inviter_cid, inviter_user_id, converted_at, gift_claimed_at')
+            .in('id', referralIds)
+        if (refErr) {
+            console.error('referral-review-queue page: referrals read failed', refErr)
+        }
+        for (const r of (refs ?? []) as ReferralJoin[]) {
+            referralMap.set(r.id, r)
+        }
     }
 
-    const rawRows = (rows ?? []) as unknown as RawRow[]
-    const normalized = rawRows.map(r => ({
-        ...r,
-        referral: Array.isArray(r.referral) ? (r.referral[0] ?? null) : r.referral,
-    }))
-
-    // Resolve inviter customer details + their pending credit amount in
-    // batched lookups so we don't N+1.
+    // Resolve inviter customer details + their pending credit amount.
     const inviterIds = Array.from(
-        new Set(normalized.map(r => r.referral?.inviter_user_id).filter(Boolean)),
+        new Set(
+            Array.from(referralMap.values()).map(r => r.inviter_user_id).filter(Boolean),
+        ),
     ) as string[]
-    const referralIds = normalized.map(r => r.referral?.id).filter(Boolean) as string[]
 
     const customerMap = new Map<string, { name: string | null; email: string | null }>()
     if (inviterIds.length > 0) {
@@ -109,10 +118,10 @@ export default async function ReferralReviewQueuePage({
         }
     }
 
-    const pending: PendingReferralRow[] = normalized
-        .filter(r => r.referral != null)
+    const pending: PendingReferralRow[] = queueList
         .map(r => {
-            const ref = r.referral!
+            const ref = referralMap.get(r.referral_id)
+            if (!ref) return null
             const inviter = ref.inviter_user_id ? customerMap.get(ref.inviter_user_id) : undefined
             const creditAed = creditMap.get(ref.id) ?? 0
             return {
@@ -134,6 +143,7 @@ export default async function ReferralReviewQueuePage({
                 creditAed,
             }
         })
+        .filter((r): r is PendingReferralRow => r != null)
 
     return <QueueClient rows={pending} focusId={focusId} />
 }
