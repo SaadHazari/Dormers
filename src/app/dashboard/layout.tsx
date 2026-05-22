@@ -1,7 +1,11 @@
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
 import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
+import { badgeFromReviewState, type WeeklyReviewBadge } from '@/lib/weekly-review'
+import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
+import { rejectExpiredWeeklyReviewPending } from '@/lib/dorm-wars/review-cleanup'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUserFromHeaders()
@@ -10,7 +14,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let customerCid  = ''
   let customerDorm = ''
   let planName     = ''
-  let referralData: ReferralData = { total: 0, converted: 0, creditBalance: 0 }
+  let referralData: ReferralData = { total: 0, converted: 0, creditBalance: 0, creditPending: 0 }
+  let weeklyReviewBadge: WeeklyReviewBadge = 'none'
   const userEmail  = user?.email ?? ''
 
   if (user) {
@@ -21,18 +26,38 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // pending changes are queued.
     await promotePendingPreferencesIfStale(user.id)
 
+    // Phase 8K — lazy reconciliation of stranded weekly-review pending
+    // credits. Originally lived on the dorm-wars hub only, but users
+    // who never visit that page would have stranded pending AED stuck
+    // in their wallet forever. Running it from the layout means every
+    // dashboard navigation resolves drift. The query is cheap when
+    // nothing's stranded (single SELECT, short-circuits on empty
+    // result), and the admin client is needed because credits RLS
+    // doesn't grant customers direct UPDATE access. Fire-and-forget —
+    // never block the page render on cleanup outcomes.
+    const reviewCleanupAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    )
+    await rejectExpiredWeeklyReviewPending(reviewCleanupAdmin, user.id).catch((err) => {
+      console.error('layout: rejectExpiredWeeklyReviewPending failed:', err)
+    })
+
     // Cached helpers — pages that re-call these in the same request will
     // hit React's request-scoped cache and skip the network round-trip.
-    const [customer, activeSubscription, referrals] = await Promise.all([
+    const [customer, activeSubscription, referrals, weeklyReviewState] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
       getReferralData(user.id),
+      getWeeklyReviewState(user.id),
     ])
     customerName = customer?.name      ?? ''
     customerCid  = customer?.cid       ?? ''
     customerDorm = customer?.dorm_name ?? ''
     planName     = activeSubscription?.plan_name ?? ''
     referralData = referrals
+    weeklyReviewBadge = badgeFromReviewState(weeklyReviewState)
   }
 
   return (
@@ -44,6 +69,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userEmail={userEmail}
         planName={planName}
         referralData={referralData}
+        weeklyReviewBadge={weeklyReviewBadge}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div style={{ display: 'flex', paddingTop: 16 }}>

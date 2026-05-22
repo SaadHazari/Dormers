@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Truck, Moon, Utensils, Check, Sparkles, Clock } from 'lucide-react'
+import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
 
 import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
@@ -12,6 +13,10 @@ import { MealTag } from '../_shared/MealTag'
 import { vegDayNumbersFor } from '@/lib/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
+import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import { LastWeekSection } from './LastWeekSection'
+import { MonthlyWrapTrigger } from './MonthlyWrapTrigger'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -46,6 +51,9 @@ interface ActiveSubLike {
   // day gets a "Pause begins" label so the customer can see exactly when
   // their planned pause kicks in.
   planned_pause_start?: string | null
+  // ISO end_date of the active sub. Used together with the queuedSub flag
+  // to dim out-of-plan future days as "Plan ends" when no renewal is queued.
+  end_date?: string | null
 }
 
 type WeekMeal = {
@@ -421,6 +429,7 @@ type NoDeliveryReason =
   | 'future-skipped'   // future day, scheduled via Plan a Skip
   | 'pause-start'      // future day, customer's planned_pause_start date
   | 'in-pause'         // future day after planned_pause_start (open-ended)
+  | 'plan-ends'        // future day past active sub's end_date AND no queued renewal
 function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, onClick }: {
   meal: WeekMeal
   dayLabel: string
@@ -441,6 +450,15 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   // "Delivered" chip with the right reason label.
   const hasNoDelivery = noDeliveryReason !== null
   const effectiveIsToday = isToday && !hasNoDelivery
+  // 'plan-ends' is a structurally different no-delivery state from
+  // skip/pause — those are operational pauses inside an active plan, this
+  // is "no plan is cooking this dish for you, full stop." Per Norman's
+  // Gulf of Evaluation: the system state must be visible at a glance, not
+  // hidden behind a tiny chip while the dish photo still says "this is
+  // yours." Drives the grayscale image, dimmer surface, lock overlay, and
+  // bespoke chip below — the card has to LOOK inactive, not just labeled
+  // inactive.
+  const isPlanEnds = noDeliveryReason === 'plan-ends'
 
   // Surface tier — preview cards sit on TIER3 (flat, near-flush with the
   // page) so they recede behind the TIER2 this-week cards. Today gets bumped
@@ -507,17 +525,30 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
         // hero verbatim. Energy without competing for the focal slot.
         background: isOff
           ? 'var(--ds-skeleton-base)'
-          : isPreview
-            ? `
-                linear-gradient(180deg, rgba(245,127,32,0.13) 0%, rgba(245,127,32,0.055) 28%, rgba(245,127,32,0.018) 60%, rgba(245,127,32,0) 100%),
-                var(--ds-surface2)
-              `
-            : 'var(--ds-week-card-bg, #faf2dd)',
+          : isPlanEnds
+            // Cool, desaturated gray-tan that sits visibly BELOW active
+            // cream cards in the elevation hierarchy. Active = warm cream,
+            // plan-ends = grayed-out cream — same temperature family but
+            // drained of life. Reads as "inactive" instantly.
+            ? 'rgba(225,220,210,0.62)'
+            : isPreview
+              ? `
+                  linear-gradient(180deg, rgba(245,127,32,0.13) 0%, rgba(245,127,32,0.055) 28%, rgba(245,127,32,0.018) 60%, rgba(245,127,32,0) 100%),
+                  var(--ds-surface2)
+                `
+              : 'var(--ds-week-card-bg, #faf2dd)',
         border: effectiveIsToday
           ? `2px solid rgba(245,127,32,0.32)`
           : isOff
             ? `1px solid ${S.border}`
-            : (baseTier.border as string),
+            : isPlanEnds
+              ? '1px dashed rgba(9,24,37,0.18)'  // dashed → "incomplete", not a solid commitment
+              : (baseTier.border as string),
+        // Plan-ends cards are non-affordances inside the active grid.
+        // Reduce opacity overall so the eye reads "dimmed" before parsing
+        // any specific element. 0.78 keeps text legible while the card
+        // clearly recedes.
+        opacity: isPlanEnds ? 0.78 : 1,
         // Today shadow stack (4 layers, painted top-to-bottom):
         //   • orange glow halo (animated by .today-pulse below — opacity
         //     breathes 0.14 ↔ 0.22 over 4s; this inline value is the resting
@@ -581,15 +612,20 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
           // muted-tan color so they read as a coherent "no meal" zone.
           // Pause reasons use a slightly cooler tone to differentiate from
           // skip reasons — Refactoring UI's hierarchy via subtle color shift.
-          const noDeliveryConfig: Record<NoDeliveryReason, { label: string; color: string }> = {
-            'today-skipped':  { label: 'Not tonight',  color: 'rgba(140,110,60,0.70)' },
-            'past-skipped':   { label: 'Skipped',      color: 'rgba(140,110,60,0.70)' },
-            'future-skipped': { label: 'Skipped',      color: 'rgba(140,110,60,0.70)' },
-            'pause-start':    { label: 'Pause begins', color: 'rgba(30,58,79,0.75)'   },
-            'in-pause':       { label: 'Paused',       color: 'rgba(30,58,79,0.70)'   },
+          const noDeliveryConfig: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color: string }> = {
+            'today-skipped':  { Icon: Moon, label: 'Not tonight',      color: 'rgba(140,110,60,0.70)' },
+            'past-skipped':   { Icon: Moon, label: 'Skipped',          color: 'rgba(140,110,60,0.70)' },
+            'future-skipped': { Icon: Moon, label: 'Skipped',          color: 'rgba(140,110,60,0.70)' },
+            'pause-start':    { Icon: Moon, label: 'Pause begins',     color: 'rgba(30,58,79,0.75)'   },
+            'in-pause':       { Icon: Moon, label: 'Paused',           color: 'rgba(30,58,79,0.70)'   },
+            // Lock icon + "Renew to unlock" — pairs with the lock overlay
+            // on the dish image. The chip closes the Gulf of Execution
+            // (tells the user the path forward) while the image grayscale
+            // closes the Gulf of Evaluation (shows the current state).
+            'plan-ends':      { Icon: Lock, label: 'Renew to unlock',  color: 'rgba(90,84,72,0.78)'   },
           }
           const stateConfig = noDeliveryReason
-            ? { Icon: Moon, ...noDeliveryConfig[noDeliveryReason] }
+            ? noDeliveryConfig[noDeliveryReason]
             : isPast
               ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
               : effectiveIsToday
@@ -642,7 +678,16 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
               alt={meal.dish}
               fill
               sizes="(max-width: 600px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              style={{ objectFit: 'cover', transition: 'transform 320ms cubic-bezier(.22,1,.36,1)' }}
+              style={{
+                objectFit: 'cover',
+                transition: 'transform 320ms cubic-bezier(.22,1,.36,1)',
+                // The single strongest "this isn't yours" signal: grayscale
+                // strips the appetizing colour from the dish. The eye reads
+                // "inactive food" before reading any chip. Brightness drop
+                // pushes it further toward the page background so it doesn't
+                // compete with the warm active cards above/around it.
+                filter: isPlanEnds ? 'grayscale(1) brightness(0.92)' : undefined,
+              }}
             />
           ) : (
             <div aria-hidden style={{
@@ -655,8 +700,29 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
             </div>
           )}
 
-          {/* No image overlays — state lives in the cell header above as
-              colored text. Photo stays clean and food-forward. */}
+          {/* Lock overlay — only when plan-ends. Sits centered on the
+              grayscale photo with a soft dark backdrop. Pairs with the
+              "Renew to unlock" chip below so the icon and the chip
+              vocabulary reinforce each other (Norman: consistent signifiers
+              build the same mental model from two angles). */}
+          {isPlanEnds && meal.image && !isOff && (
+            <div aria-hidden style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(9,24,37,0.30)',
+              pointerEvents: 'none',
+            }}>
+              <span style={{
+                width: isPreview ? 32 : 38, height: isPreview ? 32 : 38,
+                borderRadius: '50%',
+                background: 'rgba(245,240,232,0.92)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 14px rgba(9,24,37,0.30)',
+              }}>
+                <Lock size={isPreview ? 14 : 16} strokeWidth={2.2} color="#091825" />
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -754,10 +820,24 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
 export default function MenuClient({
   customer,
   activeSubscription,
+  weeklyReviewState = EMPTY_REVIEW_STATE,
+  monthlyWindow,
+  monthlyCycleLabel = 'This cycle',
+  hasQueuedRenewal = false,
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
   userEmail?: string
+  weeklyReviewState?: WeeklyReviewState
+  monthlyWindow?: MonthlyReviewWindow
+  monthlyCycleLabel?: string
+  // True when the customer has a Scheduled follow-up subscription queued
+  // behind the active one. When true, days past the active sub's end date
+  // are still "Upcoming" (the queued cycle will deliver them). When false,
+  // those days get the "Plan ends" dim treatment so the customer sees the
+  // structural reason their plan is fading out instead of cheerfully
+  // teasing dishes they won't receive.
+  hasQueuedRenewal?: boolean
 }) {
   // week_type: prefer the active sub's snapshot (canonical for this cycle).
   // Fall back to the customer's preference (relevant for users browsing
@@ -795,6 +875,22 @@ export default function MenuClient({
   // 'Off' tag); this function isn't asked about those.
   function classifyNoDelivery(meal: WeekMeal, dayState: WeekDayState): NoDeliveryReason | null {
     if (meal.tag === 'Off') return null
+
+    // Plan ends, no queued renewal — future days past the active sub's
+    // end_date have nothing cooking for them. Show "Plan ends" instead of
+    // teasing dishes the customer won't actually receive. Takes precedence
+    // over the regular future/upcoming path; pause/skip checks below still
+    // can't reach here because they're operational reasons that only apply
+    // inside the active cycle (and pauses extend end_date, so they never
+    // overlap with this case in practice).
+    if (
+      dayState === 'future'
+      && !hasQueuedRenewal
+      && activeSubscription?.end_date
+      && meal.iso > activeSubscription.end_date
+    ) {
+      return 'plan-ends'
+    }
 
     // Currently-paused sub: paint everything from today onward as "in-pause"
     // so the customer sees a clear paused zone on the menu page.
@@ -843,6 +939,17 @@ export default function MenuClient({
   const todayMeal    = thisTodayIdx < 6 ? thisWeek.meals[thisTodayIdx] : null
 
   const [openMeal, setOpenMeal] = useState<WeekMeal | null>(null)
+  const router = useRouter()
+
+  // Per-card click router. Plan-ends cards short-circuit the dish detail
+  // modal and route straight to the renew flow — the card's visual signals
+  // (grayscale image, lock overlay, "Renew to unlock" chip) already promise
+  // this destination, so the click pays off the promise. Subtle = the
+  // affordance is already there; we just rewire what it does.
+  function clickFor(meal: WeekMeal, reason: NoDeliveryReason | null) {
+    if (reason === 'plan-ends') return () => router.push('/dashboard/explore-plans')
+    return () => setOpenMeal(meal)
+  }
 
   const DAY_ABBREVS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -886,6 +993,22 @@ export default function MenuClient({
           />
         </section>
 
+        {/* ── Section 1.4: Monthly wrap — the highest-priority CTA on the
+            page when present. Sits above Last Week because the end-of-cycle
+            moment closes the milestone path that the weekly reviews opened.
+            Renders nothing when not eligible (cycle hasn't ended, already
+            submitted, or past the 30-day cap). */}
+        {monthlyWindow && (
+          <MonthlyWrapTrigger window={monthlyWindow} cycleLabel={monthlyCycleLabel} />
+        )}
+
+        {/* ── Section 1.5: Last week reviews — contemplative pause between
+            the Today hero (present moment) and the forward-looking weekly
+            grids. Visible above the fold so time-sensitive reviews (7-day
+            reward window) don't get buried under the meal grid. Renders
+            nothing when there's no pending review and no recent submission. */}
+        <LastWeekSection state={weeklyReviewState} />
+
         {/* ── Section 2: This week (6-cell grid) ── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -906,7 +1029,7 @@ export default function MenuClient({
                   dayLabel={DAY_ABBREVS[i]}
                   state={state}
                   noDeliveryReason={noDeliveryReason}
-                  onClick={() => setOpenMeal(meal)}
+                  onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
             })}
@@ -924,17 +1047,20 @@ export default function MenuClient({
               6-column density (vs this-week's 3-col) does most of the
               hierarchy work; the surface + size changes finish it. */}
           <div className="menu-week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-            {nextWeek.meals.slice(0, 6).map((meal, i) => (
-              <WeekDayCard
-                key={i}
-                meal={meal}
-                dayLabel={DAY_ABBREVS[i]}
-                state="future"
-                variant="preview"
-                noDeliveryReason={classifyNoDelivery(meal, 'future')}
-                onClick={() => setOpenMeal(meal)}
-              />
-            ))}
+            {nextWeek.meals.slice(0, 6).map((meal, i) => {
+              const noDeliveryReason = classifyNoDelivery(meal, 'future')
+              return (
+                <WeekDayCard
+                  key={i}
+                  meal={meal}
+                  dayLabel={DAY_ABBREVS[i]}
+                  state="future"
+                  variant="preview"
+                  noDeliveryReason={noDeliveryReason}
+                  onClick={clickFor(meal, noDeliveryReason)}
+                />
+              )
+            })}
           </div>
         </section>
 

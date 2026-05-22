@@ -104,6 +104,7 @@ export function PlanProgress({
     sub,
     isPaused = false,
     maxSkips = 0,
+    hasQueuedRenewal = false,
     onPillSkip,
     onPillUnskip,
     onCancelPlannedPause,
@@ -114,6 +115,11 @@ export function PlanProgress({
     // future-remaining pill clickability. Defaults to 0 so the bar stays
     // read-only when this prop isn't supplied (legacy / preview usage).
     maxSkips?: number
+    // True when the customer already has a Scheduled follow-up sub queued.
+    // Suppresses the Renew CTAs below so a committed customer isn't nudged
+    // to renew again (double-sub risk + the end-of-cycle banner above
+    // already hides itself on the same condition).
+    hasQueuedRenewal?: boolean
     // Pill click callbacks. When absent, pills stay read-only.
     // (A queued renewal no longer blocks future-skip — the DB trigger
     //  shifts the queued start_date automatically and the modal surfaces
@@ -176,7 +182,11 @@ export function PlanProgress({
     const mealsLeft = left * mealsPerDelivery
     const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
     const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
-    const renewEligible = !startsInFuture && daysLeft <= 7
+    // Suppress the Renew CTA when a follow-up sub is already queued — the
+    // user has already committed, so re-nudging them invites a duplicate
+    // purchase (and disagrees with the end-of-cycle banner one row above,
+    // which already hides on the same condition).
+    const renewEligible = !startsInFuture && daysLeft <= 7 && !hasQueuedRenewal
 
     // Untraced skip count — legacy subs created before the skipped_dates
     // column may have skipped_meals_count > skipped_dates.length. Surface a
@@ -351,17 +361,24 @@ export function PlanProgress({
                     const isInsidePlannedPauseWindow =
                         !!sub.planned_pause_start
                         && pillIso >= sub.planned_pause_start
+                    // Pre-start plans can't queue skips — `skipFutureDate`
+                    // rejects non-Active subs to keep the end_date stable
+                    // across the Scheduled → Active promotion. Mirror that
+                    // here so the pill stops promising an action the server
+                    // will refuse.
                     const futureRemainingClickable =
                         state === 'remaining'
                         && isFuture
                         && hasCredits
                         && !isPaused
+                        && !startsInFuture
                         && !isInsidePlannedPauseWindow
                         && !!onPillSkip
                     const futureSkippedClickable =
                         state === 'skipped'
                         && isFuture
                         && !isPaused
+                        && !startsInFuture
                         && !!onPillUnskip
                     // Cancellation for a planned pause moved to a dedicated
                     // banner above the bar (cleaner discoverability + the
@@ -676,7 +693,7 @@ export function PlanProgress({
                 </div>
 
                 {/* 5 — Action */}
-                {mealsLeft === 0 ? (
+                {mealsLeft === 0 && !hasQueuedRenewal ? (
                     <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                         <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>Plan ended</div>
                         <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>Renew to keep meals coming.</div>

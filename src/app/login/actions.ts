@@ -109,9 +109,15 @@ export async function verifyResetOtp(email: string, token: string): Promise<Rese
     })
     if (error) return { error: error.message }
 
-    // verifyOtp set the recovery session via the SSR client. Revalidate so
-    // protected layouts pick it up; updatePassword (next step) needs it.
-    revalidatePath('/', 'layout')
+    // Do NOT call revalidatePath here. verifyOtp already wrote the recovery
+    // session cookie via the SSR client — the next server action
+    // (updatePassword) reads it directly. Revalidating the root layout
+    // races the auth-page redirect in middleware.ts: the recovery user is
+    // technically "authed", /login is treated as an auth page, and the
+    // revalidation response gets rewritten to a /dashboard redirect — which
+    // the client component (still mid-flow) reads as a mismatched payload
+    // and Next.js surfaces as "An unexpected response was received from
+    // the server".
     return { ok: true }
 }
 
@@ -129,6 +135,9 @@ export async function updatePassword(newPassword: string): Promise<ResetResult> 
         }
         return { error: error.message }
     }
-    revalidatePath('/', 'layout')
+    // Same reasoning as verifyResetOtp: the client follows up with
+    // router.replace('/dashboard'), which SSRs /dashboard fresh with the
+    // updated cookies. Revalidating /login's layout here would race
+    // middleware's auth-page redirect and surface the same client error.
     return { ok: true }
 }

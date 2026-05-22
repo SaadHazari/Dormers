@@ -11,6 +11,14 @@ interface Props {
     label?: string | null
     /** Where the tooltip sits relative to the trigger. Defaults to 'top'. */
     placement?: 'top' | 'bottom'
+    /** How the wrapper sizes itself.
+     *  - 'block' (default): full-width wrapper so `width: 100%` buttons
+     *    (QuickActions) keep their layout and the tooltip centers over them.
+     *  - 'inline': wrapper shrink-wraps the trigger — required when the
+     *    trigger is a small inline-flex pill sitting inside a flex row,
+     *    otherwise the 100% wrapper stretches across the row and the
+     *    tooltip drifts far to the right of the actual button. */
+    fit?: 'block' | 'inline'
 }
 
 /**
@@ -19,18 +27,23 @@ interface Props {
  * dark-navy bubble that animates in within ~120ms. Same surface vocabulary
  * as the PlanProgress pill tooltips so the dashboard reads as one family.
  *
- * Wraps a single child (typically a <button>). The wrapper is display:
- * block + width: 100% so it doesn't shrink-wrap a full-width button.
+ * Wraps a single child (typically a <button>). The wrapper defaults to
+ * display: block + width: 100% so it doesn't shrink-wrap a full-width
+ * button — pass `fit="inline"` for small pill triggers that need the
+ * wrapper to hug the child so the tooltip stays centered over it.
  */
-export function Tooltip({ children, label, placement = 'top' }: Props) {
+export function Tooltip({ children, label, placement = 'top', fit = 'block' }: Props) {
     const [hovered, setHovered] = useState(false)
     const show = hovered && !!label
 
     const above = placement === 'top'
+    const inline = fit === 'inline'
 
     return (
         <span
-            style={{ position: 'relative', display: 'block', width: '100%' }}
+            style={inline
+                ? { position: 'relative', display: 'inline-block' }
+                : { position: 'relative', display: 'block', width: '100%' }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             onFocus={() => setHovered(true)}

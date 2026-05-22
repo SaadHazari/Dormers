@@ -17,6 +17,8 @@ import HubClient from './hub/HubClient'
 import { resolvePlan } from '@/lib/plans'
 import { resolveMealPriceContext } from '@/lib/dorm-wars/meal-pricing'
 import { maybeFireAnniversary, getLayer4Rewards } from '@/lib/dorm-wars/layer4'
+import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
+import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
@@ -57,14 +59,14 @@ export default async function DormWarsPage() {
     getStreakChestState(user.id),
     getStreak(user.id),
     // Reward events (referral conversion / cycle milestone / lifetime tier)
-    // power the celebratory banner at the top of HubClient when a friend
-    // converts. HubClient compares the newest event's id against a
-    // localStorage marker to decide whether to celebrate or stay quiet.
-    getRecentRewardEvents(user.id, 5),
+    // power both the celebratory banner at the top of HubClient when a
+    // friend converts AND the Wallet History modal listing past credits.
+    // 20 keeps the modal useful without a separate fetch round-trip.
+    getRecentRewardEvents(user.id, 20),
     // Phase 8C — cross-dorm "Happening Now" feed. Used to be scoped to
     // the user's own dorm only; empty-dorm users saw "no recent activity"
     // forever. Cross-dorm keeps the feed alive everywhere AND surfaces
-    // Elite Dormers (hall_wall === true) as rare social proof.
+    // GOATs (hall_wall === true) as rare social proof.
     getCrossDormRecent(8),
   ])
 
@@ -74,7 +76,7 @@ export default async function DormWarsPage() {
   // a milestone may render as "earned" in the hub before the awarder fires
   // (or vice versa). Parallelize the remaining reads.
   // Audit FIX 15: also fetch the tier-2 / tier-4 side-effect flags so the
-  // hub renders the perks (Early Access, Elite Dormer) the awarder promised.
+  // hub renders the perks (Early Access, GOAT badge) the awarder promised.
   const [cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
     activeSubscription
       ? getCycleRecruits(supabase, user.id, activeSubscription.id)
@@ -133,7 +135,22 @@ export default async function DormWarsPage() {
     // hub visit retries idempotently if this one failed.
     console.error('maybeFireAnniversary failed:', err)
   })
+
+  // Phase 8K Model C — review-credit cleanup moved up to the dashboard
+  // layout (Phase 8P) so users who never visit this hub still get their
+  // stranded pending credits resolved. No need to duplicate the call
+  // here; the layout fires before this page renders.
+
   const layer4Rewards = await getLayer4Rewards(adminClient, user.id)
+
+  // Phase 8K wiring — review state for the Side Rewards column. The two
+  // surveys (weekly + monthly wrap) deposit credits directly when submitted
+  // via /menu, but the Dorm Wars side-quest still needs the progress data
+  // to render "3 of 4 · AED 18 earned" instead of "Coming soon".
+  const [weeklyReviewState, monthlyReviewWindow] = await Promise.all([
+    getWeeklyReviewState(user.id),
+    getMonthlyReviewWindow(user.id),
+  ])
 
   return (
     <HubClient
@@ -155,6 +172,8 @@ export default async function DormWarsPage() {
       crossDormRecent={crossDormRecent}
       mealPriceContext={mealPriceContext}
       layer4Rewards={layer4Rewards}
+      weeklyReviewState={weeklyReviewState}
+      monthlyReviewWindow={monthlyReviewWindow}
     />
   )
 }

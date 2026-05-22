@@ -10,6 +10,7 @@ import {
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
 import type { ReferralData } from '@/utils/supabase/queries'
+import type { WeeklyReviewBadge } from '@/lib/weekly-review'
 
 // Surface tokens for the navy sidebar — opacities tuned for AA contrast against #1e3a4f
 const S = {
@@ -29,7 +30,7 @@ const NAV: NavItem[] = [
   { label: 'Help & Support',  href: '/dashboard/support',        icon: MessagesSquare },
 ]
 
-const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 0 }
+const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 0, creditPending: 0 }
 
 interface Props {
   customerName: string
@@ -40,11 +41,14 @@ interface Props {
   referralData?: ReferralData
   mobileOpen?: boolean
   onMobileClose?: () => void
+  /** When set to 'active' or 'late', renders a small dot on the My Menu icon to signal a pending weekly review. */
+  weeklyReviewBadge?: WeeklyReviewBadge
 }
 
 export default function Sidebar({
   customerName, customerCid, customerDorm, userEmail,
   notificationCount = 0, referralData = DEFAULT_REFERRAL, mobileOpen = false, onMobileClose,
+  weeklyReviewBadge = 'none',
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
@@ -230,6 +234,9 @@ export default function Sidebar({
               )
             }
 
+            const showBadge = item.href === '/dashboard/menu' && weeklyReviewBadge !== 'none'
+            const badgeIsActive = weeklyReviewBadge === 'active'
+
             return (
               <Link
                 key={item.href}
@@ -241,7 +248,25 @@ export default function Sidebar({
                 className={active ? 'sidebar-nav-active' : 'sidebar-nav-item'}
                 style={rowStyle(active)}
               >
-                <Icon size={18} strokeWidth={active ? 2.4 : 2} style={{ flexShrink: 0 }} />
+                <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                  <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+                  {showBadge && (
+                    <span
+                      aria-label={badgeIsActive ? 'Weekly review pending' : 'Late weekly review'}
+                      style={{
+                        position: 'absolute',
+                        top: -3,
+                        right: -3,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: badgeIsActive ? OG : 'rgba(237,232,218,0.45)',
+                        border: `2px solid ${NV2}`,
+                        boxShadow: badgeIsActive ? '0 0 6px rgba(245,127,32,0.7)' : 'none',
+                      }}
+                    />
+                  )}
+                </span>
                 <span style={labelStyle}>{item.label}</span>
               </Link>
             )

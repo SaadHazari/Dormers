@@ -81,12 +81,19 @@ export async function POST(req: Request) {
   log(`file ok type=${file.type} bytes=${file.size}`)
 
   // ── Premium+ gate (backend defense — hub UI already blocks non-Monthly) ──
+  // Match the SSR resolver (utils/supabase/queries.ts → getActiveSubscription):
+  // include 'Scheduled' so a customer who paid but whose sub starts later today
+  // can still claim. Without Scheduled the hub renders the Google review tile
+  // (SSR sees Scheduled as eligible) but this endpoint 403s them — misleading
+  // "ineligible plan" error for a paying Monthly Max user. Ordering ascending
+  // by start_date matches getActiveSubscription, so a renewing user with both
+  // an Active and a Scheduled sub claims against their current Active cycle.
   const { data: activeSub } = await admin
     .from('subscriptions')
     .select('id, plan_name')
     .eq('customer_id', user.id)
-    .in('status', ['Active', 'Paused', 'Skipped'])
-    .order('start_date', { ascending: false })
+    .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+    .order('start_date', { ascending: true })
     .limit(1)
     .maybeSingle()
   if (!activeSub) {

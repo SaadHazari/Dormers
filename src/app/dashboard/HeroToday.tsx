@@ -462,7 +462,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
         </span>
         <Link
           href="/dashboard/menu"
-          className="view-menu-btn"
+          className={isActive ? 'view-menu-btn view-menu-btn--on-dark' : 'view-menu-btn'}
           style={{
             marginLeft: 'auto',
             display: 'inline-flex', alignItems: 'center', gap: 4,

@@ -83,7 +83,8 @@ export const getAllSubscriptions = cache(async (userId: string) => {
 export interface ReferralData {
   total:         number   // gift_claimed + converted (all sent referrals that got a meal)
   converted:     number   // invitees who became paying subscribers
-  creditBalance: number   // sum of approved credits in AED
+  creditBalance: number   // sum of APPROVED credits in AED (spendable at checkout)
+  creditPending: number   // Phase 8K Model C — sum of PENDING credits (locked, at risk)
 }
 
 export const getReferralData = cache(async (userId: string): Promise<ReferralData> => {
@@ -100,22 +101,30 @@ export const getReferralData = cache(async (userId: string): Promise<ReferralDat
         .select('id', { count: 'exact', head: true })
         .eq('inviter_user_id', userId)
         .eq('status', 'converted'),
+      // Pull both statuses; partition below. Pending must NOT count
+      // toward the spendable wallet — the user can't apply locked money
+      // to a checkout.
       supabase
         .from('credits')
-        .select('amount_aed')
+        .select('amount_aed, status')
         .eq('customer_id', userId)
         .in('status', ['approved', 'pending']),
     ])
-    const creditBalance = (creditRes.data ?? []).reduce(
-      (sum, r) => sum + Number(r.amount_aed), 0
-    )
+    let creditBalance = 0
+    let creditPending = 0
+    for (const row of (creditRes.data ?? [])) {
+      const amt = Number(row.amount_aed)
+      if (row.status === 'approved') creditBalance += amt
+      else if (row.status === 'pending') creditPending += amt
+    }
     return {
       total:         totalRes.count     ?? 0,
       converted:     convertedRes.count ?? 0,
       creditBalance,
+      creditPending,
     }
   } catch {
-    return { total: 0, converted: 0, creditBalance: 0 }
+    return { total: 0, converted: 0, creditBalance: 0, creditPending: 0 }
   }
 })
 
@@ -164,8 +173,8 @@ export const getRecentInvites = cache(async (userId: string, limit = 10): Promis
 // Phase 8C — Cross-dorm activity feed. The Happening Now feed used to be
 // scoped to the user's own dorm; users with empty dorms saw "no recent
 // activity" forever. Cross-dorm makes the feed feel alive everywhere and
-// surfaces Elite Dormers (hall_wall === true) so their status reads as
-// rare social proof for other users.
+// surfaces GOATs (hall_wall === true) so their status reads as rare
+// social proof for other users.
 export interface CrossDormRecentSub {
   firstName: string
   dormName:  string
@@ -449,9 +458,11 @@ function rewardsAdmin() {
   )
 }
 
-// Phase 8E — Streak Chest replaces Daily Drop. The chest unlocks every 8
-// unbroken streak days; breaking the streak resets chest progress to 0.
-// See migration phase_8e_streak_chest_replaces_daily_drop.
+// Phase 8M — Streak Chest cadence shortened from 8 to 7 days so the
+// visual cycle is a clean 28 days (4 weeks × 7). Doubler bucket
+// restricted to chests 3 & 4 of the cycle inside claim_streak_chest;
+// chests 1 & 2 fold the doubler probability into cash_10_12. See migration
+// phase_8m_streak_chest_7day_cadence_doubler_last_two.
 export type StreakChestBucket = 'cash_5_8' | 'cash_8_10' | 'cash_10_12' | 'doubler'
 
 // Phase 8F — week-long doubler state. Non-null when the customer has an
@@ -465,8 +476,8 @@ export interface ActiveDoubler {
 export interface StreakChestState {
   count:         number                              // streak.count
   lastChestDay:  number                              // streak.last_chest_day
-  chestReady:    boolean                             // count - lastChestDay >= 8
-  daysUntilNext: number                              // 8 - (count - lastChestDay), >= 0
+  chestReady:    boolean                             // count - lastChestDay >= 7
+  daysUntilNext: number                              // 7 - (count - lastChestDay), >= 0
   recentChest:   {                                   // most recent claim, for "you just got" UI
     rng_bucket:         StreakChestBucket
     value_aed:          number | null                // null for doubler
@@ -508,8 +519,8 @@ export async function getStreakChestState(
   const count = streakRow.data ? Number(streakRow.data.count) : 0
   const lastChestDay = streakRow.data ? Number(streakRow.data.last_chest_day) : 0
   const gap = Math.max(0, count - lastChestDay)
-  const chestReady = gap >= 8
-  const daysUntilNext = chestReady ? 0 : Math.max(0, 8 - gap)
+  const chestReady = gap >= 7
+  const daysUntilNext = chestReady ? 0 : Math.max(0, 7 - gap)
 
   // Phase 8F — derive active-doubler state from the latest doubler chest.
   // The chest-row read above only returns the single most recent chest of
@@ -571,6 +582,10 @@ export interface RewardEvent {
   source:       string
   created_at:   string
   invitee_name: string | null   // populated only for referral_conversion source
+  // Phase 8K — wallet history shows BOTH active and pending credits, with
+  // a "Pending" pill on at-risk rows. 'approved'/'applied' = landed in
+  // wallet; 'pending' = locked (weekly review pool, threshold not met yet).
+  status:       'approved' | 'applied' | 'pending'
 }
 export async function getRecentRewardEvents(
   customerId: string,
@@ -585,9 +600,13 @@ export async function getRecentRewardEvents(
   const [creditsRes, tier3Res] = await Promise.all([
     sb
       .from('credits')
-      .select('id, amount_aed, source, created_at, referral_id, referrals(invitee_first_name)')
+      .select('id, amount_aed, source, status, created_at, referral_id, referrals(invitee_first_name)')
       .eq('customer_id', customerId)
-      .in('status', ['approved', 'applied'])
+      // Include 'pending' alongside approved/applied — the wallet modal
+      // now surfaces pending review credits with a status pill so users
+      // see the all-or-nothing pool building up. Excludes 'rejected' (no
+      // value to the user) and 'reserved' (transient mid-checkout state).
+      .in('status', ['approved', 'applied', 'pending'])
       // Source prefix filter — anything reward-driven, no daily drops.
       .or('source.like.referral_conversion%,source.like.cycle_milestone_%,source.like.tier_%,source.like.layer4_%')
       .gte('created_at', thirtyDaysAgo)
@@ -618,6 +637,7 @@ export async function getRecentRewardEvents(
       source:       r.source as string,
       created_at:   r.created_at as string,
       invitee_name: inviteeName,
+      status:       r.status as 'approved' | 'applied' | 'pending',
     }
   })
 
@@ -630,6 +650,7 @@ export async function getRecentRewardEvents(
       source:       'tier_3_jacket',
       created_at:   tier3Res.data.awarded_at as string,
       invitee_name: null,
+      status:       'approved',                       // physical fulfilment, but treated as a completed event
     })
   }
 

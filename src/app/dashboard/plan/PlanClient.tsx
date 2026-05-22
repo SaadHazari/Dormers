@@ -379,7 +379,7 @@ function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, 
              surface it only when the customer genuinely hasn't committed
              to a next plan yet. */
           outOfZone ? (
-            <Tooltip label="Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.">
+            <Tooltip fit="inline" label="Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.">
               <span
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -394,7 +394,7 @@ function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, 
               </span>
             </Tooltip>
           ) : (
-            <Tooltip label="Choose a plan + start date below.">
+            <Tooltip fit="inline" label="Choose a plan + start date below.">
               <button
                 type="button"
                 onClick={onRenewClick}
@@ -414,7 +414,7 @@ function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, 
         ) : startsInFuture ? (() => {
           const dateChangeUsed = !!sub.start_date_changed_at
           return (
-            <Tooltip label={dateChangeUsed
+            <Tooltip fit="inline" label={dateChangeUsed
               ? "You can only change the start date once."
               : "Pick a different start date (you can only do this once)"}>
               <button
@@ -510,24 +510,77 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
 
   return (
     <div style={{
-      ...TIER2,
+      // Pull background + shadow from TIER2 — Up Next is PASSIVE info and
+      // must sit one tier lower than the active Reviews card (which is on
+      // TIER1). Equal brightness would make them peers in the visual
+      // hierarchy; we want a clear descent: hero (dark) → Reviews (TIER1
+      // + orange) → Up Next (TIER2 + navy whisper) → page bg.
+      //
+      // Border longhands instead of `...TIER2` spread to avoid the React
+      // shorthand/longhand collision (same class of bug as the background/
+      // backgroundImage one in memory) that silently eats the top accent.
+      background: TIER2.background,
+      boxShadow: TIER2.boxShadow,
+      // Use the SCHEDULED pill's actual slate-blue (#3a6f8c) — a saturated
+      // hue-200 blue — not NV (#091825) which is near-black with only a
+      // sliver of blue. At low opacity, NV dilutes into beige-gray on cream;
+      // slate-blue has enough blue chroma to read as navy even at 45%.
+      // Direct tie to the pill's colour is also the point — the card surface
+      // is "the pill's colour, whispered".
+      borderTop:    '3px solid rgba(58,111,140,0.55)',
+      borderRight:  '1px solid rgba(9,24,37,0.08)',
+      borderBottom: '1px solid rgba(9,24,37,0.08)',
+      borderLeft:   '1px solid rgba(9,24,37,0.08)',
       padding: 22, borderRadius: 16,
       marginBottom: 16,
       display: 'flex', flexDirection: 'column', gap: 14,
-      borderLeft: `3px solid ${OG}`,
+      // Up Next "scheduled" identity. Orange is reserved for action (active
+      // reviews); slate-blue is reserved for scheduled / future state — the
+      // same hue already lives in the SCHEDULED status pill below, so this
+      // doesn't introduce a new vocabulary, it just extends the pill's
+      // colour into the card surface:
+      //   • TIER2 base recesses slightly vs the brighter Reviews card above
+      //   • 3px slate-blue top-border anchors it as "future state" (top, not
+      //     left, so it never visually echoes the active card's left-rail
+      //     urgency)
+      //   • faint slate-blue radial wash in the top-right adds texture
+      //     without adding weight
+      //
+      // Note: `overflow: hidden` is INTENTIONALLY NOT on the outer card.
+      // It would clip the "Change start date" tooltip when the button sits
+      // near the card's right edge — the tooltip's centered render extends
+      // beyond the card and gets sliced off. Instead, the decorative wash
+      // gets its own clipping wrapper below so the corners stay rounded
+      // while tooltips can still escape the card freely.
+      position: 'relative',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+      <div aria-hidden style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: 16,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: -60, right: -60,
+          width: 220, height: 220,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(58,111,140,0.18) 0%, rgba(58,111,140,0) 70%)',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', position: 'relative' }}>
         <div>
           <Eyebrow>Up next</Eyebrow>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10, fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: S.fg, letterSpacing: '-0.01em' }}>
-            <PlanGlyph planName={sub.plan_name} size={18} />
+            <PlanGlyph planName={sub.plan_name} size={22} />
             {cleanPlanName(sub.plan_name)}
           </div>
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted }}>
             {primaryIsPaused ? 'Est. starts ' : 'Starts '}
             <strong style={{ color: S.fg }}>{fmtWithDay(sub.start_date)}</strong>
             {primaryIsPaused && (
-              <Tooltip label="Shifts forward as you stay paused. Confirmed once you resume.">
+              <Tooltip fit="inline" label="Shifts forward as you stay paused. Confirmed once you resume.">
                 <span style={{
                   marginLeft: 8, padding: '2px 8px', borderRadius: 999,
                   background: 'rgba(58,111,140,0.12)',
@@ -542,7 +595,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
         <StatusDot status={SUBSCRIPTION_STATUS.SCHEDULED} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysToStart}</span>
           <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: S.fgMuted }}>
@@ -550,7 +603,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
           </span>
         </div>
 
-        <Tooltip label={dateChangeUsed
+        <Tooltip fit="inline" label={dateChangeUsed
           ? "You can only change the start date once."
           : "Pick a different start date (you can only do this once)"}>
           <button
@@ -585,6 +638,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
         paddingTop: 4,
         borderTop: `1px solid ${S.border}`,
         marginTop: 2,
+        position: 'relative',
       }}>
         Need to cancel?{' '}
         <a
@@ -1410,7 +1464,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                 </div>
               </div>
               {activePlanIsPaused ? (
-                <Tooltip label="Resume your current plan before exploring new plans.">
+                <Tooltip fit="inline" label="Resume your current plan before exploring new plans.">
                   <span
                     aria-disabled="true"
                     style={{

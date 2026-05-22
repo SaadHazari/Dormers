@@ -11,6 +11,7 @@ import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { whatsAppHref } from '@/lib/contacts'
 import { missingProfileFields } from '@/lib/profile-completion'
 import type { Customer, Subscription } from './_shared/types'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
 
 // Webhook fallback threshold — if the subscription hasn't been provisioned this
 // many ms after Stripe redirects back, swap the cheery "Setting up" copy for a
@@ -29,6 +30,7 @@ interface Props {
   // no-plan dashboard doesn't feel empty. Resolved server-side from the
   // `referrals` table — see dashboard/page.tsx.
   trialGift?: { deliveryLabel: string; deliveryIso: string } | null
+  weeklyReviewState?: WeeklyReviewState
 }
 
 /**
@@ -40,7 +42,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, trialGift = null }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, trialGift = null, weeklyReviewState = EMPTY_REVIEW_STATE }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -229,6 +231,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       justCheckedOut={justCheckedOut}
       profileGate={missingFields}
       outOfZone={outOfZone}
+      weeklyReviewState={weeklyReviewState}
     />
   )
 }

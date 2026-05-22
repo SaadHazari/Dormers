@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
 import { computeTrialDeliveryDate, trialDeliveryLabel, type WeekType } from '@/lib/trial-delivery'
+import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 
 const PREVIEW_CUSTOMER = {
     id: 'preview',
@@ -59,11 +60,12 @@ export default async function DashboardPage({
     const user = await getUserFromHeaders()
     if (!user) redirect('/login')
 
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription] = await Promise.all([
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, weeklyReviewState] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
         getQueuedSubscription(user.id),
+        getWeeklyReviewState(user.id),
     ])
 
     // ── Trial gift in flight? ──────────────────────────────────────────────
@@ -107,6 +109,7 @@ export default async function DashboardPage({
                 queuedSubscription={queuedSubscription}
                 userEmail={user.email}
                 trialGift={trialGift}
+                weeklyReviewState={weeklyReviewState}
             />
         </Suspense>
     )

@@ -109,7 +109,7 @@ export async function GET() {
   return NextResponse.json({
     count,
     lastChestDay,
-    chestReady:    gap >= 8,
-    daysUntilNext: gap >= 8 ? 0 : Math.max(0, 8 - gap),
+    chestReady:    gap >= 7,
+    daysUntilNext: gap >= 7 ? 0 : Math.max(0, 7 - gap),
   })
 }

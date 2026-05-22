@@ -74,6 +74,12 @@ export interface Subscription {
   // rows pre-dating the column, only the most recent skip is represented;
   // older skips are untraced and the bar renders them as a count-only fallback.
   skipped_dates?: string[] | null
+  // AE-wall-date ledger of every paused delivery-day on this sub
+  // (YYYY-MM-DD strings). Populated by subscription_pause_tick on each
+  // 00:10 AE increment + by resumeSubscription when resume happens after
+  // the 2 PM cutoff. Drives "Paused meal" greying in the weekly-review
+  // grid so paused days aren't asked to review meals that never arrived.
+  paused_dates?: string[] | null
   // Pre-scheduled pause start (AE wall date, YYYY-MM-DD). Set by planPause()
   // when a customer schedules a future pause; cleared by the status_tick cron
   // at 00:05 AE on the start date when it flips status to Paused. Also cleared

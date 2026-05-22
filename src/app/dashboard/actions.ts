@@ -412,12 +412,24 @@ export async function resumeSubscription(subscriptionId: string) {
   // out accordingly. Adding diffDays here would double-count.
   // CAS guard: only flip Paused → Active. Prevents a stale "resume" from
   // overwriting a sub that's since been Ended by status_tick.
+  //
+  // paused_dates: when resume happens after the 2 PM AE cutoff on a
+  // delivery day, delivery_tick will skip that day (no meal delivered).
+  // The 00:10 AE pause_tick has NOT yet run for today (it fires at the
+  // start of tomorrow, after the sub is already Active), so we append
+  // today here so the review surface knows this day was paused.
+  const todayDateOnly = todayAE  // already YYYY-MM-DD
+  const existingPaused = (subscription as { paused_dates?: string[] | null }).paused_dates ?? []
+  const nextPausedDates = setResumeCutoff && !existingPaused.includes(todayDateOnly)
+    ? [...existingPaused, todayDateOnly]
+    : existingPaused
+
   const { data: resumeRows, error: updateError } = await auth.supabase
     .from('subscriptions')
     .update({
       status: SUBSCRIPTION_STATUS.ACTIVE,
       pause_date: null,
-      ...(setResumeCutoff ? { resume_cutoff_date: todayAE } : {}),
+      ...(setResumeCutoff ? { resume_cutoff_date: todayAE, paused_dates: nextPausedDates } : {}),
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.PAUSED)

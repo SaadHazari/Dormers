@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
 import type { ReferralData } from '@/utils/supabase/queries'
+import type { WeeklyReviewBadge } from '@/lib/weekly-review'
 
 interface Props {
   customerName:  string
@@ -12,14 +13,15 @@ interface Props {
   userEmail:     string
   planName:      string
   referralData?: ReferralData
+  weeklyReviewBadge?: WeeklyReviewBadge
   children: React.ReactNode
 }
 
-const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 0 }
+const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 0, creditPending: 0 }
 
 export default function DashboardShell({
   customerName, customerCid, customerDorm, userEmail,
-  referralData = DEFAULT_REFERRAL, children,
+  referralData = DEFAULT_REFERRAL, weeklyReviewBadge = 'none', children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -31,6 +33,7 @@ export default function DashboardShell({
         customerDorm={customerDorm}
         userEmail={userEmail}
         referralData={referralData}
+        weeklyReviewBadge={weeklyReviewBadge}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />

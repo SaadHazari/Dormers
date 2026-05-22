@@ -57,9 +57,18 @@ export const updateSession = async (request: NextRequest) => {
         return applyBufferedCookies(NextResponse.redirect(url));
     }
 
-    // Redirect already-authenticated users away from auth/onboarding pages
+    // Redirect already-authenticated users away from auth/onboarding pages.
+    // Exception: /login?step=set-password is the magic-link landing for the
+    // password-reset flow. Users who get there have a recovery session
+    // (authed from middleware's POV) but still need to finish setting their
+    // new password — punting them to /dashboard breaks the flow AND, when
+    // triggered as a response to a server-action revalidation, surfaces as
+    // "An unexpected response was received from the server" on the client.
+    const isResetLanding =
+        request.nextUrl.pathname.startsWith('/login') &&
+        request.nextUrl.searchParams.get('step') === 'set-password';
     const isAuthPage =
-        request.nextUrl.pathname.startsWith('/login') ||
+        (request.nextUrl.pathname.startsWith('/login') && !isResetLanding) ||
         request.nextUrl.pathname === '/onboarding';
 
     if (user && isAuthPage) {
