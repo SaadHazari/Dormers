@@ -4912,6 +4912,30 @@ function WalletHistoryModal({
   // specifically about cash that landed (or is on its way).
   const cashEvents = events.filter(e => e.amount_aed > 0)
 
+  // Pending copy is source-aware. The pending container's sub-line used
+  // to assume all pending = review credits, which misled users whose
+  // pending pool included a referral_conversion stuck in fraud review.
+  // Now we look at the actual pending events and pick copy that
+  // describes the real unlock condition.
+  const pendingByKind = (() => {
+    let review = false
+    let referral = false
+    let other = false
+    for (const ev of cashEvents) {
+      if (ev.status !== 'pending') continue
+      if (ev.source.startsWith('layer4_weekly_review')) review = true
+      else if (ev.source.startsWith('referral_conversion')) referral = true
+      else other = true
+    }
+    return { review, referral, other }
+  })()
+  const pendingSubLine = (() => {
+    const { review, referral, other } = pendingByKind
+    if (review && !referral && !other) return 'Locks in when you finish this cycle’s reviews'
+    if (referral && !review && !other) return 'Locks in when your referral clears review'
+    return 'Locks in once verified — see history below'
+  })()
+
   return (
     <div>
       {/* ── Header: TWO containers side-by-side ─────────────────────
@@ -4994,7 +5018,7 @@ function WalletHistoryModal({
                 fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST,
                 marginTop: 4, lineHeight: 1.4,
               }}>
-                Locks in when you finish this cycle&rsquo;s reviews
+                {pendingSubLine}
               </div>
             </div>
           </div>
