@@ -6,6 +6,11 @@ import { requireUser } from '@/lib/auth-helpers';
 import { loadOwnedSubscription } from '@/lib/subscriptions';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
 import { createClient } from '@/utils/supabase/server';
+import {
+    ae9amUtcOnDate,
+    nextEligibleDeliveryDay,
+    queueCustomerNotification,
+} from '@/lib/customer-notifications';
 
 /**
  * Saves account-detail fields that apply IMMEDIATELY (current cycle).
@@ -363,6 +368,17 @@ export async function pauseSubscription(subscriptionId: string) {
     return { error: 'Pause didn\'t take. Refresh and try again, or message us on WhatsApp.' };
   }
 
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Immediate "your plan is paused" confirm. Pause is open-ended — the
+  // copy explicitly tells the user resume is their call, no fake auto-
+  // resume date here. The matching "plan back on" message is scheduled
+  // later from resumeSubscription() when the user comes back.
+  await queueCustomerNotification(
+    auth.user.id,
+    'plan_paused_confirm',
+    new Date(),
+  );
+
   // Revalidate at layout level so the sidebar/topbar plan badge + every nested
   // route under /dashboard sees the new status.
   revalidatePath('/dashboard', 'layout');
@@ -439,6 +455,28 @@ export async function resumeSubscription(subscriptionId: string) {
   if (!resumeRows || resumeRows.length === 0) {
     return { error: 'Resume didn\'t take. Refresh and try again, or message us on WhatsApp.' };
   }
+
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Schedule the "you're back on" message for 9 AM AE TOMORROW (or
+  // technically the next eligible delivery day, since resume on a Friday
+  // with a 5DAYS plan should land Monday morning, not Saturday).
+  const tomorrowAEIso = (() => {
+    const tomorrow = new Date(aeNow.getTime() + 24 * 60 * 60 * 1000);
+    return `${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth() + 1).padStart(2, '0')}-${String(tomorrow.getUTCDate()).padStart(2, '0')}`;
+  })();
+  const resumeMsgDateIso = nextEligibleDeliveryDay({
+    fromAeDateIso: todayAE,
+    weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
+    skippedDates:  subscription.skipped_dates ?? [],
+    pausedDates:   nextPausedDates,
+    subEndDateIso: subscription.end_date,
+  }) ?? tomorrowAEIso;
+  await queueCustomerNotification(
+    auth.user.id,
+    'plan_resumed_confirm',
+    ae9amUtcOnDate(resumeMsgDateIso),
+    { resume_date: resumeMsgDateIso },
+  );
 
   // Revalidate at layout level so the sidebar/topbar plan badge + every nested
   // route under /dashboard sees the new status.
@@ -630,6 +668,37 @@ export async function skipMeal(subscriptionId: string) {
   if (updateError) return { error: 'Failed to skip meal.' };
   if (!skipRows || skipRows.length === 0) {
     return { error: 'Skip didn\'t take. Refresh and try again, or message us on WhatsApp.' };
+  }
+
+  // ── WhatsApp confirmations ──────────────────────────────────────────────
+  // Two notifications:
+  //   1. Immediate confirm — "your meal for today is skipped, carried forward"
+  //   2. Morning-after resume confirm — fires at 9 AM AE on the next eligible
+  //      delivery day. "Eligible" respects week_type, already-skipped/paused
+  //      dates, AND the sub end_date — we don't promise a meal that won't
+  //      come.
+  // Both are fire-and-forget; if either insert fails the user's skip still
+  // succeeded (the in-flight kitchen state is already correct).
+  await queueCustomerNotification(
+    auth.user.id,
+    'meal_skipped_confirm',
+    new Date(), // immediate
+    { meal_date: todayAEIso },
+  );
+  const resumeOnIso = nextEligibleDeliveryDay({
+    fromAeDateIso: todayAEIso,
+    weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
+    skippedDates:  nextSkippedDates,
+    pausedDates:   subscription.paused_dates ?? [],
+    subEndDateIso: subscription.end_date,
+  });
+  if (resumeOnIso) {
+    await queueCustomerNotification(
+      auth.user.id,
+      'meal_resumed_confirm',
+      ae9amUtcOnDate(resumeOnIso),
+      { resume_date: resumeOnIso },
+    );
   }
 
   // Revalidate at layout level so the sidebar/topbar plan badge + every nested
@@ -957,6 +1026,18 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
   if (!rows || rows.length === 0) {
     return { error: 'Couldn\'t schedule the pause — please refresh and try again.' };
   }
+
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Immediate confirm telling the user the date their plan WILL pause —
+  // distinct from plan_paused_confirm (which fires when pause is now).
+  // The cron's auto-activation on the planned date doesn't get its own
+  // message; this scheduling confirm IS the receipt.
+  await queueCustomerNotification(
+    auth.user.id,
+    'plan_pause_scheduled_confirm',
+    new Date(),
+    { start_date: startDateIso },
+  );
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
