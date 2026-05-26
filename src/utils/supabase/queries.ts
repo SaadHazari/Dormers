@@ -80,6 +80,26 @@ export const getAllSubscriptions = cache(async (userId: string) => {
   return data ?? []
 })
 
+/**
+ * Returns the customer's most recent order — used by the post-checkout success
+ * takeover to display the just-paid amount alongside the new subscription
+ * details. Returns null when the customer has never paid (e.g. first-time
+ * visit, pre-checkout). The takeover is only rendered when the just-created
+ * subscription is detected, so on the success path this order will always be
+ * the freshly-paid one.
+ */
+export const getMostRecentOrder = cache(async (userId: string) => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('id, plan, meals_count, price_per_meal, created_at')
+    .eq('customer_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data
+})
+
 export interface ReferralData {
   total:         number   // gift_claimed + converted (all sent referrals that got a meal)
   converted:     number   // invitees who became paying subscribers

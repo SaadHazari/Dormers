@@ -39,7 +39,11 @@ export function ReviewClient({
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
             onSubmit={(payload: WeeklyReviewPayload) => submitWeeklyReview(week, payload)}
-            onClose={() => router.push('/dashboard/menu')}
+            // Dismiss lands on the main dashboard, not /menu — the weekly
+            // review trigger now lives in the Now tray (which is shell-level,
+            // not menu-scoped), so /dashboard is the natural return surface.
+            // See project_now_tray_architecture memory.
+            onClose={() => router.push('/dashboard')}
         />
     )
 }

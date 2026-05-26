@@ -8,6 +8,93 @@
 
 export type MonthlyReviewBadge = 'active' | 'late' | 'none'
 
+/**
+ * Plan-tier classification used to drive plan-agnostic wrap copy + the
+ * tier-specific pre-end eligibility window. Mirrors the renew-banner's
+ * three tiers in src/app/dashboard/ActiveDashboard.tsx so the wrap opens
+ * on the same schedule as the renew CTA.
+ */
+export type WrapPlanTier = 'monthly' | 'weekly' | 'trial'
+
+/**
+ * Vocabulary for the wrap surfaces + form copy. Keeps "wrap" as the
+ * universal noun (user-confirmed) and varies the qualifier/period word
+ * by plan tier so a weekly customer doesn't see "monthly" everywhere.
+ */
+export interface WrapVocab {
+    /** Used in "{qualifier} wrap" eyebrows + nav labels. */
+    qualifier: 'monthly' | 'weekly' | 'meal'
+    /** Body-copy period noun: "your {period}, wrapped". */
+    period: 'month' | 'week' | 'meal'
+    /** Possessive form for "wrap your {period}" — same as period for now. */
+    periodPossessive: 'month' | 'week' | 'meal'
+}
+
+export function wrapVocabFor(tier: WrapPlanTier): WrapVocab {
+    switch (tier) {
+        case 'monthly': return { qualifier: 'monthly', period: 'month', periodPossessive: 'month' }
+        case 'weekly':  return { qualifier: 'weekly',  period: 'week',  periodPossessive: 'week'  }
+        case 'trial':   return { qualifier: 'meal',    period: 'meal',  periodPossessive: 'meal'  }
+    }
+}
+
+/**
+ * Derive the wrap tier from a sub's plan_name. Defaults to 'monthly' for
+ * unknown strings so we never crash on a new plan name — the worst case is
+ * mildly off copy, not a missing wrap surface.
+ */
+export function planTierFrom(planName: string | null | undefined): WrapPlanTier {
+    if (!planName) return 'monthly'
+    if (planName.includes('One-Time') || planName.includes('Trial')) return 'trial'
+    if (planName.includes('Weekly')) return 'weekly'
+    return 'monthly'
+}
+
+/**
+ * Days BEFORE a cycle's end_date when the wrap becomes eligible — mirrors
+ * the dashboard's renew banner timing exactly. The wrap and renew CTAs
+ * appear together so the customer sees them as one "you're closing this
+ * cycle" moment, not two separate prompts.
+ *   Monthly → 4 days lead-in (matches Monthly Premium/Max renew window)
+ *   Weekly  → 2 days lead-in
+ *   Trial   → 1 day (last-day-only, same as renew)
+ */
+export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
+    monthly: 4,
+    weekly:  2,
+    trial:   1,
+}
+
+/**
+ * Plan-aware cycle label for the wrap surfaces + form.
+ *
+ * IMPORTANT: this returns a BARE noun phrase — no leading "your" or "the".
+ * Templates that want a determiner ("Wrap your X", "Close out your X", "Your X
+ * ends tonight") prepend it themselves. Returning "your trial" baked-in
+ * caused a "your your trial" duplication bug — fixed by keeping the label
+ * bare and standardising every template on the "your {cycleLabel}" pattern.
+ *
+ *   Monthly → "April cycle"           ("Wrap your April cycle"     ✓)
+ *   Weekly  → "week of Apr 14"        ("Wrap your week of Apr 14"  ✓)
+ *   Trial   → "trial"                  ("Wrap your trial"           ✓)
+ *
+ * Eyebrow-style usages (no determiner) take the label as-is — "monthly
+ * wrap · April cycle", "meal wrap · trial" both read fine.
+ */
+export function cycleLabelFor(tier: WrapPlanTier, startDate: string | null): string | null {
+    if (!startDate) return null
+    const d = new Date(startDate.slice(0, 10) + 'T00:00:00Z')
+    if (isNaN(d.getTime())) return null
+    switch (tier) {
+        case 'monthly':
+            return d.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' }) + ' cycle'
+        case 'weekly':
+            return 'week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+        case 'trial':
+            return 'trial'
+    }
+}
+
 export type RenewalIntent = 'definitely' | 'probably' | 'probably_not' | 'no'
 export type RecommendAnswer = 'yes_specific' | 'yes_general' | 'maybe' | 'no'
 export type AlternativeCostAed = 'under-15' | '15-25' | '25-40' | '40-plus'
@@ -62,10 +149,35 @@ export interface MonthlyReviewWindow {
     submitted: boolean
     /** Days remaining in the 7-day full-reward window. Negative if past. */
     daysLeftForFullReward: number
-    /** Days since the cycle ended. */
+    /**
+     * Days since the cycle ended. Negative when the cycle hasn't ended yet
+     * (wrap is eligible pre-end, within PRE_END_WRAP_WINDOW[planTier]) —
+     * surfaces use the sign to switch chip copy between "Nd to end" and
+     * "Nd left for full reward" / "Nd late".
+     */
     daysSinceCycleEnd: number
     /** True when past the 30-day expiry. */
     expired: boolean
+    /**
+     * Narrow "evening of the last delivery day" window — after the meal is
+     * delivered (>= MONTHLY_PRE_CRON_HOUR_AE wall clock) and before the
+     * end-of-night cron flips the sub off Active. Drives the forcing overlay
+     * on the Now-tray architecture; outside this window the tray card +
+     * dashboard strip / empty banner take over with graceful degradation.
+     * False when already submitted.
+     */
+    preCron: boolean
+    /**
+     * Plan-aware cycle label — "April cycle" for monthly, "the week of Apr 14"
+     * for weekly, "your trial" for trial. Null when no eligible cycle exists.
+     */
+    cycleLabel: string | null
+    /**
+     * Plan tier of the cycle being wrapped. Drives the vocab helper
+     * (qualifier/period words used in surface + form copy) and the
+     * tier-specific pre-end eligibility window.
+     */
+    planTier: WrapPlanTier
 }
 
 // ── Business constants ──────────────────────────────────────────────────────
@@ -78,6 +190,13 @@ export const MONTHLY_LATE_REWARD_AED = 2
 export const MONTHLY_FULL_REWARD_WINDOW_DAYS = 7
 /** Days after cycle end past which monthly review can no longer be submitted. */
 export const MONTHLY_LATE_CAP_DAYS = 30
+/**
+ * Wall-clock hour (Asia/Dubai) after which we consider the customer to be in
+ * the pre-cron window on their last delivery day. 7 PM = AE 19:00 — the slot
+ * when meals are delivered (7–8 PM window). Before this hour the cycle's
+ * last meal hasn't arrived yet, so prompting for a wrap is premature.
+ */
+export const MONTHLY_PRE_CRON_HOUR_AE = 19
 
 /**
  * AED earned for the monthly wrap given its reward_pct. Mirrors the weekly
@@ -85,6 +204,12 @@ export const MONTHLY_LATE_CAP_DAYS = 30
  */
 export function monthlyReviewAed(rewardPct: 50 | 100): number {
     return rewardPct === 100 ? MONTHLY_REWARD_AED : MONTHLY_LATE_REWARD_AED
+}
+
+/** Derive the Now-tray badge value for the monthly wrap from the window state. */
+export function monthlyBadgeFromWindow(w: MonthlyReviewWindow): MonthlyReviewBadge {
+    if (!w.eligible) return 'none'
+    return w.daysLeftForFullReward > 0 ? 'active' : 'late'
 }
 
 // ── Q1 / Q2 chip option sets — used by both the form and the validators ────

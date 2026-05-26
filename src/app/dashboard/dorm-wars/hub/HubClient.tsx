@@ -1107,6 +1107,24 @@ function PremiumGateOverlay({
         }}>
           Available on Monthly Premium + Monthly Max
         </p>
+
+        {/* Coda — ineligible users get a way out without breaking the upsell.
+            A quiet text link (not a button) so it never competes with the
+            gold CTA above. Routes to the dashboard home, not back into
+            /dashboard/dorm-wars (which would just re-trigger this overlay). */}
+        <a
+          href="/dashboard"
+          style={{
+            display: 'inline-block',
+            marginTop: 14,
+            fontFamily: BODY, fontSize: 12, fontWeight: 600,
+            color: MIST,
+            textDecoration: 'underline',
+            textUnderlineOffset: 3,
+          }}
+        >
+          Not now — back to dashboard
+        </a>
       </div>
     </div>
   )

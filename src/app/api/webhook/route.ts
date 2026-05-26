@@ -10,6 +10,7 @@ import {
   INVOICE_STATUS,
 } from '@/lib/subscription-status';
 import { computeEndDate, isoDate, type WeekType } from '@/lib/end-date';
+import { runPostPaymentFanout } from '@/lib/post-payment/fanout';
 
 /**
  * Forward a date to the next delivery day for the customer's week_type.
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
       // because this IS the next subscription being created.
       const { data: customerRow } = await supabaseAdmin
         .from('customers')
-        .select('week_type, meal_preference_type, allergens, spice_level_preference, veg_days, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
+        .select('cid, week_type, meal_preference_type, allergens, spice_level_preference, veg_days, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
         .eq('id', user_id)
         .maybeSingle();
       const effectiveWeekTypeRaw =
@@ -536,6 +537,65 @@ export async function POST(req: Request) {
         .eq('id', orderId);
       if (completeErr) {
         console.error('⚠️  failed to mark webhook_completed_at:', completeErr);
+      }
+
+      // ── Post-payment fan-out ─────────────────────────────────────────────
+      // Two synchronous channels fire immediately: WhatsApp confirmation
+      // and ZeptoMail welcome from club@. The Zoho receipt email is
+      // deliberately deferred 2 minutes via `orders.zoho_scheduled_for`
+      // and picked up by the every-minute dispatch_zoho_due cron — back-
+      // to-back arrivals from club@ + finance@ felt spammy.
+      //
+      // Awaited (not fire-and-forget) for the same reason
+      // creditInviterOnConversion above is — Netlify Function instances can
+      // be torn down the moment we return 200, killing any in-flight
+      // Promise. The two-channel fan-out is fast (~1-2s) and stays well
+      // within Stripe's 10s webhook timeout.
+      const amountTotalAed = session.amount_total ? session.amount_total / 100 : 0;
+      const pricePerMealEff = total_meals > 0 ? amountTotalAed / total_meals : 0;
+      const customerEmail = session.customer_details?.email ?? '';
+      if (customerEmail) {
+        try {
+          await runPostPaymentFanout(
+            {
+              supabase: supabaseAdmin,
+              orderId,
+              customerId: user_id,
+              customerCid: (customerRow?.cid as string | undefined) ?? '',
+              customerName: name ?? '',
+              customerEmail,
+              customerPhone: phone ?? '',
+              planName: plan_name,
+              mealsCount: total_meals,
+              pricePerMeal: pricePerMealEff,
+              amountTotalAed,
+              startDateIso: isoDate(startDate),
+              sessionId: session.id,
+              paymentIntentId: (session.payment_intent as string) ?? '',
+              paymentDateIso: new Date().toISOString().slice(0, 10),
+            },
+            { skipChannels: ['zoho'] },
+          );
+        } catch (err) {
+          console.error('⚠️  post-payment fan-out wrapper threw:', err);
+        }
+
+        // Schedule the Zoho receipt for T+2min. The dispatch_zoho_due cron
+        // picks this up next minute boundary.
+        const { error: schedErr } = await supabaseAdmin
+          .from('orders')
+          .update({
+            zoho_scheduled_for: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+          })
+          .eq('id', orderId);
+        if (schedErr) {
+          console.error('⚠️  failed to set zoho_scheduled_for:', schedErr);
+        }
+      } else {
+        console.warn(
+          `⚠️  post-payment fan-out skipped — no customer email on session ${session.id}; ` +
+          `retry cron will catch this once the customers row is patched`,
+        );
       }
 
       console.log(`✅ Successfully processed checkout for user ${user_id} (resume=${resumeMode})`);

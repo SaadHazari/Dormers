@@ -5,12 +5,19 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Bell, Sun, Moon, Gift,
+  X, Activity, Sun, Moon, Gift,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
 import type { ReferralData } from '@/utils/supabase/queries'
-import type { WeeklyReviewBadge } from '@/lib/weekly-review'
+import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/lib/weekly-review'
+import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/lib/monthly-review'
+
+const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
+  eligible: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
+}
 
 // Surface tokens for the navy sidebar — opacities tuned for AA contrast against #1e3a4f
 const S = {
@@ -37,19 +44,46 @@ interface Props {
   customerCid: string
   customerDorm: string
   userEmail: string
-  notificationCount?: number
   referralData?: ReferralData
   mobileOpen?: boolean
   onMobileClose?: () => void
-  /** When set to 'active' or 'late', renders a small dot on the My Menu icon to signal a pending weekly review. */
-  weeklyReviewBadge?: WeeklyReviewBadge
+  /** Pending/late weekly reviews — drives weekly tray content. */
+  weeklyReviewState?: WeeklyReviewState
+  /** Monthly wrap window state — drives the wrap tray card + combined badge. */
+  monthlyWindow?: MonthlyReviewWindow
 }
 
 export default function Sidebar({
   customerName, customerCid, customerDorm, userEmail,
-  notificationCount = 0, referralData = DEFAULT_REFERRAL, mobileOpen = false, onMobileClose,
-  weeklyReviewBadge = 'none',
+  referralData = DEFAULT_REFERRAL, mobileOpen = false, onMobileClose,
+  weeklyReviewState = EMPTY_REVIEW_STATE,
+  monthlyWindow = EMPTY_MONTHLY_WINDOW,
 }: Props) {
+  // Combined badge state for the Now tray icon — escalates by precedence:
+  //   'active' (orange dot) > 'late' (muted dot) > 'none' (no dot)
+  // Lives on the tray, not on the My Menu icon — reviews + wrap are
+  // time-bound items and belong to the tray's mental model, not the menu's
+  // "what am I eating" model.
+  const weeklyBadge  = badgeFromReviewState(weeklyReviewState)
+  const monthlyBadge = monthlyBadgeFromWindow(monthlyWindow)
+  const nowBadge =
+    weeklyBadge === 'active' || monthlyBadge === 'active' ? 'active'
+    : weeklyBadge === 'late'  || monthlyBadge === 'late'  ? 'late'
+    : 'none'
+  // Graded urgency drives the dot's pulse animation. Active + something
+  // close to a deadline → pulsing halo. Active but several days out →
+  // quiet dot, no pulse. Two-tier signal so customers with 5d left don't
+  // get the same visual alarm as someone on their last day.
+  //   weekly current: ≤1 day for full reward → urgent
+  //   monthly: last-day-of-7 OR pre-cron (last delivery evening) → urgent
+  const isUrgent =
+    nowBadge === 'active' && (
+      (weeklyReviewState.current?.daysLeft ?? Infinity) <= 1
+      || monthlyWindow.preCron
+      || (monthlyWindow.eligible
+          && monthlyWindow.daysLeftForFullReward === 0
+          && monthlyWindow.daysSinceCycleEnd <= 7)
+    )
   const pathname = usePathname()
   const router = useRouter()
   const [hover, setHover] = useState(false)
@@ -234,9 +268,6 @@ export default function Sidebar({
               )
             }
 
-            const showBadge = item.href === '/dashboard/menu' && weeklyReviewBadge !== 'none'
-            const badgeIsActive = weeklyReviewBadge === 'active'
-
             return (
               <Link
                 key={item.href}
@@ -250,22 +281,6 @@ export default function Sidebar({
               >
                 <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                   <Icon size={18} strokeWidth={active ? 2.4 : 2} />
-                  {showBadge && (
-                    <span
-                      aria-label={badgeIsActive ? 'Weekly review pending' : 'Late weekly review'}
-                      style={{
-                        position: 'absolute',
-                        top: -3,
-                        right: -3,
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: badgeIsActive ? OG : 'rgba(237,232,218,0.45)',
-                        border: `2px solid ${NV2}`,
-                        boxShadow: badgeIsActive ? '0 0 6px rgba(245,127,32,0.7)' : 'none',
-                      }}
-                    />
-                  )}
                 </span>
                 <span style={labelStyle}>{item.label}</span>
               </Link>
@@ -328,27 +343,78 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* ── Utility row (notifications + settings) — sits just above profile ─ */}
+        {/* ── Utility row (Now tray + theme toggle) — sits just above profile ─
+            "Now" is the home for time-bound items: pending weekly reviews,
+            monthly wrap, anything with a deadline window. Repurposed from the
+            old Notifications icon — the badge dot moved here from the My Menu
+            icon because reviews/wrap belong to the tray's mental model, not
+            the menu's "what am I eating today" model. See
+            project_now_tray_architecture memory for the full design intent. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
-          <button
-            type="button"
-            onClick={() => setOpenDropdown(d => d === 'notif' ? null : 'notif')}
-            data-tooltip={notificationCount > 0 ? `${notificationCount} new notification${notificationCount === 1 ? '' : 's'}` : 'Notifications'}
-            data-tooltip-placement="right"
-            aria-label="Notifications"
-            className={openDropdown === 'notif' ? 'sidebar-nav-active' : 'sidebar-nav-item'}
-            style={{ ...rowStyle(openDropdown === 'notif'), background: openDropdown === 'notif' ? 'rgba(237,232,218,0.08)' : 'transparent', border: '1px solid transparent', color: S.fgIdle }}
-          >
-            <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-              <Bell size={18} strokeWidth={2} />
-              {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 999, background: '#e53e3e', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
-                  {notificationCount > 9 ? '9+' : notificationCount}
+          {(() => {
+            // Notif-open state is the affordance the user reads to know
+            // "this trigger is currently pressed — click again to close."
+            // Stronger visual treatment than the other sidebar buttons'
+            // open states because the tray has no panel-internal X; the
+            // trigger button itself IS the dismiss affordance via toggle.
+            const notifOpen = openDropdown === 'notif'
+            return (
+              <button
+                type="button"
+                onClick={() => setOpenDropdown(d => d === 'notif' ? null : 'notif')}
+                data-tooltip={
+                  notifOpen ? 'Close'
+                  : nowBadge === 'active' ? 'Now — review pending'
+                  : nowBadge === 'late' ? 'Now — late review'
+                  : 'Now'
+                }
+                data-tooltip-placement="right"
+                aria-label={
+                  notifOpen ? 'Close Now tray'
+                  : nowBadge === 'active' ? 'Now tray — weekly review pending'
+                  : nowBadge === 'late' ? 'Now tray — late weekly review'
+                  : 'Now tray'
+                }
+                aria-expanded={notifOpen}
+                aria-haspopup="dialog"
+                className={notifOpen ? 'sidebar-now-armed' : 'sidebar-nav-item'}
+                style={{
+                  ...rowStyle(notifOpen),
+                  // Stronger "armed" treatment when the tray is open — cream
+                  // fill + visible cream border + brighter icon + inset
+                  // press-shadow. Reads as "this is currently pressed" so
+                  // the toggle-to-close affordance is obvious without a
+                  // dedicated X. Idle stays untouched.
+                  background: notifOpen ? 'rgba(237,232,218,0.14)' : 'transparent',
+                  border: `1px solid ${notifOpen ? 'rgba(237,232,218,0.28)' : 'transparent'}`,
+                  color: notifOpen ? CR : S.fgIdle,
+                  boxShadow: notifOpen ? 'inset 0 1px 2px rgba(9,24,37,0.30)' : 'none',
+                }}
+              >
+                <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                  <Activity size={18} strokeWidth={notifOpen ? 2.4 : 2} />
+                  {nowBadge !== 'none' && (
+                    <span
+                      aria-hidden
+                      className={isUrgent ? 'now-dot now-dot-urgent' : 'now-dot'}
+                      data-tone={nowBadge}
+                      style={{
+                        position: 'absolute',
+                        top: -3,
+                        right: -3,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: nowBadge === 'active' ? OG : 'rgba(237,232,218,0.55)',
+                        border: `2px solid ${NV2}`,
+                      }}
+                    />
+                  )}
                 </span>
-              )}
-            </span>
-            <span style={labelStyle}>Notifications</span>
-          </button>
+                <span style={labelStyle}>Now</span>
+              </button>
+            )
+          })()}
 
           {/* Direct theme toggle — replaces the old Settings dropdown
               (which only ever held this single control). One tap flips
@@ -415,10 +481,37 @@ export default function Sidebar({
           displayName={displayName}
           userEmail={userEmail}
           initials={initials}
+          weeklyReviewState={weeklyReviewState}
+          monthlyWindow={monthlyWindow}
         />
       </aside>
 
       <style jsx global>{`
+        /* Now-tray badge dot — three visual states. Color does most of the
+           hierarchy work; the pulse animation reserves the loudest signal
+           for urgent items (last-day-of-window) so the dot doesn't cry wolf
+           every time something's merely pending. */
+        .now-dot {
+          box-shadow: 0 0 0 0 rgba(245,127,32,0);
+        }
+        .now-dot[data-tone="active"]:not(.now-dot-urgent) {
+          /* Quiet active — no pulse, soft halo. */
+          box-shadow: 0 0 6px rgba(245,127,32,0.55);
+        }
+        .now-dot-urgent {
+          /* Urgent — slow breathing halo. 2.4s cycle, ease-in-out so it
+             reads as living, not flashing. Wakes the eye without being
+             aggressive. */
+          animation: now-dot-pulse 2.4s ease-in-out infinite;
+        }
+        @keyframes now-dot-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,127,32,0.55), 0 0 4px rgba(245,127,32,0.40); }
+          50%      { box-shadow: 0 0 0 4px rgba(245,127,32,0.00), 0 0 10px rgba(245,127,32,0.70); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .now-dot-urgent { animation: none; box-shadow: 0 0 8px rgba(245,127,32,0.70); }
+        }
+
         .sidebar-nav-item:hover:not([disabled]) {
           background: rgba(237,232,218,0.06) !important;
           border-color: rgba(237,232,218,0.10) !important;

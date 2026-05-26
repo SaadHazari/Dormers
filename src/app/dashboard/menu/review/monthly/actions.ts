@@ -172,7 +172,7 @@ export async function submitMonthlyReview(
         rewardPct,
         revealStats: revealStats ?? {
             planName: 'Plan',
-            cycleLabel: 'This cycle',
+            cycleLabel: 'cycle',
             mealsDelivered: 0,
             mealsTotal: 0,
             favoriteDish: null,

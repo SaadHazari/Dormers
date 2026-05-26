@@ -4,7 +4,15 @@ import { useState } from 'react'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
 import type { ReferralData } from '@/utils/supabase/queries'
-import type { WeeklyReviewBadge } from '@/lib/weekly-review'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
+import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import { MonthlyWrapForceOverlay } from './_shared/MonthlyWrapForceOverlay'
+
+const DEFAULT_MONTHLY_WINDOW: MonthlyReviewWindow = {
+  eligible: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
+}
 
 interface Props {
   customerName:  string
@@ -13,7 +21,9 @@ interface Props {
   userEmail:     string
   planName:      string
   referralData?: ReferralData
-  weeklyReviewBadge?: WeeklyReviewBadge
+  weeklyReviewState?: WeeklyReviewState
+  monthlyWindow?: MonthlyReviewWindow
+  queuedPlanSummary?: { planName: string; startDate: string } | null
   children: React.ReactNode
 }
 
@@ -21,7 +31,11 @@ const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 
 
 export default function DashboardShell({
   customerName, customerCid, customerDorm, userEmail,
-  referralData = DEFAULT_REFERRAL, weeklyReviewBadge = 'none', children,
+  referralData = DEFAULT_REFERRAL,
+  weeklyReviewState = EMPTY_REVIEW_STATE,
+  monthlyWindow = DEFAULT_MONTHLY_WINDOW,
+  queuedPlanSummary = null,
+  children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -33,7 +47,8 @@ export default function DashboardShell({
         customerDorm={customerDorm}
         userEmail={userEmail}
         referralData={referralData}
-        weeklyReviewBadge={weeklyReviewBadge}
+        weeklyReviewState={weeklyReviewState}
+        monthlyWindow={monthlyWindow}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />
@@ -60,6 +75,16 @@ export default function DashboardShell({
       </button>
 
       {children}
+
+      {/* Pre-cron forcing overlay — fires once per session on the evening
+          of the last delivery day of a cycle. Component self-gates on
+          monthlyWindow.preCron and sessionStorage dismissal. Mounting it
+          here (in the shell) means it fires on whichever dashboard page
+          the user lands on, not just /dashboard. */}
+      <MonthlyWrapForceOverlay
+        monthlyWindow={monthlyWindow}
+        queuedPlanSummary={queuedPlanSummary}
+      />
 
       <style jsx global>{`
         @media (max-width: 1024px) {

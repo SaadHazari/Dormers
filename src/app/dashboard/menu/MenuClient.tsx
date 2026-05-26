@@ -13,10 +13,6 @@ import { MealTag } from '../_shared/MealTag'
 import { vegDayNumbersFor } from '@/lib/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
-import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
-import type { MonthlyReviewWindow } from '@/lib/monthly-review'
-import { LastWeekSection } from './LastWeekSection'
-import { MonthlyWrapTrigger } from './MonthlyWrapTrigger'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -820,17 +816,11 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
 export default function MenuClient({
   customer,
   activeSubscription,
-  weeklyReviewState = EMPTY_REVIEW_STATE,
-  monthlyWindow,
-  monthlyCycleLabel = 'This cycle',
   hasQueuedRenewal = false,
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
   userEmail?: string
-  weeklyReviewState?: WeeklyReviewState
-  monthlyWindow?: MonthlyReviewWindow
-  monthlyCycleLabel?: string
   // True when the customer has a Scheduled follow-up subscription queued
   // behind the active one. When true, days past the active sub's end date
   // are still "Upcoming" (the queued cycle will deliver them). When false,
@@ -992,22 +982,6 @@ export default function MenuClient({
             weekType={weekType}
           />
         </section>
-
-        {/* ── Section 1.4: Monthly wrap — the highest-priority CTA on the
-            page when present. Sits above Last Week because the end-of-cycle
-            moment closes the milestone path that the weekly reviews opened.
-            Renders nothing when not eligible (cycle hasn't ended, already
-            submitted, or past the 30-day cap). */}
-        {monthlyWindow && (
-          <MonthlyWrapTrigger window={monthlyWindow} cycleLabel={monthlyCycleLabel} />
-        )}
-
-        {/* ── Section 1.5: Last week reviews — contemplative pause between
-            the Today hero (present moment) and the forward-looking weekly
-            grids. Visible above the fold so time-sensitive reviews (7-day
-            reward window) don't get buried under the meal grid. Renders
-            nothing when there's no pending review and no recent submission. */}
-        <LastWeekSection state={weeklyReviewState} />
 
         {/* ── Section 2: This week (6-cell grid) ── */}
         <section style={{ marginBottom: 32 }}>

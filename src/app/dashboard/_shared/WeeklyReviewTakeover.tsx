@@ -850,8 +850,8 @@ function AcknowledgementScreen({
     const fullReward = weeksExpected * 5  // BASE_REWARD_AED — kept inline to avoid import churn
     return (
         <div style={{ maxWidth: 540, width: '100%' }}>
-            {/* Chain icon — same visual language as the LastWeekSection
-                rule banner so the rule reads consistently across surfaces. */}
+            {/* Chain icon — same visual language as the Now tray's
+                AllOrNothingLine so the rule reads consistently across surfaces. */}
             <div
                 aria-hidden="true"
                 style={{

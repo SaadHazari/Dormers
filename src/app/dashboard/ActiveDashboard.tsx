@@ -17,11 +17,17 @@ import { vegDayNumbersFor, type WeekType } from '@/lib/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
-import { WeeklyReviewNudge } from './_shared/WeeklyReviewNudge'
-import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
 import { StatRow } from './StatRow'
 import { QuickActions } from './QuickActions'
+import { MonthlyWrapStrip } from './_shared/MonthlyWrapStrip'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState } from './_shared/types'
+import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+
+const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
+  eligible: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
+}
 
 // True if `iso` falls on the same calendar day as `ref` (default: now). Used to
 // derive whether today's delivery has already been skipped — the canonical
@@ -315,7 +321,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, weeklyReviewState = EMPTY_REVIEW_STATE }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   /** Missing-field labels — empty array = profile complete; non-empty disables purchase CTAs. */
@@ -323,8 +329,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   /** True when the customer's dorm is outside the listed delivery radius — disables purchase CTAs and renders the OutOfZoneBanner above ProfileBanner. */
   outOfZone?: boolean
   justCheckedOut?: boolean
-  /** Pending weekly review state — drives the mini-nudge between QuickActions and PlanProgress. `none` = no nudge rendered. */
-  weeklyReviewState?: WeeklyReviewState
+  /** Monthly wrap window — drives the slim strip above HeroToday for the
+   *  post-cron, queued-plan case. Self-renders nothing when not eligible. */
+  monthlyWindow?: MonthlyReviewWindow
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -1133,6 +1140,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         {/* Queued-renewal pill moved into the greeting ribbon above — see
             the {queuedSub && (...)} block inside the motion.div there. */}
 
+        {/* Monthly wrap strip — slim 1-line reminder ABOVE the hero when
+            the previous cycle's wrap is still open. Visually subordinate
+            to HeroToday so the new cycle's focal slot stays clean. Self-
+            renders nothing when not eligible. See project_now_tray_
+            architecture memory for the layering rationale. */}
+        <MonthlyWrapStrip monthlyWindow={monthlyWindow} />
+
         {/* 12-column grid — order:
             (1) Stats row (Deliveries/Delivered/Skips/Days)
             (2) Tonight's dish + Quick actions
@@ -1178,10 +1192,6 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             isTrialPlan={isOneTime}
             plannedPauseDate={sub.planned_pause_start ?? null}
           />
-          {/* Weekly review nudge — slots between QuickActions and PlanProgress
-              at span 6 when a review is pending. Renders nothing when state
-              kind is 'none' so the grid skips the cell entirely. */}
-          <WeeklyReviewNudge state={weeklyReviewState} />
           {/* PlanProgress takes the full row width on the main dashboard.
               The Past plans card has moved to /dashboard/plan (beside the
               Common questions block) so the live progress can breathe and

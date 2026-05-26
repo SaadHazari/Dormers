@@ -8,10 +8,26 @@ import { NoPlanView } from './NoPlanView'
 import { ActiveDashboard } from './ActiveDashboard'
 import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
+import { MonthlyWrapEmptyBanner } from './_shared/MonthlyWrapEmptyBanner'
+import { CheckoutSuccessTakeover } from './_shared/CheckoutSuccessTakeover'
 import { whatsAppHref } from '@/lib/contacts'
 import { missingProfileFields } from '@/lib/profile-completion'
 import type { Customer, Subscription } from './_shared/types'
-import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
+import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+
+interface RecentOrder {
+  id: string
+  plan: string | null
+  meals_count: number | null
+  price_per_meal: number | null
+  created_at: string
+}
+
+const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
+  eligible: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
+}
 
 // Webhook fallback threshold — if the subscription hasn't been provisioned this
 // many ms after Stripe redirects back, swap the cheery "Setting up" copy for a
@@ -30,7 +46,14 @@ interface Props {
   // no-plan dashboard doesn't feel empty. Resolved server-side from the
   // `referrals` table — see dashboard/page.tsx.
   trialGift?: { deliveryLabel: string; deliveryIso: string } | null
-  weeklyReviewState?: WeeklyReviewState
+  /** Monthly wrap window — drives the slim dashboard strip (queued-plan, post-cron case)
+   *  and the pick-plan-empty banner (no-queued, post-cron case). */
+  monthlyWindow?: MonthlyReviewWindow
+  /** Most recent order — used by the post-checkout success takeover to display
+   *  the just-paid amount. On any non-checkout-success render this is just the
+   *  user's most-recent historical order; the takeover only consumes it when
+   *  the just-created sub has been detected (i.e. the order is fresh). */
+  mostRecentOrder?: RecentOrder | null
 }
 
 /**
@@ -42,7 +65,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, trialGift = null, weeklyReviewState = EMPTY_REVIEW_STATE }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, trialGift = null, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -71,13 +94,13 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       : !!activeSubscription
     : true
 
+  // While we're still waiting for the webhook to land the new sub, poll by
+  // refreshing the route every 2s. Once newSubLanded is true we stop polling
+  // and let the CheckoutSuccessTakeover render — its CTAs are what clear the
+  // checkout_success param (router.replace), not this effect. Stripping the
+  // param here would race the takeover render and the user would never see it.
   useEffect(() => {
-    if (!checkoutSuccess) return
-    if (newSubLanded) {
-      try { sessionStorage.removeItem('checkout-handoff-at') } catch {}
-      router.replace('/dashboard')
-      return
-    }
+    if (!checkoutSuccess || newSubLanded) return
     const t = setTimeout(() => router.refresh(), 2000)
     return () => clearTimeout(t)
   }, [checkoutSuccess, newSubLanded, router])
@@ -142,6 +165,44 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     )
   }
 
+  // Just-paid success takeover — fires once the webhook has landed the new
+  // sub AND we still have the checkout_success URL signal. Replaces the old
+  // "auto-strip the param and dump them on the cold dashboard" behaviour
+  // with a celebratory moment that confirms the order and points them to
+  // the customize-menu next step. The takeover's CTAs are responsible for
+  // clearing the param (router.replace / router.push), not this branch.
+  if (checkoutSuccess && newSubLanded) {
+    const justLandedSub = handoffAt
+      ? allSubscriptions.find(
+          (s) => new Date(s.created_at).getTime() >= handoffAt - 1000,
+        )
+      : (activeSubscription ?? allSubscriptions[0])
+    const orderTotal =
+      mostRecentOrder?.price_per_meal != null && mostRecentOrder.meals_count != null
+        ? Number(mostRecentOrder.price_per_meal) * mostRecentOrder.meals_count
+        : 0
+    const firstName =
+      (customer?.name ?? '').trim().split(/\s+/)[0] || 'there'
+
+    const dismiss = () => {
+      try { sessionStorage.removeItem('checkout-handoff-at') } catch {}
+      router.replace('/dashboard')
+    }
+
+    if (justLandedSub) {
+      return (
+        <CheckoutSuccessTakeover
+          firstName={firstName}
+          planName={justLandedSub.plan_name ?? 'Dormers Plan'}
+          firstDeliveryDateIso={String(justLandedSub.start_date).slice(0, 10)}
+          mealsCount={Number(justLandedSub.total_meals ?? 0)}
+          totalAed={orderTotal}
+          onDismiss={dismiss}
+        />
+      )
+    }
+  }
+
   // Profile-completion gate — non-dismissable, blocks plan purchase. Required
   // fields per src/lib/profile-completion.ts. Server-side checkout also
   // re-validates so a tampered POST can't bypass.
@@ -201,6 +262,12 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
               </span>
             </div>
           )}
+          {/* Monthly wrap banner — only renders when the user's previous
+              cycle's wrap is still open AND no plan is currently active. Lives
+              ABOVE NoPlanView so the narrative reads "wrap the last cycle
+              first, then pick what's next." Self-renders nothing when not
+              eligible. See project_now_tray_architecture memory. */}
+          <MonthlyWrapEmptyBanner monthlyWindow={monthlyWindow} />
           <NoPlanView
             customer={customer}
             allSubscriptions={allSubscriptions}
@@ -231,7 +298,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       justCheckedOut={justCheckedOut}
       profileGate={missingFields}
       outOfZone={outOfZone}
-      weeklyReviewState={weeklyReviewState}
+      monthlyWindow={monthlyWindow}
     />
   )
 }

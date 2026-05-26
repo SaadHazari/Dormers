@@ -12,12 +12,14 @@ import {
     JOB_OPTIONS,
     ALTERNATIVE_OPTIONS,
     ALTERNATIVE_COST_OPTIONS,
+    wrapVocabFor,
     type AlternativeCostAed,
     type MonthlyReviewPayload,
     type MonthlyReviewSubmitResult,
     type MonthlyRevealStats,
     type RecommendAnswer,
     type RenewalIntent,
+    type WrapPlanTier,
 } from '@/lib/monthly-review'
 
 const TOTAL_STEPS = 8 // Screens 1-8 (Q1-Q7 + opening); reveal is post-submit
@@ -25,10 +27,13 @@ const DRAFT_KEY = 'dormers:monthly-review:draft:v1'
 
 export interface MonthlyReviewTakeoverProps {
     userName: string
-    /** Cycle label, e.g. "April cycle". Shown on the opening + reveal screens. */
+    /** Cycle label — "April cycle" for monthly, "the week of Apr 14" for weekly, "your trial" for trial. */
     cycleLabel: string
     /** Days remaining in the 7-day full-reward window. ≤0 → late. */
     daysLeftForFullReward: number
+    /** Plan tier — drives the form's qualifier/period vocab so a weekly customer
+     *  doesn't see "monthly" on the opening screen, a trial doesn't see "month", etc. */
+    planTier: WrapPlanTier
     onSubmit: (payload: MonthlyReviewPayload) => Promise<MonthlyReviewSubmitResult>
     onClose: () => void
 }
@@ -37,9 +42,11 @@ export function MonthlyReviewTakeover({
     userName,
     cycleLabel,
     daysLeftForFullReward,
+    planTier,
     onSubmit,
     onClose,
 }: MonthlyReviewTakeoverProps) {
+    const vocab = wrapVocabFor(planTier)
     const [step, setStep] = useState(0) // 0 = opening, 1..7 = questions
     const [reveal, setReveal] = useState<{ rewardPct: 50 | 100; stats: MonthlyRevealStats } | null>(null)
     const [isSubmitting, startSubmitting] = useTransition()
@@ -236,7 +243,7 @@ export function MonthlyReviewTakeover({
                         <div
                             title={isLate
                                 ? 'Submitted after the 7-day window. 50% Dorm Wars reward instead of 100%.'
-                                : 'Submit within 7 days of cycle end for 100% Dorm Wars reward. After that, 50%.'}
+                                : `Submit within 7 days of ${vocab.period} end for 100% Dorm Wars reward. After that, 50%.`}
                             style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 6,
                                 padding: '6px 12px',
@@ -288,10 +295,12 @@ export function MonthlyReviewTakeover({
                 {/* Screen 0 — Opening */}
                 {step === 0 && !isReveal && (
                     <div style={SCREEN}>
-                        <Eyebrow color={TIER_POP_TEXT.muted}>{cycleLabel} · monthly wrap</Eyebrow>
-                        <H1>{userName}, your <Accent>Dormers</Accent> month.</H1>
+                        <Eyebrow color={TIER_POP_TEXT.muted}>{cycleLabel} · {vocab.qualifier} wrap</Eyebrow>
+                        <H1>{userName}, your <Accent>Dormers</Accent> {vocab.period}.</H1>
                         <Sub>
-                            Three minutes to wrap your month. We&rsquo;ll show you your meal report at the end.
+                            {vocab.period === 'meal'
+                                ? <>Two minutes to wrap your trial. We&rsquo;ll show you how it went and what&rsquo;s next.</>
+                                : <>Three minutes to wrap your {vocab.period}. We&rsquo;ll show you your meal report at the end.</>}
                         </Sub>
                         <ContinueButton enabled onClick={next} label="Start" />
                     </div>
@@ -322,7 +331,7 @@ export function MonthlyReviewTakeover({
                     <div style={SCREEN_WIDE}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>What it did for you</Eyebrow>
                         <H1>What did Dormers do for you?</H1>
-                        <Sub>Tap all that fit your past month.</Sub>
+                        <Sub>Tap all that fit your past {vocab.period}.</Sub>
                         <ChipGrid
                             options={JOB_OPTIONS}
                             selected={jobs}
@@ -504,6 +513,7 @@ export function MonthlyReviewTakeover({
                         userName={userName}
                         rewardPct={reveal.rewardPct}
                         stats={reveal.stats}
+                        planTier={planTier}
                         onClose={onClose}
                     />
                 )}
@@ -535,13 +545,16 @@ function RevealScreen({
     userName,
     rewardPct,
     stats,
+    planTier,
     onClose,
 }: {
     userName: string
     rewardPct: 50 | 100
     stats: MonthlyRevealStats
+    planTier: WrapPlanTier
     onClose: () => void
 }) {
+    const vocab = wrapVocabFor(planTier)
     return (
         <div style={SCREEN_REVEAL}>
             <div style={{
@@ -556,7 +569,7 @@ function RevealScreen({
 
             <Eyebrow color={TIER_POP_TEXT.muted}>{stats.cycleLabel}</Eyebrow>
             <H1>{userName}, your <Accent>wrap</Accent> is ready.</H1>
-            <Sub>Here&rsquo;s the month, the way it actually happened.</Sub>
+            <Sub>Here&rsquo;s the {vocab.period}, the way it actually happened.</Sub>
 
             {/* Stat grid */}
             <div style={{
@@ -582,7 +595,7 @@ function RevealScreen({
                 <StatBlock
                     label="Dorm Wars earned"
                     value={`AED ${stats.aedEarnedThisCycle + (rewardPct === 100 ? 6 : 3)}`}
-                    suffix="this cycle"
+                    suffix={`this ${vocab.period}`}
                 />
                 {stats.favoriteDish && (
                     <StatBlock

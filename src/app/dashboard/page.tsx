@@ -1,11 +1,11 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder } from '@/utils/supabase/queries'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
 import { computeTrialDeliveryDate, trialDeliveryLabel, type WeekType } from '@/lib/trial-delivery'
-import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
+import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 
 const PREVIEW_CUSTOMER = {
     id: 'preview',
@@ -60,12 +60,18 @@ export default async function DashboardPage({
     const user = await getUserFromHeaders()
     if (!user) redirect('/login')
 
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, weeklyReviewState] = await Promise.all([
+    // Note: weeklyReviewState lives in the layout (for the Now tray) and isn't
+    // needed here — the dashboard hero/grid don't surface weekly inline anymore.
+    // monthlyWindow IS needed here for the post-cron strip + empty banner — the
+    // React cache() wrapper makes the second call free since the layout fetched
+    // it first. See project_now_tray_architecture memory.
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
         getQueuedSubscription(user.id),
-        getWeeklyReviewState(user.id),
+        getMonthlyReviewWindow(user.id),
+        getMostRecentOrder(user.id),
     ])
 
     // ── Trial gift in flight? ──────────────────────────────────────────────
@@ -109,7 +115,8 @@ export default async function DashboardPage({
                 queuedSubscription={queuedSubscription}
                 userEmail={user.email}
                 trialGift={trialGift}
-                weeklyReviewState={weeklyReviewState}
+                monthlyWindow={monthlyWindow}
+                mostRecentOrder={mostRecentOrder}
             />
         </Suspense>
     )

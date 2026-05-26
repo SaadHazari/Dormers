@@ -1,10 +1,18 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getQueuedSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
 import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
-import { badgeFromReviewState, type WeeklyReviewBadge } from '@/lib/weekly-review'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
+import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
+import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+
+const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
+  eligible: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
+}
 import { rejectExpiredWeeklyReviewPending } from '@/lib/dorm-wars/review-cleanup'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +23,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let customerDorm = ''
   let planName     = ''
   let referralData: ReferralData = { total: 0, converted: 0, creditBalance: 0, creditPending: 0 }
-  let weeklyReviewBadge: WeeklyReviewBadge = 'none'
+  let weeklyReviewState: WeeklyReviewState = EMPTY_REVIEW_STATE
+  let monthlyWindow: MonthlyReviewWindow = EMPTY_MONTHLY_WINDOW
+  // Queued-plan summary for the pre-cron overlay's copy variant — when a
+  // queued plan exists the overlay reframes the wrap as "close out before
+  // your new plan starts". Null when no queued plan.
+  let queuedPlanSummary: { planName: string; startDate: string } | null = null
   const userEmail  = user?.email ?? ''
 
   if (user) {
@@ -46,18 +59,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     // Cached helpers — pages that re-call these in the same request will
     // hit React's request-scoped cache and skip the network round-trip.
-    const [customer, activeSubscription, referrals, weeklyReviewState] = await Promise.all([
+    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
+      getQueuedSubscription(user.id),
       getReferralData(user.id),
       getWeeklyReviewState(user.id),
+      getMonthlyReviewWindow(user.id),
     ])
     customerName = customer?.name      ?? ''
     customerCid  = customer?.cid       ?? ''
     customerDorm = customer?.dorm_name ?? ''
     planName     = activeSubscription?.plan_name ?? ''
     referralData = referrals
-    weeklyReviewBadge = badgeFromReviewState(weeklyReviewState)
+    weeklyReviewState = reviewState
+    monthlyWindow = monthlyWin
+    if (queuedSub) {
+      queuedPlanSummary = {
+        planName: (queuedSub.plan_name as string) ?? 'Plan',
+        startDate: (queuedSub.start_date as string) ?? '',
+      }
+    }
   }
 
   return (
@@ -69,7 +91,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         userEmail={userEmail}
         planName={planName}
         referralData={referralData}
-        weeklyReviewBadge={weeklyReviewBadge}
+        weeklyReviewState={weeklyReviewState}
+        monthlyWindow={monthlyWindow}
+        queuedPlanSummary={queuedPlanSummary}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div style={{ display: 'flex', paddingTop: 16 }}>

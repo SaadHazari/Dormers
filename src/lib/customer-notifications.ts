@@ -17,6 +17,7 @@ export type CustomerNotificationKind =
     | 'plan_paused_confirm'
     | 'plan_pause_scheduled_confirm'
     | 'plan_resumed_confirm'
+    | 'payment_order_confirmed'
 
 function notificationsAdmin() {
     return createAdminClient(
