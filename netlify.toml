@@ -4,3 +4,12 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Netlify's secret scanner flags any env-var value found anywhere in the
+  # build output or repo files. ZEPTOMAIL_FROM_NAME ("Dormers") and
+  # ZEPTOMAIL_FROM_ADDRESS ("club@dormers.ae") are public — they appear in
+  # every email header and across the planning docs. They are not secrets.
+  SECRETS_SCAN_OMIT_KEYS = "ZEPTOMAIL_FROM_NAME,ZEPTOMAIL_FROM_ADDRESS"
+  # The .planning/ directory is internal documentation and intentionally
+  # mentions brand strings, sender addresses, and other values that get
+  # mistaken for secrets. It is not deployed.
+  SECRETS_SCAN_OMIT_PATHS = ".planning/**"
