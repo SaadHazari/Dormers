@@ -12,8 +12,8 @@
  * from the global queries.ts god-file).
  */
 
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient as rewardsAdmin } from '@/infra/supabase/admin-client'
 
 // Use the service-role admin client (not the SSR/RLS-bound client).
 // Originally these took a caller-supplied SSR client and relied on the
@@ -24,12 +24,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // admin client side-steps the broken RLS resolution. Security is unchanged:
 // the customerId comes from `getUserFromHeaders()` which middleware sets
 // from the verified session — callers cannot pass an arbitrary id.
-function rewardsAdmin() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
 
 /**
  * Customer's active lifetime tier percent — the highest tier they hold.

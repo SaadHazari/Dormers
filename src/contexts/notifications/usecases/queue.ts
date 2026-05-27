@@ -8,11 +8,8 @@
 // A 5-minute pg_cron job (dispatch_customer_notifications_tick) pulls due
 // rows and dispatches them to Meta WhatsApp Cloud API via pg_net.
 // See supabase/migrations/20260525_customer_notifications_*.sql.
-//
-// TODO Phase 11: split the Supabase admin-client create into infra/supabase/
-// (deduplicate with the same helper in queries.ts and dorm-wars/repo.ts).
 
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 
 export type CustomerNotificationKind =
     | 'meal_skipped_confirm'
@@ -21,14 +18,6 @@ export type CustomerNotificationKind =
     | 'plan_pause_scheduled_confirm'
     | 'plan_resumed_confirm'
     | 'payment_order_confirmed'
-
-function notificationsAdmin() {
-    return createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } },
-    )
-}
 
 /**
  * Queue a WhatsApp notification for a customer.
@@ -45,7 +34,7 @@ export async function queueCustomerNotification(
     scheduledFor: Date,
     payload: Record<string, string> = {},
 ): Promise<void> {
-    const admin = notificationsAdmin()
+    const admin = createAdminSupabaseClient()
     const { error } = await admin.from('customer_notifications').insert({
         customer_id:   customerId,
         kind,
