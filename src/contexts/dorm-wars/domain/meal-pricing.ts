@@ -17,7 +17,7 @@
 // the displayed "this is what you'll get" exactly matches what eventually
 // lands in the wallet. Drift here = trust break.
 
-import { pricePerMeal, mealsForPlan, type Pref, type PlanId } from '@/app/dashboard/plan/pricing'
+import { pricePerMeal, mealsForPlan, type Pref, type PlanId } from '@/contexts/subscriptions/domain/pricing'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = { from: (t: string) => any }
 

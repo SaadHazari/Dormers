@@ -37,7 +37,7 @@ import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
 import { changeStartDate, cancelPlannedPause } from '../actions'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from './pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from '@/contexts/subscriptions/domain/pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders

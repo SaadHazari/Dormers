@@ -10,7 +10,7 @@ import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from './pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from '@/contexts/subscriptions/domain/pricing'
 
 interface CheckoutCustomer {
   name?: string | null
