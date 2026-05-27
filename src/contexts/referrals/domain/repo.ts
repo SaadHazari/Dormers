@@ -10,21 +10,12 @@
  * from @/contexts/subscriptions/domain/subscription-status — this is a cross-context import that Phase 8
  * resolves when subscription statuses move into the subscriptions context.
  *
- * TODO Phase 11: deduplicate rewardsAdmin() helper (also defined in
- * queries.ts and dorm-wars/repo.ts) — consolidate to infra/supabase/.
  */
 
 import { cache } from 'react'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient as rewardsAdmin } from '@/infra/supabase/admin-client'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-
-function rewardsAdmin() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
 
 export interface ReferralData {
   total:         number   // gift_claimed + converted (all sent referrals that got a meal)

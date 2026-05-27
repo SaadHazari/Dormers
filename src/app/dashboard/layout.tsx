@@ -1,6 +1,7 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getQueuedSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/contexts/subscriptions/domain/repo'
+import { getReferralData, type ReferralData } from '@/contexts/referrals/domain/repo'
 import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'

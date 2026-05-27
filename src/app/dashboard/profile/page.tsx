@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription } from '@/utils/supabase/queries'
+import { getCustomer, getActiveSubscription } from '@/contexts/subscriptions/domain/repo'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import ProfileClient from './ProfileClient'

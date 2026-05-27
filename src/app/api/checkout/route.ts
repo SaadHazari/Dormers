@@ -6,7 +6,8 @@ import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
 import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-synth';
-import { getRedeemableCredit, getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
+import { getRedeemableCredit } from '@/contexts/subscriptions/domain/repo';
+import { getActiveLifetimeTierPercent } from '@/contexts/dorm-wars/domain/repo';
 
 export async function POST(req: Request) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;

@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer } from '@/utils/supabase/queries'
+import { getCustomer } from '@/contexts/subscriptions/domain/repo'
 import { redirect } from 'next/navigation'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import { MonthlyReviewClient } from './MonthlyReviewClient'

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
-import { getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
+import { getActiveLifetimeTierPercent } from '@/contexts/dorm-wars/domain/repo';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,

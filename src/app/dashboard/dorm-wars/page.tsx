@@ -1,15 +1,12 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
+import { getCustomer, getActiveSubscription } from '@/contexts/subscriptions/domain/repo'
+import { getReferralData, getCrossDormRecent, getRecentInvites } from '@/contexts/referrals/domain/repo'
 import {
-  getCustomer,
-  getReferralData,
-  getCrossDormRecent,
-  getRecentInvites,
-  getActiveSubscription,
   getStreakChestState,
   getStreak,
   getCycleRecruits,
   getRecentRewardEvents,
-} from '@/utils/supabase/queries'
+} from '@/contexts/dorm-wars/domain/repo'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
