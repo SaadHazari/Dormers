@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "serve": "serve out",
-    "export": "next export"
+    "export": "next export",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.64",
@@ -47,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }
