@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { motion } from "framer-motion";
-import { EASE_STANDARD as E } from "@/lib/motion";
+import { EASE_STANDARD as E } from "@/ui-system/tokens/motion";
 
 /**
  * The "No apps to scroll · No groceries to buy · No recipes to follow"

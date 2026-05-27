@@ -1,7 +1,7 @@
 import { streamText, convertToModelMessages } from 'ai';
 import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
-import { DORMERS_KNOWLEDGE } from '@/lib/chatbot-knowledge';
+import { DORMERS_KNOWLEDGE } from '@/contexts/chatbot/domain/knowledge';
 
 export const maxDuration = 30;
 

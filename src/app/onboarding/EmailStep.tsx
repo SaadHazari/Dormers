@@ -8,9 +8,9 @@ import { CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { CtaButton, FieldInput } from './primitives'
 import { createAccount, resendEmailOtp, verifyEmailOtp } from './actions'
 import { DRAFT_KEY, type FormState } from './data'
-import { useIsLight } from '@/hooks/useIsLight'
-import { authTokens } from '@/lib/auth-theme'
-import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
+import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 
 // Email OTP is 6 digits — Supabase Auth setting was flipped from 8 to 6

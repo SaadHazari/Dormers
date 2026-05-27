@@ -2,7 +2,7 @@
 
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/admin/auth'
+import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 
 function admin() {
     return createAdmin(

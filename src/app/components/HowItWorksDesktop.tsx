@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 import { motion, Variants } from "framer-motion";
 import { useTheme } from "next-themes";
-import { EASE_STANDARD as E } from "@/lib/motion";
+import { EASE_STANDARD as E } from "@/ui-system/tokens/motion";
 import { CARDS } from "./HowItWorks.data";
 
 // Original desktop CSS — injected globally via dangerouslySetInnerHTML so the

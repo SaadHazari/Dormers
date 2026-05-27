@@ -9,7 +9,7 @@ import { StatusDot } from './_shared/StatusDot'
 import { PlanGlyph } from './_shared/PlanGlyph'
 import { btnStyle } from './_shared/buttons'
 import { fmt } from './_shared/format'
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import type { Customer, Subscription } from './_shared/types'
 
 interface Props {

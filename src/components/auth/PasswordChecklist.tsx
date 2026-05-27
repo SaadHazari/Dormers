@@ -1,9 +1,9 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import { useIsLight } from '@/hooks/useIsLight'
-import { authTokens } from '@/lib/auth-theme'
-import { checkPassword } from '@/lib/validation'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
+import { checkPassword } from '@/shared/validation'
 
 // Live checklist that ticks each rule on as the user types. Sits below the
 // password input in onboarding's EmailStep and the reset flow's set-password

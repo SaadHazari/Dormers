@@ -7,7 +7,7 @@ import { TextRotate } from "@/components/ui/text-rotate";
 import TonightsMeal from "@/app/components/TonightsMeal";
 import Preloader from "@/app/components/Preloader";
 
-import { EASE_STANDARD as E } from "@/lib/motion";
+import { EASE_STANDARD as E } from "@/ui-system/tokens/motion";
 import { HERO_REVEAL_CSS as CSS } from "@/app/components/HeroReveal.styles";
 import { HeroProofBar } from "@/app/components/HeroProofBar";
 import { HeroChecklist } from "@/app/components/HeroChecklist";

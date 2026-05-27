@@ -4,8 +4,8 @@ import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COUNTRIES, combinePhone, splitPhone, type Country } from './countries'
-import { useIsLight } from '@/hooks/useIsLight'
-import { authTokens } from '@/lib/auth-theme'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
 
 // ─── shared UI primitives ─────────────────────────────────────────────────────
 

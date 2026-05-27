@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import { OG, BODY } from './tokens'
 import { useMonthlyDraftActive } from './draft-hooks'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/lib/monthly-review'
+import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 /**
  * Full-width wrap banner shown ONLY on the no-plan dashboard (post-cron, no

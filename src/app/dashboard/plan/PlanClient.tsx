@@ -30,13 +30,13 @@ function mealPrefToTagKind(pref: string | null | undefined): 'Veg' | 'Non Veg' |
 }
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { CheckoutPanel } from './CheckoutPanel'
-import { effectivePreferences } from '@/lib/preferences'
+import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
 import { changeStartDate, cancelPlannedPause } from '../actions'
-import { whatsAppHref } from '@/lib/contacts'
+import { whatsAppHref } from '@/shared/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from './pricing'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly

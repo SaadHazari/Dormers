@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
 import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
-import { MENU_DATA, getMenuWeek } from "@/lib/menuData";
+import { MENU_DATA, getMenuWeek } from "@/contexts/menu/domain/catalog-data";
 
 export default function Menu() {
   const { theme } = useTheme();

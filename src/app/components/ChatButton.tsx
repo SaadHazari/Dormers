@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
-import { openChat, subscribeChatBus } from '@/lib/chatBus';
+import { openChat, subscribeChatBus } from '@/contexts/chatbot/ui/chat-bus';
 
 export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: number }) {
   const [isChatOpen, setIsChatOpen] = useState(false);

@@ -6,7 +6,7 @@ import { CtaButton, FieldInput, PillCard, SelectCard } from './primitives'
 import { EmailStep } from './EmailStep'
 import { PhoneStep } from './PhoneStep'
 import { ALLERGENS, DAYS_OF_WEEK, DORMS, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, WEEK_TYPES, type FormState, type Step } from './data'
-import { authTokens } from '@/lib/auth-theme'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
 
 interface Props {
     step: Step

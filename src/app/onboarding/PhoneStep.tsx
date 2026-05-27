@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { CtaButton, FieldInput, PhoneField } from './primitives'
 import type { FormState } from './data'
-import { useIsLight } from '@/hooks/useIsLight'
-import { authTokens } from '@/lib/auth-theme'
-import { isAlphaName, sanitizeNameInput } from '@/lib/validation'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
+import { isAlphaName, sanitizeNameInput } from '@/shared/validation'
 
 const OTP_LENGTH = 6 // we generate 6-digit codes server-side; see /api/whatsapp/start
 

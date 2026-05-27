@@ -7,7 +7,7 @@
  * existing consumers keep working via the queries.ts shim.
  *
  * Note: getCrossDormRecent uses LIVE_SUBSCRIPTION_STATUSES + SUBSCRIPTION_STATUS
- * from @/lib/subscription-status — this is a cross-context import that Phase 8
+ * from @/contexts/subscriptions/domain/subscription-status — this is a cross-context import that Phase 8
  * resolves when subscription statuses move into the subscriptions context.
  *
  * TODO Phase 11: deduplicate rewardsAdmin() helper (also defined in
@@ -17,7 +17,7 @@
 import { cache } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 
 function rewardsAdmin() {
   return createAdminClient(

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { EASE_STANDARD as E } from "@/lib/motion";
+import { EASE_STANDARD as E } from "@/ui-system/tokens/motion";
 
 /**
  * The "Starting from AED 17 / 48 dishes / 6 dorms" trio that fades in

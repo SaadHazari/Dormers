@@ -1,5 +1,5 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
-import { requireAdmin } from '@/lib/admin/auth'
+import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import QueueClient, { type PendingReferralRow } from './QueueClient'
 
 export const metadata = { title: 'Referral review queue — Dormers admin' }

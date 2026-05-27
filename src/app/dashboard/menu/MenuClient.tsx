@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
-import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
+import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
 
 import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
-import { vegDayNumbersFor } from '@/lib/veg-day'
+import { vegDayNumbersFor } from '@/contexts/subscriptions/domain/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY

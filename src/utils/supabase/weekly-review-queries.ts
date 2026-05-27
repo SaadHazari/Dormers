@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { createClient } from './server'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import {
     BASE_REWARD_AED,
     LATE_REWARD_AED,
@@ -15,7 +15,7 @@ import {
     type PendingItem,
     type RewardsCycle,
     type WeeklyReviewState,
-} from '@/lib/weekly-review'
+} from '@/contexts/subscriptions/domain/weekly-review'
 
 /**
  * Server-side query that computes the full weekly-review state for a user.

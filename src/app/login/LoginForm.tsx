@@ -10,9 +10,9 @@ import { Eye, EyeOff } from 'lucide-react'
 import { login } from './actions'
 import { ForgotPasswordFlow } from './ForgotPasswordFlow'
 import ThemeToggle from '@/app/components/ThemeToggle'
-import { useIsLight } from '@/hooks/useIsLight'
-import { useCapsLock } from '@/hooks/useCapsLock'
-import { authTokens } from '@/lib/auth-theme'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { useCapsLock } from '@/ui-system/hooks/useCapsLock'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
 
 type Tab = 'signin' | 'signup' | 'forgot'
 

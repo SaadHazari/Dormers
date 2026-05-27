@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
 import type { ReferralData } from '@/utils/supabase/queries'
-import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
-import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
+import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { MonthlyWrapForceOverlay } from './_shared/MonthlyWrapForceOverlay'
 
 const DEFAULT_MONTHLY_WINDOW: MonthlyReviewWindow = {

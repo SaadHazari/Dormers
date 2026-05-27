@@ -4,9 +4,9 @@ import { useChat } from "@ai-sdk/react"; // <-- Updated Import!
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
-import { whatsAppHref } from "@/lib/contacts";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
-import { closeChat as broadcastClose, subscribeChatBus } from "@/lib/chatBus";
+import { whatsAppHref } from "@/shared/contacts";
+import { useBodyScrollLock } from "@/ui-system/hooks/useBodyScrollLock";
+import { closeChat as broadcastClose, subscribeChatBus } from "@/contexts/chatbot/ui/chat-bus";
 
 const LOADING_WORDS = [
     "prepping...", "cooking...", "heating up...", "chopping...",

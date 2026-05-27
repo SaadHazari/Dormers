@@ -2,13 +2,13 @@
 
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/admin/auth'
+import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import {
   autoApproveLayer4Reward,
   autoRejectLayer4Reward,
   type Layer4Kind,
-} from '@/lib/dorm-wars/layer4'
-import { LAYER4_VALUE_AED } from '@/lib/dorm-wars/layer4'
+} from '@/contexts/dorm-wars/domain/layer4'
+import { LAYER4_VALUE_AED } from '@/contexts/dorm-wars/domain/layer4'
 
 // Server actions for the /admin/layer4-queue page. Both re-check admin
 // authorization at the top — never trust the page-level guard alone.

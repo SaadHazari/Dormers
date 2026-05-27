@@ -7,9 +7,9 @@ import Link from 'next/link'
 import { Check, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
-import { isPasswordStrong } from '@/lib/validation'
+import { isPasswordStrong } from '@/shared/validation'
 import { DORMS } from '@/app/onboarding/data'
-import { nextTrialDeliveryLabel } from '@/lib/trial-delivery'
+import { nextTrialDeliveryLabel } from '@/contexts/referrals/domain/trial-delivery'
 import { claimGift, sendTrialEmailOtp, setTrialPassword, verifyTrialEmailOtp } from './actions'
 
 // Matches the dark onboarding page exactly — same bg, same primitives, same

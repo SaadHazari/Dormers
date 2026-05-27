@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
-import { getSubscriptionWeeks, rewardPctForWeekEnd, weeklyReviewAed } from '@/lib/weekly-review'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { getSubscriptionWeeks, rewardPctForWeekEnd, weeklyReviewAed } from '@/contexts/subscriptions/domain/weekly-review'
 import type { WeeklyReviewPayload, WeeklyReviewSubmitResult } from '../../_shared/WeeklyReviewTakeover'
 
 /**

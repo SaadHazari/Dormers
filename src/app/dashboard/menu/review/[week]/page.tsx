@@ -2,10 +2,10 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer } from '@/utils/supabase/queries'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
-import { getSubscriptionWeeks } from '@/lib/weekly-review'
-import { MENU_DATA, getMenuWeek } from '@/lib/menuData'
-import { vegDayNumbersFor, type WeekType } from '@/lib/veg-day'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
+import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
+import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { ReviewClient } from './ReviewClient'
 import type { WeeklyReviewMeal } from '../../../_shared/WeeklyReviewTakeover'
 
@@ -143,7 +143,7 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
  *
  * Three refinements over the naive "give me all 6 dishes for menu_week + pref":
  *
- *   1. **Religious-mix awareness.** `vegDayNumbersFor` from `@/lib/veg-day`
+ *   1. **Religious-mix awareness.** `vegDayNumbersFor` from `@/contexts/subscriptions/domain/veg-day`
  *      gives the canonical set of veg day indices for this customer. Pure
  *      Veg → all working days; pure Non-Veg → none; religious-mix → exactly
  *      the days the customer chose. Each day picks the matching dish from

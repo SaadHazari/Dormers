@@ -1,11 +1,11 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { resolvePlan, minPriceFilsFor } from '@/lib/plans';
-import type { WeekType } from '@/lib/end-date';
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
-import { missingProfileFields } from '@/lib/profile-completion';
-import { synthesizePerSessionCoupon } from '@/lib/dorm-wars/coupon-synth';
+import { resolvePlan, minPriceFilsFor } from '@/contexts/subscriptions/domain/plans';
+import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
+import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
+import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-synth';
 import { getRedeemableCredit, getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
 
 export async function POST(req: Request) {

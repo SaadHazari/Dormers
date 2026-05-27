@@ -3,8 +3,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
-import { EASE_DRAMATIC, EASE_SMOOTH } from "@/lib/motion";
+import { useBodyScrollLock } from "@/ui-system/hooks/useBodyScrollLock";
+import { EASE_DRAMATIC, EASE_SMOOTH } from "@/ui-system/tokens/motion";
 
 export default function Preloader({ onComplete }: { onComplete?: () => void }) {
   const [show, setShow] = useState(true);

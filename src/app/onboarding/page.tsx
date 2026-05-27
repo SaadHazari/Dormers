@@ -9,8 +9,8 @@ import Link from 'next/link'
 import { OnboardingSteps } from './Steps'
 import { DRAFT_KEY, stepVariants, type FormState, type Step } from './data'
 import ThemeToggle from '@/app/components/ThemeToggle'
-import { useIsLight } from '@/hooks/useIsLight'
-import { authTokens } from '@/lib/auth-theme'
+import { useIsLight } from '@/ui-system/hooks/useIsLight'
+import { authTokens } from '@/ui-system/tokens/auth-theme'
 
 export default function OnboardingPage() {
     const router = useRouter()

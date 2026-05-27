@@ -3,8 +3,8 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { DishDetailPanel } from '@/app/components/DishDetailPanel';
-import { glassTokens } from '@/lib/glass';
-import type { Dish } from '@/lib/menuData';
+import { glassTokens } from '@/ui-system/tokens/glass';
+import type { Dish } from '@/contexts/menu/domain/catalog-data';
 
 interface DesktopMenuCarouselProps {
   availableDishes: Dish[];

@@ -1,6 +1,6 @@
 import { Crown, Gem, Sparkles, Utensils, Star, type LucideIcon } from 'lucide-react'
 import { OG } from './tokens'
-import { resolvePlan, type PlanId } from '@/lib/plans'
+import { resolvePlan, type PlanId } from '@/contexts/subscriptions/domain/plans'
 
 // Single source of truth for the icon that sits adjacent to a plan name
 // anywhere in the dashboard. Plan resolution is delegated to lib/plans.ts

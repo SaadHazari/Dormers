@@ -1,16 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { resolvePlan } from '@/lib/plans';
-import { requireUser } from '@/lib/auth-helpers';
-import { loadOwnedSubscription } from '@/lib/subscriptions';
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status';
+import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
+import { requireUser } from '@/contexts/identity/usecases/require-user';
+import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions';
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { createClient } from '@/utils/supabase/server';
-import {
-    ae9amUtcOnDate,
-    nextEligibleDeliveryDay,
-    queueCustomerNotification,
-} from '@/lib/customer-notifications';
+import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue';
+import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
 
 /**
  * Saves account-detail fields that apply IMMEDIATELY (current cycle).

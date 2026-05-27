@@ -3,17 +3,17 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getQueuedSubscription, getReferralData, type ReferralData } from '@/utils/supabase/queries'
 import { promotePendingPreferencesIfStale } from './actions'
 import DashboardShell from './DashboardShell'
-import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/lib/weekly-review'
+import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
-import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
-import { rejectExpiredWeeklyReviewPending } from '@/lib/dorm-wars/review-cleanup'
+import { rejectExpiredWeeklyReviewPending } from '@/contexts/dorm-wars/domain/review-cleanup'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUserFromHeaders()

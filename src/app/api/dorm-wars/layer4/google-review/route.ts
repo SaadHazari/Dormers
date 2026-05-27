@@ -27,13 +27,13 @@ import {
   autoApproveLayer4Reward,
   autoRejectLayer4Reward,
   LAYER4_VALUE_AED,
-} from '@/lib/dorm-wars/layer4'
+} from '@/contexts/dorm-wars/domain/layer4'
 import {
   verifyReviewScreenshot,
   decideFromVerdict,
   type VerifyResult,
-} from '@/lib/dorm-wars/google-review-verify'
-import { resolvePlan } from '@/lib/plans'
+} from '@/contexts/dorm-wars/domain/google-review-verify'
+import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 
 // Netlify default function timeout is 10s; Gemini Vision on a screenshot
 // typically takes 5-15s. Without this export the function gets killed

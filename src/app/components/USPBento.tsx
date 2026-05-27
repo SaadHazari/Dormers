@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useInView } from "react-intersection-observer";
-import { EASE_STANDARD as cardEase } from "@/lib/motion";
+import { EASE_STANDARD as cardEase } from "@/ui-system/tokens/motion";
 import { BentoCard } from "./BentoCard";
 import { cards } from "./USPBento.cards";
 

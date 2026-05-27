@@ -5,7 +5,7 @@ import { Mail, MessageCircle, Heart } from 'lucide-react'
 import { OG, BODY, MONO, S as BASE_S, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
-import { SUPPORT_EMAIL, whatsAppHref } from '@/lib/contacts'
+import { SUPPORT_EMAIL, whatsAppHref } from '@/shared/contacts'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Matches MenuClient/PlanClient: hierarchy comes from scale + weight + colour,

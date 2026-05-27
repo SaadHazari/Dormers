@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendStartDayEmail } from '@/lib/email/zeptomail-client'
+import { sendStartDayEmail } from '@/infra/zeptomail/client'
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET

@@ -1,16 +1,16 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { resolvePlan, totalMealsFor, planKindOf } from '@/lib/plans';
+import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
 import { getActiveLifetimeTierPercent } from '@/utils/supabase/queries';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,
   INVOICE_STATUS,
-} from '@/lib/subscription-status';
-import { computeEndDate, isoDate, type WeekType } from '@/lib/end-date';
-import { runPostPaymentFanout } from '@/lib/post-payment/fanout';
+} from '@/contexts/subscriptions/domain/subscription-status';
+import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date';
+import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout';
 
 /**
  * Forward a date to the next delivery day for the customer's week_type.
@@ -505,7 +505,7 @@ export async function POST(req: Request) {
       // so the awarder's queries (which key on inviter_user_id and look up
       // referrals.invitee_user_id) see the linked row.
       if (phone) {
-        const { normalisePhone } = await import('@/lib/phone');
+        const { normalisePhone } = await import('@/shared/phone');
         const phoneE164 = normalisePhone(phone);
         const { error: linkErr } = await supabaseAdmin
           .from('referrals')

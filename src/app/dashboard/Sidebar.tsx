@@ -10,8 +10,8 @@ import {
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
 import type { ReferralData } from '@/utils/supabase/queries'
-import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/lib/weekly-review'
-import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/lib/monthly-review'
+import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
+import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, submitted: false,

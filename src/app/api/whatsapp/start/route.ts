@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createHash, randomInt } from 'crypto'
-import { sendOtpTemplate } from '@/lib/whatsapp'
+import { sendOtpTemplate } from '@/infra/meta-whatsapp/client'
 
 // Tunables. Conservative for an MVP — every send costs WhatsApp credits.
 const OTP_TTL_MIN          = 10

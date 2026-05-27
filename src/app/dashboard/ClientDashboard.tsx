@@ -10,10 +10,10 @@ import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { MonthlyWrapEmptyBanner } from './_shared/MonthlyWrapEmptyBanner'
 import { CheckoutSuccessTakeover } from './_shared/CheckoutSuccessTakeover'
-import { whatsAppHref } from '@/lib/contacts'
-import { missingProfileFields } from '@/lib/profile-completion'
+import { whatsAppHref } from '@/shared/contacts'
+import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import type { Customer, Subscription } from './_shared/types'
-import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 interface RecentOrder {
   id: string

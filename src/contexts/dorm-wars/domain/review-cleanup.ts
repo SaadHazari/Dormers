@@ -17,7 +17,7 @@
 // weekly review can be submitted for that cycle.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { LATE_CAP_DAYS, getSubscriptionWeeks } from '@/lib/weekly-review'
+import { LATE_CAP_DAYS, getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = SupabaseClient<any, any, any>

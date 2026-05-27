@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { runPostPaymentFanout } from '@/lib/post-payment/fanout'
+import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET

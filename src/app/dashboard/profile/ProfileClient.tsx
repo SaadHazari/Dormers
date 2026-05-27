@@ -8,7 +8,7 @@ import { OG, BG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT 
 import { Eyebrow } from '../_shared/Eyebrow'
 import { SecuritySection } from './SecuritySection'
 import { ALLERGENS, DORMS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
-import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/lib/preferences'
+import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/contexts/subscriptions/domain/preferences'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Mirrors Menu/Plan: hierarchy comes from scale + weight + colour, not a

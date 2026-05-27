@@ -4,8 +4,8 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
-import { generateCid } from '@/lib/customer-cid'
+import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
+import { generateCid } from '@/shared/cid'
 import { DORMS } from './data'
 
 export interface OnboardingPayload {
@@ -37,7 +37,7 @@ function redirectToLoginExisting(email: string): never {
     redirect(`/login?${params.toString()}`)
 }
 
-// generateCid + DORM_CODES extracted to @/lib/customer-cid so the referral
+// generateCid + DORM_CODES extracted to @/shared/cid so the referral
 // trial-claim flow can reuse the same formula. Same cid format whether the
 // customer arrives via main onboarding or a referral claim.
 

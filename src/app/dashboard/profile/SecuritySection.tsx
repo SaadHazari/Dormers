@@ -13,7 +13,7 @@ import {
   markWhatsappVerified,
   resendSignupConfirmation,
 } from './security-actions'
-import { checkPassword, isPasswordStrong } from '@/lib/validation'
+import { checkPassword, isPasswordStrong } from '@/shared/validation'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

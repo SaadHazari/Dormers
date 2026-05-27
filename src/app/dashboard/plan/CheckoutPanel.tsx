@@ -9,7 +9,7 @@ import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
-import { whatsAppHref } from '@/lib/contacts'
+import { whatsAppHref } from '@/shared/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from './pricing'
 
 interface CheckoutCustomer {

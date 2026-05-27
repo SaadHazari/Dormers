@@ -1,5 +1,5 @@
-import type { Dish } from '@/lib/menuData'
-import { glassTokens, type GlassSize } from '@/lib/glass'
+import type { Dish } from '@/contexts/menu/domain/catalog-data'
+import { glassTokens, type GlassSize } from '@/ui-system/tokens/glass'
 import { SpiceMeter } from '@/app/components/SpiceMeter'
 
 /**

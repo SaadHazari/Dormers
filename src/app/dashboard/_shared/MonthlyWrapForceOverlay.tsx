@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { OG, BODY } from './tokens'
-import { MONTHLY_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/lib/monthly-review'
+import { MONTHLY_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 /**
  * Forcing overlay shown on the evening of the last delivery day of a cycle —

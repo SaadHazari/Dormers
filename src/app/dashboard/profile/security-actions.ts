@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 
 // Action result shapes are defined inline at call sites. Next.js 15 +
 // Turbopack disallows non-async-function exports from 'use server' files.

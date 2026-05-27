@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { MonthlyReviewTakeover } from '../../../_shared/MonthlyReviewTakeover'
-import type { MonthlyReviewPayload, WrapPlanTier } from '@/lib/monthly-review'
+import type { MonthlyReviewPayload, WrapPlanTier } from '@/contexts/subscriptions/domain/monthly-review'
 import { submitMonthlyReview } from './actions'
 
 export function MonthlyReviewClient({

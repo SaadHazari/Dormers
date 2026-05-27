@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { createClient } from './server'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import {
     MONTHLY_FULL_REWARD_WINDOW_DAYS,
     MONTHLY_LATE_CAP_DAYS,
@@ -10,8 +10,8 @@ import {
     cycleLabelFor,
     type MonthlyReviewWindow,
     type MonthlyRevealStats,
-} from '@/lib/monthly-review'
-import { weeklyReviewAed, getSubscriptionWeeks } from '@/lib/weekly-review'
+} from '@/contexts/subscriptions/domain/monthly-review'
+import { weeklyReviewAed, getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
 
 /**
  * Server-side eligibility check for the wrap (formerly "monthly review").
@@ -157,7 +157,7 @@ export const getMonthlyReviewWindow = cache(async (userId: string): Promise<Mont
     return computeMonthlyReviewWindow(userId)
 })
 
-// monthlyBadgeFromWindow moved to '@/lib/monthly-review' so client components
+// monthlyBadgeFromWindow moved to '@/contexts/subscriptions/domain/monthly-review' so client components
 // (Sidebar, tray) can import it without pulling next/headers into the bundle.
 
 /**

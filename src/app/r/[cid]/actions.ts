@@ -3,10 +3,10 @@
 import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
-import { normalisePhone } from '@/lib/phone'
-import { generateCid } from '@/lib/customer-cid'
-import { awardCycleAndTierRewards } from '@/lib/dorm-wars/awarder'
-import { isDoublerActive, applyDoubler } from '@/lib/dorm-wars/doubler'
+import { normalisePhone } from '@/shared/phone'
+import { generateCid } from '@/shared/cid'
+import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/domain/awarder'
+import { isDoublerActive, applyDoubler } from '@/contexts/dorm-wars/domain/doubler'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -117,7 +117,7 @@ export type SetTrialPasswordResult = { ok: true } | { error: string }
 export async function setTrialPassword(password: string): Promise<SetTrialPasswordResult> {
   // Server-side validation mirrors the strength rules used by main onboarding
   // so a tampered client can't sneak a weak password through.
-  const { isPasswordStrong, PASSWORD_RULES_TEXT } = await import('@/lib/validation')
+  const { isPasswordStrong, PASSWORD_RULES_TEXT } = await import('@/shared/validation')
   if (!isPasswordStrong(password)) {
     return { error: PASSWORD_RULES_TEXT }
   }

@@ -8,6 +8,8 @@ import {
 import { BODY, OG, TIER_POP_TEXT } from './tokens'
 import { Eyebrow } from './Eyebrow'
 import {
+    MONTHLY_REWARD_AED,
+    MONTHLY_LATE_REWARD_AED,
     SIGNUP_TRIGGER_OPTIONS,
     JOB_OPTIONS,
     ALTERNATIVE_OPTIONS,
@@ -20,7 +22,7 @@ import {
     type RecommendAnswer,
     type RenewalIntent,
     type WrapPlanTier,
-} from '@/lib/monthly-review'
+} from '@/contexts/subscriptions/domain/monthly-review'
 
 const TOTAL_STEPS = 8 // Screens 1-8 (Q1-Q7 + opening); reveal is post-submit
 const DRAFT_KEY = 'dormers:monthly-review:draft:v1'
@@ -502,7 +504,7 @@ export function MonthlyReviewTakeover({
                             onClick={handleSubmit}
                             label={isSubmitting
                                 ? 'Submitting...'
-                                : `Submit · See your wrap · +AED ${isLate ? 3 : 6}`}
+                                : `Submit · See your wrap · +AED ${isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED}`}
                         />
                     </div>
                 )}

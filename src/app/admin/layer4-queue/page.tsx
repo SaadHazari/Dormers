@@ -1,7 +1,7 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
-import { requireAdmin } from '@/lib/admin/auth'
+import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import QueueClient from './QueueClient'
-import type { Layer4Kind } from '@/lib/dorm-wars/layer4'
+import type { Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
 
 export const metadata = { title: 'Layer 4 Queue — Dormers admin' }
 export const dynamic = 'force-dynamic'

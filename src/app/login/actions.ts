@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/lib/validation'
+import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 
 export async function login(formData: FormData) {
     const supabase = await createClient()

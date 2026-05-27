@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { redirect } from 'next/navigation'
-import { SUBSCRIPTION_STATUS } from '@/lib/subscription-status'
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import HistoryClient, { type EndedPlan } from './HistoryClient'
 
 const PREVIEW_PLANS: EndedPlan[] = [

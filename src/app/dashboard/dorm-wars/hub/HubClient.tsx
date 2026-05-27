@@ -11,11 +11,11 @@ import {
 } from 'lucide-react'
 import type { ReferralData, InviteRow, RewardEvent, CrossDormRecentSub, StreakChestState, StreakChestBucket } from '@/utils/supabase/queries'
 import type { Subscription } from '../../_shared/types'
-import type { MealPriceContext } from '@/lib/dorm-wars/meal-pricing'
-import { freeWeekValue, freeMonthValue } from '@/lib/dorm-wars/meal-pricing'
-import type { Layer4Row, Layer4Kind } from '@/lib/dorm-wars/layer4'
-import type { WeeklyReviewState } from '@/lib/weekly-review'
-import type { MonthlyReviewWindow } from '@/lib/monthly-review'
+import type { MealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
+import { freeWeekValue, freeMonthValue } from '@/contexts/dorm-wars/domain/meal-pricing'
+import type { Layer4Row, Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
+import type { WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
+import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useRouter } from 'next/navigation'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2550,8 +2550,8 @@ function SideRewardsColumn({
           } else if (r.label === 'Monthly wrap') {
             // Once-per-cycle review that opens at cycle-end. State machine:
             //   submitted              → done (cycle done — see you next one)
-            //   eligible + open        → tap to wrap (full AED 6)
-            //   eligible + late        → tap to wrap (half — AED 3, before expiry)
+            //   eligible + open        → tap to wrap (full AED 5)
+            //   eligible + late        → tap to wrap (half — AED 2, before expiry)
             //   expired                → grey "closed" — nothing to do
             //   ineligible (mid-cycle) → "Opens at cycle end"
             const w = monthlyReviewWindow

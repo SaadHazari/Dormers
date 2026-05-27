@@ -2,7 +2,7 @@
 
 import { MapPin } from 'lucide-react'
 import { BODY, S } from './tokens'
-import { whatsAppHref } from '@/lib/contacts'
+import { whatsAppHref } from '@/shared/contacts'
 
 const OOZ_MESSAGE =
   'Hi! I just signed up but my dorm is outside the listed delivery radius — could you confirm whether you can deliver to me?'

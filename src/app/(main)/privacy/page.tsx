@@ -6,7 +6,7 @@ import {
   WHATSAPP_NUMBER_DISPLAY,
   WHATSAPP_HANDLE_DISPLAY,
   whatsAppHref,
-} from '@/lib/contacts';
+} from '@/shared/contacts';
 import { LegalShell } from '@/app/components/LegalShell';
 
 export default function PrivacyPolicy() {

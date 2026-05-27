@@ -4,7 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
-import { computeTrialDeliveryDate, trialDeliveryLabel, type WeekType } from '@/lib/trial-delivery'
+import { computeTrialDeliveryDate, trialDeliveryLabel, type WeekType } from '@/contexts/referrals/domain/trial-delivery'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 
 const PREVIEW_CUSTOMER = {
