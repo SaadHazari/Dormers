@@ -175,6 +175,11 @@ export function ForgotPasswordFlow({
             : 'Choose a strong new password.'
 
     const fieldClass   = `w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all duration-200 border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`
+    // Masked password inputs use 18px wide-tracked semibold so the dots read as
+    // a deliberate visual. Without this override the text placeholder inherits
+    // that same emphasis and looks off — wide-tracked bold 18px placeholder
+    // text sits awkwardly against the 14px field copy on the rest of the form.
+    const passPlaceholderReset = 'placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal'
     const labelClass   = `block text-[11px] font-semibold uppercase tracking-widest mb-2 ${tokens.label}`
     const headingClass = `text-[20px] font-bold tracking-tight leading-snug ${tokens.heading}`
     const subClass     = `text-[13px] mt-1 ${tokens.subline}`
@@ -297,7 +302,7 @@ export function ForgotPasswordFlow({
                                 onKeyUp={capsKeyUp}
                                 autoComplete="new-password"
                                 disabled={isPending || done}
-                                className={`${fieldClass} pr-11 ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
+                                className={`${fieldClass} pr-11 ${passPlaceholderReset} ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
                             />
                             <button type="button" tabIndex={-1} onClick={() => setShowPass(v => !v)} className={eyeBtnClass}>
                                 {showPass ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
@@ -320,7 +325,7 @@ export function ForgotPasswordFlow({
                             onChange={e => setConfirm(e.target.value)}
                             autoComplete="new-password"
                             disabled={isPending || done}
-                            className={`${fieldClass} ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
+                            className={`${fieldClass} ${passPlaceholderReset} ${showPass ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
                         />
                     </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import {
     X, Clock, Check, ChevronLeft, Sparkles, Trophy, ArrowRight,
 } from 'lucide-react'
@@ -557,6 +558,12 @@ function RevealScreen({
     onClose: () => void
 }) {
     const vocab = wrapVocabFor(planTier)
+    const router = useRouter()
+    // Tier-aware next-trigger destination: trial users haven't chosen a plan yet,
+    // so the most meaningful next action is the plan picker. Returning customers
+    // go straight to the next cycle's menu.
+    const nextHref = planTier === 'trial' ? '/dashboard/plan' : '/dashboard/menu'
+    const nextLabel = planTier === 'trial' ? 'Pick your plan' : "See what's cooking next"
     return (
         <div style={SCREEN_REVEAL}>
             <div style={{
@@ -596,7 +603,7 @@ function RevealScreen({
                 />
                 <StatBlock
                     label="Dorm Wars earned"
-                    value={`AED ${stats.aedEarnedThisCycle + (rewardPct === 100 ? 6 : 3)}`}
+                    value={`AED ${stats.aedEarnedThisCycle + (rewardPct === 100 ? MONTHLY_REWARD_AED : MONTHLY_LATE_REWARD_AED)}`}
                     suffix={`this ${vocab.period}`}
                 />
                 {stats.favoriteDish && (
@@ -636,7 +643,7 @@ function RevealScreen({
 
             <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <button
-                    onClick={onClose}
+                    onClick={() => { onClose(); router.push(nextHref) }}
                     style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                         padding: '14px 28px',
@@ -651,7 +658,7 @@ function RevealScreen({
                         boxShadow: '0 8px 28px rgba(245,127,32,0.50)',
                     }}
                 >
-                    Renew · See next menu
+                    {nextLabel}
                     <ArrowRight size={14} strokeWidth={2.4} />
                 </button>
                 <button

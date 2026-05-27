@@ -1,307 +1,67 @@
 'use server';
 
+/**
+ * Subscriptions context — mutations use-case.
+ *
+ * Eight server actions on the LIVE subscription. Carved out of the dashboard's
+ * actions.ts god-file in Phase D of the layered refactor.
+ *
+ *   • pauseSubscription       — flip Active → Paused immediately
+ *   • resumeSubscription      — flip Paused → Active
+ *   • changeStartDate         — reschedule a Scheduled sub (once-per-sub)
+ *   • skipMeal                — same-day skip (before 14:00 AE cutoff)
+ *   • skipFutureDate          — schedule a skip for a future date
+ *   • unskipFutureDate        — reverse a scheduled future skip
+ *   • planPause               — schedule a future open-ended pause
+ *   • cancelPlannedPause      — cancel before activation, refunds credit
+ *
+ * All eight share the load/validate/mutate/notify/revalidate skeleton. They
+ * live together as one deep module per L2-MODULE-SHAPES.md (#2 Subscriptions).
+ */
+
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { requireUser } from '@/contexts/identity/usecases/require-user';
 import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
-import { createClient } from '@/utils/supabase/server';
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
 
-/**
- * Saves account-detail fields that apply IMMEDIATELY (current cycle).
- * Whitelist: name, dorm_name. Allergens, spice level, meal preference,
- * delivery week, and religious veg days are NOT here — they ride the
- * pending-preferences flow in {@link savePendingPreferences} so a
- * mid-cycle change doesn't break the dashboard ↔ kitchen-ops contract.
- */
-export async function updateProfile(data: {
-  name: string;
-  dorm_name: string;
-  // NOTE: whatsapp_number is intentionally omitted. WhatsApp changes flow
-  // through the verified OTP path in profile/SecuritySection so an unverified
-  // number can never be persisted via this action.
-}) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
+// ── Module-local helpers ──────────────────────────────────────────────────
 
-  if (!data.name?.trim()) return { error: 'Full name is required.' };
-  if (!data.dorm_name?.trim()) return { error: 'Dorm building is required.' };
-
-  const { error } = await auth.supabase
-    .from('customers')
-    .update({ name: data.name.trim(), dorm_name: data.dorm_name.trim() })
-    .eq('id', auth.user.id);
-
-  if (error) return { error: 'Failed to update profile.' };
-
-  revalidatePath('/dashboard');
-  revalidatePath('/dashboard/plan');
-  revalidatePath('/dashboard/profile');
-  return { success: true };
+function aeTodayIso(): string {
+  const ae = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  return `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`;
 }
 
-/**
- * Pending-preferences save — applies from the customer's NEXT subscription,
- * never the live one. Writes to the customers.pending_* columns; the
- * webhook drains them at next sub creation and updates the canonical
- * customer.* fields atomically with the new sub.
- *
- * If the customer has no live or queued sub, the change is applied
- * immediately to customer.* (and pending_* stays null) — this is the
- * normal path for between-cycle edits. The pending banner only renders
- * when a live/queued sub holds the change.
- *
- * Returns { applied: 'now' | 'next' } so the UI can render the right
- * confirmation copy.
- */
-export type SavePendingPreferencesInput = {
-  meal_preference_type: string;
-  week_type: '5DAYS' | '6DAYS';
-  allergens: string;
-  spice_level_preference: string;
-  /** Religious-mix only — veg working-day names. Empty/omitted otherwise. */
-  veg_days?: string[];
-};
+function isWorkingDayForWeekType(d: Date, weekType: string): boolean {
+  const isoDow = ((d.getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+  if (weekType === '7DAYS') return true;
+  if (weekType === '6DAYS') return isoDow !== 7;
+  // 5DAYS
+  return isoDow !== 6 && isoDow !== 7;
+}
 
-export type SavePendingPreferencesResult =
-  | { ok: true; applied: 'now' | 'next' }
-  | { error: string };
-
-export async function savePendingPreferences(
-  input: SavePendingPreferencesInput,
-): Promise<SavePendingPreferencesResult> {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  if (input.week_type !== '5DAYS' && input.week_type !== '6DAYS') {
-    return { error: 'Invalid delivery week.' };
-  }
-  if (!input.meal_preference_type?.trim()) {
-    return { error: 'Pick a meal preference.' };
-  }
-  if (!input.spice_level_preference?.trim()) {
-    return { error: 'Pick a spice level.' };
-  }
-  if (!input.allergens?.trim()) {
-    return { error: 'Confirm allergens (or pick "None").' };
-  }
-
-  // Religious-mix veg-day validation — must contain 1..(W-1) unique working
-  // day names for the chosen week_type. Same rules as /api/checkout to keep
-  // the contract consistent across entry points.
-  const isReligious = /religious/i.test(input.meal_preference_type);
-  let cleanVegDays: string[] | null = null;
-  if (isReligious) {
-    const W = input.week_type === '5DAYS' ? 5 : 6;
-    const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].slice(0, W));
-    const list = Array.isArray(input.veg_days) ? input.veg_days : [];
-    const unique = new Set(list).size === list.length;
-    const allInRange = list.every(d => allowed.has(d));
-    if (list.length < 1 || list.length > W - 1 || !unique || !allInRange) {
-      return { error: `Pick between 1 and ${W - 1} veg days from your delivery week.` };
+// 1-indexed position of `targetIso` among working days starting at `startIso`.
+// Returns -1 if target is before start, or isn't a working day.
+function workingDayPosition(startIso: string, targetIso: string, weekType: string): number {
+  const target = new Date(targetIso + 'T00:00:00');
+  const d = new Date(startIso + 'T00:00:00');
+  if (target.getTime() < d.getTime()) return -1;
+  let position = 0;
+  while (d.getTime() <= target.getTime()) {
+    if (isWorkingDayForWeekType(d, weekType)) {
+      position++;
+      if (d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate()) {
+        return position;
+      }
     }
-    cleanVegDays = list;
+    d.setDate(d.getDate() + 1);
   }
-
-  // Decide path: live/queued sub → write to pending_*; otherwise apply now.
-  // SCHEDULED counts as "live" for this check — a queued future sub means
-  // the change must wait for the cycle after that, so it goes to pending_*
-  // just like an active sub. Mirrors promotePendingPreferencesIfStale.
-  const { data: liveSub } = await auth.supabase
-    .from('subscriptions')
-    .select('id')
-    .eq('customer_id', auth.user.id)
-    .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
-    .limit(1)
-    .maybeSingle();
-
-  if (liveSub) {
-    // Live sub: queue the change to pending_*. Canonical fields stay put
-    // until the sub ends (kitchen contract for the current cycle).
-    //
-    // Exception — canonical veg_days when switching FROM religious TO
-    // non-religious. customer.veg_days is the religious-mix memory for the
-    // NEXT sub's pre-fill, not a kitchen-ops field. Once the user's stated
-    // intent is non-religious, the religious-day memory is invalid; leaving
-    // it makes Profile + Plan render stale "Religious-mix veg days" chips
-    // alongside a Veg / Carnivore meal-type tag (the bug that prompted
-    // this guard). Render-side gates are layered on top, but clearing here
-    // is the upstream fix.
-    const patch: Record<string, unknown> = {
-      pending_meal_preference_type: input.meal_preference_type,
-      pending_week_type: input.week_type,
-      pending_allergens: input.allergens,
-      pending_spice_level_preference: input.spice_level_preference,
-      pending_veg_days: isReligious ? cleanVegDays : null,
-    };
-    if (!isReligious) {
-      patch.veg_days = null;
-    }
-    const { error } = await auth.supabase
-      .from('customers')
-      .update(patch)
-      .eq('id', auth.user.id);
-    if (error) return { error: 'Failed to save preferences.' };
-
-    revalidatePath('/dashboard');
-    revalidatePath('/dashboard/profile');
-    return { ok: true, applied: 'next' };
-  }
-
-  // No live sub — write to current fields and clear any stale pending_*
-  // (e.g. customer queued a change, the queued sub never materialised, and
-  // they're now editing again with no live sub). Religious-mix users get
-  // their veg-day picks persisted to customer.veg_days so the next
-  // checkout's day picker pre-fills from this saved preference.
-  const { error } = await auth.supabase
-    .from('customers')
-    .update({
-      meal_preference_type: input.meal_preference_type,
-      week_type: input.week_type,
-      allergens: input.allergens,
-      spice_level_preference: input.spice_level_preference,
-      veg_days: isReligious ? cleanVegDays : null,
-      pending_meal_preference_type: null,
-      pending_week_type: null,
-      pending_allergens: null,
-      pending_spice_level_preference: null,
-      pending_veg_days: null,
-    })
-    .eq('id', auth.user.id);
-  if (error) return { error: 'Failed to save preferences.' };
-
-  revalidatePath('/dashboard');
-  revalidatePath('/dashboard/profile');
-  return { ok: true, applied: 'now' };
+  return -1;
 }
 
-/**
- * Discard pending preferences — restores the customer to the current
- * canonical preferences without applying the queued change. Used by the
- * pending-changes banner's "Discard" affordance.
- */
-export async function discardPendingPreferences(): Promise<{ ok: true } | { error: string }> {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const { error } = await auth.supabase
-    .from('customers')
-    .update({
-      pending_meal_preference_type: null,
-      pending_week_type: null,
-      pending_allergens: null,
-      pending_spice_level_preference: null,
-      pending_veg_days: null,
-    })
-    .eq('id', auth.user.id);
-  if (error) return { error: 'Failed to discard pending changes.' };
-
-  revalidatePath('/dashboard');
-  revalidatePath('/dashboard/profile');
-  return { ok: true };
-}
-
-/**
- * Auto-promote pending preferences when the customer's last subscription
- * has ended without a renewal. Called from the dashboard layout so every
- * dashboard route lands on canonical, drained data — Profile, Plan, and
- * Menu all read post-promotion values without each having to re-check.
- *
- * Promotion semantics: pending_* → canonical customer.* (per-field, only
- * for fields where pending_* is non-null), then null out all pending_*
- * and stamp preferences_promoted_at = now(). The "queued for next sub"
- * banner naturally disappears (pending_* are gone); the new "preferences
- * applied" banner appears in its place (gated on preferences_promoted_at
- * + !hasActiveSub at render time).
- *
- * Safe to call on every dashboard load — the live-sub guard makes it a
- * no-op in the common case (customer has an active sub OR has no pending
- * changes). Uses raw queries (not the React-cached helpers) because the
- * mutation must complete before any cached read sees the row.
- */
-export async function promotePendingPreferencesIfStale(userId: string): Promise<void> {
-  const supabase = await createClient();
-
-  // Read pending columns + a single liveness probe in parallel to keep
-  // the layout's critical path tight.
-  const [{ data: customerRow }, { data: liveSub }] = await Promise.all([
-    supabase
-      .from('customers')
-      .select('pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
-      .eq('id', userId)
-      .maybeSingle(),
-    supabase
-      .from('subscriptions')
-      .select('id')
-      .eq('customer_id', userId)
-      .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (liveSub) return;
-  if (!customerRow) return;
-
-  const hasPending =
-    customerRow.pending_meal_preference_type != null ||
-    customerRow.pending_week_type != null ||
-    customerRow.pending_allergens != null ||
-    customerRow.pending_spice_level_preference != null ||
-    (Array.isArray(customerRow.pending_veg_days) && customerRow.pending_veg_days.length > 0);
-  if (!hasPending) return;
-
-  // Per-field promotion: only fields with a queued change get overwritten;
-  // untouched fields keep their canonical value (mirrors the webhook drain
-  // logic so the promote-on-end and promote-on-renew paths produce the
-  // same end state).
-  const patch: Record<string, unknown> = {
-    pending_meal_preference_type: null,
-    pending_week_type: null,
-    pending_allergens: null,
-    pending_spice_level_preference: null,
-    pending_veg_days: null,
-    preferences_promoted_at: new Date().toISOString(),
-  };
-  if (customerRow.pending_meal_preference_type != null) {
-    patch.meal_preference_type = customerRow.pending_meal_preference_type;
-  }
-  if (customerRow.pending_week_type != null) {
-    patch.week_type = customerRow.pending_week_type;
-  }
-  if (customerRow.pending_allergens != null) {
-    patch.allergens = customerRow.pending_allergens;
-  }
-  if (customerRow.pending_spice_level_preference != null) {
-    patch.spice_level_preference = customerRow.pending_spice_level_preference;
-  }
-  // pending_veg_days drains into customer.veg_days (the canonical religious-
-  // mix preference memory, added 2026-05-07). Symmetric with the other
-  // pending fields — every queued change now lands somewhere persistent
-  // when the sub ends, so the next checkout pre-fills from the user's
-  // last-known picks instead of starting blank.
-  //
-  // BUT: if the drained meal preference is non-religious, canonical veg_days
-  // becomes orphaned data (UI surfaces would render "Religious-mix veg days"
-  // for a Veg / Carnivore customer). Mirror the webhook's invariant —
-  // veg_days only persists for religious-mix customers — by clearing it
-  // when the post-drain preference isn't religious. Without this, a customer
-  // who was religious, queued a change to Veg, and let the sub end ends up
-  // with stale [Tue, Thu, Sat] in customer.veg_days indefinitely.
-  const drainedMealPref =
-    customerRow.pending_meal_preference_type ?? null;
-  const willBeReligious = drainedMealPref != null
-    ? /religious/i.test(drainedMealPref)
-    : null; // unchanged → can't make a determination here
-  if (Array.isArray(customerRow.pending_veg_days) && customerRow.pending_veg_days.length > 0) {
-    patch.veg_days = customerRow.pending_veg_days;
-  } else if (willBeReligious === false) {
-    patch.veg_days = null;
-  }
-
-  await supabase.from('customers').update(patch).eq('id', userId);
-}
+// ── pauseSubscription ─────────────────────────────────────────────────────
 
 export async function pauseSubscription(subscriptionId: string) {
   const auth = await requireUser();
@@ -381,6 +141,8 @@ export async function pauseSubscription(subscriptionId: string) {
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
+
+// ── resumeSubscription ────────────────────────────────────────────────────
 
 export async function resumeSubscription(subscriptionId: string) {
   const auth = await requireUser();
@@ -475,11 +237,11 @@ export async function resumeSubscription(subscriptionId: string) {
     { resume_date: resumeMsgDateIso },
   );
 
-  // Revalidate at layout level so the sidebar/topbar plan badge + every nested
-  // route under /dashboard sees the new status.
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
+
+// ── changeStartDate ───────────────────────────────────────────────────────
 
 /**
  * Move the start date of a Scheduled subscription. Only allowed *before* the
@@ -581,6 +343,8 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
+
+// ── skipMeal (same-day) ───────────────────────────────────────────────────
 
 export async function skipMeal(subscriptionId: string) {
   const auth = await requireUser();
@@ -698,45 +462,11 @@ export async function skipMeal(subscriptionId: string) {
     );
   }
 
-  // Revalidate at layout level so the sidebar/topbar plan badge + every nested
-  // route under /dashboard sees the new status.
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
 
-// ── Future-skip helpers (module-local) ────────────────────────────────────────
-
-function aeTodayIso(): string {
-  const ae = new Date(Date.now() + 4 * 60 * 60 * 1000);
-  return `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`;
-}
-
-function isWorkingDayForWeekType(d: Date, weekType: string): boolean {
-  const isoDow = ((d.getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
-  if (weekType === '7DAYS') return true;
-  if (weekType === '6DAYS') return isoDow !== 7;
-  // 5DAYS
-  return isoDow !== 6 && isoDow !== 7;
-}
-
-// 1-indexed position of `targetIso` among working days starting at `startIso`.
-// Returns -1 if target is before start, or isn't a working day.
-function workingDayPosition(startIso: string, targetIso: string, weekType: string): number {
-  const target = new Date(targetIso + 'T00:00:00');
-  const d = new Date(startIso + 'T00:00:00');
-  if (target.getTime() < d.getTime()) return -1;
-  let position = 0;
-  while (d.getTime() <= target.getTime()) {
-    if (isWorkingDayForWeekType(d, weekType)) {
-      position++;
-      if (d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate()) {
-        return position;
-      }
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return -1;
-}
+// ── skipFutureDate ────────────────────────────────────────────────────────
 
 /**
  * Schedule a skip for a FUTURE date. Customer registers an intent to skip a
@@ -852,6 +582,8 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
   return { success: true };
 }
 
+// ── unskipFutureDate ──────────────────────────────────────────────────────
+
 /**
  * Reverse a scheduled future skip. Only works for STRICTLY FUTURE dates —
  * today's same-day skips remain irreversible per the operational policy
@@ -909,6 +641,8 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
+
+// ── planPause ─────────────────────────────────────────────────────────────
 
 /**
  * Schedule a FUTURE pause start date (Variant B — open-ended).
@@ -1039,6 +773,8 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
   revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
+
+// ── cancelPlannedPause ────────────────────────────────────────────────────
 
 /**
  * Cancel a pre-scheduled pause. Only valid BEFORE activation (the cron has

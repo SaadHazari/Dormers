@@ -54,18 +54,14 @@ The ESLint dependency rule was refined: `infra/` is now allowed to import from `
 
 `pricing.ts` moved to `contexts/subscriptions/domain/pricing.ts`. Dorm-wars still consumes it as a documented cross-context import, but the lint warning is gone.
 
-### D. `dashboard/actions.ts` (1091 lines) split into deep modules
+### D. `dashboard/actions.ts` split — DONE
 
-L2 recommended splitting into 3 deep modules:
-- `contexts/subscriptions/usecases/SubscriptionMutations` (8 methods: pause, resume, skip, etc.)
-- `contexts/subscriptions/usecases/Preferences` (3 methods: savePending, etc.)
-- `contexts/identity/usecases/Profile` (updateProfile)
+The 1091-line god-file is gone. Split into three deep modules per L2:
+- `contexts/identity/usecases/profile-actions.ts` — `updateProfile` (1 action)
+- `contexts/subscriptions/usecases/preferences-actions.ts` — `savePendingPreferences`, `discardPendingPreferences`, `promotePendingPreferencesIfStale` + input/result types (3 actions)
+- `contexts/subscriptions/usecases/subscription-mutations.ts` — `pauseSubscription`, `resumeSubscription`, `changeStartDate`, `skipMeal`, `skipFutureDate`, `unskipFutureDate`, `planPause`, `cancelPlannedPause` + the 3 module-local helpers (`aeTodayIso`, `isWorkingDayForWeekType`, `workingDayPosition`) (8 actions)
 
-NOT done in the refactor because: (1) Next.js server actions have specific 'use server' semantics that interact with the file location; (2) the file is 1091 lines and a split mid-refactor compounds risk; (3) every dashboard modal calls these so testing surface is wide.
-
-Plan when ready: extract one method at a time from the bottom of `actions.ts`. Each extraction is a focused commit. Keep the original file as the entry point ('use server') and have it delegate to the new modules.
-
-Estimate: 6-8 hours, ideally over multiple sessions.
+Each new file is a deep module per L2: shared imports, single bounded responsibility, all related methods together. The 4 client consumers (`layout.tsx`, `ActiveDashboard.tsx`, `plan/PlanClient.tsx`, `profile/ProfileClient.tsx`) import from the new paths directly.
 
 ### E. Stripe SDK behind `infra/stripe/` — DONE (`19e3411`)
 

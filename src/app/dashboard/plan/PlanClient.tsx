@@ -35,7 +35,7 @@ import { CheckoutPanel } from './CheckoutPanel'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
-import { changeStartDate, cancelPlannedPause } from '../actions'
+import { changeStartDate, cancelPlannedPause } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { whatsAppHref } from '@/shared/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from '@/contexts/subscriptions/domain/pricing'
 
