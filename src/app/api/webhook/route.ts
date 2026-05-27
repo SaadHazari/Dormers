@@ -3,7 +3,7 @@ import { constructWebhookEvent, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
-import { getActiveLifetimeTierPercent } from '@/contexts/dorm-wars/domain/repo';
+import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo';
 import {
   SUBSCRIPTION_STATUS,
   LIVE_SUBSCRIPTION_STATUSES,

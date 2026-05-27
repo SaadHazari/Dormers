@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { normalisePhone } from '@/shared/phone'
 import { generateCid } from '@/shared/cid'
-import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/domain/awarder'
+import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/usecases/awarder'
 import { isDoublerActive, applyDoubler } from '@/contexts/dorm-wars/domain/doubler'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────

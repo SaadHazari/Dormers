@@ -13,11 +13,11 @@
 // tier loop is appended in 07-04 at the marked placeholder below.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { mysteryDropValue } from './rng'
-import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from './constants'
-import { getCycleRecruits, getCycleChainSubIds } from './repo'
-import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from './meal-pricing'
-import { isDoublerActive, applyDoubler } from './doubler'
+import { mysteryDropValue } from '../domain/rng'
+import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from '../domain/constants'
+import { getCycleRecruits, getCycleChainSubIds } from '@/infra/supabase/dorm-wars-repo'
+import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from '../domain/meal-pricing'
+import { isDoublerActive, applyDoubler } from '../domain/doubler'
 
 // Use the wide-generic form so this matches the type returned by bare
 // createClient(url, key) — which is SupabaseClient<any, "public", "public", any, any>.

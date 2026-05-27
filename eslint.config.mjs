@@ -11,14 +11,14 @@ const compat = new FlatCompat({
 
 // Dependency-rule enforcement for the layered architecture.
 // See .planning/refactor/L1-BOUNDARIES.md for the inward-pointing rule.
-// Warn-level during the refactor (Phase 0–10); tightened to error in Phase 11.
+// Hard-enforced at error level — violations block builds.
 const restrictedImportsByLayer = {
   // shared/ — pure primitives, imports nothing else inside src/
   shared: {
     files: ["src/shared/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             "@/contexts/**",
@@ -34,15 +34,19 @@ const restrictedImportsByLayer = {
       ],
     },
   },
-  // infra/ — outer ring, imports only shared/
+  // infra/ — outer ring. Can import from shared/ and from
+  // contexts/<X>/domain (to implement domain contracts: repository
+  // interfaces, types like SUBSCRIPTION_STATUS that the persistence layer
+  // must serialize). Cannot import from usecases, ui, app, components.
   infra: {
     files: ["src/infra/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
-            "@/contexts/**",
+            "@/contexts/*/usecases/**",
+            "@/contexts/*/ui/**",
             "@/ui-system/**",
             "@/app/**",
             "@/components/**",
@@ -57,7 +61,7 @@ const restrictedImportsByLayer = {
     files: ["src/contexts/*/domain/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             "@/infra/**",

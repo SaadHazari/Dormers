@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/contexts/subscriptions/domain/repo'
+import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import MenuClient from './MenuClient'

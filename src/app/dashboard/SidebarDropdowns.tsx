@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { OG, OG3, NV2, BODY } from './_shared/tokens'
-import type { ReferralData } from '@/contexts/referrals/domain/repo'
+import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'

@@ -9,8 +9,8 @@ import {
   Activity, MessageSquareText, Sparkles,
   User, Award, Crown, Clock,
 } from 'lucide-react'
-import type { ReferralData, InviteRow, CrossDormRecentSub } from '@/contexts/referrals/domain/repo'
-import type { RewardEvent, StreakChestState, StreakChestBucket } from '@/contexts/dorm-wars/domain/repo'
+import type { ReferralData, InviteRow, CrossDormRecentSub } from '@/infra/supabase/referrals-repo'
+import type { RewardEvent, StreakChestState, StreakChestBucket } from '@/infra/supabase/dorm-wars-repo'
 import type { Subscription } from '../../_shared/types'
 import type { MealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
 import { freeWeekValue, freeMonthValue } from '@/contexts/dorm-wars/domain/meal-pricing'

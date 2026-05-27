@@ -4,9 +4,9 @@
  * workarounds for the dorm-wars hub).
  *
  * Centralized in Phase 11 of the layered refactor — previously this helper
- * was duplicated in three places (utils/supabase/queries.ts,
- * contexts/notifications/usecases/queue.ts,
- * contexts/dorm-wars/domain/repo.ts). Single source of truth now lives here.
+ * was duplicated across queries.ts, notifications/usecases/queue.ts, and
+ * dorm-wars/domain/repo.ts. Single source of truth now lives here; the
+ * three repos in infra/supabase/ + notifications/queue all use it.
  *
  * Security note: callers must never accept arbitrary user IDs. The
  * userId/customerId passed in must come from a verified server context

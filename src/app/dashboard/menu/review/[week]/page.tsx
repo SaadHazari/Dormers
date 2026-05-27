@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer } from '@/contexts/subscriptions/domain/repo'
+import { getCustomer } from '@/infra/supabase/subscriptions-repo'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'

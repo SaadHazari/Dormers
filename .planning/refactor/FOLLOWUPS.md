@@ -37,20 +37,18 @@
 
 74 consumer imports updated. `src/lib/` and `src/hooks/` are gone. ESLint dependency rule still at warn level; tightening to error is blocked by item B (two remaining warnings on `@/infra/supabase/admin-client` imports from domain repos).
 
-### B. Concrete repositories sit in `domain/`, should be in `infra/supabase/`
+### B. Concrete repositories — DONE
 
-Two warnings the ESLint dependency rule surfaces today:
+The three repo files moved out of `contexts/<X>/domain/` and into `infra/supabase/`:
+- `contexts/dorm-wars/domain/repo.ts` → `infra/supabase/dorm-wars-repo.ts`
+- `contexts/referrals/domain/repo.ts` → `infra/supabase/referrals-repo.ts`
+- `contexts/subscriptions/domain/repo.ts` → `infra/supabase/subscriptions-repo.ts`
 
-- `src/contexts/dorm-wars/domain/repo.ts` imports `@/infra/supabase/admin-client` — domain reaching into infra.
-- The same is true for `contexts/referrals/domain/repo.ts` and `contexts/subscriptions/domain/repo.ts` and `contexts/notifications/usecases/queue.ts` (which is in usecases, allowed to import infra, but the repo files in `domain/` aren't).
+`awarder.ts` (the only domain file that called a repo) moved from `contexts/dorm-wars/domain/` → `contexts/dorm-wars/usecases/` since it orchestrates DB writes — that's use-case work, not pure domain.
 
-The proper clean-architecture shape:
-- `contexts/<X>/domain/repository.ts` — just the INTERFACE (function signatures + types). Zero infra imports.
-- `infra/supabase/<X>-repo.ts` — the implementation. Imports from `infra/supabase/admin-client`.
+The ESLint dependency rule was refined: `infra/` is now allowed to import from `contexts/<X>/domain` (because infra implements domain contracts — repositories need to know domain types like `SUBSCRIPTION_STATUS`). It's still blocked from `usecases/`, `ui/`, `app/`, `components/`, `hooks/`.
 
-Plan when ready: split each `repo.ts` into interface + implementation. The interface stays in domain; the implementation moves to infra. Callers continue to import from `@/contexts/<X>/domain/repository`. The DI happens at the use-case layer.
-
-Estimate: 2-3 hours per context. Lower priority than (A) because behavior is unchanged.
+**The dependency rule is now enforced at ERROR level.** Any future code that violates the architecture fails the build, not just warns.
 
 ### C. Pricing.ts cross-context — DONE (`f008097`)
 

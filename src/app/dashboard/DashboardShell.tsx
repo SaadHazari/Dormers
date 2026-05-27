@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
-import type { ReferralData } from '@/contexts/referrals/domain/repo'
+import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { MonthlyWrapForceOverlay } from './_shared/MonthlyWrapForceOverlay'

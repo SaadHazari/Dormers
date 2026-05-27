@@ -10,7 +10,7 @@
 import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
-import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from './subscription-status'
+import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 
 // React `cache()` deduplicates these calls inside a single render. When the
 // layout and a page both ask for the same user's customer row, only one
