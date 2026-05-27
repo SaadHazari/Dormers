@@ -21,25 +21,21 @@
 | 8 | `50b298c` | Subscriptions context (9 files) + customer/sub queries extracted |
 | 9 | `13a8ad8` | Identity (requireUser) + shared (validation, phone, contacts) |
 | 10 | `39aa5ba` | Admin auth gate relocate |
-| 11 | TBD | UI tokens + hooks → ui-system/, Supabase admin consolidated |
+| 11 | `78c160c` | UI tokens + hooks → ui-system/, Supabase admin consolidated |
+| 11b | `0f6cafe` | All shims deleted, 74 consumer imports updated → `src/lib/` + `src/hooks/` are gone |
+| C | `f008097` | `pricing.ts` moved to `contexts/subscriptions/domain/` |
+| F | `724418a` | `queries.ts` deleted, `getRedeemableCredit` moved to subscriptions, repos consolidated on admin-client |
+| E | `19e3411` | Stripe SDK behind `infra/stripe/client.ts` |
 
-`utils/supabase/queries.ts` is down from 697 lines to ~95 lines. `src/lib/` is now mostly compatibility shims.
+`utils/supabase/queries.ts` is GONE. `src/lib/` is GONE. `src/hooks/` is GONE. Every business module lives in its bounded context, shared kernel, infra ring, or ui-system ring.
 
 ---
 
 ## Known follow-ups (NOT done — captured for later)
 
-### A. Shim removal (mechanical, 74 consumer files)
+### A. Shim removal — DONE (`0f6cafe`)
 
-Every `src/lib/<name>.ts` is still a one-line `export * from '@/contexts/<X>/...'` shim. Reasons to keep them through the refactor: blast-radius safety, gradual migration. Reasons to delete them: extra import indirection, broken-windows debt.
-
-Plan when ready:
-1. Search-replace each `@/lib/<name>` import path with its new home.
-2. Delete the shim files in `src/lib/`.
-3. After all shims are gone, the `src/lib/` directory itself can be deleted.
-4. Tighten ESLint dependency rule from `warn` → `error` in `eslint.config.mjs`.
-
-Estimate: 1-2 focused hours. Mechanical work.
+74 consumer imports updated. `src/lib/` and `src/hooks/` are gone. ESLint dependency rule still at warn level; tightening to error is blocked by item B (two remaining warnings on `@/infra/supabase/admin-client` imports from domain repos).
 
 ### B. Concrete repositories sit in `domain/`, should be in `infra/supabase/`
 
@@ -56,13 +52,9 @@ Plan when ready: split each `repo.ts` into interface + implementation. The inter
 
 Estimate: 2-3 hours per context. Lower priority than (A) because behavior is unchanged.
 
-### C. `meal-pricing.ts` reaches into `@/app/dashboard/plan/pricing`
+### C. Pricing.ts cross-context — DONE (`f008097`)
 
-`src/contexts/dorm-wars/domain/meal-pricing.ts` imports `pricePerMeal`, `mealsForPlan`, types `Pref` and `PlanId` from `src/app/dashboard/plan/pricing.ts`. That's a dorm-wars → subscriptions cross-context import the dependency rule flags.
-
-Fix: move `pricePerMeal` + `mealsForPlan` + types to `contexts/subscriptions/domain/pricing.ts`. Update both the dashboard pricing UI and `meal-pricing.ts` to import from the new location.
-
-Estimate: 30 minutes. The blocker on doing this in Phase 8 was that the pricing logic lives next to the dashboard plan UI and the move needs touch the UI side.
+`pricing.ts` moved to `contexts/subscriptions/domain/pricing.ts`. Dorm-wars still consumes it as a documented cross-context import, but the lint warning is gone.
 
 ### D. `dashboard/actions.ts` (1091 lines) split into deep modules
 
@@ -77,21 +69,13 @@ Plan when ready: extract one method at a time from the bottom of `actions.ts`. E
 
 Estimate: 6-8 hours, ideally over multiple sessions.
 
-### E. Stripe SDK behind `infra/stripe/`
+### E. Stripe SDK behind `infra/stripe/` — DONE (`19e3411`)
 
-The webhook and checkout routes still `import Stripe from 'stripe'` directly. Per L1 the SDK belongs in `infra/stripe/client.ts`.
+Webhook + checkout now import from `@/infra/stripe/client`. Manual webhook smoke test with Stripe CLI event replay still recommended before next major deploy cycle.
 
-Plan when ready: create `infra/stripe/client.ts` with `stripeClient()` factory + `constructWebhookEvent(body, sig)` helper. Update both route handlers to import from there. Smoke-test the webhook with Stripe CLI event replay.
+### F. `getRedeemableCredit` owner — DONE (`724418a`)
 
-Estimate: 1 hour + manual webhook test.
-
-### F. `getRedeemableCredit` owner not yet decided
-
-Lives in `utils/supabase/queries.ts` because credits are populated by BOTH referrals (conversion rewards) AND dorm-wars (gameplay rewards), but spent on subscription checkouts. None of the three is a clear owner.
-
-Options: (1) keep in queries.ts as a shared cross-context query, (2) put in `contexts/subscriptions/domain/` (because that's where the read fires from), (3) put in `contexts/referrals/domain/` (because that's where most credits originate).
-
-Estimate: 15-minute decision + 30-minute move once decided.
+Decided: subscriptions (because credits are SPENT at checkout). Moved to `contexts/subscriptions/domain/repo.ts`. `queries.ts` deleted entirely.
 
 ### G. Marketing pages (`app/(main)/`) and UI components
 
