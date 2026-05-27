@@ -1,5 +1,5 @@
-import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
+import { constructWebhookEvent, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions';
@@ -32,12 +32,6 @@ function nextDeliveryDay(d: Date, weekType: WeekType): Date {
 }
 
 export async function POST(req: Request) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-    apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion,
-  });
-
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -49,7 +43,7 @@ export async function POST(req: Request) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(bodyText, signature, webhookSecret);
+      event = constructWebhookEvent(bodyText, signature);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error(`❌ Webhook Error: ${errorMessage}`);

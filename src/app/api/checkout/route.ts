@@ -1,5 +1,5 @@
-import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
+import { stripeClient, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@/utils/supabase/server';
 import { resolvePlan, minPriceFilsFor } from '@/contexts/subscriptions/domain/plans';
 import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
@@ -10,16 +10,13 @@ import { getRedeemableCredit } from '@/contexts/subscriptions/domain/repo';
 import { getActiveLifetimeTierPercent } from '@/contexts/dorm-wars/domain/repo';
 
 export async function POST(req: Request) {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-
-  if (!stripeSecretKey) {
-    console.error("❌ Stripe secret key missing in environment!");
+  let stripe;
+  try {
+    stripe = stripeClient();
+  } catch (err) {
+    console.error("❌ Stripe client init failed:", err);
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
-
-  const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion // <-- Replace with latest valid version
-  });
 
   try {
     // Fetch the authenticated user
