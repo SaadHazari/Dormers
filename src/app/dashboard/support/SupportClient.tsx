@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Mail, MessageCircle } from 'lucide-react'
+import { Mail, MessageCircle, Heart } from 'lucide-react'
 import { OG, BODY, MONO, S as BASE_S, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
@@ -305,6 +305,11 @@ export default function SupportClient({
           </div>
         </section>
 
+        <div style={{ textAlign: 'center', padding: '16px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            Made with <Heart size={11} fill={OG} strokeWidth={0} aria-hidden /> in Dubai
+          </span>
+        </div>
       </div>
 
       <style>{`

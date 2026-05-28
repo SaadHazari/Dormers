@@ -4,7 +4,7 @@ import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/inf
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
 import DashboardShell from './DashboardShell'
-import { DashboardCoda } from './_shared/DashboardCoda'
+import { BugReportTrigger } from './_shared/BugReportTrigger'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
@@ -103,6 +103,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             {/* Tinted container — the visual surface for all dashboard content.
                 Right padding accommodates the floating utility cluster (3 icons at top-right). */}
             <div className="content-border" style={{
+              position: 'relative',
               borderRadius: 'var(--radius-md)',
               border: '1px solid rgba(245,127,32,0.45)',
               background: '#ede8da',
@@ -110,7 +111,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               overflow: 'hidden',
             }}>
               {children}
-              <DashboardCoda />
+              <BugReportTrigger />
             </div>
           </main>
         </div>
