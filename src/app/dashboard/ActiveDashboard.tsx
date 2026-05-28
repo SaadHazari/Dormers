@@ -116,7 +116,13 @@ function buildCurrentWeekMenu(
 }
 
 function getGreeting() {
-  const h = new Date().getHours()
+  // Pin to Asia/Dubai so SSR (Netlify, UTC) and the browser (Dubai, UTC+4)
+  // agree on which side of noon/5pm we're on. `new Date().getHours()`
+  // returns hours in the *runtime's* timezone — a guaranteed hydration
+  // mismatch when the two clocks straddle a boundary.
+  const h = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dubai', hour: 'numeric', hour12: false,
+  }).format(new Date()))
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
@@ -133,7 +139,11 @@ function nextDeliveryLabel(weekType: '5DAYS' | '6DAYS'): string {
       weekType === '5DAYS' ? (isoDow !== 6 && isoDow !== 7) : isoDow !== 7
     if (!isDelivery) continue
     if (daysAhead === 1) return 'tomorrow evening'
-    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })} evening`
+    // candidate is already aeShifted to represent the Dubai calendar day —
+    // pin timeZone:'UTC' so the formatter reads its UTC fields verbatim
+    // instead of re-shifting in the runtime's local timezone (UTC on the
+    // server, Asia/Dubai in the browser → otherwise a hydration mismatch).
+    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })} evening`
   }
   return 'your next delivery day'
 }

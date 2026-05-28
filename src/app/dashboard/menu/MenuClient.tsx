@@ -156,7 +156,10 @@ function nextDeliveryLabel(weekType: '5DAYS' | '6DAYS'): string {
       weekType === '5DAYS' ? (isoDow !== 6 && isoDow !== 7) : isoDow !== 7
     if (!isDelivery) continue
     if (daysAhead === 1) return 'tomorrow evening'
-    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })} evening`
+    // candidate is already aeShifted to represent the Dubai calendar day —
+    // pin timeZone:'UTC' so SSR (UTC) and browser (Asia/Dubai) format the
+    // same string instead of re-shifting in the runtime's local timezone.
+    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })} evening`
   }
   return 'your next delivery day'
 }
