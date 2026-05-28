@@ -15,6 +15,7 @@
  */
 
 import * as Sentry from '@sentry/nextjs'
+import { nodeProfilingIntegration } from '@sentry/profiling-node'
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -23,6 +24,12 @@ if (process.env.SENTRY_DSN) {
 
     // 100% in dev, 10% in prod for cost control.
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+
+    // Continuous profiling — captures CPU samples for traced transactions.
+    // profileLifecycle 'trace' ties profile collection to active transactions
+    // so we don't profile idle time. Sample rate matches tracing rate.
+    profileSessionSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    profileLifecycle: 'trace',
 
     // Attach local variable values to every stack frame in errors. Makes
     // "why was orderId undefined here?" answerable from the Sentry UI
@@ -37,5 +44,14 @@ if (process.env.SENTRY_DSN) {
     // and auth tokens before transmission. Useful for cross-referencing
     // server errors with the customer who hit them.
     sendDefaultPii: true,
+
+    integrations: [
+      // Node V8 CPU profiler — uploads sampled profiles for slow requests.
+      nodeProfilingIntegration(),
+      // Vercel AI SDK tracing — the chatbot uses `ai` + `@ai-sdk/google`,
+      // so every streamText / generateText call becomes a trace span with
+      // model name, prompt tokens, completion tokens, and latency.
+      Sentry.vercelAIIntegration(),
+    ],
   })
 }

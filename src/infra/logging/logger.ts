@@ -14,13 +14,15 @@
  * Dev: pino-pretty wraps the JSON for human reading.
  * Prod: raw JSON; Netlify / future log aggregator (Axiom, Datadog) parses it.
  *
- * Sentry hook: when SENTRY_DSN is set, error-level logs are also forwarded
- * to Sentry as breadcrumbs/events via the captured exception (see
- * Sentry.captureException in sentry.server.config). The logger itself stays
- * vendor-neutral; swapping log sinks is a one-file change here.
+ * Sentry forwarding: every log line at info+ is mirrored to Sentry's Logs
+ * product via Sentry.logger.*. info/warn/error/fatal map to their Sentry
+ * equivalents. debug stays Netlify-only (too chatty for Sentry's quota).
+ * Forwarding is a no-op when Sentry.init hasn't run (no DSN, or pre-init
+ * boot logs), so this is safe in every runtime.
  */
 
 import pino from 'pino'
+import * as Sentry from '@sentry/nextjs'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -70,4 +72,57 @@ export const logger = pino({
  */
 export function childLogger(context: Record<string, unknown>) {
   return logger.child(context)
+}
+
+// ── Sentry log forwarding ────────────────────────────────────────────────
+// Mirror info+ pino logs into Sentry's Logs product. Sentry's logger.* API
+// is a no-op when the SDK hasn't initialized (no DSN, or running outside a
+// request context), so wrapping pino's methods is safe in every runtime.
+//
+// We hook AFTER constructing the pino instance so dev still gets pretty
+// output AND production gets both Netlify stream + Sentry Logs.
+const sentryLevelMap = {
+  info: 'info',
+  warn: 'warn',
+  error: 'error',
+  fatal: 'fatal',
+} as const
+
+type SentryLevelKey = keyof typeof sentryLevelMap
+
+function forwardToSentry(
+  level: SentryLevelKey,
+  arg1: unknown,
+  arg2: unknown,
+): void {
+  if (!Sentry.getClient()) return // SDK not initialized → nothing to do.
+
+  // pino calling convention: logger.info(obj, msg) or logger.info(msg).
+  // Normalize to (msg, attributes) for Sentry.
+  let msg: string
+  let attributes: Record<string, unknown> | undefined
+  if (typeof arg1 === 'string') {
+    msg = arg1
+  } else if (arg1 && typeof arg1 === 'object') {
+    attributes = arg1 as Record<string, unknown>
+    msg = typeof arg2 === 'string' ? arg2 : (attributes.msg as string) ?? ''
+  } else {
+    msg = String(arg1 ?? '')
+  }
+
+  try {
+    Sentry.logger[sentryLevelMap[level]](msg, attributes)
+  } catch {
+    // Never let log forwarding break the request.
+  }
+}
+
+for (const level of Object.keys(sentryLevelMap) as SentryLevelKey[]) {
+  const original = logger[level].bind(logger)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(logger as any)[level] = (arg1: unknown, arg2?: unknown, ...rest: unknown[]) => {
+    forwardToSentry(level, arg1, arg2)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (original as any)(arg1, arg2, ...rest)
+  }
 }

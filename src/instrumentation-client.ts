@@ -42,6 +42,17 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
 
     integrations: [
       Sentry.replayIntegration(),
+      // Floating "Report a bug" widget in the bottom corner. Triggers a
+      // form that captures user-submitted feedback as a Sentry event with
+      // a screenshot. Themed dark-by-default to match the dashboard's
+      // intentional light/marketing-dark split.
+      Sentry.feedbackIntegration({
+        colorScheme: 'system',
+        buttonLabel: 'Report an issue',
+        submitButtonLabel: 'Send',
+        formTitle: 'Tell us what happened',
+        showBranding: false,
+      }),
     ],
   })
 }
