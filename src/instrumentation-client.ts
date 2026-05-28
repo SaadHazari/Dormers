@@ -64,16 +64,44 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       // Mirror direct console.log/warn/error calls into Sentry Logs.
       Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
       // User-submitted bug reports. autoInject:false suppresses Sentry's
-      // generic floating button — we attach the trigger to a custom coda
-      // link at the bottom of every dashboard page (DashboardCoda.tsx)
-      // so the button matches the brand instead of looking like glued-on
-      // third-party chrome.
+      // generic floating button — the trigger is the BugReportTrigger
+      // icon at the bottom-right of the dashboard's content-border.
+      //
+      // Theme tokens map Sentry's dialog onto the dashboard's brand:
+      // cream surface, navy text, brand orange CTA, Montserrat body.
+      // colorScheme is pinned to 'light' rather than 'system' because the
+      // dashboard is intentionally light regardless of OS preference.
       Sentry.feedbackIntegration({
         autoInject: false,
-        colorScheme: 'system',
-        submitButtonLabel: 'Send',
-        formTitle: 'Tell us what happened',
+        colorScheme: 'light',
         showBranding: false,
+        // Copy.
+        formTitle: 'Tell us what happened',
+        messageLabel: 'What went wrong?',
+        messagePlaceholder: 'Saw something weird? Type away — the more detail the better.',
+        submitButtonLabel: 'Send it',
+        cancelButtonLabel: 'Never mind',
+        successMessageText: 'Got it — thanks for helping us improve.',
+        // On-brand light theme. Sentry CSS-variable names map 1:1 to
+        // the keys below. Hex / rgba values come from src/app/dashboard/_shared/tokens.ts
+        // so they stay in lockstep with the rest of the surface.
+        themeLight: {
+          background: '#ede8da',                  // BG (cream)
+          foreground: '#091825',                  // NV (dark navy)
+          accentBackground: '#f57f20',            // OG (brand orange)
+          accentForeground: '#ffffff',
+          successColor: '#22c55e',
+          errorColor: '#ef4444',
+          border: '1px solid rgba(9,24,37,0.12)',
+          boxShadow: '0 20px 50px rgba(9,24,37,0.22), 0 2px 6px rgba(9,24,37,0.10)',
+          fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif',
+          fontSize: '14px',
+          borderRadius: '14px',
+          inputBackground: '#f5f0e8',             // slightly lighter cream — "inset" feel
+          inputForeground: '#091825',
+          inputBorder: 'rgba(9,24,37,0.15)',
+          inputOutlineFocus: '#f57f20',
+        },
       }),
     ],
   })
