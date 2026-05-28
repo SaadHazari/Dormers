@@ -24,12 +24,30 @@ import { logger } from '@/infra/logging/logger'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// Required env vars for the app to function at all. Missing any = degraded.
-const REQUIRED_ENV_VARS = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+// NEXT_PUBLIC_* env vars are inlined by Next.js at build time via the
+// DefinePlugin — only LITERAL property accesses like
+// `process.env.NEXT_PUBLIC_FOO` get substituted. Dynamic lookups via
+// bracket notation (`process.env[name]`) read the runtime env, which on
+// Netlify Functions doesn't include NEXT_PUBLIC_* vars by default. So
+// checking those by name from this loop would give false negatives.
+//
+// We check the non-NEXT_PUBLIC vars dynamically (they're real runtime
+// env), and the NEXT_PUBLIC ones via the inlined references below.
+const REQUIRED_RUNTIME_ENV_VARS = [
   'SUPABASE_SERVICE_ROLE_KEY',
 ] as const
+
+const REQUIRED_BUILD_ENV_VARS: Record<string, string | undefined> = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+}
+
+// Sentry — optional. Reported as informational so we can see whether
+// observability is wired up without flipping the overall health to degraded.
+const SENTRY_ENV_VARS: Record<string, string | undefined> = {
+  SENTRY_DSN: process.env.SENTRY_DSN,
+  NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+}
 
 type CheckStatus = 'ok' | 'fail'
 
@@ -44,6 +62,7 @@ interface HealthPayload {
   service: 'dormers-web'
   timestamp: string
   checks: Record<string, CheckResult>
+  sentry: Record<string, 'set' | 'missing'>
 }
 
 async function checkSupabase(): Promise<CheckResult> {
@@ -65,11 +84,25 @@ async function checkSupabase(): Promise<CheckResult> {
 }
 
 function checkEnvVars(): CheckResult {
-  const missing = REQUIRED_ENV_VARS.filter((name) => !process.env[name])
+  const missingRuntime = REQUIRED_RUNTIME_ENV_VARS.filter((name) => !process.env[name])
+  const missingBuild = Object.entries(REQUIRED_BUILD_ENV_VARS)
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+  const missing = [...missingRuntime, ...missingBuild]
   if (missing.length > 0) {
     return { status: 'fail', detail: `missing: ${missing.join(', ')}` }
   }
   return { status: 'ok' }
+}
+
+/**
+ * Sentry presence — informational only. Tells us whether the SDK should
+ * be initializing, without affecting overall health status.
+ */
+function sentryStatus(): Record<string, 'set' | 'missing'> {
+  return Object.fromEntries(
+    Object.entries(SENTRY_ENV_VARS).map(([k, v]) => [k, v ? 'set' : 'missing']),
+  ) as Record<string, 'set' | 'missing'>
 }
 
 export async function GET() {
@@ -88,6 +121,7 @@ export async function GET() {
     service: 'dormers-web',
     timestamp: new Date().toISOString(),
     checks,
+    sentry: sentryStatus(),
   }
 
   if (!healthy) {
