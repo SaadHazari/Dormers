@@ -117,7 +117,7 @@ export async function pauseSubscription(subscriptionId: string) {
   // route under /dashboard sees the new status.
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.paused');
 }
 
 // ── resumeSubscription ────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ export async function resumeSubscription(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.resumed');
 }
 
 // ── changeStartDate ───────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.start_date_changed');
 }
 
 // ── skipMeal (same-day) ───────────────────────────────────────────────────
@@ -423,7 +423,7 @@ export async function skipMeal(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.skipped');
 }
 
 // ── skipFutureDate ────────────────────────────────────────────────────────
@@ -525,7 +525,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.future_skip_scheduled');
 }
 
 // ── unskipFutureDate ──────────────────────────────────────────────────────
@@ -580,7 +580,7 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.future_skip_cancelled');
 }
 
 // ── planPause ─────────────────────────────────────────────────────────────
@@ -689,7 +689,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.pause_scheduled');
 }
 
 // ── cancelPlannedPause ────────────────────────────────────────────────────
@@ -733,5 +733,5 @@ export async function cancelPlannedPause(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
-  });
+  }, 'subscription.pause_plan_cancelled');
 }

@@ -17,6 +17,7 @@
  * uniformly. Throws propagate up to the route's try/catch → 500.
  */
 
+import * as Sentry from '@sentry/nextjs'
 import type { Stripe } from '@/infra/stripe/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
@@ -597,6 +598,7 @@ async function handleCheckoutCompleted(
   }
 
   console.log(`✅ Successfully processed checkout for user ${user_id} (resume=${resumeMode})`)
+  Sentry.metrics.count('payment.checkout_completed', 1)
   return { ok: true }
 }
 
@@ -652,6 +654,7 @@ async function handleChargeRefunded(
     .from('orders')
     .update({ invoice_status: 'Refunded' })
     .eq('id', orderRow.id)
+  Sentry.metrics.count('payment.refund_handled', 1)
   return { ok: true, refundHandled: true, restored: restoredCount ?? 0 }
 }
 

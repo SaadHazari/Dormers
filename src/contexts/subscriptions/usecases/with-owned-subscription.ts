@@ -26,6 +26,7 @@
  *   }
  */
 
+import * as Sentry from '@sentry/nextjs'
 import { requireUser, type RequireUserResult } from '@/contexts/identity/usecases/require-user'
 import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions'
 import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions'
@@ -44,9 +45,19 @@ export interface OwnedSubscriptionContext {
  */
 export type MutationResult = { success: true } | { error: string }
 
+/**
+ * Wrap a mutation body with auth + ownership-load + metric instrumentation.
+ *
+ * The optional `metricName` arg is incremented once on the success branch
+ * via Sentry.metrics.count, giving a per-mutation business counter
+ * ("how many pauses today, broken down by hour?") in Sentry's Metrics UI.
+ * Failures are counted under `subscription.mutation.failed` with the
+ * metricName as a tag so the failure rate per operation is queryable too.
+ */
 export async function withOwnedSubscription<T extends MutationResult>(
   subscriptionId: string,
   body: (ctx: OwnedSubscriptionContext) => Promise<T>,
+  metricName?: string,
 ): Promise<T | { error: string }> {
   const auth = await requireUser()
   if (!auth.ok) return { error: auth.error }
@@ -54,5 +65,18 @@ export async function withOwnedSubscription<T extends MutationResult>(
   const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id)
   if (!subResult.ok) return { error: subResult.error }
 
-  return body({ auth, subscription: subResult.subscription })
+  const result = await body({ auth, subscription: subResult.subscription })
+
+  if (metricName) {
+    if ('success' in result && result.success) {
+      Sentry.metrics.count(metricName, 1)
+    } else if ('error' in result) {
+      // Failure path gets its own metric name — Sentry's metrics API
+      // doesn't take tags in this SDK version, so we encode the
+      // mutation in the metric name itself.
+      Sentry.metrics.count(`${metricName}.failed`, 1)
+    }
+  }
+
+  return result
 }

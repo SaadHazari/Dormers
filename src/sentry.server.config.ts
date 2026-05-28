@@ -52,6 +52,11 @@ if (process.env.SENTRY_DSN) {
       // so every streamText / generateText call becomes a trace span with
       // model name, prompt tokens, completion tokens, and latency.
       Sentry.vercelAIIntegration(),
+      // Mirror direct console.log/warn/error calls into Sentry Logs.
+      // Catches code paths that still use console.* directly instead of
+      // the structured logger (notifications dispatcher, webhook handlers,
+      // legacy paths). debug stays out — too chatty for Sentry quota.
+      Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
     ],
   })
 }

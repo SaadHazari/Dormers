@@ -16,6 +16,20 @@ const nextConfig: NextConfig = {
       static: 180,
     },
   },
+  // Document-Policy: js-profiling enables the browser's JS profiling API
+  // that @sentry/nextjs browserProfilingIntegration depends on. Without
+  // this header the browser silently disables JS profiling and the
+  // Sentry Profiles tab stays empty for client-side traces.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Document-Policy', value: 'js-profiling' },
+        ],
+      },
+    ]
+  },
 };
 
 // Sentry build-time wrapping. Source-map upload only fires when
