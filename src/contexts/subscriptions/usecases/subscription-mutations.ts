@@ -175,10 +175,10 @@ export async function resumeSubscription(subscriptionId: string) {
   const aeHour = aeNow.getUTCHours();
   const aeIsoDow = ((aeNow.getUTCDay() + 6) % 7) + 1;
   const wt = subscription.week_type ?? '6DAYS';
+  // Subscriptions table CHECK enforces wt ∈ {5DAYS, 6DAYS}.
   const isDeliveryToday =
-    wt === '7DAYS' ? true :
-    wt === '6DAYS' ? aeIsoDow !== 7 :
-    /* 5DAYS */     aeIsoDow !== 6 && aeIsoDow !== 7;
+    wt === '6DAYS' ? aeIsoDow !== 7
+                   : aeIsoDow !== 6 && aeIsoDow !== 7;
   const setResumeCutoff = aeHour >= 14 && isDeliveryToday;
 
   // Apply Resume. paused_days is NOT touched — the subscription_pause_tick
@@ -194,7 +194,7 @@ export async function resumeSubscription(subscriptionId: string) {
   // start of tomorrow, after the sub is already Active), so we append
   // today here so the review surface knows this day was paused.
   const todayDateOnly = todayAE  // already YYYY-MM-DD
-  const existingPaused = (subscription as { paused_dates?: string[] | null }).paused_dates ?? []
+  const existingPaused = subscription.paused_dates
   const nextPausedDates = setResumeCutoff && !existingPaused.includes(todayDateOnly)
     ? [...existingPaused, todayDateOnly]
     : existingPaused
@@ -294,10 +294,10 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // ISO dow: 1=Mon … 7=Sun.
   const reqIsoDow = ((requested.getUTCDay() + 6) % 7) + 1;
   const wtChange = subscription.week_type ?? '6DAYS';
+  // Subscriptions table CHECK enforces week_type ∈ {5DAYS, 6DAYS}.
   const reqIsDelivery =
-    wtChange === '7DAYS' ? true :
-    wtChange === '6DAYS' ? reqIsoDow !== 7 :
-    /* 5DAYS */          reqIsoDow !== 6 && reqIsoDow !== 7;
+    wtChange === '6DAYS' ? reqIsoDow !== 7
+                         : reqIsoDow !== 6 && reqIsoDow !== 7;
   if (!reqIsDelivery) {
     return { error: 'Pick a working delivery day for your plan (Mon–Fri for 5-day plans, Mon–Sat for 6-day plans).' };
   }
@@ -377,10 +377,10 @@ export async function skipMeal(subscriptionId: string) {
   // matches the customer's local calendar.
   const aeIsoDow = ((aeNow.getUTCDay() + 6) % 7) + 1;
   const wt = subscription.week_type ?? '6DAYS';
+  // Subscriptions table CHECK enforces wt ∈ {5DAYS, 6DAYS}.
   const isDeliveryToday =
-    wt === '7DAYS' ? true :
-    wt === '6DAYS' ? aeIsoDow !== 7 :
-    /* 5DAYS */     aeIsoDow !== 6 && aeIsoDow !== 7;
+    wt === '6DAYS' ? aeIsoDow !== 7
+                   : aeIsoDow !== 6 && aeIsoDow !== 7;
   if (!isDeliveryToday) {
     return { error: 'Today isn\'t a delivery day for your plan, so there\'s nothing to skip.' };
   }
@@ -390,7 +390,7 @@ export async function skipMeal(subscriptionId: string) {
   // this `+ bonus_skips` the milestone-15 reward is invisible to the user —
   // they get the badge but can never use the extra skips.
   const baseMaxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
-  const bonusSkips   = (subscription as { bonus_skips?: number | null }).bonus_skips ?? 0;
+  const bonusSkips   = subscription.bonus_skips;
   const maxSkips     = baseMaxSkips + bonusSkips;
 
   if (subscription.skipped_meals_count >= maxSkips) {
@@ -526,7 +526,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
 
   // Skip credits — base plan cap + Dorm Wars milestone-15 bonus.
   const baseMaxSkipsP = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
-  const bonusSkipsP   = (subscription as { bonus_skips?: number | null }).bonus_skips ?? 0;
+  const bonusSkipsP   = subscription.bonus_skips;
   const maxSkips      = baseMaxSkipsP + bonusSkipsP;
   if (subscription.skipped_meals_count >= maxSkips) {
     return { error: `You've used all ${maxSkips} of your skips for this cycle.` };
