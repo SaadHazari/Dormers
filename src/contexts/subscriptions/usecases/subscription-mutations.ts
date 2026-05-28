@@ -21,11 +21,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
-import { requireUser } from '@/contexts/identity/usecases/require-user';
-import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
+import { withOwnedSubscription } from './with-owned-subscription';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -64,13 +63,7 @@ function workingDayPosition(startIso: string, targetIso: string, weekType: strin
 // ── pauseSubscription ─────────────────────────────────────────────────────
 
 export async function pauseSubscription(subscriptionId: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Validation
   if (subscription.status === SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is already paused.' };
   if (subscription.status === SUBSCRIPTION_STATUS.ENDED) return { error: 'Cannot pause an ended subscription.' };
@@ -140,18 +133,13 @@ export async function pauseSubscription(subscriptionId: string) {
   // route under /dashboard sees the new status.
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── resumeSubscription ────────────────────────────────────────────────────
 
 export async function resumeSubscription(subscriptionId: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   if (subscription.status !== SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is not currently paused.' };
 
   // Same-day resume lock. Mirrors the UI gate in QuickActions so a client
@@ -239,6 +227,7 @@ export async function resumeSubscription(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── changeStartDate ───────────────────────────────────────────────────────
@@ -250,13 +239,7 @@ export async function resumeSubscription(subscriptionId: string) {
  * stays the same length.
  */
 export async function changeStartDate(subscriptionId: string, newStartDate: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Gate on Scheduled — once a plan has started, the operations team is
   // already cooking on a schedule; moving the start date is a manual reschedule.
   const isScheduled =
@@ -342,18 +325,13 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── skipMeal (same-day) ───────────────────────────────────────────────────
 
 export async function skipMeal(subscriptionId: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Skip is only meaningful from Active. Skipped subs can't be skipped again
   // today (already counted); Paused/Scheduled/Ended subs aren't delivering.
   if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE) {
@@ -464,6 +442,7 @@ export async function skipMeal(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── skipFutureDate ────────────────────────────────────────────────────────
@@ -482,13 +461,7 @@ export async function skipMeal(subscriptionId: string) {
  *                       until the day BEFORE the skip. Doesn't flip status now.
  */
 export async function skipFutureDate(subscriptionId: string, dateIso: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Active or Skipped only. Paused/Scheduled/Ended subs can't queue skips —
   // Paused has unstable end_date, Scheduled isn't delivering yet, Ended is done.
   if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
@@ -580,6 +553,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── unskipFutureDate ──────────────────────────────────────────────────────
@@ -593,13 +567,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
  * and the existing end_date trigger contracts the cycle by one working day.
  */
 export async function unskipFutureDate(subscriptionId: string, dateIso: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
     return { error: 'Cannot un-skip on an inactive subscription.' };
   }
@@ -640,6 +608,7 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── planPause ─────────────────────────────────────────────────────────────
@@ -662,13 +631,7 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
  *                          can still pauseSubscription manually to override.
  */
 export async function planPause(subscriptionId: string, startDateIso: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Status: Active or Skipped only. Paused/Scheduled/Ended can't queue a
   // future pause for the same reasons they can't queue a future skip.
   if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
@@ -772,6 +735,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
 
 // ── cancelPlannedPause ────────────────────────────────────────────────────
@@ -787,13 +751,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
  * resumeSubscription to come back.
  */
 export async function cancelPlannedPause(subscriptionId: string) {
-  const auth = await requireUser();
-  if (!auth.ok) return { error: auth.error };
-
-  const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id);
-  if (!subResult.ok) return { error: subResult.error };
-  const { subscription } = subResult;
-
+  return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   if (!subscription.planned_pause_start) {
     return { error: 'No pause is scheduled.' };
   }
@@ -821,4 +779,5 @@ export async function cancelPlannedPause(subscriptionId: string) {
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
+  });
 }
