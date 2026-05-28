@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { WebVitalsReporter } from "@/ui-system/observability/web-vitals";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -53,6 +54,7 @@ export default function RootLayout({
         `}
       </Script>
       {/* --- END OF GOOGLE ADS CODE --- */}
+        <WebVitalsReporter />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
