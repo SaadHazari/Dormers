@@ -22,8 +22,13 @@
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
-import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
+import { eventBus } from '@/shared/events/event-bus';
+// Side-effect import — registers the notifications subscriber that turns
+// 'subscription.notification-due' emits into customer_notifications inserts.
+// Mutations stay decoupled from queueCustomerNotification at the call-site
+// level; the import boundary here is the one place we acknowledge the wiring.
+import '@/contexts/notifications/usecases/subscribers';
 import { withOwnedSubscription } from './with-owned-subscription';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
@@ -123,11 +128,11 @@ export async function pauseSubscription(subscriptionId: string) {
   // copy explicitly tells the user resume is their call, no fake auto-
   // resume date here. The matching "plan back on" message is scheduled
   // later from resumeSubscription() when the user comes back.
-  await queueCustomerNotification(
-    auth.user.id,
-    'plan_paused_confirm',
-    new Date(),
-  );
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'plan_paused_confirm',
+    scheduledFor: new Date(),
+  });
 
   // Revalidate at layout level so the sidebar/topbar plan badge + every nested
   // route under /dashboard sees the new status.
@@ -218,12 +223,12 @@ export async function resumeSubscription(subscriptionId: string) {
     pausedDates:   nextPausedDates,
     subEndDateIso: subscription.end_date,
   }) ?? tomorrowAEIso;
-  await queueCustomerNotification(
-    auth.user.id,
-    'plan_resumed_confirm',
-    ae9amUtcOnDate(resumeMsgDateIso),
-    { resume_date: resumeMsgDateIso },
-  );
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'plan_resumed_confirm',
+    scheduledFor: ae9amUtcOnDate(resumeMsgDateIso),
+    payload: { resume_date: resumeMsgDateIso },
+  });
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
@@ -418,12 +423,12 @@ export async function skipMeal(subscriptionId: string) {
   //      come.
   // Both are fire-and-forget; if either insert fails the user's skip still
   // succeeded (the in-flight kitchen state is already correct).
-  await queueCustomerNotification(
-    auth.user.id,
-    'meal_skipped_confirm',
-    new Date(), // immediate
-    { meal_date: todayAEIso },
-  );
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'meal_skipped_confirm',
+    scheduledFor: new Date(), // immediate
+    payload: { meal_date: todayAEIso },
+  });
   const resumeOnIso = nextEligibleDeliveryDay({
     fromAeDateIso: todayAEIso,
     weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
@@ -432,12 +437,12 @@ export async function skipMeal(subscriptionId: string) {
     subEndDateIso: subscription.end_date,
   });
   if (resumeOnIso) {
-    await queueCustomerNotification(
-      auth.user.id,
-      'meal_resumed_confirm',
-      ae9amUtcOnDate(resumeOnIso),
-      { resume_date: resumeOnIso },
-    );
+    await eventBus.emit('subscription.notification-due', {
+      customerId: auth.user.id,
+      kind: 'meal_resumed_confirm',
+      scheduledFor: ae9amUtcOnDate(resumeOnIso),
+      payload: { resume_date: resumeOnIso },
+    });
   }
 
   revalidatePath('/dashboard', 'layout');
@@ -726,12 +731,12 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
   // distinct from plan_paused_confirm (which fires when pause is now).
   // The cron's auto-activation on the planned date doesn't get its own
   // message; this scheduling confirm IS the receipt.
-  await queueCustomerNotification(
-    auth.user.id,
-    'plan_pause_scheduled_confirm',
-    new Date(),
-    { start_date: startDateIso },
-  );
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'plan_pause_scheduled_confirm',
+    scheduledFor: new Date(),
+    payload: { start_date: startDateIso },
+  });
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
