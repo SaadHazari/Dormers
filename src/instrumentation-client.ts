@@ -24,7 +24,12 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // Session Replay — records the DOM mutations around an error so you can
     // see what the user did. Sentry masks all input fields by default; we
     // don't enable canvas recording (would balloon payload).
-    replaysSessionSampleRate: 0.1,
+    //
+    // TEMPORARILY 1.0 for Sentry onboarding verification. Once Sentry's
+    // Replay onboarding screen shows the first replay, dial this back to
+    // 0 (or 0.05) so the free tier's 50-replays-per-month quota goes to
+    // error sessions instead of random healthy ones.
+    replaysSessionSampleRate: 1.0,
     replaysOnErrorSampleRate: 1.0,
 
     // Sentry's Logs product — Sentry.logger.* calls land in the Logs tab.
