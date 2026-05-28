@@ -1,8 +1,28 @@
 # Refactor Follow-ups
 
-**Status:** living document — captures known limits left after Phase 11
-**Date:** 2026-05-27
+**Status:** living document — captures known limits + post-refactor improvements
+**Last updated:** 2026-05-28
 **Predecessors:** L1-BOUNDARIES, L2-MODULE-SHAPES, L3-STRATEGY
+
+## Post-refactor critique improvements (2026-05-28)
+
+After the structural refactor landed, ran an 8-skill critique (DDD, clean-arch,
+Ousterhout, Pragmatic Programmer, Clean Code, Release-It, System Design,
+Refactoring Patterns) and worked through the gap list:
+
+| # | Critique gap | Commit | Notes |
+|---|---|---|---|
+| 1 | Anemic Subscription (`Record<string, any>`) | `572b8ba` | Hand-typed from live Supabase schema; 3 dead `7DAYS` branches removed by TS |
+| 2 | No timeouts / circuit breakers | `cf538bc` | `fetch-with-timeout` helper + wired into WhatsApp, ZeptoMail, Zoho (4 fetch sites) |
+| 3 | `webhook/route.ts` still 663 lines | `cd7639d` | Extracted to `contexts/payments/usecases/handle-stripe-event`; route is now 37 lines |
+| 4 | Skeleton repeated in 8 mutations | `a19e2b2` | `withOwnedSubscription` higher-order helper; -41 lines |
+| 5 | No domain events | SKIPPED | In-process bus = function calls + ceremony in serverless; durable events already use Supabase queues. Not worth the indirection. |
+| 6 | No CI | `ef4ac89` | GitHub Actions: lint + tsc + test + build on every push/PR. Runs from next push onward. |
+| 7 | No integration tests | `22ca2e3` | Module-mocking pattern established; 10 cases on `withOwnedSubscription` + `unskipFutureDate` validation paths |
+| 8 | Domain entities with behavior | SKIPPED | Current "functional DDD" (typed value + pure rules) suits this CRUD-shaped domain. Class-based entities can come later if the domain grows. |
+| — | Sidebar `<img>` warning | `ebaefb1` | Replaced with `next/image`. Lint is now fully clean — zero warnings. |
+
+`npm test` reports **75 passing** (was 61). `npm run lint` reports **zero warnings**. Build clean throughout.
 
 ---
 
