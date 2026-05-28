@@ -63,13 +63,14 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       Sentry.replayIntegration(),
       // Mirror direct console.log/warn/error calls into Sentry Logs.
       Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
-      // Floating "Report an issue" widget in the bottom corner. Triggers a
-      // form that captures user-submitted feedback as a Sentry event with
-      // a screenshot. Themed dark-by-default to match the dashboard's
-      // intentional light/marketing-dark split.
+      // User-submitted bug reports. autoInject:false suppresses Sentry's
+      // generic floating button — we attach the trigger to a custom coda
+      // link at the bottom of every dashboard page (DashboardCoda.tsx)
+      // so the button matches the brand instead of looking like glued-on
+      // third-party chrome.
       Sentry.feedbackIntegration({
+        autoInject: false,
         colorScheme: 'system',
-        buttonLabel: 'Report an issue',
         submitButtonLabel: 'Send',
         formTitle: 'Tell us what happened',
         showBranding: false,

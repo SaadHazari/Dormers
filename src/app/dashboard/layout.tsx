@@ -4,6 +4,7 @@ import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/inf
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
 import DashboardShell from './DashboardShell'
+import { DashboardCoda } from './_shared/DashboardCoda'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
@@ -109,6 +110,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               overflow: 'hidden',
             }}>
               {children}
+              <DashboardCoda />
             </div>
           </main>
         </div>

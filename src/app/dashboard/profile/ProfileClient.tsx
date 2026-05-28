@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Heart, ChevronDown, Calendar, Pencil, X } from 'lucide-react'
+import { Check, ChevronDown, Calendar, Pencil, X } from 'lucide-react'
 import { updateProfile } from '@/contexts/identity/usecases/profile-actions'
 import { savePendingPreferences, discardPendingPreferences } from '@/contexts/subscriptions/usecases/preferences-actions'
 import { OG, BG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
@@ -947,11 +947,6 @@ export default function ProfileClient({
             was redundant and broke the "preferences live in one card" mental
             model. */}
 
-        <div style={{ textAlign: 'center', padding: '16px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            Made with <Heart size={11} fill={OG} strokeWidth={0} aria-hidden /> in Dubai
-          </span>
-        </div>
       </div>
 
       <style jsx global>{`

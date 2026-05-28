@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
-  CalendarDays, Unlock, Heart, Moon,
+  CalendarDays, Unlock, Moon,
 } from 'lucide-react'
 import { OG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -1757,9 +1757,6 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           </div>
         )}
 
-        <div style={{ textAlign: 'center', padding: '12px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgFaint, display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 6, width: '100%' }}>
-          Made with <Heart size={11} fill={OG} strokeWidth={0} aria-hidden /> in Dubai
-        </div>
       </div>
 
       <AnimatePresence>
