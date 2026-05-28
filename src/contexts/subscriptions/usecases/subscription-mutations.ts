@@ -22,6 +22,7 @@
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
+import { canPause, canPlanPause, canResume, canSkip } from '@/contexts/subscriptions/domain/subscription-rules';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
 import { eventBus } from '@/shared/events/event-bus';
 // Side-effect import — registers the notifications subscriber that turns
@@ -69,31 +70,9 @@ function workingDayPosition(startIso: string, targetIso: string, weekType: strin
 
 export async function pauseSubscription(subscriptionId: string) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
-  // Validation
-  if (subscription.status === SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is already paused.' };
-  if (subscription.status === SUBSCRIPTION_STATUS.ENDED) return { error: 'Cannot pause an ended subscription.' };
-  if (!resolvePlan(subscription.plan_name)?.canPause) {
-    return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
-  }
-  // has_paused_before with no planned_pause_start means the credit is already
-  // spent (customer paused + resumed earlier this cycle). Reject.
-  // has_paused_before WITH planned_pause_start means the credit is consumed by
-  // a future-scheduled pause — pausing-now is a valid override that substitutes
-  // "now" for the planned date. Allow it (the planned row is cleared below).
-  const planExists = !!subscription.planned_pause_start;
-  if (subscription.has_paused_before && !planExists) {
-    return { error: 'You have already used your 1 allowed pause for this subscription.' };
-  }
-
-  // Block pause on the literal last day of the cycle. Pausing on end_date
-  // doesn't protect any future meal (cycle ends after that day), and is a
-  // potential abuse vector (pause-on-last-day → never resume → cycle drags
-  // forever via paused_days extensions). Whether end_date is a natural
-  // last day or a make-up day, that specific day is off-limits.
-  const aeTodayForPause = aeTodayIso();
-  if (subscription.end_date && aeTodayForPause >= subscription.end_date) {
-    return { error: 'Can\'t pause on your last delivery day — there\'s no future meal to protect.' };
-  }
+  // Validation — see subscription-rules.canPause for the full ruleset.
+  const check = canPause(subscription, aeTodayIso());
+  if (!check.ok) return { error: check.error };
 
   // Apply Pause. Note: paused_days is NOT touched here — the daily
   // subscription_pause_tick cron at 00:10 AE increments it by 1 for every
@@ -145,19 +124,16 @@ export async function pauseSubscription(subscriptionId: string) {
 
 export async function resumeSubscription(subscriptionId: string) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
-  if (subscription.status !== SUBSCRIPTION_STATUS.PAUSED) return { error: 'Subscription is not currently paused.' };
-
   // Same-day resume lock. Mirrors the UI gate in QuickActions so a client
-  // bypass can't create kitchen ambiguity on the day of pause.
+  // bypass can't create kitchen ambiguity on the day of pause. AE wall-time
+  // conversion happens here so the rule itself stays pure + testable.
   const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000);
   const todayAE = aeNow.toISOString().slice(0, 10);
-
-  if (subscription.pause_date) {
-    const pauseAE = new Date(new Date(subscription.pause_date).getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    if (todayAE === pauseAE) {
-      return { error: 'Your plan was paused today — resume becomes available tomorrow.' };
-    }
-  }
+  const pauseDateAeIso = subscription.pause_date
+    ? new Date(new Date(subscription.pause_date).getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    : null;
+  const check = canResume(subscription, todayAE, pauseDateAeIso);
+  if (!check.ok) return { error: check.error };
 
   // Detect post-cutoff resume on a delivery day. When the customer resumes
   // after 2 PM AE, the sub flips Active before delivery_tick fires at 20:00 AE,
@@ -467,11 +443,10 @@ export async function skipMeal(subscriptionId: string) {
  */
 export async function skipFutureDate(subscriptionId: string, dateIso: string) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
-  // Active or Skipped only. Paused/Scheduled/Ended subs can't queue skips —
-  // Paused has unstable end_date, Scheduled isn't delivering yet, Ended is done.
-  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
-    return { error: 'Skips can only be scheduled on an active subscription.' };
-  }
+  // Shared skip-eligibility (status + cap, including Dorm Wars bonus_skips).
+  // See subscription-rules.canSkip.
+  const eligible = canSkip(subscription);
+  if (!eligible.ok) return { error: eligible.error };
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
     return { error: 'Invalid date format.' };
@@ -500,14 +475,6 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
   const existing: string[] = subscription.skipped_dates ?? [];
   if (existing.includes(dateIso)) {
     return { error: 'You\'ve already scheduled a skip for that day.' };
-  }
-
-  // Skip credits — base plan cap + Dorm Wars milestone-15 bonus.
-  const baseMaxSkipsP = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
-  const bonusSkipsP   = subscription.bonus_skips;
-  const maxSkips      = baseMaxSkipsP + bonusSkipsP;
-  if (subscription.skipped_meals_count >= maxSkips) {
-    return { error: `You've used all ${maxSkips} of your skips for this cycle.` };
   }
 
   // Make-up day check. The cycle's "intrinsic" length is totalDeliveries
@@ -637,27 +604,9 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
  */
 export async function planPause(subscriptionId: string, startDateIso: string) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
-  // Status: Active or Skipped only. Paused/Scheduled/Ended can't queue a
-  // future pause for the same reasons they can't queue a future skip.
-  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.SKIPPED) {
-    return { error: 'Pauses can only be scheduled on an active subscription.' };
-  }
-
-  // Tier gate — only Monthly Premium / Max can pause.
-  if (!resolvePlan(subscription.plan_name)?.canPause) {
-    return { error: 'Only Monthly Premium and Monthly Max plans can be paused.' };
-  }
-
-  // Credit check. has_paused_before with no existing plan means the credit is
-  // spent (manual pause + resume happened earlier this cycle). With an existing
-  // plan, the customer is trying to re-plan — that's a no-op error: they should
-  // cancel the existing plan first.
-  if (subscription.planned_pause_start) {
-    return { error: 'You already have a pause scheduled. Cancel it first to pick a different date.' };
-  }
-  if (subscription.has_paused_before) {
-    return { error: 'You\'ve already used your 1 allowed pause for this subscription.' };
-  }
+  // Status + tier + credit checks live together in subscription-rules.canPlanPause.
+  const check = canPlanPause(subscription);
+  if (!check.ok) return { error: check.error };
 
   // Date validation
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateIso)) {
