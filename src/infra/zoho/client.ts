@@ -48,9 +48,17 @@
  *  Check the URL when you log into Zoho — that's your region.
  */
 
+import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
+
 const REGION = process.env.ZOHO_REGION ?? 'com';
 const ACCOUNTS_BASE = `https://accounts.zoho.${REGION}`;
 const API_BASE = `https://www.zohoapis.${REGION}/books/v3`;
+
+// Token refresh is cheap; ops timeouts: 10s for JSON calls (most paths),
+// 15s for binary PDF downloads (Zoho can be slow to render).
+const TOKEN_TIMEOUT_MS = 8_000;
+const JSON_TIMEOUT_MS = 10_000;
+const BINARY_TIMEOUT_MS = 15_000;
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -69,11 +77,11 @@ async function refreshAccessToken(): Promise<string> {
     client_secret: clientSecret,
     grant_type: 'refresh_token',
   });
-  const res = await fetch(`${ACCOUNTS_BASE}/oauth/v2/token`, {
+  const res = await fetchWithTimeout(`${ACCOUNTS_BASE}/oauth/v2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
-  });
+  }, { timeoutMs: TOKEN_TIMEOUT_MS });
   const json = (await res.json().catch(() => ({}))) as {
     access_token?: string;
     expires_in?: number;
@@ -126,7 +134,7 @@ export async function zohoFetch<T = unknown>(
     : { 'Content-Type': 'application/json' };
 
   const doRequest = async (token: string) =>
-    fetch(url, {
+    fetchWithTimeout(url, {
       ...init,
       headers: {
         Authorization: `Zoho-oauthtoken ${token}`,
@@ -134,7 +142,7 @@ export async function zohoFetch<T = unknown>(
         ...(init.headers ?? {}),
       },
       body: serialisedBody as BodyInit | undefined,
-    });
+    }, { timeoutMs: JSON_TIMEOUT_MS });
 
   let res = await doRequest(await getAccessToken());
   if (res.status === 401) {
@@ -169,7 +177,9 @@ export async function zohoFetch<T = unknown>(
 export async function zohoFetchBinary(path: string): Promise<Buffer> {
   const url = buildUrl(path);
   const doRequest = async (token: string) =>
-    fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } });
+    fetchWithTimeout(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    }, { timeoutMs: BINARY_TIMEOUT_MS });
 
   let res = await doRequest(await getAccessToken());
   if (res.status === 401) {

@@ -48,8 +48,15 @@
  *        ZEPTOMAIL_TPL_START_DAY          (Template Key from step 4b)
  */
 
+import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
+
 const REGION = process.env.ZEPTOMAIL_REGION ?? 'com';
 const API_URL = `https://api.zeptomail.${REGION}/v1.1/email/template`;
+
+// Post-payment fanout runs synchronously from the Stripe webhook AND from
+// the hourly retry cron. 10s is generous for a templated send; longer than
+// this and Stripe will retry the webhook before ZeptoMail finishes.
+const SEND_TIMEOUT_MS = 10_000;
 
 type MergeInfo = Record<string, string | number>;
 
@@ -64,7 +71,7 @@ async function sendTemplate(params: {
   if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
   if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
 
-  const res = await fetch(API_URL, {
+  const res = await fetchWithTimeout(API_URL, {
     method: 'POST',
     headers: {
       Authorization: token,
@@ -84,7 +91,7 @@ async function sendTemplate(params: {
       ],
       merge_info: params.mergeInfo,
     }),
-  });
+  }, { timeoutMs: SEND_TIMEOUT_MS });
 
   const text = await res.text();
   if (!res.ok) {

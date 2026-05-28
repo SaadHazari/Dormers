@@ -2,7 +2,14 @@
 // All env reads happen at call time so missing config fails loudly with a
 // useful message rather than at module import.
 
+import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout'
+
 const GRAPH_VERSION = 'v22.0' // matches the version used in the Make scenario
+
+// User is staring at the OTP screen waiting for the code to arrive. If Meta
+// takes longer than this we'd rather throw and let the customer retry than
+// hang the route handler.
+const SEND_TIMEOUT_MS = 8_000
 
 function env(key: string): string {
     const v = process.env[key]
@@ -45,14 +52,14 @@ export async function sendOtpTemplate(phoneE164: string, code: string): Promise<
         },
     }
 
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-    })
+    }, { timeoutMs: SEND_TIMEOUT_MS })
 
     if (!res.ok) {
         // Surface the Meta error so we can debug template/permission issues
