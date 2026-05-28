@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -230,9 +231,12 @@ export default function Sidebar({
             flexShrink: 0,
           }}
         >
-          <img
+          <Image
             src="/logo-dark.svg"
             alt="Dormers"
+            width={140}
+            height={32}
+            priority
             style={{
               height: 32,
               width: 'auto',
