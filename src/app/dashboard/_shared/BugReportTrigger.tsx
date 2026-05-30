@@ -1,18 +1,18 @@
 'use client'
 
 /**
- * BugReportTrigger — tiny ghost bug icon at the bottom-right corner of the
+ * BugReportTrigger — tiny ghost bug icon at the top-right corner of the
  * dashboard's cream content-border container. Intentionally hard to spot:
  * it's there for the user who's looking, not the user who's scanning.
  *
- * Hover surfaces a small "Found a bug?" tooltip above the icon. Clicking
+ * Hover surfaces a small "Found a bug?" tooltip below the icon. Clicking
  * opens Sentry's user-feedback dialog (configured in
  * src/instrumentation-client.ts with autoInject:false so this is the
  * single entry point — no floating widget glued to the viewport).
  *
  * Positioned absolutely inside .content-border (which sets position:relative
  * in dashboard/layout.tsx) so it scrolls with the page and lives at the
- * bottom-right of the cream surface, not the browser window.
+ * top-right of the cream surface, not the browser window.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -39,7 +39,7 @@ export function BugReportTrigger() {
     <div
       style={{
         position: 'absolute',
-        bottom: 12,
+        top: 12,
         right: 12,
         zIndex: 5,
         display: 'inline-flex',
@@ -48,33 +48,6 @@ export function BugReportTrigger() {
         pointerEvents: 'auto',
       }}
     >
-      {/* Tooltip — sits above the icon, fades in on hover. Right-anchored
-          so it never escapes the container edge. */}
-      <div
-        role="tooltip"
-        aria-hidden={!hover}
-        style={{
-          fontFamily: BODY,
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: '#f5f0e8',
-          background: NV,
-          padding: '6px 10px',
-          borderRadius: 6,
-          marginBottom: 6,
-          whiteSpace: 'nowrap',
-          opacity: hover ? 1 : 0,
-          transform: hover ? 'translateY(0)' : 'translateY(2px)',
-          pointerEvents: 'none',
-          transition: 'opacity 140ms ease, transform 140ms ease',
-          boxShadow: '0 4px 12px rgba(9,24,37,0.18)',
-        }}
-      >
-        Found a bug?
-      </div>
-
       <button
         ref={buttonRef}
         type="button"
@@ -101,6 +74,33 @@ export function BugReportTrigger() {
       >
         <Bug size={14} strokeWidth={1.75} aria-hidden />
       </button>
+
+      {/* Tooltip — sits below the icon, fades in on hover. Right-anchored
+          so it never escapes the container edge. */}
+      <div
+        role="tooltip"
+        aria-hidden={!hover}
+        style={{
+          fontFamily: BODY,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: '#f5f0e8',
+          background: NV,
+          padding: '6px 10px',
+          borderRadius: 6,
+          marginTop: 6,
+          whiteSpace: 'nowrap',
+          opacity: hover ? 1 : 0,
+          transform: hover ? 'translateY(0)' : 'translateY(-2px)',
+          pointerEvents: 'none',
+          transition: 'opacity 140ms ease, transform 140ms ease',
+          boxShadow: '0 4px 12px rgba(9,24,37,0.18)',
+        }}
+      >
+        Found a bug?
+      </div>
     </div>
   )
 }

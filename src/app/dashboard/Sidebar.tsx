@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Activity, Sun, Moon, Gift,
+  X, Activity, Gift,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
@@ -71,6 +71,14 @@ export default function Sidebar({
     weeklyBadge === 'active' || monthlyBadge === 'active' ? 'active'
     : weeklyBadge === 'late'  || monthlyBadge === 'late'  ? 'late'
     : 'none'
+  // Count of pending Now-tray items — drives the numeric badge that
+  // replaced the orange dot. Mirrors the liveCount computed inside
+  // SidebarDropdowns' NowTray so the badge can't disagree with the tray.
+  const monthlyLive = monthlyWindow.eligible && !monthlyWindow.submitted && !monthlyWindow.expired
+  const nowPendingCount =
+    (weeklyReviewState.current ? 1 : 0)
+    + weeklyReviewState.late.length
+    + (monthlyLive ? 1 : 0)
   // Graded urgency drives the dot's pulse animation. Active + something
   // close to a deadline → pulsing halo. Active but several days out →
   // quiet dot, no pulse. Two-tier signal so customers with 5d left don't
@@ -89,7 +97,6 @@ export default function Sidebar({
   const router = useRouter()
   const [hover, setHover] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<DropdownKind>(null)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const drawerOpen = mobileOpen
 
   // Profile / History live in dropdowns and aren't visible at mount, so Next's
@@ -117,32 +124,6 @@ export default function Sidebar({
     setHover(false)
     setOpenDropdown(null)
   }, [pathname])
-
-  // Persisted theme — read on mount, write on toggle.
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
-      if (s.theme === 'light' || s.theme === 'dark') {
-        setTheme(s.theme)
-        applyTheme(s.theme)
-      }
-    } catch {}
-  }, [])
-
-  function applyTheme(t: 'light' | 'dark') {
-    if (t === 'light') document.documentElement.classList.add('light')
-    else               document.documentElement.classList.remove('light')
-  }
-
-  function toggleTheme() {
-    const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
-    applyTheme(next)
-    try {
-      const cur = JSON.parse(localStorage.getItem('dormers-settings') || '{}')
-      localStorage.setItem('dormers-settings', JSON.stringify({ ...cur, theme: next }))
-    } catch {}
-  }
 
   const displayName = customerName || userEmail.split('@')[0] || ''
   const parts = displayName.split(' ')
@@ -397,22 +378,34 @@ export default function Sidebar({
               >
                 <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                   <Activity size={18} strokeWidth={notifOpen ? 2.4 : 2} />
-                  {nowBadge !== 'none' && (
+                  {nowBadge !== 'none' && nowPendingCount > 0 && (
                     <span
                       aria-hidden
-                      className={isUrgent ? 'now-dot now-dot-urgent' : 'now-dot'}
+                      className={isUrgent ? 'now-count now-count-urgent' : 'now-count'}
                       data-tone={nowBadge}
                       style={{
                         position: 'absolute',
-                        top: -3,
-                        right: -3,
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
+                        top: -6,
+                        right: -8,
+                        minWidth: 16,
+                        height: 16,
+                        padding: '0 4px',
+                        borderRadius: 8,
                         background: nowBadge === 'active' ? OG : 'rgba(237,232,218,0.55)',
+                        color: nowBadge === 'active' ? '#fff' : NV2,
                         border: `2px solid ${NV2}`,
+                        fontFamily: BODY,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFeatureSettings: '"tnum"',
                       }}
-                    />
+                    >
+                      {nowPendingCount > 9 ? '9+' : nowPendingCount}
+                    </span>
                   )}
                 </span>
                 <span style={labelStyle}>Now</span>
@@ -420,25 +413,6 @@ export default function Sidebar({
             )
           })()}
 
-          {/* Direct theme toggle — replaces the old Settings dropdown
-              (which only ever held this single control). One tap flips
-              light/dark, no intermediate menu. Icon + label both reflect
-              the CURRENT mode, matching the previous dropdown labelling. */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            data-tooltip={theme === 'light' ? 'Light mode — tap for dark' : 'Dark mode — tap for light'}
-            data-tooltip-placement="right"
-            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            aria-pressed={theme === 'dark'}
-            className="sidebar-nav-item"
-            style={{ ...rowStyle(false), background: 'transparent', border: '1px solid transparent', color: S.fgIdle }}
-          >
-            {theme === 'light'
-              ? <Sun  size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
-              : <Moon size={18} strokeWidth={2} style={{ flexShrink: 0 }} />}
-            <span style={labelStyle}>{theme === 'light' ? 'Light mode' : 'Dark mode'}</span>
-          </button>
         </div>
 
         {/* ── Profile chip (button) — opens profile dropdown ───────────────── */}
@@ -491,29 +465,29 @@ export default function Sidebar({
       </aside>
 
       <style jsx global>{`
-        /* Now-tray badge dot — three visual states. Color does most of the
-           hierarchy work; the pulse animation reserves the loudest signal
-           for urgent items (last-day-of-window) so the dot doesn't cry wolf
-           every time something's merely pending. */
-        .now-dot {
+        /* Now-tray pending-count badge — three visual states. Color does most
+           of the hierarchy work; the pulse animation reserves the loudest
+           signal for urgent items (last-day-of-window) so the badge doesn't
+           cry wolf every time something's merely pending. */
+        .now-count {
           box-shadow: 0 0 0 0 rgba(245,127,32,0);
         }
-        .now-dot[data-tone="active"]:not(.now-dot-urgent) {
+        .now-count[data-tone="active"]:not(.now-count-urgent) {
           /* Quiet active — no pulse, soft halo. */
           box-shadow: 0 0 6px rgba(245,127,32,0.55);
         }
-        .now-dot-urgent {
+        .now-count-urgent {
           /* Urgent — slow breathing halo. 2.4s cycle, ease-in-out so it
              reads as living, not flashing. Wakes the eye without being
              aggressive. */
-          animation: now-dot-pulse 2.4s ease-in-out infinite;
+          animation: now-count-pulse 2.4s ease-in-out infinite;
         }
-        @keyframes now-dot-pulse {
+        @keyframes now-count-pulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(245,127,32,0.55), 0 0 4px rgba(245,127,32,0.40); }
           50%      { box-shadow: 0 0 0 4px rgba(245,127,32,0.00), 0 0 10px rgba(245,127,32,0.70); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .now-dot-urgent { animation: none; box-shadow: 0 0 8px rgba(245,127,32,0.70); }
+          .now-count-urgent { animation: none; box-shadow: 0 0 8px rgba(245,127,32,0.70); }
         }
 
         .sidebar-nav-item:hover:not([disabled]) {

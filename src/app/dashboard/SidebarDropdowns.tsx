@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
-  Check, ChevronRight, CreditCard, LogOut, MessagesSquare,
-  User as UserIcon, Gift, ArrowRight, Sparkles,
+  Bug, Check, CheckCircle2, ChevronRight, CreditCard, LogOut, MessagesSquare,
+  Plus, User as UserIcon, Gift, ArrowRight, Sparkles,
 } from 'lucide-react'
+import * as Sentry from '@sentry/nextjs'
 import { signout } from '@/app/login/actions'
 import { OG, OG3, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
@@ -262,6 +263,7 @@ export function SidebarDropdowns({
                 <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: D.fg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
                 <div style={{ fontSize: 12, color: D.fgMuted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
               </div>
+              <BugReportIconButton />
             </div>
             <div style={{ padding: 6 }}>
               {[
@@ -289,7 +291,7 @@ export function SidebarDropdowns({
                 <button
                   type="submit"
                   className="utility-signout-row"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ds-fg-muted)', fontFamily: BODY, fontSize: 13, fontWeight: 600 }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 10px 10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ds-fg-muted)', fontFamily: BODY, fontSize: 13, fontWeight: 600 }}
                 >
                   <LogOut size={14} strokeWidth={2} />
                   Sign out
@@ -303,6 +305,7 @@ export function SidebarDropdowns({
       <style jsx global>{`
         .utility-row:hover { background: var(--ds-og-wash) !important; }
         .utility-signout-row:hover { background: var(--ds-danger-wash) !important; color: var(--ds-danger-fg) !important; }
+        .utility-bug-row:hover { background: var(--ds-og-wash) !important; color: ${OG} !important; }
         .now-tray-row:hover { background: var(--ds-og-wash) !important; }
         .now-tray-card-primary:hover {
           transform: translateY(-1px);
@@ -433,32 +436,76 @@ function NowTrayEmpty() {
   )
 }
 
-// One-line cycle-stakes summary. Three states by reward progress:
+// Cycle-stakes summary. Four states by reward progress:
 //   • all in    → success tone, "Cycle locked in"
 //   • none in   → orange tone, "Submit all N to lock AED X"
-//   • partial   → orange tone, "N/M in · AED X on the line"
+//   • partial   → orange tone, two-segment chip:
+//                 "[✓] AED X ready · [+] AED Y to claim"
+//
+// The partial-state chip used to read "N/M in · AED 9 on the line" — a
+// single number that collapsed three distinct sub-buckets (submitted
+// on-time, submitted late, still earnable) into one figure. Users
+// couldn't tell what was already banked vs what was still up for grabs,
+// and "on the line" doesn't carry urgency or signal "yours to lose."
+// The two-segment treatment splits the same total into:
+//   ready  = aedPending - aedToGo   → already submitted, awaiting cycle lock
+//   claim  = aedToGo                → unsubmitted, still earnable
+// The icon prefix (check vs plus) does the semantic lifting so the line
+// can carry both numbers without becoming a sentence.
 function AllOrNothingLine({ state }: { state: WeeklyReviewState }) {
-  const { rewards } = state
+  const { rewards, current, late } = state
   const submitted = rewards.submitted
   const total = rewards.total
   const earned = rewards.aedEarned
   const pending = rewards.aedPending
   const allIn = submitted >= total
 
-  let body: string
-  let tone: 'success' | 'urgent'
+  // Earnable from still-unsubmitted slots — current week at full reward,
+  // each late slot at the late reward. Mirrors the breakdown in
+  // weekly-review-queries.ts so the math here stays in lockstep with
+  // what produced `pending`.
+  const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
+  const aedReady = Math.max(0, pending - aedToClaim)
 
-  if (allIn) {
-    body = `All ${total} in · AED ${earned} locked`
-    tone = 'success'
-  } else if (submitted === 0) {
-    body = `Submit all ${total} for AED ${total * BASE_REWARD_AED}`
-    tone = 'urgent'
-  } else {
-    body = `${submitted}/${total} in · AED ${pending} on the line`
-    tone = 'urgent'
+  // Partial state — the only case where one-liner copy fails. Render a
+  // two-segment chip so each number carries its own meaning.
+  if (!allIn && submitted > 0) {
+    const fg = '#8c4214'
+    return (
+      <div
+        aria-label={`${submitted} of ${total} submitted · AED ${aedReady} ready · AED ${aedToClaim} still to claim`}
+        style={{
+          padding: '7px 10px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: BODY, fontSize: 11, fontWeight: 700, color: fg,
+          lineHeight: 1.2, fontFeatureSettings: '"tnum"',
+        }}
+      >
+        {aedReady > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <CheckCircle2 size={11} strokeWidth={2.6} />
+            <span>AED {aedReady} ready</span>
+          </span>
+        )}
+        {aedReady > 0 && aedToClaim > 0 && (
+          <span aria-hidden style={{ color: 'rgba(140,66,20,0.45)' }}>·</span>
+        )}
+        {aedToClaim > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Plus size={11} strokeWidth={2.6} />
+            <span>AED {aedToClaim} to claim</span>
+          </span>
+        )}
+      </div>
+    )
   }
 
+  // All-in and zero-submitted states still read clearly as one line.
+  const body = allIn
+    ? `All ${total} in · AED ${earned} locked`
+    : `Submit all ${total} on time for AED ${total * BASE_REWARD_AED}`
+  const tone: 'success' | 'urgent' = allIn ? 'success' : 'urgent'
   const fg = tone === 'success' ? 'var(--ds-success-fg)' : '#8c4214'
   const bg = tone === 'success' ? 'var(--ds-success-wash)' : 'var(--ds-og-wash)'
   const border = tone === 'success' ? 'var(--ds-success-border)' : 'var(--ds-og-border)'
@@ -731,6 +778,78 @@ function JustSubmittedRow({ week, rewardPct }: { week: number; rewardPct: 50 | 1
           {rewardPct === 100 ? `Full AED ${BASE_REWARD_AED} reward locked` : `AED ${LATE_REWARD_AED} reward locked`}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Bug-report icon at the top-right of the profile dropdown's avatar header.
+// Mirrors the floating BugReportTrigger pattern — Sentry's user-feedback
+// dialog attaches imperatively on mount, detaches on unmount (the dropdown
+// remounts every open, so this is safe).
+//
+// Tooltip is state-driven rather than the global [data-tooltip] helper
+// because body.dropdown-open globally suppresses data-tooltip popups
+// (so they don't clash with open panels). We still want a hint here so
+// users know what the icon does — a small inline tooltip handles it.
+function BugReportIconButton() {
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [hover, setHover] = useState(false)
+
+  useEffect(() => {
+    const button = buttonRef.current
+    if (!button) return
+    const feedback = Sentry.getFeedback()
+    if (!feedback) return
+    const unsubscribe = feedback.attachTo(button)
+    return () => { if (typeof unsubscribe === 'function') unsubscribe() }
+  }, [])
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+      <div
+        role="tooltip"
+        aria-hidden={!hover}
+        style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          right: 0,
+          fontFamily: BODY,
+          fontSize: 10, fontWeight: 700,
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          color: '#f5f0e8',
+          background: 'var(--ds-fg, #091825)',
+          padding: '6px 10px',
+          borderRadius: 6,
+          whiteSpace: 'nowrap',
+          opacity: hover ? 1 : 0,
+          transform: hover ? 'translateY(0)' : 'translateY(-2px)',
+          pointerEvents: 'none',
+          transition: 'opacity 140ms ease, transform 140ms ease',
+          boxShadow: '0 4px 12px rgba(9,24,37,0.18)',
+          zIndex: 1,
+        }}
+      >
+        Report a bug
+      </div>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="Report a bug"
+        className="utility-bug-row"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onFocus={() => setHover(true)}
+        onBlur={() => setHover(false)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, padding: '0 8px',
+          borderRadius: 'var(--radius-sm)',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--ds-fg-muted)', flexShrink: 0,
+        }}
+      >
+        <Bug size={14} strokeWidth={2} />
+      </button>
     </div>
   )
 }
