@@ -11,23 +11,9 @@ import {
 import { OG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
-import { MealTag } from '../_shared/MealTag'
-import { LockedVegDays } from '../_shared/LockedVegDays'
 import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { Tooltip } from '../_shared/Tooltip'
-
-/**
- * Maps the persisted customer.meal_preference_type free-text value to the
- * `kind` MealTag understands. Defaults to 'Non Veg' for unknown / null
- * values so the badge always renders something rather than blanking.
- */
-function mealPrefToTagKind(pref: string | null | undefined): 'Veg' | 'Non Veg' | 'Mix' {
-  const p = (pref ?? '').toLowerCase()
-  if (p.includes('religious')) return 'Mix'
-  if (p.includes('plant')) return 'Veg'
-  return 'Non Veg'
-}
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
@@ -189,9 +175,8 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false }: {
+function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false }: {
   sub: Subscription | null
-  customer: Customer | null
   onRenewClick: () => void
   // Opens the cancel-planned-pause confirmation modal. Wired by PlanClient
   // when a planned pause exists on the active sub. Mirrors the dashboard's
@@ -277,29 +262,9 @@ function ActivePlanCallout({ sub, customer, onRenewClick, onCancelPlannedPause, 
                 ? <>Started {fmtWithDay(sub.start_date)} · <span style={{ color: TIER_POP_TEXT.faint }}>est. ends {fmtWithDay(sub.end_date)}</span></>
                 : <>Started {fmtWithDay(sub.start_date)} · ends <strong style={{ color: TIER_POP_TEXT.primary }}>{fmtWithDay(sub.end_date)}</strong></>}
           </div>
-          {/* Meal preference — what kind of food the kitchen is sending. Picked
-              once at sign-up; surfaced here so the customer always knows what
-              they're getting without going to /profile. Editable from there. */}
-          {customer?.meal_preference_type && (
-            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: BODY, fontSize: 12.5, color: TIER_POP_TEXT.muted }}>
-              <span style={{ fontWeight: 700, color: TIER_POP_TEXT.faint, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: 10.5 }}>Meal type</span>
-              <MealTag kind={mealPrefToTagKind(customer.meal_preference_type)} onDark />
-            </div>
-          )}
         </div>
         <StatusDot status={status} onDark />
       </div>
-
-      {/* Veg-days locked snapshot (Religious mix only) — see LockedVegDays
-          for the chip rendering. Same component is reused on /profile so the
-          locked snapshot reads identically across both surfaces.
-          Hard-gated on the customer's effective meal preference being
-          religious. Without this, a sub created as religious-mix whose
-          customer later switches preference to Veg / Carnivore would keep
-          rendering the chips alongside a non-religious meal-type tag. */}
-      {/religious/i.test(effectivePreferences(customer).meal_preference_type ?? '') && (
-        <LockedVegDays vegDays={sub.veg_days} weekType={sub.week_type} onDark />
-      )}
 
       {/* Planned-pause banner — mirrors the dashboard's PlannedPauseBanner
           but inverted for the dark TIER_POP surface. Cream-on-dark vocabulary
@@ -510,66 +475,14 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
 
   return (
     <div style={{
-      // Pull background + shadow from TIER2 — Up Next is PASSIVE info and
-      // must sit one tier lower than the active Reviews card (which is on
-      // TIER1). Equal brightness would make them peers in the visual
-      // hierarchy; we want a clear descent: hero (dark) → Reviews (TIER1
-      // + orange) → Up Next (TIER2 + navy whisper) → page bg.
-      //
-      // Border longhands instead of `...TIER2` spread to avoid the React
-      // shorthand/longhand collision (same class of bug as the background/
-      // backgroundImage one in memory) that silently eats the top accent.
-      background: TIER2.background,
-      boxShadow: TIER2.boxShadow,
-      // Use the SCHEDULED pill's actual slate-blue (#3a6f8c) — a saturated
-      // hue-200 blue — not NV (#091825) which is near-black with only a
-      // sliver of blue. At low opacity, NV dilutes into beige-gray on cream;
-      // slate-blue has enough blue chroma to read as navy even at 45%.
-      // Direct tie to the pill's colour is also the point — the card surface
-      // is "the pill's colour, whispered".
-      borderTop:    '3px solid rgba(58,111,140,0.55)',
-      borderRight:  '1px solid rgba(9,24,37,0.08)',
-      borderBottom: '1px solid rgba(9,24,37,0.08)',
-      borderLeft:   '1px solid rgba(9,24,37,0.08)',
+      ...TIER2,
       padding: 22, borderRadius: 16,
       marginBottom: 16,
       display: 'flex', flexDirection: 'column', gap: 14,
-      // Up Next "scheduled" identity. Orange is reserved for action (active
-      // reviews); slate-blue is reserved for scheduled / future state — the
-      // same hue already lives in the SCHEDULED status pill below, so this
-      // doesn't introduce a new vocabulary, it just extends the pill's
-      // colour into the card surface:
-      //   • TIER2 base recesses slightly vs the brighter Reviews card above
-      //   • 3px slate-blue top-border anchors it as "future state" (top, not
-      //     left, so it never visually echoes the active card's left-rail
-      //     urgency)
-      //   • faint slate-blue radial wash in the top-right adds texture
-      //     without adding weight
-      //
-      // Note: `overflow: hidden` is INTENTIONALLY NOT on the outer card.
-      // It would clip the "Change start date" tooltip when the button sits
-      // near the card's right edge — the tooltip's centered render extends
-      // beyond the card and gets sliced off. Instead, the decorative wash
-      // gets its own clipping wrapper below so the corners stay rounded
-      // while tooltips can still escape the card freely.
-      position: 'relative',
+      // Orange left-rail anchors "Up next" as a Dormers-branded surface.
+      borderLeft: `3px solid ${OG}`,
     }}>
-      <div aria-hidden style={{
-        position: 'absolute',
-        inset: 0,
-        borderRadius: 16,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: -60, right: -60,
-          width: 220, height: 220,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(58,111,140,0.18) 0%, rgba(58,111,140,0) 70%)',
-        }} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <Eyebrow>Up next</Eyebrow>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10, fontFamily: DISPLAY, fontSize: 20, fontWeight: 700, color: S.fg, letterSpacing: '-0.01em' }}>
@@ -595,7 +508,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
         <StatusDot status={SUBSCRIPTION_STATUS.SCHEDULED} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysToStart}</span>
           <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: S.fgMuted }}>
@@ -638,7 +551,6 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
         paddingTop: 4,
         borderTop: `1px solid ${S.border}`,
         marginTop: 2,
-        position: 'relative',
       }}>
         Need to cancel?{' '}
         <a
@@ -1050,69 +962,165 @@ function PlanCard({
   )
 }
 
-// ── Delivery preferences summary ──────────────────────────────────────────────
-// Read-only snapshot of what we cook for the user. The Plan page is about
-// plan state; editing lives on /dashboard/profile (single source of truth).
-// The footer link routes there for any change.
-function ProfileSummary({ customer }: { customer: Customer | null }) {
+// ── Plan setup card ───────────────────────────────────────────────────────────
+// Read-only "dials at a glance" — the variables that shape the plan plus the
+// personal touches the kitchen uses. Edits all funnel to /dashboard/profile
+// (single source of truth). Two zones:
+//   1. Plan dials — price-sensitive: Plan, Week, Meal type, +Veg days when
+//      religious. Bigger value treatment so the eye lands here first.
+//   2. Personal — non-price: Dorm, Spice, Allergens. Quieter, lower-tier row.
+// One CTA in the top-right. The card is intentionally the only surface that
+// owns Meal type + Veg days — the upstairs status callout used to mirror them
+// and the duplication blurred the source-of-truth.
+function PlanSetupCard({
+  customer,
+  activeSubscription,
+}: {
+  customer: Customer | null
+  activeSubscription: Subscription | null
+}) {
+  const sub = activeSubscription
+  const isReligious = /religious/i.test(
+    effectivePreferences(customer).meal_preference_type ?? ''
+  )
+
+  const mealPrefLabel =
+    MEAL_PREFS.find(m => m.value === customer?.meal_preference_type)?.label ??
+    customer?.meal_preference_type ??
+    null
+
+  const weekLabel = sub?.week_type === '5DAYS'
+    ? '5 days a week'
+    : sub?.week_type === '6DAYS' ? '6 days a week' : null
+
   const allergens = (customer?.allergens ?? '')
     .split(',')
     .map(a => a.trim())
     .filter(Boolean)
-  const mealPrefLabel =
-    MEAL_PREFS.find(m => m.value === customer?.meal_preference_type)?.label ??
-    customer?.meal_preference_type ??
-    ''
+  const allergensValue = allergens.length > 0 ? allergens.join(' · ') : 'None'
 
-  const Field = ({ label, value }: { label: string; value?: string | null }) => (
-    <div>
-      <Eyebrow>{label}</Eyebrow>
-      <div style={{
-        marginTop: 6,
-        fontFamily: BODY, fontSize: 14, fontWeight: 700,
-        color: value ? S.fg : S.fgFaint,
-        lineHeight: 1.35,
-      }}>
-        {value || '—'}
+  // Dial primitive — eyebrow + value. `prominent` scales the value up for the
+  // price-sensitive top zone so it visually outweighs the personal row.
+  const Dial = ({
+    label, value, prominent = false, mono = false,
+  }: {
+    label: string
+    value: React.ReactNode
+    prominent?: boolean
+    mono?: boolean
+  }) => {
+    const isEmpty = value === null || value === undefined || value === '—'
+    return (
+      <div style={{ minWidth: 0 }}>
+        <Eyebrow>{label}</Eyebrow>
+        <div style={{
+          marginTop: 6,
+          fontFamily: BODY,
+          fontSize: prominent ? 15.5 : 13.5,
+          fontWeight: 700,
+          color: isEmpty ? S.fgFaint : S.fg,
+          lineHeight: 1.35,
+          letterSpacing: prominent ? '-0.005em' : 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          ...(mono ? { fontFeatureSettings: '"tnum"' as const } : {}),
+        }}>
+          {isEmpty ? '—' : value}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <div style={{ ...TIER2, padding: '20px 22px', borderRadius: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div>
-          <Eyebrow>Delivery preferences</Eyebrow>
-          <div style={{ marginTop: 6, fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, color: S.fg }}>
-            How we cook for you
-          </div>
-        </div>
+    <div style={{ ...TIER2, padding: '22px 24px', borderRadius: 16 }}>
+      {/* Header — single eyebrow + CTA. No headline: the dials are the
+          content, so chrome stays out of the way. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap', marginBottom: 18,
+      }}>
+        <Eyebrow>Your setup</Eyebrow>
         <Link
           href="/dashboard/profile"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', borderRadius: 999,
-            fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-            border: `1px solid ${S.border2}`, background: 'var(--ds-surface2)', color: S.fg,
+            padding: '9px 16px', borderRadius: 999,
+            fontFamily: BODY, fontSize: 11, fontWeight: 700,
+            letterSpacing: '0.10em', textTransform: 'uppercase',
+            border: `1px solid ${S.border2}`,
+            background: 'var(--ds-surface2)', color: S.fg,
             textDecoration: 'none',
+            transition: 'background 150ms, border-color 150ms, transform 150ms',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = OG
+            e.currentTarget.style.color = OG
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = S.border2
+            e.currentTarget.style.color = S.fg
           }}
         >
-          Edit profile →
+          Adjust on profile →
         </Link>
       </div>
 
+      {/* ZONE A — Plan dials (price-sensitive). Only rendered when a sub
+          exists; for empty-state browsers the personal row below carries
+          the card on its own. Veg days only joins the row for religious
+          users (the only diet where veg_days is a per-subscription dial). */}
+      {sub && (
+        <>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isReligious
+              ? 'repeat(auto-fit, minmax(150px, 1fr))'
+              : 'repeat(auto-fit, minmax(170px, 1fr))',
+            gap: 20,
+          }}>
+            <Dial
+              label="Plan"
+              prominent
+              value={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <PlanGlyph planName={sub.plan_name} size={14} color="currentColor" />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {cleanPlanName(sub.plan_name)}
+                  </span>
+                </span>
+              }
+            />
+            <Dial label="Week" prominent value={weekLabel} />
+            <Dial label="Meal type" prominent value={mealPrefLabel} />
+            {isReligious && (
+              <Dial
+                label="Veg days"
+                prominent
+                mono
+                value={`${sub.veg_days} of ${sub.week_type === '5DAYS' ? 5 : 6}`}
+              />
+            )}
+          </div>
+
+          {/* Whisper divider between the two zones — quiet tonal break, not
+              a hard line. Border (not border2) so it sits just under the
+              perception threshold. */}
+          <div style={{ height: 1, background: S.border, margin: '18px 0' }} />
+        </>
+      )}
+
+      {/* ZONE B — Personal (non-price). Always visible. Allergens leads the
+          row because it's the only safety-critical field; layout-wise it
+          gets the most room to breathe. */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: 18,
+        gap: 20,
       }}>
-        <Field label="Dorm" value={customer?.dorm_name} />
-        <Field label="Diet" value={mealPrefLabel} />
-        <Field label="Spice" value={customer?.spice_level_preference} />
-        <Field
-          label="Allergens"
-          value={allergens.length > 0 ? allergens.join(', ') : 'None'}
-        />
+        <Dial label="Dorm" value={customer?.dorm_name} />
+        <Dial label="Spice" value={customer?.spice_level_preference} />
+        <Dial label="Allergens" value={allergensValue} />
       </div>
     </div>
   )
@@ -1429,7 +1437,6 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           <div style={{ marginBottom: 16 }}>
             <ActivePlanCallout
               sub={activeSubscription}
-              customer={customer}
               onRenewClick={openPricing}
               onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
               hasQueuedSub={!!queuedSub}
@@ -1700,11 +1707,12 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           )}
         </AnimatePresence>
 
-        {/* Delivery preferences summary — read-only on /plan; editing lives
-            on /dashboard/profile (single source of truth). */}
+        {/* Plan setup card — read-only "dials at a glance" for the variables
+            that shape the plan + the personal touches. Edits route to
+            /dashboard/profile (single source of truth). */}
         {!isExplore && (
           <div style={{ marginBottom: 24 }}>
-            <ProfileSummary customer={customer} />
+            <PlanSetupCard customer={customer} activeSubscription={activeSubscription} />
           </div>
         )}
 
