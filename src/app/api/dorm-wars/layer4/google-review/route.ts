@@ -26,11 +26,14 @@ import {
   claimGoogleReview,
   autoApproveLayer4Reward,
   autoRejectLayer4Reward,
+  findDuplicateClaim,
   LAYER4_VALUE_AED,
 } from '@/contexts/dorm-wars/domain/layer4'
 import {
   verifyReviewScreenshot,
   decideFromVerdict,
+  hashReviewText,
+  MIN_DEDUP_TEXT_LENGTH,
   type VerifyResult,
 } from '@/contexts/dorm-wars/domain/google-review-verify'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
@@ -166,14 +169,59 @@ export async function POST(req: Request) {
     })
   }
 
-  const decision = decideFromVerdict(verdict)
-  log(`Gemini verdict decision=${decision} confidence=${verdict.confidence}`)
+  // ── Duplicate detection (cross-user fraud guard) ──
+  // Hash the extracted text if long enough, then check for collisions
+  // against any prior approved/auto_approved google_review row. Match
+  // forces manual_review regardless of Gemini confidence — ops decides
+  // whether it's a real fraud case or a legit retry/household situation.
+  const extractedText = verdict.extractedReviewText
+  const textHash = extractedText && extractedText.length >= MIN_DEDUP_TEXT_LENGTH
+    ? await hashReviewText(extractedText)
+    : null
+  const reviewerName = verdict.reviewerNameVisible
+  let duplicate: Awaited<ReturnType<typeof findDuplicateClaim>> = null
+  if (textHash || reviewerName) {
+    try {
+      duplicate = await findDuplicateClaim(admin, textHash, reviewerName, user.id)
+      if (duplicate) {
+        log(`duplicate detected match=${duplicate.matched_on} colliding_row=${duplicate.id}`)
+      }
+    } catch (err) {
+      // Dedup query failure is non-fatal — we just lose the fraud signal
+      // for this one claim. Log + proceed.
+      console.error('findDuplicateClaim failed:', err)
+    }
+  }
+
+  const baseDecision = decideFromVerdict(verdict)
+  // If a duplicate was found, override to manual_review. Never auto-reject
+  // on duplicate (legit retry / household / Gemini misread = wallet loss).
+  const decision = duplicate ? 'manual_review' : baseDecision
+  log(`Gemini verdict decision=${decision} (base=${baseDecision}) confidence=${verdict.confidence} dup=${duplicate?.id ?? 'none'}`)
+
   const verdictNote =
     `Gemini: ${decision} (confidence=${verdict.confidence}, isGoogleReview=${verdict.isGoogleReviewScreenshot}, ` +
     `isDormers=${verdict.businessMatchesDormers}, hasRating=${verdict.hasVisibleRating}, ` +
-    `reviewer="${verdict.reviewerNameVisible ?? ''}"). ${verdict.reason}`
+    `reviewer="${verdict.reviewerNameVisible ?? ''}"). ${verdict.reason}` +
+    (duplicate
+      ? `\n[DUPLICATE] Matched ${duplicate.matched_on} of row ${duplicate.id} (customer ${duplicate.customer_id}).`
+      : '')
+
+  // Persist the extracted fields on every verified row (auto_approved,
+  // pending → manual_review). Skipped for auto_reject which deletes the row.
+  const extractedColumns = {
+    extracted_review_text:   extractedText,
+    extracted_text_hash:     textHash,
+    extracted_reviewer_name: reviewerName,
+  }
 
   if (decision === 'auto_approve') {
+    // Write the extracted columns BEFORE auto-approving so the next
+    // upload by a different user can see this row's hash for dedup.
+    await admin
+      .from('layer4_rewards')
+      .update(extractedColumns)
+      .eq('id', claim.row.id)
     try {
       await autoApproveLayer4Reward(
         admin,
@@ -211,16 +259,19 @@ export async function POST(req: Request) {
     })
   }
 
-  // manual_review — leave status='pending', stamp the verdict in notes for ops.
+  // manual_review — leave status='pending', stamp the verdict + extracted
+  // columns so ops can see what was parsed and the dedup hash is available
+  // for future uploads.
   await admin
     .from('layer4_rewards')
-    .update({ notes: verdictNote })
+    .update({ ...extractedColumns, notes: verdictNote })
     .eq('id', claim.row.id)
 
   return NextResponse.json({
-    claimed:  true,
-    decision: 'manual_review',
-    reason:   verdict.reason,
-    row:      { id: claim.row.id, status: 'pending', value_aed: claim.row.value_aed },
+    claimed:     true,
+    decision:    'manual_review',
+    reason:      verdict.reason,
+    duplicateOf: duplicate?.id ?? null,
+    row:         { id: claim.row.id, status: 'pending', value_aed: claim.row.value_aed },
   })
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Check, X, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import { Check, X, ExternalLink, Image as ImageIcon, ShieldAlert } from 'lucide-react'
 import { approveLayer4Row, rejectLayer4Row } from './actions'
 import type { PendingRow } from './page'
 
@@ -151,6 +151,52 @@ function Row({ row }: { row: PendingRow }) {
           </span>
         </div>
       </div>
+
+      {/* Duplicate badge — surfaces collisions caught by the hash or reviewer-name check. */}
+      {row.duplicate_of && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', borderRadius: 8,
+          backgroundColor: `${RED}18`, border: `1px solid ${RED}66`,
+          marginBottom: 10,
+        }}>
+          <ShieldAlert size={14} strokeWidth={2.6} color={RED} />
+          <span style={{
+            fontFamily: BODY, fontSize: 11, fontWeight: 800, color: CREAM,
+            letterSpacing: '0.06em',
+          }}>
+            Duplicate of{' '}
+            <code style={{
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: 10, fontWeight: 700, color: GOLD,
+              padding: '1px 5px', borderRadius: 4,
+              backgroundColor: 'rgba(0,0,0,0.35)',
+            }}>
+              {row.duplicate_of.row_id.slice(0, 8)}
+            </code>
+            {' '}({row.duplicate_of.matched_on === 'text_hash' ? 'same review text' : 'same reviewer name'})
+          </span>
+        </div>
+      )}
+
+      {/* Extracted review body (when present, helps ops eyeball-compare) */}
+      {row.kind === 'google_review' && row.extracted_review_text && (
+        <div style={{
+          padding: '10px 12px',
+          borderRadius: 8,
+          backgroundColor: 'rgba(0,0,0,0.22)',
+          border: `1px dashed ${MIST_FAINT}`,
+          fontFamily: BODY, fontSize: 11, fontWeight: 500, color: MIST,
+          fontStyle: 'italic',
+          lineHeight: 1.55,
+          marginBottom: 10,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          maxHeight: 120, overflowY: 'auto',
+        }}>
+          &ldquo;{row.extracted_review_text}&rdquo;
+        </div>
+      )}
 
       {/* AI verdict notes */}
       {row.notes && (

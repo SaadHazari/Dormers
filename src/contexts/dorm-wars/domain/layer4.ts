@@ -228,6 +228,81 @@ export async function claimGoogleReview(
   return { row: inserted as Layer4Row, alreadyClaimed: false }
 }
 
+export interface DuplicateMatch {
+  /** Colliding row id (always set). */
+  id: string
+  /** Owner of the colliding row — useful for the ops note. */
+  customer_id: string
+  /** What caused the match — drives the admin-queue badge copy. */
+  matched_on: 'text_hash' | 'reviewer_name'
+}
+
+/**
+ * Look for a prior approved/auto_approved google_review claim that collides
+ * with the screenshot just uploaded. Hash collision is the strong signal;
+ * reviewer-name collision is the weaker secondary signal and only triggers
+ * cross-user (same user submitting under their own name in a later cycle
+ * is fine — they may have a paraphrased follow-up review).
+ *
+ * Returns the FIRST match found (hash-based check runs first, so if both
+ * exist the hash match wins). Returns null if no collision.
+ *
+ * Caller is responsible for skipping the call when the extracted text is
+ * too short to be a reliable dedup signal (see MIN_DEDUP_TEXT_LENGTH).
+ */
+export async function findDuplicateClaim(
+  sb: AdminClient,
+  textHash: string | null,
+  reviewerName: string | null,
+  currentCustomerId: string,
+): Promise<DuplicateMatch | null> {
+  // Strong signal: hash collision (same review text submitted twice).
+  // We compare across ALL users including the same one — a user
+  // re-uploading the same screenshot in a new sub cycle is also a
+  // duplicate (they didn't write a new review).
+  if (textHash) {
+    const { data: hashMatch } = await sb
+      .from('layer4_rewards')
+      .select('id, customer_id')
+      .eq('kind', 'google_review')
+      .in('status', ['approved', 'auto_approved'])
+      .eq('extracted_text_hash', textHash)
+      .limit(1)
+      .maybeSingle()
+    if (hashMatch) {
+      return {
+        id:          hashMatch.id as string,
+        customer_id: hashMatch.customer_id as string,
+        matched_on:  'text_hash',
+      }
+    }
+  }
+
+  // Weaker signal: same reviewer name under a DIFFERENT customer_id.
+  // Same customer re-using their own name is expected; cross-user is
+  // suspicious (one person submitting under multiple accounts).
+  if (reviewerName) {
+    const { data: nameMatch } = await sb
+      .from('layer4_rewards')
+      .select('id, customer_id')
+      .eq('kind', 'google_review')
+      .in('status', ['approved', 'auto_approved'])
+      .eq('extracted_reviewer_name', reviewerName)
+      .neq('customer_id', currentCustomerId)
+      .limit(1)
+      .maybeSingle()
+    if (nameMatch) {
+      return {
+        id:          nameMatch.id as string,
+        customer_id: nameMatch.customer_id as string,
+        matched_on:  'reviewer_name',
+      }
+    }
+  }
+
+  return null
+}
+
 /**
  * Mark an existing layer4_rewards row as auto_approved (Gemini verified
  * the screenshot) and deposit the credit. Idempotent: a second call when

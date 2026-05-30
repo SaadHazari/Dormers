@@ -26,6 +26,7 @@ export interface VerifyResult {
   businessMatchesDormers:    boolean       // does it reference Dormers?
   hasVisibleRating:          boolean       // does it show a star rating?
   reviewerNameVisible:       string | null // displayed reviewer name if legible
+  extractedReviewText:       string | null // full review body if legible (for dedup)
   confidence:                VerifyConfidence
   reason:                    string        // short explanation, also used as ops note
 }
@@ -58,6 +59,7 @@ The user uploaded a screenshot. Inspect it and answer the following AS A JSON OB
   "businessMatchesDormers":   boolean,
   "hasVisibleRating":         boolean,
   "reviewerNameVisible":      string | null,
+  "extractedReviewText":      string | null,
   "confidence":               "high" | "medium" | "low",
   "reason":                   string
 }
@@ -72,6 +74,7 @@ Field meanings:
   The word "dormer" in the review body is a valid positive signal — accept it. Only return false if there is NO mention of the brand anywhere in the screenshot.
 - hasVisibleRating: true if you can see a star rating (1-5 stars) on the review. False if no rating is visible.
 - reviewerNameVisible: the displayed reviewer name if you can read it, else null. ${nameHint}
+- extractedReviewText: the FULL review body text exactly as written by the reviewer, verbatim. Preserve punctuation, line breaks (as \\n), and spelling. EXCLUDE the reviewer name, star count, date ("a week ago"), helpful-button text, business response, and any UI chrome. Null if no review body is visible or legible (e.g. screenshot only shows the rate-this-business UI without a submitted review).
 - confidence: "high" only when isGoogleReviewScreenshot AND businessMatchesDormers AND hasVisibleRating are all true AND the screenshot is sharp and unambiguous. "medium" if one signal is weak (e.g. partial business name match, blurry rating). "low" for anything ambiguous, partially cropped, or where you cannot tell.
 - reason: one short sentence (max 200 chars) explaining your verdict. Cite what you see.
 
@@ -107,6 +110,7 @@ Output JSON only. Do not wrap in code fences. Do not include any text before or 
       businessMatchesDormers:    false,
       hasVisibleRating:          false,
       reviewerNameVisible:       null,
+      extractedReviewText:       null,
       confidence:                'low',
       reason:                    elapsed >= 45_000
         ? 'Verification timed out — queued for manual review'
@@ -131,6 +135,7 @@ Output JSON only. Do not wrap in code fences. Do not include any text before or 
       businessMatchesDormers:    false,
       hasVisibleRating:          false,
       reviewerNameVisible:       null,
+      extractedReviewText:       null,
       confidence:                'low',
       reason:                    'Could not parse verification result — queued for manual review',
     }
@@ -154,16 +159,53 @@ function normaliseVerdict(raw: unknown): VerifyResult {
       ? o.reviewerNameVisible.trim().slice(0, 120)
       : null
 
+  // Cap at 4000 chars — Google reviews top out around 4096 but truncation
+  // here only affects the dedup hash, not what gets shown to the user. If
+  // a real review hits the cap we still hash the canonical first 4000.
+  const extractedReviewText =
+    typeof o.extractedReviewText === 'string' && o.extractedReviewText.trim()
+      ? o.extractedReviewText.trim().slice(0, 4000)
+      : null
+
   return {
     isGoogleReviewScreenshot: o.isGoogleReviewScreenshot === true,
     businessMatchesDormers:    o.businessMatchesDormers === true,
     hasVisibleRating:          o.hasVisibleRating === true,
     reviewerNameVisible,
+    extractedReviewText,
     confidence,
     reason:
       typeof o.reason === 'string' ? o.reason.slice(0, 300) : 'No reason provided',
   }
 }
+
+/**
+ * Normalize review text for hashing. Collapses all whitespace runs to a
+ * single space, lowercases, and trims. Two reviews that differ only in
+ * casing or formatting will hash-collide; two reviews with meaningfully
+ * different content will not.
+ */
+export function normalizeReviewText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * sha256 hex of the normalized text. Used as the dedup key in
+ * layer4_rewards.extracted_text_hash.
+ */
+export async function hashReviewText(text: string): Promise<string> {
+  const normalized = normalizeReviewText(text)
+  const bytes = new TextEncoder().encode(normalized)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// Reviews shorter than this skip the duplicate check — short praise like
+// "Great food!" collides legitimately across many users and would produce
+// false-positive duplicate flags.
+export const MIN_DEDUP_TEXT_LENGTH = 50
 
 /**
  * Top-level decision based on a VerifyResult. Strict by default:

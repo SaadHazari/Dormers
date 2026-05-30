@@ -16,6 +16,10 @@ export interface PendingRow {
   notes:          string | null
   claimed_at:     string
   screenshot_url: string | null
+  /** Snippet of the extracted review body (for at-a-glance dedup comparison). */
+  extracted_review_text: string | null
+  /** When the verifier or backfill found a colliding approved claim. */
+  duplicate_of:   { row_id: string; matched_on: 'text_hash' | 'reviewer_name' } | null
 }
 
 const SCREENSHOT_BUCKET = 'review-screenshots'
@@ -34,12 +38,16 @@ export default async function Layer4QueuePage() {
 
   const { data: pendingRows } = await sb
     .from('layer4_rewards')
-    .select('id, customer_id, kind, value_aed, notes, claimed_at')
+    .select('id, customer_id, kind, value_aed, notes, claimed_at, extracted_review_text, extracted_text_hash, extracted_reviewer_name')
     .eq('status', 'pending')
     .order('claimed_at', { ascending: false })
 
   const rows = (pendingRows ?? []) as Array<{
-    id: string; customer_id: string; kind: Layer4Kind; value_aed: number; notes: string | null; claimed_at: string
+    id: string; customer_id: string; kind: Layer4Kind; value_aed: number;
+    notes: string | null; claimed_at: string;
+    extracted_review_text: string | null;
+    extracted_text_hash: string | null;
+    extracted_reviewer_name: string | null;
   }>
 
   // Batch-resolve customer name + email for the rows in one read.
@@ -55,6 +63,52 @@ export default async function Layer4QueuePage() {
     }
   }
 
+  // ── Collision lookup: for every pending row with an extracted hash,
+  // find any prior approved/auto_approved row sharing the same hash. One
+  // batched IN-query keeps it to a single round-trip regardless of queue
+  // size. Reviewer-name collisions are the secondary signal — a separate
+  // batched query keyed by name.
+  const hashesToCheck = rows
+    .map(r => r.extracted_text_hash)
+    .filter((h): h is string => !!h)
+  const namesToCheck = rows
+    .map(r => r.extracted_reviewer_name)
+    .filter((n): n is string => !!n)
+
+  const hashOwner = new Map<string, string>()     // hash → colliding row id
+  const nameOwner = new Map<string, { row_id: string; customer_id: string }>()
+
+  if (hashesToCheck.length > 0) {
+    const { data: hashMatches } = await sb
+      .from('layer4_rewards')
+      .select('id, extracted_text_hash')
+      .eq('kind', 'google_review')
+      .in('status', ['approved', 'auto_approved'])
+      .in('extracted_text_hash', hashesToCheck)
+    for (const m of (hashMatches ?? []) as Array<{ id: string; extracted_text_hash: string }>) {
+      // First match wins per hash. (Multiple legit approved rows with the
+      // same hash shouldn't happen because we force manual_review on
+      // collision; if it does the first one we see is fine.)
+      if (!hashOwner.has(m.extracted_text_hash)) {
+        hashOwner.set(m.extracted_text_hash, m.id)
+      }
+    }
+  }
+
+  if (namesToCheck.length > 0) {
+    const { data: nameMatches } = await sb
+      .from('layer4_rewards')
+      .select('id, customer_id, extracted_reviewer_name')
+      .eq('kind', 'google_review')
+      .in('status', ['approved', 'auto_approved'])
+      .in('extracted_reviewer_name', namesToCheck)
+    for (const m of (nameMatches ?? []) as Array<{ id: string; customer_id: string; extracted_reviewer_name: string }>) {
+      if (!nameOwner.has(m.extracted_reviewer_name)) {
+        nameOwner.set(m.extracted_reviewer_name, { row_id: m.id, customer_id: m.customer_id })
+      }
+    }
+  }
+
   // For google_review rows, generate signed URLs for the screenshot.
   // Other kinds don't have screenshots so we skip the lookup. Try common
   // extensions in order — the upload route picks one based on MIME type.
@@ -65,6 +119,23 @@ export default async function Layer4QueuePage() {
       screenshot_url = await tryFindScreenshot(sb, r.customer_id, r.id)
     }
     const cust = customerMap.get(r.customer_id) ?? { name: null, email: null }
+
+    // Resolve the duplicate match. Hash collision wins over name collision.
+    // Skip the trivial self-match (current row's own hash references itself).
+    let duplicate_of: PendingRow['duplicate_of'] = null
+    if (r.extracted_text_hash) {
+      const hit = hashOwner.get(r.extracted_text_hash)
+      if (hit && hit !== r.id) {
+        duplicate_of = { row_id: hit, matched_on: 'text_hash' }
+      }
+    }
+    if (!duplicate_of && r.extracted_reviewer_name) {
+      const hit = nameOwner.get(r.extracted_reviewer_name)
+      if (hit && hit.row_id !== r.id && hit.customer_id !== r.customer_id) {
+        duplicate_of = { row_id: hit.row_id, matched_on: 'reviewer_name' }
+      }
+    }
+
     enriched.push({
       id:             r.id,
       customer_id:    r.customer_id,
@@ -75,6 +146,8 @@ export default async function Layer4QueuePage() {
       notes:          r.notes,
       claimed_at:     r.claimed_at,
       screenshot_url,
+      extracted_review_text: r.extracted_review_text,
+      duplicate_of,
     })
   }
 
