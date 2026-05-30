@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Menu from "@/app/components/Menu";
 import { AnimatePresence, motion } from "framer-motion";
 import HeroReveal from "@/app/components/HeroReveal";
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 import TestimonialsBubbles from "@/app/components/TestimonialsBubbles";
 import TestmonialsDesktop from "@/app/components/TestmonialsDesktop";
 import { renderFaqCard } from "@/app/(main)/home/renderFaqCard";
@@ -23,7 +23,8 @@ export default function Home() {
 
   const faqRef = useRef<HTMLDivElement>(null);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
-  const { theme } = useTheme();
+  const isLight = useIsLight();
+  const theme = isLight ? "light" : "dark";
   const [showAll, setShowAll] = useState(false);
 
 
