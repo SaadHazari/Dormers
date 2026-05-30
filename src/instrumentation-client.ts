@@ -32,15 +32,16 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // third parties that don't speak Sentry's wire format.
     tracePropagationTargets: ['localhost', /^\//],
 
-    // Session Replay — records the DOM mutations around an error so you can
-    // see what the user did. Sentry masks all input fields by default; we
-    // don't enable canvas recording (would balloon payload).
+    // Session Replay — records DOM mutations around errors. Sentry masks
+    // all input fields by default; canvas recording is off (would balloon
+    // payload).
     //
-    // TEMPORARILY 1.0 for Sentry onboarding verification. Once Sentry's
-    // Replay onboarding screen shows the first replay, dial this back to
-    // 0 (or 0.05) so the free tier's 50-replays-per-month quota goes to
-    // error sessions instead of random healthy ones.
-    replaysSessionSampleRate: 1.0,
+    // Free tier gives 50 replays/month. Healthy sessions don't need to be
+    // recorded — they consume the quota that should be reserved for the
+    // ones that actually error. So: 0 baseline (no random healthy capture),
+    // 1.0 on error (every session that throws gets recorded back to the
+    // error moment via the buffer).
+    replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 1.0,
 
     // Sentry's Logs product — Sentry.logger.* calls land in the Logs tab.
@@ -61,8 +62,12 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       Sentry.browserProfilingIntegration(),
       // Replays — DOM mutations around errors so we can watch what happened.
       Sentry.replayIntegration(),
-      // Mirror direct console.log/warn/error calls into Sentry Logs.
-      Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
+      // Mirror console.warn / console.error into Sentry Logs. 'log' was
+      // included earlier but the codebase uses console.log liberally as
+      // debug breadcrumbs — forwarding all of them was burning the Logs
+      // quota for noise. warn + error keep the genuinely interesting
+      // entries.
+      Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] }),
       // User-submitted bug reports. autoInject:false suppresses Sentry's
       // generic floating button — the trigger is the BugReportTrigger
       // icon at the bottom-right of the dashboard's content-border.
