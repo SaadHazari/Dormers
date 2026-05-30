@@ -171,6 +171,7 @@ export default async function DormWarsPage() {
       layer4Rewards={layer4Rewards}
       weeklyReviewState={weeklyReviewState}
       monthlyReviewWindow={monthlyReviewWindow}
+      dormWarsTourCompleted={Boolean(customer?.dorm_wars_tour_completed_at)}
     />
   )
 }

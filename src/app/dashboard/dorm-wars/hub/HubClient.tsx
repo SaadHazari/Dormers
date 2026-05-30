@@ -3,21 +3,28 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import type { ComponentType } from 'react'
 import {
-  Gift, Users, Send, Flame, Lock, Check, X, ArrowRight,
+  Gift, Users, Send, Flame, Lock, Check, CheckCircle2, X, ArrowRight,
   Star, Trophy, Percent, Shirt,
   Calendar, Coins, KeyRound, Zap, Upload, ExternalLink,
   Activity, MessageSquareText, Sparkles,
-  User, Award, Crown, Clock,
+  User, Award, Crown, Clock, ShieldAlert,
 } from 'lucide-react'
+import { whatsAppHref } from '@/shared/contacts'
 import type { ReferralData, InviteRow, CrossDormRecentSub } from '@/infra/supabase/referrals-repo'
 import type { RewardEvent, StreakChestState, StreakChestBucket } from '@/infra/supabase/dorm-wars-repo'
 import type { Subscription } from '../../_shared/types'
+import { useWeeklyDraftActive } from '../../_shared/draft-hooks'
 import type { MealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
 import { freeWeekValue, freeMonthValue } from '@/contexts/dorm-wars/domain/meal-pricing'
 import type { Layer4Row, Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
-import type { WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
-import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import {
+  BASE_REWARD_AED, LATE_REWARD_AED,
+  type WeeklyReviewState, type PendingItem, type LateItem, type CompletedReviewItem,
+} from '@/contexts/subscriptions/domain/weekly-review'
+import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { DormWarsTour } from './DormWarsTour'
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PALETTE — Dormers brand translation (2026-05-18)
@@ -202,7 +209,7 @@ function stageIndex(stage: ScoutStage): number {
   return STAGES.findIndex(s => s.key === stage)
 }
 
-type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review' | 'wallet' | 'progression'
+type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review' | 'wallet' | 'progression' | 'weekly-reviews'
 type SendStep = 'closed' | 'naming' | 'sent'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -264,6 +271,11 @@ interface Props {
   // we don't need to round-trip through layer4_rewards for these.
   weeklyReviewState: WeeklyReviewState
   monthlyReviewWindow: MonthlyReviewWindow
+  // First-visit tour flag — when false, the 4-step spotlight tour auto-opens
+  // ~600ms after mount (only if the hub isn't behind the Premium gate).
+  // Reads from customers.dorm_wars_tour_completed_at; a non-null timestamp
+  // means the user opted out via the consent dialog.
+  dormWarsTourCompleted: boolean
 }
 
 // Phase 8M — bucket label helper. The previous CHEST_BUCKET_COLOR map
@@ -320,6 +332,7 @@ export default function HubClient({
   layer4Rewards,
   weeklyReviewState,
   monthlyReviewWindow,
+  dormWarsTourCompleted,
 }: Props) {
   void customerDorm   // reserved for future dorm-specific copy
 
@@ -434,6 +447,15 @@ export default function HubClient({
   // ── STATE ────────────────────────────────────────────────────────────────
   const router = useRouter()
   const [open, setOpen] = useState<SubScreen>(null)
+  // First-visit guided tour. Auto-opens once a few hundred ms after mount
+  // so the page paints first; suppressed when behind the Premium gate
+  // (data-tour targets render blurred and the tour would feel haunted).
+  const [showTour, setShowTour] = useState(false)
+  useEffect(() => {
+    if (dormWarsTourCompleted || !dormWarsEligible) return
+    const t = setTimeout(() => setShowTour(true), 600)
+    return () => clearTimeout(t)
+  }, [dormWarsTourCompleted, dormWarsEligible])
   // Phase 8K — side-quest info modal. Opens when the user taps a passive
   // row (Done, Locked, Soon, Closed) so they get an explanation instead
   // of a dead end. Actionable rows still go directly to their action;
@@ -770,30 +792,37 @@ export default function HubClient({
           list so users see all four "more ways to earn" surfaces at parity
           with Cycle + Lifetime instead of buried in a footer ribbon. */}
       <div className="hub-progress-grid" style={{ flex: '0 0 auto' }}>
-        <CycleColumn
-          cycleRecruits={cycleRecruits}
-          cycleDaysLeft={cycleDaysLeft}
-          cycleTotalDays={cycleTotalDays}
-          cycleStartsInDays={cycleStartsInDays}
-          onOpen={() => setOpen('quests')}
-          milestones={cycleMilestones}
-        />
-        <LifetimeColumn
-          recruits={recruits}
-          currentTier={currentTier}
-          nextTier={nextTier}
-          onOpen={() => setOpen('ladder')}
-        />
-        <SideRewardsColumn
-          layer4Rewards={layer4Rewards}
-          activeSubscriptionId={activeSubscription?.id ?? null}
-          onOpenGoogleReview={() => setOpen('google-review')}
-          weeklyReviewState={weeklyReviewState}
-          monthlyReviewWindow={monthlyReviewWindow}
-          chestState={chestState}
-          onOpenChest={() => setOpen('chest')}
-          onShowInfo={(kind) => setInfoKind(kind)}
-        />
+        <div data-tour="cycle-rewards" style={{ display: 'contents' }}>
+          <CycleColumn
+            cycleRecruits={cycleRecruits}
+            cycleDaysLeft={cycleDaysLeft}
+            cycleTotalDays={cycleTotalDays}
+            cycleStartsInDays={cycleStartsInDays}
+            onOpen={() => setOpen('quests')}
+            milestones={cycleMilestones}
+          />
+        </div>
+        <div data-tour="lifetime-rewards" style={{ display: 'contents' }}>
+          <LifetimeColumn
+            recruits={recruits}
+            currentTier={currentTier}
+            nextTier={nextTier}
+            onOpen={() => setOpen('ladder')}
+          />
+        </div>
+        <div data-tour="side-quests" style={{ display: 'contents' }}>
+          <SideRewardsColumn
+            layer4Rewards={layer4Rewards}
+            activeSubscriptionId={activeSubscription?.id ?? null}
+            onOpenGoogleReview={() => setOpen('google-review')}
+            weeklyReviewState={weeklyReviewState}
+            monthlyReviewWindow={monthlyReviewWindow}
+            chestState={chestState}
+            onOpenChest={() => setOpen('chest')}
+            onOpenWeeklyReviews={() => setOpen('weekly-reviews')}
+            onShowInfo={(kind) => setInfoKind(kind)}
+          />
+        </div>
       </div>
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
@@ -853,10 +882,28 @@ export default function HubClient({
         <GoogleReviewScreen onClose={() => setOpen(null)} />
       </Modal>
       <Modal open={open === 'wallet'} onClose={() => setOpen(null)} title="Wallet" accent={GOLD}>
-        <WalletHistoryModal wallet={wallet} walletPending={walletPending} events={recentRewards} />
+        <WalletHistoryModal
+          wallet={wallet}
+          walletPending={walletPending}
+          events={recentRewards}
+          weeklyReviewState={weeklyReviewState}
+          monthlyWindow={monthlyReviewWindow}
+          onClose={() => setOpen(null)}
+        />
       </Modal>
       <Modal open={open === 'progression'} onClose={() => setOpen(null)} title="Titles & Progression" accent={progressionFor(recruits).color}>
         <ProgressionScreen recruits={recruits} name={customerName || 'You'} />
+      </Modal>
+      <Modal
+        open={open === 'weekly-reviews'}
+        onClose={() => setOpen(null)}
+        title="Weekly Reviews"
+        accent={CYAN}
+      >
+        <WeeklyReviewsChooserModal
+          weeklyReviewState={weeklyReviewState}
+          onClose={() => setOpen(null)}
+        />
       </Modal>
       {/* Phase 8K — side-quest info modal. Opens when user taps a passive
           (Done / Locked / Soon / Closed) row in Side Quests. Title +
@@ -893,6 +940,8 @@ export default function HubClient({
           the user isn't on Monthly Premium / Monthly Max. Hub still SSRs
           underneath (blurred) so the user can see the perks they'd unlock. */}
       {!dormWarsEligible && <PremiumGateOverlay currentPlanId={currentPlanId} />}
+
+      {showTour && <DormWarsTour onComplete={() => setShowTour(false)} />}
     </div>
   )
 }
@@ -1505,11 +1554,13 @@ function TopChrome({
         {/* Phase 8M — collapsed streak chip (flame + day count + gift).
             Whole pill opens the expanded streak-calendar modal where the
             user sees the 4-week reward layout and can claim ready chests. */}
-        <StreakChestStrip
-          count={streak}
-          chestReady={chestState.chestReady}
-          onChestClick={onChestClick}
-        />
+        <div data-tour="streak-chest" style={{ display: 'contents' }}>
+          <StreakChestStrip
+            count={streak}
+            chestReady={chestState.chestReady}
+            onChestClick={onChestClick}
+          />
+        </div>
 
       </div>
     </header>
@@ -2186,10 +2237,16 @@ function QuestInfoScreen({
       }
     }
     if (kind === 'weekly_reviews') {
-      const { rewards } = weeklyReviewState
+      const { rewards, current, late } = weeklyReviewState
       const total = rewards.total
       const submitted = rewards.submitted
       const allIn = submitted >= total && total > 0
+      // Split the pending pool the same way the sidebar tray and wallet
+      // do so the three surfaces speak with one voice. `ready` = AED
+      // already submitted, parked until cycle lock. `toClaim` = AED
+      // still earnable from unsubmitted weeks.
+      const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
+      const aedReady = Math.max(0, rewards.aedPending - aedToClaim)
       return {
         reward: `Up to AED ${total * 5} per cycle (AED 5 per review, all ${total} required)`,
         how: [
@@ -2201,7 +2258,9 @@ function QuestInfoScreen({
         status: allIn
           ? `All ${total} in · AED ${rewards.aedEarned} earned this cycle.`
           : submitted > 0
-            ? `${submitted} of ${total} in · AED ${rewards.aedPending} on the line.`
+            ? aedToClaim > 0
+              ? `${submitted} of ${total} in · AED ${aedReady} ready · +AED ${aedToClaim} to claim.`
+              : `${submitted} of ${total} in · AED ${aedReady} ready for cycle close.`
             : `0 of ${total} · earn AED ${total * 5} max this cycle.`,
         next: allIn
           ? 'Next pool opens with your next monthly subscription.'
@@ -2386,10 +2445,47 @@ function QuestInfoScreen({
   )
 }
 
+// Tiny SVG progress ring — used in the side-quest weekly-review row to
+// replace the "N of M" text prefix with a visual count. Frees horizontal
+// space in the sub-line for the "AED X ready · +AED Y to claim" copy
+// without truncation. Aria-label keeps the count screen-reader legible.
+function ProgressRing({
+  value, total, color, size = 11,
+}: {
+  value: number
+  total: number
+  color: string
+  size?: number
+}) {
+  const cx = size / 2
+  const r = (size - 1.5) / 2
+  const circumference = 2 * Math.PI * r
+  const pct = total > 0 ? Math.max(0, Math.min(1, value / total)) : 0
+  const offset = circumference * (1 - pct)
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label={`${value} of ${total}`}
+      style={{ flexShrink: 0, display: 'block' }}
+    >
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke={`${color}33`} strokeWidth={1.5} />
+      <circle
+        cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={1.5}
+        strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+        transform={`rotate(-90 ${cx} ${cx})`}
+      />
+    </svg>
+  )
+}
+
 function SideRewardsColumn({
   layer4Rewards, activeSubscriptionId, onOpenGoogleReview,
   weeklyReviewState, monthlyReviewWindow,
   chestState, onOpenChest,
+  onOpenWeeklyReviews,
   onShowInfo,
 }: {
   layer4Rewards: Layer4Row[]
@@ -2401,6 +2497,10 @@ function SideRewardsColumn({
   chestState: StreakChestState
   /** Click handler — opens the chest modal already wired in HubClient. */
   onOpenChest: () => void
+  /** Opens the weekly-reviews chooser modal — shows every week in the
+   *  active cycle (pending + completed) so the user picks which one to
+   *  submit instead of being routed silently to the first pending week. */
+  onOpenWeeklyReviews: () => void
   /** Phase 8K — passive rows route through the info modal on click. */
   onShowInfo: (kind: SideQuestInfoKind) => void
 }) {
@@ -2465,6 +2565,11 @@ function SideRewardsColumn({
           // status sentence instead of just the chip in the corner.
           let subLine: string = r.value
           let subColor: string = r.color
+          // Optional visual badge that renders BEFORE the subLine text —
+          // currently used by the weekly_reviews row to replace the
+          // "N of M" text count with a small progress ring. Frees
+          // horizontal space for richer copy on the right.
+          let subBadge: React.ReactNode = null
 
           if (kind === 'google_review') {
             const row = googleReviewForCurrentSub
@@ -2518,8 +2623,9 @@ function SideRewardsColumn({
               chipColor = GREEN
               chipBg = `${GREEN}14`
               chipBorder = `${GREEN}55`
-              subLine = `All ${total} in · AED ${aedEarned} earned this cycle`
+              subLine = `AED ${aedEarned} earned this cycle`
               subColor = GREEN
+              subBadge = <ProgressRing value={submitted} total={total} color={GREEN} />
               clickable = true
               onClick = () => onShowInfo('weekly_reviews')
             } else if (pendingNow) {
@@ -2527,13 +2633,25 @@ function SideRewardsColumn({
               chipColor = r.color
               chipBg = `${r.color}14`
               chipBorder = `${r.color}55`
-              const left = total - submitted
+              // Same ready/to-claim split as the sidebar tray and wallet:
+              // the user reads "AED 7 ready · +AED 2 to claim" instead
+              // of a single conflated "AED 9 on the line" that hides
+              // what's already banked vs what's still earnable.
+              const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
+              const aedReady = Math.max(0, aedPending - aedToClaim)
               subLine = submitted === 0
-                ? `0 of ${total} · all 4 needed for AED 20`
-                : `${submitted} of ${total} · AED ${aedPending} on the line · ${left} to go`
+                ? `All ${total} needed for AED ${total * BASE_REWARD_AED}`
+                : `AED ${aedReady} ready · +AED ${aedToClaim} to claim`
               subColor = r.color
+              subBadge = <ProgressRing value={submitted} total={total} color={r.color} />
               clickable = true
-              onClick = () => router.push('/dashboard/menu')
+              // Open the chooser modal so the user sees every week in the
+              // cycle (pending + completed) and picks which one to submit.
+              // Previously this dumped them straight onto the first
+              // pending week's review page — fine for a single pending
+              // week, opaque for users with a current + late backlog who
+              // couldn't see what was already banked.
+              onClick = onOpenWeeklyReviews
             } else {
               // Mid-week — nothing pending right now. Show progress honestly,
               // emphasize the all-or-nothing pool either way.
@@ -2541,10 +2659,20 @@ function SideRewardsColumn({
               chipColor = submitted > 0 ? CYAN : MIST_DIM
               chipBg = submitted > 0 ? `${CYAN}14` : 'transparent'
               chipBorder = submitted > 0 ? `${CYAN}55` : MIST_FAINT
+              // Mid-week → current is null and late is empty → aedToClaim
+              // is 0 by construction, so the whole pool is "ready" (banked
+              // from earlier submissions, awaiting cycle lock).
               subLine = submitted > 0
-                ? `${submitted} of ${total} · AED ${aedPending} on the line`
-                : 'All 4 needed for AED 20 · miss one = forfeit'
+                ? `AED ${aedPending} ready for cycle close`
+                : `All ${total} needed for AED ${total * BASE_REWARD_AED} · miss one = forfeit`
               subColor = submitted > 0 ? CYAN : MIST
+              subBadge = (
+                <ProgressRing
+                  value={submitted}
+                  total={total}
+                  color={submitted > 0 ? CYAN : MIST_DIM}
+                />
+              )
               clickable = true
               onClick = () => onShowInfo('weekly_reviews')
             }
@@ -2670,11 +2798,18 @@ function SideRewardsColumn({
                   {r.label}
                 </div>
                 <div style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
                   fontFamily: BODY, fontSize: 10, fontWeight: 700,
                   color: subColor, marginTop: 2, fontFeatureSettings: '"tnum"',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  minWidth: 0,
                 }}>
-                  {subLine}
+                  {subBadge}
+                  <span style={{
+                    flex: 1, minWidth: 0,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {subLine}
+                  </span>
                 </div>
               </div>
 
@@ -3181,6 +3316,24 @@ function HubStyles() {
         box-shadow: 0 6px 18px rgba(0,0,0,0.55), 0 0 22px rgba(245,127,32,0.45) !important;
       }
       .hub-chip-tap:active {
+        transform: translateY(0);
+      }
+
+      /* Wallet "Finish to unlock" row — confirms clickability with a
+         subtle lift + brighter border on hover. Matches the chip-tap
+         press-back so the modal feels consistent under the finger.
+         Brand-orange tinted so the row reads as a to-do, distinct from
+         the dashed-muted "Submitted · waiting" rows below it. */
+      .hub-wallet-actionable:hover {
+        background-color: rgba(245,127,32,0.18) !important;
+        border-color: rgba(245,127,32,0.66) !important;
+        transform: translateY(-1px);
+      }
+      .hub-wallet-actionable-urgent:hover {
+        background-color: rgba(245,127,32,0.28) !important;
+        border-color: rgba(245,127,32,1) !important;
+      }
+      .hub-wallet-actionable:active {
         transform: translateY(0);
       }
 
@@ -3988,6 +4141,10 @@ type ReviewSubmitResult =
   | { decision: 'manual_review'; reason: string }
   | { decision: 'auto_rejected'; reason: string }
   | { decision: 'already_credited'; valueAed: number }
+  // Duplicate path — Gemini extracted text that matches a prior approved
+  // claim (by hash or reviewer name). Server still queues for manual
+  // review; the user sees an honest message and can contact support.
+  | { decision: 'duplicate'; reason: string }
 
 // ── CELEBRATION OVERLAY ─────────────────────────────────────────────────────
 // Signature moment for the auto-approved verdict. Full-page frosted-glass
@@ -4216,6 +4373,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         decision?: ReviewSubmitResult['decision']
         reason?: string
         row?: { value_aed: number }
+        duplicateOf?: string | null
         error?: string
       } | null
 
@@ -4239,6 +4397,14 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         setResult({ decision: 'already_credited', valueAed })
       } else if (data?.decision === 'auto_rejected') {
         setResult({ decision: 'auto_rejected', reason: data.reason ?? "We couldn't tell this was a Google review of Dormers." })
+      } else if (data?.duplicateOf) {
+        // Server queued for manual review but flagged a collision. Honest
+        // copy beats a vague "queued" message — protects legit users from
+        // silent fraud-pile-on and gives them a clean support path.
+        setResult({
+          decision: 'duplicate',
+          reason:   "This review looks like one we've already credited. If that doesn't sound right, message us on WhatsApp and we'll sort it.",
+        })
       } else {
         setResult({ decision: 'manual_review', reason: data?.reason ?? "We'll verify within 24h." })
       }
@@ -4349,6 +4515,47 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
           >
             Try another screenshot
           </button>
+        </div>
+      )
+    }
+    if (result.decision === 'duplicate') {
+      return (
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{
+            margin: '0 auto 16px', width: 64, height: 64, borderRadius: '50%',
+            backgroundColor: `${GOLD}22`, border: `2px solid ${GOLD}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <ShieldAlert size={28} strokeWidth={2.6} color={GOLD_LITE} />
+          </div>
+          <h3 style={{
+            fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM,
+            margin: '0 0 8px',
+          }}>
+            We&rsquo;ve seen this review before
+          </h3>
+          <p style={{
+            fontFamily: BODY, fontSize: 12, fontWeight: 500, color: MIST,
+            lineHeight: 1.55, margin: '0 0 18px',
+          }}>
+            {result.reason}
+          </p>
+          <a
+            href={whatsAppHref("Hi! My Google review claim was flagged as a duplicate but it's mine.")}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block',
+              padding: '11px 22px', borderRadius: 999,
+              backgroundColor: GOLD, color: BG_DEEP,
+              fontFamily: BODY, fontSize: 12, fontWeight: 900,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              textDecoration: 'none',
+              boxShadow: `0 8px 22px ${GOLD}44`,
+            }}
+          >
+            Message us
+          </a>
         </div>
       )
     }
@@ -4919,17 +5126,464 @@ function formatRelativeTime(iso: string): string {
   return `${months}mo ago`
 }
 
+// Actionable row in the wallet's "Finish to unlock" section. Reads as a
+// to-do item: brand orange surface (always — not just when urgent), a
+// solid Start pill on the right edge replacing the bare arrow, and the
+// AED amount stacked above as "you'll earn this." Distinct enough from
+// the WalletWaitingRow below that the user can tell at a glance which
+// rows are "do this" vs which are "already done, waiting."
+function WalletActionableRow({
+  href, title, sub, chip, reward, urgent, monthly, onClick,
+  cta = 'Start',
+}: {
+  href: string
+  title: string
+  sub: string
+  chip: string
+  reward: number
+  urgent: boolean
+  monthly?: boolean
+  onClick: () => void
+  /** CTA pill text. Defaults to "Start"; the weekly-reviews chooser passes
+   *  "Resume" when a draft exists for that week so the user knows the
+   *  form will rehydrate where they left off. */
+  cta?: string
+}) {
+  const Icon = monthly ? Calendar : MessageSquareText
+  const iconAccent = monthly ? VIOLET : CYAN
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={urgent ? 'hub-wallet-actionable hub-wallet-actionable-urgent' : 'hub-wallet-actionable'}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 12px 12px 14px', borderRadius: 10,
+        backgroundColor: urgent ? `${ORANGE}1f` : `${ORANGE}10`,
+        border: `1px solid ${urgent ? `${ORANGE}88` : `${ORANGE}44`}`,
+        textDecoration: 'none',
+        transition: 'background-color 150ms, border-color 150ms, transform 120ms',
+      }}
+    >
+      <span aria-hidden="true" style={{
+        flexShrink: 0,
+        width: 32, height: 32, borderRadius: 8,
+        backgroundColor: `${iconAccent}22`,
+        border: `1px solid ${iconAccent}55`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Icon size={15} strokeWidth={2.4} color={iconAccent} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: BODY, fontSize: 13, fontWeight: 800, color: CREAM,
+          lineHeight: 1.2, flexWrap: 'wrap',
+        }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+            {title}
+          </span>
+          <span style={{
+            padding: '1px 7px', borderRadius: 4,
+            backgroundColor: `${ORANGE}33`,
+            border: `1px solid ${ORANGE}77`,
+            fontFamily: BODY, fontSize: 8, fontWeight: 900,
+            color: ORANGE_LITE,
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+          }}>
+            {chip}
+          </span>
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST,
+          marginTop: 2, fontFeatureSettings: '"tnum"',
+        }}>
+          {sub}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+        <div style={{
+          fontFamily: DISPLAY, fontSize: 15, fontWeight: 900, color: GOLD_LITE,
+          letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"', lineHeight: 1,
+        }}>
+          +AED {reward}
+        </div>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '4px 8px', borderRadius: 999,
+          backgroundColor: urgent ? ORANGE : 'transparent',
+          border: `1px solid ${urgent ? ORANGE : `${ORANGE}99`}`,
+          fontFamily: BODY, fontSize: 9, fontWeight: 900,
+          color: urgent ? '#fff' : ORANGE_LITE,
+          letterSpacing: '0.12em', textTransform: 'uppercase',
+          lineHeight: 1,
+        }}>
+          {cta} <ArrowRight size={10} strokeWidth={3} />
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+// Passive informational row for reviews that are SUBMITTED but waiting
+// on the cycle's all-or-nothing lock to flip them into the wallet.
+// Distinct from WalletActionableRow on every axis: check-mark icon
+// instead of message-square, dashed muted border instead of brand
+// orange, no chip-pill button, AED rendered without "+" so it doesn't
+// read as "new opportunity." The user should be able to glance and
+// know "I did this — nothing to do, just waiting."
+function WalletWaitingRow({
+  amount,
+  createdAt,
+  late,
+}: {
+  amount: number
+  createdAt: string
+  late: boolean
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '10px 14px', borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.02)',
+      border: `1px dashed ${MIST_FAINT}`,
+    }}>
+      <span aria-hidden="true" style={{
+        flexShrink: 0,
+        width: 32, height: 32, borderRadius: 8,
+        backgroundColor: `${CYAN}14`,
+        border: `1px solid ${CYAN}33`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <CheckCircle2 size={15} strokeWidth={2.4} color={CYAN} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: BODY, fontSize: 13, fontWeight: 700, color: MIST,
+          lineHeight: 1.2, flexWrap: 'wrap',
+        }}>
+          <span>Weekly review</span>
+          <span style={{
+            padding: '1px 7px', borderRadius: 4,
+            backgroundColor: 'rgba(237,232,218,0.06)',
+            border: `1px solid ${MIST_FAINT}`,
+            fontFamily: BODY, fontSize: 8, fontWeight: 900,
+            color: MIST,
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+          }}>
+            {late ? 'Submitted late' : 'Submitted on-time'}
+          </span>
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+          marginTop: 2, fontFeatureSettings: '"tnum"',
+        }}>
+          {formatRelativeTime(createdAt)} · locks when cycle completes
+        </div>
+      </div>
+      <div style={{
+        flexShrink: 0,
+        fontFamily: DISPLAY, fontSize: 15, fontWeight: 800,
+        color: MIST,
+        letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"',
+      }}>
+        AED {amount}
+      </div>
+    </div>
+  )
+}
+
+// Per-row wrapper that detects whether the user has a saved draft for
+// this week and swaps the CTA between "Start" and "Resume" accordingly.
+// Drafts are written by WeeklyReviewTakeover as the user scrolls through
+// the form; the chooser modal just reads them so the user can pick up
+// where they left off without leaving the chooser.
+function PendingReviewChooserRow({
+  item, kind, onClose,
+}: {
+  item: PendingItem | LateItem
+  kind: 'current' | 'late'
+  onClose: () => void
+}) {
+  const draftActive = useWeeklyDraftActive(item.week)
+  const isCurrent = kind === 'current'
+  const isLast = isCurrent && (item as PendingItem).daysLeft === 0
+  const chip = isCurrent
+    ? (isLast ? 'Last day' : `${(item as PendingItem).daysLeft}d left`)
+    : `${(item as LateItem).daysLate}d late`
+  const reward = isCurrent ? BASE_REWARD_AED : LATE_REWARD_AED
+  const urgent = isCurrent
+    ? (item as PendingItem).daysLeft <= 1
+    : (item as LateItem).daysLate >= 23
+  return (
+    <WalletActionableRow
+      href={`/dashboard/menu/review/${item.week}`}
+      title={`Week ${item.week}`}
+      sub={item.range}
+      chip={chip}
+      reward={reward}
+      urgent={urgent}
+      onClick={onClose}
+      cta={draftActive ? 'Resume' : 'Start'}
+    />
+  )
+}
+
+// Informational row for reviews already submitted in this cycle. Shape
+// echoes WalletWaitingRow (dashed muted border + check icon) so the
+// "already done" semantic reads consistently across the chooser modal
+// and the wallet. AED amount uses no "+" prefix and a muted color so
+// it doesn't compete with the pending rows' bright gold-lite reward.
+function CompletedReviewRow({ item }: { item: CompletedReviewItem }) {
+  const onTime = item.rewardPct === 100
+  const aed = onTime ? BASE_REWARD_AED : LATE_REWARD_AED
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '10px 14px', borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.02)',
+      border: `1px dashed ${MIST_FAINT}`,
+    }}>
+      <span aria-hidden="true" style={{
+        flexShrink: 0,
+        width: 32, height: 32, borderRadius: 8,
+        backgroundColor: `${CYAN}14`,
+        border: `1px solid ${CYAN}33`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <CheckCircle2 size={15} strokeWidth={2.4} color={CYAN} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: BODY, fontSize: 13, fontWeight: 700, color: MIST,
+          lineHeight: 1.2, flexWrap: 'wrap',
+        }}>
+          <span>Week {item.week}</span>
+          <span style={{
+            padding: '1px 7px', borderRadius: 4,
+            backgroundColor: 'rgba(237,232,218,0.06)',
+            border: `1px solid ${MIST_FAINT}`,
+            fontFamily: BODY, fontSize: 8, fontWeight: 900,
+            color: MIST,
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+          }}>
+            {onTime ? 'On-time' : 'Late'}
+          </span>
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+          marginTop: 2, fontFeatureSettings: '"tnum"',
+        }}>
+          {item.range}
+        </div>
+      </div>
+      <div style={{
+        flexShrink: 0,
+        fontFamily: DISPLAY, fontSize: 15, fontWeight: 800,
+        color: MIST,
+        letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"',
+      }}>
+        AED {aed}
+      </div>
+    </div>
+  )
+}
+
+// Chooser modal opened from the side-quest weekly-review row. Replaces
+// the previous "click → router.push the first pending week" behaviour,
+// which was opaque to users with multiple pending weeks and lost the
+// "you've already done these" context. Now the user sees the whole
+// cycle in one view: every week they still need to submit (Resume or
+// Start), every week they've already submitted (informational), and
+// the AED breakdown across both groups.
+function WeeklyReviewsChooserModal({
+  weeklyReviewState, onClose,
+}: {
+  weeklyReviewState: WeeklyReviewState
+  onClose: () => void
+}) {
+  const { current, late, completed, rewards } = weeklyReviewState
+  const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
+  const aedReady = Math.max(0, rewards.aedPending - aedToClaim)
+  const hasPending = !!current || late.length > 0
+  const hasCompleted = completed.length > 0
+  const allIn = rewards.submitted >= rewards.total && rewards.total > 0
+  return (
+    <div>
+      {/* Header strip — total progress + AED breakdown. Stays at top
+          regardless of section visibility so the user always anchors
+          on "where am I in this cycle." */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 14px', borderRadius: 12,
+        backgroundColor: `${CYAN}10`,
+        border: `1px solid ${CYAN}33`,
+        marginBottom: 18,
+      }}>
+        <ProgressRing
+          value={rewards.submitted}
+          total={rewards.total}
+          color={allIn ? GREEN : CYAN}
+          size={28}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: CYAN,
+            letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+          }}>
+            {rewards.cycle}
+          </div>
+          <div style={{
+            fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: CREAM,
+            letterSpacing: '-0.01em', marginTop: 4, fontFeatureSettings: '"tnum"',
+            lineHeight: 1.2,
+          }}>
+            {rewards.submitted} of {rewards.total} submitted
+          </div>
+          <div style={{
+            fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST,
+            marginTop: 2, fontFeatureSettings: '"tnum"',
+          }}>
+            {allIn
+              ? `AED ${rewards.aedEarned} earned · cycle locked`
+              : aedToClaim > 0
+                ? `AED ${aedReady} ready · +AED ${aedToClaim} still to claim`
+                : `AED ${aedReady} ready for cycle close`}
+          </div>
+        </div>
+      </div>
+
+      {/* Pending section — current week first (the urgent one), then
+          late catch-ups. Each row carries its own draft state so the
+          CTA reads honestly. */}
+      {hasPending && (
+        <div style={{ marginBottom: hasCompleted ? 18 : 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 900, color: ORANGE_LITE,
+              letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Pending submission
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 9, fontWeight: 700, color: MIST_DIM,
+              letterSpacing: '0.14em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Pick one to submit
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {current && (
+              <PendingReviewChooserRow item={current} kind="current" onClose={onClose} />
+            )}
+            {late.map(item => (
+              <PendingReviewChooserRow key={`late-${item.week}`} item={item} kind="late" onClose={onClose} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed section — informational only. Tells the user what's
+          already banked toward the all-or-nothing pool. */}
+      {hasCompleted && (
+        <div>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 900, color: MIST,
+              letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Completed
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 9, fontWeight: 700, color: MIST_DIM,
+              letterSpacing: '0.14em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              {completed.length} submitted
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {completed.map(item => (
+              <CompletedReviewRow key={`done-${item.week}`} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty-state fallback — surfaces when total > 0 but neither
+          pending nor completed has anything (e.g., brand-new cycle,
+          all weeks still upcoming). Rare but worth catching so the
+          modal never opens to a blank surface. */}
+      {!hasPending && !hasCompleted && (
+        <div style={{
+          padding: '32px 16px', borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.03)',
+          border: `1px dashed ${MIST_FAINT}`,
+          textAlign: 'center',
+          fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
+          lineHeight: 1.55,
+        }}>
+          Your first review opens after week 1 ends.
+        </div>
+      )}
+
+      <p style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+        lineHeight: 1.5, margin: '18px 0 0', textAlign: 'center',
+      }}>
+        All {rewards.total} required · miss one and the cycle&apos;s AED is forfeit
+      </p>
+    </div>
+  )
+}
+
 function WalletHistoryModal({
   wallet, walletPending, events,
+  weeklyReviewState, monthlyWindow, onClose,
 }: {
   wallet: number
   walletPending: number
   events: RewardEvent[]
+  weeklyReviewState: WeeklyReviewState
+  monthlyWindow: MonthlyReviewWindow
+  onClose: () => void
 }) {
+  // Outstanding reviews — the unsubmitted weeks (current + late) plus the
+  // monthly wrap when its window is open. These are the actions that
+  // unlock walletPending. Surfacing them here as clickable rows turns
+  // "AED X pending · finish your reviews" from an instruction into a
+  // one-tap path.
+  const monthlyOutstanding =
+    monthlyWindow.eligible && !monthlyWindow.submitted && !monthlyWindow.expired
+  const hasOutstanding =
+    !!weeklyReviewState.current
+    || weeklyReviewState.late.length > 0
+    || monthlyOutstanding
   // Filter out tier-3 jacket pseudo-events (amount_aed = 0; physical merch,
   // not a wallet credit) and any other zero-AED rows. The wallet view is
   // specifically about cash that landed (or is on its way).
   const cashEvents = events.filter(e => e.amount_aed > 0)
+
+  // Pending weekly_review events get their own "Submitted · waiting"
+  // section so they read as informational ("I did this, locks at cycle
+  // end") and not as another to-do row competing with "Finish to unlock"
+  // above. Everything else — approved credits, non-review pending (e.g.,
+  // referral_conversion stuck in fraud review) — stays in the History
+  // list, where the "Pending" pill keeps its original meaning of
+  // "waiting on verification."
+  const submittedWaitingReviews = cashEvents.filter(
+    e => e.status === 'pending' && e.source.startsWith('layer4_weekly_review'),
+  )
+  const historyEvents = cashEvents.filter(
+    e => !(e.status === 'pending' && e.source.startsWith('layer4_weekly_review')),
+  )
 
   // Pending copy is source-aware. The pending container's sub-line used
   // to assume all pending = review credits, which misled users whose
@@ -5044,11 +5698,137 @@ function WalletHistoryModal({
         )}
       </div>
 
-      {/* ── History list ────────────────────────────────────────────
-          Both approved AND pending events surface, newest first.
-          Pending rows get a "Pending" pill + dimmed AED color so the
-          status reads at a glance. Empty state when no events yet. */}
-      {cashEvents.length === 0 ? (
+      {/* ── Outstanding to submit ──────────────────────────────────
+          Unsubmitted reviews that, once finished, release the pending
+          pool. Lives BETWEEN the header tiles and history so the user
+          reads: "AED X pending" → "tap these to unlock it" → past
+          events. Each row deep-links to its review page and closes the
+          modal so the navigation lands cleanly. */}
+      {hasOutstanding && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD_LITE,
+              letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Finish to unlock
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 9, fontWeight: 700, color: MIST_DIM,
+              letterSpacing: '0.14em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Tap to start
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {weeklyReviewState.current && (
+              <WalletActionableRow
+                href={`/dashboard/menu/review/${weeklyReviewState.current.week}`}
+                title={`Week ${weeklyReviewState.current.week}`}
+                sub={weeklyReviewState.current.range}
+                chip={weeklyReviewState.current.daysLeft === 0 ? 'Last day' : `${weeklyReviewState.current.daysLeft}d left`}
+                reward={BASE_REWARD_AED}
+                urgent={weeklyReviewState.current.daysLeft <= 1}
+                onClick={onClose}
+              />
+            )}
+            {weeklyReviewState.late.map(item => (
+              <WalletActionableRow
+                key={`late-${item.week}`}
+                href={`/dashboard/menu/review/${item.week}`}
+                title={`Week ${item.week}`}
+                sub={item.range}
+                chip={`${item.daysLate}d late`}
+                reward={LATE_REWARD_AED}
+                urgent={item.daysLate >= 23}
+                onClick={onClose}
+              />
+            ))}
+            {monthlyOutstanding && (() => {
+              const isLate = monthlyWindow.daysLeftForFullReward <= 0
+              const chip = isLate
+                ? `${monthlyWindow.daysSinceCycleEnd}d late`
+                : monthlyWindow.daysLeftForFullReward === 0
+                  ? 'Last day'
+                  : `${monthlyWindow.daysLeftForFullReward}d left`
+              return (
+                <WalletActionableRow
+                  href="/dashboard/menu/review/monthly"
+                  title="Monthly wrap"
+                  sub={monthlyWindow.cycleLabel ?? 'Cycle'}
+                  chip={chip}
+                  reward={isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED}
+                  urgent={monthlyWindow.preCron || (!isLate && monthlyWindow.daysLeftForFullReward === 0)}
+                  monthly
+                  onClick={onClose}
+                />
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Submitted · waiting on cycle ───────────────────────────
+          Reviews the user has already submitted; the AED is parked in
+          pending until the cycle's all-or-nothing rule lets the pool
+          flip to approved. These rows are NOT actionable — they're
+          informational ("I did this") — so the visual signature is
+          deliberately calmer: dashed muted border, check icon, no
+          chip-button, AED rendered without "+". This is the section
+          that absorbs the rows that used to live in History with a
+          generic "Pending" pill, where they bled into the "Finish to
+          unlock" rows above. */}
+      {submittedWaitingReviews.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontFamily: BODY, fontSize: 10, fontWeight: 900, color: MIST,
+              letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Submitted · waiting on cycle
+            </div>
+            <div style={{
+              fontFamily: BODY, fontSize: 9, fontWeight: 700, color: MIST_DIM,
+              letterSpacing: '0.14em', textTransform: 'uppercase', lineHeight: 1,
+            }}>
+              Nothing to do
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {submittedWaitingReviews.map(ev => (
+              <WalletWaitingRow
+                key={ev.id}
+                amount={ev.amount_aed}
+                createdAt={ev.created_at}
+                late={ev.amount_aed === LATE_REWARD_AED}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── History ─────────────────────────────────────────────────
+          Settled credits (approved + applied) and any non-review
+          pending rows (e.g., a referral_conversion held for fraud
+          review). The "Pending" pill stays meaningful here because
+          it always means "waiting on verification," not "waiting on
+          a cycle to close." Empty state when no events yet. */}
+      {historyEvents.length > 0 && (
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD_LITE,
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          marginBottom: 8, lineHeight: 1,
+        }}>
+          History
+        </div>
+      )}
+      {historyEvents.length === 0 && submittedWaitingReviews.length === 0 ? (
         <div style={{
           padding: '32px 16px', borderRadius: 12,
           backgroundColor: 'rgba(255,255,255,0.03)',
@@ -5060,9 +5840,9 @@ function WalletHistoryModal({
           No credits yet. Send a friend a link — when they subscribe, your
           first <strong style={{ color: CREAM }}>AED 20</strong> lands here.
         </div>
-      ) : (
+      ) : historyEvents.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {cashEvents.map(ev => {
+          {historyEvents.map(ev => {
             const meta = walletEventMeta(ev)
             const Icon = meta.Icon
             const isPending = ev.status === 'pending'
@@ -5139,7 +5919,7 @@ function WalletHistoryModal({
             )
           })}
         </div>
-      )}
+      ) : null}
 
       <p style={{
         fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
