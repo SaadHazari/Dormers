@@ -45,6 +45,11 @@ export interface Customer {
   // (triggered when a sub ends without a renewal). Drives the post-end
   // "preferences applied" banner; gated on !hasActiveSub at render time.
   preferences_promoted_at?: string | null
+  // Customer-supplied typical-takeout-cost benchmark (AED, 15-50). Drives the
+  // "Saved this cycle" StatTile + lifetime savings in the greeting ribbon.
+  // Null until the user answers the one-time slider question — in that state
+  // the savings tile renders a "Set your benchmark" CTA instead of a number.
+  takeout_benchmark_aed?: number | null
 }
 
 export interface Subscription {
