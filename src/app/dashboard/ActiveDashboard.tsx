@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { X, PartyPopper, ChevronRight, PauseCircle, Truck, Moon } from 'lucide-react'
 import { cancelPlannedPause, pauseSubscription, planPause, resumeSubscription, skipFutureDate, skipMeal, unskipFutureDate } from '@/contexts/subscriptions/usecases/subscription-mutations'
+import { setTakeoutBenchmark } from '@/contexts/subscriptions/usecases/savings-actions'
 import { FutureSkipModal, type FutureSkipMode } from './_shared/FutureSkipModal'
 import { PlanPauseModal } from './_shared/PlanPauseModal'
+import { SavingsBenchmarkModal } from './_shared/SavingsBenchmarkModal'
 import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
 import { cleanPlanName, OG, BG, BODY, S, NV2 } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
@@ -22,6 +24,7 @@ import { QuickActions } from './QuickActions'
 import { MonthlyWrapStrip } from './_shared/MonthlyWrapStrip'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { cycleSavings as computeCycleSavings, lifetimeSavings as computeLifetimeSavings, perMealCost as computePerMealCost, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, submitted: false,
@@ -378,6 +381,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // Cancel-planned-pause confirmation modal — when sub has planned_pause_start
   // and customer taps the (now-transformed) Pause button.
   const [showCancelPlannedPause, setShowCancelPlannedPause] = useState(false)
+  // Savings benchmark capture — opens when the customer taps the empty-state
+  // StatRow tile, or when the customer wants to edit their existing benchmark.
+  // `benchmarkSaving` gates the modal CTA + the StatTile while the server
+  // action is in flight.
+  const [benchmarkModalOpen, setBenchmarkModalOpen] = useState(false)
+  const [benchmarkSaving, setBenchmarkSaving] = useState(false)
   // Optimistic state for the four future-facing operations. The bar reads
   // through this so it reflects the change the instant the customer confirms,
   // before router.refresh delivers canonical data. Key insight: the button's
@@ -430,6 +439,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const isPausableTier = sub.plan_name.includes('Monthly Premium') || sub.plan_name.includes('Monthly Max')
   const isScheduled    = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > Date.now()
   const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
+  // True when the 1-pause-per-cycle credit has been spent on a still-live,
+  // pausable sub. Drives the "Pause used · resets next cycle" chip in
+  // QuickActions so the slot doesn't vanish silently after resume — the
+  // user reads what happened and when the affordance returns.
+  const pauseCreditUsed = isPausableTier && !!sub.has_paused_before && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
   const endedPlans      = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
   const totalDelivered  = allSubscriptions.reduce((acc, x) => acc + (x.delivered_meals ?? 0), 0)
   const memberSinceText = customer?.created_at
@@ -689,6 +703,42 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }
   const rawName   = customer?.name ?? userEmail.split('@')[0]
   const firstName = rawName?.split(' ')[0] ?? 'there'
+
+  // Savings — third StatTile (cycle-scoped) + greeting ribbon (lifetime).
+  // Returns null when the customer hasn't supplied a takeout benchmark yet;
+  // StatRow renders the capture CTA in that case. perMealDormers is computed
+  // independently so the SavingsBenchmarkModal can show its live preview even
+  // before the benchmark is set. Plain calls (not useMemo) because effectiveSub
+  // is reconstructed every render — memoising on it would just defeat the
+  // purpose, and the underlying math is a handful of arithmetic ops.
+  const cycleSavingsValue = computeCycleSavings(effectiveSub, customer)
+  const lifetimeSavingsValue = computeLifetimeSavings(allSubscriptions, customer)
+  const perMealDormers = computePerMealCost(effectiveSub, customer ?? {})
+
+  // Server-action wrapper for the benchmark save. Uses isPending-style state
+  // (not the act() helper) because this isn't a subscription mutation — it
+  // doesn't need optimistic-state flips and shouldn't share microinteraction
+  // state with skip/pause/resume.
+  const handleConfirmBenchmark = (aed: number) => {
+    if (benchmarkSaving) return
+    setActionError(null)
+    setBenchmarkSaving(true)
+    startTransition(async () => {
+      let result: { ok?: true; error?: string } | null = null
+      try {
+        result = await setTakeoutBenchmark(aed)
+      } catch (e) {
+        result = { error: (e as Error).message }
+      }
+      setBenchmarkSaving(false)
+      if (result && 'error' in result && result.error) {
+        setActionError(result.error)
+        return
+      }
+      setBenchmarkModalOpen(false)
+      router.refresh()
+    })
+  }
 
   // Per-day veg/non-veg map. For Veg/NonVeg pref it's all-or-nothing; for
   // religious-mix it's the customer's checkout-chosen day set, snapshotted on
@@ -1028,6 +1078,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, letterSpacing: 0, lineHeight: 1.5 }}>
               <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinners with us
               {memberSinceText && <> · since {memberSinceText}</>}
+              {lifetimeSavingsValue && lifetimeSavingsValue.saved > 0 && (
+                <> · <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(lifetimeSavingsValue.saved)}</strong> below takeout</>
+              )}
               {endedPlans.length > 0 && (
                 <> · <Link
                         href="/dashboard/history"
@@ -1162,7 +1215,14 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             (2) Tonight's dish + Quick actions
             (3) Plan progress                                                   */}
         <div className={`dash-grid${skipStagger ? ' dash-grid-no-stagger' : ''}`}>
-          <StatRow sub={effectiveSub} isPaused={localState === 'paused'} />
+          <StatRow
+            sub={effectiveSub}
+            isPaused={localState === 'paused'}
+            cycleSavings={cycleSavingsValue}
+            benchmarkAed={customer?.takeout_benchmark_aed ?? null}
+            hasQueuedRenewal={!!queuedSub}
+            onSetBenchmark={() => setBenchmarkModalOpen(true)}
+          />
           <HeroToday
             todayMeal={todayMeal}
             localState={localState}
@@ -1201,6 +1261,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             isPausableTier={isPausableTier}
             isTrialPlan={isOneTime}
             plannedPauseDate={sub.planned_pause_start ?? null}
+            pauseCreditUsed={pauseCreditUsed}
           />
           {/* PlanProgress takes the full row width on the main dashboard.
               The Past plans card has moved to /dashboard/plan (beside the
@@ -1762,6 +1823,19 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         queuedSub={queuedSub}
         isPending={isPending}
         onConfirm={handleConfirmPlanPause}
+      />
+
+      {/* Savings benchmark capture — opens from the StatRow empty-state tile.
+          One-time slider question (AED 15-50, default 25). Confirming writes
+          customers.takeout_benchmark_aed and refreshes the route so the
+          StatTile flips to its proper rendering. */}
+      <SavingsBenchmarkModal
+        open={benchmarkModalOpen}
+        onClose={() => { if (!benchmarkSaving) setBenchmarkModalOpen(false) }}
+        isPending={benchmarkSaving}
+        perMealDormers={perMealDormers}
+        initialValue={customer?.takeout_benchmark_aed ?? null}
+        onConfirm={handleConfirmBenchmark}
       />
 
       {/* Cancel-planned-pause confirmation. Opens when the customer taps

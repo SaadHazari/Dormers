@@ -34,7 +34,7 @@ export default function WeeklyReviewTakeoverMockPage() {
             onSubmit={async () => {
                 // Mock: simulate latency then return success
                 await new Promise((r) => setTimeout(r, 600))
-                return { ok: true, rewardPct: LATE_DEMO ? 50 : 100, lumpSumApprovedAed: null }
+                return { ok: true, rewardPct: LATE_DEMO ? 50 : 100, lumpSumApprovedAed: null, nextPendingWeek: null, nextPendingWeekAed: null }
             }}
             onClose={() => router.push('/dashboard/plan')}
         />

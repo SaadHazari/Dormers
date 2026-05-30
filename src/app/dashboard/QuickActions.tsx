@@ -33,6 +33,7 @@ export function QuickActions({
     isPausableTier,
     isTrialPlan,
     plannedPauseDate = null,
+    pauseCreditUsed = false,
 }: {
     canPause: boolean
     localState: LocalState
@@ -90,6 +91,12 @@ export function QuickActions({
     // chip-style state, and tapping it opens the cancel-confirmation modal.
     // YYYY-MM-DD AE wall date.
     plannedPauseDate?: string | null
+    // The customer used their 1-pause-per-cycle credit on this subscription
+    // (paused → resumed). Used to drive an informational "Pause used" chip
+    // into the same slot the active Pause button would occupy, so the slot
+    // doesn't vanish silently after resume. Renders as a non-button div —
+    // there's nothing to tap until the next renewal mints a fresh sub row.
+    pauseCreditUsed?: boolean
 }) {
     const isPaused = localState === 'paused'
     const isSkipped = localState === 'skipped'
@@ -310,9 +317,50 @@ export function QuickActions({
                     disabled — today's day is already accounted for, so a pause
                     on top would double-count against the kitchen-ops calendar.
                     Auto-clears at midnight AE when the cron flips back to Active. */}
-                {(canPause || isPaused || !isPausableTier || !!plannedPauseDate) && (() => {
+                {(canPause || isPaused || !isPausableTier || !!plannedPauseDate || pauseCreditUsed) && (() => {
                     const isSuccessResume = successAction === 'resume'
                     const hasPlannedPause = !!plannedPauseDate && !isPaused
+
+                    // Consumed-credit chip — user paused + resumed this cycle.
+                    // Render BEFORE the button shell so the slot stays present
+                    // (preserving the QuickActions rhythm) but as a non-button
+                    // informational pill. No tap target, no false affordance.
+                    // The pause credit comes back when the next renewal mints a
+                    // new subscription row with has_paused_before = false.
+                    const isConsumed = pauseCreditUsed && !isPaused && !hasPlannedPause && !canPause
+                    if (isConsumed) {
+                        return (
+                            <Tooltip label="Your 1 free pause for this cycle has been used. Pausing returns at your next renewal.">
+                                <div
+                                    role="status"
+                                    aria-label="Pause used this cycle — resets at next renewal"
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 10,
+                                        justifyContent: 'flex-start',
+                                        padding: '14px 18px', width: '100%',
+                                        borderRadius: 'var(--radius-pill)',
+                                        background: 'transparent',
+                                        color: S.fgMuted,
+                                        border: `1px dashed ${S.border2}`,
+                                        fontFamily: BODY, fontSize: 13, fontWeight: 700,
+                                    }}
+                                >
+                                    <PauseIcon size={16} strokeWidth={2.2} />
+                                    <span>Pause used this cycle</span>
+                                    <span style={{
+                                        marginLeft: 'auto',
+                                        fontFamily: BODY, fontSize: 10, fontWeight: 800,
+                                        letterSpacing: '0.10em', textTransform: 'uppercase',
+                                        padding: '4px 9px', borderRadius: 999,
+                                        background: 'var(--ds-skeleton-base)', color: 'inherit',
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        Resets next cycle
+                                    </span>
+                                </div>
+                            </Tooltip>
+                        )
+                    }
                     const pauseIsPrimary = (isPaused && !lockedOut) || isSuccessResume
                     // isSkipped only blocks PAUSE (not Resume) — a paused user can't be skipped.
                     const pauseBlockedBySkip = isSkipped && !isPaused && !hasPlannedPause

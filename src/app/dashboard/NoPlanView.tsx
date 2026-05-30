@@ -10,6 +10,7 @@ import { PlanGlyph } from './_shared/PlanGlyph'
 import { btnStyle } from './_shared/buttons'
 import { fmt } from './_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 import type { Customer, Subscription } from './_shared/types'
 
 interface Props {
@@ -47,6 +48,11 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
   const lastEnded      = endedPlans[0]
   const totalDelivered = allSubscriptions.reduce((acc, x) => acc + (x.delivered_meals ?? 0), 0)
   const isReturning    = !!lastEnded
+  // Lifetime savings narrative — only when the customer set their benchmark
+  // on a prior session. The greeting ribbon doubles as a retrospective
+  // retention asset here: customers with a lapsed plan still see what they
+  // saved, which is the pull force that nudges them back to renewal.
+  const lifetimeSavingsValue = computeLifetimeSavings(allSubscriptions, customer)
 
   const rawName   = customer?.name ?? userEmail.split('@')[0]
   const firstName = rawName?.split(' ')[0] ?? null
@@ -96,6 +102,9 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
               <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
               {memberSinceText && <> · since {memberSinceText}</>}
+              {lifetimeSavingsValue && lifetimeSavingsValue.saved > 0 && (
+                <> · <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(lifetimeSavingsValue.saved)}</strong> below takeout</>
+              )}
               {endedPlans.length > 0 && (
                 <> · <Link
                   href="/dashboard/history"
