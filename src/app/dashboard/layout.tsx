@@ -5,6 +5,7 @@ import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-r
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
 import DashboardShell from './DashboardShell'
 import { BugReportTrigger } from './_shared/BugReportTrigger'
+import { IdleRefreshToast } from './_shared/IdleRefreshToast'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
@@ -113,6 +114,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {children}
               <BugReportTrigger />
             </div>
+            <IdleRefreshToast />
           </main>
         </div>
       </DashboardShell>
