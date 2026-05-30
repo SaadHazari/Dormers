@@ -57,6 +57,16 @@ export type WeeklyReviewSubmitResult =
           // it to fire the all-cycle celebration. Null when more reviews
           // are still needed; the wallet shows pending instead.
           lumpSumApprovedAed: number | null
+          // Next still-pending week (within the late-submit window) on the
+          // user's active subscription, after this submission. Drives the
+          // post-submit chain — the thank-you screen offers an explicit
+          // "Continue to Week N · +AED N" CTA when this is set, so the
+          // user picks whether to keep going instead of being teleported.
+          nextPendingWeek: number | null
+          // AED the next pending week would pay today (5 if still in the
+          // 7-day full-reward window, 2 if late). Powers the chain CTA's
+          // copy so it states a real number rather than a guess.
+          nextPendingWeekAed: number | null
       }
     | { ok: false; error: string }
 
@@ -73,8 +83,16 @@ export interface WeeklyReviewTakeoverProps {
     daysLeftForFullReward: number
     /** Async submit handler — usually a server action that persists the review. */
     onSubmit: (payload: WeeklyReviewPayload) => Promise<WeeklyReviewSubmitResult>
-    /** Called when the user dismisses the takeover (X button or post-thank-you CTA). */
+    /** Called when the user dismisses the takeover (X button or post-thank-you "save for later" CTA). */
     onClose: () => void
+    /**
+     * Called when the user picks the chain CTA on the thank-you screen
+     * ("Continue to Week N · +AED N"). Receives the target week number so
+     * the host can route into that week's review takeover. Optional —
+     * when absent, the chain CTA isn't rendered even if the action returns
+     * a nextPendingWeek.
+     */
+    onContinueChain?: (nextWeek: number) => void
     /**
      * Phase 8K — how many reviews this user has ALREADY submitted on this
      * sub. Drives the first-submit acknowledgement modal: if 0, intercept
@@ -103,6 +121,7 @@ export function WeeklyReviewTakeover({
     daysLeftForFullReward,
     onSubmit,
     onClose,
+    onContinueChain,
     priorSubmissions = 0,
     weeksExpected = 4,
 }: WeeklyReviewTakeoverProps) {
@@ -155,6 +174,11 @@ export function WeeklyReviewTakeover({
     // approved. The total AED locked in lands here and drives the
     // thank-you screen's "cycle complete" celebration variant.
     const [lumpSumApproved, setLumpSumApproved] = useState<number | null>(null)
+    // Post-submit chain — when set, the thank-you screen shows a primary
+    // "Continue to Week N · +AED N" CTA alongside the secondary save-for-
+    // later. Cleared when the user picks save-for-later or when cycle-
+    // complete (lump sum landed → nothing to chain into).
+    const [nextChain, setNextChain] = useState<{ week: number; aed: number } | null>(null)
 
     const activeStar = hoverStar ?? rating ?? 0
     const isLate = daysLeftForFullReward <= 0
@@ -290,6 +314,13 @@ export function WeeklyReviewTakeover({
                 try { window.localStorage.removeItem(draftKey) } catch { /* ignore */ }
                 setEarnedPct(result.rewardPct)
                 setLumpSumApproved(result.lumpSumApprovedAed ?? null)
+                if (
+                    result.nextPendingWeek != null
+                    && result.nextPendingWeekAed != null
+                    && result.lumpSumApprovedAed == null
+                ) {
+                    setNextChain({ week: result.nextPendingWeek, aed: result.nextPendingWeekAed })
+                }
             } else {
                 setSubmitError(result.error)
             }
@@ -798,9 +829,53 @@ export function WeeklyReviewTakeover({
                             </p>
                         )}
 
-                        <div>
-                            <ContinueButton enabled onClick={onClose} label="Back to dashboard" />
-                        </div>
+                        {/* CTA cluster — chain-aware. When the action returns
+                            another pending week (and the cycle isn't already
+                            cycle-complete), surface BOTH options stacked:
+                              primary  → continue into the next week's review
+                              secondary → save for later, back to dashboard
+                            Stacked over side-by-side so the primary clearly
+                            reads as the recommended path; both remain full-
+                            width clickable buttons so the opt-out is honest,
+                            not buried as a tiny gray link. */}
+                        {nextChain && onContinueChain ? (
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 10,
+                                width: '100%',
+                                maxWidth: 460,
+                                margin: '0 auto',
+                            }}>
+                                <ContinueButton
+                                    enabled
+                                    onClick={() => onContinueChain(nextChain.week)}
+                                    label={`Continue to Week ${nextChain.week} · +AED ${nextChain.aed}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        background: 'transparent',
+                                        border: 0,
+                                        cursor: 'pointer',
+                                        fontFamily: BODY,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        letterSpacing: '0.04em',
+                                        color: 'rgba(245,240,232,0.65)',
+                                    }}
+                                >
+                                    Save for later
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <ContinueButton enabled onClick={onClose} label="Back to dashboard" />
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

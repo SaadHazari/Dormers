@@ -7,8 +7,11 @@ import { submitWeeklyReview } from '../actions'
 /**
  * Thin client wrapper for the WeeklyReviewTakeover that:
  *   - Calls the `submitWeeklyReview` server action on submit
- *   - Routes back to /dashboard/menu when the user closes the takeover
- *     (via the X button or the post-thank-you CTA)
+ *   - Wires the post-submit chain CTA: when the takeover surfaces a
+ *     "Continue to Week N" choice, route the user into that week's
+ *     review page. The user explicitly picks this — no silent teleport.
+ *   - Falls back to /dashboard when the user dismisses or picks
+ *     "Save for later"
  */
 export function ReviewClient({
     userName,
@@ -39,11 +42,8 @@ export function ReviewClient({
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
             onSubmit={(payload: WeeklyReviewPayload) => submitWeeklyReview(week, payload)}
-            // Dismiss lands on the main dashboard, not /menu — the weekly
-            // review trigger now lives in the Now tray (which is shell-level,
-            // not menu-scoped), so /dashboard is the natural return surface.
-            // See project_now_tray_architecture memory.
             onClose={() => router.push('/dashboard')}
+            onContinueChain={(nextWeek) => router.push(`/dashboard/menu/review/${nextWeek}`)}
         />
     )
 }

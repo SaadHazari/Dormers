@@ -205,5 +205,25 @@ export async function submitWeeklyReview(
     revalidatePath('/dashboard/menu')
     revalidatePath('/dashboard/dorm-wars')
 
-    return { ok: true, rewardPct, lumpSumApprovedAed }
+    // Post-submit chaining: surface the next pending week (if any) along
+    // with the AED it currently pays — drives the takeover's chain CTA.
+    // Pending = week has ended, still inside the 30-day late window, and
+    // not yet submitted on this sub. Excludes the week we just saved.
+    const { data: submittedRows } = await supabase
+        .from('weekly_reviews')
+        .select('week_number')
+        .eq('customer_id', user.id)
+        .eq('subscription_id', sub.id)
+    const submittedSet = new Set((submittedRows ?? []).map(r => Number(r.week_number)))
+    const nextPending = weeks.find((w) => {
+        if (submittedSet.has(w.number)) return false
+        const daysSinceEnd = Math.floor((today.getTime() - w.end.getTime()) / (1000 * 60 * 60 * 24))
+        return daysSinceEnd >= 1 && daysSinceEnd <= 30
+    }) ?? null
+    const nextPendingWeek    = nextPending?.number ?? null
+    const nextPendingWeekAed = nextPending
+        ? weeklyReviewAed(rewardPctForWeekEnd(nextPending.end, today))
+        : null
+
+    return { ok: true, rewardPct, lumpSumApprovedAed, nextPendingWeek, nextPendingWeekAed }
 }

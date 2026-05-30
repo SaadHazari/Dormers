@@ -141,6 +141,22 @@ async function computeWeeklyReviewState(userId: string): Promise<WeeklyReviewSta
         daysLate: b.daysSinceEnd,
     }))
 
+    // Completed reviews for this cycle — drives the "Completed" section
+    // of the weekly-reviews chooser modal. Newest first so the most
+    // recent submission tops the list, matching the way users mentally
+    // scan their own progress (latest → earliest).
+    const completed = buckets
+        .filter((b) => b.bucket === 'submitted')
+        .map((b) => {
+            const r = reviewsByWeek.get(b.week.number)!
+            return {
+                week: b.week.number,
+                range: formatRange(b.week.start, b.week.end),
+                rewardPct: r.reward_pct,
+            }
+        })
+        .sort((a, b) => b.week - a.week)
+
     const justSubmitted = (() => {
         const recent = (reviews ?? [])[0]
         if (!recent) return null
@@ -175,7 +191,7 @@ async function computeWeeklyReviewState(userId: string): Promise<WeeklyReviewSta
         label: 'Rewards',
     }
 
-    return { current, late, justSubmitted, rewards }
+    return { current, late, justSubmitted, completed, rewards }
 }
 
 export const getWeeklyReviewState = cache(async (userId: string): Promise<WeeklyReviewState> => {

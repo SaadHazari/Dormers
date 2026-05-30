@@ -10,6 +10,7 @@
 export interface PendingItem { week: number; range: string; daysLeft: number }
 export interface LateItem    { week: number; range: string; daysLate: number }
 export interface SubmittedItem { week: number; rewardPct: 50 | 100 }
+export interface CompletedReviewItem { week: number; range: string; rewardPct: 50 | 100 }
 
 export interface RewardsCycle {
     submitted: number
@@ -24,6 +25,10 @@ export interface WeeklyReviewState {
     current: PendingItem | null
     late: LateItem[]
     justSubmitted: SubmittedItem | null
+    /** All weeks already submitted in the active cycle, newest first. Drives
+     *  the "Completed" section of the weekly-reviews chooser modal so users
+     *  can see what's banked and what's still ahead in one view. */
+    completed: CompletedReviewItem[]
     rewards: RewardsCycle
 }
 
@@ -66,6 +71,7 @@ export const EMPTY_REVIEW_STATE: WeeklyReviewState = {
     current: null,
     late: [],
     justSubmitted: null,
+    completed: [],
     rewards: DEFAULT_REWARDS,
 }
 
