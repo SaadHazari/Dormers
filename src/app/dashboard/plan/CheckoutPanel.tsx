@@ -279,7 +279,7 @@ export function CheckoutPanel({
           email: customer?.email ?? userEmail,
           phone: customer?.whatsapp_number ?? '',
           location: customer?.dorm_name ?? '',
-          preference: pref === 'Religious' ? 'Religious Preference' : pref === 'Veg' ? 'Plant-Based' : 'Carnivore',
+          preference: pref === 'Religious' ? 'Religious Preference' : pref === 'Veg' ? 'Veg' : 'Non Veg',
           plan: selected === 'Monthly Premium' ? 'Monthly Premium' :
                 selected === 'Monthly Max'     ? 'Monthly Max' :
                 selected === 'Weekly Flex'     ? 'Weekly Flex' :

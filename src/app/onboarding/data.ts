@@ -1,16 +1,16 @@
 // ─── static data ─────────────────────────────────────────────────────────────
 
-// `value` strings stay as-is so existing customer rows + downstream
-// string-matches (e.g. .includes('plant') / .includes('religious')) keep working.
-// Only the user-visible `label` changes.
+// Canonical `value` strings persist to customers.meal_preference_type and
+// flow through Stripe metadata → orders.meal_preference. Downstream detectors
+// match on .includes('veg') / .includes('religious') (case-insensitive).
 //
 // Onboarding intentionally uses warm chat-style emojis here — the dark navy
 // onboarding cards are the only surface in the app where they belong. The
 // dashboard uses Lucide line-icons exclusively for an editorial / interface
 // feel; never re-introduce emojis there.
 export const PREFERENCES = [
-    { value: 'Carnivore', emoji: '🍗', label: 'Non-Vegetarian', desc: 'Chicken, mutton & more every day' },
-    { value: 'Plant-Based', emoji: '🥗', label: 'Veg', desc: 'Fully vegetarian, every meal' },
+    { value: 'Non Veg', emoji: '🍗', label: 'Non-Vegetarian', desc: 'Chicken, mutton & more every day' },
+    { value: 'Veg', emoji: '🥗', label: 'Veg', desc: 'Fully vegetarian, every meal' },
     { value: 'Religious Preference', emoji: '☪️', label: 'Religious Preference', desc: 'Mix Veg & Non Veg meals' },
 ]
 

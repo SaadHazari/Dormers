@@ -62,11 +62,15 @@ export function PlanPauseModal({
         return () => window.removeEventListener('keydown', onKey)
     }, [open, onClose])
 
-    // Available start dates: strictly-future working days within the current
-    // cycle, capped at totalDeliveries (no make-up days as pause-start, same
-    // rule as future skip).
-    const availableDates = useMemo(() => {
-        if (!open) return []
+    // Split future working days into two buckets so the picker can show
+    // make-up days as disabled chips — silently dropping them used to leave
+    // the customer guessing why their cycle's tail wasn't selectable.
+    //
+    //   • pickable   — strictly > today AE, ≤ end_date, working day, and
+    //                  position ≤ totalDeliveries (i.e. NOT a make-up day).
+    //   • makeupDays — same filters EXCEPT position > totalDeliveries.
+    const { pickable, makeupDays } = useMemo(() => {
+        if (!open) return { pickable: [] as string[], makeupDays: [] as string[] }
         const weekType: '5DAYS' | '6DAYS' = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
         const todayIso = aeTodayIso()
         const tomorrow = new Date(todayIso + 'T00:00:00')
@@ -78,19 +82,22 @@ export function PlanPauseModal({
         const total = sub.total_meals ?? 0
         const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
 
-        const out: string[] = []
+        const pickable: string[] = []
+        const makeupDays: string[] = []
         const cursor = new Date(sub.start_date + 'T00:00:00')
         let position = 0
         while (cursor.getTime() <= end.getTime()) {
             if (isWorkingDay(cursor, weekType)) {
                 position++
-                if (position <= totalDeliveries && cursor.getTime() >= tomorrow.getTime()) {
-                    out.push(isoOf(cursor))
+                if (cursor.getTime() >= tomorrow.getTime()) {
+                    const iso = isoOf(cursor)
+                    if (position <= totalDeliveries) pickable.push(iso)
+                    else makeupDays.push(iso)
                 }
             }
             cursor.setDate(cursor.getDate() + 1)
         }
-        return out
+        return { pickable, makeupDays }
     }, [open, sub.week_type, sub.start_date, sub.end_date, sub.total_meals, sub.plan_name])
 
     // Queued-renewal warning. Unlike skip (which shifts by exactly 1 working
@@ -267,7 +274,7 @@ export function PlanPauseModal({
                             </div>
                         )}
 
-                        {availableDates.length > 0 && (
+                        {(pickable.length > 0 || makeupDays.length > 0) && (
                             <div style={{ marginTop: 18 }}>
                                 <div style={{
                                     fontFamily: BODY, fontSize: 11, fontWeight: 700,
@@ -280,7 +287,7 @@ export function PlanPauseModal({
                                     display: 'flex', flexWrap: 'wrap', gap: 6,
                                     maxHeight: 200, overflowY: 'auto',
                                 }}>
-                                    {availableDates.map(iso => {
+                                    {pickable.map(iso => {
                                         const isSelected = iso === selectedDate
                                         const d = new Date(iso + 'T00:00:00')
                                         const label = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -304,11 +311,45 @@ export function PlanPauseModal({
                                             </button>
                                         )
                                     })}
+                                    {makeupDays.map(iso => {
+                                        const d = new Date(iso + 'T00:00:00')
+                                        const label = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+                                        return (
+                                            <button
+                                                key={iso}
+                                                type="button"
+                                                disabled
+                                                title="Make-up day · can't start a pause here"
+                                                aria-label={`${label} — make-up day, can't start a pause here`}
+                                                style={{
+                                                    padding: '8px 12px', borderRadius: 8,
+                                                    border: `1px dashed var(--ds-border)`,
+                                                    background: 'transparent',
+                                                    color: S.fgMuted,
+                                                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                                                    cursor: 'not-allowed', whiteSpace: 'nowrap',
+                                                    fontFeatureSettings: '"tnum"',
+                                                    opacity: 0.7,
+                                                }}
+                                            >
+                                                {label}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
+                                {makeupDays.length > 0 && (
+                                    <div style={{
+                                        marginTop: 8,
+                                        fontFamily: BODY, fontSize: 11.5,
+                                        color: S.fgMuted, lineHeight: 1.5,
+                                    }}>
+                                        Greyed-out dates are make-up days — bonus catch-up meals at the tail of your cycle that replace earlier skips. A pause can&rsquo;t start on one.
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {availableDates.length === 0 && (
+                        {pickable.length === 0 && makeupDays.length === 0 && (
                             <div style={{
                                 marginTop: 18, padding: 14, borderRadius: 10,
                                 background: 'var(--ds-skeleton-base)',

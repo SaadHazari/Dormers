@@ -70,14 +70,19 @@ export function FutureSkipModal({
         if (open) setSelectedDate(initialDate ?? '')
     }, [open, initialDate])
 
-    // Picker mode: build the list of selectable future working days. Filters:
-    //   • strictly > today AE
-    //   • <= end_date
-    //   • working day for the customer's week_type
-    //   • not already in skipped_dates
-    //   • not a make-up day (position <= totalDeliveries from start)
-    const availableDates = useMemo(() => {
-        if (mode !== 'pick-then-skip') return []
+    // Picker mode: split future working days into two buckets.
+    //   • pickable    — strictly > today AE, ≤ end_date, working day, not
+    //                   already skipped, not in planned-pause window, and
+    //                   position ≤ totalDeliveries (i.e. NOT a make-up day).
+    //   • makeupDays  — same filters EXCEPT position > totalDeliveries.
+    //
+    // Make-up days are rendered as disabled chips so the customer can see
+    // why their cycle's tail isn't selectable (otherwise the picker silently
+    // ends earlier than they'd expect and they're left guessing).
+    const { pickable, makeupDays } = useMemo(() => {
+        if (mode !== 'pick-then-skip') {
+            return { pickable: [] as string[], makeupDays: [] as string[] }
+        }
         const weekType: '5DAYS' | '6DAYS' = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
         const todayIso = aeTodayIso()
         const tomorrow = new Date(todayIso + 'T00:00:00')
@@ -89,12 +94,10 @@ export function FutureSkipModal({
         const total = sub.total_meals ?? 0
         const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
         const skippedSet = new Set(sub.skipped_dates ?? [])
-
-        // Block all dates inside the planned-pause window (open-ended).
-        // Skipping inside the pause is wasted credit — the pause covers it.
         const plannedPauseStart = sub.planned_pause_start ?? null
 
-        const out: string[] = []
+        const pickable: string[] = []
+        const makeupDays: string[] = []
         const cursor = new Date(sub.start_date + 'T00:00:00')
         let position = 0
         while (cursor.getTime() <= end.getTime()) {
@@ -102,16 +105,18 @@ export function FutureSkipModal({
                 position++
                 const iso = isoOf(cursor)
                 const insidePlannedPause = !!plannedPauseStart && iso >= plannedPauseStart
-                if (position <= totalDeliveries
-                    && cursor.getTime() >= tomorrow.getTime()
+                const eligible =
+                    cursor.getTime() >= tomorrow.getTime()
                     && !skippedSet.has(iso)
-                    && !insidePlannedPause) {
-                    out.push(iso)
+                    && !insidePlannedPause
+                if (eligible) {
+                    if (position <= totalDeliveries) pickable.push(iso)
+                    else makeupDays.push(iso)
                 }
             }
             cursor.setDate(cursor.getDate() + 1)
         }
-        return out
+        return { pickable, makeupDays }
     }, [mode, sub.week_type, sub.end_date, sub.start_date, sub.total_meals, sub.skipped_dates, sub.plan_name, sub.planned_pause_start])
 
     // Close on Escape
@@ -272,7 +277,7 @@ export function FutureSkipModal({
                             </div>
                         )}
 
-                        {mode === 'pick-then-skip' && availableDates.length > 0 && (
+                        {mode === 'pick-then-skip' && (pickable.length > 0 || makeupDays.length > 0) && (
                             <div style={{ marginTop: 18 }}>
                                 <div style={{
                                     fontFamily: BODY, fontSize: 11, fontWeight: 700,
@@ -285,7 +290,7 @@ export function FutureSkipModal({
                                     display: 'flex', flexWrap: 'wrap', gap: 6,
                                     maxHeight: 200, overflowY: 'auto',
                                 }}>
-                                    {availableDates.map(iso => {
+                                    {pickable.map(iso => {
                                         const isSelected = iso === selectedDate
                                         const d = new Date(iso + 'T00:00:00')
                                         const label = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -309,11 +314,45 @@ export function FutureSkipModal({
                                             </button>
                                         )
                                     })}
+                                    {makeupDays.map(iso => {
+                                        const d = new Date(iso + 'T00:00:00')
+                                        const label = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+                                        return (
+                                            <button
+                                                key={iso}
+                                                type="button"
+                                                disabled
+                                                title="Make-up day · can't skip"
+                                                aria-label={`${label} — make-up day, can't skip`}
+                                                style={{
+                                                    padding: '8px 12px', borderRadius: 8,
+                                                    border: `1px dashed var(--ds-border)`,
+                                                    background: 'transparent',
+                                                    color: S.fgMuted,
+                                                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                                                    cursor: 'not-allowed', whiteSpace: 'nowrap',
+                                                    fontFeatureSettings: '"tnum"',
+                                                    opacity: 0.7,
+                                                }}
+                                            >
+                                                {label}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
+                                {makeupDays.length > 0 && (
+                                    <div style={{
+                                        marginTop: 8,
+                                        fontFamily: BODY, fontSize: 11.5,
+                                        color: S.fgMuted, lineHeight: 1.5,
+                                    }}>
+                                        Greyed-out dates are make-up days — bonus catch-up meals at the tail of your cycle that replace earlier skips. They can&rsquo;t be skipped themselves.
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {mode === 'pick-then-skip' && availableDates.length === 0 && (
+                        {mode === 'pick-then-skip' && pickable.length === 0 && makeupDays.length === 0 && (
                             <div style={{
                                 marginTop: 18, padding: 14, borderRadius: 10,
                                 background: 'var(--ds-skeleton-base)',

@@ -41,9 +41,9 @@ function resolvePlanId(planName: string): PlanId | null {
   return null
 }
 
-// Customer pref strings stored in the DB include "Carnivore", "Non Veg",
-// "Plant-Based", and "Religious Preference". Normalise to the pricing.ts
-// Pref union so per-meal price math stays accurate.
+// Canonical customer.meal_preference_type values are "Non Veg", "Veg", and
+// "Religious Preference". The plant/carnivore branches stay so any historical
+// rows that weren't backfilled still resolve correctly.
 function resolvePref(mealPref: string | null | undefined): Pref {
   const p = (mealPref ?? '').toLowerCase()
   if (p.includes('religious')) return 'Religious'

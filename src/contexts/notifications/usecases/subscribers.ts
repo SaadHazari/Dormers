@@ -16,9 +16,13 @@ import { queueCustomerNotification, type CustomerNotificationKind } from './queu
 const VALID_KINDS = new Set<CustomerNotificationKind>([
   'meal_skipped_confirm',
   'meal_resumed_confirm',
+  'meal_skip_scheduled_confirm',
+  'meal_skip_cancelled_confirm',
   'plan_paused_confirm',
   'plan_pause_scheduled_confirm',
+  'plan_pause_cancelled_confirm',
   'plan_resumed_confirm',
+  'plan_start_date_changed_confirm',
   'payment_order_confirmed',
 ])
 
@@ -32,10 +36,21 @@ eventBus.on('subscription.notification-due', async (payload) => {
     )
     return
   }
-  await queueCustomerNotification(
-    payload.customerId,
-    payload.kind as CustomerNotificationKind,
-    payload.scheduledFor,
-    payload.payload ?? {},
-  )
+  // Swallow queue failures here — the user's primary action (skip / pause /
+  // resume) already succeeded; a missed confirmation WhatsApp shouldn't
+  // surface as a user-visible error. The payment-fanout path takes the
+  // opposite stance (rethrows) so its retry cron can pick the failure up.
+  try {
+    await queueCustomerNotification(
+      payload.customerId,
+      payload.kind as CustomerNotificationKind,
+      payload.scheduledFor,
+      payload.payload ?? {},
+    )
+  } catch (err) {
+    console.error(
+      `notifications subscriber: queueCustomerNotification threw for kind=${payload.kind}:`,
+      err,
+    )
+  }
 })

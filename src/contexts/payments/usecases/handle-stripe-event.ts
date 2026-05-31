@@ -31,6 +31,7 @@ import {
 } from '@/contexts/subscriptions/domain/subscription-status'
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
+import { notifyAdmin } from '@/infra/admin-alerts/notify'
 
 export type HandleResult =
   | { ok: true; deduped?: boolean; refundHandled?: boolean; restored?: number }
@@ -49,6 +50,15 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<HandleResu
   }
   if (event.type === 'charge.refunded') {
     return handleChargeRefunded(event, supabaseAdmin)
+  }
+  if (event.type === 'payment_intent.payment_failed') {
+    return handlePaymentFailed(event)
+  }
+  if (event.type === 'charge.dispute.created') {
+    return handleDisputeCreated(event, supabaseAdmin)
+  }
+  if (event.type === 'checkout.session.expired') {
+    return handleCheckoutExpired(event)
   }
   // Unknown event type — acknowledge so Stripe doesn't retry.
   return { ok: true }
@@ -106,7 +116,7 @@ async function handleCheckoutCompleted(
   // because this IS the next subscription being created.
   const { data: customerRow } = await supabaseAdmin
     .from('customers')
-    .select('cid, week_type, meal_preference_type, allergens, spice_level_preference, veg_days, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
+    .select('cid, name, week_type, meal_preference_type, allergens, spice_level_preference, veg_days, pending_meal_preference_type, pending_week_type, pending_allergens, pending_spice_level_preference, pending_veg_days')
     .eq('id', user_id)
     .maybeSingle()
   const effectiveWeekTypeRaw =
@@ -199,6 +209,20 @@ async function handleCheckoutCompleted(
           if (arr.length === 0) return null
           const allowed = new Set(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
           const clean = arr.filter(d => allowed.has(d))
+          // Checkout validated vegDays server-authoritatively before Stripe
+          // saw the metadata, and Stripe metadata is immutable after session
+          // create — a drop here means either a parser regression or
+          // tampering. Flag it so we can investigate; the row still gets
+          // the valid subset rather than throwing, so the customer's plan
+          // still scheduled.
+          if (clean.length !== arr.length) {
+            void notifyAdmin(
+              `vegDays parser dropped days for user ${user_id} (session ${session.id}). ` +
+              `Raw metadata: "${vegDays}"; accepted: [${clean.join(',')}]. ` +
+              `Investigate — checkout validation should have prevented this.`,
+              session.id.slice(0, 18),
+            )
+          }
           return clean.length > 0 ? clean : null
         })(),
       })
@@ -211,8 +235,25 @@ async function handleCheckoutCompleted(
     }
 
     // 2. Insert Order
-    const amountTotal = session.amount_total ? session.amount_total / 100 : 0
-    const pricePerMeal = amountTotal / total_meals
+    // Stripe gives us fils (integer cents of AED) in amount_total. Convert to
+    // AED with /100 (clean 2dp). Per-meal rate gets rounded to 2dp before
+    // storage: float division (amount_total / total_meals) can produce values
+    // like 5.620833333... which Zoho then prints as a non-clean rate on the
+    // FTA invoice. The qty × rate residual (bounded by total_meals × 0.005
+    // AED ≈ a few fils) is absorbed by Zoho's line-total rounding and the
+    // payment-recorded amount is the customer-paid total regardless.
+    //
+    // amount_subtotal is the PRE-discount plan total — what we want to
+    // record as the order's gross. amount_total is post-discount (what
+    // Stripe captured). For the trial+auto-refund path these differ;
+    // the order's price_per_meal reflects the plan's real per-meal rate,
+    // not the AED-2-divided-by-meals near-zero number Stripe charged.
+    const planSubtotalAed = session.amount_subtotal
+      ? session.amount_subtotal / 100
+      : (session.amount_total ? session.amount_total / 100 : 0)
+    const pricePerMeal = total_meals > 0
+      ? Math.round((planSubtotalAed / total_meals) * 100) / 100
+      : 0
 
     const { data: orderData, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -235,6 +276,26 @@ async function handleCheckoutCompleted(
 
     if (orderError || !orderData) {
       console.error('❌ Supabase Order Error:', orderError)
+      // Roll back the orphan subscription we just inserted so this row
+      // doesn't linger in (Active|Scheduled) with no matching order. Two
+      // race scenarios force this hand:
+      //   1. Concurrent webhook beat us on the orders UNIQUE constraint —
+      //      that webhook's run owns this session; we defer to it.
+      //   2. Transient DB hiccup on the order insert — Stripe will retry,
+      //      and the retry should re-insert from a clean slate, not see
+      //      our orphan and queue *another* sub behind it.
+      // Best-effort delete; if it fails the audit query catches it.
+      await supabaseAdmin.from('subscriptions').delete().eq('id', subData.id)
+      // 23505 = unique_violation. Concurrent webhook won the race; return
+      // ok:true so Stripe doesn't retry — the winning webhook handles the
+      // downstream steps.
+      if ((orderError as { code?: string } | null)?.code === '23505') {
+        console.log(
+          `⏭️  Concurrent webhook beat us for session ${session.id} ` +
+          `(orphan sub ${subData.id} rolled back); deferring to winner`,
+        )
+        return { ok: true, deduped: true }
+      }
       return { ok: false, status: 500, error: 'Failed to create order' }
     }
 
@@ -364,11 +425,28 @@ async function handleCheckoutCompleted(
       .eq('status', flipFromStatus)
     if (flipErr) {
       console.error('⚠️  credit flip to applied failed (non-fatal):', flipErr)
+      void notifyAdmin(
+        `Credit flip FAILED for order ${orderId} (session ${session.id}). ` +
+        `Wanted to flip ${fullRowIds.length} row(s); Supabase error: ${flipErr.message}. ` +
+        `Stripe gave the discount but our DB didn't burn the credits — manual reconcile needed.`,
+        orderId,
+      )
     } else {
       console.log(
         `💳 Flipped ${flippedCount ?? 0}/${fullRowIds.length} credit row(s) ` +
         `from ${flipFromStatus} to applied for order ${orderId}`
       )
+      // Partial mismatch: we redeemed N rows in Stripe but only flipped M < N
+      // here. Stripe applied the discount but some credits weren't burned —
+      // free money on the next checkout. Alert immediately.
+      if ((flippedCount ?? 0) < fullRowIds.length) {
+        void notifyAdmin(
+          `Credit flip MISMATCH for order ${orderId} (session ${session.id}). ` +
+          `Wanted ${fullRowIds.length} row(s), only flipped ${flippedCount ?? 0}. ` +
+          `Customer kept ${fullRowIds.length - (flippedCount ?? 0)} credit row(s) they redeemed — reconcile.`,
+          orderId,
+        )
+      }
     }
   }
 
@@ -438,12 +516,20 @@ async function handleCheckoutCompleted(
     console.log(`🔁 Resume mode — skipping customer patch (already applied)`)
   } else {
     const customerPatch: Record<string, unknown> = {
-      name,
       whatsapp_number: phone,
       dorm_name: location,
       meal_preference_type:
         customerRow?.pending_meal_preference_type ?? preference,
       week_type: weekType,
+    }
+    // Only seed `name` on first checkout — don't clobber a stored richer
+    // value (e.g. "Saif AlRashid" already set during onboarding) with the
+    // metadata's possibly-shorter "Saif" from a renewal checkout. If the
+    // user wants to change their name, that's a profile-edit, not a
+    // payment side-effect.
+    const storedName = ((customerRow as { name?: string } | null)?.name ?? '').trim()
+    if (!storedName && name) {
+      customerPatch.name = name
     }
     if (customerRow?.pending_allergens != null) {
       customerPatch.allergens = customerRow.pending_allergens
@@ -524,6 +610,13 @@ async function handleCheckoutCompleted(
     await creditInviterOnConversion(user_id)
   } catch (err) {
     console.error('⚠️  creditInviterOnConversion failed (non-fatal):', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    void notifyAdmin(
+      `Referral inviter credit FAILED for invitee ${user_id} (order ${orderId}). ` +
+      `Error: ${msg}. Inviter has lost their AED 20 (and any Layer 2/3 milestone) — ` +
+      `re-run the awarder manually after diagnosing.`,
+      orderId,
+    )
   }
 
   // Mark the order as fully processed so retries see the checkpoint and
@@ -538,6 +631,47 @@ async function handleCheckoutCompleted(
     console.error('⚠️  failed to mark webhook_completed_at:', completeErr)
   }
 
+  // ── Phase 6: trial auto-refund ─────────────────────────────────────────
+  // When checkout's coupon-synth hit the trial floor clamp (customer's
+  // credit + tier would have covered the trial fully), Stripe captured a
+  // floor amount (~AED 2) so we could still mint a real FTA invoice + get
+  // a card on file. Now that the order is recorded, refund that floor
+  // amount immediately. The refund carries metadata.preserve_credits='true'
+  // so handleChargeRefunded leaves the credit flip alone and the order's
+  // invoice_status stays 'Paid'.
+  if (
+    session.metadata?.auto_refund_one_aed === 'true'
+    && session.payment_intent
+    && session.amount_total
+  ) {
+    try {
+      const { stripeClient } = await import('@/infra/stripe/client')
+      const stripe = stripeClient()
+      const refund = await stripe.refunds.create({
+        payment_intent: session.payment_intent as string,
+        amount: session.amount_total,
+        metadata: {
+          preserve_credits: 'true',
+          reason: 'trial_credit_floor_autorefund',
+          order_id: orderId,
+        },
+      })
+      await supabaseAdmin
+        .from('orders')
+        .update({ auto_refund_applied_at: new Date().toISOString() })
+        .eq('id', orderId)
+      console.log(`↩️  Trial auto-refund issued — refund=${refund.id} order=${orderId}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('⚠️  trial auto-refund failed:', msg)
+      void notifyAdmin(
+        `Trial auto-refund FAILED for order ${orderId} (session ${session.id}). ` +
+        `Customer was charged ~AED 2 that we couldn't refund automatically. Refund manually in Stripe. Error: ${msg}`,
+        orderId,
+      )
+    }
+  }
+
   // ── Post-payment fan-out ─────────────────────────────────────────────
   // Two synchronous channels fire immediately: WhatsApp confirmation
   // and ZeptoMail welcome from club@. The Zoho receipt email is
@@ -550,11 +684,25 @@ async function handleCheckoutCompleted(
   // be torn down the moment we return 200, killing any in-flight
   // Promise. The two-channel fan-out is fast (~1-2s) and stays well
   // within Stripe's 10s webhook timeout.
+  // amount_total = what Stripe captured (post-discount). recordPayment +
+  // customer-facing "Successful payment" WhatsApp echo this. For Zoho's
+  // line subtotal, we use amount_subtotal (gross plan price) so the
+  // discount line maths back to amount_total.
   const amountTotalAed = session.amount_total ? session.amount_total / 100 : 0
-  const pricePerMealEff = total_meals > 0 ? amountTotalAed / total_meals : 0
+  const planSubtotalForFanout = session.amount_subtotal
+    ? session.amount_subtotal / 100
+    : amountTotalAed
+  const pricePerMealEff = total_meals > 0
+    ? Math.round((planSubtotalForFanout / total_meals) * 100) / 100
+    : 0
   const customerEmail = session.customer_details?.email ?? ''
   if (customerEmail) {
     try {
+      // Discount breakdown for Zoho's invoice line — trial+auto-refund
+      // path sends a non-zero value so the FTA invoice PDF shows the
+      // credit redemption rather than just the captured AED 2.
+      const discountAed =
+        Number(session.metadata?.discount_total_fils ?? '0') / 100 || 0
       await runPostPaymentFanout(
         {
           supabase: supabaseAdmin,
@@ -568,6 +716,7 @@ async function handleCheckoutCompleted(
           mealsCount: total_meals,
           pricePerMeal: pricePerMealEff,
           amountTotalAed,
+          discountAed,
           startDateIso: isoDate(startDate),
           sessionId: session.id,
           paymentIntentId: (session.payment_intent as string) ?? '',
@@ -594,6 +743,15 @@ async function handleCheckoutCompleted(
     console.warn(
       `⚠️  post-payment fan-out skipped — no customer email on session ${session.id}; ` +
       `retry cron will catch this once the customers row is patched`,
+    )
+    // The retry cron won't actually pick this up either — its WHERE clause
+    // depends on zoho_scheduled_for being set, which only happens inside
+    // the email-present branch above. Without an alert this customer's
+    // confirmation channel just disappears.
+    void notifyAdmin(
+      `Stripe webhook completed for session ${session.id} (order ${orderId}) but customer_details.email was missing — ` +
+      `no confirmation WhatsApp / email / Zoho invoice will fire. Customer paid; ops needs to add the email and re-trigger fanout.`,
+      orderId,
     )
   }
 
@@ -633,29 +791,157 @@ async function handleChargeRefunded(
     .maybeSingle()
   if (!orderRow) {
     console.warn(`charge.refunded for payment_intent=${paymentIntentId} matches no order — skipping`)
+    // Make-era payment, manual-side Stripe refund, or a real bug. Either way
+    // ops needs eyes-on — silently skipping risks an unrecognised refund
+    // sitting forever.
+    void notifyAdmin(
+      `Refund came in for payment_intent=${paymentIntentId} (charge ${charge.id}, ${charge.amount_refunded}/${charge.amount} fils) but no orders row matches. Check Stripe dashboard + reconcile manually.`,
+      paymentIntentId.slice(0, 18),
+    )
     return { ok: true, refundHandled: false }
   }
-  // Restore credits: applied → approved, clear the linkage.
-  const { count: restoredCount, error: restoreErr } = await supabaseAdmin
-    .from('credits')
-    .update(
-      { status: 'approved', applied_at: null, applied_to: null },
-      { count: 'exact' },
+
+  // Refund classification. Stripe's `amount_refunded` accumulates across
+  // multiple partial refunds; `amount` is the original charge. Equal ⇒
+  // fully refunded. Less ⇒ partial.
+  //
+  // Credit restore policy:
+  //   • Auto-refund (preserve_credits='true' on the refund itself) →
+  //     leave credits applied AND keep invoice_status='Paid'. This is the
+  //     trial+credit-floor flow: customer paid ~AED 2, we refund it back,
+  //     the credits they redeemed are still legitimately consumed.
+  //   • Full refund   → restore all applied credit rows.
+  //   • Partial refund → DO NOT restore credits. Partial refunds in this
+  //     business are typically issued for specific delivery issues (one
+  //     missed meal, late by a day) on a plan the customer is still
+  //     consuming. Restoring 100% of the credits the customer "spent" on
+  //     the original order would be a net giveaway on top of Stripe's
+  //     partial cash refund. Ops can manually add a credit row if a
+  //     proportional adjustment is intended.
+  const latestRefund = charge.refunds?.data?.[0]
+  const isAutoRefund = latestRefund?.metadata?.preserve_credits === 'true'
+  if (isAutoRefund) {
+    console.log(
+      `↩️  Auto-refund detected on charge ${charge.id} (refund ${latestRefund?.id}); ` +
+      `leaving credits applied + invoice_status='Paid' for order ${orderRow.id}`,
     )
-    .eq('applied_to', orderRow.id)
-    .eq('status', 'applied')
-  if (restoreErr) {
-    console.error(`❌ refund credit restore failed for order ${orderRow.id}:`, restoreErr)
-  } else {
-    console.log(`↩️  Refund — restored ${restoredCount ?? 0} credit row(s) for order ${orderRow.id}`)
+    await supabaseAdmin
+      .from('orders')
+      .update({ auto_refund_applied_at: new Date().toISOString() })
+      .eq('id', orderRow.id)
+    Sentry.metrics.count('payment.auto_refund_handled', 1)
+    return { ok: true, refundHandled: true, restored: 0 }
   }
-  // Mark the order so dashboards / reports reflect the refund.
+  const isFullRefund = charge.amount_refunded >= charge.amount
+  let restoredCount = 0
+  if (isFullRefund) {
+    const { count, error: restoreErr } = await supabaseAdmin
+      .from('credits')
+      .update(
+        { status: 'approved', applied_at: null, applied_to: null },
+        { count: 'exact' },
+      )
+      .eq('applied_to', orderRow.id)
+      .eq('status', 'applied')
+    if (restoreErr) {
+      console.error(`❌ refund credit restore failed for order ${orderRow.id}:`, restoreErr)
+    } else {
+      restoredCount = count ?? 0
+      console.log(`↩️  Full refund — restored ${restoredCount} credit row(s) for order ${orderRow.id}`)
+    }
+  } else {
+    console.log(
+      `↩️  Partial refund (${charge.amount_refunded}/${charge.amount} fils) on order ${orderRow.id} ` +
+      `— credits left applied; ops can add a manual credit if proportional refund intended`,
+    )
+  }
+
+  // Mark the order so dashboards / reports reflect the refund state.
   await supabaseAdmin
     .from('orders')
-    .update({ invoice_status: 'Refunded' })
+    .update({ invoice_status: isFullRefund ? 'Refunded' : 'Partially Refunded' })
     .eq('id', orderRow.id)
   Sentry.metrics.count('payment.refund_handled', 1)
-  return { ok: true, refundHandled: true, restored: restoredCount ?? 0 }
+  return { ok: true, refundHandled: true, restored: restoredCount }
+}
+
+// ── payment_intent.payment_failed handler ────────────────────────────────
+//
+// Card decline / 3DS failure / insufficient funds. Stripe doesn't charge
+// the customer, but Stripe DOES fire this event so we can know the
+// checkout went bad. Historically silent — alert ops so a customer
+// stuck on a failed card can be reached out to.
+async function handlePaymentFailed(event: Stripe.Event): Promise<HandleResult> {
+  const pi = event.data.object as Stripe.PaymentIntent
+  const lastErr = pi.last_payment_error
+  const reason = lastErr?.message ?? lastErr?.code ?? 'unknown'
+  const amountAed = pi.amount ? (pi.amount / 100).toFixed(2) : '0.00'
+  const customerEmail = pi.receipt_email ?? (pi.metadata?.email as string | undefined) ?? 'unknown'
+  void notifyAdmin(
+    `Payment FAILED on PI ${pi.id}. Customer ${customerEmail}, AED ${amountAed}. Reason: ${reason}. No order was created — reach out if the customer needs help with their card.`,
+    pi.id.slice(0, 18),
+  )
+  Sentry.metrics.count('payment.payment_failed', 1)
+  return { ok: true }
+}
+
+// ── charge.dispute.created handler ────────────────────────────────────────
+//
+// Customer (or their bank) filed a chargeback. The funds are already on
+// hold at Stripe. We don't auto-cancel anything — disputes can be won —
+// but the order's status flips to 'Disputed' so dashboards reflect
+// reality, and ops gets a WhatsApp ping so they can respond inside
+// Stripe's evidence window (typically 7–21 days).
+async function handleDisputeCreated(
+  event: Stripe.Event,
+  supabaseAdmin: SupabaseClient,
+): Promise<HandleResult> {
+  const dispute = event.data.object as Stripe.Dispute
+  const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id
+  const reason = dispute.reason ?? 'unknown'
+  const amountAed = dispute.amount ? (dispute.amount / 100).toFixed(2) : '0.00'
+
+  let orderId: string | null = null
+  if (chargeId) {
+    const { data: charge } = await supabaseAdmin
+      .from('orders')
+      .select('id, customer_id')
+      .eq('stripe_payment_id', chargeId)
+      .maybeSingle()
+    if (charge?.id) {
+      orderId = charge.id as string
+      await supabaseAdmin
+        .from('orders')
+        .update({ invoice_status: 'Disputed' })
+        .eq('id', orderId)
+    }
+  }
+
+  void notifyAdmin(
+    `DISPUTE filed on charge ${chargeId ?? 'unknown'}${orderId ? ` (order ${orderId})` : ''}. ` +
+    `Amount AED ${amountAed}, reason: ${reason}. ` +
+    `Respond inside Stripe's evidence window — order marked Disputed.`,
+    orderId ?? chargeId?.slice(0, 18) ?? 'unknown',
+  )
+  Sentry.metrics.count('payment.dispute_created', 1)
+  return { ok: true }
+}
+
+// ── checkout.session.expired handler ─────────────────────────────────────
+//
+// Session opened, customer never paid, the 24h window lapsed and Stripe
+// expired it. No money moved, no order, no customer-visible side effect
+// — but it's the cleanest abandoned-checkout signal we have. Log only
+// for now; analytics can join on this later if we want recovery emails.
+function handleCheckoutExpired(event: Stripe.Event): HandleResult {
+  const session = event.data.object as Stripe.Checkout.Session
+  const email = session.customer_details?.email ?? session.metadata?.email ?? 'unknown'
+  const amountAed = session.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00'
+  console.log(
+    `⏳ checkout.session.expired ${session.id} — ${email} abandoned AED ${amountAed}`,
+  )
+  Sentry.metrics.count('payment.session_expired', 1)
+  return { ok: true }
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────

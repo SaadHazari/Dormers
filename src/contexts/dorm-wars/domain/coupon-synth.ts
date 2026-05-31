@@ -54,6 +54,18 @@ export interface CouponSynthInput {
    * in order to compute which rows fully redeem vs which one splits.
    */
   creditRows: CreditRowForSynth[]
+  /**
+   * Hard ceiling on the total discount (fils). Caller passes a value when
+   * the resulting Stripe charge must stay above some floor:
+   *   • Trial plan + full credit cover → cap at (amountFils - 100) so a
+   *     real AED 1 transaction lands. We auto-refund the AED 1 right after
+   *     the webhook completes so the customer's wallet is net unchanged,
+   *     but Stripe captures a card-on-file and Zoho gets to mint a real
+   *     FTA invoice (with a discount line covering the rest).
+   * Default = amountFils — the normal "discount can cover full plan but
+   * the route then branches to free-checkout" case.
+   */
+  maxDiscountFils?: number
 }
 
 export interface CouponSynthResult {
@@ -79,21 +91,28 @@ export async function synthesizePerSessionCoupon(
   input: CouponSynthInput,
 ): Promise<CouponSynthResult> {
   const { stripe, userId, amountFils, tierPercent, creditRows } = input
+  // Hard ceiling on total discount. Default = plan total. Callers pass a
+  // tighter value when they need a non-zero Stripe charge (trial+autorefund).
+  const maxDiscount = Math.max(0, Math.min(amountFils, input.maxDiscountFils ?? amountFils))
 
   // Tier discount FIRST against the gross plan total — this preserves the
   // lifetime perk even when credit covers the rest. See order-of-operations
-  // comment above.
-  const tierAppliedFils = Math.floor((amountFils * tierPercent) / 100)
+  // comment above. Tier is itself capped at maxDiscount so it can't blow
+  // past the ceiling on its own (extreme percent + tight cap).
+  const tierAppliedFilsUncapped = Math.floor((amountFils * tierPercent) / 100)
+  const tierAppliedFils = Math.min(tierAppliedFilsUncapped, maxDiscount)
 
   // Credit fills the remaining balance owed after the tier discount, capped
   // at the post-tier amount so the total discount never exceeds plan total
-  // (REDEEM-03 — Stripe rejects coupon_amount_off_too_large).
+  // (REDEEM-03 — Stripe rejects coupon_amount_off_too_large). When the caller
+  // passes maxDiscountFils, the post-tier headroom shrinks accordingly.
   const balanceFils = creditRows.reduce(
     (s, r) => s + Math.round(r.amount_aed * 100),
     0,
   )
   const postTierFils      = amountFils - tierAppliedFils
-  const creditAppliedFils = Math.min(balanceFils, postTierFils)
+  const remainingHeadroom = maxDiscount - tierAppliedFils
+  const creditAppliedFils = Math.min(balanceFils, postTierFils, remainingHeadroom)
 
   // Walk credits FIFO and partition into full-redeem vs split.
   const appliedCreditIdsFull: string[] = []

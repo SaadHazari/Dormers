@@ -919,8 +919,9 @@ export default function MenuClient({
 
   // Top-of-page meta tag — for religious mix, "Mix" beats either Veg / Non Veg
   // because some days are veg, others aren't. For pure prefs, use the simple label.
-  const isReligious = !!customer?.meal_preference_type?.toLowerCase().includes('religious')
-  const isVegPref   = !!customer?.meal_preference_type?.toLowerCase().includes('plant')
+  const mpt = customer?.meal_preference_type?.toLowerCase() ?? ''
+  const isReligious = mpt.includes('religious')
+  const isVegPref   = mpt.includes('plant') || (mpt.includes('veg') && !mpt.includes('non'))
   const prefTag: 'Veg' | 'Non Veg' | 'Mix' = isReligious ? 'Mix' : (isVegPref ? 'Veg' : 'Non Veg')
   const FULL_MENU = buildFullMenu(vegDayNumbers, weekType)
   const thisWeek  = FULL_MENU[0]

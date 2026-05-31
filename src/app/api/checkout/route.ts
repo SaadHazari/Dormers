@@ -53,7 +53,18 @@ export async function POST(req: Request) {
       cancel_path?: string;
     } = body;
 
-    if (!amount || amount < 100) {
+    // Stripe wants amount in fils (AED × 100). It MUST be a positive
+    // integer — Stripe rejects floats at session create, but we'd rather
+    // catch it here with a clear error than at the Stripe boundary.
+    // Upper bound is paranoid (10M fils = AED 100,000) — no legitimate
+    // checkout in this product goes anywhere near that.
+    if (
+      typeof amount !== 'number'
+      || !Number.isFinite(amount)
+      || !Number.isInteger(amount)
+      || amount < 100
+      || amount > 10_000_000
+    ) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
@@ -257,17 +268,40 @@ export async function POST(req: Request) {
     const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
     const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
 
+    // Phase 6 — trial floor:
+    //   For trial plans, never let the synth's discount take the Stripe
+    //   net to zero. We want Stripe to capture a real charge so:
+    //     • the customer's card lands on file (retention insurance)
+    //     • Zoho mints a real FTA invoice with a proper discount line
+    //   200 fils (AED 2) safely clears Stripe's per-currency minimum
+    //   charge floor. The webhook auto-refunds this AED 2 immediately
+    //   after the order processes — customer's wallet ends net unchanged.
+    //
+    //   For non-trial plans we pass no cap. If the discount fully covers
+    //   the plan we branch to the free-checkout path below (no Stripe at
+    //   all), so the synth can legitimately reach amountFils.
+    const isTrial = planDef.id === 'trial';
+    const TRIAL_STRIPE_FLOOR_FILS = 200;
     const couponResult = await synthesizePerSessionCoupon({
       stripe,
       userId: user.id,
       amountFils: amount,
       tierPercent,
       creditRows,
+      maxDiscountFils: isTrial
+        ? Math.max(0, amount - TRIAL_STRIPE_FLOOR_FILS)
+        : amount,
     });
+    const stripeNetFils = amount - couponResult.discountFils;
+    const isTrialAutoRefund = isTrial && stripeNetFils <= TRIAL_STRIPE_FLOOR_FILS;
+    const isFreeCheckout = !isTrial && stripeNetFils === 0;
 
     // Reserve the credit rows the coupon actually consumed. Done AFTER synth
     // so we know exactly which IDs to lock. CAS on status='approved' means
     // a concurrent checkout that beat us to a row will silently skip it.
+    // (Same reservation pattern serves both the Stripe and free-checkout
+    // branches below — credits get locked here, flipped to 'applied' inside
+    // whichever branch wins.)
     let reservationToken: string | null = null;
     const allReservedIds = [
       ...couponResult.appliedCreditIdsFull,
@@ -298,6 +332,46 @@ export async function POST(req: Request) {
           { status: 409 },
         );
       }
+    }
+
+    // ── Free-checkout branch (non-trial, 100% credit + tier covered) ──────
+    // Discount equals plan total → Stripe would reject the session with
+    // coupon_amount_off_too_large. Skip Stripe entirely and provision the
+    // sub + order directly via the use case. Customer still gets WhatsApp +
+    // email confirmations; Zoho is skipped (no cash transaction).
+    if (isFreeCheckout) {
+      const { runFreeCheckout } = await import('@/contexts/payments/usecases/free-checkout');
+      try {
+        await runFreeCheckout({
+          supabaseAdmin,
+          userId: user.id,
+          planString: plan,
+          preference,
+          vegDays: vegDays ?? null,
+          name,
+          phone,
+          location,
+          startDate: start_date ?? null,
+          amountFils: amount,
+          reservationToken,
+          creditAppliedFils: couponResult.creditAppliedFils,
+          tierAppliedFils: couponResult.tierAppliedFils,
+          appliedCreditIdsFull: couponResult.appliedCreditIdsFull,
+          splitCredit: couponResult.splitCredit,
+        });
+      } catch (err) {
+        // Release the reservation on failure so the user can retry without
+        // losing their credit balance.
+        if (reservationToken) {
+          await supabaseAdmin
+            .from('credits')
+            .update({ status: 'approved', reserved_token: null, reserved_until: null })
+            .eq('reserved_token', reservationToken)
+            .eq('status', 'reserved');
+        }
+        throw err;
+      }
+      return NextResponse.json({ url: `${base}/dashboard?checkout_success=true&via=credit` });
     }
 
     // Build sessionArgs separately so we can conditionally attach `discounts`.
@@ -362,6 +436,15 @@ export async function POST(req: Request) {
         // for exactly the rows this session locked. Empty when no credit
         // was reserved (zero-balance checkout, tier-only discount, etc.).
         reservation_token: reservationToken ?? '',
+        // Phase 6 — trial auto-refund signal. Set when the trial floor
+        // clamp kicked in (customer's credit would have fully covered the
+        // trial; we capped the discount so AED 2 lands on the card).
+        // Webhook reads this AFTER processing and issues an immediate
+        // refund of the captured amount with metadata.preserve_credits=true.
+        auto_refund_one_aed: isTrialAutoRefund ? 'true' : '',
+        // Stamp the discount breakdown so the webhook can pass it through
+        // to the Zoho invoice (line subtotal − discount = paid).
+        discount_total_fils: String(couponResult.discountFils),
       },
     };
     if (couponResult.couponId) {

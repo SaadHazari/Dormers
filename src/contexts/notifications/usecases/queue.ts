@@ -5,8 +5,14 @@
 // table's RLS denies non-service-role writes — notifications are
 // server-controlled, never customer-writable.
 //
-// A 5-minute pg_cron job (dispatch_customer_notifications_tick) pulls due
-// rows and dispatches them to Meta WhatsApp Cloud API via pg_net.
+// Two dispatch paths cover every row:
+//   • On-demand kick (this file) — for rows scheduled within ~now, the
+//     queue call also invokes dispatch_customer_notifications_tick directly
+//     so the WhatsApp lands within seconds instead of waiting up to 5 min
+//     for the next cron tick.
+//   • Cron (*/5 min) — sweeps everything: future-scheduled rows whose time
+//     has come (e.g. tomorrow 9 AM resume confirms), and any rows whose
+//     on-demand kick failed silently.
 // See supabase/migrations/20260525_customer_notifications_*.sql.
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
@@ -14,9 +20,13 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 export type CustomerNotificationKind =
     | 'meal_skipped_confirm'
     | 'meal_resumed_confirm'
+    | 'meal_skip_scheduled_confirm'
+    | 'meal_skip_cancelled_confirm'
     | 'plan_paused_confirm'
     | 'plan_pause_scheduled_confirm'
+    | 'plan_pause_cancelled_confirm'
     | 'plan_resumed_confirm'
+    | 'plan_start_date_changed_confirm'
     | 'payment_order_confirmed'
 
 /**
@@ -24,10 +34,23 @@ export type CustomerNotificationKind =
  *
  * Inserts a row into customer_notifications with the given kind + payload.
  * The dispatcher cron picks it up and sends within ~5 minutes of
- * `scheduledFor`. Fire-and-forget: if the insert fails (DB hiccup, etc.)
- * we log but don't crash the calling action — the notification is a
- * confirmation nice-to-have, not the user's primary action outcome.
+ * `scheduledFor`.
+ *
+ * Throws on insert failure. Callers decide whether the failure is fatal:
+ *   • post-payment fanout NEEDS the throw so `whatsapp_sent_at` isn't
+ *     marked done while no row was actually queued (would leave the
+ *     customer without a confirmation and the retry cron blind to it).
+ *   • event-bus subscribers (skip/pause/resume) catch + log so the user's
+ *     primary action still succeeds when a confirmation queue fails.
  */
+// How close to "due now" a row needs to be for the on-demand kick to bother
+// invoking the dispatcher. Rows scheduled further out (the morning-after
+// resume confirms at 9 AM AE tomorrow, etc.) are left to the cron — the
+// dispatcher's `scheduled_for <= now()` filter would skip them anyway, so
+// kicking it would just be a wasted RPC. 60s gives plenty of slack for
+// clock skew between the app server and Postgres.
+const ON_DEMAND_DISPATCH_WINDOW_MS = 60 * 1000
+
 export async function queueCustomerNotification(
     customerId: string,
     kind: CustomerNotificationKind,
@@ -42,10 +65,30 @@ export async function queueCustomerNotification(
         payload,
     })
     if (error) {
-        console.error(
-            `❌ queueCustomerNotification failed — customer=${customerId} kind=${kind}:`,
-            error,
+        throw new Error(
+            `queueCustomerNotification failed — customer=${customerId} kind=${kind}: ${error.message}`,
         )
+    }
+
+    // On-demand dispatch for immediate-due rows. The dispatcher uses
+    // FOR UPDATE SKIP LOCKED, so a concurrent cron tick can't double-send
+    // the same row. pg_net.http_post inside the function is async (returns
+    // after enqueueing, not after Meta responds), so this RPC adds only
+    // tens of ms to the user's server action.
+    //
+    // Failures are swallowed: the row is durably queued and the cron will
+    // pick it up on its next tick. We don't want a transient dispatch
+    // hiccup to surface as the user's action failing.
+    const msUntilDue = scheduledFor.getTime() - Date.now()
+    if (msUntilDue <= ON_DEMAND_DISPATCH_WINDOW_MS) {
+        try {
+            await admin.rpc('dispatch_customer_notifications_tick')
+        } catch (err) {
+            console.error(
+                `queueCustomerNotification: on-demand dispatch failed for customer=${customerId} kind=${kind} (cron will retry):`,
+                err,
+            )
+        }
     }
 }
 

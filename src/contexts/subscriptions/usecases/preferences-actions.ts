@@ -104,7 +104,7 @@ export async function savePendingPreferences(
     // NEXT sub's pre-fill, not a kitchen-ops field. Once the user's stated
     // intent is non-religious, the religious-day memory is invalid; leaving
     // it makes Profile + Plan render stale "Religious-mix veg days" chips
-    // alongside a Veg / Carnivore meal-type tag (the bug that prompted
+    // alongside a Veg / Non Veg meal-type tag (the bug that prompted
     // this guard). Render-side gates are layered on top, but clearing here
     // is the upstream fix.
     const patch: Record<string, unknown> = {
@@ -262,7 +262,7 @@ export async function promotePendingPreferencesIfStale(userId: string): Promise<
   //
   // BUT: if the drained meal preference is non-religious, canonical veg_days
   // becomes orphaned data (UI surfaces would render "Religious-mix veg days"
-  // for a Veg / Carnivore customer). Mirror the webhook's invariant —
+  // for a Veg / Non Veg customer). Mirror the webhook's invariant —
   // veg_days only persists for religious-mix customers — by clearing it
   // when the post-drain preference isn't religious. Without this, a customer
   // who was religious, queued a change to Veg, and let the sub end ends up

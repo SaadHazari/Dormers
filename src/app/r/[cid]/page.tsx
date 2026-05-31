@@ -651,7 +651,7 @@ export default function ReferralLandingPage() {
                     className={selectCls}
                   >
                     <option value="" disabled>Select preference</option>
-                    <option value="Non-Veg">Non-Veg</option>
+                    <option value="Non Veg">Non-Veg</option>
                     <option value="Veg">Veg</option>
                     {/* Religious mix is a multi-day split — only meaningful on
                         Weekly+ plans. Gated here, visible as a teaser. */}

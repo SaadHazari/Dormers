@@ -29,8 +29,8 @@ import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, 
 // label for read-only displays. (Kept here because the Plan page only renders
 // the value; full editing happens at /dashboard/profile.)
 const MEAL_PREFS = [
-  { value: 'Carnivore',            label: 'Non-Vegetarian'      },
-  { value: 'Plant-Based',          label: 'Veg'                 },
+  { value: 'Non Veg',              label: 'Non-Vegetarian'      },
+  { value: 'Veg',                  label: 'Veg'                 },
   { value: 'Religious Preference', label: 'Religious Preference' },
 ]
 
@@ -1306,10 +1306,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   // subscription" actually flow through to the price + veg-day picker
   // when the renewal goes through checkout.
   const eff = effectivePreferences(customer)
-  const pref: Pref = eff.meal_preference_type?.toLowerCase().includes('plant')
-    ? 'Veg'
-    : eff.meal_preference_type?.toLowerCase().includes('religious')
-      ? 'Religious'
+  const mpt = eff.meal_preference_type?.toLowerCase() ?? ''
+  const pref: Pref = mpt.includes('religious')
+    ? 'Religious'
+    : (mpt.includes('plant') || (mpt.includes('veg') && !mpt.includes('non')))
+      ? 'Veg'
       : 'NonVeg'
   const prefLabel = pref === 'NonVeg' ? 'Non-Veg' : pref === 'Veg' ? 'Vegetarian' : 'Religious Mix'
   // Religious-mix count seed:

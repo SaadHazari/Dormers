@@ -27,37 +27,61 @@ async function findContactByEmail(email: string): Promise<ZohoContact | null> {
   return res.contacts?.[0] ?? null;
 }
 
+/**
+ * Zoho enforces uniqueness on contact_name across the whole org, which
+ * collides hard on common first names (Mohammed, Sara, Saif…) once we have
+ * more than one customer with the same short name. On collision we retry
+ * with the customer's CID appended — guaranteed unique forever, reads
+ * cleanly in the Zoho UI ("Saif (YUG1243)"), and matches the suffix-on-
+ * collision pattern already used for invoice_number and payment_number.
+ */
 async function createContact(params: {
   name: string;
   email: string;
   phone: string;
+  cid: string;
 }): Promise<ZohoContact> {
   const parts = params.name.trim().split(/\s+/);
   const firstName = parts[0] ?? params.name;
   const lastName = parts.slice(1).join(' ') || '-';
-  const res = await zohoFetch<{ contact: ZohoContact }>('/contacts', {
-    method: 'POST',
-    body: {
-      contact_name: params.name,
-      contact_type: 'customer',
-      contact_persons: [
-        {
-          first_name: firstName,
-          last_name: lastName,
-          email: params.email,
-          phone: params.phone,
-          is_primary_contact: true,
+  const candidates = [params.name, `${params.name} (${params.cid})`];
+  let lastErr: unknown;
+  for (const contactName of candidates) {
+    try {
+      const res = await zohoFetch<{ contact: ZohoContact }>('/contacts', {
+        method: 'POST',
+        body: {
+          contact_name: contactName,
+          contact_type: 'customer',
+          contact_persons: [
+            {
+              first_name: firstName,
+              last_name: lastName,
+              email: params.email,
+              phone: params.phone,
+              is_primary_contact: true,
+            },
+          ],
         },
-      ],
-    },
-  });
-  return res.contact;
+      });
+      return res.contact;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('already exists') || msg.includes('duplicate')) continue;
+      throw err;
+    }
+  }
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`Zoho contact creation failed for "${params.name}"`);
 }
 
 async function findOrCreateContact(params: {
   name: string;
   email: string;
   phone: string;
+  cid: string;
 }): Promise<ZohoContact> {
   const existing = await findContactByEmail(params.email);
   if (existing) return existing;
@@ -90,11 +114,24 @@ async function createInvoice(params: {
   sessionRef: string;
   startDateIso: string;
   paymentDateIso: string;
+  /**
+   * Invoice-level discount in AED. Set when the customer redeemed Dorm
+   * Wars credit + lifetime tier % at checkout. Shown on the PDF as a
+   * subtotal-reducing discount line so the FTA invoice still reflects
+   * what the customer actually paid via Stripe (line subtotal − discount
+   * = paid total).
+   */
+  discountAed?: number;
   notes?: string;
 }): Promise<ZohoInvoice> {
   const taxId = process.env.ZOHO_VAT_TAX_ID;
   const inclusive = (process.env.ZOHO_VAT_INCLUSIVE ?? 'true') === 'true';
   const base = `invoice-${params.customerCid}-${ddmmyyyy(params.paymentDateIso)}`;
+  // Defensive 2dp clamp — the webhook already rounds, but any future caller
+  // passing a float that came from `total / qty` would print an ugly rate
+  // on the FTA invoice ("5.620833 × 48"). Guarantee a clean display.
+  const rate = Math.round(params.pricePerMeal * 100) / 100;
+  const discount = Math.round((params.discountAed ?? 0) * 100) / 100;
 
   for (let attempt = 1; attempt <= 5; attempt++) {
     const candidate = attempt === 1 ? base : `${base}-${attempt}`;
@@ -113,10 +150,21 @@ async function createInvoice(params: {
                 name: `Dormers Meal Plan — ${params.planName}`,
                 description: `${params.mealsCount} meals · starts ${params.startDateIso}`,
                 quantity: params.mealsCount,
-                rate: params.pricePerMeal,
+                rate,
                 ...(taxId ? { tax_id: taxId } : {}),
               },
             ],
+            ...(discount > 0
+              ? {
+                  // Invoice-level flat-amount discount (not a percentage).
+                  // is_discount_before_tax=true ⇒ Zoho subtracts the discount
+                  // from the line subtotal before computing tax. Same path Zoho's
+                  // own "Apply Discount" UI uses.
+                  discount,
+                  is_discount_before_tax: true,
+                  discount_type: 'item_level',
+                }
+              : {}),
             ...(params.notes ? { notes: params.notes } : {}),
           },
         },
@@ -250,6 +298,12 @@ export async function createAndSendPaidInvoice(input: {
   mealsCount: number;
   pricePerMeal: number;
   amountTotalAed: number;
+  /**
+   * Discount applied at checkout (AED). For the trial+auto-refund flow this
+   * is the Dorm Wars credit + lifetime tier % portion — line subtotal minus
+   * this equals what Stripe captured. Default 0 = standard paid invoice.
+   */
+  discountAed?: number;
   sessionRef: string;
   startDateIso: string;
   paymentDateIso: string;
@@ -260,6 +314,7 @@ export async function createAndSendPaidInvoice(input: {
     name: input.customerName,
     email: input.customerEmail,
     phone: input.customerPhone,
+    cid: input.customerCid,
   });
 
   const invoice = await createInvoice({
@@ -271,6 +326,7 @@ export async function createAndSendPaidInvoice(input: {
     sessionRef: input.sessionRef,
     startDateIso: input.startDateIso,
     paymentDateIso: input.paymentDateIso,
+    discountAed: input.discountAed,
     notes: input.notes,
   });
 

@@ -30,8 +30,8 @@ export function workingDayNumbers(weekType: WeekType): Set<number> {
 /**
  * Of the working days, which are veg for this customer?
  *
- *   • Veg preference (Plant-Based)        → all working days
- *   • NonVeg preference (Carnivore)       → none
+ *   • Veg preference                      → all working days
+ *   • NonVeg preference                   → none
  *   • Religious mix                       → exactly the customer's chosen
  *                                           subscription.veg_days, mapped
  *                                           to indices and intersected with

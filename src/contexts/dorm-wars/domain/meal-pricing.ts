@@ -36,8 +36,8 @@ export interface MealPriceContext {
 // (lowercased substring match) so the UI and the awarder agree.
 function resolvePref(raw: string | null | undefined): Pref {
   const s = (raw ?? '').toLowerCase()
-  if (s.includes('plant')) return 'Veg'
   if (s.includes('religious')) return 'Religious'
+  if (s.includes('plant') || (s.includes('veg') && !s.includes('non'))) return 'Veg'
   return 'NonVeg'
 }
 

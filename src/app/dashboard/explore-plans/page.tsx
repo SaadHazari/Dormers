@@ -11,7 +11,7 @@ const PREVIEW_CUSTOMER = {
   email: 'preview@dormers.ae',
   whatsapp_number: '+971 50 000 0000',
   dorm_name: 'YUGO',
-  meal_preference_type: 'Carnivore',
+  meal_preference_type: 'Non Veg',
   allergens: 'None',
   spice_level_preference: 'Medium',
   created_at: '2026-02-01T00:00:00Z',

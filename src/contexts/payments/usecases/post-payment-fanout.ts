@@ -36,6 +36,14 @@ export interface PostPaymentContext {
   mealsCount: number
   pricePerMeal: number
   amountTotalAed: number
+  /**
+   * Discount applied at checkout (AED). Non-zero on the trial+auto-refund
+   * path where Dorm Wars credit covered most of the trial; the Zoho
+   * invoice gets a discount line for this amount so the customer's PDF
+   * reads line_subtotal − discount = paid (the AED 2 floor Stripe captured).
+   * Default 0 = standard paid invoice path.
+   */
+  discountAed?: number
   startDateIso: string
   sessionId: string
   paymentIntentId: string
@@ -116,6 +124,7 @@ async function syncZoho(ctx: PostPaymentContext): Promise<void> {
     mealsCount: ctx.mealsCount,
     pricePerMeal: ctx.pricePerMeal,
     amountTotalAed: ctx.amountTotalAed,
+    discountAed: ctx.discountAed ?? 0,
     sessionRef: ctx.sessionId,
     startDateIso: ctx.startDateIso,
     paymentDateIso: ctx.paymentDateIso,

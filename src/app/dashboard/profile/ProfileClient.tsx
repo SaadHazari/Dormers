@@ -627,7 +627,7 @@ export default function ProfileClient({
                 Hard-gated on the customer's effective meal preference being
                 religious — without this, stale veg_days from a previous
                 religious sub would render the "Religious-mix veg days"
-                badge for a customer who's now Veg / Carnivore. The data
+                badge for a customer who's now Veg / Non Veg. The data
                 hygiene fix lives in promotePendingPreferencesIfStale and
                 savePendingPreferences; this gate is the visual guardrail. */}
             {(() => {

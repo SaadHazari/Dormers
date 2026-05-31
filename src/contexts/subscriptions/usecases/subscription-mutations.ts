@@ -304,6 +304,16 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
     return { error: 'Date change didn\'t take. Refresh and try again, or message us on WhatsApp.' };
   }
 
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // One-time receipt — the start_date_changed_at flag means this action
+  // can't fire twice per sub, so no spam risk.
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'plan_start_date_changed_confirm',
+    scheduledFor: new Date(),
+    payload: { start_date: newStartDate },
+  });
+
   revalidatePath('/dashboard', 'layout');
   return { success: true };
   }, 'subscription.start_date_changed');
@@ -523,6 +533,19 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
     return { error: 'Couldn\'t schedule the skip — please refresh and try again.' };
   }
 
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Immediate "got it, will skip on X" receipt. Distinct from
+  // meal_skipped_confirm (which fires on the day itself, via skipMeal).
+  // The morning-of "today's meal is skipped" message is a separate
+  // lifecycle gap — not pre-queued here to avoid having to clean up
+  // pending rows on unskip / planPause-supersedes-skip races.
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'meal_skip_scheduled_confirm',
+    scheduledFor: new Date(),
+    payload: { meal_date: dateIso },
+  });
+
   revalidatePath('/dashboard', 'layout');
   return { success: true };
   }, 'subscription.future_skip_scheduled');
@@ -577,6 +600,15 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
   if (!rows || rows.length === 0) {
     return { error: 'Couldn\'t un-skip — please refresh and try again.' };
   }
+
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Symmetric receipt to meal_skip_scheduled_confirm.
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'meal_skip_cancelled_confirm',
+    scheduledFor: new Date(),
+    payload: { meal_date: dateIso },
+  });
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };
@@ -730,6 +762,16 @@ export async function cancelPlannedPause(subscriptionId: string) {
   if (!rows || rows.length === 0) {
     return { error: 'Couldn\'t cancel — please refresh and try again.' };
   }
+
+  // ── WhatsApp confirmation ──────────────────────────────────────────────
+  // Symmetric receipt to plan_pause_scheduled_confirm. Tells the customer
+  // the pause credit is back on their account — same fact the dashboard
+  // shows but worth saying out loud.
+  await eventBus.emit('subscription.notification-due', {
+    customerId: auth.user.id,
+    kind: 'plan_pause_cancelled_confirm',
+    scheduledFor: new Date(),
+  });
 
   revalidatePath('/dashboard', 'layout');
   return { success: true };

@@ -50,7 +50,31 @@
 
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
 
-const REGION = process.env.ZOHO_REGION ?? 'com';
+// Zoho's official regional data centres. Anything outside this set is
+// almost certainly a misconfiguration — and worse, pasting an arbitrary
+// suffix into the API host means we'd send the access token to whatever
+// domain that suffix points to. Lock it down at module load.
+const ZOHO_ALLOWED_REGIONS = new Set([
+  'com',     // Global
+  'eu',      // Europe
+  'in',      // India
+  'com.au',  // Australia
+  'sa',      // Saudi Arabia
+  'ca',      // Canada
+  'com.cn',  // China
+  'jp',      // Japan
+]);
+
+const REGION = (() => {
+  const r = (process.env.ZOHO_REGION ?? 'com').trim();
+  if (!ZOHO_ALLOWED_REGIONS.has(r)) {
+    throw new Error(
+      `ZOHO_REGION="${r}" is not a recognised Zoho data centre. ` +
+      `Allowed: ${[...ZOHO_ALLOWED_REGIONS].join(', ')}.`,
+    );
+  }
+  return r;
+})();
 const ACCOUNTS_BASE = `https://accounts.zoho.${REGION}`;
 const API_BASE = `https://www.zohoapis.${REGION}/books/v3`;
 
