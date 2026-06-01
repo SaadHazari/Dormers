@@ -9,7 +9,8 @@ import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 import { isPasswordStrong } from '@/shared/validation'
 import { DORMS } from '@/app/onboarding/data'
-import { nextTrialDeliveryLabel } from '@/contexts/referrals/domain/trial-delivery'
+import { eligibleTrialDeliveryDates, trialDateIso, trialDeliveryLabel } from '@/contexts/referrals/domain/trial-delivery'
+import { findDishForDate } from '@/contexts/menu/domain/catalog-data'
 import { claimGift, sendTrialEmailOtp, setTrialPassword, verifyTrialEmailOtp } from './actions'
 
 // Matches the dark onboarding page exactly — same bg, same primitives, same
@@ -44,6 +45,19 @@ export default function ReferralLandingPage() {
   const [error,       setError]       = useState('')
   const [done,        setDone]        = useState(false)
   const [isClaiming,  startClaiming]  = useTransition()
+  // Set when the claim is rejected by the lifetime phone/email dedupe — the
+  // user already has a Dormers account from a prior claim, so the recovery
+  // path is /login (with the email prefilled) rather than re-attempting the
+  // claim. Value holds the email to forward to the login page.
+  const [alreadyClaimedEmail, setAlreadyClaimedEmail] = useState<string | null>(null)
+
+  // ── Delivery date chip selector ────────────────────────────────────────────
+  // Replaces the server's silent auto-pick. We compute the eligible dates once
+  // on mount so the chip set is stable for the session (avoids the chip row
+  // re-renumbering itself if the page is left open across the 14:00 cutoff).
+  // The user can change the selection up until they hit Claim.
+  const eligibleDates = useRef<Date[]>(eligibleTrialDeliveryDates(new Date(), '6DAYS', 5)).current
+  const [startDateIso, setStartDateIso] = useState<string>(() => trialDateIso(eligibleDates[0]))
 
   // Post-claim "lock in your account" step. The user is already authenticated
   // via the email OTP session cookie — we just need to set a password so they
@@ -254,10 +268,18 @@ export default function ReferralLandingPage() {
         dormName:    dorm,
         preference,
         deviceFp,
+        startDate:   startDateIso,
       })
 
       if ('ok' in result)      { setDone(true); return }
-      if ('blocked' in result) { setError(result.reason); return }
+      if ('blocked' in result) {
+        if (result.code === 'already_claimed') {
+          setAlreadyClaimedEmail(email.trim())
+          return
+        }
+        setError(result.reason)
+        return
+      }
       setError(result.error)
     })
   }
@@ -326,7 +348,50 @@ export default function ReferralLandingPage() {
             boxShadow:        '0 8px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)',
           }}
         >
-          {done ? (
+          {alreadyClaimedEmail ? (
+            // ── "Welcome back" recovery panel ────────────────────────────────
+            // Replaces the dead-end inline error pill ("you've already had your
+            // welcome meal — pick a plan to keep going") that left the user
+            // with no actionable CTA. By definition, an `already_claimed` block
+            // means a Dormers account exists for this phone/email, so we route
+            // them to /login with the email prefilled — single tap to recover.
+            (() => {
+              const loginHref = `/login?email=${encodeURIComponent(alreadyClaimedEmail)}`
+              return (
+                <div className="text-center">
+                  <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#f57f20]/[0.12] border border-[#f57f20]/30 flex items-center justify-center">
+                    <CheckCircle2 size={26} strokeWidth={2.2} className="text-[#f57f20]" />
+                  </div>
+                  <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">
+                    Welcome back
+                  </p>
+                  <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                    Looks like we&rsquo;ve already met.
+                  </h1>
+                  <p className="text-[13px] text-white/65 leading-relaxed mb-6">
+                    You&rsquo;ve already had your welcome meal from us — but your account&rsquo;s still here.
+                    Sign in to pick a plan and keep dinner on autopilot.
+                  </p>
+                  <Link
+                    href={loginHref}
+                    className="block w-full rounded-xl px-4 py-3.5 text-[14px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors mb-3"
+                  >
+                    Sign in to pick a plan
+                  </Link>
+                  <p className="text-[11px] text-white/50">
+                    Forgot your password? You can reset it on the next screen.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAlreadyClaimedEmail(null)}
+                    className="mt-5 text-[11px] text-white/45 hover:text-white/70 underline underline-offset-2"
+                  >
+                    Wrong email? Go back
+                  </button>
+                </div>
+              )
+            })()
+          ) : done ? (
             // ── Success state ────────────────────────────────────────────────
             // After the gift claim succeeds, prompt the user to lock in a
             // password so they can come back via /login (email+password). The
@@ -340,7 +405,11 @@ export default function ReferralLandingPage() {
             // promise tonight (kitchen closed) and a post-14:00-AE claim doesn't
             // promise same-day either — both push to the next operational day.
             (() => {
-              const deliveryLabel = nextTrialDeliveryLabel()
+              // Pull the label from the date the user actually chose on the
+              // chip selector — not nextTrialDeliveryLabel(), which would
+              // re-compute "soonest from now" and clash with the user's pick.
+              const chosenDate    = new Date(startDateIso + 'T00:00:00Z')
+              const deliveryLabel = trialDeliveryLabel(chosenDate)
               const lowercased    = deliveryLabel.toLowerCase()
               const passOk        = isPasswordStrong(password)
               return (
@@ -450,7 +519,10 @@ export default function ReferralLandingPage() {
                 </h1>
                 <p className="text-[13px] mt-2 text-white/65 leading-snug">
                   {(() => {
-                    const label = nextTrialDeliveryLabel().toLowerCase()
+                    // Drives off the chip pick so the headline copy stays in
+                    // sync if the user picks a later day; defaults to soonest
+                    // on first render before any interaction.
+                    const label = trialDeliveryLabel(new Date(startDateIso + 'T00:00:00Z')).toLowerCase()
                     return `No card. No commitment. Just fill in your details and expect delivery ${label} between 7–8 PM.`
                   })()}
                 </p>
@@ -660,6 +732,86 @@ export default function ReferralLandingPage() {
                     </option>
                   </select>
                 </div>
+              </div>
+
+              {/* Delivery day chip selector + dish preview — replaces the
+                  silent auto-pick + meal mystery. The chip row is horizontally
+                  scrollable on mobile for one-thumb reach; the preview card
+                  swaps live as the user changes either chip or preference, so
+                  they always see what they're locking in. Defaults to non-veg
+                  when no preference has been picked yet (more representative
+                  of the catalog's lead photography). */}
+              <div>
+                <label className={labelCls}>When should we deliver?</label>
+                <div
+                  role="radiogroup"
+                  aria-label="Delivery day"
+                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                  style={{ scrollbarWidth: 'none' }}
+                >
+                  {eligibleDates.map(d => {
+                    const iso = trialDateIso(d)
+                    const isSelected = iso === startDateIso
+                    const label = trialDeliveryLabel(d)
+                    const sub = d.toLocaleDateString('en-GB', {
+                      day: 'numeric', month: 'short', timeZone: 'UTC',
+                    })
+                    return (
+                      <button
+                        key={iso}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setStartDateIso(iso)}
+                        className={`flex-shrink-0 min-w-[78px] rounded-xl px-3 py-2.5 text-center transition-all border ${
+                          isSelected
+                            ? 'bg-[#f57f20] border-[#f57f20] text-white shadow-[0_4px_14px_rgba(245,127,32,0.35)]'
+                            : 'bg-[#0d2035]/80 border-[#1e3448] text-white/85 hover:border-[#2a4a68]'
+                        }`}
+                      >
+                        <div className="text-[12px] font-bold leading-tight">{label}</div>
+                        <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/85' : 'text-white/55'}`}>
+                          {sub}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Live preview of the dish landing on the selected day. */}
+                {(() => {
+                  const chosenDate = new Date(startDateIso + 'T00:00:00Z')
+                  const isVeg = preference === 'Veg'
+                  const dish = findDishForDate(chosenDate, isVeg)
+                  if (!dish) return null
+                  const dayLabel = chosenDate.toLocaleDateString('en-GB', {
+                    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
+                  })
+                  return (
+                    <div className="mt-3 rounded-xl border border-[#1e3448] bg-[#0d2035]/80 p-3 flex gap-3 items-center">
+                      <div className="relative w-[64px] h-[64px] rounded-lg overflow-hidden flex-shrink-0 bg-[#1e3448]">
+                        <Image
+                          src={dish.image}
+                          alt={dish.name}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-[#f57f20] mb-0.5">
+                          {dayLabel}
+                        </div>
+                        <div className="text-[13px] font-bold text-white leading-tight truncate">
+                          {dish.name}
+                        </div>
+                        <div className="text-[11px] text-white/55 leading-snug mt-1 line-clamp-2">
+                          {dish.description}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {error && (

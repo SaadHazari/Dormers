@@ -31,6 +31,23 @@ export function getMenuWeek(date: Date = new Date()): Week {
   return WEEK_NAMES[((weeksElapsed % 4) + 4) % 4];
 }
 
+/**
+ * Resolve which dish lands on a given delivery date for a given veg/non-veg
+ * pick. Returns null on Sunday (no delivery) or if no catalog entry exists
+ * for the slot (kitchen calendar gap). Used by the trial claim preview so
+ * the user can see exactly what they're getting before they confirm.
+ */
+export function findDishForDate(date: Date, isVeg: boolean): Dish | null {
+  // Monday-indexed (0=Mon, 5=Sat). Sundays (JS dow=0) get no delivery.
+  const jsDow = date.getUTCDay();
+  if (jsDow === 0) return null;
+  const dayOfWeek = jsDow - 1;
+  const week = getMenuWeek(date);
+  return (
+    MENU_DATA.find(d => d.week === week && d.dayOfWeek === dayOfWeek && d.isVeg === isVeg) ?? null
+  );
+}
+
 export interface Dish {
   id: number;
   name: string;
