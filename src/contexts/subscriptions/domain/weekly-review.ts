@@ -101,13 +101,18 @@ export function aeToday(): Date {
     return new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00Z`)
 }
 
-/** Split a subscription's date range into week buckets (1-indexed). */
+/**
+ * Split a subscription into N week buckets (1-indexed), each 7 calendar
+ * days starting from `startDate`. `weekCount` must come from the plan
+ * (via `expectedReviewWeeks(plan_name)`) rather than `floor(span/7)` —
+ * the calendar span undercounts 5DAYS/6DAYS plans because end_date lands
+ * on the last delivery weekday, not Sunday.
+ */
 export function getSubscriptionWeeks(
     startDate: Date,
-    endDate: Date,
+    weekCount: number,
 ): Array<{ number: number; start: Date; end: Date }> {
-    const totalDays = Math.max(0, daysBetween(startDate, endDate))
-    const totalWeeks = Math.floor(totalDays / 7)
+    const totalWeeks = Math.max(0, Math.floor(weekCount))
     const weeks: Array<{ number: number; start: Date; end: Date }> = []
     for (let i = 0; i < totalWeeks; i++) {
         const wStart = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000)

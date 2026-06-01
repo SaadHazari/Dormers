@@ -16,6 +16,7 @@ import {
     type RewardsCycle,
     type WeeklyReviewState,
 } from '@/contexts/subscriptions/domain/weekly-review'
+import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 
 /**
  * Server-side query that computes the full weekly-review state for a user.
@@ -76,7 +77,7 @@ async function computeWeeklyReviewState(userId: string): Promise<WeeklyReviewSta
 
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, start_date, end_date')
+        .select('id, start_date, plan_name')
         .eq('customer_id', userId)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
         .order('start_date', { ascending: true })
@@ -86,10 +87,9 @@ async function computeWeeklyReviewState(userId: string): Promise<WeeklyReviewSta
     if (!sub) return EMPTY_REVIEW_STATE
 
     const startDate = parseDateUTC(sub.start_date)
-    const endDate = parseDateUTC(sub.end_date)
     const today = aeToday()
 
-    const weeks = getSubscriptionWeeks(startDate, endDate)
+    const weeks = getSubscriptionWeeks(startDate, expectedReviewWeeks(sub.plan_name))
     if (weeks.length === 0) return EMPTY_REVIEW_STATE
 
     const { data: reviews } = await supabase

@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LATE_CAP_DAYS, getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
+import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = SupabaseClient<any, any, any>
@@ -90,14 +91,13 @@ export async function rejectExpiredWeeklyReviewPending(
     // Window closed — check submission count vs expected.
     const { data: sub } = await sb
       .from('subscriptions')
-      .select('start_date, end_date')
+      .select('start_date, plan_name')
       .eq('id', subId)
       .maybeSingle()
-    if (!sub?.start_date || !sub?.end_date) continue
+    if (!sub?.start_date) continue
 
     const startDate = new Date((sub.start_date as string).slice(0, 10) + 'T00:00:00Z')
-    const endDate   = new Date((sub.end_date   as string).slice(0, 10) + 'T00:00:00Z')
-    const weeks = getSubscriptionWeeks(startDate, endDate)
+    const weeks = getSubscriptionWeeks(startDate, expectedReviewWeeks(sub.plan_name as string | null))
     const expected = weeks.length
 
     const { count } = await sb

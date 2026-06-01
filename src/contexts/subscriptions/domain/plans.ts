@@ -170,6 +170,23 @@ export function planKindOf(id: PlanId): PlanKind {
   return 'monthly'
 }
 
+/**
+ * Number of weekly reviews a plan expects per cycle. Monthly plans cover
+ * 4 calendar weeks of meals; Weekly Flex covers 1; trial/gift have none.
+ *
+ * Source of truth for the weekly-review threshold instead of dividing the
+ * calendar span by 7 — that math undercounts for 5DAYS / 6DAYS plans
+ * because end_date lands on the last delivery weekday, not Sunday.
+ */
+export function expectedReviewWeeks(planString: string | null | undefined): number {
+  const def = resolvePlan(planString)
+  if (!def) return 0
+  const kind = planKindOf(def.id)
+  if (kind === 'monthly') return 4
+  if (kind === 'weekly') return 1
+  return 0
+}
+
 /** Days-per-week count for a week_type. */
 function daysPerWeek(weekType: WeekType): number {
   if (weekType === '5DAYS') return 5

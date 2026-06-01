@@ -6,6 +6,7 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { getSubscriptionWeeks, rewardPctForWeekEnd, weeklyReviewAed } from '@/contexts/subscriptions/domain/weekly-review'
+import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 import type { WeeklyReviewPayload, WeeklyReviewSubmitResult } from '../../_shared/WeeklyReviewTakeover'
 
 /**
@@ -58,7 +59,7 @@ export async function submitWeeklyReview(
 
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, start_date, end_date')
+        .select('id, start_date, plan_name')
         .eq('customer_id', user.id)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
         .order('start_date', { ascending: true })
@@ -68,8 +69,7 @@ export async function submitWeeklyReview(
     if (!sub) return { ok: false, error: 'Could not find your active subscription.' }
 
     const startDate = new Date(sub.start_date.slice(0, 10) + 'T00:00:00Z')
-    const endDate   = new Date(sub.end_date.slice(0, 10)   + 'T00:00:00Z')
-    const weeks = getSubscriptionWeeks(startDate, endDate)
+    const weeks = getSubscriptionWeeks(startDate, expectedReviewWeeks(sub.plan_name))
     const target = weeks.find((w) => w.number === week)
     if (!target) return { ok: false, error: 'That week is not part of your current plan.' }
 

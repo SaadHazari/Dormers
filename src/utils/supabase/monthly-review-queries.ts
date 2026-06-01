@@ -12,6 +12,7 @@ import {
     type MonthlyRevealStats,
 } from '@/contexts/subscriptions/domain/monthly-review'
 import { weeklyReviewAed, getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
+import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 
 /**
  * Server-side eligibility check for the wrap (formerly "monthly review").
@@ -243,11 +244,8 @@ export async function getMonthlyRevealStats(
     // The reveal screen renders right after the monthly wrap submits, so
     // at this point the cycle's review window is effectively closing — we
     // do the same all-in check the SSR getter does.
-    const cycleEnd = sub.end_date
-        ? new Date((sub.end_date as string).slice(0, 10) + 'T00:00:00Z')
-        : null
-    const weeks = startDate && cycleEnd
-        ? getSubscriptionWeeks(startDate, cycleEnd)
+    const weeks = startDate
+        ? getSubscriptionWeeks(startDate, expectedReviewWeeks(sub.plan_name as string | null))
         : []
     const allInForCycle = weeklyRows.length >= weeks.length && weeks.length > 0
     const aedEarnedFromWeeklies = allInForCycle

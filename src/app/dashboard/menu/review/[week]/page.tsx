@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
+import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { ReviewClient } from './ReviewClient'
@@ -52,7 +53,7 @@ export default async function ReviewPage({
 
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, start_date, end_date, week_type, veg_days, skipped_dates, paused_dates')
+        .select('id, start_date, plan_name, week_type, veg_days, skipped_dates, paused_dates')
         .eq('customer_id', user.id)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
         .order('start_date', { ascending: true })
@@ -62,8 +63,7 @@ export default async function ReviewPage({
     if (!sub) redirect('/dashboard/menu')
 
     const startDate = new Date(sub.start_date.slice(0, 10) + 'T00:00:00Z')
-    const endDate   = new Date(sub.end_date.slice(0, 10)   + 'T00:00:00Z')
-    const weeks = getSubscriptionWeeks(startDate, endDate)
+    const weeks = getSubscriptionWeeks(startDate, expectedReviewWeeks(sub.plan_name))
     const target = weeks.find((w) => w.number === week)
     if (!target) redirect('/dashboard/menu')
 
