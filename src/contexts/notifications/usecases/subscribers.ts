@@ -25,6 +25,7 @@ const VALID_KINDS = new Set<CustomerNotificationKind>([
   'plan_start_date_changed_confirm',
   'payment_order_confirmed',
   'welcome_meal_confirmed',
+  'subscription_renew_nudge',
 ])
 
 eventBus.on('subscription.notification-due', async (payload) => {

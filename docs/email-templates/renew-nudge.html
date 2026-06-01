@@ -1,0 +1,171 @@
+<!--
+  ZeptoMail template — renew-nudge
+
+  Paste this HTML into ZeptoMail → Email Templates → New Template → name
+  it `renew-nudge`. Save → copy the Template Key into the
+  ZEPTOMAIL_TPL_RENEW_NUDGE env var.
+
+  Structure mirrors _brand-reference-start-day.html (the source of truth
+  for Dormers email brand language). When in doubt, open that reference
+  and copy the pattern exactly.
+
+  Merge variables (must match sendRenewNudgeEmail in
+  src/infra/zeptomail/client.ts):
+    {{first_name}}
+    {{plan_name}}
+    {{end_date}}             — pre-formatted "Fri 5 Jun"
+    {{meals_delivered}}      — integer string "21"
+    {{evenings}}             — integer string "21" or "11"
+    {{aed_saved}}            — integer string "184", or EMPTY when no benchmark
+    {{aed_earned}}           — integer string "12", or EMPTY when no rewards
+    {{renew_link}}           — full HTTPS URL
+
+  Conditional rendering uses Mustache section blocks:
+    {{#aed_saved}}...{{/aed_saved}}   renders only when the merge value
+                                       is non-empty.
+  The sendRenewNudgeEmail helper sends empty strings (not "0") for both
+  aed_saved (null benchmark) and aed_earned (0 rewards), so the Mustache
+  sections collapse cleanly.
+-->
+<html>
+
+<head></head>
+
+<body>
+  <div>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .main-card {
+          border: 2px solid #FF8C00 !important;
+          background-color: #1a1a1a !important;
+        }
+
+        .text-content {
+          color: #fcfcfc !important;
+        }
+
+        .sub-container-orange {
+          background-color: #261a0d !important;
+          border: 1.2px solid #FF8C00 !important;
+        }
+
+        .sub-container-green {
+          background-color: #0d1a10 !important;
+          border: 1.2px solid #2e7d32 !important;
+        }
+
+        .footer-text {
+          color: #555555 !important;
+        }
+
+        .muted-line {
+          color: #aaaaaa !important;
+        }
+      }
+    </style>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
+      <tbody>
+        <tr>
+          <td align="center">
+            <table class="main-card" width="100%" border="0" cellspacing="0" cellpadding="0"
+              style="max-width: 600px; background-color: #ffffff; border: 2px solid #FF8C00; border-radius: 13px; overflow: hidden;">
+              <tbody>
+                <tr>
+                  <td class="text-content"
+                    style="padding: 42px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #757575; font-weight: 500;">
+                    <h1
+                      style="margin: 0 0 26px 0; font-size: 26px; line-height: 1.2; font-weight: 700; color: #757575;">
+                      Three days to go, {{first_name}}. 🍽️<br></h1>
+                    <p style="margin: 0px 0px 32px; line-height: 26px;">
+                      <span class="size" style="font-size: 16px; margin: 0px 0px 32px; line-height: 26px;">Your <b>{{plan_name}}</b> wraps up on <b>{{end_date}}</b>. Renewing takes 30 seconds — same plan, same dorm, same delivery slot. No setup to redo.</span><br>
+                    </p>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-orange"
+                      style="background-color: #fffaf5; border: 1.2px solid #FF8C00; border-radius: 8px; margin-bottom: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">📊 This cycle, you&rsquo;ve</span></b></span><br>
+                            </p>
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 12px; line-height: 24px;">Had <b>{{meals_delivered}} meals</b> delivered to your door.</span></span><br>
+                            </p>
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 12px; line-height: 24px;">Won back <b>{{evenings}} evenings</b> of not thinking about dinner.</span></span><br>
+                            </p>
+                            {{#aed_saved}}
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 12px; line-height: 24px;">Saved about <b>AED {{aed_saved}}</b> vs takeout.</span></span><br>
+                            </p>
+                            {{/aed_saved}}
+                            {{#aed_earned}}
+                            <p style="margin: 0px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px; line-height: 24px;">Earned <b>AED {{aed_earned}}</b> in rewards along the way.</span></span><br>
+                            </p>
+                            {{/aed_earned}}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-orange"
+                      style="background-color: #fffaf5; border: 1.2px solid #FF8C00; border-radius: 8px; margin-bottom: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">🔁 Keep it going</span></b></span><br>
+                            </p>
+                            <p style="margin: 0px 0px 16px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">You&rsquo;ve already done the hard part. One tap renews your <b>{{plan_name}}</b> — no decisions, no re-entering anything.</span></span><br>
+                            </p><a href="{{renew_link}}"
+                              style="background-color: #FF8C00; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Renew in 30 seconds</a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-green"
+                      style="background-color: #f2faf3; border: 1.2px solid #2e7d32; border-radius: 8px; margin-bottom: 42px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(46, 125, 50)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">💬 Not sure yet?</span></b></span><br>
+                            </p>
+                            <p style="margin: 0px 0px 16px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">Want to switch plans, take a break, or just have a question? We&rsquo;re a tap away on WhatsApp, usually replying within an hour.</span></span><br>
+                            </p><a href="https://wa.me/971504619384"
+                              style="background-color: #2e7d32; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Chat
+                              with Support</a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                      style="border-top: 1px solid #eeeeee; padding-top: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="font-size: 14px; line-height: 22px; color: #757575;">See you next cycle,<br><span class="colour" style="color:rgb(117, 117, 117)"><b><span class="size" style="font-size:16px">Team Dormers</span></b></span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td class="footer-text" align="center"
+                            style="padding-top: 42px; font-size: 12px; color: #b0b0b0; letter-spacing: 1px; text-transform: uppercase;">
+                            Made with ♥️ in Dubai<br></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <br>
+  </div>
+</body>
+
+</html>
