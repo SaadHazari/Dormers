@@ -16,7 +16,14 @@ export default function Preloader({ onComplete }: { onComplete?: () => void }) {
 
   // Runs synchronously before paint — returning visitors get the quick
   // version from the very first frame, no flash of the slow animation.
+  //
+  // Also pins scroll to (0,0) before useBodyScrollLock's useEffect snapshots
+  // window.scrollY. Without this, a hard refresh from a deep scroll position
+  // would (a) flash the underlying section through before the splash takes
+  // over, and (b) leave the user at that deep position when the splash exits
+  // because the lock would have saved it as the "restore" target.
   useLayoutEffect(() => {
+    window.scrollTo(0, 0);
     if (localStorage.getItem("hero_seen") === "true") {
       setIsQuick(true);
     }

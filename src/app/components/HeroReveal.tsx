@@ -122,7 +122,11 @@ export default function HeroReveal() {
         />
       )}
 
-      <section id="hero" className="h-section">
+      <section
+        id="hero"
+        className="h-section"
+        style={isPreloading ? { minHeight: "100vh" } : undefined}
+      >
 
         {/* ── Grain texture ────────────────────────────────── */}
         <div aria-hidden className="h-grain">

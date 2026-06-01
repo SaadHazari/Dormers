@@ -40,6 +40,18 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={`${montserrat.variable} ${poppins.variable} ${jetbrains.variable}`} style={{ fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif' }}>
+        {/* Defeat the browser's auto scroll-restoration on hard refresh.
+            Marketing /home shows a fixed preloader splash on mount — if the
+            browser restores scroll to a deep section before React hydrates,
+            the user sees that section flash through before the splash takes
+            over. Manual mode keeps every refresh at scrollY=0 and lets us
+            (or Next's App Router) decide when to scroll. Inline + sync so it
+            wins the race against first paint. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "if('scrollRestoration' in history){history.scrollRestoration='manual';}",
+          }}
+        />
         {/* --- START OF GOOGLE ADS CODE --- */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=AW-17901506705"
