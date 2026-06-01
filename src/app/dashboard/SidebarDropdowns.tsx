@@ -14,6 +14,7 @@ import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'
+import { referralUrl, referralUrlDisplay } from '@/shared/contacts'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, submitted: false,
@@ -93,7 +94,7 @@ export function SidebarDropdowns({
     }
   }, [openDropdown, setOpenDropdown])
 
-  const shareUrl = customerCid ? `https://dormers.ae/r/${customerCid}` : ''
+  const shareUrl = customerCid ? referralUrl(customerCid) : ''
 
   const copyShareLink = () => {
     if (!shareUrl) return
@@ -200,7 +201,7 @@ export function SidebarDropdowns({
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 700, color: D.fg, fontFeatureSettings: '"tnum"', marginBottom: 3, wordBreak: 'break-all' }}>
-                {customerCid ? `dormers.ae/r/${customerCid}` : '—'}
+                {customerCid ? referralUrlDisplay(customerCid) : '—'}
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: referralCopied ? 'var(--ds-success-fg)' : D.fgMuted }}>
                 {referralCopied ? <><Check size={11} strokeWidth={2.6} /> Copied</> : <>Tap to copy</>}
@@ -209,7 +210,9 @@ export function SidebarDropdowns({
 
             {/* ── WhatsApp share ── */}
             <a
-              href={`https://wa.me/?text=I%20get%20fresh%20meals%20delivered%20to%20my%20dorm%20from%20Dormers%20%E2%80%94%20try%20your%20first%20meal%20free%3A%20https%3A%2F%2Fdormers.ae%2Fr%2F${customerCid}`}
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `I get fresh meals delivered to my dorm from Dormers — try your first meal free: ${referralUrl(customerCid)}`,
+              )}`}
               target="_blank"
               rel="noreferrer"
               onClick={() => setOpenDropdown(null)}

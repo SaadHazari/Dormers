@@ -358,7 +358,12 @@ export async function POST(req: Request) {
         }
         throw err;
       }
-      return NextResponse.json({ url: `${base}/dashboard?checkout_success=true&via=credit` });
+      // Relative URL — the client navigates within its own host. Stripe
+      // sessions need absolute URLs (Stripe's host redirects), but the
+      // free-checkout path is purely in-app; an absolute one would pin
+      // the user to whatever NEXT_PUBLIC_BASE_URL was configured for and
+      // break local dev when ports differ.
+      return NextResponse.json({ url: `/dashboard?checkout_success=true&via=credit` });
     }
 
     // Build sessionArgs separately so we can conditionally attach `discounts`.

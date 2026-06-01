@@ -28,3 +28,31 @@ export const WHATSAPP_HANDLE_DISPLAY = `wa.me/${WHATSAPP_NUMBER.replace(/^\+/, '
 
 /** Customer-care email (account, billing, plan changes). */
 export const SUPPORT_EMAIL = 'care@dormers.ae'
+
+/**
+ * Production host used for referral / share links when no env override is
+ * present. Kept as a constant rather than scattered string literals so the
+ * canonical hostname lives in one place.
+ */
+const REFERRAL_HOST_PROD = 'https://dormers.ae'
+
+/**
+ * Build a referral landing URL for a given customer CID. Honours
+ * NEXT_PUBLIC_BASE_URL when set so local dev (e.g. http://localhost:3004)
+ * and preview deploys produce links that actually open the running app
+ * instead of bouncing the user to production. The env var is inlined at
+ * build time by Next, so this is safe to call from client components.
+ */
+export function referralUrl(cid: string): string {
+    const base = (process.env.NEXT_PUBLIC_BASE_URL || REFERRAL_HOST_PROD).replace(/\/$/, '')
+    return `${base}/r/${cid}`
+}
+
+/**
+ * Display variant of the referral URL with the protocol stripped — the form
+ * the customer sees in the "copy this link" pill on the dashboard. Mirrors
+ * the same env-aware host resolution as referralUrl().
+ */
+export function referralUrlDisplay(cid: string): string {
+    return referralUrl(cid).replace(/^https?:\/\//, '')
+}
