@@ -71,3 +71,39 @@ export function nextTrialDeliveryLabel(
 ): string {
   return trialDeliveryLabel(computeTrialDeliveryDate(now, weekType), now)
 }
+
+/**
+ * Format an AE wall-date as ISO yyyy-mm-dd. The Dates returned by
+ * computeTrialDeliveryDate / eligibleTrialDeliveryDates are constructed in
+ * AE wall-date space (their getUTC* fields are the AE calendar components),
+ * so we read with getUTC* here to avoid a server-locale double-shift.
+ */
+export function trialDateIso(d: Date): string {
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * Returns the next `limit` eligible trial delivery dates starting from the
+ * soonest one (cutoff + Sunday-skip honoured). Used by the referral page's
+ * date chip selector so the user can pick from a handful of upcoming days
+ * instead of having the server silently auto-pick.
+ */
+export function eligibleTrialDeliveryDates(
+  now: Date = new Date(),
+  weekType: WeekType = '6DAYS',
+  limit = 5,
+): Date[] {
+  const out: Date[] = []
+  const cursor = computeTrialDeliveryDate(now, weekType)
+  while (out.length < limit) {
+    out.push(new Date(cursor))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+    while (!isDeliveryDow(cursor.getUTCDay(), weekType)) {
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+  }
+  return out
+}

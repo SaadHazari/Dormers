@@ -7,6 +7,11 @@ import { normalisePhone } from '@/shared/phone'
 import { generateCid } from '@/shared/cid'
 import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/usecases/awarder'
 import { isDoublerActive, applyDoubler } from '@/contexts/dorm-wars/domain/doubler'
+import { PLANS, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
+import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
+import { eligibleTrialDeliveryDates, trialDateIso } from '@/contexts/referrals/domain/trial-delivery'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -20,8 +25,17 @@ const MAX_CLAIMS_PER_IP_24H  = 5   // hard cap on gift claims from a single IP p
 
 export type ClaimResult =
   | { ok: true }
-  | { blocked: true; reason: string }
+  | { blocked: true; reason: string; code?: ClaimBlockedCode }
   | { error: string }
+
+/**
+ * Discriminator on blocked claims so the UI can pick its recovery path.
+ * `already_claimed` — lifetime phone/email dedupe; the user has a Dormers
+ * account already, so the right move is to send them to /login with their
+ * email pre-filled instead of leaving them on a dead-end CTA. Everything
+ * else stays as a plain inline error pill.
+ */
+export type ClaimBlockedCode = 'already_claimed'
 
 /**
  * Canonical email comparison key. Beyond trim+lowercase we collapse:
@@ -166,6 +180,10 @@ export async function claimGift(payload: {
   dormName:    string
   preference:  string
   deviceFp?:   string
+  /** ISO yyyy-mm-dd AE wall-date the user picked for delivery. Must be one
+   *  of the chips eligibleTrialDeliveryDates() returns; if missing or
+   *  invalid we fall back to the soonest eligible day. */
+  startDate?:  string
 }): Promise<ClaimResult> {
   const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -246,6 +264,7 @@ export async function claimGift(payload: {
   if (phoneClaimed) {
     return {
       blocked: true,
+      code: 'already_claimed',
       reason: "Looks like you've already had your welcome meal from us. Pick a plan to keep going.",
     }
   }
@@ -260,6 +279,7 @@ export async function claimGift(payload: {
   if (emailClaimed) {
     return {
       blocked: true,
+      code: 'already_claimed',
       reason: "Looks like you've already had your welcome meal from us. Pick a plan to keep going.",
     }
   }
@@ -407,6 +427,7 @@ export async function claimGift(payload: {
     await supabaseAdmin.from('referrals').delete().eq('id', referralRow.id)
     return {
       blocked: true,
+      code: 'already_claimed',
       reason: "Looks like you've already had your welcome meal from us. Pick a plan to keep going.",
     }
   }
@@ -469,6 +490,89 @@ export async function claimGift(payload: {
       .from('referrals')
       .update({ invitee_user_id: verifiedUser.id })
       .eq('id', referralRow.id)
+  }
+
+  // ── 11b. Welcome Meal subscription ─────────────────────────────────────────
+  // Phase 7: the gift IS a Subscription with planKind='gift'. Kitchen ops
+  // picks it up via the standard subscriptions query (Active + Scheduled),
+  // the dashboard renders it as a real plan (no banner-shim), and the
+  // ledger gets a row on delivery. Skip an existing welcome-gift row to
+  // make the path idempotent under re-claim or retry — a customer can
+  // only ever have ONE welcome meal subscription.
+  const { data: existingGift } = await supabaseAdmin
+    .from('subscriptions')
+    .select('id')
+    .eq('customer_id', verifiedUser.id)
+    .eq('plan_name', 'Welcome Meal')
+    .limit(1)
+    .maybeSingle()
+
+  if (!existingGift) {
+    const welcomeGift = PLANS['welcome-gift']
+    // Pick the delivery start date. Prefer the user's chip pick from the
+    // claim form when it's one of the eligible days the chip row offered;
+    // otherwise fall back to the soonest eligible day (the historical
+    // auto-pick behaviour). Cross-checking against eligibleTrialDeliveryDates
+    // means a tampered payload can't book a Sunday or a same-day post-cutoff.
+    const eligible = eligibleTrialDeliveryDates(new Date(), '6DAYS', 5)
+    const eligibleIsoSet = new Set(eligible.map(trialDateIso))
+    const chosenIso = payload.startDate && eligibleIsoSet.has(payload.startDate)
+      ? payload.startDate
+      : trialDateIso(eligible[0])
+    const start = new Date(chosenIso + 'T00:00:00Z')
+    const todayUtc = new Date(); todayUtc.setUTCHours(0, 0, 0, 0)
+    const end = computeEndDate({
+      startDate: start,
+      planKind: planKindOf('welcome-gift'),
+      weekType: '6DAYS',
+      skipCount: 0,
+      pauseDays: 0,
+    })
+    const status = start.getTime() > todayUtc.getTime()
+      ? SUBSCRIPTION_STATUS.SCHEDULED
+      : SUBSCRIPTION_STATUS.ACTIVE
+
+    const { error: subErr } = await supabaseAdmin
+      .from('subscriptions')
+      .insert({
+        customer_id:          verifiedUser.id,
+        plan_name:            welcomeGift.label,
+        status,
+        start_date:           isoDate(start),
+        end_date:             isoDate(end),
+        week_type:            '6DAYS',
+        meals_per_day:        welcomeGift.mealsPerDay,
+        total_meals:          totalMealsFor('welcome-gift', '6DAYS'),
+        delivered_meals:      0,
+        paused_days:          0,
+        has_paused_before:    false,
+        skipped_meals_count:  0,
+        veg_days:             null,
+      })
+
+    if (subErr) {
+      // Non-fatal: the gift_claimed referral + customer row are already
+      // written. Ops can backfill via admin tool. Log for reconciliation —
+      // a missing subscription means kitchen won't see this customer's
+      // welcome meal in tomorrow's delivery list.
+      console.error(`⚠️  welcome meal subscription insert failed for ${verifiedUser.id}:`, subErr)
+    } else {
+      // Queue the welcome WhatsApp now that the sub is live. Distinct kind
+      // (not payment_order_confirmed) so the voice is right — no "Successful
+      // payment" on a free meal. Throws would propagate, but
+      // queueCustomerNotification's on-demand dispatch kicker swallows its
+      // own RPC failures, so the durable insert is what matters.
+      try {
+        await queueCustomerNotification(
+          verifiedUser.id,
+          'welcome_meal_confirmed',
+          new Date(),
+          { start_date: isoDate(start) },
+        )
+      } catch (err) {
+        console.error(`⚠️  welcome meal WhatsApp queue failed for ${verifiedUser.id}:`, err)
+      }
+    }
   }
 
   // ── 12. Notify ops (log is enough for MVP — hook in email/Slack later) ─────
