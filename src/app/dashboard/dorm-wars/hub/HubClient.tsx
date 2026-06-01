@@ -8,6 +8,7 @@ import {
   Calendar, Coins, KeyRound, Zap, Upload, ExternalLink,
   Activity, MessageSquareText, Sparkles,
   User, Award, Crown, Clock, ShieldAlert,
+  Info,
 } from 'lucide-react'
 import { whatsAppHref, referralUrl } from '@/shared/contacts'
 import type { ReferralData, InviteRow, CrossDormRecentSub } from '@/infra/supabase/referrals-repo'
@@ -163,24 +164,72 @@ const LAYER1_LADDER = [
 // are computed at render-time from the customer's mealPriceContext so the
 // hub shows the actual AED they'll get (Veg Premium = AED 108, NonVeg Max
 // = AED 258, etc.) instead of the old hardcoded ~132 / ~528.
-interface CycleMilestone { at: number; label: string; value: string; color: string; Emblem: typeof Gift; rare?: boolean }
+interface CycleMilestone {
+  at: number; label: string; value: string; color: string; Emblem: typeof Gift; rare?: boolean
+  /** Plain-English "what you have to do" — surfaces on the flip-card back. */
+  requirement: string
+  /** Plain-English "how the reward lands" — surfaces on the flip-card back. */
+  howItWorks: string
+}
 function buildCycleMilestones(ctx: MealPriceContext): CycleMilestone[] {
   return [
-    { at: 3, label: 'Mystery Cash Drop', value: 'AED 30–90', color: PURPLE, Emblem: Gift },
-    { at: 6, label: 'Free Week', value: `~AED ${freeWeekValue(ctx)}`, color: CYAN, Emblem: Calendar },
-    { at: 10, label: 'Free Month', value: `~AED ${freeMonthValue(ctx)}`, color: GOLD, Emblem: Trophy },
-    { at: 15, label: '500 cr + 5 Skips', value: '500 cr', color: PINK, Emblem: Coins, rare: true },
-    { at: 20, label: 'Dorm Weekend', value: 'For all', color: RED, Emblem: Users, rare: true },
+    {
+      at: 3, label: 'Mystery Cash Drop', value: 'AED 30–90', color: PURPLE, Emblem: Gift,
+      requirement: 'Get 3 friends to subscribe to Dormers this cycle.',
+      howItWorks: 'A random AED 30–90 lands in your wallet within 24h of the third recruit. Auto-applies at your next renewal.',
+    },
+    {
+      at: 6, label: 'Free Week', value: `~AED ${freeWeekValue(ctx)}`, color: CYAN, Emblem: Calendar,
+      requirement: 'Get 6 friends to subscribe this cycle.',
+      howItWorks: `A week's worth of meals (~AED ${freeWeekValue(ctx)} on your plan) gets credited to your wallet at cycle close.`,
+    },
+    {
+      at: 10, label: 'Free Month', value: `~AED ${freeMonthValue(ctx)}`, color: GOLD, Emblem: Trophy,
+      requirement: 'Get 10 friends to subscribe this cycle.',
+      howItWorks: `A full month of meals (~AED ${freeMonthValue(ctx)} on your plan) is credited at cycle close.`,
+    },
+    {
+      at: 15, label: '500 cr + 5 Skips', value: '500 cr', color: PINK, Emblem: Coins, rare: true,
+      requirement: 'Get 15 friends to subscribe this cycle.',
+      howItWorks: '500 credits + 5 skip-meal tokens drop into your account at cycle close. Skips never expire.',
+    },
+    {
+      at: 20, label: 'Dorm Weekend', value: 'For all', color: RED, Emblem: Users, rare: true,
+      requirement: 'Get 20 friends to subscribe this cycle.',
+      howItWorks: 'We host a weekend dinner event for your whole dorm. Our team coordinates with you within a week.',
+    },
   ]
 }
 
 // Layer 3 — lifetime tier rewards (matches TIERS above; redundant but explicit)
-interface LifetimeTier { at: number; label: string; color: string; Emblem: typeof Percent }
+interface LifetimeTier {
+  at: number; label: string; color: string; Emblem: typeof Percent
+  /** Plain-English "what you have to do" — surfaces on the flip-card back. */
+  requirement: string
+  /** Plain-English "how the reward lands" — surfaces on the flip-card back. */
+  howItWorks: string
+}
 const LIFETIME_TIERS: LifetimeTier[] = [
-  { at: 10, label: '5% off forever', color: CYAN, Emblem: Percent },
-  { at: 25, label: '10% off + Early Access', color: GREEN, Emblem: Percent },
-  { at: 50, label: 'Jacket + Merch', color: PURPLE, Emblem: Shirt },
-  { at: 100, label: '100 Free Meals', color: GOLD, Emblem: Trophy },
+  {
+    at: 10, label: '5% off forever', color: CYAN, Emblem: Percent,
+    requirement: 'Recruit 10 friends across your lifetime (counts never reset).',
+    howItWorks: 'A permanent 5% discount applies to every renewal for as long as you stay subscribed.',
+  },
+  {
+    at: 25, label: '10% off + Early Access', color: GREEN, Emblem: Percent,
+    requirement: 'Recruit 25 friends across your lifetime.',
+    howItWorks: 'Discount jumps to 10% on every renewal. You also get early access to new menus + features before public launch.',
+  },
+  {
+    at: 50, label: 'Jacket + Merch', color: PURPLE, Emblem: Shirt,
+    requirement: 'Recruit 50 friends across your lifetime.',
+    howItWorks: 'A custom Dormers jacket + merch pack ships to your dorm. Our team reaches out for sizing.',
+  },
+  {
+    at: 100, label: '100 Free Meals', color: GOLD, Emblem: Trophy,
+    requirement: 'Recruit 100 friends across your lifetime.',
+    howItWorks: '100 meals get credited to your account, redeemable across any plan. The most senior tier — apex perk.',
+  },
 ]
 
 // Layer 4 — side quests (footer ribbon). "Weekly Streak Reward" replaces
@@ -221,7 +270,7 @@ function stageMeta(stage: ScoutStage): { label: string; color: string } {
   return STAGES[stageIndex(stage)]
 }
 
-type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review' | 'wallet' | 'progression' | 'weekly-reviews'
+type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review' | 'wallet' | 'progression' | 'weekly-reviews' | 'monthly-wrap'
 type SendStep = 'closed' | 'naming' | 'sent'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -475,6 +524,23 @@ export default function HubClient({
   // of a dead end. Actionable rows still go directly to their action;
   // only passive rows route through this info screen.
   const [infoKind, setInfoKind] = useState<SideQuestInfoKind | null>(null)
+  // Focused milestone — set when the user clicks a specific dot in the
+  // This Month / Lifetime Path columns. Drives a 5-second pulsing halo
+  // on the matching row inside the opened modal so the user can tell
+  // their click landed on the right milestone. Auto-clears after 5s or
+  // on any further dot click; closing the modal also clears it.
+  const [focusedMilestone, setFocusedMilestone] = useState<
+    { kind: 'cycle' | 'lifetime'; at: number } | null
+  >(null)
+  useEffect(() => {
+    if (!focusedMilestone) return
+    const t = setTimeout(() => setFocusedMilestone(null), 5000)
+    return () => clearTimeout(t)
+  }, [focusedMilestone])
+  const focusMilestone = (kind: 'cycle' | 'lifetime', at: number) => {
+    setFocusedMilestone({ kind, at })
+    setOpen(kind === 'cycle' ? 'quests' : 'ladder')
+  }
   const [scouts, setScouts] = useState<Scout[]>(initialScouts)
   // Resync scouts when real invites prop changes (e.g., live updates / re-fetch)
   useEffect(() => { setScouts(initialScouts) }, [initialScouts])
@@ -813,6 +879,7 @@ export default function HubClient({
             cycleTotalDays={cycleTotalDays}
             cycleStartsInDays={cycleStartsInDays}
             onOpen={() => setOpen('quests')}
+            onMilestoneClick={(at) => focusMilestone('cycle', at)}
             milestones={cycleMilestones}
           />
         </div>
@@ -822,6 +889,7 @@ export default function HubClient({
             currentTier={currentTier}
             nextTier={nextTier}
             onOpen={() => setOpen('ladder')}
+            onMilestoneClick={(at) => focusMilestone('lifetime', at)}
           />
         </div>
         <div data-tour="side-quests" style={{ display: 'contents' }}>
@@ -834,6 +902,7 @@ export default function HubClient({
             chestState={chestState}
             onOpenChest={() => setOpen('chest')}
             onOpenWeeklyReviews={() => setOpen('weekly-reviews')}
+            onOpenMonthlyWrap={() => setOpen('monthly-wrap')}
             onShowInfo={(kind) => setInfoKind(kind)}
           />
         </div>
@@ -877,11 +946,18 @@ export default function HubClient({
         />}
       </Modal>
 
-      <Modal open={open === 'quests'} onClose={() => setOpen(null)} title="This Month's Rewards" accent={GOLD}>
-        <QuestsScreen recruitsCycle={cycleRecruits} milestones={cycleMilestones} />
+      <Modal open={open === 'quests'} onClose={() => { setOpen(null); setFocusedMilestone(null) }} title="This Month's Rewards" accent={GOLD}>
+        <QuestsScreen
+          recruitsCycle={cycleRecruits}
+          milestones={cycleMilestones}
+          focusedAt={focusedMilestone?.kind === 'cycle' ? focusedMilestone.at : null}
+        />
       </Modal>
-      <Modal open={open === 'ladder'} onClose={() => setOpen(null)} title="Lifetime Path" accent={CYAN}>
-        <TrophyLadderScreen recruits={recruits} />
+      <Modal open={open === 'ladder'} onClose={() => { setOpen(null); setFocusedMilestone(null) }} title="Lifetime Path" accent={CYAN}>
+        <TrophyLadderScreen
+          recruits={recruits}
+          focusedAt={focusedMilestone?.kind === 'lifetime' ? focusedMilestone.at : null}
+        />
       </Modal>
       <Modal open={open === 'chest'} onClose={() => setOpen(null)} title="Streak Chest" accent={GOLD}>
         <StreakChestScreen
@@ -917,6 +993,20 @@ export default function HubClient({
         <WeeklyReviewsChooserModal
           weeklyReviewState={weeklyReviewState}
           onClose={() => setOpen(null)}
+        />
+      </Modal>
+      <Modal
+        open={open === 'monthly-wrap'}
+        onClose={() => setOpen(null)}
+        title="Monthly Wrap"
+        accent={VIOLET}
+      >
+        <MonthlyWrapChooserModal
+          monthlyReviewWindow={monthlyReviewWindow}
+          onStart={() => {
+            setOpen(null)
+            router.push('/dashboard/menu/review/monthly')
+          }}
         />
       </Modal>
       {/* Phase 8K — side-quest info modal. Opens when user taps a passive
@@ -1780,13 +1870,17 @@ function Column({
 // ════════════════════════════════════════════════════════════════════════════
 
 function CycleColumn({
-  cycleRecruits, cycleDaysLeft, cycleTotalDays, cycleStartsInDays, onOpen, milestones,
+  cycleRecruits, cycleDaysLeft, cycleTotalDays, cycleStartsInDays, onOpen, onMilestoneClick, milestones,
 }: {
   cycleRecruits: number
   cycleDaysLeft: number
   cycleTotalDays: number
   cycleStartsInDays: number
   onOpen: () => void
+  /** Click handler for individual milestone dots — focuses the matching
+   *  row in the opened This Month modal so the user sees their click
+   *  land on the right milestone instead of a generic modal. */
+  onMilestoneClick: (at: number) => void
   milestones: CycleMilestone[]
 }) {
   void cycleTotalDays
@@ -1835,22 +1929,31 @@ function CycleColumn({
             const Emblem = m.Emblem
             const dotSize = isNext ? 32 : 26
             return (
-              <div key={m.at} className="hub-milestone-dot" style={{
-                position: 'absolute', left: `${leftPct}%`, top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: dotSize, height: dotSize, borderRadius: '50%',
-                backgroundColor: earned ? m.color : 'rgba(0,0,0,0.85)',
-                border: earned
-                  ? `2px solid ${m.color}`
-                  : isNext ? `2.5px solid ${m.color}`
-                    : `1.5px solid ${m.color}77`,
-                boxShadow: earned
-                  ? `0 0 10px ${m.color}aa`
-                  : isNext ? `0 0 14px ${m.color}aa`
-                    : `0 0 4px ${m.color}33`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: isNext ? 3 : 2,
-              }}>
+              <button
+                type="button"
+                key={m.at}
+                className="hub-milestone-dot"
+                aria-label={`Reveal ${m.label} milestone — ${m.value}`}
+                onClick={() => onMilestoneClick(m.at)}
+                style={{
+                  position: 'absolute', left: `${leftPct}%`, top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: dotSize, height: dotSize, borderRadius: '50%',
+                  backgroundColor: earned ? m.color : 'rgba(0,0,0,0.85)',
+                  border: earned
+                    ? `2px solid ${m.color}`
+                    : isNext ? `2.5px solid ${m.color}`
+                      : `1.5px solid ${m.color}77`,
+                  boxShadow: earned
+                    ? `0 0 10px ${m.color}aa`
+                    : isNext ? `0 0 14px ${m.color}aa`
+                      : `0 0 4px ${m.color}33`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: isNext ? 3 : 2,
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              >
                 <Emblem size={isNext ? 16 : 13} strokeWidth={2.6} color={earned ? BG_DEEP : m.color} />
                 <span className="hub-dot-tip">Click to reveal</span>
                 {isNext && (
@@ -1862,7 +1965,7 @@ function CycleColumn({
                     animation: 'hub-milestone-halo 2.4s ease-out infinite',
                   }} />
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
@@ -1947,12 +2050,15 @@ function CycleColumn({
 // ════════════════════════════════════════════════════════════════════════════
 
 function LifetimeColumn({
-  recruits, currentTier, nextTier, onOpen,
+  recruits, currentTier, nextTier, onOpen, onMilestoneClick,
 }: {
   recruits: number
   currentTier: (typeof TIERS)[number] | null
   nextTier: (typeof TIERS)[number] | null
   onOpen: () => void
+  /** Click handler for individual tier dots — focuses the matching row
+   *  in the opened Lifetime Path modal, same pattern as CycleColumn. */
+  onMilestoneClick: (at: number) => void
 }) {
   const lifeMax = LIFETIME_TIERS[LIFETIME_TIERS.length - 1].at
   const fillPct = Math.min(100, (recruits / lifeMax) * 100)
@@ -1999,22 +2105,31 @@ function LifetimeColumn({
             const Emblem = t.Emblem
             const dotSize = isNext ? 32 : 26
             return (
-              <div key={t.at} className="hub-milestone-dot" style={{
-                position: 'absolute', left: `${leftPct}%`, top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: dotSize, height: dotSize, borderRadius: '50%',
-                backgroundColor: earned ? t.color : 'rgba(0,0,0,0.85)',
-                border: earned
-                  ? `2px solid ${t.color}`
-                  : isNext ? `2.5px solid ${t.color}`
-                    : `1.5px solid ${t.color}77`,
-                boxShadow: earned
-                  ? `0 0 10px ${t.color}aa`
-                  : isNext ? `0 0 14px ${t.color}aa`
-                    : `0 0 4px ${t.color}33`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: isNext ? 3 : 2,
-              }}>
+              <button
+                type="button"
+                key={t.at}
+                className="hub-milestone-dot"
+                aria-label={`Reveal ${t.label} tier`}
+                onClick={() => onMilestoneClick(t.at)}
+                style={{
+                  position: 'absolute', left: `${leftPct}%`, top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: dotSize, height: dotSize, borderRadius: '50%',
+                  backgroundColor: earned ? t.color : 'rgba(0,0,0,0.85)',
+                  border: earned
+                    ? `2px solid ${t.color}`
+                    : isNext ? `2.5px solid ${t.color}`
+                      : `1.5px solid ${t.color}77`,
+                  boxShadow: earned
+                    ? `0 0 10px ${t.color}aa`
+                    : isNext ? `0 0 14px ${t.color}aa`
+                      : `0 0 4px ${t.color}33`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: isNext ? 3 : 2,
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              >
                 <Emblem size={isNext ? 16 : 13} strokeWidth={2.6} color={earned ? BG_DEEP : t.color} />
                 <span className="hub-dot-tip">Click to reveal</span>
                 {isNext && (
@@ -2026,7 +2141,7 @@ function LifetimeColumn({
                     animation: 'hub-milestone-halo 2.4s ease-out infinite',
                   }} />
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
@@ -2531,6 +2646,7 @@ function SideRewardsColumn({
   weeklyReviewState, monthlyReviewWindow,
   chestState, onOpenChest,
   onOpenWeeklyReviews,
+  onOpenMonthlyWrap,
   onShowInfo,
 }: {
   layer4Rewards: Layer4Row[]
@@ -2546,10 +2662,14 @@ function SideRewardsColumn({
    *  active cycle (pending + completed) so the user picks which one to
    *  submit instead of being routed silently to the first pending week. */
   onOpenWeeklyReviews: () => void
+  /** Opens the monthly-wrap chooser modal — previews what the wrap is and
+   *  the AED on the line before deep-linking the user into the form.
+   *  Replaces the old direct router.push('/dashboard/menu') which landed
+   *  the user on the menu home instead of the wrap form itself. */
+  onOpenMonthlyWrap: () => void
   /** Phase 8K — passive rows route through the info modal on click. */
   onShowInfo: (kind: SideQuestInfoKind) => void
 }) {
-  const router = useRouter()
 
   // Phase 8K — Google review is per-monthly-subscription, not lifetime.
   // The "is this claimable" check needs the active sub's id matched
@@ -2750,7 +2870,7 @@ function SideRewardsColumn({
                 : `${dLeft} days left for the full AED 5`
               subColor = r.color
               clickable = true
-              onClick = () => router.push('/dashboard/menu')
+              onClick = onOpenMonthlyWrap
             } else if (late) {
               chipLabel = 'Tap to wrap'
               chipColor = GOLD_LITE
@@ -2759,7 +2879,7 @@ function SideRewardsColumn({
               subLine = 'Late · earn AED 2 before the window closes'
               subColor = GOLD_LITE
               clickable = true
-              onClick = () => router.push('/dashboard/menu')
+              onClick = onOpenMonthlyWrap
             } else if (w.expired) {
               chipLabel = 'Closed'
               chipColor = MIST_DIM
@@ -3248,6 +3368,23 @@ function HubStyles() {
         70%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
         100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
       }
+      /* Focused-milestone pulse — fires on the OUTER wrapper of a flip card
+         inside the This Month / Lifetime Path modals when the user clicks
+         a specific dot from the column. The CSS variable --mfp-color is
+         set per-instance via inline style so each milestone pulses in its
+         own colour. Three iterations × 1.6s ≈ 4.8s — paired with the 5s
+         state timer in HubInner so the animation never visibly cuts off
+         mid-cycle. Saffer rule: feedback scales to the significance of the
+         event — a tap on a specific milestone deserves a focused response,
+         not a generic modal open. */
+      @keyframes hub-milestone-focus-pulse {
+        0%   { box-shadow: 0 0 0 0   var(--mfp-color, rgba(255,255,255,0.6)), 0 0 0  0  transparent; }
+        40%  { box-shadow: 0 0 0 4px var(--mfp-color, rgba(255,255,255,0.6)), 0 0 28px var(--mfp-color, rgba(255,255,255,0.6)); }
+        100% { box-shadow: 0 0 0 0   transparent, 0 0 0 0 transparent; }
+      }
+      /* Wrapper class — keeps the box-shadow rendering above sibling cards
+         so the ring isn't clipped by adjacent flip cards in the modal list. */
+      .hub-milestone-focus { position: relative; z-index: 2; }
       /* "You are here" head marker — sits on top of the fill at the user's
          current position, distinct from milestone stops. Pulses in scale to
          signal "live cursor", not a static marker. */
@@ -3440,8 +3577,8 @@ function HubStyles() {
       }
       ${Array.from({ length: 12 }).map((_, i) => {
       const angle = (i * 30) * (Math.PI / 180)
-      const dx = Math.cos(angle) * 80
-      const dy = Math.sin(angle) * 80
+      const dx = (Math.cos(angle) * 80).toFixed(2)
+      const dy = (Math.sin(angle) * 80).toFixed(2)
       return `@keyframes hub-confetti-${i} {
           0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
           20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -3571,7 +3708,239 @@ function Modal({
 //  SUB-SCREENS — Trophy Ladder, Quests, Daily Drop, Squad
 // ════════════════════════════════════════════════════════════════════════════
 
-function TrophyLadderScreen({ recruits }: { recruits: number }) {
+// Row used by both QuestsScreen (This Month) and TrophyLadderScreen
+// (Lifetime Path). Collapsed by default, expanding inline when the user
+// taps the (ⓘ) icon to reveal a plain-English "What you do" / "What you
+// get" pair. Front layout stays compact when collapsed — the expanded
+// height is paid only when requested. `focused` drives both the 5-second
+// pulse halo AND an auto-expand so a click on a specific milestone dot in
+// the column opens the modal AND reveals the explainer for that one.
+function MilestoneInfoRow({
+  title, value, color, Emblem, rare, requirement, howItWorks,
+  current, threshold, earned, isNext, focused,
+}: {
+  title: string
+  value?: string
+  color: string
+  Emblem: typeof Gift
+  rare?: boolean
+  requirement: string
+  howItWorks: string
+  current: number
+  threshold: number
+  earned: boolean
+  isNext: boolean
+  focused: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const contentId = useRef(`mir-${Math.random().toString(36).slice(2, 8)}`).current
+
+  // Auto-expand on focus so the user sees the explainer for the milestone
+  // they clicked. Leaves expanded=true after the 5s focus window closes so
+  // they can keep reading — manual collapse via the icon is always available.
+  useEffect(() => {
+    if (focused) setExpanded(true)
+  }, [focused])
+
+  // Scroll into view on focus so the pulse halo isn't off-screen inside
+  // the modal's scroll area.
+  useEffect(() => {
+    if (!focused) return
+    wrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [focused])
+
+  const rowBg = earned ? `${GREEN}10` : isNext ? `${color}12` : 'rgba(255,255,255,0.03)'
+  const rowBorder = earned ? `${GREEN}44` : isNext ? `${color}55` : MIST_FAINT
+
+  return (
+    <div
+      ref={wrapperRef}
+      // Focus halo lives on the outer wrapper. The CSS var carries the
+      // milestone color into the keyframe so the halo matches the card.
+      // 3 iterations × 1.6s ≈ 4.8s — paired with the 5s state timer in
+      // HubInner so the animation never visibly cuts off mid-cycle.
+      className={focused ? 'hub-milestone-focus' : ''}
+      style={{
+        ...(focused
+          ? {
+            position: 'relative',
+            borderRadius: 12,
+            ['--mfp-color' as string]: `${color}cc`,
+            animation: 'hub-milestone-focus-pulse 1.6s ease-out 3',
+          }
+          : {}),
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+        aria-controls={contentId}
+        aria-label={expanded ? `Hide details for ${title}` : `Show details for ${title}`}
+        style={{
+          display: 'flex', flexDirection: 'column',
+          width: '100%',
+          padding: '14px 16px', borderRadius: 12,
+          backgroundColor: rowBg,
+          border: `1px solid ${rowBorder}`,
+          cursor: 'pointer',
+          textAlign: 'left',
+          fontFamily: 'inherit',
+          color: 'inherit',
+          transition: 'background-color 160ms ease, border-color 160ms ease',
+        }}
+      >
+      {/* Top row — icon tile + title cluster + (ⓘ) state hint + status
+          icon. The (ⓘ) is a visual signifier only — it rotates with
+          `expanded` to confirm the row-wide tap registered. The whole
+          row is the actual clickable surface so users don't have to
+          aim for the small icon. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <span style={{
+          flexShrink: 0,
+          width: 28, height: 28, borderRadius: 7,
+          backgroundColor: `${color}22`,
+          border: `1px solid ${color}55`,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Emblem size={13} strokeWidth={2.6} color={color} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{
+              fontFamily: BODY, fontSize: 13, fontWeight: 900,
+              color: earned || isNext ? CREAM : MIST,
+            }}>
+              {title}
+            </span>
+            {rare && (
+              <span style={{
+                fontFamily: BODY, fontSize: 8, fontWeight: 900,
+                color, letterSpacing: '0.16em', textTransform: 'uppercase',
+                padding: '1px 5px', borderRadius: 4,
+                backgroundColor: `${color}18`,
+                border: `1px solid ${color}44`,
+              }}>
+                Rare
+              </span>
+            )}
+          </div>
+          {value && (
+            <div style={{
+              fontFamily: BODY, fontSize: 11, fontWeight: 700,
+              color: earned ? GREEN : isNext ? color : MIST_DIM,
+            }}>
+              {value}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              flexShrink: 0,
+              width: 22, height: 22, borderRadius: '50%',
+              backgroundColor: expanded ? `${color}26` : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${expanded ? `${color}77` : MIST_FAINT}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background-color 160ms ease, border-color 160ms ease, transform 160ms ease',
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}
+          >
+            <Info size={12} strokeWidth={2.6} color={expanded ? color : MIST} />
+          </span>
+          {earned
+            ? <Check size={16} strokeWidth={3} color={GREEN} />
+            : isNext
+              ? <Zap size={14} strokeWidth={2.6} color={color} />
+              : <Lock size={12} strokeWidth={2.4} color={MIST_DIM} />}
+        </div>
+      </div>
+
+      {/* Progress bar — shows recruits earned vs threshold visually
+          so the gap to unlock is felt, not just read. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+        <div style={{
+          flex: 1, height: 4, borderRadius: 2,
+          backgroundColor: 'rgba(255,255,255,0.07)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', borderRadius: 2,
+            width: `${Math.min(100, (current / threshold) * 100)}%`,
+            backgroundColor: earned ? GREEN : isNext ? color : `${MIST_DIM}88`,
+            transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
+          }} />
+        </div>
+        <span style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontFamily: BODY, fontSize: 11, fontWeight: 700,
+          color: earned ? GREEN : isNext ? color : MIST_DIM,
+          whiteSpace: 'nowrap', fontFeatureSettings: '"tnum"',
+        }}>
+          <Users size={11} strokeWidth={2.6} />
+          {current} / {threshold}
+        </span>
+      </div>
+
+      {/* Accordion — collapses to 0 height when closed using the
+          grid-template-rows trick (smoother than max-height, and
+          accommodates content that wraps). The inner overflow:hidden
+          clips during the transition so the user doesn't see the
+          content slide up and out — it just fades in cleanly. */}
+      <div
+        id={contentId}
+        style={{
+          display: 'grid',
+          gridTemplateRows: expanded ? '1fr' : '0fr',
+          transition: 'grid-template-rows 280ms cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
+        <div style={{ minHeight: 0, overflow: 'hidden' }}>
+          <div style={{
+            marginTop: 12, padding: '10px 12px', borderRadius: 8,
+            backgroundColor: `${color}10`,
+            border: `1px solid ${color}33`,
+            display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div>
+              <div style={{
+                fontFamily: BODY, fontSize: 9, fontWeight: 800, color: MIST_DIM,
+                letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2,
+              }}>
+                What you do
+              </div>
+              <div style={{
+                fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+                lineHeight: 1.45,
+              }}>
+                {requirement}
+              </div>
+            </div>
+            <div>
+              <div style={{
+                fontFamily: BODY, fontSize: 9, fontWeight: 800, color: MIST_DIM,
+                letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2,
+              }}>
+                What you get
+              </div>
+              <div style={{
+                fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+                lineHeight: 1.45,
+              }}>
+                {howItWorks}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </button>
+    </div>
+  )
+}
+
+function TrophyLadderScreen({ recruits, focusedAt }: { recruits: number; focusedAt: number | null }) {
   return (
     <div>
       <p style={{
@@ -3657,46 +4026,19 @@ function TrophyLadderScreen({ recruits }: { recruits: number }) {
           const earned = recruits >= t.at
           const isNext = !earned && t.at === LIFETIME_TIERS.find(x => recruits < x.at)?.at
           return (
-            <div key={t.at} style={{
-              display: 'flex', flexDirection: 'column', gap: 10,
-              padding: '12px 14px', borderRadius: 12,
-              backgroundColor: earned ? `${GREEN}10` : isNext ? `${t.color}10` : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${earned ? `${GREEN}44` : isNext ? `${t.color}55` : MIST_FAINT}`,
-            }}>
-              {/* Top row — tier label + status icon */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: earned || isNext ? CREAM : MIST }}>
-                    Tier {i + 1} · {t.label}
-                  </div>
-                </div>
-                {earned ? <Check size={16} strokeWidth={3} color={GREEN} /> : isNext ? <Zap size={14} strokeWidth={2.6} color={t.color} /> : <Lock size={12} strokeWidth={2.4} color={MIST_DIM} />}
-              </div>
-              {/* Progress bar — visual gap to unlock */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  flex: 1, height: 4, borderRadius: 2,
-                  backgroundColor: 'rgba(255,255,255,0.07)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%', borderRadius: 2,
-                    width: `${Math.min(100, (recruits / t.at) * 100)}%`,
-                    backgroundColor: earned ? GREEN : isNext ? t.color : `${MIST_DIM}88`,
-                    transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
-                  }} />
-                </div>
-                <span style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  fontFamily: BODY, fontSize: 11, fontWeight: 700,
-                  color: earned ? GREEN : isNext ? t.color : MIST_DIM,
-                  whiteSpace: 'nowrap', fontFeatureSettings: '"tnum"',
-                }}>
-                  <Users size={11} strokeWidth={2.6} />
-                  {recruits} / {t.at}
-                </span>
-              </div>
-            </div>
+            <MilestoneInfoRow
+              key={t.at}
+              title={`Tier ${i + 1} · ${t.label}`}
+              color={t.color}
+              Emblem={t.Emblem}
+              requirement={t.requirement}
+              howItWorks={t.howItWorks}
+              current={recruits}
+              threshold={t.at}
+              earned={earned}
+              isNext={!!isNext}
+              focused={focusedAt === t.at}
+            />
           )
         })}
       </div>
@@ -3711,7 +4053,13 @@ function TrophyLadderScreen({ recruits }: { recruits: number }) {
   )
 }
 
-function QuestsScreen({ recruitsCycle, milestones }: { recruitsCycle: number; milestones: CycleMilestone[] }) {
+function QuestsScreen({
+  recruitsCycle, milestones, focusedAt,
+}: {
+  recruitsCycle: number
+  milestones: CycleMilestone[]
+  focusedAt: number | null
+}) {
   return (
     <div>
       <p style={{
@@ -3732,63 +4080,21 @@ function QuestsScreen({ recruitsCycle, milestones }: { recruitsCycle: number; mi
           const earned = recruitsCycle >= m.at
           const isNext = !earned && m.at === milestones.find(x => recruitsCycle < x.at)?.at
           return (
-            <div key={m.at} style={{
-              display: 'flex', flexDirection: 'column', gap: 10,
-              padding: '14px 16px', borderRadius: 12,
-              backgroundColor: earned ? `${GREEN}10` : isNext ? `${m.color}12` : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${earned ? `${GREEN}44` : isNext ? `${m.color}55` : MIST_FAINT}`,
-            }}>
-              {/* Top row — reward label + status icon */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 900, color: earned || isNext ? CREAM : MIST }}>
-                      {m.label}
-                    </span>
-                    {m.rare && (
-                      <span style={{
-                        fontFamily: BODY, fontSize: 8, fontWeight: 900,
-                        color: m.color, letterSpacing: '0.16em', textTransform: 'uppercase',
-                        padding: '1px 5px', borderRadius: 4,
-                        backgroundColor: `${m.color}18`,
-                        border: `1px solid ${m.color}44`,
-                      }}>
-                        Rare
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: earned ? GREEN : isNext ? m.color : MIST_DIM }}>
-                    {m.value}
-                  </div>
-                </div>
-                {earned ? <Check size={16} strokeWidth={3} color={GREEN} /> : isNext ? <Zap size={14} strokeWidth={2.6} color={m.color} /> : <Lock size={12} strokeWidth={2.4} color={MIST_DIM} />}
-              </div>
-              {/* Progress bar — shows recruits earned vs threshold visually
-                  so the gap to unlock is felt, not just read. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  flex: 1, height: 4, borderRadius: 2,
-                  backgroundColor: 'rgba(255,255,255,0.07)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%', borderRadius: 2,
-                    width: `${Math.min(100, (recruitsCycle / m.at) * 100)}%`,
-                    backgroundColor: earned ? GREEN : isNext ? m.color : `${MIST_DIM}88`,
-                    transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
-                  }} />
-                </div>
-                <span style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  fontFamily: BODY, fontSize: 11, fontWeight: 700,
-                  color: earned ? GREEN : isNext ? m.color : MIST_DIM,
-                  whiteSpace: 'nowrap', fontFeatureSettings: '"tnum"',
-                }}>
-                  <Users size={11} strokeWidth={2.6} />
-                  {recruitsCycle} / {m.at}
-                </span>
-              </div>
-            </div>
+            <MilestoneInfoRow
+              key={m.at}
+              title={m.label}
+              value={m.value}
+              color={m.color}
+              Emblem={m.Emblem}
+              rare={m.rare}
+              requirement={m.requirement}
+              howItWorks={m.howItWorks}
+              current={recruitsCycle}
+              threshold={m.at}
+              earned={earned}
+              isNext={!!isNext}
+              focused={focusedAt === m.at}
+            />
           )
         })}
       </div>
@@ -5610,6 +5916,203 @@ function WeeklyReviewsChooserModal({
       }}>
         All {rewards.total} required · miss one and the cycle&apos;s AED is forfeit
       </p>
+    </div>
+  )
+}
+
+// Chooser modal opened from the side-quest Monthly Wrap row. Previously the
+// chip routed straight to /dashboard/menu, which is the menu home, not the
+// wrap form itself — the chip's promise ("Tap to wrap") didn't match where
+// the user landed. This modal previews the wrap (AED on the line, deadline,
+// what the wrap actually is) and routes correctly to the wrap form on
+// commit. Mirrors WeeklyReviewsChooserModal's shape so the two side-quest
+// modals feel like a matched pair.
+function MonthlyWrapChooserModal({
+  monthlyReviewWindow, onStart,
+}: {
+  monthlyReviewWindow: MonthlyReviewWindow
+  onStart: () => void
+}) {
+  const w = monthlyReviewWindow
+  const isOpen = w.eligible && !w.submitted && !w.expired && w.daysLeftForFullReward > 0
+  const isLate = w.eligible && !w.submitted && !w.expired && w.daysLeftForFullReward <= 0
+  const canSubmit = isOpen || isLate
+  const aedOnTheLine = isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED
+  const accentColor = isLate ? GOLD_LITE : VIOLET
+
+  // Header sub-line — adapts to state so the user reads the actual stake
+  // before deciding to commit. Closed/Done/Soon states get informational
+  // copy and no CTA at the bottom.
+  const headerLine = (() => {
+    if (w.submitted) return 'Wrap submitted · next one opens at the end of your cycle'
+    if (isOpen) {
+      const d = w.daysLeftForFullReward
+      return d === 1 ? '1 day left for the full AED 5' : `${d} days left for the full AED 5`
+    }
+    if (isLate) return 'Window is late — earn AED 2 before the 30-day expiry'
+    if (w.expired) return 'Window for this cycle has closed'
+    return 'Opens at the end of this cycle'
+  })()
+
+  return (
+    <div>
+      {/* Header strip — cycle label + AED on the line. Same shape as the
+          WeeklyReviewsChooserModal header so the two modals read as a pair. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 14px', borderRadius: 12,
+        backgroundColor: `${accentColor}10`,
+        border: `1px solid ${accentColor}33`,
+        marginBottom: 18,
+      }}>
+        <span style={{
+          flexShrink: 0,
+          width: 36, height: 36, borderRadius: 9,
+          backgroundColor: `${accentColor}22`,
+          border: `1px solid ${accentColor}55`,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Calendar size={16} strokeWidth={2.6} color={accentColor} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: accentColor,
+            letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
+          }}>
+            {w.cycleLabel ?? 'This cycle'}
+          </div>
+          <div style={{
+            fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: CREAM,
+            letterSpacing: '-0.01em', marginTop: 4, lineHeight: 1.2,
+          }}>
+            {w.submitted
+              ? 'Wrap complete'
+              : canSubmit
+                ? `AED ${aedOnTheLine} on the line`
+                : 'Not eligible yet'}
+          </div>
+          <div style={{
+            fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST,
+            marginTop: 2,
+          }}>
+            {headerLine}
+          </div>
+        </div>
+      </div>
+
+      {/* Explainer — three short lines describing the wrap. The point of
+          this modal is to make the user understand what they're tapping
+          into BEFORE they navigate, so the wrap form doesn't feel like a
+          surprise quiz. */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 10,
+        marginBottom: canSubmit ? 18 : 0,
+      }}>
+        <ExplainerRow
+          color={accentColor}
+          icon={<MessageSquareText size={13} strokeWidth={2.6} color={accentColor} />}
+          title="What it is"
+          body="A short, once-per-cycle reflection on the meals you got this month — favourites, what missed, what to bring back."
+        />
+        <ExplainerRow
+          color={accentColor}
+          icon={<Coins size={13} strokeWidth={2.6} color={accentColor} />}
+          title="What you earn"
+          body={
+            isLate
+              ? `AED ${MONTHLY_LATE_REWARD_AED} credited to your wallet (half rate — the full window has passed).`
+              : `AED ${MONTHLY_REWARD_AED} credited to your wallet on submit. Auto-applies at your next renewal.`
+          }
+        />
+        <ExplainerRow
+          color={accentColor}
+          icon={<Clock size={13} strokeWidth={2.6} color={accentColor} />}
+          title="When the window closes"
+          body={
+            w.expired
+              ? 'The 30-day window for this cycle has fully closed — see you next cycle.'
+              : isLate
+                ? 'You have until day 30 from cycle-end to earn AED 2. After that it expires.'
+                : 'Submit within 7 days of cycle-end for the full AED 5. After that it drops to AED 2 until day 30.'
+          }
+        />
+      </div>
+
+      {/* Primary CTA — only renders for actionable states. Done / Closed
+          / Soon states close the explainer at the body and let the user
+          dismiss with the modal X. */}
+      {canSubmit && (
+        <button
+          type="button"
+          onClick={onStart}
+          style={{
+            display: 'block', width: '100%',
+            padding: '14px 16px', borderRadius: 12,
+            backgroundImage: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}cc 100%)`,
+            border: `1px solid ${accentColor}`,
+            color: BG_DEEP,
+            fontFamily: BODY, fontSize: 14, fontWeight: 900,
+            letterSpacing: '-0.01em',
+            cursor: 'pointer',
+            boxShadow: `0 6px 24px ${accentColor}44`,
+          }}
+        >
+          {isLate ? `Start your wrap · AED ${MONTHLY_LATE_REWARD_AED}` : `Start your wrap · AED ${MONTHLY_REWARD_AED}`}
+        </button>
+      )}
+
+      <p style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+        lineHeight: 1.5, margin: '14px 0 0', textAlign: 'center',
+      }}>
+        Wrap credits auto-apply to your next renewal · not cashable
+      </p>
+    </div>
+  )
+}
+
+// Small two-line row used inside the MonthlyWrapChooserModal explainer.
+// Pulled out as a helper so the three rows stay visually identical and
+// the modal body reads as a tight list, not three different blocks.
+function ExplainerRow({
+  color, icon, title, body,
+}: {
+  color: string
+  icon: React.ReactNode
+  title: string
+  body: string
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '10px 12px', borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.03)',
+      border: `1px solid ${color}22`,
+    }}>
+      <span style={{
+        flexShrink: 0,
+        width: 24, height: 24, borderRadius: 6,
+        backgroundColor: `${color}18`,
+        border: `1px solid ${color}44`,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        marginTop: 1,
+      }}>
+        {icon}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: BODY, fontSize: 9, fontWeight: 900, color,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 12, fontWeight: 600, color: CREAM,
+          lineHeight: 1.45, marginTop: 3,
+        }}>
+          {body}
+        </div>
+      </div>
     </div>
   )
 }
