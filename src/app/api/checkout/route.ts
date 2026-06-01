@@ -268,33 +268,20 @@ export async function POST(req: Request) {
     const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
     const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
 
-    // Phase 6 — trial floor:
-    //   For trial plans, never let the synth's discount take the Stripe
-    //   net to zero. We want Stripe to capture a real charge so:
-    //     • the customer's card lands on file (retention insurance)
-    //     • Zoho mints a real FTA invoice with a proper discount line
-    //   200 fils (AED 2) safely clears Stripe's per-currency minimum
-    //   charge floor. The webhook auto-refunds this AED 2 immediately
-    //   after the order processes — customer's wallet ends net unchanged.
-    //
-    //   For non-trial plans we pass no cap. If the discount fully covers
-    //   the plan we branch to the free-checkout path below (no Stripe at
-    //   all), so the synth can legitimately reach amountFils.
-    const isTrial = planDef.id === 'trial';
-    const TRIAL_STRIPE_FLOOR_FILS = 200;
+    // Phase 7 follow-up: removed the trial-floor / auto-refund detour.
+    // Trial + 100% credit coverage now flows through the same free-checkout
+    // path as every other plan — no Stripe redirect, no AED 2 phantom
+    // charge, no auto-refund. Customer hits an in-house success screen and
+    // Zoho still mints an invoice with a discount line that nets to AED 0.
     const couponResult = await synthesizePerSessionCoupon({
       stripe,
       userId: user.id,
       amountFils: amount,
       tierPercent,
       creditRows,
-      maxDiscountFils: isTrial
-        ? Math.max(0, amount - TRIAL_STRIPE_FLOOR_FILS)
-        : amount,
     });
     const stripeNetFils = amount - couponResult.discountFils;
-    const isTrialAutoRefund = isTrial && stripeNetFils <= TRIAL_STRIPE_FLOOR_FILS;
-    const isFreeCheckout = !isTrial && stripeNetFils === 0;
+    const isFreeCheckout = stripeNetFils === 0;
 
     // Reserve the credit rows the coupon actually consumed. Done AFTER synth
     // so we know exactly which IDs to lock. CAS on status='approved' means
@@ -436,12 +423,6 @@ export async function POST(req: Request) {
         // for exactly the rows this session locked. Empty when no credit
         // was reserved (zero-balance checkout, tier-only discount, etc.).
         reservation_token: reservationToken ?? '',
-        // Phase 6 — trial auto-refund signal. Set when the trial floor
-        // clamp kicked in (customer's credit would have fully covered the
-        // trial; we capped the discount so AED 2 lands on the card).
-        // Webhook reads this AFTER processing and issues an immediate
-        // refund of the captured amount with metadata.preserve_credits=true.
-        auto_refund_one_aed: isTrialAutoRefund ? 'true' : '',
         // Stamp the discount breakdown so the webhook can pass it through
         // to the Zoho invoice (line subtotal − discount = paid).
         discount_total_fils: String(couponResult.discountFils),

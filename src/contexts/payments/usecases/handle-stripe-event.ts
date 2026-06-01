@@ -631,46 +631,9 @@ async function handleCheckoutCompleted(
     console.error('⚠️  failed to mark webhook_completed_at:', completeErr)
   }
 
-  // ── Phase 6: trial auto-refund ─────────────────────────────────────────
-  // When checkout's coupon-synth hit the trial floor clamp (customer's
-  // credit + tier would have covered the trial fully), Stripe captured a
-  // floor amount (~AED 2) so we could still mint a real FTA invoice + get
-  // a card on file. Now that the order is recorded, refund that floor
-  // amount immediately. The refund carries metadata.preserve_credits='true'
-  // so handleChargeRefunded leaves the credit flip alone and the order's
-  // invoice_status stays 'Paid'.
-  if (
-    session.metadata?.auto_refund_one_aed === 'true'
-    && session.payment_intent
-    && session.amount_total
-  ) {
-    try {
-      const { stripeClient } = await import('@/infra/stripe/client')
-      const stripe = stripeClient()
-      const refund = await stripe.refunds.create({
-        payment_intent: session.payment_intent as string,
-        amount: session.amount_total,
-        metadata: {
-          preserve_credits: 'true',
-          reason: 'trial_credit_floor_autorefund',
-          order_id: orderId,
-        },
-      })
-      await supabaseAdmin
-        .from('orders')
-        .update({ auto_refund_applied_at: new Date().toISOString() })
-        .eq('id', orderId)
-      console.log(`↩️  Trial auto-refund issued — refund=${refund.id} order=${orderId}`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('⚠️  trial auto-refund failed:', msg)
-      void notifyAdmin(
-        `Trial auto-refund FAILED for order ${orderId} (session ${session.id}). ` +
-        `Customer was charged ~AED 2 that we couldn't refund automatically. Refund manually in Stripe. Error: ${msg}`,
-        orderId,
-      )
-    }
-  }
+  // Phase 7 follow-up: trial auto-refund block removed. Zero-amount trials
+  // now flow through the free-checkout path (no Stripe at all), so this
+  // post-webhook refund is unreachable.
 
   // ── Post-payment fan-out ─────────────────────────────────────────────
   // Two synchronous channels fire immediately: WhatsApp confirmation
@@ -806,10 +769,6 @@ async function handleChargeRefunded(
   // fully refunded. Less ⇒ partial.
   //
   // Credit restore policy:
-  //   • Auto-refund (preserve_credits='true' on the refund itself) →
-  //     leave credits applied AND keep invoice_status='Paid'. This is the
-  //     trial+credit-floor flow: customer paid ~AED 2, we refund it back,
-  //     the credits they redeemed are still legitimately consumed.
   //   • Full refund   → restore all applied credit rows.
   //   • Partial refund → DO NOT restore credits. Partial refunds in this
   //     business are typically issued for specific delivery issues (one
@@ -818,20 +777,6 @@ async function handleChargeRefunded(
   //     the original order would be a net giveaway on top of Stripe's
   //     partial cash refund. Ops can manually add a credit row if a
   //     proportional adjustment is intended.
-  const latestRefund = charge.refunds?.data?.[0]
-  const isAutoRefund = latestRefund?.metadata?.preserve_credits === 'true'
-  if (isAutoRefund) {
-    console.log(
-      `↩️  Auto-refund detected on charge ${charge.id} (refund ${latestRefund?.id}); ` +
-      `leaving credits applied + invoice_status='Paid' for order ${orderRow.id}`,
-    )
-    await supabaseAdmin
-      .from('orders')
-      .update({ auto_refund_applied_at: new Date().toISOString() })
-      .eq('id', orderRow.id)
-    Sentry.metrics.count('payment.auto_refund_handled', 1)
-    return { ok: true, refundHandled: true, restored: 0 }
-  }
   const isFullRefund = charge.amount_refunded >= charge.amount
   let restoredCount = 0
   if (isFullRefund) {
