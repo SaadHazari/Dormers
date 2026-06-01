@@ -28,7 +28,7 @@
 
 export type WeekType = '5DAYS' | '6DAYS' | '7DAYS'
 
-export type PlanKind = 'trial' | 'weekly' | 'monthly'
+export type PlanKind = 'trial' | 'weekly' | 'monthly' | 'gift'
 
 export interface ComputeEndDateInput {
   /** Calendar start date (YYYY-MM-DD or Date). Time portion ignored. */
@@ -114,7 +114,11 @@ export function computeEndDate(input: ComputeEndDateInput): Date {
 
   // D_base by plan kind
   let dBase: number
-  if (input.planKind === 'trial') dBase = 1
+  // 'gift' shares trial's 1-day math: one meal, start_date == end_date.
+  // Same end-date semantics let the existing Ended-detection cron flip
+  // the gift sub to status='Ended' on its delivery day without any extra
+  // case-handling downstream.
+  if (input.planKind === 'trial' || input.planKind === 'gift') dBase = 1
   else if (input.planKind === 'weekly') dBase = W
   else if (input.planKind === 'monthly') dBase = 4 * W
   else throw new Error(`Unknown planKind: ${input.planKind as string}`)

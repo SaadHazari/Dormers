@@ -28,6 +28,7 @@ export type CustomerNotificationKind =
     | 'plan_resumed_confirm'
     | 'plan_start_date_changed_confirm'
     | 'payment_order_confirmed'
+    | 'welcome_meal_confirmed'
 
 /**
  * Queue a WhatsApp notification for a customer.

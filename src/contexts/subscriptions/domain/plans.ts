@@ -20,9 +20,9 @@
 
 import type { WeekType } from './end-date'
 
-export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial'
+export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift'
 
-export type PlanKind = 'trial' | 'weekly' | 'monthly'
+export type PlanKind = 'trial' | 'weekly' | 'monthly' | 'gift'
 
 export type PlanDefinition = {
   id: PlanId
@@ -94,6 +94,26 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     maxSkips: 0,
     minPriceFils: 20 * 1 * 100, // 2,000 fils — AED 20
   },
+  // Welcome Meal — the one free meal a referee gets after claiming via
+  // /r/{cid}. Not sellable through checkout (the route resolves by plan
+  // string from the customer payload, and no checkout payload sends this
+  // label) — it's only ever created by claimGift. Same lifecycle as a
+  // 1-meal trial; the distinguishing feature is planKind='gift' which
+  // routes downstream to:
+  //   • the comped_meal_ledger writer (instead of orders revenue)
+  //   • a welcome-themed WhatsApp template (no email, no Zoho)
+  //   • the dashboard's ActiveDashboard view (no longer a special-case banner)
+  'welcome-gift': {
+    id: 'welcome-gift',
+    label: 'Welcome Meal',
+    matchesAny: ['Welcome Meal'],
+    totalMeals: 1,
+    durationDays: 1,
+    mealsPerDay: 1,
+    canPause: false,
+    maxSkips: 0,
+    minPriceFils: 0, // Not buyable through checkout; never reaches the floor check.
+  },
 }
 
 // Most-specific labels checked first so "Monthly Max" doesn't get shadowed
@@ -102,6 +122,11 @@ const RESOLUTION_ORDER: PlanId[] = [
   'monthly-max',
   'monthly-premium',
   'weekly-flex',
+  // welcome-gift before trial — "Welcome Meal" string could otherwise
+  // never match because trial sits first in the order with its own labels.
+  // (Trial doesn't accept "Welcome Meal" but explicit ordering avoids any
+  // future fuzzy-match regression.)
+  'welcome-gift',
   'trial',
 ]
 
@@ -140,6 +165,7 @@ export function resolvePlanOrTrial(planString: string | null | undefined): PlanD
 /** Maps a PlanId to its plan-kind family used by end-date math. */
 export function planKindOf(id: PlanId): PlanKind {
   if (id === 'trial') return 'trial'
+  if (id === 'welcome-gift') return 'gift'
   if (id === 'weekly-flex') return 'weekly'
   return 'monthly'
 }
@@ -158,7 +184,7 @@ function daysPerWeek(weekType: WeekType): number {
  */
 export function dBase(id: PlanId, weekType: WeekType): number {
   const kind = planKindOf(id)
-  if (kind === 'trial') return 1
+  if (kind === 'trial' || kind === 'gift') return 1
   const W = daysPerWeek(weekType)
   if (kind === 'weekly') return W
   return 4 * W
@@ -191,6 +217,10 @@ const VEG_PRICE_PER_MEAL: Record<PlanId, number> = {
   'monthly-premium': 18,
   'weekly-flex': 19,
   'trial': 20,
+  // welcome-gift: free meal, not buyable through checkout. Zero here means
+  // minPriceFilsFor returns 0; checkout's `amount >= minPriceFilsFor` check
+  // is unreachable for this plan because checkout doesn't accept it.
+  'welcome-gift': 0,
 }
 
 export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
