@@ -31,7 +31,7 @@ export type Layer4Kind = 'google_review' | 'weekly_survey' | 'anniversary' | 're
 // Canonical AED values per kind. Display copy reads from this table too
 // so the column UI and the awarder agree on amounts.
 export const LAYER4_VALUE_AED: Record<Layer4Kind, number> = {
-  google_review:        25,
+  google_review:        10,
   weekly_survey:        20,
   anniversary:          50,
   renew_invite_combo:   10,

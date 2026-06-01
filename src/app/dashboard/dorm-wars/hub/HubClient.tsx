@@ -9,7 +9,7 @@ import {
   Activity, MessageSquareText, Sparkles,
   User, Award, Crown, Clock, ShieldAlert,
 } from 'lucide-react'
-import { whatsAppHref } from '@/shared/contacts'
+import { whatsAppHref, referralUrl } from '@/shared/contacts'
 import type { ReferralData, InviteRow, CrossDormRecentSub } from '@/infra/supabase/referrals-repo'
 import type { RewardEvent, StreakChestState, StreakChestBucket } from '@/infra/supabase/dorm-wars-repo'
 import type { Subscription } from '../../_shared/types'
@@ -132,7 +132,7 @@ function progressionFor(recruits: number): ProgressionTitle {
 // The progression mirrors the share-impulse curve — early tiers lean on
 // practical value, mid tiers on social currency, late tiers on stories.
 function whatsappInviteCopy(recruits: number, customerCid: string): string {
-  const link = `https://dormers.ae/r/${customerCid}`
+  const link = referralUrl(customerCid)
   const tier = progressionFor(recruits).tier
   switch (tier) {
     case 1: return `got u a clutch food hookup at the dorm — first one's free ${link}`
@@ -188,7 +188,7 @@ const LIFETIME_TIERS: LifetimeTier[] = [
 // internally (renew_invite_combo) but surfaced as a streak-week payoff so
 // it pairs visually with the flame language elsewhere on the hub.
 const SIDE_REWARDS = [
-  { label: 'Google review',        value: '+AED 25',          color: GREEN,  Emblem: Star },
+  { label: 'Google review',        value: '+AED 10',          color: GREEN,  Emblem: Star },
   { label: '4 weekly reviews',     value: 'up to AED 20',     color: CYAN,   Emblem: MessageSquareText },
   { label: 'Monthly wrap',         value: '+AED 5',           color: VIOLET, Emblem: Calendar },
   { label: 'Weekly Streak Reward', value: 'Every 8 days',     color: ORANGE, Emblem: Flame },
@@ -196,17 +196,29 @@ const SIDE_REWARDS = [
 
 // Scout types — 4-stage mapping from current 2-state invite data
 // (Phase 2 backend work will extend to 5 stages with a real 'sent' state)
-type ScoutStage = 'sent' | 'scheduled' | 'delivered' | 'decided' | 'subscribed'
+//
+// 'already_subscribed' is an off-ladder state — fired when the invitee
+// turned out to already have a live Dormers subscription. It deliberately
+// sits OUTSIDE the STAGES progression ladder so the pip row doesn't render
+// it as "past subscribed" (which would lie about the customer's journey).
+// Renderers that need a label/colour for this stage use stageMeta() below.
+type ScoutStage = 'sent' | 'scheduled' | 'delivered' | 'decided' | 'subscribed' | 'already_subscribed'
 interface Scout { id: string; name: string; stage: ScoutStage; daysAgo: number }
-const STAGES: Array<{ key: ScoutStage; label: string; color: string }> = [
+const STAGES: Array<{ key: Exclude<ScoutStage, 'already_subscribed'>; label: string; color: string }> = [
   { key: 'sent', label: 'Link sent', color: ORANGE_LITE },
   { key: 'scheduled', label: 'Meal scheduled', color: CYAN },
   { key: 'delivered', label: 'Meal delivered', color: VIOLET },
   { key: 'decided', label: 'Trial decision', color: RED },
   { key: 'subscribed', label: 'Subscribed', color: GREEN },
 ]
-function stageIndex(stage: ScoutStage): number {
+function stageIndex(stage: Exclude<ScoutStage, 'already_subscribed'>): number {
   return STAGES.findIndex(s => s.key === stage)
+}
+// Single source of truth for label + colour across all scout stages,
+// including the off-ladder 'already_subscribed' state that STAGES omits.
+function stageMeta(stage: ScoutStage): { label: string; color: string } {
+  if (stage === 'already_subscribed') return { label: 'Already with us', color: PINK }
+  return STAGES[stageIndex(stage)]
 }
 
 type SubScreen = null | 'ladder' | 'quests' | 'chest' | 'squad' | 'google-review' | 'wallet' | 'progression' | 'weekly-reviews'
@@ -298,10 +310,12 @@ function formatDoublerRemaining(msRemaining: number): string {
   return `${Math.max(1, hours)}h`
 }
 
-// Map InviteRow (status = 'gift_claimed' | 'converted') to one of the 4 visible
-// scout stages. The 5th stage ('sent' but not yet claimed) requires a backend
-// change to expose pre-claim invite rows — flagged for Phase 2.
+// Map InviteRow (status = 'gift_claimed' | 'converted' |
+// 'ineligible_existing_customer') to one of the visible scout stages. The
+// pre-claim 'sent' state (link sent, not yet clicked through) requires a
+// backend change to expose pre-claim invite rows — flagged for Phase 2.
 function deriveScoutStage(row: InviteRow): ScoutStage {
+  if (row.status === 'ineligible_existing_customer') return 'already_subscribed'
   if (row.status === 'converted') return 'subscribed'
   const claimedAt = row.claimedAt ? new Date(row.claimedAt) : null
   if (!claimedAt) return 'sent'
@@ -854,7 +868,7 @@ export default function HubClient({
 
       <Modal open={viewingScout !== null} onClose={() => setViewingScout(null)}
         title={viewingScout ? `${viewingScout.name}'s Journey` : ''}
-        accent={viewingScout ? STAGES[stageIndex(viewingScout.stage)].color : ORANGE}
+        accent={viewingScout ? stageMeta(viewingScout.stage).color : ORANGE}
       >
         {viewingScout && <JourneyScreen
           scout={viewingScout}
@@ -878,7 +892,7 @@ export default function HubClient({
       <Modal open={open === 'squad'} onClose={() => setOpen(null)} title="Your Squad" accent={PINK}>
         <SquadScreen scouts={scouts} onScoutTap={(s) => { setOpen(null); setViewingScout(s) }} />
       </Modal>
-      <Modal open={open === 'google-review'} onClose={() => setOpen(null)} title="Google Review · AED 25" accent={GREEN}>
+      <Modal open={open === 'google-review'} onClose={() => setOpen(null)} title="Google Review · AED 10" accent={GREEN}>
         <GoogleReviewScreen onClose={() => setOpen(null)} />
       </Modal>
       <Modal open={open === 'wallet'} onClose={() => setOpen(null)} title="Wallet" accent={GOLD}>
@@ -930,6 +944,10 @@ export default function HubClient({
               setInfoKind(null)
               if (action === 'open_google_review_modal') setOpen('google-review')
               else if (action === 'open_chest_modal')    setOpen('chest')
+              else if (action === 'open_weekly_review') {
+                const w = weeklyReviewState.current?.week ?? weeklyReviewState.late[0]?.week
+                if (w) router.push(`/dashboard/menu/review/${w}`)
+              }
               else if (action === 'go_to_menu')          router.push('/dashboard/menu')
             }}
           />
@@ -2133,12 +2151,12 @@ function computeSideRewardPriority(
   if (label === 'Google review') {
     const row = googleReviewRow
     if (row && (row.status === 'approved' || row.status === 'auto_approved')) {
-      return { priority: 5, aedSignal: 25 } // Done this sub → sink
+      return { priority: 5, aedSignal: 10 } // Done this sub → sink
     }
     if (row && row.status === 'pending') {
-      return { priority: 2, aedSignal: 25 } // Under manual review
+      return { priority: 2, aedSignal: 10 } // Under manual review
     }
-    return { priority: 1, aedSignal: 25 } // Unclaimed → top tier
+    return { priority: 1, aedSignal: 10 } // Unclaimed → top tier
   }
   if (label === '4 weekly reviews') {
     const { rewards, current, late } = weeklyReviewState
@@ -2180,12 +2198,27 @@ function computeSideRewardPriority(
 type QuestPrimaryAction =
   | 'open_google_review_modal'
   | 'open_chest_modal'
+  | 'open_weekly_review'
   | 'go_to_menu'
   | 'none'
 
+// 1st, 2nd, 3rd, 4th — used in the weekly-reviews info modal so the "When
+// the Nth lands" line agrees with English ordinal rules.
+function ordinal(n: number): string {
+  const abs = Math.abs(Math.floor(n))
+  const tens = abs % 100
+  if (tens >= 11 && tens <= 13) return `${n}th`
+  switch (abs % 10) {
+    case 1: return `${n}st`
+    case 2: return `${n}nd`
+    case 3: return `${n}rd`
+    default: return `${n}th`
+  }
+}
+
 function questInfoMeta(kind: SideQuestInfoKind): { title: string; accent: string } {
   switch (kind) {
-    case 'google_review':  return { title: 'Google review · AED 25',          accent: GREEN  }
+    case 'google_review':  return { title: 'Google review · AED 10',          accent: GREEN  }
     case 'weekly_reviews': return { title: 'Weekly reviews · up to AED 20',   accent: CYAN   }
     case 'monthly_wrap':   return { title: 'Monthly wrap · AED 5',            accent: VIOLET }
     case 'streak_chest':   return { title: 'Streak chest · every 8 days',     accent: ORANGE }
@@ -2217,7 +2250,7 @@ function QuestInfoScreen({
       const earned = googleReviewRow && (googleReviewRow.status === 'approved' || googleReviewRow.status === 'auto_approved')
       const pending = googleReviewRow && googleReviewRow.status === 'pending'
       return {
-        reward: 'AED 25 once per monthly subscription',
+        reward: 'AED 10 once per monthly subscription',
         how: [
           'Tap the row to open the Dormers Google business page',
           'Leave your review (it takes ~30 seconds)',
@@ -2247,12 +2280,16 @@ function QuestInfoScreen({
       // still earnable from unsubmitted weeks.
       const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
       const aedReady = Math.max(0, rewards.aedPending - aedToClaim)
+      // Pick the most pressing pending week so the CTA can route directly
+      // into the takeover instead of dumping the user on /menu (where
+      // weekly reviews no longer live — they surface in the Now tray).
+      const targetWeek = current?.week ?? late[0]?.week ?? null
       return {
         reward: `Up to AED ${total * 5} per cycle (AED 5 per review, all ${total} required)`,
         how: [
           `Submit ${total} weekly reviews — one per week, after each week ends`,
           'Each one takes ~60 seconds (rate + favorites + misses + ops)',
-          `When the ${total}th lands, the whole pool unlocks to your wallet`,
+          `When the ${ordinal(total)} lands, the whole pool unlocks to your wallet`,
         ],
         catch: 'All-or-nothing. Miss any one and the cycle\'s credit is forfeit. Late reviews still count toward the total but earn AED 2 instead of AED 5.',
         status: allIn
@@ -2264,9 +2301,17 @@ function QuestInfoScreen({
             : `0 of ${total} · earn AED ${total * 5} max this cycle.`,
         next: allIn
           ? 'Next pool opens with your next monthly subscription.'
-          : 'Visit the menu page when a week ends to submit.',
-        action: allIn ? 'none' as QuestPrimaryAction : 'go_to_menu' as QuestPrimaryAction,
-        actionLabel: 'Go to menu',
+          : targetWeek !== null
+            ? 'Tap below to start — it lives in the sidebar Now tray once a week ends.'
+            : 'Reviews appear in the sidebar Now tray when a week ends.',
+        action: (allIn || targetWeek === null)
+          ? 'none' as QuestPrimaryAction
+          : 'open_weekly_review' as QuestPrimaryAction,
+        actionLabel: targetWeek === null
+          ? ''
+          : current
+            ? `Start week ${current.week} review`
+            : `Catch up on week ${targetWeek}`,
       }
     }
     if (kind === 'monthly_wrap') {
@@ -2596,7 +2641,7 @@ function SideRewardsColumn({
               chipColor = r.color
               chipBg = `${r.color}14`
               chipBorder = `${r.color}55`
-              subLine = '+AED 25 in seconds · tap to start'
+              subLine = '+AED 10 in seconds · tap to start'
               subColor = r.color
               clickable = true
               onClick = onOpenGoogleReview
@@ -2666,13 +2711,12 @@ function SideRewardsColumn({
                 ? `AED ${aedPending} ready for cycle close`
                 : `All ${total} needed for AED ${total * BASE_REWARD_AED} · miss one = forfeit`
               subColor = submitted > 0 ? CYAN : MIST
-              subBadge = (
-                <ProgressRing
-                  value={submitted}
-                  total={total}
-                  color={submitted > 0 ? CYAN : MIST_DIM}
-                />
-              )
+              // Skip the ring at 0/N — it conveys nothing and pushes the
+              // sub-line right of the other quest rows' captions, breaking
+              // the row's left-edge alignment.
+              if (submitted > 0) {
+                subBadge = <ProgressRing value={submitted} total={total} color={CYAN} />
+              }
               clickable = true
               onClick = () => onShowInfo('weekly_reviews')
             }
@@ -3006,8 +3050,9 @@ function ScoutsStrip({
         marginTop: -6,
       }} className="hub-scouts-scroll">
         {scouts.map(s => {
-          const stage = STAGES[stageIndex(s.stage)]
+          const stage = stageMeta(s.stage)
           const isWin = s.stage === 'subscribed'
+          const isOffLadder = s.stage === 'already_subscribed'
           return (
             <button
               key={s.id}
@@ -3039,14 +3084,27 @@ function ScoutsStrip({
               }}>
                 {s.name}
               </div>
-              <div style={{ display: 'flex', gap: 2 }}>
-                {STAGES.map((_, idx) => (
-                  <span key={idx} style={{
-                    width: 4, height: 4, borderRadius: '50%',
-                    backgroundColor: idx <= stageIndex(s.stage) ? stage.color : 'rgba(255,255,255,0.10)',
-                  }} />
-                ))}
-              </div>
+              {isOffLadder ? (
+                // Off-ladder: progression pips would imply this scout is
+                // somewhere on the journey ladder. They aren't — they're a
+                // regular already. Show a single label instead.
+                <div style={{
+                  fontFamily: BODY, fontSize: 8, fontWeight: 900,
+                  color: stage.color, letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                }}>
+                  Already here
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {STAGES.map((_, idx) => (
+                    <span key={idx} style={{
+                      width: 4, height: 4, borderRadius: '50%',
+                      backgroundColor: idx <= stageIndex(s.stage as Exclude<ScoutStage, 'already_subscribed'>) ? stage.color : 'rgba(255,255,255,0.10)',
+                    }} />
+                  ))}
+                </div>
+              )}
             </button>
           )
         })}
@@ -4300,7 +4358,7 @@ function CelebrationOverlay({ valueAed, onDismiss }: { valueAed: number; onDismi
           animation: 'hub-celebration-text-rise 480ms cubic-bezier(0.16, 1, 0.3, 1) 500ms backwards',
         }}>
           Thanks for the review — it really helps other students find Dormers.
-          You can claim another <strong style={{ color: CREAM, fontWeight: 800 }}>AED 25</strong> on your next monthly subscription.
+          You can claim another <strong style={{ color: CREAM, fontWeight: 800 }}>AED 10</strong> on your next monthly subscription.
         </p>
 
         {/* Done button */}
@@ -4588,12 +4646,12 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
   // ─── DEFAULT: pick + submit UI ─────────────────────────────────────────
   // State-aware CTA copy:
   //   no file       → "Add screenshot to continue" (disabled)
-  //   file picked   → "Verify & claim AED 25"  (primary action, gold)
+  //   file picked   → "Verify & claim AED 10"  (primary action, gold)
   //   submitting    → "Verifying your review…"  (locked, spinner-style)
   const ctaCopy = submitting
     ? 'Verifying your review…'
     : file
-      ? 'Verify & claim AED 25'
+      ? 'Verify & claim AED 10'
       : 'Add a screenshot to continue'
 
   return (
@@ -4603,7 +4661,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         lineHeight: 1.6, margin: '0 0 14px',
       }}>
         Leave us a Google review, screenshot it, upload it here — we&rsquo;ll
-        verify and drop <strong style={{ color: CREAM, fontWeight: 800 }}>AED 25</strong> into
+        verify and drop <strong style={{ color: CREAM, fontWeight: 800 }}>AED 10</strong> into
         your wallet. One per monthly subscription.
       </p>
 
@@ -4835,8 +4893,9 @@ function SquadScreen({ scouts, onScoutTap }: { scouts: Scout[]; onScoutTap: (s: 
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {scouts.map((s) => {
-          const stage = STAGES[stageIndex(s.stage)]
+          const stage = stageMeta(s.stage)
           const isWin = s.stage === 'subscribed'
+          const isOffLadder = s.stage === 'already_subscribed'
           return (
             <button
               key={s.id}
@@ -4868,15 +4927,26 @@ function SquadScreen({ scouts, onScoutTap }: { scouts: Scout[]; onScoutTap: (s: 
                   {s.name}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {STAGES.map((stg, i) => (
-                    <span key={stg.key} style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      backgroundColor: i <= stageIndex(s.stage) ? stage.color : 'rgba(255,255,255,0.08)',
-                    }} />
-                  ))}
-                  <span style={{ marginLeft: 8, fontFamily: BODY, fontSize: 10, fontWeight: 800, color: stage.color, letterSpacing: '0.10em' }}>
-                    {stage.label}
-                  </span>
+                  {isOffLadder ? (
+                    // Off-ladder: skip pips entirely — this scout isn't on
+                    // the journey. Just the stage label, which already reads
+                    // "Already with us".
+                    <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 800, color: stage.color, letterSpacing: '0.10em' }}>
+                      {stage.label}
+                    </span>
+                  ) : (
+                    <>
+                      {STAGES.map((stg, i) => (
+                        <span key={stg.key} style={{
+                          width: 6, height: 6, borderRadius: '50%',
+                          backgroundColor: i <= stageIndex(s.stage as Exclude<ScoutStage, 'already_subscribed'>) ? stage.color : 'rgba(255,255,255,0.08)',
+                        }} />
+                      ))}
+                      <span style={{ marginLeft: 8, fontFamily: BODY, fontSize: 10, fontWeight: 800, color: stage.color, letterSpacing: '0.10em' }}>
+                        {stage.label}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 700, color: MIST_DIM, fontFeatureSettings: '"tnum"', flexShrink: 0 }}>
@@ -6156,6 +6226,47 @@ function JourneyScreen({
 }: {
   scout: Scout; onNudge: () => void; onSendAnother: () => void
 }) {
+  // Off-ladder scouts (existing-customer redemptions) get a flat info panel
+  // — no progression ladder (they aren't on the journey), no nudge button
+  // (messaging an existing subscriber "did you see the link?" is awkward).
+  // The forward path is to scout someone new, which is the only real next
+  // action available to the inviter from this state.
+  if (scout.stage === 'already_subscribed') {
+    const meta = stageMeta(scout.stage)
+    return (
+      <div>
+        <div style={{
+          padding: 14, borderRadius: 12,
+          backgroundColor: `${meta.color}14`,
+          border: `1px solid ${meta.color}55`,
+          marginBottom: 18,
+        }}>
+          <div style={{
+            fontFamily: BODY, fontSize: 10, fontWeight: 900,
+            color: meta.color, letterSpacing: '0.20em', textTransform: 'uppercase', marginBottom: 4,
+          }}>
+            {meta.label}
+          </div>
+          <div style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM }}>
+            {stageDescription(scout)}
+          </div>
+        </div>
+        <ActionPrompt
+          intent="helpful"
+          headline={`Your code didn't apply to ${scout.name}`}
+          body={`The free welcome meal is for friends who haven't tried Dormers yet. Scout someone new and you'll both get a reward when they sign up.`}
+          primary={{ label: 'Scout someone new', onClick: onSendAnother, color: PINK }}
+        />
+        <p style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
+          lineHeight: 1.5, margin: '18px 0 0', textAlign: 'center',
+        }}>
+          This share doesn&rsquo;t count toward your milestones · pure heads-up
+        </p>
+      </div>
+    )
+  }
+
   const curIdx = stageIndex(scout.stage)
   const isWin = scout.stage === 'subscribed'
   const isStalled = scout.stage === 'sent' && scout.daysAgo >= 2
@@ -6287,6 +6398,7 @@ function stageDescription(scout: Scout): string {
     case 'delivered': return `${scout.name} got their first meal`
     case 'decided': return `${scout.name}'s trial window passed`
     case 'subscribed': return `${scout.name} is a paid subscriber`
+    case 'already_subscribed': return `${scout.name} is already a Dormers regular`
   }
 }
 
