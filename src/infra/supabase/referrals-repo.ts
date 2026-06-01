@@ -79,7 +79,11 @@ export const getReferralCount = cache(async (userId: string): Promise<number> =>
 export interface InviteRow {
   id:             string
   firstName:      string          // 'Friend' when invitee_first_name is null (legacy)
-  status:         'gift_claimed' | 'converted'
+  // 'ineligible_existing_customer' — an attempt by someone who already had
+  // a live Dormers subscription. Surfaced in the squad as an off-ladder
+  // "Already with us" card; explicitly excluded from the milestone/tier
+  // counts above (getReferralData filters those on 'gift_claimed' + 'converted').
+  status:         'gift_claimed' | 'converted' | 'ineligible_existing_customer'
   claimedAt:      string
   convertedAt:    string | null
 }
@@ -91,14 +95,14 @@ export const getRecentInvites = cache(async (userId: string, limit = 10): Promis
       .from('referrals')
       .select('id, invitee_first_name, status, gift_claimed_at, converted_at')
       .eq('inviter_user_id', userId)
-      .in('status', ['gift_claimed', 'converted'])
+      .in('status', ['gift_claimed', 'converted', 'ineligible_existing_customer'])
       .order('gift_claimed_at', { ascending: false })
       .limit(limit)
 
     return (data ?? []).map(r => ({
       id:          r.id,
       firstName:   r.invitee_first_name?.trim() || 'Friend',
-      status:      r.status as 'gift_claimed' | 'converted',
+      status:      r.status as InviteRow['status'],
       claimedAt:   r.gift_claimed_at,
       convertedAt: r.converted_at,
     }))

@@ -30,12 +30,17 @@ export type ClaimResult =
 
 /**
  * Discriminator on blocked claims so the UI can pick its recovery path.
- * `already_claimed` — lifetime phone/email dedupe; the user has a Dormers
- * account already, so the right move is to send them to /login with their
- * email pre-filled instead of leaving them on a dead-end CTA. Everything
- * else stays as a plain inline error pill.
+ * `already_claimed`     — lifetime phone/email dedupe; the user has a Dormers
+ *                         account already, so the right move is to send them
+ *                         to /login with their email pre-filled instead of
+ *                         leaving them on a dead-end CTA.
+ * `existing_subscriber` — the redeemer already has a live subscription. The
+ *                         welcome meal is an acquisition gate, not a perk for
+ *                         existing customers; UI shows a "welcome back" panel
+ *                         that pivots them to sharing their own code.
+ * Everything else stays as a plain inline error pill.
  */
-export type ClaimBlockedCode = 'already_claimed'
+export type ClaimBlockedCode = 'already_claimed' | 'existing_subscriber'
 
 /**
  * Canonical email comparison key. Beyond trim+lowercase we collapse:
@@ -172,6 +177,46 @@ export async function verifyTrialEmailOtp(
   return { ok: true }
 }
 
+// ─── Pre-flight existing-subscriber detection ──────────────────────────────
+// Fired right after EMAIL OTP verification on /r/[cid]. If the verified
+// account already holds a live subscription, the trial page pivots to the
+// "welcome back" panel immediately rather than letting the redeemer waste
+// time filling the rest of the form. Runs only after the email step (not
+// after phone) because that's when the session cookie exists — guarantees
+// the welcome-back panel's /dashboard CTA lands logged in, no /login
+// bounce. The submit-time guard inside claimGift stays in place as
+// defence-in-depth for any edge case that slips past this hint.
+
+const LIVE_SUB_STATUSES_FOR_DETECT = ['Active', 'Paused', 'Skipped', 'Scheduled'] as const
+
+export type DetectExistingResult = { existing: boolean }
+
+/**
+ * Check whether the just-verified email's account already holds a live
+ * subscription. The trial flow's email OTP step sets a session cookie via
+ * supabase.auth.verifyOtp; this action reads that session to identify the
+ * customer and check their subs. No session ⇒ no detection (returns false)
+ * — by design, since callers without a session haven't proven ownership.
+ */
+export async function detectExistingSubscriberByEmail(): Promise<DetectExistingResult> {
+  const ssr = await createClient()
+  const { data: { user } } = await ssr.auth.getUser()
+  if (!user) return { existing: false }
+
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { data: liveSubs } = await supabaseAdmin
+    .from('subscriptions')
+    .select('id')
+    .eq('customer_id', user.id)
+    .in('status', [...LIVE_SUB_STATUSES_FOR_DETECT])
+    .limit(1)
+
+  return { existing: (liveSubs?.length ?? 0) > 0 }
+}
+
 export async function claimGift(payload: {
   inviterCid:  string
   firstName:   string
@@ -251,6 +296,95 @@ export async function claimGift(payload: {
   if (!phoneOtp) {
     return {
       error: 'Please verify your WhatsApp number with the 6-digit code before claiming.',
+    }
+  }
+
+  // ── 1c. Existing-subscriber block — acquisition gate ─────────────────────
+  // The welcome meal is for people who haven't tried Dormers yet, not a
+  // freebie for current subscribers. If the redeemer already has a live sub
+  // (Active / Paused / Skipped / Scheduled), we recognise them as a regular
+  // and surface a "welcome back" pivot to sharing their own code instead.
+  //
+  // Two-step check because the verified email might not match the customer
+  // record's email (e.g. user signed up with foo@gmail.com, today they type
+  // a different alias they also own):
+  //   1. Subs under the just-authenticated auth.users.id — covers the common
+  //      case where the redeemer's existing account uses the same email.
+  //   2. Subs under any customers row matched by the verified phone — covers
+  //      the alias case.
+  //
+  // Sits BEFORE the lifetime dedupe so a lapsed ex-customer (no live sub) can
+  // still pass through and claim — the policy is "for non-customers," and an
+  // ex-customer with no live sub qualifies as one.
+  const LIVE_SUB_STATUSES = ['Active', 'Paused', 'Skipped', 'Scheduled']
+
+  const { data: ownLiveSubs } = await supabaseAdmin
+    .from('subscriptions')
+    .select('id')
+    .eq('customer_id', verifiedUser.id)
+    .in('status', LIVE_SUB_STATUSES)
+    .limit(1)
+
+  let isExistingSubscriber = (ownLiveSubs?.length ?? 0) > 0
+
+  if (!isExistingSubscriber) {
+    const { data: phoneCustomer } = await supabaseAdmin
+      .from('customers')
+      .select('id')
+      .eq('whatsapp_number', phoneE164)
+      .maybeSingle()
+
+    if (phoneCustomer && phoneCustomer.id !== verifiedUser.id) {
+      const { data: phoneLiveSubs } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id')
+        .eq('customer_id', phoneCustomer.id)
+        .in('status', LIVE_SUB_STATUSES)
+        .limit(1)
+      isExistingSubscriber = (phoneLiveSubs?.length ?? 0) > 0
+    }
+  }
+
+  if (isExistingSubscriber) {
+    // Audit row so the inviter's Dorm Wars "Your Squad" can render this as
+    // an "Already with us" off-ramp card — closes the silence-on-A's-side
+    // gap. Idempotent on the (inviter_cid, invitee_phone) pair so re-clicks
+    // from the same person don't multiply cards. Status string is unique to
+    // this branch and is explicitly excluded from milestone/tier counts
+    // (referrals-repo.ts filters those on 'gift_claimed' + 'converted').
+    // Reuses gift_claimed_at as the "attempt happened at" timestamp so the
+    // recent-invites query's ORDER BY gift_claimed_at DESC interleaves this
+    // card with real claims by event time. Failure is non-fatal — the block
+    // still fires; we just lose the card for this attempt.
+    const { data: existingPairRow } = await supabaseAdmin
+      .from('referrals')
+      .select('id')
+      .eq('inviter_cid', inviterCid)
+      .eq('invitee_phone', phoneE164)
+      .maybeSingle()
+
+    if (!existingPairRow) {
+      const { error: auditErr } = await supabaseAdmin
+        .from('referrals')
+        .insert({
+          inviter_cid:        inviterCid,
+          inviter_user_id:    inviter.id,
+          invitee_phone:      phoneE164,
+          invitee_email:      emailLiteral,
+          invitee_first_name: firstName,
+          status:             'ineligible_existing_customer',
+          device_fp:          payload.deviceFp ?? null,
+          gift_claimed_at:    new Date().toISOString(),
+        })
+      if (auditErr) {
+        console.error('claimGift: ineligible-existing-customer audit row insert failed', auditErr)
+      }
+    }
+
+    return {
+      blocked: true,
+      code: 'existing_subscriber',
+      reason: "You're already a Dormers regular — the welcome meal is for friends who haven't tried us yet.",
     }
   }
 

@@ -157,6 +157,12 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Used by the trial /r/[cid] DishDetailModal — plain backdrop fade */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* MarqueeBanner — third row tilt + offset on mobile */
 @media (max-width: 768px) {
   .LastDomers {
