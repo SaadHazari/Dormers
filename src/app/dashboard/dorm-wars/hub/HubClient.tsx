@@ -251,7 +251,7 @@ interface Props {
   // they'd unlock by upgrading. `currentPlanId` powers the overlay copy
   // (different framing for "no sub yet" vs "Weekly Flex" vs "Trial").
   dormWarsEligible: boolean
-  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | null
+  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | null
   // Phase 8C — Happening Now feed is cross-dorm now. Each item carries
   // firstName + dormName + isElite (hall_wall flag) so the feed can tag
   // GOATs (tier-4 customers) inline as rare social proof.
@@ -998,7 +998,7 @@ function EliteDormerBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
 function PremiumGateOverlay({
   currentPlanId,
 }: {
-  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | null
+  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | null
 }) {
   // Copy adapts to the current plan so the upsell lands honestly.
   const sub =
@@ -5948,10 +5948,16 @@ function SendScoutModal({
   // a11y parity with Modal (audit P1-7) — Escape dismiss + focus management.
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = 'hub-send-modal-title'
+  // Stash onClose in a ref so the focus-management effect doesn't tear down
+  // every parent re-render. Without this, each keystroke in the name input
+  // re-fires the cleanup + the 60ms dialog-focus setTimeout, which yanks
+  // focus off the <input> and forces the user to click it again per char.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   useEffect(() => {
     if (step === 'closed') return
     const prev = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     document.addEventListener('keydown', handleKey)
     const t = setTimeout(() => dialogRef.current?.focus(), 60)
     return () => {
@@ -5959,7 +5965,7 @@ function SendScoutModal({
       document.removeEventListener('keydown', handleKey)
       prev?.focus?.()
     }
-  }, [step, onClose])
+  }, [step])
 
   if (step === 'closed') return null
   const trimmed = scoutName.trim()
