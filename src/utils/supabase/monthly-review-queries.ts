@@ -83,7 +83,7 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
     const maxFutureIso = maxFuture.toISOString().slice(0, 10)
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, end_date, start_date, status, plan_name')
+        .select('id, end_date, start_date, status, plan_name, delivered_meals')
         .eq('customer_id', userId)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED, SUBSCRIPTION_STATUS.ENDED])
         .lte('end_date', maxFutureIso)
@@ -101,12 +101,23 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
     // Pre-end gating: the SQL filter is widened to the broadest tier's
     // window, so here we narrow back to this customer's specific tier. A
     // monthly customer 5 days from end → too early (window is 4). A weekly
-    // customer 3 days from end → too early (window is 2). A trial 2 days
-    // from end → too early (window is 1).
+    // customer 3 days from end → too early (window is 2). A trial is
+    // post-end only (window is 0) — see PRE_END_WRAP_WINDOW.
     //
     // daysSinceCycleEnd < -preEndWindow means: more days remain to end than
     // the tier's pre-end window allows.
     if (daysSinceCycleEnd < -preEndWindow) {
+        return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
+    }
+
+    // Trial-only gate: a trial is a single meal whose end_date == delivery
+    // day, so eligibility must also wait for the meal to actually be marked
+    // delivered. Without this, the wrap surfaces (strip + Now tray) appear
+    // on delivery-day morning before the meal arrives — asking the customer
+    // to reflect on a meal they haven't tasted. The 7 PM force overlay
+    // doesn't catch this case because it gates on hour, not delivery.
+    const deliveredMeals = (sub.delivered_meals as number | null) ?? 0
+    if (planTier === 'trial' && deliveredMeals < 1) {
         return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
     }
 

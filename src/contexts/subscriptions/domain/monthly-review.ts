@@ -51,18 +51,24 @@ export function planTierFrom(planName: string | null | undefined): WrapPlanTier 
 }
 
 /**
- * Days BEFORE a cycle's end_date when the wrap becomes eligible — mirrors
- * the dashboard's renew banner timing exactly. The wrap and renew CTAs
- * appear together so the customer sees them as one "you're closing this
- * cycle" moment, not two separate prompts.
+ * Days BEFORE a cycle's end_date when the wrap becomes eligible. Mirrors
+ * the dashboard's renew banner for monthly/weekly so the wrap and renew
+ * CTAs appear together as one "you're closing this cycle" moment.
  *   Monthly → 4 days lead-in (matches Monthly Premium/Max renew window)
  *   Weekly  → 2 days lead-in
- *   Trial   → 1 day (last-day-only, same as renew)
+ *   Trial   → 0 (post-end only — see below)
+ *
+ * Trial is special: end_date === start_date === delivery day (a trial is
+ * one meal, see end-date.ts). A non-zero pre-end window would prompt the
+ * customer to "wrap" a meal they haven't tasted yet. The wrap query
+ * additionally requires `delivered_meals >= 1` for trials, so even on
+ * delivery-day morning the wrap stays hidden until the meal is actually
+ * marked delivered.
  */
 export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
     monthly: 4,
     weekly:  2,
-    trial:   1,
+    trial:   0,
 }
 
 /**
