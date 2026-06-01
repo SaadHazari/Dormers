@@ -26,6 +26,7 @@ import {
 } from '@/contexts/subscriptions/domain/subscription-status'
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
+import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 
@@ -315,11 +316,12 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     )
   }
 
-  // ── Customer-facing fanout (WhatsApp + email; Zoho skipped) ────────────
-  // Reuses the existing 'payment_order_confirmed' template — reads slightly
-  // oddly ("Your payment of AED 0.00") but Meta-approved + ships today.
-  // A dedicated 'plan_activated_credit_only' template is queued for a
-  // follow-up phase once you've registered it in Meta Business Manager.
+  // ── Customer-facing fanout ─────────────────────────────────────────────
+  // WhatsApp + welcome email fire through the standard fanout. Zoho takes
+  // a separate path (createAndSendCompedInvoice) — its invoice carries a
+  // Dorm Wars Credit Redemption discount line that nets the balance to
+  // AED 0, no payment record. Customer ends up with a real FTA invoice
+  // they can keep, just without a Stripe payment receipt.
   const customerEmail = await supabaseAdmin
     .from('customers')
     .select('email')
@@ -327,6 +329,8 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     .maybeSingle()
     .then(r => (r.data as { email?: string } | null)?.email ?? '')
   if (customerEmail) {
+    // Fanout: WhatsApp + welcome email. Zoho is suppressed here; we call
+    // it directly below with the comped-invoice helper.
     try {
       await runPostPaymentFanout(
         {
@@ -346,14 +350,48 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
           paymentIntentId: '',
           paymentDateIso: new Date().toISOString().slice(0, 10),
         },
-        // Zoho is skipped — no cash transaction. The credit redemption was
-        // already booked when the credit was issued (refer-a-friend payout,
-        // cycle reward, etc.); recognising revenue again here would
-        // double-count.
         { skipChannels: ['zoho'] },
       )
     } catch (err) {
       console.error('⚠️  free-checkout fanout wrapper threw:', err)
+    }
+
+    // Zoho comped invoice — plan price as line subtotal, equal discount,
+    // balance lands at AED 0. Stamps zoho_invoice_id / number / url on the
+    // order row the same way the paid path does, so the order looks fully
+    // settled in dashboards.
+    try {
+      const { invoiceId, invoiceNumber, invoiceUrl } = await createAndSendCompedInvoice({
+        customerName: name ?? '',
+        customerEmail,
+        customerPhone: phone ?? '',
+        customerCid: customerRow?.cid ?? '',
+        planName: planDef.label,
+        mealsCount: total_meals,
+        pricePerMeal,
+        planTotalAed: pricePerMeal * total_meals,
+        sessionRef: syntheticOrderNumber,
+        startDateIso: isoDate(startDt),
+        paymentDateIso: new Date().toISOString().slice(0, 10),
+      })
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          zoho_invoice_id: invoiceId,
+          zoho_invoice_number: invoiceNumber,
+          zoho_invoice_url: invoiceUrl ?? null,
+          zoho_synced_at: new Date().toISOString(),
+        })
+        .eq('id', orderId)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('⚠️  free-checkout Zoho comped invoice failed:', msg)
+      void notifyAdmin(
+        `Free-checkout Zoho invoice FAILED for order ${orderId} (user ${userId}). ` +
+        `Customer got their plan + WhatsApp confirmation but no FTA invoice. ` +
+        `Error: ${msg}. Investigate + manually mint the invoice if needed.`,
+        orderId,
+      )
     }
   }
 }

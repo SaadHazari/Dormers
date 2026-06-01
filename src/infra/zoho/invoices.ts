@@ -352,3 +352,100 @@ export async function createAndSendPaidInvoice(input: {
     invoiceUrl: invoice.invoice_url,
   };
 }
+
+/**
+ * Free-checkout invoice pipeline. The customer's Dorm Wars credit + tier %
+ * covered the full plan total, so no Stripe transaction happened. We still
+ * mint a real FTA-compliant invoice showing the line subtotal + a
+ * "Dorm Wars Credit Redemption" discount line that nets to AED 0.
+ *
+ * Differences from the paid pipeline:
+ *   • No recordPayment — Zoho rejects 0-amount payments
+ *   • Balance-zero status flip — try the auto-mark-paid path first; if
+ *     Zoho leaves it 'open' after creation, call mark_as_paid explicitly
+ *   • Email uses /invoices/{id}/email with subject + body override (the
+ *     payment-receipt email path doesn't apply when there's no payment row)
+ */
+export async function createAndSendCompedInvoice(input: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerCid: string;
+  planName: string;
+  mealsCount: number;
+  pricePerMeal: number;
+  /** Full plan total in AED — line subtotal AND the discount amount. */
+  planTotalAed: number;
+  sessionRef: string;
+  startDateIso: string;
+  paymentDateIso: string;
+  notes?: string;
+}): Promise<{ invoiceId: string; invoiceNumber: string; invoiceUrl?: string }> {
+  const contact = await findOrCreateContact({
+    name: input.customerName,
+    email: input.customerEmail,
+    phone: input.customerPhone,
+    cid: input.customerCid,
+  });
+
+  // Notes line clarifies the discount source. Zoho's discount field is a
+  // bare amount with the default label "Discount"; the note tells the
+  // customer (and any auditor) exactly which mechanism settled the balance.
+  const compedNote =
+    input.notes ??
+    'Plan settled in full using your Dorm Wars credit balance. No payment due.';
+
+  const invoice = await createInvoice({
+    contactId: contact.contact_id,
+    customerCid: input.customerCid,
+    planName: input.planName,
+    mealsCount: input.mealsCount,
+    pricePerMeal: input.pricePerMeal,
+    sessionRef: input.sessionRef,
+    startDateIso: input.startDateIso,
+    paymentDateIso: input.paymentDateIso,
+    // Discount equals plan total → balance lands at AED 0.
+    discountAed: input.planTotalAed,
+    notes: compedNote,
+  });
+
+  // Zoho marks invoices with balance=0 as 'paid' automatically in most
+  // configurations, but a few orgs leave them 'open'. Re-read the invoice
+  // and call mark_as_paid if still open. Idempotent — if status is already
+  // paid the endpoint either no-ops or 400s harmlessly.
+  type InvoiceRead = { invoice: { status?: string; balance?: number } };
+  const verify = await zohoFetch<InvoiceRead>(`/invoices/${invoice.invoice_id}`);
+  if (verify.invoice?.status && verify.invoice.status.toLowerCase() !== 'paid') {
+    try {
+      await zohoFetch(`/invoices/${invoice.invoice_id}/status/paid`, { method: 'POST' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `Zoho mark_as_paid fallback failed for invoice ${invoice.invoice_number}: ${msg}. ` +
+        `Invoice balance is AED 0 either way; ops can flip status manually.`,
+      );
+    }
+  }
+
+  // Email the customer using the invoice email endpoint (vs payment-receipt
+  // path used by paid invoices). Subject is brand-side passive; body
+  // inherits whatever's configured in Zoho's invoice email template.
+  type EmailDefaults = { data: { subject: string; body: string } };
+  const defaults = await zohoFetch<EmailDefaults>(`/invoices/${invoice.invoice_id}/email`);
+  await zohoFetch(`/invoices/${invoice.invoice_id}/email`, {
+    method: 'POST',
+    body: {
+      to_mail_ids: [input.customerEmail],
+      subject: 'Your Dormers invoice (paid using Dorm Wars credit)',
+      body: defaults.data.body,
+      send_from_org_email_id: true,
+      attach_pdf: true,
+    },
+  });
+
+  return {
+    invoiceId: invoice.invoice_id,
+    invoiceNumber: invoice.invoice_number,
+    invoiceUrl: invoice.invoice_url,
+  };
+}
