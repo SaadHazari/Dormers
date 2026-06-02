@@ -20,6 +20,7 @@ import {
   setTrialPassword,
   verifyTrialEmailOtp,
   detectExistingSubscriberByEmail,
+  signOutTrialSession,
 } from './actions'
 
 // Matches the dark onboarding page exactly — same bg, same primitives, same
@@ -72,11 +73,14 @@ export default function ReferralLandingPage() {
   const [error,       setError]       = useState('')
   const [done,        setDone]        = useState(false)
   const [isClaiming,  startClaiming]  = useTransition()
-  // Set when the claim is rejected by the lifetime phone/email dedupe — the
-  // user already has a Dormers account from a prior claim, so the recovery
-  // path is /login (with the email prefilled) rather than re-attempting the
-  // claim. Value holds the email to forward to the login page.
-  const [alreadyClaimedEmail, setAlreadyClaimedEmail] = useState<string | null>(null)
+  // Set when the claim is rejected by the lifetime phone/email dedupe. We
+  // deliberately keep this a plain boolean and reveal NOTHING about which
+  // identifier matched — surfacing "wrong email" or prefilling /login with the
+  // typed address both leak that email is the lever (cheap to rotate) and
+  // mislead the common phone-trigger case (the typed email has no account). The
+  // recovery panel instead offers two identity-agnostic paths: sign in, or sign
+  // up on a paid plan.
+  const [alreadyClaimed, setAlreadyClaimed] = useState(false)
   // Set when the redeemer turns out to already have a live subscription. The
   // welcome meal is for non-customers; we pivot existing regulars to sharing
   // their own code instead of issuing a second free meal.
@@ -330,7 +334,7 @@ export default function ReferralLandingPage() {
       if ('ok' in result)      { setDone(true); return }
       if ('blocked' in result) {
         if (result.code === 'already_claimed') {
-          setAlreadyClaimedEmail(email.trim())
+          setAlreadyClaimed(true)
           return
         }
         if (result.code === 'existing_subscriber') {
@@ -341,6 +345,18 @@ export default function ReferralLandingPage() {
         return
       }
       setError(result.error)
+    })
+  }
+
+  // ── Recovery navigation off the "already claimed" panel ───────────────────
+  // Both CTAs first clear the throwaway session the email-OTP step created (see
+  // signOutTrialSession) so /login and /onboarding start logged-out, then
+  // navigate. Sign-out is best-effort and we route regardless.
+  const [recovering, startRecovering] = useTransition()
+  function recoverTo(href: string) {
+    startRecovering(async () => {
+      await signOutTrialSession()
+      router.push(href)
     })
   }
 
@@ -370,6 +386,12 @@ export default function ReferralLandingPage() {
   const otpVerifyCls= 'w-full rounded-xl px-4 py-3 text-[13px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   const otpSendCls  = 'w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#f57f20]/40 text-[#f57f20] hover:bg-[#f57f20]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   const verifiedCls = 'flex items-center justify-center gap-2 w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#22c55e]/40 text-[#22c55e] bg-[#22c55e]/[0.06]'
+  // Warm cream-on-navy heading treatment — the same top-lit gradient the hero
+  // headline uses (cream stops with a faint orange breath, never sharp #fff).
+  // Use this for ALL display headings sitting on the navy card; pb-1 keeps the
+  // gradient from clipping descenders. Solid `text-[#f5f0e8]` is the matching
+  // cream for smaller white-on-navy text where a clipped gradient reads poorly.
+  const warmHeadingCls = 'bg-clip-text text-transparent bg-gradient-to-b from-[#fdf8ef] via-[#f0e6cf] to-[#d6c8a8] drop-shadow-[0_1px_0_rgba(0,0,0,0.25)] pb-1'
 
   if (loading) {
     return (
@@ -454,26 +476,33 @@ export default function ReferralLandingPage() {
             backdropFilter:   'blur(24px) saturate(1.4)',
             boxShadow:        '0 16px 50px rgba(9,24,37,0.20), inset 0 1px 0 rgba(255,255,255,0.05)',
           }
-          // Transient states (welcome-back, success) keep the narrow centered
-          // card — they're moment-of-confirmation surfaces that benefit from
-          // visual focus, not marketing real estate. Only the active claim
-          // form opens up into the 2-col desktop layout.
-          if (alreadyClaimedEmail || existingSubscriber || done) {
+          // Recovery panels (welcome-back, existing-subscriber) are short and
+          // keep the narrow centered card — moment-of-confirmation surfaces
+          // that benefit from visual focus. The success state carries far more
+          // (confirmation + full password lock-in + checklist), so on desktop
+          // it opens into a wider 2-col layout to avoid the tall slender ribbon
+          // a single 384px column would produce. Mobile stays single-column.
+          if (alreadyClaimed || existingSubscriber || done) {
+            const isSuccess = done && !alreadyClaimed && !existingSubscriber
             return (
               <div
-                className="w-full max-w-sm rounded-2xl border border-white/[0.08] p-8"
+                className={`w-full rounded-2xl border border-white/[0.08] p-8 ${
+                  isSuccess ? 'max-w-sm lg:max-w-3xl lg:p-10' : 'max-w-sm'
+                }`}
                 style={glassStyle}
               >
-                {alreadyClaimedEmail ? (
-            // ── "Welcome back" recovery panel ────────────────────────────────
-            // Replaces the dead-end inline error pill ("you've already had your
-            // welcome meal — pick a plan to keep going") that left the user
-            // with no actionable CTA. By definition, an `already_claimed` block
-            // means a Dormers account exists for this phone/email, so we route
-            // them to /login with the email prefilled — single tap to recover.
-            (() => {
-              const loginHref = `/login?email=${encodeURIComponent(alreadyClaimedEmail)}`
-              return (
+                {alreadyClaimed ? (
+            // ── "Already claimed" recovery panel ─────────────────────────────
+            // The lifetime dedupe fires on EITHER phone OR email — so this panel
+            // must stay identity-agnostic. It deliberately does NOT say which
+            // one matched, does NOT prefill /login with the typed email (that
+            // both leaks "email is the lever" and dead-ends the phone-trigger
+            // case where the typed email has no account), and offers two real
+            // exits: sign into an existing account, or sign up on a paid plan.
+            // The free welcome meal stays closed — "See plans" is the PAID
+            // onboarding flow, not another freebie. Both CTAs clear the
+            // throwaway email-OTP session first (recoverTo → signOutTrialSession).
+            (
                 <div className="text-center">
                   <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#f57f20]/[0.12] border border-[#f57f20]/30 flex items-center justify-center">
                     <CheckCircle2 size={26} strokeWidth={2.2} className="text-[#f57f20]" />
@@ -481,32 +510,31 @@ export default function ReferralLandingPage() {
                   <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">
                     Welcome back
                   </p>
-                  <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                  <h1 className={`text-[24px] font-black tracking-tight leading-tight mb-3 ${warmHeadingCls}`}>
                     Looks like we&rsquo;ve already met.
                   </h1>
                   <p className="text-[13px] text-[#f5f0e8]/65 leading-relaxed mb-6">
-                    You&rsquo;ve already had your welcome meal from us — but your account&rsquo;s still here.
-                    Sign in to pick a plan and keep dinner on autopilot.
-                  </p>
-                  <Link
-                    href={loginHref}
-                    className="block w-full rounded-xl px-4 py-3.5 text-[14px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors mb-3"
-                  >
-                    Sign in to pick a plan
-                  </Link>
-                  <p className="text-[11px] text-[#f5f0e8]/50">
-                    Forgot your password? You can reset it on the next screen.
+                    This phone or email has already used a welcome meal — but you&rsquo;re
+                    always welcome to keep eating with us.
                   </p>
                   <button
                     type="button"
-                    onClick={() => setAlreadyClaimedEmail(null)}
-                    className="mt-5 text-[11px] text-[#f5f0e8]/45 hover:text-[#f5f0e8]/70 underline underline-offset-2"
+                    onClick={() => recoverTo('/login')}
+                    disabled={recovering}
+                    className="block w-full rounded-xl px-4 py-3.5 text-[14px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors mb-3 disabled:opacity-60 disabled:pointer-events-none"
                   >
-                    Wrong email? Go back
+                    {recovering ? 'One sec…' : 'Sign in'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => recoverTo('/onboarding')}
+                    disabled={recovering}
+                    className="block w-full rounded-xl px-4 py-3.5 text-[14px] font-bold uppercase tracking-widest border border-white/15 text-[#f5f0e8] hover:bg-white/[0.06] transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                  >
+                    See plans &rarr;
                   </button>
                 </div>
-              )
-            })()
+            )
           ) : existingSubscriber ? (
             // ── "You're already with us" pivot panel ─────────────────────────
             // Fires when the redeemer turns out to have a live subscription.
@@ -524,7 +552,7 @@ export default function ReferralLandingPage() {
                 <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">
                   Welcome back
                 </p>
-                <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                <h1 className={`text-[24px] font-black tracking-tight leading-tight mb-3 ${warmHeadingCls}`}>
                   You&rsquo;re already eating with us.
                 </h1>
                 <p className="text-[13px] text-[#f5f0e8]/65 leading-relaxed mb-6">
@@ -568,28 +596,36 @@ export default function ReferralLandingPage() {
               const lowercased    = deliveryLabel.toLowerCase()
               const passOk        = isPasswordStrong(password)
               return (
-                <div>
-                  <div className="text-center mb-6">
-                    <div className="mx-auto mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
+                <div className="lg:grid lg:grid-cols-2 lg:gap-10 lg:items-center">
+                  {/* LEFT — confirmation. Centered on mobile; left-aligned and
+                      vertically centered against the form column on desktop. */}
+                  <div className="text-center lg:text-left mb-6 lg:mb-0">
+                    <div className="mx-auto lg:mx-0 mb-5 w-14 h-14 rounded-full bg-[#22c55e]/[0.12] border border-[#22c55e]/30 flex items-center justify-center">
                       <Check size={24} strokeWidth={2.5} className="text-[#22c55e]" />
                     </div>
                     <p className="text-[#f57f20] text-[12px] font-bold uppercase tracking-widest mb-2">You&apos;re in</p>
-                    <h1 className="text-[24px] font-black text-white tracking-tight leading-tight mb-3">
+                    <h1 className={`text-[24px] lg:text-[30px] font-black tracking-tight leading-tight mb-3 ${warmHeadingCls}`}>
                       Your meal is{deliveryLabel === 'Tonight' ? ' on its way.' : ` arriving ${lowercased}.`}
                     </h1>
                     <p className="text-[13px] text-[#f5f0e8]/65 leading-relaxed">
                       Expect delivery <span className="text-[#f5f0e8]/85 font-semibold">{lowercased} between 7–8 PM</span>.
                       We&apos;ll WhatsApp you when it&apos;s close.
                     </p>
+                    <p className="hidden lg:block mt-5 text-[11px] text-[#f5f0e8]/40">
+                      Your first monthly plan comes with a{' '}
+                      <span className="text-[#f5f0e8]/65 font-semibold">5% welcome rate</span>.
+                    </p>
                   </div>
 
-                  {/* Lock-in step — required for normal email+password login later */}
-                  <div className="space-y-3 pt-6 border-t border-white/[0.08]">
+                  {/* RIGHT — lock-in step (required for normal email+password
+                      login later). Divider flips from a top rule on mobile to a
+                      left rule on desktop so the two columns read as one card. */}
+                  <div className="space-y-3 pt-6 border-t border-white/[0.08] lg:pt-0 lg:border-t-0 lg:border-l lg:pl-10">
                     <div>
                       <p className="text-[#f57f20] text-[11px] font-bold uppercase tracking-widest mb-1.5">
                         Last step
                       </p>
-                      <h2 className="text-[18px] font-black text-white tracking-tight leading-tight">
+                      <h2 className={`text-[18px] font-black tracking-tight leading-tight ${warmHeadingCls}`}>
                         Lock in your account
                       </h2>
                       <p className="text-[12px] text-[#f5f0e8]/55 leading-snug mt-1.5">
@@ -609,7 +645,7 @@ export default function ReferralLandingPage() {
                           onChange={e => setPassword(e.target.value)}
                           autoComplete="new-password"
                           disabled={passwordSaved || savingPassword}
-                          className={`w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-white placeholder-[#f5f0e8]/55 disabled:opacity-60 ${showPassword ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'} placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal`}
+                          className={`w-full rounded-xl px-4 py-3 pr-11 outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-[#f5f0e8] placeholder-[#f5f0e8]/55 disabled:opacity-60 ${showPassword ? 'text-[14px]' : 'text-[18px] tracking-[0.22em] font-semibold'} placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal`}
                         />
                         <button
                           type="button"
@@ -653,7 +689,7 @@ export default function ReferralLandingPage() {
                     </button>
                   </div>
 
-                  <p className="mt-5 text-[11px] text-[#f5f0e8]/40 text-center">
+                  <p className="lg:hidden mt-6 text-[11px] text-[#f5f0e8]/40 text-center">
                     Your first paid plan comes with{' '}
                     <span className="text-[#f5f0e8]/65 font-semibold">20% off</span>.
                   </p>
@@ -1086,7 +1122,17 @@ export default function ReferralLandingPage() {
                   border + white/55 text below keeps the slot legible on
                   either system theme until verification completes. */}
               {(() => {
-                const isDisabled = isClaiming || !phoneVerified || !emailVerified
+                // Gate on the full claim contract, not just the two OTPs.
+                // claimGift() also requires firstName + dorm + preference, so
+                // enabling on verification alone invited a click that
+                // handleSubmit would only bounce back with an inline error.
+                const isDisabled =
+                  isClaiming ||
+                  !firstName.trim() ||
+                  !phoneVerified ||
+                  !emailVerified ||
+                  !dorm ||
+                  !preference
                 return (
                   <button
                     type="submit"
@@ -1102,11 +1148,26 @@ export default function ReferralLandingPage() {
                 )
               })()}
 
-              {(!phoneVerified || !emailVerified) && (
-                <p className="text-center text-[11px] text-[#f5f0e8]/50">
-                  Verify your WhatsApp + email above to unlock the claim button.
-                </p>
-              )}
+              {/* Tell the user exactly what's still missing — otherwise the
+                  button sits greyed-out with no explanation once both OTPs
+                  pass but the dorm/preference selects are still empty. */}
+              {(() => {
+                if (!phoneVerified || !emailVerified) {
+                  return (
+                    <p className="text-center text-[11px] text-[#f5f0e8]/50">
+                      Verify your WhatsApp + email above to unlock the claim button.
+                    </p>
+                  )
+                }
+                if (!firstName.trim() || !dorm || !preference) {
+                  return (
+                    <p className="text-center text-[11px] text-[#f5f0e8]/50">
+                      Add your name, dorm, and meal preference to unlock the claim button.
+                    </p>
+                  )
+                }
+                return null
+              })()}
 
               <p className="text-center text-[11px] text-[#f5f0e8]/50">
                 By continuing you agree to our{' '}
@@ -1334,7 +1395,7 @@ function DishDetailModal({
           <div className="text-[11px] font-bold uppercase tracking-widest text-[#f57f20]">
             {dateLabel}
           </div>
-          <h2 className="mt-2 text-[24px] font-black text-white leading-tight tracking-tight">
+          <h2 className="mt-2 text-[24px] font-black leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-[#fdf8ef] via-[#f0e6cf] to-[#d6c8a8] drop-shadow-[0_1px_0_rgba(0,0,0,0.25)] pb-1">
             {dish.name}
           </h2>
           <p className="mt-3 text-[14px] text-[#f5f0e8]/65 leading-relaxed">
@@ -1343,13 +1404,13 @@ function DishDetailModal({
           <div className="mt-5 grid grid-cols-2 gap-2.5">
             <div className="rounded-xl px-4 py-3 bg-white/[0.04] border border-white/[0.06]">
               <div className="text-[10px] font-bold uppercase tracking-widest text-[#f5f0e8]/55">Calories</div>
-              <div className="mt-1.5 text-[22px] font-black text-white leading-none">
+              <div className="mt-1.5 text-[22px] font-black text-[#f5f0e8] leading-none">
                 {cal.toFixed(0)}<span className="text-[11px] font-medium text-[#f5f0e8]/55 ml-1">kcal</span>
               </div>
             </div>
             <div className="rounded-xl px-4 py-3 bg-white/[0.04] border border-white/[0.06]">
               <div className="text-[10px] font-bold uppercase tracking-widest text-[#f5f0e8]/55">Protein</div>
-              <div className="mt-1.5 text-[22px] font-black text-white leading-none">
+              <div className="mt-1.5 text-[22px] font-black text-[#f5f0e8] leading-none">
                 {protein.toFixed(0)}<span className="text-[11px] font-medium text-[#f5f0e8]/55 ml-1">g</span>
               </div>
             </div>

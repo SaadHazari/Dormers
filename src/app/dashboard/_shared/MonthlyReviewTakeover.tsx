@@ -50,7 +50,13 @@ export function MonthlyReviewTakeover({
     onClose,
 }: MonthlyReviewTakeoverProps) {
     const vocab = wrapVocabFor(planTier)
-    const [step, setStep] = useState(0) // 0 = opening, 1..7 = questions
+    // Trial = a single meal. It gets its own short flow (opening + 3 questions)
+    // instead of the monthly/weekly retrospective (opening + 7), because a
+    // one-meal customer has no breadth to reflect on — the wrap's job here is to
+    // capture a first impression and convert to a paid plan, not recap a cycle.
+    const isTrial = planTier === 'trial'
+    const totalSteps = isTrial ? 4 : TOTAL_STEPS
+    const [step, setStep] = useState(0) // 0 = opening, then questions
     const [reveal, setReveal] = useState<{ rewardPct: 50 | 100; stats: MonthlyRevealStats } | null>(null)
     const [isSubmitting, startSubmitting] = useTransition()
     const [submitError, setSubmitError] = useState<string | null>(null)
@@ -72,7 +78,7 @@ export function MonthlyReviewTakeover({
 
     const isLate = daysLeftForFullReward <= 0
     const isReveal = reveal !== null
-    const barPct = isReveal ? 100 : (step / TOTAL_STEPS) * 100
+    const barPct = isReveal ? 100 : (step / totalSteps) * 100
 
     // ── Draft persistence ───────────────────────────────────────────────────
     // Save/restore in-progress answers to localStorage so closing the takeover
@@ -88,7 +94,7 @@ export function MonthlyReviewTakeover({
             if (!raw) return
             const d = JSON.parse(raw) as Record<string, unknown>
             if (d.cycleLabel !== cycleLabel) return // different cycle — ignore old draft
-            if (typeof d.step === 'number') setStep(Math.max(0, Math.min(TOTAL_STEPS - 1, d.step)))
+            if (typeof d.step === 'number') setStep(Math.max(0, Math.min(totalSteps - 1, d.step)))
             if (Array.isArray(d.signupTriggers)) setSignupTriggers(d.signupTriggers as string[])
             if (typeof d.signupTriggersOther === 'string') setSignupTriggersOther(d.signupTriggersOther)
             if (Array.isArray(d.jobs)) setJobs(d.jobs as string[])
@@ -148,7 +154,17 @@ export function MonthlyReviewTakeover({
     }
 
     const handleSubmit = () => {
-        if (!alternative || !alternativeCostAed || !renewalIntent || !recommend) return
+        // Trial asks 3 questions (baseline + meal + subscribe-intent) and skips
+        // the recommend screen — so derive `recommend` from the intent to keep
+        // the payload schema satisfied without a fourth question.
+        if (isTrial) {
+            if (!alternative || !alternativeCostAed || !renewalIntent) return
+        } else {
+            if (!alternative || !alternativeCostAed || !renewalIntent || !recommend) return
+        }
+        const effectiveRecommend: RecommendAnswer = isTrial
+            ? ((renewalIntent === 'definitely' || renewalIntent === 'probably') ? 'yes_general' : 'no')
+            : (recommend as RecommendAnswer)
         setSubmitError(null)
         startSubmitting(async () => {
             const result = await onSubmit({
@@ -163,7 +179,7 @@ export function MonthlyReviewTakeover({
                 alternativeCostAed: alternativeCostAed as AlternativeCostAed,
                 renewalIntent: renewalIntent as RenewalIntent,
                 renewalReason,
-                recommend: recommend as RecommendAnswer,
+                recommend: effectiveRecommend,
                 recommendText,
             })
             if (result.ok) {
@@ -238,7 +254,7 @@ export function MonthlyReviewTakeover({
                             color: TIER_POP_TEXT.muted,
                             fontFeatureSettings: '"tnum"',
                         }}>
-                            {step} / {TOTAL_STEPS - 1}
+                            {step} / {totalSteps - 1}
                         </span>
                     )}
 
@@ -309,8 +325,113 @@ export function MonthlyReviewTakeover({
                     </div>
                 )}
 
+                {/* ── Trial flow (single meal): 3 questions ─────────────────── */}
+                {/* Trial Q1 — baseline: what dinners looked like before Dormers + cost.
+                    Mom-Test gold: anchors on real past behaviour, not a hypothetical,
+                    and surfaces the value contrast that powers the conversion close. */}
+                {isTrial && step === 1 && !isReveal && (
+                    <div style={SCREEN}>
+                        <Eyebrow color={TIER_POP_TEXT.muted}>Before tonight</Eyebrow>
+                        <H1>Before this, what were your dinners <Accent>usually</Accent>?</H1>
+                        <Sub>Pick the closest — just the honest baseline.</Sub>
+                        <ChipGrid
+                            options={ALTERNATIVE_OPTIONS}
+                            selected={alternative ? [alternative] : []}
+                            onToggle={(id) => setAlternative(alternative === id ? '' : id)}
+                        />
+                        <OtherTextRow
+                            value={alternativeOther}
+                            setValue={setAlternativeOther}
+                            placeholder="Something else? Tell us..."
+                        />
+                        <div style={{ marginTop: 40, paddingTop: 28, borderTop: '1px solid rgba(245,240,232,0.10)' }}>
+                            <Eyebrow color={TIER_POP_TEXT.muted}>And the cost</Eyebrow>
+                            <H2>What did that run you on a typical night?</H2>
+                            <ChipGrid
+                                options={ALTERNATIVE_COST_OPTIONS.map((c) => ({ id: c.id, label: c.label }))}
+                                selected={alternativeCostAed ? [alternativeCostAed] : []}
+                                onToggle={(id) => setAlternativeCostAed(alternativeCostAed === id ? '' : id as AlternativeCostAed)}
+                            />
+                        </div>
+                        <ContinueButton enabled={!!alternative && !!alternativeCostAed} onClick={next} label="Continue" />
+                    </div>
+                )}
+
+                {/* Trial Q2 — the meal itself. Framed to invite the negative
+                    (Mom-Test: asking "what was off" beats "did you like it", which
+                    always gets a polite yes). Optional. */}
+                {isTrial && step === 2 && !isReveal && (
+                    <div style={SCREEN}>
+                        <Eyebrow color={TIER_POP_TEXT.muted}>Tonight&rsquo;s meal</Eyebrow>
+                        <H1>How was it &mdash; <Accent>honestly</Accent>?</H1>
+                        <Sub>Most useful if you tell us what was off. That&rsquo;s how the kitchen gets better.</Sub>
+                        <BigTextarea
+                            value={frictionMoment}
+                            setValue={setFrictionMoment}
+                            placeholder="Portion felt small · a touch too spicy · arrived later than I expected · honestly it was great — anything."
+                        />
+                        <ContinueButton
+                            enabled
+                            onClick={next}
+                            label={frictionMoment ? 'Continue' : 'Nothing to flag — continue'}
+                            muted={!frictionMoment}
+                        />
+                    </div>
+                )}
+
+                {/* Trial Q3 — the decision, as a real read (not a hypothetical
+                    "would you?"). The negative path captures the single most
+                    valuable trial signal: the actual objection. Submits the wrap. */}
+                {isTrial && step === 3 && !isReveal && (
+                    <div style={SCREEN_NARROW}>
+                        <Eyebrow color={TIER_POP_TEXT.muted}>What&rsquo;s next</Eyebrow>
+                        <H1>Want dinner <Accent>handled</Accent> for the month?</H1>
+                        <Sub>Just an honest read — you pick the actual plan on the next screen.</Sub>
+                        <VerticalButtonStack
+                            options={[
+                                { id: 'definitely',   label: 'Yes — I’m in',  tone: 'positive' },
+                                { id: 'probably',     label: 'Probably',          tone: 'neutral' },
+                                { id: 'probably_not', label: 'Probably not',      tone: 'caution' },
+                                { id: 'no',           label: 'Not for me',        tone: 'negative' },
+                            ]}
+                            selected={renewalIntent}
+                            onSelect={(id) => setRenewalIntent(id as RenewalIntent)}
+                        />
+                        {(renewalIntent === 'probably_not' || renewalIntent === 'no') && (
+                            <BigTextarea
+                                value={renewalReason}
+                                setValue={setRenewalReason}
+                                placeholder="What&rsquo;s holding you back? This is the most useful thing you can tell us."
+                            />
+                        )}
+
+                        {submitError && (
+                            <div style={{
+                                marginTop: 20,
+                                padding: '10px 16px',
+                                borderRadius: 'var(--radius-md)',
+                                background: 'rgba(239,68,68,0.10)',
+                                border: '1px solid rgba(239,68,68,0.35)',
+                                color: '#fca5a5',
+                                fontSize: 13, fontWeight: 600,
+                                lineHeight: 1.5,
+                            }}>
+                                {submitError}
+                            </div>
+                        )}
+
+                        <ContinueButton
+                            enabled={!!renewalIntent && !isSubmitting}
+                            onClick={handleSubmit}
+                            label={isSubmitting
+                                ? 'Submitting...'
+                                : `See your meal wrap · +AED ${isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED}`}
+                        />
+                    </div>
+                )}
+
                 {/* Screen 1 — Q1: What got you to Dormers? */}
-                {step === 1 && !isReveal && (
+                {!isTrial && step === 1 && !isReveal && (
                     <div style={SCREEN_WIDE}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>Where it started</Eyebrow>
                         <H1>What got you to try Dormers?</H1>
@@ -330,7 +451,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 2 — Q2: What did Dormers do for you? */}
-                {step === 2 && !isReveal && (
+                {!isTrial && step === 2 && !isReveal && (
                     <div style={SCREEN_WIDE}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>What it did for you</Eyebrow>
                         <H1>What did Dormers do for you?</H1>
@@ -350,7 +471,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 3 — Q3: best moment */}
-                {step === 3 && !isReveal && (
+                {!isTrial && step === 3 && !isReveal && (
                     <div style={SCREEN}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>Your highlight</Eyebrow>
                         <H1>Tell us about a meal moment that <Accent>worked</Accent>.</H1>
@@ -365,7 +486,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 4 — Q4: friction moment */}
-                {step === 4 && !isReveal && (
+                {!isTrial && step === 4 && !isReveal && (
                     <div style={SCREEN}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>Where we missed</Eyebrow>
                         <H1>And one that <Accent>didn&rsquo;t quite land</Accent>?</H1>
@@ -380,7 +501,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 5 — Q5: counterfactual + cost */}
-                {step === 5 && !isReveal && (
+                {!isTrial && step === 5 && !isReveal && (
                     <div style={SCREEN}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>Without us</Eyebrow>
                         <H1>If Dormers weren&rsquo;t an option, what would you have eaten?</H1>
@@ -419,7 +540,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 6 — Q6: renewal intent */}
-                {step === 6 && !isReveal && (
+                {!isTrial && step === 6 && !isReveal && (
                     <div style={SCREEN_NARROW}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>What&rsquo;s next</Eyebrow>
                         <H1>Will you renew?</H1>
@@ -453,7 +574,7 @@ export function MonthlyReviewTakeover({
                 )}
 
                 {/* Screen 7 — Q7: recommend + open mic + submit */}
-                {step === 7 && !isReveal && (
+                {!isTrial && step === 7 && !isReveal && (
                     <div style={SCREEN_NARROW}>
                         <Eyebrow color={TIER_POP_TEXT.muted}>Last word</Eyebrow>
                         <H1>Would you recommend Dormers?</H1>
@@ -559,11 +680,12 @@ function RevealScreen({
 }) {
     const vocab = wrapVocabFor(planTier)
     const router = useRouter()
+    const isTrial = planTier === 'trial'
     // Tier-aware next-trigger destination: trial users haven't chosen a plan yet,
     // so the most meaningful next action is the plan picker. Returning customers
     // go straight to the next cycle's menu.
-    const nextHref = planTier === 'trial' ? '/dashboard/plan' : '/dashboard/menu'
-    const nextLabel = planTier === 'trial' ? 'Pick your plan' : "See what's cooking next"
+    const nextHref = isTrial ? '/dashboard/plan' : '/dashboard/menu'
+    const nextLabel = isTrial ? 'Pick your plan' : "See what's cooking next"
     return (
         <div style={SCREEN_REVEAL}>
             <div style={{
@@ -640,6 +762,34 @@ function RevealScreen({
                     {rewardPct}% Dorm Wars credit earned
                 </div>
             </div>
+
+            {/* Trial conversion close — the offer, framed as the natural next
+                step. The 5% welcome rate is real (applied at checkout for the
+                first monthly plan); the AED reward is shown separately, not
+                folded in. No invented prices — the plan picker shows live rates. */}
+            {isTrial && (
+                <div style={{
+                    marginTop: 28,
+                    padding: '18px 20px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'linear-gradient(135deg, rgba(245,127,32,0.12) 0%, rgba(255,170,0,0.07) 100%)',
+                    border: '1px solid rgba(245,127,32,0.32)',
+                }}>
+                    <div style={{
+                        fontSize: 11, fontWeight: 700, letterSpacing: '0.16em',
+                        textTransform: 'uppercase', color: '#ffc66b', marginBottom: 8,
+                    }}>
+                        Your welcome rate
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: TIER_POP_TEXT.primary, lineHeight: 1.4 }}>
+                        Your first monthly plan comes with <Accent>5% off</Accent>.
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 13, color: TIER_POP_TEXT.muted, lineHeight: 1.5 }}>
+                        Plus the AED {MONTHLY_REWARD_AED} you just earned — yours to keep. Weekly plans
+                        don&rsquo;t carry the welcome rate, so monthly&rsquo;s the smart pick.
+                    </div>
+                </div>
+            )}
 
             <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <button

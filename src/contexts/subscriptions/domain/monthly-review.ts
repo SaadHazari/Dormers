@@ -45,7 +45,12 @@ export function wrapVocabFor(tier: WrapPlanTier): WrapVocab {
  */
 export function planTierFrom(planName: string | null | undefined): WrapPlanTier {
     if (!planName) return 'monthly'
-    if (planName.includes('One-Time') || planName.includes('Trial')) return 'trial'
+    // 'Welcome Meal' is the free referral gift — a single meal, same lifecycle
+    // as the paid One-Time Trial. It must classify as 'trial' so the wrap uses
+    // meal-tier vocab + the post-delivery, post-end-only gating. Before this it
+    // fell through to 'monthly', which mislabelled it ("monthly wrap"), opened
+    // the wrap 4 days early, and skipped the delivered_meals>=1 gate.
+    if (planName.includes('One-Time') || planName.includes('Trial') || planName.includes('Welcome')) return 'trial'
     if (planName.includes('Weekly')) return 'weekly'
     return 'monthly'
 }

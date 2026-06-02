@@ -177,6 +177,24 @@ export async function verifyTrialEmailOtp(
   return { ok: true }
 }
 
+// ─── Clear the throwaway trial session ──────────────────────────────────────
+// verifyTrialEmailOtp sets a session cookie for the email the visitor just
+// verified. When the claim is then rejected by the lifetime dedupe — e.g. the
+// PHONE already claimed but the email is brand-new — that session belongs to an
+// auth.users row with no customer/subscription behind it. Before we route the
+// visitor to /login or /onboarding to recover, sign that half-baked session out
+// so both destinations start from a clean, logged-out slate. Failure is
+// non-fatal; the recovery navigation proceeds regardless.
+export async function signOutTrialSession(): Promise<{ ok: true }> {
+  try {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+  } catch {
+    /* best-effort — never block the recovery path on a sign-out hiccup */
+  }
+  return { ok: true }
+}
+
 // ─── Pre-flight existing-subscriber detection ──────────────────────────────
 // Fired right after EMAIL OTP verification on /r/[cid]. If the verified
 // account already holds a live subscription, the trial page pivots to the

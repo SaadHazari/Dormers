@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { stripeClient, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@/utils/supabase/server';
-import { resolvePlan, minPriceFilsFor } from '@/contexts/subscriptions/domain/plans';
+import { resolvePlan, minPriceFilsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
@@ -268,6 +268,38 @@ export async function POST(req: Request) {
     const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
     const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
 
+    // ── Trial-convert welcome rate (5% off the first monthly+ plan) ───────
+    // One-time 5% for a customer graduating from a trial/Welcome Meal to their
+    // first paid MONTHLY plan (premium or max). Weekly is excluded. It does NOT
+    // stack with a Dorm Wars lifetime tier — tier wins when present, and a fresh
+    // convert has none, so the two are mutually exclusive. We therefore route
+    // the 5% through the coupon-synth tier slot: the webhook already treats
+    // `tier_applied_fils` as a pass-through discount (no credit-flip side
+    // effects), and the customer-facing Zoho invoice shows a generic discount
+    // line, so nothing is mislabelled downstream.
+    //
+    // Eligibility (abuse-resistant — fires exactly once, on the first monthly
+    // plan): has a prior trial/gift sub in history AND no prior monthly/weekly
+    // sub. After this purchase the customer owns a monthly sub, so they never
+    // qualify again.
+    let welcomePercent: 0 | 5 = 0;
+    if (tierPercent === 0 && planKindOf(planDef.id) === 'monthly') {
+      const { data: priorSubs } = await supabase
+        .from('subscriptions')
+        .select('plan_name')
+        .eq('customer_id', user.id);
+      const kinds = (priorSubs ?? []).map((s) => {
+        const def = resolvePlan(s.plan_name as string | null);
+        return def ? planKindOf(def.id) : null;
+      });
+      const hasTrialHistory = kinds.some((k) => k === 'trial' || k === 'gift');
+      const hasPaidPlan = kinds.some((k) => k === 'monthly' || k === 'weekly');
+      if (hasTrialHistory && !hasPaidPlan) welcomePercent = 5;
+    }
+    // Tier wins over welcome when both are notionally present (can't happen for
+    // a true first-time convert, but the max keeps it safe and non-stacking).
+    const effectiveTierPercent = (tierPercent > 0 ? tierPercent : welcomePercent) as 0 | 5 | 10;
+
     // Phase 7 follow-up: removed the trial-floor / auto-refund detour.
     // Trial + 100% credit coverage now flows through the same free-checkout
     // path as every other plan — no Stripe redirect, no AED 2 phantom
@@ -277,7 +309,7 @@ export async function POST(req: Request) {
       stripe,
       userId: user.id,
       amountFils: amount,
-      tierPercent,
+      tierPercent: effectiveTierPercent,
       creditRows,
     });
     const stripeNetFils = amount - couponResult.discountFils;
