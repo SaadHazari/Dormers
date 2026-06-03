@@ -11,6 +11,14 @@
 
 import * as Sentry from '@sentry/nextjs'
 
+// Patterns that identify errors thrown by browser-injected scripts (crypto
+// wallet extensions, reader-mode injections, etc.) rather than application
+// code. Matching events are dropped in beforeSend so they never reach Sentry.
+const BROWSER_INJECTION_PATTERNS: RegExp[] = [
+  /window\.ethereum/,
+  /window\.__firefox__/,
+]
+
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -51,6 +59,22 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // scrubbers strip cookies / auth tokens / known credential headers
     // before transmission. Useful for "which user / region had this error."
     sendDefaultPii: true,
+
+    // Drop errors that originate from browser-injected scripts (e.g. Brave's
+    // built-in Ethereum wallet, Firefox reader-mode scripts). These throw
+    // TypeErrors against browser globals (window.ethereum, window.__firefox__)
+    // that have nothing to do with application code and create noise in Sentry.
+    // Stack frames from injected scripts use the "app://" URI scheme; we also
+    // match on the error message as a belt-and-suspenders guard.
+    beforeSend(event) {
+      const message = event.exception?.values?.[0]?.value ?? ''
+      if (BROWSER_INJECTION_PATTERNS.some(re => re.test(message))) return null
+
+      const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? []
+      if (frames.some(f => f.filename?.startsWith('app://'))) return null
+
+      return event
+    },
 
     integrations: [
       // Browser tracing — explicitly include even though current Next.js
