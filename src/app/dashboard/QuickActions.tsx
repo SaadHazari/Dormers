@@ -34,6 +34,7 @@ export function QuickActions({
     isTrialPlan,
     plannedPauseDate = null,
     pauseCreditUsed = false,
+    skipIsMakeupDay = false,
 }: {
     canPause: boolean
     localState: LocalState
@@ -97,6 +98,7 @@ export function QuickActions({
     // doesn't vanish silently after resume. Renders as a non-button div —
     // there's nothing to tap until the next renewal mints a fresh sub row.
     pauseCreditUsed?: boolean
+    skipIsMakeupDay?: boolean
 }) {
     const isPaused = localState === 'paused'
     const isSkipped = localState === 'skipped'
@@ -107,9 +109,10 @@ export function QuickActions({
     // and the server rejected. Disabling at the UI layer + outlined
     // treatment matches every other "you can't do this" state.
     const skipQuotaExhausted = skipQuota.total > 0 && skipQuota.left === 0
-    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery || skipQuotaExhausted
+    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted
     const skipTooltip = lockedOut ? disabledReason
         : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
+        : skipIsMakeupDay ? "Make-up days can't be skipped — they're extra days earned by earlier skips."
         : skipPastCutoff ? 'Skip cutoff for today is 2 PM. Try again tomorrow morning.'
         : isTrialPlan ? "Skipping isn't available on a one-time trial. Upgrade to a monthly plan to unlock skips."
         : isSkipped ? "You've already skipped tonight's meal."
@@ -125,6 +128,7 @@ export function QuickActions({
     // pool is running low, nudging the user to think before they tap.
     const skipCaption =
         skipNoDelivery         ? 'No delivery' :
+        skipIsMakeupDay        ? 'Make-up day' :
         skipPastCutoff         ? 'Past 2 PM' :
         isTrialPlan            ? 'Trial only' :
         skipQuota.total === 0  ? 'No skips' :
@@ -171,9 +175,9 @@ export function QuickActions({
                             {pendingAction === 'skip' ? (
                                 <><BtnSpinner /> <span>Skipping…</span></>
                             ) : successAction === 'skip' ? (
-                                <><Check size={16} strokeWidth={2.4} /> <span>Skipped today</span></>
+                                <><Check size={16} strokeWidth={2.4} /> <span>Skipped tonight</span></>
                             ) : (
-                                <><SkipForward size={16} strokeWidth={2.2} /> <span>{isSkipped ? 'Skipped today' : "Skip tonight's meal"}</span></>
+                                <><SkipForward size={16} strokeWidth={2.2} /> <span>{isSkipped ? 'Skipped tonight' : "Skip tonight's meal"}</span></>
                             )}
                             <span style={{
                                 marginLeft: 'auto',
@@ -362,12 +366,18 @@ export function QuickActions({
                         )
                     }
                     const pauseIsPrimary = (isPaused && !lockedOut) || isSuccessResume
-                    // isSkipped only blocks PAUSE (not Resume) — a paused user can't be skipped.
-                    const pauseBlockedBySkip = isSkipped && !isPaused && !hasPlannedPause
                     // pausePastFinalDay only locks Pause (not Resume) — a
                     // paused customer who's already on the final day can
                     // still hit Resume to wrap up cleanly.
                     const pauseLockedFinalDay = !!pausePastFinalDay && !isPaused && !hasPlannedPause
+                    // Skipped tonight → an immediate pause would double-count today,
+                    // so that path is closed. But scheduling a FUTURE pause is still
+                    // valid, so the button stays ENABLED and routes to the date picker
+                    // (onPause → handlePauseRequest opens PlanPauseModal, tomorrow-only).
+                    // Only when the customer can still pause (credit unused, monthly
+                    // tier, a future day remains). Previously this was a hard disable —
+                    // that locked the customer out of all future pauses: the bug.
+                    const skipFuturePauseOnly = isSkipped && !isPaused && !hasPlannedPause && canPause && !pauseLockedFinalDay
                     // resumeLockedSameDay only locks Resume (not Pause) — the kitchen
                     // needs one committed no-prep window before the customer flips back.
                     const resumeLockedToday = !!resumeLockedSameDay && isPaused
@@ -378,7 +388,7 @@ export function QuickActions({
                     // is in flight.
                     const pauseDisabled = hasPlannedPause
                         ? isPending
-                        : isPending || lockedOut || pauseBlockedBySkip || pauseLockedFinalDay || resumeLockedToday || pauseIsUpsell
+                        : isPending || lockedOut || pauseLockedFinalDay || resumeLockedToday || pauseIsUpsell
                     const pauseTooltip = hasPlannedPause
                         ? 'Tap to cancel your scheduled pause.'
                         : pauseIsUpsell
@@ -387,8 +397,8 @@ export function QuickActions({
                                 ? disabledReason
                                 : resumeLockedToday
                                     ? 'Your plan was paused today — resume becomes available tomorrow.'
-                                    : pauseBlockedBySkip
-                                        ? "You've skipped today's meal — pausing is available again from tomorrow."
+                                    : skipFuturePauseOnly
+                                        ? "You've skipped tonight — schedule a pause for a future day instead."
                                         : pauseLockedFinalDay
                                             ? "This is your last delivery day — pausing now wouldn't protect any future meal."
                                             // Active states:
@@ -406,7 +416,7 @@ export function QuickActions({
                             onClick={onPause}
                             disabled={pauseDisabled || isSuccessResume}
                             className={pauseIsPrimary ? `qa-row qa-row-primary${isSuccessResume ? ' qa-resume-success' : ''}` : 'qa-row qa-row-outline'}
-                            aria-label={isSuccessResume ? 'Plan resumed' : isPaused ? 'Resume plan' : 'Pause plan'}
+                            aria-label={isSuccessResume ? 'Plan resumed' : isPaused ? 'Resume plan' : skipFuturePauseOnly ? 'Plan a pause for a future day' : 'Pause plan'}
                             style={{
                                 ...baseStyle,
                                 display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -415,7 +425,7 @@ export function QuickActions({
                                 borderRadius: 'var(--radius-pill)',
                                 fontFamily: BODY, fontSize: 13, fontWeight: 700,
                                 cursor: isSuccessResume ? 'default' : pauseDisabled ? 'not-allowed' : 'pointer',
-                                opacity: isSuccessResume ? 1 : pauseDisabled ? (lockedOut || pauseBlockedBySkip || pauseIsUpsell ? 0.6 : 0.75) : 1,
+                                opacity: isSuccessResume ? 1 : pauseDisabled ? (lockedOut || pauseIsUpsell ? 0.6 : 0.75) : 1,
                                 transition: 'opacity 150ms, transform 150ms, box-shadow 150ms, background 150ms, border-color 150ms',
                             }}
                         >
@@ -494,6 +504,15 @@ export function QuickActions({
                                                 : ''}
                                         </span>
                                     </motion.span>
+                                ) : skipFuturePauseOnly ? (
+                                    <motion.span key="skip-future-pause"
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
+                                    >
+                                        <CalendarClock size={16} strokeWidth={2.2} color={OG} />
+                                        <span>Plan a pause</span>
+                                    </motion.span>
                                 ) : (
                                     <motion.span key="pause"
                                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -501,10 +520,27 @@ export function QuickActions({
                                         style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
                                     >
                                         <PauseIcon size={16} strokeWidth={2.2} />
-                                        <span>{pauseBlockedBySkip || pauseLockedFinalDay ? 'Pause unavailable today' : 'Pause my plan'}</span>
+                                        <span>{pauseLockedFinalDay ? 'Pause unavailable today' : 'Pause my plan'}</span>
                                     </motion.span>
                                 )}
                             </AnimatePresence>
+                            {skipFuturePauseOnly && (
+                                <span style={{
+                                    marginLeft: 'auto',
+                                    fontFamily: BODY,
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    letterSpacing: '0.10em',
+                                    textTransform: 'uppercase',
+                                    padding: '4px 9px',
+                                    borderRadius: 999,
+                                    background: 'var(--ds-skeleton-base)',
+                                    color: 'inherit',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    Future day
+                                </span>
+                            )}
                             {pauseIsUpsell && (
                                 <span style={{
                                     marginLeft: 'auto',

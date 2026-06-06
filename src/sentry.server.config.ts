@@ -18,17 +18,23 @@ import * as Sentry from '@sentry/nextjs'
 import { nodeProfilingIntegration } from '@sentry/profiling-node'
 
 if (process.env.SENTRY_DSN) {
+  const isDev = process.env.NODE_ENV !== 'production'
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.CONTEXT ?? process.env.NODE_ENV ?? 'unknown',
 
+    // Drop error events in development — HMR / Turbopack produces transient
+    // ReferenceErrors that aren't real bugs. Traces + profiles stay on.
+    beforeSend: isDev ? () => null : undefined,
+
     // 100% in dev, 10% in prod for cost control.
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    tracesSampleRate: isDev ? 1.0 : 0.1,
 
     // Continuous profiling — captures CPU samples for traced transactions.
     // profileLifecycle 'trace' ties profile collection to active transactions
     // so we don't profile idle time. Sample rate matches tracing rate.
-    profileSessionSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    profileSessionSampleRate: isDev ? 1.0 : 0.1,
     profileLifecycle: 'trace',
 
     // Attach local variable values to every stack frame in errors. Makes

@@ -10,13 +10,16 @@ export function MonthlyReviewClient({
     cycleLabel,
     daysLeftForFullReward,
     planTier,
+    returnTo = '/dashboard',
 }: {
     userName: string
     cycleLabel: string
     daysLeftForFullReward: number
     planTier: WrapPlanTier
+    returnTo?: string
 }) {
     const router = useRouter()
+    const returnLabel = returnTo.includes('dorm-wars') ? 'Back to Dorm Wars' : 'Back to dashboard'
     return (
         <MonthlyReviewTakeover
             userName={userName}
@@ -26,15 +29,9 @@ export function MonthlyReviewClient({
             onSubmit={(payload: MonthlyReviewPayload) => submitMonthlyReview(payload)}
             onClose={() => {
                 router.refresh()
-                // Wrap dismiss lands on the main dashboard, not /menu. Pre-tray
-                // architecture, the wrap trigger lived on /menu and round-tripping
-                // back there made sense. With the Now-tray model the wrap is a
-                // dashboard-scoped surface (tray + strip + overlay + empty banner
-                // all live on /dashboard or its shell), so dismissing should drop
-                // the user back onto the dashboard's main view — same place the
-                // tray opened from. See project_now_tray_architecture memory.
-                router.push('/dashboard')
+                router.push(returnTo)
             }}
+            closeLabel={returnLabel}
         />
     )
 }

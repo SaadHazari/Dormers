@@ -23,6 +23,17 @@ import { BODY, NV, S } from './tokens'
 export function BugReportTrigger() {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [hover, setHover] = useState(false)
+  // Desktop-only. Removed from the DOM on mobile (not just display:none) so no
+  // cached/stale stylesheet can keep it on screen. The CSS rule stays too as a
+  // no-flash guard for the pre-hydration frame.
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     const button = buttonRef.current
@@ -35,8 +46,11 @@ export function BugReportTrigger() {
     }
   }, [])
 
+  if (isMobile) return null
+
   return (
     <div
+      className="bug-trigger"
       style={{
         position: 'absolute',
         top: 12,

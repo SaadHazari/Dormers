@@ -11,10 +11,13 @@
 import * as Sentry from '@sentry/nextjs'
 
 if (process.env.SENTRY_DSN) {
+  const isDev = process.env.NODE_ENV !== 'production'
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.CONTEXT ?? process.env.NODE_ENV ?? 'unknown',
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    beforeSend: isDev ? () => null : undefined,
+    tracesSampleRate: isDev ? 1.0 : 0.1,
     enableLogs: true,
     sendDefaultPii: true,
     integrations: [

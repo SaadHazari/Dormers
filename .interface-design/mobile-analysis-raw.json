@@ -1,0 +1,1551 @@
+[
+  {
+    "key": "home",
+    "name": "Dashboard Home",
+    "spec": {
+      "surface": "Dashboard Home (ActiveDashboard \u2014 active-subscription state)",
+      "primaryJobOnMobile": "\"Is my dinner coming tonight, and do I need to do anything about it?\" \u2014 a returning subscriber opens the phone to check tonight's status/dish and, occasionally, to skip or pause. Everything else (savings, progress bar, renew nudges) is secondary glanceable context.",
+      "currentDesktopLayoutSummary": "A 12-column CSS grid (.dash-grid, gap 20px) inside a max-width 1400 centered container with clamp(20-40px) page padding. Above the grid sit stacked full-width blocks in DOM order: order-confirmation banner (post-checkout, dismissable), greeting ribbon (name + lifetime equity line), error toast, OutOfZoneBanner, ProfileBanner, end-of-cycle renew banner, MonthlyWrapStrip. The grid itself renders in three visual rows: row 1 = StatRow (span-12, three tiles in a 3-across sub-grid: Deliveries left / Days left / Saved this cycle); row 2 = HeroToday (span-8, today's dish card, the one TIER_POP dark-navy spotlight) beside QuickActions (span-4, Skip / Plan-a-skip / Pause-Resume buttons); row 3 = PlanProgress (span-12, calendar pill bar + meals-remaining headline + timeline + renew action). Below the grid sits the queued-renewal coda (right-aligned). At <=1024px every grid child already collapses to span-12 (single column) via `.dash-grid > * { grid-column: span 12 }`, and StatRow's internal grid drops to 1-up at <=640px \u2014 so today's mobile is a literal vertical stack of full-size desktop cards in DOM order: StatRow(3 stacked tiles) -> HeroToday -> QuickActions -> PlanProgress. That ordering buries tonight's status under three big stat tiles, which is the core problem.",
+      "mobileOrganizingPrinciple": "Lead with tonight's answer, defer the analytics. HeroToday (today's status + dish) must own the first glance; the three StatRow metrics collapse into one compact horizontal strip (not three viewport-eating cards); QuickActions sits in thumb reach directly under the hero; PlanProgress and all reflective/retention content (savings detail, timeline, renew) move below the fold. Jobs-to-be-Done drives the reorder; Refactoring-UI density drives the metric compression.",
+      "elements": [
+        {
+          "name": "Greeting ribbon (getGreeting + totalDelivered equity line)",
+          "currentDesktopTreatment": "Two stacked text lines at top: 'Good evening, {firstName}.' (14px) plus, when totalDelivered>=5, a muted equity line 'N dinners with us \u00b7 since {month} \u00b7 AED X saved vs takeout \u00b7 N past plans'. marginBottom 20.",
+          "currentVerticalCostMobile": "~9% of viewport (two text lines + 20px margin)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep the single greeting line but shrink to ~13px and drop the margin to ~10px. Collapse the equity line to ONE short token (e.g. just 'AED X saved vs takeout' OR 'N dinners with us') instead of the 4-part dot-separated string, which wraps to 2-3 lines at 360px. The full ledger is recall-only context, not the job \u2014 push the rest into the savings sheet or omit on mobile.",
+          "reorganization": "Stays at very top but compressed to one tight line; equity detail truncated to a single most-motivating stat.",
+          "rationale": "Refactoring-UI density + JTBD: a personalized hello earns a small slice, but a 4-clause stat string consuming three wrapped lines before the user sees tonight's dinner violates 'lead with the job'."
+        },
+        {
+          "name": "Order-confirmation banner (showOrderBanner, post-checkout)",
+          "currentDesktopTreatment": "Dismissable orange-wash card with PartyPopper medallion, 'Your {plan} is active/scheduled', 'First meal arrives {date}. Receipt sent.' + X close. Only after checkout; persists until dismissed.",
+          "currentVerticalCostMobile": "~12% of viewport when present",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep full-width and prominent on the one post-checkout visit \u2014 it closes the loop on the most expensive action. Tighten padding to ~12px and let the medallion shrink to 32px. It is transient (one session) so its cost is acceptable. Do not merge into the hero.",
+          "reorganization": "Stays pinned at top above the hero on the post-checkout render only; otherwise absent. Keep the X tappable at 44px.",
+          "rationale": "Microinteractions (close-the-loop feedback) + Influence (commitment/consistency): confirming the purchase right where the user lands is worth the space, but only transiently."
+        },
+        {
+          "name": "Error toast (actionError)",
+          "currentDesktopTreatment": "Red-wash inline strip with message + X, appears on action failure, marginBottom 16.",
+          "currentVerticalCostMobile": "~7% when present (rare)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep as a top inline strip but consider a sticky toast at the bottom safe-area on mobile so it stays in thumb reach and near where the action button was tapped. Ensure the X is 44px. Never hover-only.",
+          "reorganization": "Either stays top inline or relocates to a bottom-anchored toast above the safe area; immediate visibility of status is non-negotiable.",
+          "rationale": "UX-Heuristics visibility of system status + error recovery: a failed skip/pause must be unmissable and dismissable with a real tap target."
+        },
+        {
+          "name": "OutOfZoneBanner",
+          "currentDesktopTreatment": "Non-dismissable gate banner shown when dorm is outside delivery radius; blocks purchase CTAs; links to WhatsApp.",
+          "currentVerticalCostMobile": "~9% when present (edge case)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep full-width near the top when active (it is a blocking system condition). Compress copy to one line + WhatsApp tap target at 44px. Rare, so cost is justified when shown.",
+          "reorganization": "Stays at top, above hero, when present; full-width.",
+          "rationale": "UX-Heuristics (error prevention + visibility): a blocking delivery-zone condition must be seen before the user tries to act."
+        },
+        {
+          "name": "ProfileBanner (profileGate missing fields)",
+          "currentDesktopTreatment": "Non-dismissable banner listing missing profile fields; blocks plan purchase.",
+          "currentVerticalCostMobile": "~9% when present",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep at top when active but compress to a single tappable row ('Complete your profile to unlock renewals ->'). It gates purchase, not tonight's meal, so it ranks below the hero in priority but stays visible because it is non-dismissable.",
+          "reorganization": "Stays top, full-width, single compact row with a thumb-sized CTA.",
+          "rationale": "Norman signifiers + UX-Heuristics: a gate must signify what it blocks and how to clear it, without eating two folds."
+        },
+        {
+          "name": "End-of-cycle renew banner",
+          "currentDesktopTreatment": "Orange-gradient card with '!' medallion, headline that adapts by days-to-end (Last meal tonight / Final day tomorrow / ends in N days) + subline + 'Renew now' pill. Shows only inside the plan-length-scaled window, hidden if queued/scheduled.",
+          "currentVerticalCostMobile": "~13% when present",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Compress to a single-line card (medallion 28px, headline + inline 'Renew' chip on one row, drop the subline or make it 11px secondary). On mobile it should sit ABOVE the hero ONLY on the literal last-day (daysToEnd===0) high-urgency case; for the softer multi-day-out variants, demote it to just under the hero so tonight's dinner still leads.",
+          "reorganization": "Conditional placement: last-day urgency -> above hero; earlier-window -> below hero/QuickActions. Always single-row height.",
+          "rationale": "JTBD + Influence (scarcity): renewal urgency is real but tonight's status is still the primary job except on the final night when renewal IS the job."
+        },
+        {
+          "name": "MonthlyWrapStrip",
+          "currentDesktopTreatment": "Already a slim 1-line link strip (eyebrow 'wrap' \u00b7 'Close out your {cycle}' \u00b7 days chip \u00b7 +AED reward \u00b7 arrow) with a bottom hairline, intentionally subordinate to the hero. Self-renders nothing when ineligible.",
+          "currentVerticalCostMobile": "~5% when present (one line, may wrap to 2 at 360px)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 4,
+          "densityRecommendation": "Already mobile-appropriate density. On 360px guard the flex-wrap so it stays one line: drop the middle 'Close out your {cycle}' clause if needed and keep [qualifier wrap] [days chip] [+AED reward ->]. Move it to just below the hero rather than above it on mobile so it doesn't push the hero down.",
+          "reorganization": "Relocates from above-hero to below-hero (or into the sidebar Now tray per the architecture memory); stays a single quiet line.",
+          "rationale": "Per project_now_tray_architecture memory it is deliberately subordinate; on mobile that means it must not occupy first-glance space above the hero."
+        },
+        {
+          "name": "StatRow \u2014 Tile 1: Deliveries left",
+          "currentDesktopTreatment": "Orange-accent tile, 44px Truck glyph, label 'DELIVERIES LEFT', big 28px/900 number, sub 'of N total'. Part of a 3-across grid, span-12.",
+          "currentVerticalCostMobile": "Today ~14% each as stacked full tiles (~42% for all three); collapses to 1-up at <=640px which is the worst case",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Collapse the three tiles into ONE compact horizontal metric strip, 3-across, on mobile (override the <=640px single-column rule for this surface). Each cell: small glyph or none, 11px caps label, ~20-22px number, tiny sub. The whole strip should cost one tile's worth of height (~12-14%), not three. Deliveries-left is the most decision-relevant number so it keeps the orange accent and leftmost position.",
+          "reorganization": "From a stacked full-height card to the left cell of a single 3-across strip placed directly UNDER the hero (status first, then the numbers that contextualize it).",
+          "rationale": "Refactoring-UI density ('a single metric should rarely consume ~1/3 of a phone viewport') + the product-owner principle to group three metrics as a compact row."
+        },
+        {
+          "name": "StatRow \u2014 Tile 2: Days left / Days to start / Plan paused",
+          "currentDesktopTreatment": "CalendarDays glyph tile; red surface+glyph when active & daysToEnd<=3, neutral otherwise; label switches Days left / Days to start / Plan paused; value is the number or '\u2014' when paused; sub shows ends/starts date or 'resumes where you left off'.",
+          "currentVerticalCostMobile": "Part of the ~42% stacked-tiles cost today",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Becomes the middle cell of the compact 3-across strip. Preserve the red urgency state via the number's color/weight AND a small label, never color alone (HIG). When paused, the '\u2014' + 'Plan paused' reads fine in a compact cell. Drop the 44px glyph on mobile to save width.",
+          "reorganization": "Middle cell of the single metric strip under the hero.",
+          "rationale": "Refactoring-UI hierarchy + HIG never-color-alone: urgency can survive compression as long as the label carries it too."
+        },
+        {
+          "name": "StatRow \u2014 Tile 3: Saved this cycle (+ benchmark capture CTA, delta pill)",
+          "currentDesktopTreatment": "Button-shell tile doubling as benchmark capture. Empty state: dashed border, 'See how much you're saving' + 'Set your benchmark ->'. Populated: PiggyBank glyph, 'SAVED THIS CYCLE', 'AED X' figure, sub copy laddered by state (provenance 'vs AED X/meal \u00b7 N evenings won back' or 'renew to keep saving'), plus an animated +AED delta pill and a hover-only 'EDIT' hint. At <=1024px it spans both columns on row 2.",
+          "currentVerticalCostMobile": "Part of the ~42% stacked-tiles cost today; tallest of the three due to sub-copy",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Split by state. EMPTY (no benchmark): do NOT put the dashed capture CTA in the top strip \u2014 move it to a slim full-width row just below the metric strip, or into the savings bottom sheet; it is a setup task, not a glanceable metric. POPULATED: show only 'AED X saved' as the third cell of the compact strip (number + tiny 'vs AED X/meal'); move the evenings/renew sub-copy + the EDIT affordance into a tap-to-open bottom sheet (the hover-only EDIT hint is invisible on touch and must become an explicit tap). Keep the delta-pill celebration but anchor it so it doesn't overflow the narrow cell.",
+          "reorganization": "Populated -> third cell of the strip; rich detail + edit -> bottom sheet on tap. Empty -> its own slim setup row below the strip.",
+          "rationale": "Microinteractions (progressive disclosure into a sheet) + UX-Heuristics (no hover-only affordance on touch) + JTBD (savings is reflective, not the open-the-app job)."
+        },
+        {
+          "name": "HeroToday \u2014 active state (tonight's dish card)",
+          "currentDesktopTreatment": "span-8 TIER_POP dark-navy gradient card (the one spotlight on the page): 'TONIGHT'S DISH' eyebrow, large animated dish name (clamp 28-40px), description, MealTag + HeatBar row, footer with status badge + countdown caption ('Arriving in ~Nh') + 'View dish ->'. Day-1 gold pulse badge floats top-right on first day.",
+          "currentVerticalCostMobile": "Today pushed below ~42% of stat tiles; the card itself is ~35-40% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Promote to the very first card after the top banners \u2014 this is the answer to the primary job and must own first-glance. Keep it the bold dark spotlight (it earns full width/space). Tighten internal padding from clamp(26-36) toward ~20px on mobile, cap dish name around 28-30px so a long name doesn't wrap to 3 lines, keep the status badge + countdown footer fully visible without scroll. Keep the Day-1 badge.",
+          "reorganization": "Moves ABOVE StatRow and QuickActions to be the first content block; full-width; slightly denser padding.",
+          "rationale": "JTBD (the one job) + Refactoring-UI (the single TIER_POP earns its space) + Norman (close the gulf of evaluation \u2014 'is dinner coming?' answered instantly)."
+        },
+        {
+          "name": "HeroToday \u2014 inactive states (Scheduled / Skipped / Paused / Delivered / Off / Resumed-after-cutoff)",
+          "currentDesktopTreatment": "Same card on TIER1 + orange edge-wash with a state headline (e.g. 'You skipped today.', 'Your plan is paused.', \"You're all set.\") + subtitle + same footer badge/caption/link. Animated transitions between states.",
+          "currentVerticalCostMobile": "~30-35% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Same first-glance promotion and padding tightening as the active state. These states ARE the status answer in their own right, so they stay full-width and lead. Ensure the footer caption ('Resume available tomorrow', 'Credit safe \u2014 back tomorrow') is visible without scroll.",
+          "reorganization": "Same slot as active hero \u2014 first content card; the state machine just swaps interior copy.",
+          "rationale": "JTBD + visibility of status: whatever today's state is, it is the first thing the user needs to see."
+        },
+        {
+          "name": "QuickActions \u2014 Skip / Plan-a-skip / Pause-Resume buttons + skip-quota chip",
+          "currentDesktopTreatment": "span-4 TIER1 card beside the hero. 'QUICK ACTIONS' eyebrow + up to three full-width pill buttons (Skip tonight's meal with quota chip; Plan a skip; Pause/Resume which morphs through pending/success/planned-pause/consumed-credit states). 14px vertical padding gives ~48px tap height.",
+          "currentVerticalCostMobile": "~30-38% of viewport for the full card with 2-3 buttons",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep the buttons full-width (they are already ~48px tall \u2014 good for touch) and place the card DIRECTLY under the hero so the primary action sits in thumb reach. Drop the 'QUICK ACTIONS' eyebrow + card chrome/padding on mobile \u2014 let the buttons read as a bare action stack under the hero. Demote 'Plan a skip' (future-dated, secondary) into a 'More options' bottom sheet so first-glance shows only the two relevant primary actions (Skip tonight + Pause/Resume).",
+          "reorganization": "From a side card (span-4) to a chromeless full-width button stack immediately below the hero; secondary 'Plan a skip' moves into a sheet.",
+          "rationale": "iOS HIG (primary actions in thumb reach, 44px+ targets) + Microinteractions (progressive disclosure of the future-dated secondary action) + Refactoring-UI (shed card chrome that does not earn its height on mobile)."
+        },
+        {
+          "name": "Skip-quota chip (inside Skip button) + lock states (cutoff/no-delivery/exhausted)",
+          "currentDesktopTreatment": "Right-aligned uppercase chip on the Skip button ('N left' / 'Last one' / 'None left' / 'Past 2 PM' / 'No delivery' / 'Trial only'); button disables + outlines when locked, tooltip carries the reason.",
+          "currentVerticalCostMobile": "Inside the Skip button \u2014 no extra height",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep the chip inline on the button. CRITICAL: the disabled-reason currently lives in a hover Tooltip which does not exist on touch \u2014 surface the reason as visible inline text below the button (or in the sheet) so the user understands why Skip is locked without hovering.",
+          "reorganization": "Chip stays on the button; the lock reason becomes visible inline text instead of hover-only.",
+          "rationale": "UX-Heuristics (no hover-only info on touch; help users recognize, not guess) + the skip-irreversible constraint makes clear state communication essential."
+        },
+        {
+          "name": "PlanProgress \u2014 meals-remaining headline + calendar pill bar",
+          "currentDesktopTreatment": "span-12 TIER2 card: plan identity eyebrow, '36 of N meals remaining' big number, a date-pegged calendar pill bar (one pill per working day, orange=delivered, hatched=skipped, plain=upcoming, today ring), hover tooltips, clickable future pills to skip/un-skip.",
+          "currentVerticalCostMobile": "~22-28% of viewport",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Move below the fold (after hero + actions + metric strip). Keep the meals-remaining headline and the pill bar \u2014 the bar is glanceable progress and survives mobile width well since pills are flex:1. BUT pill hover tooltips and click-to-skip are pointer affordances: on touch, a pill tap should open a small bottom sheet showing that day's date/state and a Skip/Un-skip button (replacing hover tooltip + click). Widen pill min-width slightly and rely on the sheet rather than the 3px pill as the tap target.",
+          "reorganization": "Relocates to below-fold; pill interaction shifts from hover-tooltip/click to tap-opens-sheet.",
+          "rationale": "Microinteractions + iOS HIG (tap targets, bottom sheets) + Norman (the bar's conceptual model of 'you are here' is good; just re-map the interaction to touch)."
+        },
+        {
+          "name": "PlanProgress \u2014 planned-pause banner + boundary marker",
+          "currentDesktopTreatment": "Inline navy-wash callout above the bar ('Pause planned for {date}' + underlined Cancel link) plus a 1px navy marker line in the bar at the pause-start pill.",
+          "currentVerticalCostMobile": "~6% when present",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep as a compact full-width row above the bar when present. The Cancel link must become a real >=44px tap target (currently a small underlined text button). Keep the structural marker in the bar.",
+          "reorganization": "Stays attached to the top of the PlanProgress block (below fold); Cancel grows to a tappable control.",
+          "rationale": "iOS HIG tap targets + Norman mapping (the banner+marker pairing keeps cause and location visible)."
+        },
+        {
+          "name": "PlanProgress \u2014 stats line (delivered / skipped / untraced) + timeline (Started -> Ending, Days left) + renew action",
+          "currentDesktopTreatment": "Count-only stats line; a Started -> Ending timeline row with a right-aligned 'Days left' big number (or paused extension note); and a contextual action block (Plan-ended renew card, Renew -> chip in last-7-days, or a begins/resume note).",
+          "currentVerticalCostMobile": "~16% when present",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "This duplicates numbers already in the top metric strip (Days left) and the headline (meals remaining). On mobile, trim: keep the Started->Ending dates and the renew action, drop the redundant 'Days left' big number (it's in the strip) and let the delivered/skipped line shrink to 11px. Let the timeline row wrap gracefully. The Renew action here can be the single renew entry point when the top renew banner is suppressed.",
+          "reorganization": "Stays at bottom of PlanProgress (deep below fold); de-duplicated against the top metric strip; timeline allowed to wrap to two rows.",
+          "rationale": "Refactoring-UI (remove redundant chrome; don't show the same number twice) + JTBD (timeline/renew is planning context, lowest urgency)."
+        },
+        {
+          "name": "Queued-renewal coda ('Up next' chip + plan + start date + Manage)",
+          "currentDesktopTreatment": "Right-aligned chromeless inline row below the grid: hairline marker, outlined gold 'Up next' chip, plan name + 'Starts {date}' (+ 'Tentative' pill when paused), and a quiet gray 'Manage' hover-link.",
+          "currentVerticalCostMobile": "~6% when present",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "Switch from right-aligned to left-aligned full-width on mobile and let it wrap to two lines if needed (the single-line ellipsis on a 360px width would clip the plan/date). The 'Manage' link must be a real >=44px tap target, not a hover-styled gray link. Keep the 'Up next' chip as the visual anchor.",
+          "reorganization": "From right-aligned single line to left-aligned wrapping row at the very bottom; Manage becomes a proper tap target.",
+          "rationale": "UX-Heuristics (no hover-only/clip on touch) + iOS HIG tap targets; it is low-priority committed-state info so it stays last."
+        },
+        {
+          "name": "Skip confirmation modal (irreversible)",
+          "currentDesktopTreatment": "Centered 440px modal over blurred backdrop: 'Skip tonight's meal?' H2, plain-English reassurance, a 2-col data row (End date +1 day / Skips left N/total), an uppercase red 'This can't be undone after confirm' note, Cancel + 'Skip tonight' buttons.",
+          "currentVerticalCostMobile": "Full overlay",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "Convert from a centered dialog to a bottom sheet anchored to the safe area so the confirm/cancel buttons sit in thumb reach. Keep the irreversibility note prominent (the skip-is-irreversible constraint forbids any undo). Buttons full-width stacked or side-by-side at >=48px. No undo affordance after confirm.",
+          "reorganization": "Centered modal -> bottom sheet; actions in thumb zone; same three-tier hierarchy.",
+          "rationale": "iOS HIG (sheets, thumb-reach actions) + the locked skip-irreversible constraint (confirmation must be clear and final)."
+        },
+        {
+          "name": "Pause confirm / Queued-pause warning / Cancel-planned-pause modals",
+          "currentDesktopTreatment": "Centered modals: Pause confirm (uses your 1 free pause, end date extends, 'Pause from a future date instead ->' link); Queued-pause warning (PauseCircle medallion, two-column This-plan/Next-plan impact summary, acknowledge); Cancel-planned-pause (returns the free pause).",
+          "currentVerticalCostMobile": "Full overlay; the queued-pause warning is the tallest (medallion + 2-col grid + note)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Convert all three to bottom sheets with thumb-reach actions. For the queued-pause warning, stack the two impact cards vertically (the 2-col grid is cramped at 360px) and keep the 'Pause from a future date instead' link as a >=44px row. Allow internal scroll if content exceeds sheet height.",
+          "reorganization": "Centered modals -> bottom sheets; multi-column impact grids stack to single column.",
+          "rationale": "iOS HIG (bottom sheets, stacked content on narrow widths) + Norman (make the consequence of pausing legible before commit)."
+        },
+        {
+          "name": "FutureSkipModal / PlanPauseModal / SavingsBenchmarkModal (date/slider pickers)",
+          "currentDesktopTreatment": "Separate modal components opened from QuickActions 'Plan a skip', the pause 'future date' link, and the StatRow savings tile respectively (date pickers / AED slider with live preview).",
+          "currentVerticalCostMobile": "Full overlay",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Render as bottom sheets on mobile with native-feeling date/slider controls and a thumb-reach confirm button. The savings benchmark sheet is also where the populated-savings detail + EDIT lives (re-homed from the StatRow tile). These were not fully read here \u2014 confirm their internal layouts honor 44px controls and safe areas.",
+          "reorganization": "Picker modals -> bottom sheets; savings sheet absorbs the savings-detail/edit that moved off the metric strip.",
+          "rationale": "Microinteractions (progressive disclosure) + iOS HIG (sheet + native pickers)."
+        },
+        {
+          "name": "Resume welcome overlay + checkout success overlay (full-screen celebration)",
+          "currentDesktopTreatment": "Full-screen pointer-events:none overlays: 3-phase resume (checking ring -> Truck/Moon medallion + 'Welcome back') and a 3s checkout success (checkmark medallion + confetti + 'You're in'). Honor prefers-reduced-motion.",
+          "currentVerticalCostMobile": "Full-screen, transient, non-blocking",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep essentially as-is \u2014 they are transient full-screen moments that work on mobile. Verify medallion/text sizing (clamp already used) fits 360px and that safe-area insets don't clip the centered stack. pointer-events:none means the dashboard stays interactive underneath, which is correct.",
+          "reorganization": "No structural change; just verify sizing/safe-area on small viewports.",
+          "rationale": "Microinteractions + emotional design (Norman's visceral level): the celebratory feedback is worth keeping intact on mobile."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "Error toast (only on failure)",
+        "Order-confirmation banner (post-checkout only) / OutOfZoneBanner / ProfileBanner (gates, when active)",
+        "End-of-cycle renew banner (above hero ONLY on last-day urgency)",
+        "Greeting ribbon (one compressed line)",
+        "HeroToday (today's status + dish \u2014 the answer)",
+        "QuickActions (Skip + Pause/Resume as a bare button stack in thumb reach)",
+        "Compact 3-across metric strip (Deliveries left \u00b7 Days left \u00b7 Saved)",
+        "MonthlyWrapStrip (slim) / softer renew banner if not last-day",
+        "PlanProgress (meals-remaining headline + calendar pill bar)",
+        "PlanProgress timeline + renew action (de-duplicated)",
+        "Queued-renewal coda ('Up next')"
+      ],
+      "crossCuttingNotes": "Reusable patterns that recur across dashboard surfaces: (1) Compact 3-across metric strip \u2014 the same StatRow compression applies anywhere three KPIs are stacked (e.g. /plan, /history). Build it as a shared MobileMetricStrip. (2) Modal -> bottom sheet conversion \u2014 every confirm/picker on this surface (skip, pause, queued-pause, cancel-pause, future-skip, plan-pause, savings benchmark) should route through one shared BottomSheet primitive with thumb-reach actions and safe-area padding; this will be reused on every route that has modals. (3) Hover-only info is the single biggest touch hazard here \u2014 QuickActions Tooltip lock reasons, PlanProgress pill tooltips, the StatRow 'EDIT' hint, and the 'Manage'/'Cancel' hover-links all need explicit touch equivalents (visible inline text or tap-to-sheet). Establish a rule: no information or affordance may live solely in :hover on mobile. (4) Banners stack (order/out-of-zone/profile/renew/wrap) should share a single compact mobile banner component with one-line layout and 44px tap targets. (5) The light theme + brand-orange #f57f20 ceiling and the deliberately-imprecise countdown all carry over unchanged.",
+      "openDecisions": [
+        "StatRow on mobile currently collapses to 1-up at <=640px (stat-row internal media query). The recommendation is the opposite \u2014 a compact 3-across strip. Confirm we override the existing <=640px single-column rule for this dashboard-home strip (the 3-across compaction is the whole point of the metric-density principle).",
+        "Where should the metric strip sit relative to the hero \u2014 immediately under the hero (status-then-numbers, recommended) OR under QuickActions? This affects whether the user sees actions or numbers second.",
+        "End-of-cycle renew banner placement is conditional in the proposal (above hero only on daysToEnd===0). Confirm the product owner wants tonight's hero to outrank renewal on every day except the final night, or whether renewal should always lead inside its window.",
+        "Savings tile EMPTY state (benchmark not set): keep it as a visible slim setup row below the strip, OR hide it entirely on mobile and surface benchmark capture only from the savings sheet / a one-time prompt? It's a setup task competing for first/second-fold space.",
+        "'Plan a skip' (future-dated) is proposed to move into a 'More options' sheet so first-glance shows only Skip-tonight + Pause/Resume. Confirm demoting it off the primary stack is acceptable, or whether it must stay a visible third button.",
+        "Per the Now-tray architecture memory, the MonthlyWrapStrip may belong in the sidebar Now tray rather than inline on mobile. Decide whether mobile keeps the inline strip, relies on the tray, or both.",
+        "PlanProgress pill bar interaction on touch: confirm a pill tap should open a per-day bottom sheet (date + Skip/Un-skip) since hover tooltips and 3px click targets don't work on phones \u2014 this is a behavior change, not just layout.",
+        "The FutureSkipModal, PlanPauseModal, and SavingsBenchmarkModal internals were not read in this pass; their mobile sheet layouts (date pickers, AED slider, live preview) need a separate review to confirm 44px controls and safe-area handling."
+      ]
+    }
+  },
+  {
+    "key": "plan",
+    "name": "Plan & Checkout (also /explore-plans)",
+    "spec": {
+      "surface": "Plan & Checkout (/dashboard/plan and /dashboard/explore-plans \u2014 same PlanClient.tsx, mode-switched)",
+      "primaryJobOnMobile": "Two jobs split by mode. On /dashboard/plan: \"Where does my current plan stand right now, and what's next?\" (read status, manage start date / planned pause, glance at setup). On /dashboard/explore-plans: \"Pick a plan and pay\" \u2014 choose a tier, set the start date, get to Stripe. The redesign must optimize each mode for its own single job rather than averaging them.",
+      "currentDesktopLayoutSummary": "Single centered column (max-width 1280) on a cream page gradient. /plan mode stacks: cancel banner \u2192 H1 header \u2192 dark ActivePlanCallout (TIER_POP) with hero days-left + auto-fit metric grid \u2192 optional QueuedSubCallout (TIER2, orange left-rail) \u2192 \"switch plans?\" TIER2 strip \u2192 PlanSetupCard (TIER2, two auto-fit dial zones) \u2192 a 2-column reference row (Pricing FAQ left, Past plans right, stacks under 1024px) \u2192 footer. /explore mode replaces the middle with: optional paused notice \u2192 3-column trust strip \u2192 preference/week pills row + Religious VegDayPicker \u2192 OutOfZoneBanner \u2192 plans-grid (1/2/4 cols at 640/1024) \u2192 CheckoutPanel that slide-ins on selection and is position:sticky bottom only \u22651024px. CheckoutPanel internally is a receipt header (identity left, big orange total right) + gradient hairline + optional credit row + optional veg-day picker + a 2-col action strip (DateField | CTA) that collapses to 1col under 640px, plus a 2-col helper row.",
+      "mobileOrganizingPrinciple": "One job per screen, top-to-bottom, with the single most-decision-relevant number leading. On /plan that is the status hero (days left / starts-in); on /explore it is the price-per-plan leading into a thumb-reachable checkout. Compress every supporting metric/dial into tight multi-up rows so the lead number and the next action are both reachable in the first glance, and push all \"manage / why / history\" detail into accordions or bottom sheets rather than long inline stacks.",
+      "elements": [
+        {
+          "name": "cancelBanner (checkout_canceled status strip)",
+          "currentDesktopTreatment": "Full-width neutral TIER strip at top, text left + \u00d7 dismiss right, marginBottom 22.",
+          "currentVerticalCostMobile": "~7% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep full-bleed but tighten to a single 13px line with the \u00d7 as a 44px tap target. It is transient and reassuring (no charge made); do not let it wrap to 3 lines and shove the header below the fold. Auto-dismiss timer optional.",
+          "reorganization": "Same position (very top, above header) but constrained height; \u00d7 becomes a proper 44px hit area instead of an 18px glyph.",
+          "rationale": "UX-Heuristics (visibility of status) \u2014 it answers 'did my money get taken?'. iOS HIG 44pt for the dismiss. It earns first-glance only because it is rare and anxiety-reducing."
+        },
+        {
+          "name": "header (H1 'My plan.' / 'Explore plans.' + supporting paragraph)",
+          "currentDesktopTreatment": "clamp(34-48px) 700-weight H1 with orange period, 15px muted paragraph (max 640), marginBottom 48.",
+          "currentVerticalCostMobile": "~22% of viewport at the clamp floor of 34px plus 48px bottom margin and a 2-line paragraph",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Cut the 48px bottom margin to ~16-20px. Drop H1 to ~28px on mobile. On /plan, demote or drop the supporting paragraph ('current subscription, account details, past plans all in one place') \u2014 it is orientation copy a returning user doesn't need every visit; keep on /explore where the first-timer needs framing but trim to one line.",
+          "reorganization": "Stays top but shrinks dramatically so the status hero (/plan) or the trust strip+grid (/explore) climbs into first glance instead of being pushed down by a 90px title block.",
+          "rationale": "Refactoring-UI (constrained spacing; hierarchy from scale not whitespace) + Jobs-to-be-Done (the title is not the job; the status/price is). Desktop's 48px breathing margin is exactly the 'fluid breathing' the brief says to break from."
+        },
+        {
+          "name": "ActivePlanCallout (TIER_POP dark card: plan name, date range, status dot, hero days-left, metric grid)",
+          "currentDesktopTreatment": "Dark TIER_POP card, padding 28, radius 20. Top row: eyebrow + plan name (26px) + date subline + StatusDot. Hero row: 40px/900 days number + label, plus a right-side action (renew / change-start / paused note). Divider, then auto-fit minmax(120px) metric grid (Meals delivered, Skips left, Pause, optional Skips scheduled).",
+          "currentVerticalCostMobile": "~55-65% of viewport as-is (the hero row + 4-up auto-fit metrics collapse to near-1-column on a 390 viewport, stacking each metric ~80px tall)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the /plan hero and earns space \u2014 but not all of it. Keep plan name + status dot + date subline + the big days-left number prominent. Force the metric grid to a fixed 3-across compact row (Meals / Skips / Pause) with smaller values (~15px) so three metrics share one ~70px band instead of stacking to ~240px. 'Skips scheduled' (4th, conditional) becomes a 4th chip only if present, else stays hidden. The right-side action button must drop BELOW the hero number as a full-width 44px button on mobile, not squeeze beside a 40px numeral.",
+          "reorganization": "Vertical order within card: name+status \u2192 date subline \u2192 hero days number \u2192 primary action button (full-width) \u2192 3-up metric strip. The desktop 'number left, action right on same row' splits into stacked full-width on mobile for thumb reach and tap size.",
+          "rationale": "Jobs-to-be-Done (the burning question is 'how long / when does it start') + Refactoring-UI (compress 4 auto-fit tiles eating a third of the screen each into one 3-across band) + iOS HIG (44pt action, thumb reach)."
+        },
+        {
+          "name": "Planned-pause banner (inside ActivePlanCallout, Moon icon + date + Cancel link)",
+          "currentDesktopTreatment": "Inset translucent row on the dark card: Moon glyph, 'Pause planned for <date>', underlined Cancel link right.",
+          "currentVerticalCostMobile": "~7% of viewport (conditional)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep inline within the callout but ensure the Cancel link is a 44px tap target (currently a 12px underlined text button \u2014 too small for touch). Allow the date to wrap below the icon on 360px rather than truncate.",
+          "reorganization": "Stays directly under the date subline / above the hero number area; Cancel becomes a padded pill-sized hit area, not inline underlined text.",
+          "rationale": "UX-Heuristics + iOS HIG (44pt) \u2014 destructive-ish action (returns pause credit) must be deliberately tappable, never a hairline link on touch. Visibility of status drives keeping it at first glance."
+        },
+        {
+          "name": "Right-side action (Renew now / Change start date / Paused note \u2014 only one shows)",
+          "currentDesktopTreatment": "Pill button right-aligned on the hero row: orange 'Renew now \u2192' (last 7 days, no queued sub), or bordered 'Change start date' (scheduled, once-only, disabled state when used), or a 2-line paused note, or out-of-zone disabled+tooltip.",
+          "currentVerticalCostMobile": "shares hero row on desktop; ~6-8% as a standalone full-width button on mobile",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Promote to a full-width 44px+ button directly under the hero number. The disabled 'Date already changed' / out-of-zone states must NOT rely on tooltip-on-hover (no hover on touch) \u2014 show the reason as a one-line caption under the button. Keep the orange ceiling for the active renew CTA.",
+          "reorganization": "Moves from inline-right to full-width below the days number; the explanatory tooltip text migrates to an always-visible caption.",
+          "rationale": "UX-Heuristics (NO hover-only info on touch) + iOS HIG (44pt, thumb reach) + Norman (signifier: a disabled state needs a visible 'why', not a hidden tooltip)."
+        },
+        {
+          "name": "QueuedSubCallout ('Up next' TIER2 card: plan, starts date, days-to-start, change-start, cancel-via-WhatsApp)",
+          "currentDesktopTreatment": "TIER2 card, orange left-rail, radius 16. Eyebrow 'Up next' + plan name (20px) + 'Starts <date>' (+ tentative pill when paused) + StatusDot. Row: 32px days number + Change-start pill. Footer: 'Need to cancel? Message us on WhatsApp'.",
+          "currentVerticalCostMobile": "~35-40% of viewport (conditional)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Compress: plan name + status on line 1, 'Starts <date> \u00b7 N days' merged into one line (don't give days-to-start its own 32px hero \u2014 the active plan already owns the hero numeral; here it's secondary). Change-start = full-width 44px button. Keep the WhatsApp cancel as a footer link but give it tap padding. The 'Tentative' pill must show its meaning inline (no hover tooltip).",
+          "reorganization": "Sits directly below the ActivePlanCallout (preserves current \u2192 next reading order). Internally de-heroes the days number and stacks the action full-width.",
+          "rationale": "Jobs-to-be-Done (knowing the next plan exists matters, but it's the secondary plan) + Refactoring-UI (two competing big numerals on one screen dilutes hierarchy; demote the queued one) + UX-Heuristics (no hover-only 'Tentative' explanation)."
+        },
+        {
+          "name": "Change-plan strip ('Want to switch plans or upgrade?' TIER2)",
+          "currentDesktopTreatment": "TIER2 row, padding 14/18: title + subline left, 'Explore plans \u2192' pill right (or disabled when paused). marginBottom 48.",
+          "currentVerticalCostMobile": "~12% of viewport",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep but collapse to stacked: one-line prompt + full-width 'Explore plans \u2192' button (44px). Cut the 48px bottom margin. When paused, replace the disabled-pill-with-tooltip with an always-visible inline reason line.",
+          "reorganization": "Title above, full-width CTA below (not side-by-side). It's the bridge to /explore so it stays a clear button, just not desktop's right-aligned pill.",
+          "rationale": "Jobs-to-be-Done (this is the entry to the buy flow) + iOS HIG (full-width thumb CTA) + UX-Heuristics (paused reason must be visible without hover)."
+        },
+        {
+          "name": "PlanSetupCard ('Your setup' read-only dials: Plan/Week/Meal type/Veg days + Dorm/Spice/Allergens, 'Adjust on profile \u2192')",
+          "currentDesktopTreatment": "TIER2 card, padding 22/24. Header: eyebrow + 'Adjust on profile \u2192' pill. Zone A auto-fit dials (minmax 150-170px) with prominent 15.5px values; whisper divider; Zone B auto-fit dials (minmax 140px) Dorm/Spice/Allergens.",
+          "currentVerticalCostMobile": "~30-40% (auto-fit collapses most dials to ~1-2 per row, each ~55px tall, so up to 7 dials stack tall)",
+          "mobileFold": "third-fold",
+          "mobilePriority": 4,
+          "densityRecommendation": "This is reference data, not the job \u2014 densify hard. Use a fixed 2-column dial grid (or label:value list rows) so 6-7 dials read as a compact spec sheet, not a tall stack. Keep the whisper divider between price-dials and personal-dials. Allergens (safety) keeps slightly more emphasis. 'Adjust on profile \u2192' becomes a full-width or clearly-tappable row link at the bottom.",
+          "reorganization": "Stays below the management cards; internal auto-fit becomes a deliberate 2-up so it doesn't sprawl. Consider an optional 'collapsed summary + tap to expand' if vertical budget is tight, but a 2-up grid likely suffices.",
+          "rationale": "Refactoring-UI (density; constrained 2-up beats auto-fit sprawl on a phone) + Jobs-to-be-Done (it's orientation, not action \u2014 earns compression). Allergens emphasis from Norman (safety-critical mapping)."
+        },
+        {
+          "name": "Pricing FAQ accordion (TIER3 'Common questions' with FAQItem list)",
+          "currentDesktopTreatment": "TIER3 card padding 28, eyebrow + 22px title + 4 FAQItem accordions. Left column of the 2-col reference row.",
+          "currentVerticalCostMobile": "~15-20% collapsed (titles only), expands on tap",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "Already accordion = good mobile pattern (progressive disclosure). Keep collapsed by default. Reduce card padding from 28 to ~18. Each FAQ row needs a 44px tap target and a visible chevron affordance.",
+          "reorganization": "The desktop 2-col reference row (FAQ | Past plans) stacks to single column; FAQ comes first (answers objections before the historical record).",
+          "rationale": "Microinteractions (progressive disclosure \u2014 dense answers hidden until tapped) + iOS HIG (native list/disclosure pattern, 44pt rows)."
+        },
+        {
+          "name": "Past plans (TIER3 'History': ended-sub cards or empty state)",
+          "currentDesktopTreatment": "TIER3 card padding 28, eyebrow + title + list of TIER1 mini-cards (plan glyph+name, Ended dot, date range, meals delivered) or an empty-state paragraph. Right column of reference row.",
+          "currentVerticalCostMobile": "~10% empty / scales with history count",
+          "mobileFold": "deep",
+          "mobilePriority": 5,
+          "densityRecommendation": "Lowest priority \u2014 pure record. Keep as compact rows. Reduce card padding to ~18. If history is long, cap to the most recent 2-3 with a 'Show all' expander rather than an unbounded list. Empty-state paragraph can shrink.",
+          "reorganization": "Stacks below FAQ as the last content block before footer. No layout change beyond single-column + tighter padding.",
+          "rationale": "Jobs-to-be-Done (historical, never the reason someone opens /plan on a phone) + Refactoring-UI (de-emphasize, compress, cap)."
+        },
+        {
+          "name": "explore-trust-strip (3 value promises: Dinner sorted / Delivered 7-8 PM / Skip-pause-cancel)",
+          "currentDesktopTreatment": "TIER2 card, 3-equal-column grid, each with icon chip + 14px title + 12.5px sub. Collapses to 1 column under 768px today.",
+          "currentVerticalCostMobile": "~30% if it stays 1-column 3-stacked (each ~90px)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Don't keep the current under-768 full single-column stack (3 tall blocks eat the screen before any price). Make it a tight 3-across icon row (icon + 1-2 word title, drop or truncate the sub to a caption) OR a compact horizontal 'chips' band. It frames value before price but must not push the grid off first-glance.",
+          "reorganization": "Stays above the plans grid in /explore but compresses from 3 stacked cards to one 3-up icon band; sublines either hide or become tiny single-line captions.",
+          "rationale": "Influence/Refactoring-UI (the promises are persuasion, worth keeping, but cheaply) + Jobs-to-be-Done (price + plan choice is the job; trust strip supports, shouldn't dominate the first 700px)."
+        },
+        {
+          "name": "Preference + week-type pills row (+ 'Change' link + 'Prices in AED' note)",
+          "currentDesktopTreatment": "Single flex row: 'Showing prices for' + orange pref pill + slate week pill + 'Change' link + (marginLeft auto) Info 'Prices in AED.'",
+          "currentVerticalCostMobile": "~10% (wraps to 2-3 lines on 390px)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep on one wrapping line but drop the 'Prices in AED.' note to a tiny caption or fold it into the grid (currency is obvious once cards show AED). Pref + week pills stay (they set pricing context). 'Change' must be a 44px tap target, not a 12px underline.",
+          "reorganization": "Sits directly above the plans grid; the right-pinned 'Prices in AED' (which only works because of desktop marginLeft:auto) drops to inline/secondary on mobile.",
+          "rationale": "Recognition over recall (show what the prices are scoped to) + iOS HIG (tappable 'Change'). Refactoring-UI to shed the AED note that's redundant on mobile."
+        },
+        {
+          "name": "VegDayPicker (Religious-mix count selector, count chips 1..maxVeg, hint + helper copy)",
+          "currentDesktopTreatment": "Inset card: eyebrow + 'N of W' value, grid of equal count pills, animated amber pulse hint when unset, two lines of helper copy + profile link.",
+          "currentVerticalCostMobile": "~22% (conditional \u2014 religious users only)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "For religious users this is a REQUIRED gate before any plan is selectable, so it earns prominence. Keep the count pills as a full-width equal-grid (already responsive). The two helper paragraphs collapse to one line on mobile; keep the pulsing-dot hint (good discoverable trigger). Pills need ~44px height.",
+          "reorganization": "Stays between the pills row and the grid in /explore. The 'switch to all-veg on profile' note demotes to a single small line.",
+          "rationale": "Norman (this is the entry point of configuration \u2014 strong signifier/affordance via the pulse) + Microinteractions (anticipatory hint) + iOS HIG (44pt pills). It earns the space because the grid is non-functional until it's set."
+        },
+        {
+          "name": "OutOfZoneBanner",
+          "currentDesktopTreatment": "Shared slate-blue banner shown above the grid when customer.out_of_zone.",
+          "currentVerticalCostMobile": "~10% (conditional)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "When present it is the most important thing on /explore (purchasing is gated). Keep full-bleed, ensure the WhatsApp action inside is a 44px button. Don't compress away \u2014 it changes whether the whole grid is actionable.",
+          "reorganization": "Stays above the grid; full width.",
+          "rationale": "UX-Heuristics (visibility of system status / error prevention before the user tries to buy) + Norman (close the gulf of evaluation before they hit a blocked CTA)."
+        },
+        {
+          "name": "plans-grid (4 PlanCard tiers: Trial / Weekly Flex / Monthly Premium [featured] / Monthly Max)",
+          "currentDesktopTreatment": "1/2/4 column grid at 640/1024. Each PlanCard: icon+name, price-per-meal hero (36px) + total + duration + save badge, feature list with icon chips, optional disclaimer, CTA span (Choose/Selected/Pick veg days). Featured card has floating 'Most Popular' ribbon, TIER1, extra top padding.",
+          "currentVerticalCostMobile": "Each card ~70-90% of viewport at full feature treatment; 4 cards = very long scroll",
+          "mobileFold": "second-fold",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the /explore job. Cards stay 1-column (comparison by scroll), but each must shrink: lead with name + price-per-meal + monthly total + save badge in a tight header block; collapse the full feature list to 2-3 key lines with a 'details' disclosure for the rest (especially Trial/Max which carry disclaimers). Keep the 'Most Popular' ribbon and featured emphasis (recommendation hook). Ensure the whole card is one big 44px+ tappable target (it already is a button) and the selected state is unmistakable (orange border + Selected) since hover doesn't exist.",
+          "reorganization": "Single column, recommended (Monthly Premium) floated to TOP on mobile rather than desktop's row-3-of-4 position \u2014 lead with the recommendation, then alternatives below. Feature lists become progressive-disclosure to keep each card scannable.",
+          "rationale": "Jobs-to-be-Done (choose a plan) + Influence (lead with the recommended/most-popular) + Refactoring-UI (a 4th-card feature dump per tile is too tall; compress + disclose) + UX-Heuristics (selection state must be color-AND-label, never hover)."
+        },
+        {
+          "name": "PlanCard price/save/feature internals",
+          "currentDesktopTreatment": "Price-per-meal 36px hero, total+period, duration, conditional save badge ('Save N AED/month vs Weekly Flex'), feature <ul> with orange icon chips, Monthly Max amber disclaimer, 3-state CTA.",
+          "currentVerticalCostMobile": "the bulk of each card's height",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep the price-per-meal + total + save badge as the decision triad (this is what people compare). Trim feature list to top 2-3; move disclaimer + remaining features behind a 'See what's included' expander per card. Religious 'Set veg days first' placeholder state stays prominent (it's a gate).",
+          "reorganization": "Within each compressed card: header (name) \u2192 price triad \u2192 2-3 features \u2192 expander \u2192 CTA. Disclaimer moves into the expander.",
+          "rationale": "Refactoring-UI (hierarchy: price is the comparator, features are detail) + Microinteractions (progressive disclosure of feature lists/disclaimers)."
+        },
+        {
+          "name": "CheckoutPanel \u2014 receipt header (selected plan identity left, big orange total right)",
+          "currentDesktopTreatment": "TIER1 panel, orange-tinted border. Flex row: identity (eyebrow, plan name w/ glyph clamp 22-28px, per-meal\u00b7meals meta, 'Starts <date>') left; total block (clamp 36-48px orange numeral + AED + period) right. Wraps on narrow.",
+          "currentVerticalCostMobile": "~20% of viewport",
+          "mobileFold": "second-fold",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep the big orange total as the dominant moment (it's the commitment number) but on mobile place total and plan identity in a tight stacked or 2-line layout \u2014 plan name + meta on top, total as a prominent line, not a 48px numeral that wraps awkwardly beside the name. 'Starts <date>' stays as confirmation.",
+          "reorganization": "On mobile this becomes the top of a single-flow panel (the desktop sticky bottom behavior is already disabled <1024px). Consider making the panel itself a bottom-sheet that rises on plan selection rather than an inline slide-in deep in the scroll.",
+          "rationale": "Jobs-to-be-Done (confirm what/how-much before paying) + Refactoring-UI (single dominant price moment) + Microinteractions (the slide-in is the feedback that a plan was picked)."
+        },
+        {
+          "name": "CheckoutPanel \u2014 Dorm Wars credit row (conditional discount line)",
+          "currentDesktopTreatment": "Emerald row between divider and action strip: label + hint ('AED N applied \u00b7 AED M stays in your wallet') left, '\u2212 AED N' amount right.",
+          "currentVerticalCostMobile": "~8% (conditional)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep \u2014 it directly changes perceived price. On 360px allow label+hint to wrap above the amount. Keep emerald (light-dashboard intent). Don't truncate the leftover-wallet reassurance hint.",
+          "reorganization": "Stays in the plan \u2192 divider \u2192 credit \u2192 date+CTA reading order within the panel/sheet.",
+          "rationale": "Influence (price reduction is a strong motivator) + UX-Heuristics (visibility \u2014 show the discount before commit, not a surprise at Stripe)."
+        },
+        {
+          "name": "CheckoutPanel \u2014 veg-day picker (Religious: pick which days are veg, N of M chosen)",
+          "currentDesktopTreatment": "Slate inset: eyebrow + 'N of M chosen' counter, optional 'pre-filled from profile' note, grid of working-day toggle buttons (Mon..Sat) with at-cap disabled state.",
+          "currentVerticalCostMobile": "~18% (conditional, religious only)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 1,
+          "densityRecommendation": "Required gate (CTA disabled until N==count) so it earns space. Day toggles are a 6-across grid of 3-letter chips \u2014 on 360px ensure each chip is \u226544px tall and the row doesn't crush; consider 2 rows of 3. Keep the live 'N of M chosen' counter as immediate feedback. Pre-fill note collapses to one line.",
+          "reorganization": "Sits above the action strip inside the panel/sheet; counter stays sticky-visible so the user always sees progress toward the gate.",
+          "rationale": "Norman (mapping days\u2192veg) + Microinteractions (immediate count feedback, disabled-at-cap rule) + iOS HIG (44pt toggles; native multi-select feel)."
+        },
+        {
+          "name": "CheckoutPanel \u2014 action strip (DateField trigger + 3-state CTA)",
+          "currentDesktopTreatment": "2-col grid (date | CTA) baseline-aligned \u2265640px, 1-col below. DateField is a full-width 18px-padded trigger opening a popover calendar; CTA is full-width orange, states: awaiting (faded) / ready / loading (spinner).",
+          "currentVerticalCostMobile": "~18% (already stacks)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the payment moment \u2014 keep both controls full-width and large. CTA must be the bottom-most, thumb-reachable element; if the panel becomes a bottom sheet, pin the CTA to the sheet's safe-area bottom. Keep the 3-state affordance (faded awaiting \u2192 solid ready \u2192 spinner). The out-of-zone disabled state must show its reason inline (the title-attr tooltip is hover-only and useless on touch \u2014 the inline out-of-zone box already covers this, so rely on that, not the title).",
+          "reorganization": "Already collapses to single column <640px \u2014 good. Reorder so DateField sits above CTA (pick date, then commit). Pin CTA to bottom in thumb zone.",
+          "rationale": "iOS HIG (primary action in thumb reach, safe area) + Microinteractions (3-state feedback) + UX-Heuristics (no hover-only disable reasons)."
+        },
+        {
+          "name": "DateField popover calendar",
+          "currentDesktopTreatment": "Custom popover (min-width 296px), month nav, Mon-start 6-week grid, today/selected/non-delivery hatch states, per-cell title tooltips + aria, weekType legend; flips up/down based on viewport space.",
+          "currentVerticalCostMobile": "popover ~360px tall when open (overlay, not in flow)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "On mobile, present the calendar as a bottom sheet (or centered modal) rather than an absolutely-positioned popover that can clip at screen edges or under the keyboard. Cells already aspect-ratio:1 in a 7-col grid \u2014 on 360px that yields ~44px cells, acceptable. CRITICAL: non-delivery days currently communicate only via diagonal hatch + hover/title tooltip; on touch there is no hover, so the per-cell reason is unreachable. Keep the persistent legend (good) and ensure tapping a disabled cell surfaces an inline note, not a tooltip. Never rely on the hatch color alone.",
+          "reorganization": "From an inline flip-up/down popover to a native-feeling bottom sheet for date selection; legend stays pinned below the grid.",
+          "rationale": "iOS HIG (bottom-sheet date entry, safe areas, 44pt cells) + UX-Heuristics & Norman (per-cell 'why disabled' must not be hover-only; never color/hatch alone) + the existing 360px popover-clip risk."
+        },
+        {
+          "name": "CheckoutPanel \u2014 helper/trust block (date hints stack + Stripe trust line + error/out-of-zone/paused blocks)",
+          "currentDesktopTreatment": "2-col helper row: left = 3-line date-hint stack (rule/charge/window); right = centered Stripe trust line + conditional out-of-zone, PLAN_PAUSED, and generic error blocks each with a WhatsApp/Resume action.",
+          "currentVerticalCostMobile": "~12% baseline, more when an error/zone/paused block renders",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Collapse the 2-col helper row to single column. Keep the top date-hint 'rule' line (the WHEN) and the Stripe trust line; demote the charge-model + 30-day-window lines to one combined caption to save height. Error/out-of-zone/paused blocks keep full prominence and their alternative-path action buttons (44px) \u2014 these are recovery paths, never compress them away.",
+          "reorganization": "Single-column under the CTA: date hint \u2192 trust line \u2192 (conditional) error/zone/paused recovery block. Recovery actions are full-width buttons.",
+          "rationale": "Norman (error messages must offer an alternative path \u2014 the WhatsApp/Resume buttons) + Refactoring-UI (collapse the 3-line hint hierarchy on a phone) + UX-Heuristics (trust at moment of commitment)."
+        },
+        {
+          "name": "PostCutoffOverlay (full-screen 2 PM cutoff modal)",
+          "currentDesktopTreatment": "Full-screen dark navy + amber radial overlay, Moon medallion, 'First meal lands tomorrow.', body copy, 'Got it, continue' pill. Fires once/AE-day/session on plan select after 14:00.",
+          "currentVerticalCostMobile": "full screen (intentional interrupt)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep as a full-screen interrupt (this is the one intentional dark surface and it's a deliberate, locked-style cutoff announcement). On mobile ensure the medallion+copy+button fit without scroll on a 360px and the 'Got it' button is in thumb reach with safe-area padding. This is an exception to the light-theme rule (already an overlay, matches ResumeWelcome cutoff language).",
+          "reorganization": "No structural change \u2014 it's already a centered full-viewport modal; just verify vertical fit and button reachability on small Android.",
+          "rationale": "Microinteractions/Norman (set expectation BEFORE payment that the first meal is tomorrow \u2014 closes the gulf of evaluation) + iOS HIG (safe-area button placement)."
+        },
+        {
+          "name": "ChangeStartDateModal (centered modal w/ DateField + once-only warning)",
+          "currentDesktopTreatment": "Centered 460px modal: title, explainer, amber once-only lock note, DateField, error slot, Cancel + 'Save new date' buttons.",
+          "currentVerticalCostMobile": "centered modal (overlay)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Convert to a bottom sheet on mobile (easier thumb reach, native feel) rather than a centered card with 32px padding and 24px screen padding (cramped on 360px). Keep the once-only warning prominent (irreversible-ish). DateField inside should use the same mobile calendar-sheet pattern. Cancel/Save are a 2-up button row \u2014 keep, ensure 44px height.",
+          "reorganization": "From centered dialog to bottom sheet; buttons pinned at sheet bottom in thumb zone.",
+          "rationale": "iOS HIG (bottom sheet, 44pt, safe area) + Norman (warn clearly before a one-time irreversible date change)."
+        },
+        {
+          "name": "Cancel-planned-pause confirmation modal",
+          "currentDesktopTreatment": "Centered 420px modal: 'Cancel your planned pause?' + date + 'returns your 1 free pause' explainer, 'Keep it planned' + 'Cancel pause' buttons.",
+          "currentVerticalCostMobile": "centered modal (overlay)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Convert to bottom sheet on mobile; keep both buttons full-tap-height. Copy is short \u2014 fits easily.",
+          "reorganization": "Centered dialog \u2192 bottom sheet, buttons in thumb zone.",
+          "rationale": "iOS HIG (bottom-sheet confirmation, 44pt) + UX-Heuristics (clear destructive confirm with reassurance about the returned pause credit)."
+        },
+        {
+          "name": "'Made with \u2665 in Dubai' footer",
+          "currentDesktopTreatment": "Centered uppercase 11px tagline with orange heart, full width.",
+          "currentVerticalCostMobile": "~5%",
+          "mobileFold": "deep",
+          "mobilePriority": 5,
+          "densityRecommendation": "Keep as-is, single line at the very bottom. No action needed.",
+          "reorganization": "Unchanged \u2014 last element.",
+          "rationale": "Refactoring-UI (a quiet brand signoff; costs little, ends the scroll cleanly)."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "cancelBanner (checkout_canceled status strip)",
+        "header (H1 + supporting paragraph)",
+        "OutOfZoneBanner",
+        "explore-trust-strip",
+        "Preference + week-type pills row",
+        "VegDayPicker (Religious count selector)",
+        "plans-grid (recommended Monthly Premium first, then alternatives)",
+        "CheckoutPanel \u2014 receipt header",
+        "CheckoutPanel \u2014 Dorm Wars credit row",
+        "CheckoutPanel \u2014 veg-day picker",
+        "CheckoutPanel \u2014 action strip (DateField + CTA)",
+        "CheckoutPanel \u2014 helper/trust block",
+        "ActivePlanCallout (on /plan)",
+        "Planned-pause banner",
+        "Right-side action (Renew / Change start date)",
+        "QueuedSubCallout",
+        "Change-plan strip",
+        "PlanSetupCard",
+        "Pricing FAQ accordion",
+        "Past plans",
+        "Made with \u2665 in Dubai footer"
+      ],
+      "crossCuttingNotes": "Reusable mobile components this surface needs that almost certainly recur elsewhere in the dashboard: (1) A BottomSheet primitive \u2014 both modals (ChangeStartDate, Cancel-planned-pause), the CheckoutPanel, and the DateField calendar should all become sheets; build one and reuse. (2) A MobileDatePicker sheet wrapping DateField \u2014 the calendar appears in CheckoutPanel AND both change-start modals, so the touch fixes (44pt cells, inline 'why disabled' instead of hover/title tooltips, no clip) land once. (3) A 'CompactMetricRow' (3-across label/value band) used by ActivePlanCallout's metric grid and reusable by any dashboard card with auto-fit minmax stat tiles that sprawl on mobile. (4) A FullWidthActionButton with explicit disabled-reason caption \u2014 every disabled CTA here (Renew out-of-zone, Change start used, Explore-when-paused, Checkout out-of-zone) currently leans on a hover/title Tooltip that does nothing on touch; the pattern of 'disabled + visible reason line' is the cross-cutting fix. (5) StatusDot + Eyebrow + PlanGlyph are shared tokens already \u2014 verify they read at mobile sizes. The hover-only Tooltip component is the single biggest cross-cutting touch hazard on this surface and recurs wherever Tooltip is used.",
+      "openDecisions": [
+        "The two modes (/plan vs /explore) are one file but want opposite hierarchies on mobile \u2014 should the redesign treat them as two genuinely separate mobile layouts (status-first vs buy-first) rather than one shared scroll? The proposed scan order above leads with the /explore buy-flow; /plan's management cards would lead instead. Confirm we optimize each route independently.",
+        "Should the CheckoutPanel become a bottom sheet that rises on plan selection (thumb-reachable, classic mobile commerce pattern) instead of an inline slide-in the user must scroll down to find? Desktop sticky is already disabled <1024px, so mobile currently leaves the CTA buried mid-scroll.",
+        "On mobile /explore, do we float the recommended Monthly Premium card to the TOP of the single-column grid (lead with the recommendation) or preserve the desktop tier order Trial \u2192 Weekly Flex \u2192 Premium \u2192 Max?",
+        "PlanCard feature lists: collapse to 2-3 lines + 'details' disclosure per card, or keep full lists and accept tall cards? This trades scannability against full information at a glance.",
+        "The hover/title Tooltips on disabled CTAs and the 'Tentative'/non-delivery-day explanations are invisible on touch \u2014 confirm we replace ALL of them with always-visible inline captions (and whether that changes desktop too, or mobile-only).",
+        "ActivePlanCallout dark TIER_POP card: is the dark treatment intentional like the marketing/onboarding surfaces, or should it follow the light dashboard intent on mobile? (It already lives in the light dashboard, so likely stays \u2014 confirm it isn't an accidental dark-on-light island when compressed.)",
+        "PlanSetupCard on mobile: compress to a 2-up dial grid always-visible, or collapse behind a 'Your setup' expander since it's pure reference and not the job?"
+      ]
+    }
+  },
+  {
+    "key": "menu",
+    "name": "Menu",
+    "spec": {
+      "surface": "Menu (/dashboard/menu)",
+      "primaryJobOnMobile": "\"What am I getting tonight, and when does it arrive?\" The customer opens this on a phone to confirm today's dish + delivery ETA, then optionally scan the rest of this week and peek at next week. Everything else (preference change, dish macros, renew prompts) is secondary to that one tonight-focused answer.",
+      "currentDesktopLayoutSummary": "Single centered column (max-width 1400) with a page header (\"My menu.\" + preference row), then three vertically-stacked sections each with an Eyebrow + hairline divider: (1) Today spotlight as a full-width 7fr/5fr two-column hero (text left, framed photo right, min-height 320); (2) This week as a 3-across grid of 6 full WeekDayCards (TIER2, today bumped to TIER1 with orange pulsing ring); (3) Next week as a denser 6-across strip of compact \"preview\" WeekDayCards (TIER3, orange top-wash). A dish-detail modal (centered, max 560) opens on card tap. Existing media queries already stack the hero at 768 and step the grids down (this-week 3\u21922\u21921 at 640/420; next-week 6\u21924\u21923\u21922 at 1024/640/420).",
+      "mobileOrganizingPrinciple": "Tonight first, this week second, next week as a peek \u2014 collapse the breathing desktop rhythm into a tight vertical timeline. The Today spotlight is the only element that earns big vertical space (it answers the primary job); everything below it compresses into scannable list/grid rows so the user can reach \"this week\" without a long scroll, and \"next week\" stays a deliberately small, low-commitment strip at the bottom.",
+      "elements": [
+        {
+          "name": "Page header \u2014 \"My menu.\" title",
+          "currentDesktopTreatment": "36px bold display heading with OG period accent, marginBottom 32 on the wrapping block.",
+          "currentVerticalCostMobile": "~6% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep the title but drop to ~26-28px and tighten the header block's marginBottom from 32 to ~16. It identifies the page (recognition) but shouldn't eat a quarter of first-glance height. Single line, period accent stays as brand signature.",
+          "reorganization": "Stays at top, smaller. Compress the gap between it and the preference row so header + preference read as one compact unit, not two breathing rows.",
+          "rationale": "Refactoring-UI hierarchy + constrained spacing: the title earns identity but not size on a phone; reclaim its vertical cost for the spotlight below."
+        },
+        {
+          "name": "Preference row (\"Your preference:\" + MealTag + Change link + delivery/Sunday note)",
+          "currentDesktopTreatment": "14px muted flex row, gap 10, flexWraps: label, MealTag chip, underlined \"Change\" link to /profile, dot separator, \"Delivered 7\u20138 PM \u00b7 Sunday off\".",
+          "currentVerticalCostMobile": "~8-10% of viewport (wraps to 2-3 lines at 390px)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 4,
+          "densityRecommendation": "Compress into a single tight meta line: MealTag chip + \"Change\" inline, with \"Delivered 7\u20138 PM \u00b7 Sunday off\" dropping to a second 12px faint line. Ensure the \"Change\" tap target is padded to 44px height even though it renders as small text \u2014 it is the only navigational action in the header.",
+          "reorganization": "Keep directly under the title. Let it wrap to at most two lines; do not let the four-part dot-separated string wrap into a ragged 3-line block as it will at 360px.",
+          "rationale": "UX-Heuristics 44px target + recognition: preference and delivery window are reference info, not the job; keep visible but demoted. The Change link is a real action so it must be thumb-tappable."
+        },
+        {
+          "name": "Section Eyebrows + hairline dividers (\"Today's delivery\" / \"This week\" / \"Next week\")",
+          "currentDesktopTreatment": "Each section opens with an Eyebrow chip + a flex:1 hairline rule, marginBottom 14, section marginBottom 32.",
+          "currentVerticalCostMobile": "~4% each (three of them)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep all three as wayfinding labels but cut the inter-section marginBottom from 32 to ~20 and the eyebrow marginBottom from 14 to ~10. The hairline rule can stay (cheap, aids scan segmentation). Note the first eyebrow flips to \"Tonight\" when resumedAfterCutoff \u2014 preserve that.",
+          "reorganization": "Sticky-section labels are optional; simplest is to keep them inline but tighter. They become the scan anchors of the vertical timeline.",
+          "rationale": "Refactoring-UI density: three sections need separators to avoid a wall of cards, but desktop's generous 32px gaps waste phone height. Tighten without removing the structural cue."
+        },
+        {
+          "name": "TodaySpotlight \u2014 active state (dish name, description, macro strip, countdown, dorm chip, photo)",
+          "currentDesktopTreatment": "TIER_POP navy card, 7fr/5fr grid, min-height 320. Left: Eyebrow \"Tonight's dish\", 24-36px dish heading, description (max 54ch), 2-3 cell macro strip (Calories/Protein/Spice), live countdown pill (Truck icon, orange when urgent) with dorm pill. Right: framed 16:10-ish photo. Already stacks to one column at 768 with photo moving below text.",
+          "currentVerticalCostMobile": "~70-90% of viewport when stacked (photo + text + macros + countdown)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the one element that earns space \u2014 but re-order INSIDE it for mobile. Lead with the photo (compact 16:10), then dish name, then the live countdown pill promoted directly under the name (it is the time-sensitive answer), then the macro strip as the compact 3-across row it already is, then the description LAST (or truncated to ~2 lines with the full text living in the dish modal on tap). Goal: dish name + ETA visible without scrolling; macros and description can sit just below the fold.",
+          "reorganization": "Stacked single column (existing 768 query already does this). Reorder children so countdown rises above the description; consider shrinking photo to ~180-200px tall so name+ETA clear the ~700px first-glance budget. Keep the navy TIER_POP treatment \u2014 it is the page's intentional focal contrast, not a theme violation.",
+          "rationale": "Jobs-to-be-Done: tonight's dish + ETA IS the job. Refactoring-UI: it earns the largest block, but description prose is the lowest-value pixels there, so it yields to the countdown. Microinteractions: the 30s-refreshing countdown is the live status signal and belongs high."
+        },
+        {
+          "name": "TodaySpotlight \u2014 Sunday / rest-day empty state",
+          "currentDesktopTreatment": "TIER1 cream card (#faf2dd), 56px vertical padding, centered Moon icon + \"Sunday \u2014 no delivery\" + \"Rest up. Next delivery Monday at 7 PM.\"",
+          "currentVerticalCostMobile": "~30% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Cut the 56px padding to ~32px on mobile. The centered Moon + two lines is fine but should not occupy a third of the screen for an empty state \u2014 compress so \"This week\" rises closer to the fold on Sundays.",
+          "reorganization": "Same position (top), shorter. It still anchors the slot but with far less air.",
+          "rationale": "Refactoring-UI: an empty state has the least information to surface, so it should claim the least height \u2014 the inverse of how desktop currently pads it."
+        },
+        {
+          "name": "TodaySpotlight \u2014 resumed-after-cutoff state",
+          "currentDesktopTreatment": "TIER1 card with orange edge-wash, Moon icon, \"No delivery tonight.\", paragraph naming next delivery (7\u20138 PM), faint reassurance line about the moved meal slot.",
+          "currentVerticalCostMobile": "~30-35% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep all copy (it closes the Gulf of Evaluation \u2014 explains why nothing arrives) but tighten the clamp paddings and the gap from 16 to ~12. The two paragraphs can stay; they are load-bearing reassurance, not filler.",
+          "reorganization": "Same top slot. The orange wash + Moon stay as the brand-consistent 'no delivery but all is well' signal.",
+          "rationale": "Norman conceptual model: this state must explain itself so the user doesn't think delivery is broken \u2014 so it keeps its copy even on mobile, just at tighter spacing."
+        },
+        {
+          "name": "This-week WeekDayCard grid (6 full cards, Mon\u2013Sat)",
+          "currentDesktopTreatment": "3-across TIER2 grid, gap 16. Each card: header (day \u00b7 state chip \u00b7 date), 16:10 photo, dish name (clamp 2), MealTag + HeatBar footer, veg/non-veg spine. Today card bumps to TIER1 with 2px orange border + breathing pulse + Sparkles \"Today\" chip. Media queries step to 2-col at 640, 1-col at 420.",
+          "currentVerticalCostMobile": "At 1-col (\u2264420) each full card is ~tall (photo+header+body); 6 of them = multiple screens of scroll",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Force 2-across on the primary 390px viewport (not the current 1-col-at-420). Six full-photo single-column cards is an excessive scroll for what is mostly a glanceable week strip. 2-across keeps photos legible while halving vertical run. Today's card can optionally span full width / 2 columns as the visual standout since it carries the orange pulse and is the most important cell. Keep the day/date/state chip header \u2014 it is the recognition-over-recall scaffold.",
+          "reorganization": "3-col desktop \u2192 2-col mobile (override the current \u2264420 1-col rule; reserve 1-col only as a last resort below ~340px). Promote today's cell to a wider/taller treatment so the pulsing focal card isn't shrunk into a tiny 2-up cell.",
+          "rationale": "Refactoring-UI density + Jobs-to-be-Done: the week is a scan, not a read; 2-across respects phone height. The today-pulse + Sparkles chip is the in-grid 'you are here' status signal (visibility of system status) and deserves extra size."
+        },
+        {
+          "name": "WeekDayCard \u2014 no-delivery states (skipped / paused / pause-start / in-pause)",
+          "currentDesktopTreatment": "Dim card, Moon-family chip with reason label (\"Not tonight\"/\"Skipped\"/\"Paused\"/\"Pause begins\"), muted color, no orange focal treatment.",
+          "currentVerticalCostMobile": "Same as a normal card cell",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep the chip-label system intact \u2014 it is never color-alone (Moon/Lock icon + text), which satisfies the touch/accessibility constraint. At 2-across these still read fine. Do not collapse them into a different size than their siblings; the grid uniformity is what makes the dimmed ones legible by contrast.",
+          "reorganization": "Inline in the same this-week grid, same cell size as active cards. The dimming + icon do the differentiation work, not size.",
+          "rationale": "Norman signifiers + UX-Heuristics: the reason chip closes the Gulf of Evaluation (why no meal that day) and must survive on mobile; never reduce to color-only on touch."
+        },
+        {
+          "name": "WeekDayCard \u2014 plan-ends state (grayscale photo, lock overlay, \"Renew to unlock\" chip, dashed border, routes to /explore-plans)",
+          "currentDesktopTreatment": "Grayed gray-tan surface, dashed border, opacity 0.78, grayscale+dimmed photo, centered lock badge overlay, Lock chip \"Renew to unlock\"; tapping routes to explore-plans instead of opening the modal.",
+          "currentVerticalCostMobile": "Same as a normal card cell",
+          "mobileFold": "third-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Preserve all four signals (grayscale, dashed border, lock overlay, chip) \u2014 they are mutually reinforcing and the only on-page renew prompt. Ensure the whole card stays a 44px+ tap target since it is effectively a CTA to /explore-plans. Could optionally surface a single explicit \"Renew\" pill at the end of the week grid on mobile so the action isn't only discoverable by tapping a grayed card.",
+          "reorganization": "Lives in whichever week grid the expired days fall in (this-week or next-week). The card IS the CTA; keep the tap-routes-to-renew behavior.",
+          "rationale": "Microinteractions discoverable trigger + Norman mapping: the card's look promises 'renew' and the tap pays it off. On a phone a grayed card can read as merely disabled, so consider an explicit renew affordance as a fork (see open decisions)."
+        },
+        {
+          "name": "Next-week WeekDayCard preview strip (6 compact cards)",
+          "currentDesktopTreatment": "6-across TIER3 grid, gap 10, compact 4:3 cards with orange top-wash, no veg spine. Media queries step 6\u21924 at 1024, \u21923 at 640, \u21922 at 420.",
+          "currentVerticalCostMobile": "At \u2264420 it's 2-across compact cards = a few rows of scroll at the very bottom",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep it as the densest, lowest strip \u2014 this is correct. On the 390px primary it should be 2-across (small Android 360 also 2). It is a 'peek ahead', so smaller-than-this-week is the right hierarchy. Consider 3-across at 390 to keep it visibly denser than the 2-across this-week grid and reinforce 'preview, not primary'.",
+          "reorganization": "Stays at the bottom, denser than this-week. The whole strip could even be lazy/below-fold without harm. Optionally make next-week a horizontally-scrolling row instead of a wrapped grid to keep it to one screen-height and signal 'secondary, swipe to browse'.",
+          "rationale": "Refactoring-UI tiered surfaces + Jobs-to-be-Done: next week is the lowest-priority job; its density and position must keep it visibly subordinate to this-week. A horizontal scroll is a strong 'this is a peek' signifier (open decision)."
+        },
+        {
+          "name": "DishDetailModal (photo, day\u00b7date eyebrow, name, description, Calories/Protein grid, MealTag + spice, Close button)",
+          "currentDesktopTreatment": "Centered fixed overlay, blurred backdrop, max-width 560, padding 32, 16:10 photo, 28px name, 2-col macro grid, full-width Close button. Opens on card tap; Escape closes.",
+          "currentVerticalCostMobile": "Full-screen overlay",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Convert from a centered dialog to a bottom sheet on mobile: slide up from the bottom, rounded top corners, respect the safe-area inset, and put the Close affordance (and a grab handle) within thumb reach at the bottom \u2014 the full-width Close button already exists, keep it pinned. Add tap-on-backdrop-to-dismiss (already present) plus swipe-down-to-dismiss. This is the right home for the full dish description that we truncated in the spotlight.",
+          "reorganization": "Centered modal (desktop) \u2192 bottom sheet (mobile). Content order is already good (photo \u2192 name \u2192 description \u2192 macros \u2192 tag); keep it. The 2-col macro grid stays 2-col, it's already compact.",
+          "rationale": "iOS HIG + Microinteractions progressive disclosure: dense per-dish detail belongs in a bottom sheet reachable by thumb, not a center-screen dialog. This lets the spotlight and cards stay lean while detail lives one tap deep."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "Page header \u2014 \"My menu.\" title",
+        "Preference row (compact, Change link 44px)",
+        "Eyebrow: Today's delivery / Tonight",
+        "TodaySpotlight (photo \u2192 dish name \u2192 countdown \u2192 macros \u2192 description-truncated)",
+        "Eyebrow: This week",
+        "This-week grid (2-across, today card promoted/wider)",
+        "Eyebrow: Next week",
+        "Next-week preview strip (2-3 across or horizontal scroll, densest)",
+        "DishDetailModal (bottom sheet, on tap)"
+      ],
+      "crossCuttingNotes": "WeekDayCard is shared by this-week (full) and next-week (preview) and already encodes variant/state/no-delivery logic \u2014 its mobile tuning (2-across full, denser preview, 44px tap targets, never-color-alone chips) is a reusable pattern any other card-grid surface should copy. The Eyebrow + hairline-divider section header is a shared _shared/ component; the tightened mobile spacing (eyebrow mb ~10, section mb ~20) should be applied wherever Eyebrow sections appear, not just here. The DishDetailModal \u2192 bottom-sheet conversion is a pattern that should apply to every dashboard modal on mobile (per the iOS HIG lens) \u2014 establish it once and reuse. The live computeCountdown pill (Truck icon, orange-when-urgent, 30s refresh, deliberately imprecise ~Nh) is a status microinteraction shared in spirit with the dashboard HeroToday \u2014 keep both consistent. The TIER_POP navy spotlight against the light interface is intentional contrast, not a theme to unify.",
+      "openDecisions": [
+        "This-week grid on the 390px primary: 2-across (my recommendation, overriding the current \u2264420 1-column rule) vs keeping the existing 1-column stack. 1-col gives bigger photos but turns the week into a long scroll.",
+        "Should today's this-week card span full width / 2 columns to stay the visual focal point, or remain a single cell equal to its siblings (relying only on the orange pulse to stand out)?",
+        "Next-week strip: wrapped 2-3 across grid (current approach, scrolls vertically) vs a single-row horizontal scroller (stronger 'peek, secondary' signifier, keeps it to one screen height). Horizontal scroll hides items off-edge \u2014 acceptable for a low-priority preview?",
+        "In the TodaySpotlight, truncate the dish description to ~2 lines with full text in the bottom sheet, vs keep the full description inline. Trade-off: getting the countdown above the fold vs showing the full dish prose immediately.",
+        "plan-ends cards are the only on-page renew prompt and tap-route to /explore-plans. On mobile a grayed card can read as merely disabled \u2014 do we add an explicit \"Renew\" pill/button so the action is discoverable without tapping a dimmed card, or trust the lock overlay + chip to signal tappability?",
+        "DishDetailModal \u2192 bottom-sheet on mobile: confirm we want native sheet behavior (swipe-down dismiss, grab handle, safe-area pinned Close) vs leaving the current centered dialog scaled down."
+      ]
+    }
+  },
+  {
+    "key": "history",
+    "name": "History",
+    "spec": {
+      "surface": "History (Past plans) \u2014 /dashboard/history",
+      "primaryJobOnMobile": "\"Find a past plan I liked and remind myself what it was, so I can re-order it.\" It's a low-frequency, reference/recall surface \u2014 the user scans a list of completed subscriptions to recognize one (by plan name + date range) and glance at how it went (delivered/skipped/completion). It is NOT a daily action surface; nobody opens History to do a task, they open it to remember.",
+      "currentDesktopLayoutSummary": "Single centered column (maxWidth 1100). Top-to-bottom: back link \u2192 header block (uppercase eyebrow \"Past plans\" + DISPLAY h1 \"Your subscription history.\" + muted description paragraph) \u2192 then a vertical flex list (gap 10) of cards, OR a centered empty-state card. Each card is a 2-column CSS grid `1fr auto`: left = PlanGlyph + clean plan name (16px) over a date range \"start \u2192 end\" (12px muted); right = a horizontal flex row of three right-aligned Stat blocks (Delivered \"n/total\", Skipped \"n\", Completion \"n%\" in brand orange). Existing mobile rule at max-width 640px only collapses the row grid to a single column \u2014 it does not re-think the three stats, which then stack under the name as three separate right-aligned lines.",
+      "mobileOrganizingPrinciple": "Recognition-first list scanning (Krug/Nielsen + JTBD): make every row a single glanceable line item where the plan name and date range own the row, and the three numeric stats compress into one tight horizontal metrics strip beneath the name \u2014 never three stacked right-aligned lines. Maximize rows-per-screen so the user can scan their whole history without endless scrolling; reserve emphasis (size/orange) only for the completion percentage that signals \"this plan went well.\"",
+      "elements": [
+        {
+          "name": "Back link (history-back, ArrowLeft + 'Back to dashboard')",
+          "currentDesktopTreatment": "Inline-flex uppercase 12px muted link with 13px arrow icon, 6px vertical padding, hover darkens to --ds-fg.",
+          "currentVerticalCostMobile": "~5% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep, but ensure the tap target is a full 44px-high hit area (current 6px padding around a 12px label is too short for touch). Keep the label text \u2014 'Back to dashboard' is a clear signifier; an icon-only chevron would be recall-not-recognition. Pin nothing; it scrolls with content at the very top.",
+          "reorganization": "Stays top-left, first element. Increase hit area to 44px min-height (pad vertically, not visually larger text). No hover-only affordance \u2014 color state must not be the only feedback on touch.",
+          "rationale": "UX-Heuristics: 44px tap targets and don't-make-me-think back navigation; HIG safe-area/thumb concerns are minor since it's a secondary control near the top."
+        },
+        {
+          "name": "Header block \u2014 eyebrow 'Past plans' + h1 'Your subscription history.' + description paragraph",
+          "currentDesktopTreatment": "Eyebrow 11px uppercase 0.18em tracked muted; h1 DISPLAY clamp(28-40px) at lineHeight 1.1; description 14px muted, 1.6 line-height, capped at 56ch.",
+          "currentVerticalCostMobile": "~22-28% of viewport if left as-is (h1 wraps to 2 lines + 3-line description)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Compress hard. The clamp floor of 28px h1 + 56ch description is desktop breathing room that eats the first screen on a phone. Drop h1 to ~22-24px, shorten or drop the description sentence (it's explanatory chrome, not content). Keep the eyebrow as the section label. The description's only value-add clause is 'Useful for re-ordering an old favorite' \u2014 keep that, cut 'with delivery and skip totals' since the stats are visible in every row anyway.",
+          "reorganization": "Stays top, below back link, but shrinks from ~3 vertical zones to ~2 tight lines so the first actual history row appears within first-glance (~700px). Remove the 56ch max-width (irrelevant under 390px) and let it use full column width.",
+          "rationale": "Refactoring-UI density + JTBD: on a phone the job is to reach the list fast; oversized type and a full descriptive paragraph are vertical cost the header hasn't earned. Hierarchy is preserved by keeping eyebrow\u2192title\u2192(trimmed) caption order, just smaller."
+        },
+        {
+          "name": "Empty-state card ('No past plans yet.' + sub-copy)",
+          "currentDesktopTreatment": "Centered glass card, 40px/28px padding, radius-md, soft shadow; 16px bold heading + 13px muted sub-line.",
+          "currentVerticalCostMobile": "~25% of viewport (one card)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep as a single centered card but reduce padding (40px top/bottom is desktop-generous) to ~28px/20px. Copy is fine. Optionally add a low-emphasis link to the active plan / menu so the empty state isn't a dead end \u2014 but only if product wants it; not required.",
+          "reorganization": "Occupies the list region when plans.length === 0. Stays full-width minus page padding, centered text. No structural change beyond tighter padding.",
+          "rationale": "Norman/visibility of status: the empty state already closes the gulf of evaluation ('it'll show up here when your plan ends'). It just needs to not feel oversized on a small screen."
+        },
+        {
+          "name": "History row card (history-row) \u2014 container",
+          "currentDesktopTreatment": "Glass card, grid 1fr/auto, gap 24, padding 20px/24px, radius-md, soft shadow; left column name+dates, right column the three stats.",
+          "currentVerticalCostMobile": "With current 640px rule (single column, stats stacked) each row balloons to ~18-22% of viewport \u2014 only ~4 rows visible. That's the core problem.",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Redesign the row as a compact stacked block, NOT the naive grid-collapse. Top line: PlanGlyph + plan name (16px, the recognition anchor). Second line: date range (12px muted, tnum). Third line: a single horizontal metrics strip with the three stats laid left-to-right and LEFT-aligned (Delivered \u00b7 Skipped \u00b7 Completion) \u2014 not three right-aligned stacked lines. Tighten padding to ~14px/16px and gap. Target ~6 rows on a 390x844 screen.",
+          "reorganization": "Drop the `1fr auto` two-column model entirely on mobile; rebuild as vertical: name \u2192 dates \u2192 metrics strip. The existing `grid-template-columns: 1fr` 640px rule should be replaced because it leaves the three stats as right-aligned stacked lines (awkward, wasteful). Make stats left-aligned in a flex row under the dates.",
+          "rationale": "JTBD + Refactoring-UI density: the row IS the surface's content; every wasted pixel per row costs a row off the screen. Recognition (name+date) leads; metrics support. The current grid collapse violates the density principle and creates ragged right-aligned numbers."
+        },
+        {
+          "name": "Stat block (Stat: Delivered / Skipped / Completion)",
+          "currentDesktopTreatment": "Right-aligned; 10px uppercase 0.18em muted label above a DISPLAY 18px value (tnum); Completion value in brand orange (OG #f57f20) via `accent`.",
+          "currentVerticalCostMobile": "As-is (stacked, right-aligned) each stat is its own ~3-line zone \u2014 three of them dominate the row.",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Convert from three right-aligned vertical blocks into ONE compact horizontal strip: three label/value pairs side by side, left-aligned, evenly spaced (e.g. flex with gap, or label-inline 'Delivered 12/20'). Shrink value type to ~14-15px on mobile (18px DISPLAY is desktop scale). Keep Completion in orange as the single colored accent \u2014 but DO NOT rely on color alone for meaning; the 'Completion' label + % already carry it, so the orange is reinforcement not a lone signal. This is the 'three metrics as a compact row' move from the governing principle.",
+          "reorganization": "Stats move from the card's right column into a single inline row beneath the date range, left-aligned to match the name/date column. Remove `textAlign:right`. Use label-over-value OR label-beside-value compact pairs; prefer the compact inline pair to save vertical height.",
+          "rationale": "Governing principle (vertical cost) + Refactoring-UI: a single metric must not own ~1/3 of the viewport; three small reference numbers belong in a tight row. Orange stays the accent ceiling and is never the only carrier of meaning (color-alone heuristic)."
+        },
+        {
+          "name": "PlanGlyph (per-row icon)",
+          "currentDesktopTreatment": "16px currentColor glyph inline before the plan name.",
+          "currentVerticalCostMobile": "Negligible (inline with name)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep inline with the name at 16px. It's a cheap recognition aid (visual mapping of plan type) and costs no extra vertical height. No change.",
+          "reorganization": "Stays leading the name line.",
+          "rationale": "Norman: a glyph reinforces the conceptual model / recognition of which plan this was, at zero vertical cost."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "Back link (history-back)",
+        "Header block (eyebrow + compressed h1 + trimmed one-line caption)",
+        "History row card 1 (name+glyph \u2192 date range \u2192 compact metrics strip)",
+        "History row card 2",
+        "History row card N \u2026 (or Empty-state card if no plans)"
+      ],
+      "crossCuttingNotes": "The compact metrics-strip pattern (three small label/value pairs in one left-aligned horizontal row, with one orange accent value, tnum figures) is highly reusable \u2014 it's the same density problem as any per-item stats elsewhere on the dashboard (plan/usage cards, the active-subscription summary). Define it once as a shared mobile component rather than re-collapsing each desktop grid. The 44px-min back-link hit area and the \"shrink DISPLAY h1 from its clamp floor on mobile\" header treatment recur on every secondary dashboard surface (Referrals, Dorm Wars sub-pages, etc.). The Stat component should grow a `dense`/mobile variant rather than being re-styled per page. Note all colors flow through --ds-* CSS vars and flip in dark mode, so any mobile restyle must use the same vars (no hard-coded hex) to keep dark-mode parity.",
+      "openDecisions": [
+        "Header caption: trim to the single 're-order an old favorite' clause, or drop the description paragraph entirely on mobile? (affects how soon the first row appears).",
+        "Metrics strip layout: label-over-value (taller, matches desktop Stat) vs label-beside-value inline pairs like 'Delivered 12/20' (shortest, densest)? Pick one for the mobile Stat variant.",
+        "Should a tapped history row do anything? Rows are currently non-interactive. Given the JTBD is 're-order an old favorite,' product may want each row to be a tappable affordance (open a re-order CTA / bottom sheet). If not, confirm rows stay purely informational so we don't add false tap signifiers.",
+        "Empty state: leave as a dead-end informational card, or add a low-emphasis link to the active plan/menu so a user with no history isn't stranded?",
+        "Target rows-per-screen: confirm ~6 on 390x844 is the density goal so we can size padding/type accordingly."
+      ]
+    }
+  },
+  {
+    "key": "profile",
+    "name": "Profile & Security",
+    "spec": {
+      "surface": "Profile & Security (/dashboard/profile)",
+      "primaryJobOnMobile": "Check and correct the few facts the kitchen relies on \u2014 \"is my WhatsApp verified, what do you cook for me, where do you deliver\" \u2014 and fix any that are wrong (verify WhatsApp, change email/password, edit meal preferences). It is a low-frequency settings/verification surface, not a daily-glance dashboard.",
+      "currentDesktopLayoutSummary": "Single centered column, maxWidth 760, padding clamp(20-40px). Vertical stack: (1) Header eyebrow + \"Your profile.\" H1; (2) Avatar/identity TIER_POP card (dark NV gradient, 64px avatar + name/email/CID, padding 28, horizontal flex); (3) SecuritySection TIER1 card with 3 stacked rows (Email / Password / WhatsApp), each a horizontal flex of icon + label/value + status badge + pill action button, separated by dividers; (4) Account details TIER2 card with an \"Edit details\" toggle, a 2-col grid (Customer ID / Member since) then a divider then a 2-col grid (Full name / Dorm), flipping to a stacked input form when editing; (5) optional pending-preferences banner (orange) OR promoted banner (green); (6) Meal preferences TIER1 card with header + \"Edit preferences\" button and a read-only auto-fit grid (Meal type / Delivery week / Spice / Allergens / optional veg-day chips); (7) \"Made with heart in Dubai\" footer. Two full-screen modals (Edit preferences; and Security's Email/Password/WhatsApp via ModalShell) center on a blurred backdrop. Only existing mobile rule: .profile-grid-2 collapses to 1 column at 640px.",
+      "mobileOrganizingPrinciple": "Verification status first, edit-on-demand everything else. Lead with what could be wrong and block deliveries (WhatsApp/email verification badges), compress everything read-only into tight scannable rows, and push every form into bottom sheets so the page itself stays a calm status list. We have height, so stacking is fine \u2014 but no single read-only fact should eat a third of the viewport.",
+      "elements": [
+        {
+          "name": "Header (Eyebrow \"My Account\" + H1 \"Your profile.\")",
+          "currentDesktopTreatment": "Eyebrow + clamp(28-38px) 700-weight H1 with orange period, marginBottom 32, framer fade-in.",
+          "currentVerticalCostMobile": "~12% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep but shrink: cap H1 at ~26px, drop marginBottom from 32 to ~16, keep the eyebrow. This is pure wayfinding \u2014 it earns a line, not a third of the fold.",
+          "reorganization": "Same position (top), reduced vertical footprint. Consider merging visually with the identity card below since both are 'who am I' chrome.",
+          "rationale": "Refactoring-UI density: a title is hierarchy, not content; on a phone the spacing scale must contract. JTBD: nobody opens settings to read the word 'profile'."
+        },
+        {
+          "name": "Avatar + identity card (TIER_POP)",
+          "currentDesktopTreatment": "Dark NV-gradient card, padding 28, horizontal flex: 64px gradient-initials avatar + name(22/800) + email(12) + CID pill.",
+          "currentVerticalCostMobile": "~18% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Compress padding 28->18 and shrink avatar to ~48px. Keep the horizontal layout (avatar left, name/email/CID stacked right) \u2014 do NOT center-stack it into a tall hero; that would triple its height for zero added value. CID pill stays inline under email.",
+          "reorganization": "Same position; tighter. The dark TIER_POP treatment stays (intentional focal 'passport' moment, and not a theme-darkening violation since it's one card).",
+          "rationale": "Refactoring-UI: identity is recognition, give it presence but not a full fold. Norman conceptual model: this is the user's 'passport' anchor \u2014 keep it recognizable, just denser."
+        },
+        {
+          "name": "Security & verification card (TIER1 wrapper)",
+          "currentDesktopTreatment": "TIER1 card, padding 24, blue-tinted border, eyebrow 'Security & verification', 3 SecurityRows + dividers.",
+          "currentVerticalCostMobile": "~40% of viewport (all 3 rows)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the highest-priority block on mobile and should sit directly under the identity card (promote ABOVE Account details). Keep as a single card; reduce padding 24->16. The value here is the at-a-glance verified/unverified state.",
+          "reorganization": "Move up the scan order so the first thing after identity is 'are my channels verified'. The verification status is the page's real status signal.",
+          "rationale": "JTBD + UX visibility-of-status: the #1 reason to open this page is to confirm/fix WhatsApp + email verification (deliveries depend on it). Lead with it."
+        },
+        {
+          "name": "SecurityRow (Email / Password / WhatsApp) \u2014 shared row component",
+          "currentDesktopTreatment": "Horizontal flex: 36px icon tile + label/value block (minWidth 160) + StatusBadge + pill action button with ChevronRight; flexWrap allowed; 14px vertical padding; value has wordBreak break-all (long emails).",
+          "currentVerticalCostMobile": "Each row ~10-14% (more when it wraps; a long email + badge + button can wrap to 3 lines, ~18%)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Re-author for narrow width instead of relying on flexWrap (which currently produces ragged 2-3 line rows). Proposed: row = icon + (label/value stacked) on line 1 with the StatusBadge right-aligned on the same line; the action becomes a full-width-feeling tap target \u2014 either the whole row is tappable (chevron affordance, opens the sheet) OR a compact pill on its own line. Ensure 44px min tap height (icon tile is 36px; expand the hit area). Keep value wordBreak for long emails. Password row: keep the enlarged dots but it needs no badge (StatusBadge returns null for 'set') \u2014 fine.",
+          "reorganization": "From 'icon + value + badge + button' all on one horizontal line to a 2-tier row: top line label+status, second line value, with the entire row as the trigger (recognition over recall; chevron already signals 'opens detail').",
+          "rationale": "iOS HIG native list pattern + 44px targets; UX no-hover-on-touch (current hover-only bg change on .security-action-btn must not be the only affordance); Refactoring-UI: stop the wrap-induced ragged height."
+        },
+        {
+          "name": "StatusBadge (Verified / Unverified / Not set)",
+          "currentDesktopTreatment": "Pill with shield icon + label; success-wash green / amber #c89417 / neutral; returns null for password 'set'.",
+          "currentVerticalCostMobile": "Inline, negligible standalone",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep prominent and right-aligned on each row's first line. Never color-alone \u2014 it already pairs ShieldCheck/ShieldAlert icon + text label, which satisfies the HIG/Norman requirement; preserve that. This is the single most valuable pixel on the surface.",
+          "reorganization": "Pin to the right edge of the row's top line so the eye can scan a vertical column of badges down the card.",
+          "rationale": "UX visibility-of-status + don't-make-me-think: the whole job is reading these three states at a glance; iOS HIG never-color-alone (already satisfied \u2014 keep icon+label)."
+        },
+        {
+          "name": "Account details card (TIER2) \u2014 read-only context + edit toggle",
+          "currentDesktopTreatment": "TIER2 card padding 24; header eyebrow + 'Edit details' pill; 2-col grid (Customer ID / Member since); divider; 2-col grid (Full name / Dorm); flips to stacked input form on edit.",
+          "currentVerticalCostMobile": "~35% of viewport read-only (grids collapse to 1-col at 640, so 4 stacked Fields + divider)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Demote below Security. The 4 Fields currently each take a full row at 640px (label 10px + value 14px) \u2014 that's tall for low-value data. Render the read-only facts as a compact 2-up grid that survives below 640 (Customer ID + Member since as a tight pair; Full name + Dorm as a pair) rather than 1-per-row, OR keep 1-col but tighten gap 20->12. Customer ID + Member since are reference-only; they don't each deserve a full row of breathing space.",
+          "reorganization": "Position drops (after Security). Keep the 'Edit details' gate. Strong consideration: move the edit FORM into a bottom sheet rather than inline-expanding the card, to match the rest of the surface's sheet pattern (see Open Decisions).",
+          "rationale": "Refactoring-UI: low-value reference data gets compressed, not full-bleed rows. JTBD: CID/member-since are recognition crumbs, rarely the reason for the visit."
+        },
+        {
+          "name": "Account details \u2014 inline Edit form (Full name input + Dorm select + Cancel/Save)",
+          "currentDesktopTreatment": "Stacked: FieldLabel + text input (44px), FieldLabel + custom select (44px, overlay chevron), inline error wash, Cancel + 'Save details' pill row.",
+          "currentVerticalCostMobile": "~45% when expanded inline",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Fields are already 44px (good tap targets). On mobile, present this edit state as a bottom sheet (consistent with meal-prefs + security flows) so the user isn't editing a form wedged mid-page with the keyboard covering the Save button. Pin Cancel/Save to the bottom of the sheet in thumb reach.",
+          "reorganization": "From inline card-expansion to a bottom sheet triggered by 'Edit details'. Primary action (Save) moves to thumb-reachable bottom.",
+          "rationale": "iOS HIG bottom-sheet + primary-action-in-thumb-reach; Microinteractions progressive disclosure: keep the page a calm read until the user commits to editing."
+        },
+        {
+          "name": "Pending-preferences banner (orange 'From next plan' diff list)",
+          "currentDesktopTreatment": "Orange gradient card, 'From next plan' amber chip + sentence, a diff list (label / old strikethrough -> new bold), and an underlined 'Discard these changes' button.",
+          "currentVerticalCostMobile": "~25-35% depending on number of diffs",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep \u2014 it's a high-value status signal (a queued change the user must remember). But tighten: padding 14/18->12, and let each diff line wrap cleanly (it already has flexWrap with a 110px min label \u2014 reduce that min on narrow screens so old->new doesn't orphan). The 'Discard' link must be a real 44px tap target, not a 4px-padded underline.",
+          "reorganization": "Sits immediately above the Meal preferences card (keep this coupling \u2014 it's the 'what changed' header for 'what we cook'). Only appears conditionally, so it doesn't tax the default layout.",
+          "rationale": "UX visibility-of-status + Norman gulf-of-evaluation: this is how the user knows their edit landed and is queued; orange (= brand ceiling #f57f20) reinforces 'pending', never darker."
+        },
+        {
+          "name": "Promoted banner (green 'New meal preferences applied')",
+          "currentDesktopTreatment": "Green gradient card, 26px check circle + uppercase label + sentence; shows post-sub-end when pending_* drained to canonical.",
+          "currentVerticalCostMobile": "~15%",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep as-is, just reduce padding. It's an ephemeral confirmation that replaces the orange banner; low effort, leave it. Single row layout is already mobile-friendly.",
+          "reorganization": "Same slot as the pending banner (mutually exclusive with it). No structural change.",
+          "rationale": "Microinteractions feedback / close-the-loop: confirms the queued change is now live; deserves to stay visible until next sub."
+        },
+        {
+          "name": "Meal preferences card (TIER1) \u2014 header + 'Edit preferences' CTA",
+          "currentDesktopTreatment": "TIER1 card, orange-tinted border, padding 24; header block (eyebrow + helper sentence maxWidth 460) on the left, orange 'Edit preferences' pill on the right (flexWrap).",
+          "currentVerticalCostMobile": "Header ~12%",
+          "mobileFold": "third-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "On mobile let the header stack: eyebrow + helper sentence, then a FULL-WIDTH 'Edit preferences' button beneath (44px+, thumb-friendly) rather than a right-floated pill that wraps awkwardly. Trim the helper sentence \u2014 it's long for a phone.",
+          "reorganization": "Header text over a full-width primary CTA; the CTA is the card's main action so it earns full width.",
+          "rationale": "iOS HIG primary action sizing/placement; Refactoring-UI: a wrapped right-floated button reads as a layout accident on narrow widths."
+        },
+        {
+          "name": "Meal preferences \u2014 read-only value grid (Meal type / Delivery week / Spice / Allergens / optional veg-day chips)",
+          "currentDesktopTreatment": "auto-fit grid minmax(180px,1fr), gap 18, inner padded skeleton-bg panel; 4-5 Fields; veg-day chips render as green 3-letter pills when religious-mix.",
+          "currentVerticalCostMobile": "~30-40% (auto-fit collapses to 1 column under ~360px-ish, so 4-5 stacked Fields)",
+          "mobileFold": "third-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Force a 2-across grid on mobile (not auto-fit-to-1-column) so the four short facts read as a compact 2x2 block \u2014 a single metric like 'Spice: Medium' must not own a full phone row. Veg-day chips span full width as a final row when present. Tighten inner padding 18->12, gap 18->10.",
+          "reorganization": "From fluid auto-fit to a fixed 2-col dense block. This is the 'what we cook for you now' snapshot \u2014 valuable, but each datum is one or two words, so pack them.",
+          "rationale": "Refactoring-UI density (the governing principle's exact example: three metrics as a compact row, not one-third-of-viewport each); JTBD: users glance to confirm, then maybe edit."
+        },
+        {
+          "name": "Save-state inline toasts (account 'Details saved' / 'Preferences saved' / 'Saved for next subscription' / 'Pending changes discarded')",
+          "currentDesktopTreatment": "Small inline success/neutral wash chips appended under their respective cards, auto-clear after 2.5-4s.",
+          "currentVerticalCostMobile": "~6% transiently",
+          "mobileFold": "second-fold",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep inline and anchored to the card that triggered them; they're transient. No change needed beyond ensuring they don't shift layout jarringly (reserve space or animate height).",
+          "reorganization": "Stay attached to their source card. Note: skip-meal-style irreversible-confirm patterns are absent here, so transient toasts are appropriate.",
+          "rationale": "Microinteractions immediate-feedback + UX visibility-of-status; these are correct as-is, just verify no layout jank on small screens."
+        },
+        {
+          "name": "Edit Preferences modal (meal prefs) \u2014 Meal pref select, Delivery-week toggle, religious veg-day picker, Allergen chips, Spice select, Cancel/Save",
+          "currentDesktopTreatment": "Center modal maxWidth 520 on blurred backdrop, padding 28, maxHeight calc(100vh-48px) scroll; close X top-right; eyebrow + 'Update what we cook for you.' title + forward-looking note; stacked fields incl. week-type toggle (flex 1 1 200px), veg-day grid (repeat(W) columns), allergen pill wrap, spice select; Cancel/Save flex row.",
+          "currentVerticalCostMobile": "Full-screen overlay (tall, scrolls)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "Convert from center-card modal to a bottom sheet that rises to ~92vh with a grab handle and a sticky footer holding Cancel/Save (the long 'Save for next subscription' label needs the bottom anchored so it survives keyboard + scroll). Week-type toggle: keep 2 buttons but let them go full-width-stacked under ~360px (flex 1 1 200px currently forces side-by-side that's cramped). Veg-day grid (repeat(W) cols across) is fine at W=5/6 if each cell stays >=44px wide; on 360px verify 6 cells fit or wrap to two rows. Allergen pills already wrap \u2014 good.",
+          "reorganization": "Center modal -> bottom sheet; primary action sticky at bottom in thumb reach; backdrop tap-to-close preserved (already !isPending guarded).",
+          "rationale": "iOS HIG bottom-sheet for forms + safe-area + thumb-reach; Microinteractions progressive disclosure (dense edit detail belongs in a sheet, not on the page)."
+        },
+        {
+          "name": "Security ModalShell modals \u2014 Change Email / Change Password / WhatsApp Verify",
+          "currentDesktopTreatment": "Shared ModalShell: center card maxWidth 460, blurred backdrop, Esc-to-close, close X, title + subtitle, body fields; Email (resend-verify button when unverified + new-email input); Password (current/new/confirm PasswordInputs with eye toggles + live 5-rule checklist + 'email me a reset link'); WhatsApp (2-stage: number -> 6-digit code, resend link).",
+          "currentVerticalCostMobile": "Full-screen overlay each",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "Same as meal-prefs: render as bottom sheets with sticky Cancel/primary footer. Password sheet is the tallest (3 inputs + 5-rule checklist) \u2014 ensure it scrolls within the sheet and the Update button stays pinned. Inputs are already 44-48px; eye toggle is 32px (acceptable but nudge toward 44px hit area). WhatsApp code input (numeric, one-time-code, centered tracking) is good \u2014 keep inputMode numeric so the number pad opens.",
+          "reorganization": "Center modals -> bottom sheets, consistent with the meal-prefs sheet, so all three security flows feel native. Keep the secondary 'reset link' / 'resend code' links below the action row but give them 44px tap height.",
+          "rationale": "iOS HIG bottom-sheet + numeric keypad (inputMode) + 44px targets; UX recognition: a single consistent sheet pattern for every edit on the surface reduces cognitive load."
+        },
+        {
+          "name": "'Made with heart in Dubai' footer",
+          "currentDesktopTreatment": "Centered uppercase 11px caption with orange heart, padding 16.",
+          "currentVerticalCostMobile": "~6%",
+          "mobileFold": "deep",
+          "mobilePriority": 5,
+          "densityRecommendation": "Keep, unchanged \u2014 it's the natural scroll terminus and signals 'end of page'. No vertical cost worth fighting.",
+          "reorganization": "Stays last. Acts as a scroll-end signifier.",
+          "rationale": "Refactoring-UI/Norman: a quiet end-cap gives closure to the scroll; harmless and brand-warm."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "Header (Eyebrow + H1)",
+        "Avatar + identity card (TIER_POP)",
+        "Security & verification card",
+        "SecurityRow: Email",
+        "SecurityRow: Password",
+        "SecurityRow: WhatsApp",
+        "Pending-preferences banner (or Promoted banner)",
+        "Meal preferences card (header + full-width Edit CTA)",
+        "Meal preferences read-only value grid (2-across)",
+        "Account details card (compressed read-only + Edit details)",
+        "Made with heart in Dubai footer"
+      ],
+      "crossCuttingNotes": "Bottom-sheet pattern is the big reusable win: this surface has FOUR modals (meal-prefs + the three ModalShell security flows) that should all become bottom sheets with a sticky thumb-reach footer and safe-area padding \u2014 build one shared MobileSheet wrapper and the whole dashboard's modals can adopt it. The 44px tap-target audit recurs everywhere: SecurityRow action pill, 'Discard these changes' underline (currently 4px padding), the eye-toggle (32px), and the password-reset/resend text links all need bigger hit areas. Hover-only signifiers (.security-action-btn and .prefs-edit-btn hover bg/border) must not be the sole affordance on touch \u2014 give touch a persistent resting style. The compress-low-value-reference-data move (Account details 2-up grid, meal-prefs 2-across) is a pattern other dashboard surfaces with stat grids will reuse. StatusBadge already pairs icon+label (never color-alone) \u2014 reuse that contract for any status pill elsewhere. Orange stays the ceiling (#f57f20) for the pending banner and all primary CTAs; the dark TIER_POP identity card is a deliberate single-card focal moment, not a theme darkening, so it's safe.",
+      "openDecisions": [
+        "Should the Account-details edit form become a bottom sheet (consistent with every other edit on this surface) or stay an inline card-expansion? Sheet is more consistent but the inline expand is lighter-weight for a 2-field edit.",
+        "Promote Security ABOVE Account details on mobile (recommended \u2014 verification is the primary job), or preserve the current desktop order. Desktop already renders identity -> Security -> Account details, so this is really 'confirm we keep Security second and don't let Account details creep up'.",
+        "For the meal-prefs read-only grid on small Android (360px), is a forced 2-across acceptable for the longer values like 'Mon\u2013Sat (6 days)', or should Delivery week get a full-width row while Spice/Meal-type/Allergens stay 2-across?",
+        "Make the entire SecurityRow tappable (whole-row trigger, iOS-list style) vs. keeping a discrete pill button \u2014 whole-row is more thumb-friendly but removes the explicit button signifier.",
+        "Adopt a single shared MobileSheet component now (refactor all four modals) or ship sheet behavior per-modal first \u2014 affects scope/effort.",
+        "The meal-prefs helper sentence and modal forward-looking note are long for a phone; trim to one short line on mobile, or keep full copy (the 'changes apply from next subscription' message is load-bearing for the kitchen-contract mental model, so don't cut its meaning)."
+      ]
+    }
+  },
+  {
+    "key": "support",
+    "name": "Support",
+    "spec": {
+      "surface": "Support (/dashboard/support)",
+      "primaryJobOnMobile": "\"Get a human to help me right now, with the least friction.\" A student on a phone opens Support because something is wrong or unclear (a meal, a charge, an allergy, \"do you deliver to me?\"). The job is: either self-serve the answer fast (FAQ) or punch through to a live channel (WhatsApp first, email second), with their Account reference handy so the conversation starts warm. On a phone, \"reach a human\" beats \"read my account card.\"",
+      "currentDesktopLayoutSummary": "Single centered column (maxWidth 1400). Order: motion header (eyebrow + \"We're here for you.\" + dynamic subline) \u2192 \"Get in touch\" section as a 3-across grid (Account info on TIER_POP / accent border, Email on TIER2, WhatsApp on TIER2 + green border), each card minHeight 260 \u2192 \"Common questions\" section: one TIER2 panel containing 8 collapsed FAQItem rows \u2192 centered \"Made with heart in Dubai\" footer. The only existing responsive rule is `@media (max-width:1024px){ .support-grid { 1fr } }`, which stacks the three contact cards vertically \u2014 a pure reflow, not a mobile reorganization.",
+      "mobileOrganizingPrinciple": "Channels first, reference second, answers third. Lead with \"how do I reach you\" as a tight, thumb-reachable action block (WhatsApp the clear primary), demote the Account-info reference to a compact collapsible strip (it's recall-support, not the action), and give the FAQ the most vertical room since self-serve deflects most contacts. Drop desktop's three 260px equal cards \u2014 that's the single biggest vertical-cost offender on a phone (Jobs-to-be-Done + Refactoring-UI density).",
+      "elements": [
+        {
+          "name": "motion.header (Eyebrow + h1 \"We're here for you.\" + dynamic subline)",
+          "currentDesktopTreatment": "Eyebrow kicker, clamp(24\u201330px) bold h1 with orange period, 15px muted subline that swaps to \"{N} dinners delivered\" when totalDelivered >= 5; marginBottom 36.",
+          "currentVerticalCostMobile": "~18% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep but compress: pin h1 to the low end (~22\u201324px), tighten marginBottom 36 \u2192 ~20, cap subline at 2 lines. Keep the dynamic \"{N} dinners delivered\" line \u2014 it's cheap warmth and reassurance (\"reply within 15 min\" is a status signal). Drop the eyebrow only if vertical pressure forces it; otherwise keep at 11px.",
+          "reorganization": "Stays at top but shorter. The 15-min reply-time promise should survive in the subline because it sets the expectation that drives the channel choice below it.",
+          "rationale": "Refactoring-UI (constrained spacing, hierarchy by size) + Influence (social-proof \"N dinners\" + status \"15 min\"). Desktop's 36px breathing room is luxury a phone can't afford above the action block."
+        },
+        {
+          "name": "\"Get in touch\" section eyebrow + hairline divider",
+          "currentDesktopTreatment": "Eyebrow \"Get in touch\" with a flex:1 1px hairline running to the right edge; marginBottom 14.",
+          "currentVerticalCostMobile": "~3% of viewport",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep as a thin section label; the hairline rhythm is fine and cheap. Could be relabeled \"Reach us\" for directness but not required.",
+          "reorganization": "Unchanged in role; sits directly above the contact actions.",
+          "rationale": "UX-Heuristics: a lightweight signifier of section boundaries aids scanning. Costs almost nothing vertically."
+        },
+        {
+          "name": "WhatsApp contact card (TIER2 + green border, MessageCircle icon, \"Fastest \u00b7 ~15 min\" eyebrow, \"Open WhatsApp \u2192\" CTA)",
+          "currentDesktopTreatment": "Third card in the grid, minHeight 260, 44px green icon tile, eyebrow, h1-style title, 13px body, solid #25D366 pill CTA with green shadow.",
+          "currentVerticalCostMobile": "~31% of viewport each (three stacked = nearly 3 screens today)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Promote to the visual primary and SHRINK the shell. Kill minHeight 260. Render as a compact full-width row: small green icon + \"Chat on WhatsApp / Fastest \u00b7 ~15 min\" stacked on the left, full-width (or right-aligned) solid green CTA pill at >=44px tap height. Drop or trim the \"Available 7 AM\u20139 PM, 7 days\" line to one short line. This is THE action; it should be the most prominent thing below the header.",
+          "reorganization": "Moves from grid-position-3 to FIRST in the contact block. Becomes a horizontal action row, not a 260px card. CTA pill should be wide and thumb-reachable.",
+          "rationale": "Jobs-to-be-Done (fastest path to a human is the job) + iOS HIG (primary action, large tap target) + brand: green is the locked WhatsApp vocabulary, keep it."
+        },
+        {
+          "name": "Email contact card (TIER2, Mail icon, \"Within 24 hours\" eyebrow, mailto CTA showing SUPPORT_EMAIL)",
+          "currentDesktopTreatment": "Second card, minHeight 260, orange-tint 44px icon tile, eyebrow, title \"Email us\", 13px body, ghost orange pill whose label is the full email address (truncates with ellipsis).",
+          "currentVerticalCostMobile": "~31% of viewport (as a full card)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Demote to a compact secondary row beneath WhatsApp. Kill minHeight 260 and the 44px icon tile (shrink to ~28px or inline icon). The CTA label is the email string \u2014 on a 360px screen that truncates ugly; instead label the pill \"Email us\" and show the address as a small line below, or keep mailto with a fixed \"Email support\" label. Trim the \"billing/paper trail\" descriptor to a half-line.",
+          "reorganization": "Second in the stacked contact block, visually lighter than WhatsApp (ghost pill stays, no green). Forms a 2-row contact pair with WhatsApp.",
+          "rationale": "Refactoring-UI (de-emphasize the slower channel via lighter treatment) + UX-Heuristics (the email-as-button-label truncation breaks recognition on narrow screens)."
+        },
+        {
+          "name": "Account info card (TIER_POP accent, \"Your reference\" eyebrow, Name/Email/ID rows, \"Quote your ID\" hint)",
+          "currentDesktopTreatment": "First card, the only TIER_POP/data card, minHeight 260, three label-value rows (ID in MONO) with hairline separators, footer hint \"Quote your ID so we can pull up your account instantly.\"",
+          "currentVerticalCostMobile": "~31% of viewport (as a full card)",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Demote and collapse. On desktop it leads because it's the spotlight data card; on mobile it's reference you consult, not an action. Render as a compact collapsed strip/disclosure: a single TIER_POP bar reading \"Your reference \u00b7 ID {cid}\" with a tap-to-expand revealing Name / Email / full ID. Keep the ID prominent and the one-tap-copy affordance worth adding (copy the ID). Keep the \"Quote your ID\" hint inside the expanded state only.",
+          "reorganization": "Moves from grid-position-1 (desktop lead) to AFTER the two contact rows, as a collapsible reference strip. Position/importance preserved but size drastically cut. Consider a copy-to-clipboard tap on the ID since users will paste it into WhatsApp.",
+          "rationale": "Jobs-to-be-Done (reference supports the action, it isn't the action) + Microinteractions (progressive disclosure into a strip; add copy feedback) + Norman (mapping: the ID lives next to the channels where you'll quote it)."
+        },
+        {
+          "name": "\"Common questions\" section eyebrow + hairline divider",
+          "currentDesktopTreatment": "Eyebrow \"Common questions\" + flex:1 hairline; marginBottom 14.",
+          "currentVerticalCostMobile": "~3% of viewport",
+          "mobileFold": "second-fold",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep as-is; cheap section signifier introducing the self-serve block.",
+          "reorganization": "Unchanged role, sits above the FAQ accordion.",
+          "rationale": "UX-Heuristics: section labeling aids scanning of long lists."
+        },
+        {
+          "name": "FAQ accordion (TIER2 panel wrapping 8 FAQItem rows)",
+          "currentDesktopTreatment": "One TIER2 panel, clamp(20\u201328px) padding, containing 8 collapsible FAQItem rows (18px vertical padding each, 14px question, + rotates to x, 13px answer at lineHeight 1.65).",
+          "currentVerticalCostMobile": "~50% of viewport collapsed (all 8 headers), much more when expanded",
+          "mobileFold": "third-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep as native-feeling collapsible list \u2014 this is the strongest mobile pattern already in the file and earns its space. Reduce the outer panel padding (clamp low end ~16px) so questions use full width. Verify each tappable row header is >=44px (currently 18+18 padding + ~17px text \u2248 53px \u2014 good). Optionally reorder the 8 to put the most phone-urgent first (\"Can I skip a meal?\", \"When is my meal delivered?\", \"Do you deliver to my dorm?\") since those map to time-sensitive panic moments.",
+          "reorganization": "Stays as the third block; gets the most vertical room. No structural change to FAQItem needed \u2014 it's already touch-correct. Consider promoting delivery/skip/dorm-coverage questions to the top of the FAQS array.",
+          "rationale": "Microinteractions (progressive disclosure is correct here) + iOS HIG (native list/accordion) + Jobs-to-be-Done (self-serve deflection; reorder by phone-urgent intent). This block legitimately earns vertical space."
+        },
+        {
+          "name": "\"Made with heart in Dubai\" footer",
+          "currentDesktopTreatment": "Centered, 11px uppercase letter-spaced text with inline orange-filled Heart icon; 16px vertical padding.",
+          "currentVerticalCostMobile": "~6% of viewport",
+          "mobileFold": "deep",
+          "mobilePriority": 5,
+          "densityRecommendation": "Keep verbatim; it's a small warmth signature with negligible cost. No change.",
+          "reorganization": "Stays last, after the FAQ. Ensure it clears the bottom safe-area inset.",
+          "rationale": "Refactoring-UI (a quiet brand grace note; deliberately low in hierarchy) + iOS HIG (respect safe-area at the page bottom)."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "motion.header (Eyebrow + h1 + dynamic subline)",
+        "\"Get in touch\" eyebrow + hairline",
+        "WhatsApp contact row (PRIMARY)",
+        "Email contact row (secondary)",
+        "Account info reference strip (collapsed, expandable)",
+        "\"Common questions\" eyebrow + hairline",
+        "FAQ accordion (8 FAQItem rows, urgent-first)",
+        "\"Made with heart in Dubai\" footer"
+      ],
+      "crossCuttingNotes": "The \"three equal cards, minHeight 260, stack to 1fr under 1024px\" pattern is the recurring vertical-cost trap across the dashboard \u2014 the same reflow-not-reorganize move likely appears on Plan and elsewhere. The mobile fix (collapse equal cards into a prioritized vertical stack where one item is clearly primary and the rest shrink to compact rows) is reusable. The FAQItem accordion and Eyebrow+hairline section header are shared `_shared` components and already mobile-appropriate; any padding/tap-target tuning done here should be made breakpoint-aware in the shared components so Plan's FAQ benefits too. The collapsible \"reference strip + copy ID\" treatment is reusable for any account/ID display elsewhere (Profile). WhatsApp green primary CTA + ghost-orange secondary is an established channel-vocabulary pair worth standardizing as the mobile contact-row component. Note: `data-tooltip` (\"Opens WhatsApp\", \"Opens your email app\") is hover-only and invisible on touch \u2014 drop or convert to visible sub-labels on mobile (UX-Heuristics: no hover-only info on touch).",
+      "openDecisions": [
+        "Account info on mobile: collapsed reference strip (tap to expand) vs. always-visible compact two-line block? Strip saves ~25% viewport but adds a tap before the user can read their ID.",
+        "Should we add a copy-to-clipboard affordance on the customer ID? It maps directly to \"quote your ID in WhatsApp,\" but it's net-new interaction not in the current code.",
+        "Reorder the 8 FAQS array for phone-urgent intent (skip / delivery time / dorm coverage first) vs. keep the current author-curated order? Reordering changes desktop too unless gated.",
+        "Email CTA label: keep the full email address as the button text (truncates on 360px) or relabel the pill \"Email us\" with the address shown as a small caption line below?",
+        "Does the dynamic \"{N} dinners delivered\" subline survive on first-glance mobile, or is the generic \"Real humans, real food\" line preferred to save a line of height for low-delivery users (it already branches at totalDelivered >= 5)?"
+      ]
+    }
+  },
+  {
+    "key": "dormwars",
+    "name": "Dorm Wars Hub",
+    "spec": {
+      "surface": "Dorm Wars Hub (/dashboard/dorm-wars)",
+      "primaryJobOnMobile": "\"Did I earn anything, and how do I earn more right now?\" \u2014 a Premium subscriber opens the hub on their phone to (a) see their wallet/streak status, (b) fire off the one action that earns AED (Send a Free Meal to a friend over WhatsApp), and (c) glance at how close they are to the next reward. It is a motivation-and-action surface, not a data dashboard.",
+      "currentDesktopLayoutSummary": "Single dark, full-bleed scroll column inside a flex container (padding clamp 16-24 / 20-32, gap 16). Vertical order: optional CelebrationBanner -> optional DoublerActiveBanner -> TopChrome (one flex row: progression block left, wallet+streak chips right, flex-wraps) -> HeroCTA (centered tagline + big pill button + helper text + next-milestone pill) -> 3-column progress grid (.hub-progress-grid: CycleColumn / LifetimeColumn / SideRewardsColumn at repeat(3,1fr), collapsing to 2-up <1024 and 1-up <768) -> 2-column lower row (.hub-activity-grid: ActivityFeed 1.1fr / ScoutsStrip 1fr, 1-up <768). Everything else (Quests, Ladder, Streak Chest, Squad, Wallet, Progression, Google Review, Weekly/Monthly chooser, side-quest info) is a centered Modal sheet. A first-visit DormWarsTour spotlights the three columns + streak chip. PremiumGateOverlay frosts the whole thing for ineligible plans.",
+      "mobileOrganizingPrinciple": "Status then action then progress: compress the identity/money/streak chrome into a tight 3-row glanceable header (identity line, then a Wallet|Streak 2-across metric row), give the single earn action (Send a Free Meal) and the tappable earn-now Side Quests prime first/second-fold space, and demote the slow-moving progress bars, squad, and social feed below \u2014 pushing every dense detail into bottom sheets so the scrollable surface stays light and thumb-driven.",
+      "elements": [
+        {
+          "name": "PremiumGateOverlay",
+          "currentDesktopTreatment": "Full-screen fixed dialog (z-9000) frosting the SSR hub; centered card maxWidth 460 with lock eyebrow, 24px headline, sub copy, a 2-column perk teaser grid (6 perks), and an upgrade CTA. Only shown to non-Premium plans.",
+          "currentVerticalCostMobile": "Full viewport (it is a takeover) for ineligible users; zero for eligible users",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "For ineligible users this IS the surface \u2014 keep it. The 2-up perk grid (repeat(2,minmax(0,1fr))) is fine at 390px but tighten to a single column at <=360px so each perk's label+sub never truncates. Pin the upgrade CTA to the bottom safe-area within the card so it's in thumb reach without scrolling past 6 perks; the card already scrolls (overflowY auto on backdrop).",
+          "reorganization": "Stays a full-screen sheet. Card goes width:100% with 16px side gutters; perk grid 2-up at 390 / 1-up at 360; CTA sticky to card bottom.",
+          "rationale": "JTBD + iOS HIG: for these users the only job is decide-to-upgrade, so the offer and its single CTA must be reachable without hunting. This is the dominant first-glance state for the segment that sees it."
+        },
+        {
+          "name": "CelebrationBanner",
+          "currentDesktopTreatment": "Conditional role=status bar at very top: gradient wash by accent, headline (16px/900) + sub line with inline wallet figure, dismiss X (32px circle), auto-dismiss 14s, slide-in animation.",
+          "currentVerticalCostMobile": "~12-15% when present (two text lines + padding); 0% otherwise",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep but cap to two lines and let the sub line wrap/ellipsis; ensure the 32px X grows to a 44px tap target via padding. Do not let the headline+sub push the wallet/CTA below the fold \u2014 it is transient (14s) so it can overlay rather than shove content, but simplest is to keep it inline and accept the one-time cost.",
+          "reorganization": "Full-bleed top banner, same position. Headline 15px, sub 12px, X gets 44px hit area. Stacks naturally; no layout change beyond tap-target.",
+          "rationale": "Microinteractions (Saffer) + visibility of status: this is the immediate-feedback payoff for earning. High emotional value, so it earns first-glance space, but it is ephemeral so it must not permanently cost height."
+        },
+        {
+          "name": "DoublerActiveBanner",
+          "currentDesktopTreatment": "Conditional role=status pill-bar under celebration: Zap icon + '2x rewards active' + countdown remaining, gold gradient wash.",
+          "currentVerticalCostMobile": "~7-9% when present; 0% otherwise",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Compress to a single line: '2x active \u00b7 {time} left' with the Zap glyph; drop the secondary explanatory clause ('Cash for invites + cycle milestones doubled for') on mobile \u2014 it's the kind of dense detail that belongs in the chest sheet, not a status strip. One line, ~36px tall.",
+          "reorganization": "Single-line full-bleed strip. Truncate explanatory copy; keep glyph + state + countdown only.",
+          "rationale": "Refactoring-UI density: a time-bound status bar should be one glanceable line on a phone. The 'why' is recall-able from the Streak Chest sheet; recognition over recall says show the state, hide the explanation."
+        },
+        {
+          "name": "TopChrome \u2014 Progression block (avatar + ring + title)",
+          "currentDesktopTreatment": "Clickable pill: 46px progress-ring-wrapped tier avatar glyph + eyebrow ('N to NextTitle' / 'Apex Tier') + 18px title + optional Early Access / GOAT badges. Opens Progression modal.",
+          "currentVerticalCostMobile": "~10-12% as its own wrapped row",
+          "mobilePriority": 2,
+          "mobileFold": "first-glance",
+          "densityRecommendation": "Keep the avatar+ring (the identity hook) but shrink avatar to ~38px and demote the eyebrow/title to a single tight line beside it. The progression block can stay full-width as row 1 of the chrome, with wallet+streak as a compact 2-up row directly beneath, rather than all three trying to share one wrapping flex line. Badges (Early Access/GOAT) move to a single inline chip; if both present, GOAT wins and Early Access folds into the Progression sheet.",
+          "reorganization": "Becomes the top identity row, full-width, left-aligned: avatar + title + next-step eyebrow on one line. No longer competes horizontally with the money chips.",
+          "rationale": "Norman conceptual model + Octalysis status: identity/progress is the emotional anchor and should lead, but it is not the job \u2014 so it gets one tight row, not a third of the screen. Avatar+ring is the recognizable signifier worth keeping."
+        },
+        {
+          "name": "TopChrome \u2014 Wallet chip",
+          "currentDesktopTreatment": "Clickable pill: CoinIcon(26) + 'WALLET' eyebrow + 'AED {n}' (18px/900) + optional '+{pending}'. Opens Wallet history modal.",
+          "currentVerticalCostMobile": "~6-8% (shares chip row)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "This is the single most important number on the surface \u2014 pair it with the streak chip as a compact 2-across row directly under the identity line (the code comment already says these two 'read as a matched pair'). Keep AED value at 18px; keep the pending '+N' inline. Ensure 44px min height.",
+          "reorganization": "Half-width chip in a 2-up status row (Wallet | Streak), sitting under the identity row. Tap opens the existing Wallet sheet.",
+          "rationale": "JTBD: 'did I earn anything' is answered by this number \u2014 it must be visible before any scroll. Refactoring-UI: two metrics across one row is the textbook fix for a single metric eating a third of a phone viewport."
+        },
+        {
+          "name": "TopChrome \u2014 StreakChestStrip (flame + day count + gift)",
+          "currentDesktopTreatment": "Clickable pill: tier-colored Flame(22) + 'STREAK' eyebrow + '{n}d' + gift disc (pulsing/haloed when chestReady). Opens Streak Chest modal.",
+          "currentVerticalCostMobile": "~6-8% (shares chip row)",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep as the right half of the Wallet|Streak 2-up row. The 'chest ready' pulsing gift is a high-value variable-reward trigger \u2014 preserve its glow/halo state since it drives a tap into the chest. Do not rely on color alone for 'ready': keep the gift-disc fill + ring so it reads on a glance.",
+          "reorganization": "Half-width chip paired with Wallet. Tap opens Streak Chest sheet.",
+          "rationale": "Hooked/Octalysis: the streak + ready-chest is the daily-return trigger. Pairing it with wallet keeps both money signals on one compact row (Refactoring-UI density) while preserving the discoverable 'open me' signifier (Saffer)."
+        },
+        {
+          "name": "HeroCTA \u2014 'Send a Free Meal' button + tagline + helper + next-milestone pill",
+          "currentDesktopTreatment": "Centered section: tagline ('Earn AED 20 every time a friend joins'), big pulsing/bobbing orange pill button (Send + label + ArrowRight, minWidth 240), helper line ('Opens WhatsApp...'), and a next-cycle-milestone hint pill ('N more recruits unlock {label}').",
+          "currentVerticalCostMobile": "~30-35% if kept as the centered 4-stack with clamp padding",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "This element EARNS its space \u2014 it is the job. But trim the stack: keep the button (full-width pill, >=48px tall) and a one-line tagline above it; collapse the helper line into smaller supporting text or drop it (the WhatsApp behavior is self-evident on tap). The next-milestone pill is valuable motivation but is also the headline of CycleColumn below \u2014 show it once. Best: keep the button + tagline at the top of the scroll, and ALSO pin a slim version of the button to the bottom safe-area as a persistent thumb-reach action so it survives scrolling.",
+          "reorganization": "Tagline (1 line) + full-width primary button near top; helper text demoted/removed; next-milestone pill deferred to CycleColumn to avoid duplication. Consider a sticky bottom 'Send a Free Meal' bar.",
+          "rationale": "JTBD + iOS HIG: the primary action belongs in thumb reach and must dominate. Refactoring-UI: drop redundant supporting copy; one strong CTA beats a CTA buried under three explanatory lines."
+        },
+        {
+          "name": "CycleColumn (This Month \u2014 burst goals)",
+          "currentDesktopTreatment": "Tinted card (Column shell, accent GOLD): eyebrow+icon, 2-line title, a 44px horizontal milestone progress bar with 5 emblem dots + 'you are here' head + a 16px row of recruit-count labels under it, then a 2-line status block ('N more recruits to {label}' + 'X of N this cycle \u00b7 Nd left'). Whole card opens Quests modal; dots focus-open it.",
+          "currentVerticalCostMobile": "~25-30% as a full-width card when grid collapses to 1fr",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Compress hard. The horizontal dot-bar barely fits 5 dots+labels at 360px (the code's own audit P1-9 notes collisions). On mobile, drop the standalone numeric-label row (the dots + the status sentence already carry the info) and keep a single progress bar + the primary 'N more recruits to {label}' line + the quiet 'X of N \u00b7 Nd left' meta. Reduce card padding from 18 to ~12 (already does this <1024). The full bar with all 5 emblems can live in the Quests sheet.",
+          "reorganization": "Becomes a compact status card/row: eyebrow + one progress bar + 1 primary line + 1 meta line. Tapping opens the full Quests sheet for the dot detail.",
+          "rationale": "Refactoring-UI + UX-heuristics: a 5-stop horizontal ladder is a desktop affordance; on a phone it collides and forces hover-tooltips (no hover on touch). Progressive disclosure (Saffer) \u2014 push the granular dots into the existing Quests sheet."
+        },
+        {
+          "name": "LifetimeColumn (Lifetime Path \u2014 permanent perks)",
+          "currentDesktopTreatment": "Tinted card (accent CYAN): eyebrow+Trophy, 2-line title, 44px progress bar with 4 tier dots (5%/10%+EA/Jacket/100 meals) + head marker, status body referencing current cash tier. Opens Lifetime Path (TrophyLadder) modal.",
+          "currentVerticalCostMobile": "~22-28% as full-width card",
+          "mobileFold": "third-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Same compression as CycleColumn: one slim bar + a single 'N to next tier ({perk})' line; drop the dense per-dot labels into the Lifetime Path sheet. Lower priority than the cycle bar because lifetime tiers move slowly \u2014 it is reference, not this-session action.",
+          "reorganization": "Compact status row beneath CycleColumn: bar + 1 line of next-tier copy. Tap opens TrophyLadder sheet.",
+          "rationale": "JTBD: lifetime progress is slow-moving context, not a same-session lever, so it ranks below the cycle goal and the action. Refactoring-UI hierarchy via reduced size/weight."
+        },
+        {
+          "name": "SideRewardsColumn (Side Quests \u2014 more ways to earn)",
+          "currentDesktopTreatment": "Tinted card (accent GREEN): eyebrow+Sparkles, title, a priority-sorted list of 4 rows (Google review, 4 weekly reviews, Monthly wrap, Weekly Streak Reward) each with emblem + label + status sub-line + status chip (Tap to claim / Pending / Locked / Earned / Coming soon). Actionable rows route to their action; passive rows open the info modal.",
+          "currentVerticalCostMobile": "~28-34% as full-width card (4 stacked rows)",
+          "mobileFold": "third-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep this as a real list (it already is one) \u2014 this is the highest-value secondary-action block after the Send CTA. Mobile-native treatment: each quest is a full-width 44px+ list row (iOS list pattern), emblem left, label+sub stacked center, status chip right. The top actionable row ('Tap to claim' Google review = instant AED) deserves visual lift to the top \u2014 the existing computeSideRewardPriority sort already does this; preserve it. This card should arguably sit HIGHER than the two progress bars on mobile because it contains tappable earn-now actions, not just progress viz.",
+          "reorganization": "Becomes a native list section. Consider promoting it above CycleColumn/LifetimeColumn on mobile so earn-now actions cluster near the Send CTA, leaving the slow progress bars lower.",
+          "rationale": "JTBD: 'how do I earn more right now' \u2014 these rows are direct earn actions (review, wrap, claim). UX-heuristics: list rows are unambiguous tap targets and the status chip gives visibility of status without color-alone (text labels present)."
+        },
+        {
+          "name": "ActivityFeed (Happening Now)",
+          "currentDesktopTreatment": "Tinted card (accent GREEN, empty title): one highlighted live pulse line ('{name} joined {dorm}', green dot, rotates every 4.5s) + up to 3 muted recent lines; GOAT EliteTag inline. Empty state: 'Quiet across the dorms right now.'",
+          "currentVerticalCostMobile": "~14-18% as full-width card",
+          "mobileFold": "deep",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep but shrink to the single rotating pulse line + at most 2 recent lines on mobile. This is social-proof ambiance (Octalysis/Influence), not an action \u2014 it belongs deep in the scroll. Do not let it occupy prime real estate. Reduce internal gap and row padding.",
+          "reorganization": "Stacks as a short ambient strip near the bottom of the scroll, above or paired with Squad. Trim recent items to 2.",
+          "rationale": "Influence-psychology (social proof) gives it a reason to exist, but JTBD ranks it last \u2014 it neither tells the user their status nor offers an action, so it sinks to deep fold."
+        },
+        {
+          "name": "ScoutsStrip (Your Squad)",
+          "currentDesktopTreatment": "Tinted card (accent PINK, empty title, 'Your Squad \u00b7 N'): horizontal scroll row of scout tiles (avatar initial + name + 5-stage progress pips, or 'Already here' for off-ladder) + a dashed 'Send new' tile. Card opens Squad modal; tiles open Journey.",
+          "currentVerticalCostMobile": "~16-20% as full-width card",
+          "mobileFold": "deep",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep the horizontal-scroll tile pattern \u2014 it is already mobile-friendly (overflow-x auto, 64px tiles, scrollbar hidden) and is one of the few elements that does NOT need reflow. Ensure tiles are >=44px tappable (they're ~64px wide, fine). Keep the 'Send new' tile as the trailing affordance \u2014 it reinforces the primary action. This can sit just below the Hero/Side Quests since it's tied to the referral loop, but its detail (journeys) is in sheets so the strip itself stays shallow.",
+          "reorganization": "Horizontal scroller stays as-is; just full-width. Header shows count; tap tile -> Journey sheet, tap card header -> Squad sheet.",
+          "rationale": "iOS HIG horizontal card scroller is a native pattern and the existing implementation already follows it. Microinteractions: the in-line 'Send new' tile is a secondary discoverable trigger for the core action."
+        },
+        {
+          "name": "DormWarsTour (first-visit walkthrough)",
+          "currentDesktopTreatment": "Fixed overlay (z-90) with a box-shadow spotlight cutout over each [data-tour] target, an auto-flipping tooltip card (maxWidth 320, clamped to viewport) for 4 steps (cycle, lifetime, streak chest, side quests), then a ConsentDialog ('Don't show again' / 'Maybe later'). Skip/ESC/backdrop -> consent. Suppressed behind the Premium gate.",
+          "currentVerticalCostMobile": "Full viewport overlay on first visit; 0 thereafter",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 4,
+          "densityRecommendation": "Logic is already mobile-aware (tooltip flips + clamps to viewport). The one risk: if the mobile reorg changes element order/heights, the scrollIntoView+measure spotlight must still land on the moved targets \u2014 the [data-tour] wrappers use display:contents so they survive reflow. Verify the streak-chest target (now a half-width chip in the 2-up row) still measures correctly. Tooltip Next/Finish/Skip buttons need 44px tap targets (current Next is 8px/18px padding \u2014 borderline, bump up).",
+          "reorganization": "No structural change; it follows whatever the targets do. Bump tooltip control tap targets to 44px; re-verify spotlight on the recompacted chips and list rows.",
+          "rationale": "Norman: the tour teaches the conceptual model and is decoupled by selector, so it adapts automatically \u2014 but iOS HIG 44pt targets and the moved streak-chip measurement are the two things to re-check."
+        },
+        {
+          "name": "Detail Modals (Quests, TrophyLadder, StreakChest, Squad, GoogleReview, Wallet, Progression, Weekly/Monthly chooser, QuestInfo)",
+          "currentDesktopTreatment": "Centered Modal component (maxWidth 640, maxHeight 88vh, overflow auto, hub-modal-in animation) holding each dense detail screen \u2014 flip-card milestone ladders, claim flows, wallet history, review choosers, etc.",
+          "currentVerticalCostMobile": "Full viewport when open; 0 when closed",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Convert the centered modal into a bottom sheet on mobile (slide up from bottom, respect safe-area, drag/swipe-to-dismiss + visible close). These sheets are where ALL the dense detail correctly lives, which is exactly why the surface chrome can be so compressed. Ensure each sheet's primary action button sits at the bottom in thumb reach and any screenshot upload / file picker (GoogleReview) and 'Don't show again' style CTAs meet 44px. maxHeight ~92vh with internal scroll.",
+          "reorganization": "Centered card -> bottom sheet pattern. Content inside is already scrollable; primary CTAs anchored bottom.",
+          "rationale": "iOS HIG + Saffer progressive disclosure: bottom sheets are the native home for depth on a phone and the mechanism that lets the always-visible hub stay light. This is the keystone that makes the whole compression strategy viable."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "CelebrationBanner",
+        "DoublerActiveBanner",
+        "TopChrome \u2014 Progression block (avatar + ring + title)",
+        "TopChrome \u2014 Wallet chip",
+        "TopChrome \u2014 StreakChestStrip (flame + day count + gift)",
+        "HeroCTA \u2014 'Send a Free Meal' button + tagline + helper + next-milestone pill",
+        "SideRewardsColumn (Side Quests \u2014 more ways to earn)",
+        "CycleColumn (This Month \u2014 burst goals)",
+        "LifetimeColumn (Lifetime Path \u2014 permanent perks)",
+        "ScoutsStrip (Your Squad)",
+        "ActivityFeed (Happening Now)",
+        "Detail Modals (Quests, TrophyLadder, StreakChest, Squad, GoogleReview, Wallet, Progression, Weekly/Monthly chooser, QuestInfo)"
+      ],
+      "crossCuttingNotes": "1) The Wallet|Streak 'matched pair' chips are a reusable mobile pattern: two key metrics as a compact 2-across row under the identity line \u2014 reuse this anywhere two status metrics currently sit in a wrapping flex header (e.g. other dashboard surfaces). 2) The Column shell (tinted-glass card with eyebrow+icon+'Details' pill) is shared by 5 blocks here; defining ONE mobile rule for it \u2014 reduced padding (~12), compressed body, whole-card tap opens a bottom sheet \u2014 fixes all of them at once and likely recurs on any other card-grid surface. 3) The centered Modal -> bottom-sheet conversion is the single most reusable mobile decision; if done as a shared Modal-component change it upgrades every sheet on this surface (and elsewhere that imports it). 4) Horizontal-scroll tile strips (ScoutsStrip) are already correct mobile-native and should be the template for any 'row of small entities' elsewhere. 5) Status chips that today rely partly on color (Tap to claim / Pending / Locked / Earned) already carry text labels \u2014 keep that text on mobile (never color-alone). 6) All pulsing/bobbing CTA + ready-chest animations must keep honoring prefers-reduced-motion (already wired in HubStyles).",
+      "openDecisions": [
+        "Should Side Quests (earn-now actions) be promoted ABOVE the Cycle/Lifetime progress bars on mobile? JTBD argues yes (they're tappable earn actions, the bars are passive progress viz), but it breaks the desktop left-to-right Cycle->Lifetime->Side narrative order. Product owner call on whether mobile order can diverge from desktop here.",
+        "Do we add a persistent sticky bottom 'Send a Free Meal' bar in the thumb zone, or rely on the top HeroCTA only? Sticky maximizes the primary action but adds permanent chrome and could clash with the app's existing bottom nav/tab bar if one exists.",
+        "On mobile, drop the HeroCTA helper line ('Opens WhatsApp \u00b7 they eat first meal free \u00b7 you earn when they subscribe')? It aids first-time recognition but costs a line every visit. Keep for new users / drop for returning?",
+        "The next-milestone hint currently appears twice (HeroCTA pill AND CycleColumn primary line). Which one wins on mobile \u2014 keep it under the CTA as motivation, or only in the Cycle card?",
+        "Convert all detail Modals to bottom sheets globally (shared component change) vs. only the Dorm Wars ones? Global is cleaner but touches other surfaces beyond this analysis's scope.",
+        "For ineligible users the PremiumGateOverlay is the entire mobile experience \u2014 is an upgrade-focused mobile layout (offer + sticky CTA) worth bespoke design effort, or is the current centered card 'good enough' since it's a conversion dead-end the user should leave quickly?"
+      ]
+    }
+  },
+  {
+    "key": "shell",
+    "name": "Shell, Nav & Modals",
+    "spec": {
+      "surface": "Shell, Nav & Modals (dashboard layout chrome: Sidebar rail/drawer, hamburger, content-border wrapper, SidebarDropdowns Now/Profile/Refer trays, MonthlyWrapForceOverlay, WeeklyReviewTakeover, MonthlyReviewTakeover)",
+      "primaryJobOnMobile": "Get me to the page I need (or act on a time-bound prompt) with one thumb, fast \u2014 the shell's job is wayfinding and surfacing \"what needs my attention right now,\" not holding content. The full-screen takeovers have a secondary but distinct job: complete a multi-step review/wrap form comfortably on a phone.",
+      "currentDesktopLayoutSummary": "Fixed 76px icon rail pinned left (top:16/left:16/bottom:16, expands to 240px on hover) holding logo, 6 nav links, a spacer, a framed \"Refer & earn\" row, the \"Now\" tray trigger, and a profile chip at the bottom. Main content sits in a flex row with marginLeft:92 inside a cream content-border card (min-height calc(100vh-32px)). Dropdowns (Refer/Now/Profile) render as 280px floating panels anchored at left:calc(100%+8px) beside the rail. Three overlays mount globally: MonthlyWrapForceOverlay (centered 480px card on a navy radial-glow scrim) and two full-screen takeovers (WeeklyReviewTakeover 5 steps, MonthlyReviewTakeover 8/4 steps) at inset:0 with a header (back chip + step counter + reward chip + close X), a centered main column (max-width 560-820px), and a footer \"Save & continue later\". At \u22641024px the rail already converts to an off-canvas 280px drawer (translateX) opened by a fixed 44px hamburger top-left, content marginLeft:0 + 8px padding.",
+      "mobileOrganizingPrinciple": "The shell must vacate the screen and live at the thumb. On a phone, navigation is not a persistent rail \u2014 it is a bottom-anchored layer summoned on demand. Replace the top-left hamburger + side drawer mental model with thumb-reachable triggers: a bottom tab bar (or bottom-summoned sheet) for nav, the Now tray as a bottom sheet, and the takeovers as full-height step flows whose primary CTA is pinned to the bottom safe area. Every chrome element earns zero permanent vertical cost on content pages; it appears only when invoked.",
+      "elements": [
+        {
+          "name": "Sidebar nav rail (aside.dash-sidebar)",
+          "currentDesktopTreatment": "76px fixed icon rail, expands to 240px on hover; floats with rounded corners, navy NV2 fill, shadow",
+          "currentVerticalCostMobile": "As the \u22641024 drawer it is full-height (100vh) off-canvas, 0% until opened then 100%",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "Replace the off-canvas full-height drawer with a persistent bottom tab bar (~56px + safe-area) holding the 3-4 top jobs as icon+label, OR a bottom-summoned nav sheet. Kill the hover-to-expand model entirely (no hover on touch). Drop the floating rounded-rail aesthetic for an edge-to-edge bottom bar.",
+          "reorganization": "Moves from left edge (off-canvas) to bottom edge (persistent or summoned). Icons that don't fit tabs spill into a 'More' sheet.",
+          "rationale": "iOS HIG + UX-Heuristics: primary nav belongs in thumb reach at the bottom; a left drawer behind a top-left hamburger is the least reachable corner on a 390-wide phone. JTBD: nav is the shell's core job, so it must be one tap, always present."
+        },
+        {
+          "name": "Mobile hamburger button (.dash-mobile-menu)",
+          "currentDesktopTreatment": "Hidden on desktop; at \u22641024 a fixed 44px glass button top-left (top:16/left:16) toggling the drawer",
+          "currentVerticalCostMobile": "Floats over content top-left; ~44px square, overlaps first-glance content",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Eliminate if a bottom tab bar is adopted (nav is always visible). If a nav sheet is kept, move the trigger to the bottom bar as a 'Menu/More' tab rather than a floating top-left FAB that collides with page headers.",
+          "reorganization": "From floating top-left overlay to a bottom-bar tab, or removed entirely.",
+          "rationale": "iOS HIG/Krug: top-left is the hardest thumb target; a floating button also occludes page H1s. Don't-make-me-think favors persistent visible tabs over a hidden drawer."
+        },
+        {
+          "name": "Logo / wordmark (Image logo-dark.svg)",
+          "currentDesktopTreatment": "Top of rail, 52px clipped frame showing the mark; full wordmark on expand",
+          "currentVerticalCostMobile": "In drawer header only; ~40px",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 5,
+          "densityRecommendation": "Do not give the logo permanent mobile chrome space. Show it only inside the 'More'/nav sheet header, or drop entirely on content pages \u2014 brand recall is not the shell's job on an interface.",
+          "reorganization": "From rail-top to nav/More sheet header, or omitted on the bottom bar.",
+          "rationale": "Refactoring-UI hierarchy + vertical-cost: a logo earns no first-glance height in a utility interface; the dashboard is an app, not a brochure (per design-intent memory)."
+        },
+        {
+          "name": "Primary nav links (NAV: My Dashboard, My Menu, My Plan, Explore Plans, Dorm Wars, Help & Support)",
+          "currentDesktopTreatment": "Six icon+label rows in <nav>, active row gets orange wash + border; 11px/12px padding rows",
+          "currentVerticalCostMobile": "In drawer: ~6 rows x ~44px stacked vertically",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Split by frequency: the 3-4 highest-frequency jobs (Dashboard, Menu, Plan, + Now) become bottom tabs with 44px+ targets and tiny labels (never icon-alone). Lower-frequency items (Explore Plans, Dorm Wars, Help & Support) move into a 'More' sheet as a native list with chevrons.",
+          "reorganization": "From a single vertical column in a drawer to a 2-tier system: bottom tab bar (top jobs) + More sheet (the rest).",
+          "rationale": "JTBD ordering by primary job; iOS HIG bottom-tab convention; Krug recognition-over-recall keeps the most-used destinations always visible instead of one-tap-buried."
+        },
+        {
+          "name": "Soon/disabled nav item affordance (rowStyle soon branch)",
+          "currentDesktopTreatment": "Disabled button with tooltip 'coming soon' and a 'Soon' pill on expand; muted color, not-allowed cursor",
+          "currentVerticalCostMobile": "A drawer row when present",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 5,
+          "densityRecommendation": "Keep teaser intent (Dorm Wars teaser is intentional per memory) but render the 'Soon' pill inline and always-visible in the More sheet \u2014 the tooltip is hover-only and invisible on touch.",
+          "reorganization": "From rail row with hover tooltip to a More-sheet list row with a persistent Soon pill.",
+          "rationale": "UX-Heuristics: no hover-only info on touch; the disabled state needs a visible signifier (Norman), not a tooltip."
+        },
+        {
+          "name": "Refer & earn rail row (framed Gift button + count badge)",
+          "currentDesktopTreatment": "Its own orange-tinted framed container above utilities; green count badge when referrals>0; opens the dormwars dropdown",
+          "currentVerticalCostMobile": "A framed row in the drawer; ~52px",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Move into the More sheet as a highlighted list row (keep the orange tint + green count badge as the visible signifier). Its panel becomes the Refer bottom sheet.",
+          "reorganization": "From a standalone framed rail row to a featured row in the More sheet that opens the Refer bottom sheet.",
+          "rationale": "Refactoring-UI tiering: referral is a secondary, occasional action \u2014 it does not deserve a tab slot but keeps elevated styling inside More to preserve its 'earn' pull (Octalysis ownership)."
+        },
+        {
+          "name": "Refer & Earn dropdown panel (SidebarDropdowns dormwars)",
+          "currentDesktopTreatment": "280px floating panel: header + credit chip, milestone progress line (converted/at), tap-to-copy link button, WhatsApp share pill, 'View Dorm Wars' link",
+          "currentVerticalCostMobile": "Floating panel anchored to rail \u2014 broken on mobile (anchors off-screen)",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 3,
+          "densityRecommendation": "Convert the whole panel to a bottom sheet with grab handle. Order: credit chip + milestone line at top, then big tap-to-copy link (44px+), WhatsApp share full-width, 'View Dorm Wars' as a footer link. Keep copy-confirm microfeedback.",
+          "reorganization": "From left-anchored popover to a scrim-dismissable bottom sheet summoned from the More-sheet Refer row.",
+          "rationale": "Microinteractions/iOS HIG: popovers anchored to a now-bottom rail must become sheets; bottom sheet keeps the share action in thumb reach. WhatsApp link stays canonical wa.me."
+        },
+        {
+          "name": "Now tray trigger (Activity button + numeric badge / pulse)",
+          "currentDesktopTreatment": "Rail button with Activity icon; numeric pending-count badge (orange active / muted late), urgent pulse halo; 'armed' pressed state when open",
+          "currentVerticalCostMobile": "A drawer row currently; the badge is the key status signal",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Promote Now to a bottom tab with the numeric count badge always visible (it is the shell's visibility-of-status anchor). Keep the active/late tone split and the reduced-motion pulse fallback. Badge must carry a number, not color-alone.",
+          "reorganization": "From a mid-rail utility button to a first-class bottom tab; the badge rides the tab icon.",
+          "rationale": "JTBD: 'what needs me now' is a top job and time-bound (Now-tray architecture memory). Nielsen visibility-of-status: the count must be glanceable without opening anything."
+        },
+        {
+          "name": "Now tray panel \u2014 NowTray container + header (Now label + 'N live')",
+          "currentDesktopTreatment": "Floating panel; header row with 'Now' eyebrow + 'N live' count; content padded 280px",
+          "currentVerticalCostMobile": "Floating panel anchored to rail \u2014 needs reflow",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 1,
+          "densityRecommendation": "Render as a bottom sheet (or full Now tab view) with grab handle; keep the 'N live' header as the count summary. Sheet height ~60-75vh, internally scrollable when stacked items overflow.",
+          "reorganization": "From left-anchored popover to a bottom sheet/tab content opened by the Now tab.",
+          "rationale": "iOS HIG bottom-sheet pattern; progressive disclosure (Saffer) \u2014 dense card stack lives in a sheet, not crammed on a content page."
+        },
+        {
+          "name": "MonthlyWrapCard (Now tray, primary)",
+          "currentDesktopTreatment": "Tall orange-edge card: qualifier-wrap eyebrow + day chip, 'Wrap your {cycle}' title, ~3 min subline, full-width orange CTA pill '+AED N'; late variant neutral",
+          "currentVerticalCostMobile": "~140-160px card inside the sheet",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Keep full-bleed inside the Now sheet \u2014 it earns the space as the lead time-bound action. Ensure the CTA pill is 48px+ and the day chip stays a visible signifier. Lead the sheet when present.",
+          "reorganization": "Same card, now the first item in the Now bottom sheet; CTA stretches edge-to-edge of the sheet.",
+          "rationale": "JTBD + Octalysis scarcity: the cycle-closing wrap is the decisive action with a hard deadline; it earns prominence (Refactoring-UI: this element earns the height)."
+        },
+        {
+          "name": "AllOrNothingLine (Now tray cycle-stakes chip)",
+          "currentDesktopTreatment": "One/two-segment chip: 'AED X ready \u00b7 AED Y to claim' (partial), or 'All N in / Submit all N' states; orange or success tone",
+          "currentVerticalCostMobile": "~32px single line",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep compact as-is \u2014 it is already dense. Place directly under MonthlyWrapCard / above PendingReviewCard in the sheet. Icons (check/plus) carry meaning so it survives small widths.",
+          "reorganization": "Unchanged shape; positioned in the sheet stack between wrap and weekly cards.",
+          "rationale": "Refactoring-UI density: this is a model of good compression already \u2014 color + icon do hierarchy work; no change needed beyond placement."
+        },
+        {
+          "name": "PendingReviewCard (Now tray, weekly primary)",
+          "currentDesktopTreatment": "Orange-edge card: 'Review' eyebrow + days-left chip, 'Week N' title, date range, full-width orange CTA 'Start/Resume review \u00b7 +AED 5'",
+          "currentVerticalCostMobile": "~130px card",
+          "mobileFold": "second-fold",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep full card with 48px+ CTA inside the sheet. Sits below the monthly wrap and stakes line. Days-left chip stays visible (status signifier).",
+          "reorganization": "Second decisive card in the Now sheet stack.",
+          "rationale": "JTBD/Microinteractions: a clear discoverable trigger with an inline reward; full-width CTA respects thumb tapping."
+        },
+        {
+          "name": "LateReviewRow(s) (Now tray, compact catch-up)",
+          "currentDesktopTreatment": "Compact row: 'Week N' + optional 'Expiring' tag, 'Nd late \u00b7 Submit for AED 2', chevron",
+          "currentVerticalCostMobile": "~52px each, can stack",
+          "mobileFold": "second-fold",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep as compact native list rows below the primary cards; whole row tappable (\u226544px). 'Expiring' tag stays as a visible signifier, not color-alone.",
+          "reorganization": "Stacked compact rows after the primary cards in the sheet; sheet scrolls if many.",
+          "rationale": "Refactoring-UI tiering: secondary, scannable; iOS list-row pattern with full-row tap target."
+        },
+        {
+          "name": "JustSubmittedRow (Now tray confirmation)",
+          "currentDesktopTreatment": "Green success row with check, 'Week N submitted', reward-locked subline; only when nothing else pending",
+          "currentVerticalCostMobile": "~56px row",
+          "mobileFold": "first-glance",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep as-is in the sheet; brief positive confirmation. No CTA needed.",
+          "reorganization": "Single confirmation row in the Now sheet when it is the only content.",
+          "rationale": "Nielsen visibility-of-status / close the gulf of evaluation \u2014 confirms the action succeeded."
+        },
+        {
+          "name": "NowTrayEmpty (designed empty state)",
+          "currentDesktopTreatment": "Centered Sparkles disc + 'All clear.' + explainer; ~28px vertical padding",
+          "currentVerticalCostMobile": "~150px centered block",
+          "mobileFold": "first-glance",
+          "mobilePriority": 4,
+          "densityRecommendation": "Keep but trim vertical padding for the sheet; it is a reassurance state, not a content surface. Could shrink to a single centered line + icon on 360px.",
+          "reorganization": "Centered empty state filling the (shortened) Now sheet.",
+          "rationale": "Norman/Krug: a designed empty state beats silence; but it should not force a tall sheet \u2014 compress padding."
+        },
+        {
+          "name": "Profile chip (sidebar bottom button)",
+          "currentDesktopTreatment": "Avatar (initials gradient) + name + dorm\u00b7CID, opens profile dropdown; bottom of rail above divider",
+          "currentVerticalCostMobile": "A drawer row ~48px",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Surface the avatar as an Account entry point \u2014 either a dedicated bottom tab (avatar glyph) or the top header row of the More sheet showing name + email + dorm\u00b7CID. Tap opens the profile sheet.",
+          "reorganization": "From rail-bottom chip to either an Account tab or the identity header of the More sheet.",
+          "rationale": "iOS HIG: account/identity is a recognized tab-or-sheet pattern; keeps sign-out and settings one tap from anywhere."
+        },
+        {
+          "name": "Profile dropdown (SidebarDropdowns profile: avatar header, links, bug button, Sign out)",
+          "currentDesktopTreatment": "Padded panel: avatar+name+email header with bug-report icon, three links (Profile, Plan & billing, Help & support) with chevrons, Sign out row",
+          "currentVerticalCostMobile": "Floating panel \u2014 needs reflow",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 2,
+          "densityRecommendation": "Convert to a bottom sheet (or the More-sheet body). Keep identity header, the three native list rows with chevrons, and a clearly separated destructive Sign out. Bug-report becomes a labeled list row, not a hover-tooltip icon.",
+          "reorganization": "From left-anchored popover to a bottom sheet / section of the More sheet.",
+          "rationale": "UX-Heuristics: error-prevention separation for Sign out; the hover-tooltip bug icon must become an always-labeled row on touch."
+        },
+        {
+          "name": "BugReportIconButton (custom hover tooltip)",
+          "currentDesktopTreatment": "Bug icon in profile header with a JS hover/focus tooltip 'Report a bug' (data-tooltip is globally suppressed when dropdown open)",
+          "currentVerticalCostMobile": "Inline icon in profile panel",
+          "mobileFold": "sheet-or-hidden",
+          "mobilePriority": 4,
+          "densityRecommendation": "Replace the hover tooltip with a full 'Report a bug' labeled list row inside the profile/More sheet (or relocate under Help & Support). No hover state survives touch.",
+          "reorganization": "From a tooltip-only icon to a labeled list row.",
+          "rationale": "Krug/Norman: touch has no hover; the trigger needs a persistent text label as its signifier."
+        },
+        {
+          "name": "Content-border wrapper (cream orange-bordered card, BugReportTrigger, IdleRefreshToast)",
+          "currentDesktopTreatment": "Cream #ede8da card with orange 0.45 border, min-height calc(100vh-32px), holds all page children + floating BugReportTrigger; IdleRefreshToast below",
+          "currentVerticalCostMobile": "At \u22641024 border-radius 16, min-height auto, 8px page padding",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Decide whether the framed cream card survives on mobile or content goes closer to edges (flat). Reserve bottom safe-area padding so the new bottom bar never overlaps content/toasts. Keep BugReportTrigger reachable but out of the thumb zone the tab bar occupies.",
+          "reorganization": "Card padding tightens; content reserves bottom-inset for the tab bar; floating triggers move clear of the bottom bar.",
+          "rationale": "Refactoring-UI/Norman: don't let chrome occlude content; the bottom bar dictates a fixed content safe-area inset on every page."
+        },
+        {
+          "name": "MonthlyWrapForceOverlay (pre-cron forcing modal)",
+          "currentDesktopTreatment": "Centered 480px card on navy radial-glow scrim: spring medallion (72px Sparkles), big headline, subline, primary 'Wrap it up \u00b7 +AED 5', secondary 'Remind me later'; backdrop click does NOT dismiss, ESC does",
+          "currentVerticalCostMobile": "Centered card, padding clamps; can approach full height on 360px",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Render as a near-full-height centered sheet/card; pin the primary CTA to the bottom safe area, secondary directly under it. Consider shrinking/dropping the 72px medallion on 360px to guarantee no-scroll. Keep the no-backdrop-dismiss + ESC rule (irreversible-window discipline).",
+          "reorganization": "From a 480px desktop card to a phone-height card with bottom-pinned CTAs; medallion optional on small.",
+          "rationale": "iOS HIG safe-area + thumb-reach for the decisive CTA; Octalysis/Norman: a forcing prompt must not require a scroll to reach its action."
+        },
+        {
+          "name": "Takeover header (back chip + step counter + reward/Clock chip + close X) \u2014 Weekly & Monthly",
+          "currentDesktopTreatment": "Flex header: back chip (32px), 'step/total' counter, reward chip with hover title (Clock + 'Nd left/Late \u00b7 50%'), close X (36px); padding clamps to 48px sides",
+          "currentVerticalCostMobile": "~64px header band",
+          "mobileFold": "first-glance",
+          "mobilePriority": 2,
+          "densityRecommendation": "Keep a slim sticky top bar: back + step counter left, close X right. Move the reward/Clock chip to always-visible (remove the hover title \u2014 replace with a tappable info affordance or inline subline). On 360px let the reward chip wrap or shorten ('5d \u00b7 full reward').",
+          "reorganization": "Header stays top-pinned and slim; reward chip loses hover-only detail and becomes self-explanatory inline.",
+          "rationale": "UX-Heuristics: hover title is invisible on touch; visibility-of-status (progress + reward window) must read without interaction; 44px close target."
+        },
+        {
+          "name": "Takeover progress bar (3px gradient)",
+          "currentDesktopTreatment": "3px top bar, orange\u2192amber gradient width = step%/100",
+          "currentVerticalCostMobile": "3px",
+          "mobileFold": "first-glance",
+          "mobilePriority": 3,
+          "densityRecommendation": "Keep exactly \u2014 it is the cheapest, clearest progress signal. Pin to top above the slim header.",
+          "reorganization": "Unchanged; top-pinned.",
+          "rationale": "Microinteractions/Nielsen: minimal-cost visibility of progress; do not touch."
+        },
+        {
+          "name": "Takeover step screens (rating stars, MealGrid favorites/misses, OpRow thumbs+chips, kitchen textarea; Monthly ChipGrid/BigTextarea/VerticalButtonStack)",
+          "currentDesktopTreatment": "Centered max-width 560-820px column, generous vertical centering (justify-center), large clamped H1s, grids minmax(180-200px)",
+          "currentVerticalCostMobile": "Variable; MealGrid auto-fit could go 1-2 across; star row clamps 44-64px",
+          "mobileFold": "second-fold",
+          "mobilePriority": 1,
+          "densityRecommendation": "Stop vertically centering the column on mobile (justify-start) so content begins at the top under the header. MealGrid \u2192 2-across at 360-390 (use the 420 xs breakpoint intent for dense media grids); star buttons stay \u226544px; chips/thumbs already \u226544px. Cap H1 clamp lower so it doesn't eat the fold. Let the column be top-aligned and scroll.",
+          "reorganization": "From a centered floating column to a top-aligned scrolling form; grids tighten to 2-across; CTA moves to a bottom-pinned bar (see next).",
+          "rationale": "Refactoring-UI vertical-cost + iOS HIG: centered forms waste phone height; top-align and 2-across grids maximize density; 44px targets preserved."
+        },
+        {
+          "name": "Takeover ContinueButton / Submit CTA",
+          "currentDesktopTreatment": "Inline centered pill 'Continue/Submit \u00b7 +AED N', orange primary or muted/disabled; appears at end of each step's scroll",
+          "currentVerticalCostMobile": "~50px, currently scrolls with content",
+          "mobileFold": "first-glance",
+          "mobilePriority": 1,
+          "densityRecommendation": "Pin the primary CTA to the bottom safe area as a sticky full-width bar so it is always in thumb reach without scrolling to the bottom of a step. Keep disabled/muted states as visible affordances (dashed/greyed). Reward in label stays.",
+          "reorganization": "From inline end-of-step pill to a bottom-pinned sticky action bar per step.",
+          "rationale": "iOS HIG thumb-reach + Microinteractions: the decisive action should not require hunting to the page bottom; sticky CTA is the native pattern."
+        },
+        {
+          "name": "Takeover footer 'Save & continue later' + Acknowledgement screen (Weekly all-or-nothing intercept)",
+          "currentDesktopTreatment": "Centered footer link 'Save & continue later'; AcknowledgementScreen is a full-step intercept (Link2 icon, 'all 4 or nothing', explainer, 'Got it \u2014 start review')",
+          "currentVerticalCostMobile": "Footer ~50px; Ack screen full-screen",
+          "mobileFold": "deep",
+          "mobilePriority": 3,
+          "densityRecommendation": "Fold 'Save & continue later' into the sticky bottom action area (as a secondary text action) instead of a separate footer that competes for bottom space. Keep the Acknowledgement intercept full-screen with its own bottom-pinned 'Got it' CTA.",
+          "reorganization": "Footer link merges into the bottom action cluster; Ack screen follows the same top-aligned + bottom-CTA pattern as other steps.",
+          "rationale": "iOS HIG: one bottom action cluster, not a separate footer; Cialdini commitment intercept preserved but made thumb-friendly."
+        },
+        {
+          "name": "Monthly RevealScreen + StatBlock grid + trial conversion close",
+          "currentDesktopTreatment": "Medallion, H1 'your wrap is ready', stat grid minmax(200px) (meals, reviews, AED, top pick image, top week), reward chip, trial 5%-off close card, next-step CTAs",
+          "currentVerticalCostMobile": "Tall; each StatBlock value is clamp 24-30px and could each eat large height stacked 1-up",
+          "mobileFold": "deep",
+          "mobilePriority": 2,
+          "densityRecommendation": "Force the StatBlock grid to 2-across on phones so no single metric eats ~1/3 of viewport; keep the top-pick image block as the one full-width hero stat. Trial conversion card stays full-width (it earns it \u2014 it is the conversion moment). Next-step CTA bottom-pinned.",
+          "reorganization": "Stat grid compresses to 2-across; conversion card and primary CTA remain prominent and bottom-anchored.",
+          "rationale": "Governing vertical-cost principle: three numeric metrics should be a compact row, not a stacked column; Octalysis: the conversion close earns full width."
+        }
+      ],
+      "proposedMobileScanOrder": [
+        "Content area (the page itself \u2014 chrome must not occupy first-glance height)",
+        "Bottom tab bar: My Dashboard / My Menu / My Plan / Now (count badge)",
+        "Now bottom sheet (Now tab): 'N live' header, MonthlyWrapCard, AllOrNothingLine, PendingReviewCard, LateReviewRow(s), JustSubmittedRow / NowTrayEmpty",
+        "More sheet (More/Account tab): identity header (avatar + name + dorm\u00b7CID), Refer & earn (badge), Explore Plans, Dorm Wars (+Soon teaser), Help & Support, Profile, Plan & billing, Report a bug, Sign out",
+        "Refer bottom sheet: credit chip + milestone line, tap-to-copy link, WhatsApp share, View Dorm Wars",
+        "Overlays when triggered: MonthlyWrapForceOverlay (bottom-pinned CTAs), then Weekly/Monthly Takeover (slim sticky header + progress bar, top-aligned step content, bottom-pinned CTA)"
+      ],
+      "crossCuttingNotes": "Patterns here recur across every dashboard surface: (1) A persistent bottom tab bar + a 'More' sheet is the single nav chassis all pages inherit \u2014 every content surface must reserve bottom safe-area padding so the bar never overlaps content or the IdleRefreshToast/BugReportTrigger. (2) The Now-tray bottom sheet, its card hierarchy, badge tone split (active orange / late muted), and reduced-motion pulse fallback are reusable anywhere a time-bound prompt appears. (3) Floating-popover-to-bottom-sheet conversion (Refer, Now, Profile) is a shared transform \u2014 build one Sheet primitive with grab handle, safe-area padding, and scrim-dismiss (except the forcing overlay). (4) Hover-only affordances must die on touch everywhere: data-tooltip rail tooltips, the reward/Clock chip's hover title in both takeovers, and the BugReportIconButton custom tooltip all need always-visible labels. (5) Bottom-pinned full-width primary CTA is the standard for both takeover flows and the forcing overlay \u2014 same ~50px orange button, secondary as outline/text. (6) The orange #f57f20 ceiling and never-color-alone rules hold across all badges/CTAs; the takeovers' navy gradient backdrop is intentionally dark (TIER_POP family) and is NOT the light-theme rule \u2014 leave it dark.",
+      "openDecisions": [
+        "Bottom tab bar vs. keep the existing \u22641024 left drawer: adopt a native bottom tab bar (recommended) or retain the current left-slide drawer + hamburger for v1 to minimize churn? This is the biggest fork and dictates every other shell decision.",
+        "If bottom tabs: which 3-4 get tab slots? Recommended Dashboard / Menu / Plan / Now \u2014 but does Now deserve a tab over Plan, or should Now be a badge on a corner FAB instead, freeing a tab for Account?",
+        "Should the cream orange-bordered content-border card be kept on mobile (with tighter padding) or dropped for edge-closer flat content? Affects the visual identity of every page.",
+        "Where does Account/Profile live: its own avatar tab or the identity header of the 'More' sheet? And does Report-a-bug stay in profile or move under Help & Support?",
+        "Forcing overlay on 360px screens: keep the 72px Sparkles medallion (risking a scroll to reach the CTA) or shrink/drop it to guarantee a no-scroll first glance with the CTA visible?",
+        "RevealScreen StatBlock density: force 2-across compact numeric stats (recommended, respects the vertical-cost principle) or allow 1-up stacking for a more dramatic reveal scroll?",
+        "Takeover MealGrid columns at 360-390px: 2-across (denser, recommended via the xs/420 intent) vs single-column large cards (more tappable but much taller scroll)?"
+      ]
+    }
+  }
+]

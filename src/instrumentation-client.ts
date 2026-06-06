@@ -12,14 +12,21 @@
 import * as Sentry from '@sentry/nextjs'
 
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  const isDev = process.env.NODE_ENV === 'development'
+
   Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
     environment: process.env.NEXT_PUBLIC_VERCEL_ENV
       ?? process.env.NODE_ENV
       ?? 'unknown',
 
+    // Drop error events in development — HMR / Turbopack produces transient
+    // ReferenceErrors that aren't real bugs. Dev errors show in the console;
+    // Sentry's value is production monitoring. Traces + profiles stay on.
+    beforeSend: isDev ? () => null : undefined,
+
     // Trace sampling: 100% in dev so every nav is visible; 10% in prod for cost.
-    tracesSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.1,
+    tracesSampleRate: isDev ? 1.0 : 0.1,
 
     // Browser profiling — captures JS CPU samples for active transactions.
     // Requires `Document-Policy: js-profiling` header (set in next.config.ts).

@@ -7,6 +7,50 @@
 //   • src/lib/dorm-wars/coupon-synth.ts (07-02) — tier discount percent
 //   • future 07-04 (Layer 3 tier loop) and 07-05 (Daily Drop endpoint)
 
+// Layer 1 — per-conversion cash ladder. The AED a referral pays SCALES with
+// the inviter's lifetime paid-conversion count. Single source of truth for
+// BOTH the awarder (creditInviterOnConversion in src/app/r/[cid]/actions.ts)
+// and the Dorm Wars hub, which renders this as "Cash per recruit (scales
+// lifetime)". `range` is the display label; `from` is the inclusive lower
+// bound used to pick the rung. Keep ascending by `from`; the last rung is
+// open-ended (16+) so referrers past 20 keep the top rate rather than
+// dropping back down.
+export const LAYER1_CASH_LADDER = [
+  { range: '1–5',   from: 1,  cash: 20 },
+  { range: '6–10',  from: 6,  cash: 25 },
+  { range: '11–15', from: 11, cash: 30 },
+  { range: '16+',   from: 16, cash: 35 },
+] as const
+
+/**
+ * AED earned on a referral given the inviter's LIFETIME paid-conversion count
+ * INCLUDING the conversion being credited — so the Nth conversion is priced at
+ * the rung N falls into. Returns the highest rung whose `from` threshold the
+ * count has reached. Mirrors the hub's "You · now" highlight, which marks the
+ * rung where recruits ∈ [from, nextFrom).
+ */
+export function cashForLifetimeConversion(lifetimeConversions: number): number {
+  let cash: number = LAYER1_CASH_LADDER[0].cash
+  for (const rung of LAYER1_CASH_LADDER) {
+    if (lifetimeConversions >= rung.from) cash = rung.cash
+  }
+  return cash
+}
+
+/**
+ * Total AED a referrer has earned across their first `count` lifetime
+ * conversions, pricing each conversion at the rung it fell into (conversion
+ * #1..#5 at AED 20, #6..#10 at AED 25, …). Used by surfaces that only know a
+ * raw converted count (e.g. the sidebar referral badge for non-Dorm-Wars
+ * members) and need a wallet-accurate estimate without reading the credits
+ * ledger. Kept here so it can't drift from the ladder.
+ */
+export function totalCashForConversions(count: number): number {
+  let total = 0
+  for (let n = 1; n <= count; n++) total += cashForLifetimeConversion(n)
+  return total
+}
+
 export const CYCLE_MILESTONES = [
   { at: 3,  kind: 'mystery_drop',   value: null }, // RNG computed at fire-time (Mystery Cash Drop)
   { at: 6,  kind: 'free_week',      value: null }, // Phase 8D — meal-aware: pricePerMeal × mealsPerWeek
@@ -22,22 +66,10 @@ export const LIFETIME_TIERS = [
   { at: 100, tier: 4, perk: '100_meals_credit' },
 ] as const
 
-// Weighted distribution buckets (per Pitfall #6 — avoid uniform feel).
-// Documented as intentional so future maintainers don't "fix" the bias.
-// `thresholds` are cumulative percentile boundaries; `ranges` are
-// [min, maxExclusive] integer ranges for crypto.randomInt.
-//
-// Phase 8: Mystery Drop renamed to "Mystery Cash Drop". Range narrowed and
-// rebalanced so values feel meaningful (no more AED 30 rolls — every drop
-// is at least dinner money) while still preserving a rare jackpot tier.
-export const MYSTERY_DROP_BUCKETS = {
-  // 50% chance: 30-50 AED  (common — solid)
-  // 30% chance: 50-70 AED  (uncommon — strong)
-  // 15% chance: 70-80 AED  (rare — premium)
-  //  5% chance: 80-90 AED  (jackpot)
-  thresholds: [50, 80, 95] as const,
-  ranges: [[30, 51], [50, 71], [70, 81], [80, 91]] as const,
-}
+// Phase 8 note: the Mystery Cash Drop's weighted RNG buckets live inline in
+// src/contexts/dorm-wars/domain/rng.ts (mysteryDropValue). A duplicate
+// MYSTERY_DROP_BUCKETS constant used to sit here but was never imported —
+// removed so the two can't drift.
 
 // Phase 8E — DAILY_DROP_BUCKETS removed. Daily Drop killed; Streak Chest
 // RNG lives inside the claim_streak_chest Postgres function. See

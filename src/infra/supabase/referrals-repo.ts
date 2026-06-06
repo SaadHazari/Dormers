@@ -86,6 +86,13 @@ export interface InviteRow {
   status:         'gift_claimed' | 'converted' | 'ineligible_existing_customer'
   claimedAt:      string
   convertedAt:    string | null
+  // Phase 2 scout-delivery wiring — the invitee's Welcome Meal subscription
+  // state, joined when status='gift_claimed' so the scout journey reflects
+  // REAL delivery (delivered_meals + trial-window end) instead of guessing
+  // from claim age. null when there's no linked welcome sub (legacy rows).
+  welcomeDeliveredMeals: number | null
+  welcomeSubStatus:      string | null
+  welcomeEndDate:        string | null
 }
 
 export const getRecentInvites = cache(async (userId: string, limit = 10): Promise<InviteRow[]> => {
@@ -93,19 +100,63 @@ export const getRecentInvites = cache(async (userId: string, limit = 10): Promis
   try {
     const { data } = await supabase
       .from('referrals')
-      .select('id, invitee_first_name, status, gift_claimed_at, converted_at')
+      .select('id, invitee_first_name, invitee_user_id, status, gift_claimed_at, converted_at')
       .eq('inviter_user_id', userId)
       .in('status', ['gift_claimed', 'converted', 'ineligible_existing_customer'])
       .order('gift_claimed_at', { ascending: false })
       .limit(limit)
 
-    return (data ?? []).map(r => ({
-      id:          r.id,
-      firstName:   r.invitee_first_name?.trim() || 'Friend',
-      status:      r.status as InviteRow['status'],
-      claimedAt:   r.gift_claimed_at,
-      convertedAt: r.converted_at,
-    }))
+    const rows = data ?? []
+
+    // Join each still-claiming invitee's Welcome Meal subscription so the
+    // scout journey can reflect REAL delivery state instead of guessing from
+    // claim age. Only gift_claimed rows need it (converted / ineligible
+    // stages are terminal). The invitee's sub isn't readable by the inviter
+    // under RLS, so this cross-user read uses the admin client — we expose
+    // only delivered_meals / status / end_date, all of which the inviter
+    // already sees for these friends in their squad.
+    const inviteeIds = rows
+      .filter(r => r.status === 'gift_claimed' && r.invitee_user_id)
+      .map(r => r.invitee_user_id as string)
+
+    const welcomeByInvitee = new Map<
+      string,
+      { delivered: number; status: string; endDate: string | null }
+    >()
+    if (inviteeIds.length > 0) {
+      const sbAdmin = rewardsAdmin()
+      const { data: welcomeSubs } = await sbAdmin
+        .from('subscriptions')
+        .select('customer_id, status, delivered_meals, end_date')
+        .in('customer_id', inviteeIds)
+        .eq('plan_name', 'Welcome Meal')
+      for (const s of welcomeSubs ?? []) {
+        // One welcome meal per customer — keep the first seen.
+        if (!welcomeByInvitee.has(s.customer_id as string)) {
+          welcomeByInvitee.set(s.customer_id as string, {
+            delivered: Number(s.delivered_meals ?? 0),
+            status:    (s.status as string | null) ?? '',
+            endDate:   (s.end_date as string | null) ?? null,
+          })
+        }
+      }
+    }
+
+    return rows.map(r => {
+      const welcome = r.invitee_user_id
+        ? welcomeByInvitee.get(r.invitee_user_id as string)
+        : undefined
+      return {
+        id:                    r.id,
+        firstName:             r.invitee_first_name?.trim() || 'Friend',
+        status:                r.status as InviteRow['status'],
+        claimedAt:             r.gift_claimed_at,
+        convertedAt:           r.converted_at,
+        welcomeDeliveredMeals: welcome ? welcome.delivered : null,
+        welcomeSubStatus:      welcome ? welcome.status : null,
+        welcomeEndDate:        welcome ? welcome.endDate : null,
+      }
+    })
   } catch {
     return []
   }

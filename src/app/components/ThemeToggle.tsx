@@ -76,7 +76,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
 
     return (
         <div
-            className={`fixed top-0 right-4 sm:right-8 z-[95] pointer-events-none select-none ${className}`}
+            className={`fixed -top-1 sm:top-0 -right-1 sm:right-8 z-[95] pointer-events-none select-none scale-[0.62] sm:scale-100 origin-top-right ${className}`}
             aria-hidden={!mounted ? true : undefined}
         >
             <div className="relative">
@@ -232,6 +232,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
                         aria-label={`${isLight ? 'Light' : 'Dark'} mode — flick to turn on ${isLight ? 'dark' : 'light'} mode`}
                         tabIndex={0}
                         focusable="true"
+                        transform="translate(8, -10)"
                         style={{ pointerEvents: 'auto', cursor: 'pointer', outline: 'none' }}
                     >
                         <rect

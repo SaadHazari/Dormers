@@ -50,6 +50,26 @@ export interface EventMap {
     scheduledFor: Date
     payload?: Record<string, string>
   }
+
+  /**
+   * A later subscription action supersedes an earlier one whose confirmation
+   * WhatsApp is still queued but unsent (last-in wins). Carries the customer
+   * + the kinds to cancel so the notifications context can close out the
+   * stale rows before they fire.
+   *
+   * Concrete case: pausing supersedes a same-cycle skip. skipMeal pre-queues
+   * a morning-after `meal_resumed_confirm` ("meals resume tonight"); once the
+   * customer pauses, that message is wrong AND would double up with the
+   * pause's own resume confirm on the day they come back. This event cancels
+   * it so the only "welcome back" they get is for their most recent action.
+   *
+   * `kinds` are strings at this layer; the notifications subscriber narrows
+   * them to its typed CustomerNotificationKind union before persisting.
+   */
+  'subscription.notification-cancel': {
+    customerId: string
+    kinds: string[]
+  }
 }
 
 export type EventHandler<K extends keyof EventMap> = (

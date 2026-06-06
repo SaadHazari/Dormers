@@ -9,6 +9,7 @@ import {
   SkipForward,
   CalendarDays,
   ChevronRight,
+  RotateCcw,
 } from 'lucide-react'
 import { OG, BODY, S, TIER1, TIER_POP, TIER_POP_TEXT } from './_shared/tokens'
 import { MealTag } from './_shared/MealTag'
@@ -125,9 +126,9 @@ function nextDeliveryLabel(weekType: WeekType): string {
   return 'your next delivery day'
 }
 
-type BadgeStatus = 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' | 'Delivered'
+type BadgeStatus = 'Active' | 'Scheduled' | 'Skipped' | 'Paused' | 'Off' | 'Delivered' | 'Resumed'
 
-function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boolean }) {
+function HeroStatusBadge({ status, onDark, label }: { status: BadgeStatus; onDark?: boolean; label?: string }) {
   // Bright variant for `Scheduled` — until the plan starts, this tag is the
   // only signal the user has that something's coming, so it gets a saturated
   // slate fill + soft glow (not the muted variants the others use). The other
@@ -152,6 +153,10 @@ function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boo
       icon: <CalendarDays size={11} strokeWidth={2.6} color="#ffffff" />,
     },
     Paused:    { bg: 'rgba(255,170,0,0.16)',     fg: '#c89417',                icon: <PauseIcon    size={11} strokeWidth={2.4} /> },
+    // Resumed-after-cutoff — warm amber (mirrors the cutoff overlay's Moon), set
+    // apart from Paused by the rotate icon + its "Back …" label. The plan is live
+    // again; the badge just says the next meal is the next delivery day, not tonight.
+    Resumed:   { bg: 'rgba(255,170,0,0.16)',     fg: '#c89417',                icon: <RotateCcw    size={11} strokeWidth={2.4} /> },
     Skipped:   { bg: 'var(--ds-skeleton-shine)', fg: 'var(--ds-fg-sub)',       icon: <SkipForward  size={11} strokeWidth={2.4} /> },
     Off:       { bg: 'var(--ds-skeleton-base)',  fg: 'var(--ds-fg-soft)',      icon: <CalendarDays size={11} strokeWidth={2.2} /> },
   }
@@ -168,7 +173,7 @@ function HeroStatusBadge({ status, onDark }: { status: BadgeStatus; onDark?: boo
       letterSpacing: '0.10em', textTransform: 'uppercase', lineHeight: 1,
     }}>
       {c.icon}
-      {status === 'Off' ? 'No delivery' : status}
+      {label ?? (status === 'Off' ? 'No delivery' : status)}
     </span>
   )
 }
@@ -233,7 +238,8 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     && phase.phase === 'delivered'
 
   const badgeStatus: BadgeStatus =
-    isStartingSoon ? 'Scheduled'
+    isResumedAfterCutoff ? 'Resumed'
+    : isStartingSoon ? 'Scheduled'
     : isPaused ? 'Paused'
     : isSkipped ? 'Skipped'
     : isOff ? 'Off'
@@ -250,7 +256,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     isStartingSoon ? `First meal arrives ${startDateLabel} at 7 PM`
     : isResumedAfterCutoff ? `First delivery ${nextDelivery}, 7–8 PM`
     : isActive  ? phase.label
-    : isDelivered ? "Tonight's meal delivered"
+    : isDelivered ? "Tonight's dinner delivered"
     : isSkipped ? "Credit safe — back tomorrow"
     : isPaused  ? (resumeLockedSameDay ? "Resume available tomorrow" : "Resume when ready")
     : phase.phase === 'no-delivery' ? "Mon–Sat, 7–8 PM"
@@ -261,7 +267,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isSkipped ? 'You skipped today.'
     : isPaused ? 'Your plan is paused.'
     : isResumedAfterCutoff ? "You're back."
-    : isDelivered ? "Tonight's meal is delivered."
+    : isDelivered ? "Tonight's dinner is delivered."
     : isOff && phase.phase === 'no-delivery' ? 'No delivery today.'
     : isOff ? 'No menu set yet.'
     : ''
@@ -342,6 +348,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
             <AnimatePresence mode="wait">
               <motion.h1
                 key={todayMeal.dish}
+                className="hero-dish-title"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -374,10 +381,10 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
-            <MealTag kind={todayMeal.tag} onDark />
+            <MealTag kind={todayMeal.tag} onDark oneLine />
             {todayMeal.heat > 0 && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <HeatBar level={todayMeal.heat} />
+                <HeatBar level={todayMeal.heat} onDark />
                 <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: TIER_POP_TEXT.muted }}>
                   {['', 'Mild', 'Medium', 'Hot'][todayMeal.heat]}
                 </span>
@@ -451,7 +458,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
         borderTop: `1px solid ${isActive ? 'rgba(245,240,232,0.15)' : S.border}`,
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
       }}>
-        <HeroStatusBadge status={badgeStatus} onDark={isActive} />
+        <HeroStatusBadge status={badgeStatus} onDark={isActive} label={isResumedAfterCutoff ? `Back ${nextDelivery.replace(' evening', '')}` : undefined} />
         <span style={{ color: isActive ? 'rgba(245,240,232,0.30)' : 'var(--ds-fg-tint)' }} aria-hidden>·</span>
         <span
           className={isActive && phase.urgent ? 'countdown-urgent' : ''}
@@ -480,8 +487,16 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
       </div>
 
       <style jsx>{`
-        @media (max-width: 900px) {
-          :global(.hero-active) { grid-template-columns: 1fr !important; }
+        /* Dish name: single line on desktop (fits the span-8 card); wraps to two
+           lines on mobile so a long name isn't truncated — it's the first-glance
+           answer, so it must never end in an ellipsis on a phone. */
+        @media (max-width: 768px) {
+          :global(.hero-dish-title) {
+            white-space: normal !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
         }
         .dayone-badge { animation: dayone-pulse 2.4s ease-in-out infinite; }
         @keyframes dayone-pulse {

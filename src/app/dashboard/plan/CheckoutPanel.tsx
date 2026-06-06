@@ -402,20 +402,30 @@ export function CheckoutPanel({
           const hint = leftoverAed > 0
             ? `AED ${appliedAed.toFixed(0)} applied · AED ${leftoverAed.toFixed(0)} stays in your wallet`
             : `AED ${appliedAed.toFixed(0)} applied from your Dorm Wars credits`
+          const netDueAed = Math.max(0, planTotalAed - appliedAed)
           return (
-            <div className="checkout-credit-row" role="status">
-              <div className="checkout-credit-left">
-                <span className="checkout-credit-label">
-                  Dorm Wars credit applied
-                </span>
-                <span className="checkout-credit-hint">
-                  {hint}
+            <>
+              <div className="checkout-credit-row" role="status">
+                <div className="checkout-credit-left">
+                  <span className="checkout-credit-label">
+                    Dorm Wars credit applied
+                  </span>
+                  <span className="checkout-credit-hint">
+                    {hint}
+                  </span>
+                </div>
+                <span className="checkout-credit-amount">
+                  − AED {appliedAed.toFixed(0)}
                 </span>
               </div>
-              <span className="checkout-credit-amount">
-                − AED {appliedAed.toFixed(0)}
-              </span>
-            </div>
+              {/* Net the customer actually pays now. The headline above stays the
+                  recurring per-cycle price; this is the one-time charge after the
+                  Dorm Wars credit the server applies as a Stripe coupon. */}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, margin: '12px 2px 0' }}>
+                <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)' }}>Total due today</span>
+                <span style={{ fontFamily: BODY, fontSize: 20, fontWeight: 800, color: 'var(--ds-fg)', letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"' }}>AED {netDueAed.toFixed(0)}</span>
+              </div>
+            </>
           )
         })()}
 
@@ -872,7 +882,7 @@ export function CheckoutPanel({
           margin-top: 14px;
           align-items: start;
         }
-        @media (min-width: 560px) {
+        @media (min-width: 640px) {
           .checkout-action-controls {
             grid-template-columns: 1fr 1fr;
             gap: 32px;
@@ -1086,7 +1096,7 @@ export function CheckoutPanel({
         /* Sticky checkout panel — desktop only. On mobile a sticky panel
            would cover too much of the viewport, so it stays in flow there.
            Sticks until its natural position scrolls past, then un-sticks. */
-        @media (min-width: 920px) {
+        @media (min-width: 1024px) {
           .checkout-panel {
             position: sticky;
             bottom: 16px;

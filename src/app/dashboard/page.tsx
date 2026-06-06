@@ -3,7 +3,16 @@ import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubsc
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
+import type { Viewport } from 'next'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
+
+// Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
+// this single value also tints the bottom chrome, and the top+bottom safe-areas are
+// both painted by the <html> background-color (one value, no per-edge control —
+// proven exhaustively). So both ends are orange by design; the page leans INTO the
+// orange bottom strip (treating orange as a base the content sits on) rather than
+// fighting it. See the home canopy notes in dashboard/layout.tsx.
+export const viewport: Viewport = { themeColor: '#f57f20' }
 
 const PREVIEW_CUSTOMER = {
     id: 'preview',

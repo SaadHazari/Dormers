@@ -1,6 +1,6 @@
 import Script from "next/script";
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { WebVitalsReporter } from "@/ui-system/observability/web-vitals";
@@ -29,6 +29,16 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icon.png",
   },
+};
+
+// viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to real
+// values on iOS — without it the inset is 0, so bottom-pinned UI (modal/sheet
+// CTA bands, the action toast) silently collapses to its fallback padding and
+// can graze Safari's home indicator. Width/initialScale match Next's defaults.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { cleanPlanName, OG, BODY, DISPLAY } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { fmt } from '../_shared/format'
+import { MobileHistory } from '../_mobile/MobileHistory'
 
 // Translucent-surface S — History rows sit over the BG_GRADIENT page wash
 // (set by the layout), so cards use a soft glass over the cream/navy panel.
@@ -29,7 +30,8 @@ export type EndedPlan = {
 
 export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
+    <>
+    <div className="history-desktop" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         {/* Back link */}
         <Link
@@ -132,13 +134,25 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
 
       <style jsx global>{`
         .history-back:hover { color: var(--ds-fg) !important; }
-        @media (max-width: 720px) {
+        @media (max-width: 640px) {
           .history-row {
             grid-template-columns: 1fr !important;
           }
         }
+        /* Mobile (≤768) swaps the desktop history tree for MobileHistory. Pure
+           CSS toggle — no flash, desktop DOM untouched. */
+        .history-mobile { display: none; }
+        @media (max-width: 768px) {
+          .history-desktop { display: none; }
+          .history-mobile { display: block; }
+        }
       `}</style>
     </div>
+
+      <div className="history-mobile">
+        <MobileHistory plans={plans} />
+      </div>
+    </>
   )
 }
 

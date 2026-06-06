@@ -103,7 +103,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
               <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
               {memberSinceText && <> · since {memberSinceText}</>}
               {lifetimeSavingsValue && lifetimeSavingsValue.saved > 0 && (
-                <> · <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(lifetimeSavingsValue.saved)}</strong> below takeout</>
+                <> · <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(lifetimeSavingsValue.saved)}</strong> below ordering in</>
               )}
               {endedPlans.length > 0 && (
                 <> · <Link

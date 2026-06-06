@@ -85,7 +85,7 @@ Output JSON only. Do not wrap in code fences. Do not include any text before or 
   try {
     console.log(`[review-verify] calling Gemini (mime=${mimeType}, bytes=${imageBytes.byteLength})`)
     const result = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: google('gemini-3.1-flash-lite'),
       messages: [
         {
           role: 'user',

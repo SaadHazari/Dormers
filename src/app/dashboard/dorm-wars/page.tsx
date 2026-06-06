@@ -74,30 +74,19 @@ export default async function DormWarsPage() {
   // (or vice versa). Parallelize the remaining reads.
   // Audit FIX 15: also fetch the tier-2 / tier-4 side-effect flags so the
   // hub renders the perks (Early Access, GOAT badge) the awarder promised.
-  const [cycleRecruits, latestTierRow, perkFlagsRow] = await Promise.all([
+  // The raw lifetime-tier number isn't fetched — the hub derives tier
+  // progress from the converted count and reads the actual unlocked perks
+  // from these flags + the checkout discount, so a tier int would be dead.
+  const [cycleRecruits, perkFlagsRow] = await Promise.all([
     activeSubscription
       ? getCycleRecruits(supabase, user.id, activeSubscription.id)
       : Promise.resolve(0),
-    supabase
-      .from('lifetime_rewards')
-      .select('tier')
-      .eq('customer_id', user.id)
-      .order('tier', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
     supabase
       .from('customers')
       .select('early_access, hall_wall')
       .eq('id', user.id)
       .maybeSingle(),
   ])
-
-  // Highest tier the user has unlocked (null → 0).
-  const tierRaw = (latestTierRow.data?.tier ?? 0) as number
-  const lifetimeTier: 0 | 1 | 2 | 3 | 4 =
-    tierRaw === 1 || tierRaw === 2 || tierRaw === 3 || tierRaw === 4
-      ? tierRaw
-      : 0
 
   // Phase 8B — Premium+ gate. Only Monthly Premium and Monthly Max can
   // earn Dorm Wars rewards. Weekly Flex, Trial, and no-active-sub customers
@@ -160,7 +149,6 @@ export default async function DormWarsPage() {
       initialStreak={initialStreak}
       initialChestState={initialChestState}
       cycleRecruits={cycleRecruits}
-      lifetimeTier={lifetimeTier}
       earlyAccess={Boolean(perkFlagsRow.data?.early_access)}
       hallWall={Boolean(perkFlagsRow.data?.hall_wall)}
       recentRewards={recentRewards}

@@ -17,12 +17,14 @@ import type { Subscription } from '../../_shared/types'
 import { useWeeklyDraftActive } from '../../_shared/draft-hooks'
 import type { MealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
 import { freeWeekValue, freeMonthValue } from '@/contexts/dorm-wars/domain/meal-pricing'
+import { LAYER1_CASH_LADDER, cashForLifetimeConversion } from '@/contexts/dorm-wars/domain/constants'
 import type { Layer4Row, Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
+import { LAYER4_VALUE_AED } from '@/contexts/dorm-wars/domain/layer4'
 import {
   BASE_REWARD_AED, LATE_REWARD_AED,
   type WeeklyReviewState, type PendingItem, type LateItem, type CompletedReviewItem,
 } from '@/contexts/subscriptions/domain/weekly-review'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow, type WrapPlanTier } from '@/contexts/subscriptions/domain/monthly-review'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { DormWarsTour } from './DormWarsTour'
@@ -69,6 +71,8 @@ const MIST_FAINT = 'rgba(237,232,218,0.12)'
 
 const BODY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 const DISPLAY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
+
+function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1) }
 
 // ════════════════════════════════════════════════════════════════════════════
 //  REWARD LAYER DATA — the 4 layers preserved exactly as designed
@@ -152,13 +156,10 @@ function whatsappInviteCopy(recruits: number, customerCid: string): string {
 // regardless of threshold spread; the fill bar interpolates between
 // stops so the user's actual progress is still honest.
 
-// Layer 1 — per-conversion cash ladder (lifetime scaling)
-const LAYER1_LADDER = [
-  { range: '1–2', cash: 20 },
-  { range: '3–5', cash: 25 },
-  { range: '6–9', cash: 30 },
-  { range: '10+', cash: 40 },
-]
+// Layer 1 — per-conversion cash ladder (lifetime scaling). The ladder + its
+// AED amounts live in the dorm-wars domain (LAYER1_CASH_LADDER) so this
+// display stays in lockstep with what creditInviterOnConversion actually
+// deposits — see src/contexts/dorm-wars/domain/constants.ts.
 
 // Layer 2 — per-cycle milestones. Phase 8D: Free Week / Free Month values
 // are computed at render-time from the customer's mealPriceContext so the
@@ -176,7 +177,7 @@ function buildCycleMilestones(ctx: MealPriceContext): CycleMilestone[] {
     {
       at: 3, label: 'Mystery Cash Drop', value: 'AED 30–90', color: PURPLE, Emblem: Gift,
       requirement: 'Get 3 friends to subscribe to Dormers this cycle.',
-      howItWorks: 'A random AED 30–90 lands in your wallet within 24h of the third recruit. Auto-applies at your next renewal.',
+      howItWorks: 'A random AED 30–90 lands in your wallet as soon as your third recruit subscribes. Auto-applies at your next renewal.',
     },
     {
       at: 6, label: 'Free Week', value: `~AED ${freeWeekValue(ctx)}`, color: CYAN, Emblem: Calendar,
@@ -218,7 +219,7 @@ const LIFETIME_TIERS: LifetimeTier[] = [
   {
     at: 25, label: '10% off + Early Access', color: GREEN, Emblem: Percent,
     requirement: 'Recruit 25 friends across your lifetime.',
-    howItWorks: 'Discount jumps to 10% on every renewal. You also get early access to new menus + features before public launch.',
+    howItWorks: 'Discount jumps to 10% on every renewal, and your account is flagged for Early Access — first in line for new perks as we roll them out.',
   },
   {
     at: 50, label: 'Jacket + Merch', color: PURPLE, Emblem: Shirt,
@@ -232,15 +233,15 @@ const LIFETIME_TIERS: LifetimeTier[] = [
   },
 ]
 
-// Layer 4 — side quests (footer ribbon). "Weekly Streak Reward" replaces
-// the old "Renew & invite combo" — same underlying Layer4Kind row
-// internally (renew_invite_combo) but surfaced as a streak-week payoff so
-// it pairs visually with the flame language elsewhere on the hub.
+// Layer 4 — side quests (footer ribbon). "Weekly Streak Reward" surfaces the
+// Streak Chest (server: streaks + claim_streak_chest) as a streak-week payoff
+// so it pairs visually with the flame language elsewhere on the hub. It is
+// NOT the renew_invite_combo Layer4Kind — that kind is still product-pending.
 const SIDE_REWARDS = [
   { label: 'Google review',        value: '+AED 10',          color: GREEN,  Emblem: Star },
   { label: '4 weekly reviews',     value: 'up to AED 20',     color: CYAN,   Emblem: MessageSquareText },
   { label: 'Monthly wrap',         value: '+AED 5',           color: VIOLET, Emblem: Calendar },
-  { label: 'Weekly Streak Reward', value: 'Every 8 days',     color: ORANGE, Emblem: Flame },
+  { label: 'Weekly Streak Reward', value: 'Every 7 days',     color: ORANGE, Emblem: Flame },
 ]
 
 // Scout types — 4-stage mapping from current 2-state invite data
@@ -290,12 +291,11 @@ interface Props {
   // (last_chest_day) + most recent claim payload so the hub can render
   // "chest ready" / "you just opened…" / "next chest in N days".
   initialChestState: StreakChestState
-  // Phase 7-06 — server-canonical cycle recruits + lifetime tier.
-  // cycleRecruits comes from getCycleRecruits (same SQL the Layer 2 awarder
-  // reads) — see RESEARCH Pitfall #3. lifetimeTier is the highest unlocked
-  // Layer 3 row (0 = none unlocked yet).
+  // Phase 7-06 — server-canonical cycle recruits. Comes from getCycleRecruits
+  // (the same SQL the Layer 2 awarder reads) — see RESEARCH Pitfall #3. The
+  // unlocked Layer 3 perks reach the hub via the earlyAccess / hallWall flags
+  // below + the checkout discount, so the raw tier number isn't passed.
   cycleRecruits: number
-  lifetimeTier: 0 | 1 | 2 | 3 | 4
   // Phase 7 audit FIX 15 — surface the tier-2 / tier-4 side-effect flags
   // so the hub can render the perks the awarder promised. Without these
   // the flags flip in the DB but the user sees nothing change.
@@ -366,6 +366,18 @@ function formatDoublerRemaining(msRemaining: number): string {
 function deriveScoutStage(row: InviteRow): ScoutStage {
   if (row.status === 'ineligible_existing_customer') return 'already_subscribed'
   if (row.status === 'converted') return 'subscribed'
+  // gift_claimed — drive the stage off the friend's ACTUAL Welcome Meal
+  // delivery state when we have it (joined in getRecentInvites). Falls back
+  // to the claim-age heuristic only for legacy rows with no linked welcome
+  // sub (e.g. invitee_user_id never set).
+  const delivered = row.welcomeDeliveredMeals
+  if (delivered != null) {
+    if (delivered < 1) return 'scheduled'            // meal not delivered yet
+    const windowPassed = row.welcomeEndDate
+      ? new Date(row.welcomeEndDate).getTime() < Date.now()
+      : false
+    return windowPassed ? 'decided' : 'delivered'    // got the meal; trial live or passed
+  }
   const claimedAt = row.claimedAt ? new Date(row.claimedAt) : null
   if (!claimedAt) return 'sent'
   const ageDays = (Date.now() - claimedAt.getTime()) / 86_400_000
@@ -401,6 +413,10 @@ export default function HubClient({
 
   // ── REAL DATA from Supabase ─────────────────────────────────────────────
   const recruits = referralData.converted              // lifetime paid conversions
+  // Exact per-recruit cash at the user's current lifetime rung (AED 20→35).
+  // Surfaced verbatim in the hero + send-flow copy so members see the real
+  // figure their NEXT conversion pays, not a generic range.
+  const cashPerRecruit = cashForLifetimeConversion(recruits)
   const wallet = Math.round(referralData.creditBalance)
   // Phase 8K Model C — pending review credits live separately from the
   // spendable wallet. Shown alongside the wallet pill when > 0 so the
@@ -472,25 +488,21 @@ export default function HubClient({
   // count changes.
   const [streak, setStreak] = useState(initialStreak)
   const [chestState, setChestState] = useState<StreakChestState>(initialChestState)
+  const [streakTickEvent, setStreakTickEvent] = useState<StreakTickEvent | null>(null)
 
   useEffect(() => {
+    if (!dormWarsEligible) return
     let cancelled = false
     fetch('/api/dorm-wars/streak/tick', { method: 'POST' })
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (!cancelled && data && typeof data.count === 'number') {
-          setStreak(data.count)
-          // If the count changed vs SSR seed, the chest gap may have
-          // shifted (or last_chest_day was reset on break). Re-derive
-          // chestReady from the new count + the seed lastChestDay; the
-          // chest endpoint will give us authoritative state if the user
-          // hits the chest UI.
+          const newCount = data.count as number
+          const event = deriveStreakTickEvent(
+            initialStreak, newCount, initialChestState.lastChestDay,
+          )
+          setStreak(newCount)
           setChestState(prev => {
-            const newCount = data.count as number
-            // The tick endpoint doesn't return last_chest_day. If the count
-            // dropped vs prev (streak broke), the RPC also reset
-            // last_chest_day to 0 — mirror that locally so the UI shows
-            // "7 days until next chest" instead of stale "ready".
             const newLastChestDay = newCount < prev.count ? 0 : prev.lastChestDay
             const gap = Math.max(0, newCount - newLastChestDay)
             return {
@@ -501,10 +513,24 @@ export default function HubClient({
               daysUntilNext: gap >= 7 ? 0 : Math.max(0, 7 - gap),
             }
           })
+          if (event) setStreakTickEvent(event)
         }
       })
       .catch(() => { /* silent — keep the SSR-seeded value */ })
     return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Full-bleed shell marker (mobile) ──────────────────────────────────────
+  // The hub runs edge-to-edge as its own dark world on phones (see the
+  // .dash-page:has(.hub-root) rules in layout.tsx). Those rules are scoped with
+  // :has(), which iOS WebKit can transiently drop when the mobile drawer mutates
+  // the DOM — which would revert the bleed and snap the hub back inside the
+  // shell gutter mid-session. Tag <html> with a plain class on mount as a STABLE
+  // twin (mirrors ActiveDashboard's html.dash-home) so the bleed can't be lost.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('dash-dormwars')
+    return () => root.classList.remove('dash-dormwars')
   }, [])
 
   // ── STATE ────────────────────────────────────────────────────────────────
@@ -744,100 +770,101 @@ export default function HubClient({
           page open. Slides down from the top with a gradient bar, dismissable
           (X) + auto-dismiss after 14s. The localStorage marker key on the
           newest event id means the same banner never shows twice. */}
-      {celebration && (() => {
-        const copy = celebrationCopy(celebration)
-        return (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              flexShrink: 0,
-              padding: '14px 20px',
-              borderRadius: 14,
-              backgroundImage: `linear-gradient(90deg, ${copy.accent}24 0%, ${copy.accent}10 60%, transparent 100%)`,
-              border: `1px solid ${copy.accent}55`,
-              boxShadow: `0 8px 24px ${copy.accent}1f, inset 0 1px 0 ${copy.accent}33`,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 14,
-              animation: 'hub-rise 600ms cubic-bezier(0.16,1,0.3,1) both',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-              <span style={{
-                fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: CREAM,
-                letterSpacing: '-0.01em',
-              }}>
-                {copy.headline}
-              </span>
-              <span style={{
-                fontFamily: BODY, fontSize: 12, fontWeight: 700, color: MIST,
-                letterSpacing: '0.02em',
-              }}>
-                {copy.sub}
-                {/* Wallet appendage only when the event actually moved AED.
-                    Tier 3 jacket has amount_aed = 0 (physical merch, no
-                    cash) — appending "Wallet now AED X" would feel off. */}
-                {celebration.amount_aed > 0 && (
-                  <> · Wallet now <span style={{ color: copy.accent, fontWeight: 900 }}>AED {wallet}</span></>
-                )}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={dismissCelebration}
-              aria-label="Dismiss"
-              style={{
-                flexShrink: 0,
-                width: 32, height: 32, borderRadius: '50%',
-                border: `1px solid ${copy.accent}55`,
-                backgroundColor: `${copy.accent}1a`,
-                color: CREAM,
-                cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background-color 220ms ease',
-              }}
-            >
-              <X size={14} strokeWidth={2.6} />
-            </button>
-          </div>
-        )
-      })()}
+      {/* Banner tray — on desktop renders inline in the flex column.
+          On mobile, becomes a zero-height overlay so banners float above the
+          hero CTA without pushing TopChrome down. */}
+      {(celebration || chestState.activeDoubler) && (
+        <div className="hub-banner-tray">
+          <div className="hub-banner-inner" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {celebration && (() => {
+              const copy = celebrationCopy(celebration)
+              return (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    flexShrink: 0,
+                    padding: '14px 20px',
+                    borderRadius: 14,
+                    backgroundImage: `linear-gradient(90deg, ${copy.accent}24 0%, ${copy.accent}10 60%, transparent 100%)`,
+                    border: `1px solid ${copy.accent}55`,
+                    boxShadow: `0 8px 24px ${copy.accent}1f, inset 0 1px 0 ${copy.accent}33`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 14,
+                    animation: 'hub-rise 600ms cubic-bezier(0.16,1,0.3,1) both',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <span style={{
+                      fontFamily: DISPLAY, fontSize: 16, fontWeight: 900, color: CREAM,
+                      letterSpacing: '-0.01em',
+                    }}>
+                      {copy.headline}
+                    </span>
+                    <span style={{
+                      fontFamily: BODY, fontSize: 12, fontWeight: 700, color: MIST,
+                      letterSpacing: '0.02em',
+                    }}>
+                      {copy.sub}
+                      {celebration.amount_aed > 0 && (
+                        <> · Wallet now <span style={{ color: copy.accent, fontWeight: 900 }}>AED {wallet}</span></>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={dismissCelebration}
+                    aria-label="Dismiss"
+                    style={{
+                      flexShrink: 0,
+                      width: 32, height: 32, borderRadius: '50%',
+                      border: `1px solid ${copy.accent}55`,
+                      backgroundColor: `${copy.accent}1a`,
+                      color: CREAM,
+                      cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background-color 220ms ease',
+                    }}
+                  >
+                    <X size={14} strokeWidth={2.6} />
+                  </button>
+                </div>
+              )
+            })()}
 
-      {/* Phase 8F — DOUBLER ACTIVE BANNER. Renders when the customer has
-          an unexpired doubler chest outcome. Layer 1 cash + Layer 2 cycle
-          payouts double during this window, so showing the banner makes
-          the boost legible while it's earning. Auto-disappears at expiry
-          (next page load won't pass it from SSR). */}
-      {chestState.activeDoubler && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            flexShrink: 0,
-            padding: '10px 16px',
-            borderRadius: 12,
-            backgroundImage: `linear-gradient(90deg, ${GOLD}28 0%, ${GOLD_LITE}10 60%, transparent 100%)`,
-            border: `1px solid ${GOLD}66`,
-            boxShadow: `0 6px 18px ${GOLD}1f, inset 0 1px 0 ${GOLD_LITE}33`,
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}
-        >
-          <Zap size={16} strokeWidth={2.6} color={GOLD_LITE} />
-          <span style={{
-            fontFamily: BODY, fontSize: 12, fontWeight: 900, color: CREAM,
-            letterSpacing: '0.04em',
-          }}>
-            2× rewards active
-          </span>
-          <span style={{
-            fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
-            letterSpacing: '0.02em',
-          }}>
-            · Cash for invites + cycle milestones doubled for{' '}
-            <span style={{ color: GOLD_LITE, fontWeight: 900 }}>
-              {formatDoublerRemaining(chestState.activeDoubler.msRemaining)}
-            </span>
-          </span>
+            {chestState.activeDoubler && (
+              <div
+                role="status"
+                aria-live="polite"
+                style={{
+                  flexShrink: 0,
+                  padding: '10px 16px',
+                  borderRadius: 12,
+                  backgroundImage: `linear-gradient(90deg, ${GOLD}28 0%, ${GOLD_LITE}10 60%, transparent 100%)`,
+                  border: `1px solid ${GOLD}66`,
+                  boxShadow: `0 6px 18px ${GOLD}1f, inset 0 1px 0 ${GOLD_LITE}33`,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}
+              >
+                <Zap size={16} strokeWidth={2.6} color={GOLD_LITE} />
+                <span style={{
+                  fontFamily: BODY, fontSize: 12, fontWeight: 900, color: CREAM,
+                  letterSpacing: '0.04em',
+                }}>
+                  2× rewards active
+                </span>
+                <span style={{
+                  fontFamily: BODY, fontSize: 11, fontWeight: 700, color: MIST,
+                  letterSpacing: '0.02em',
+                }}>
+                  · Cash for invites + cycle milestones doubled for{' '}
+                  <span style={{ color: GOLD_LITE, fontWeight: 900 }}>
+                    {formatDoublerRemaining(chestState.activeDoubler.msRemaining)}
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -863,6 +890,7 @@ export default function HubClient({
         onClick={startSendFlow}
         nextCycleMilestone={cycleMilestones.find(m => cycleRecruits < m.at)}
         cycleRecruits={cycleRecruits}
+        cashPerRecruit={cashPerRecruit}
       />
 
       {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Side Rewards (Layer 4)
@@ -925,6 +953,7 @@ export default function HubClient({
       <SendScoutModal
         step={sendStep}
         scoutName={scoutName}
+        cashPerRecruit={cashPerRecruit}
         onNameChange={setScoutName}
         onSend={sendLink}
         onClose={closeSendFlow}
@@ -1005,7 +1034,7 @@ export default function HubClient({
           monthlyReviewWindow={monthlyReviewWindow}
           onStart={() => {
             setOpen(null)
-            router.push('/dashboard/menu/review/monthly')
+            router.push('/dashboard/menu/review/monthly?from=dorm-wars')
           }}
         />
       </Modal>
@@ -1015,8 +1044,8 @@ export default function HubClient({
       <Modal
         open={infoKind !== null}
         onClose={() => setInfoKind(null)}
-        title={infoKind ? questInfoMeta(infoKind).title : ''}
-        accent={infoKind ? questInfoMeta(infoKind).accent : GREEN}
+        title={infoKind ? questInfoMeta(infoKind, monthlyReviewWindow.planTier).title : ''}
+        accent={infoKind ? questInfoMeta(infoKind, monthlyReviewWindow.planTier).accent : GREEN}
       >
         {infoKind && (
           <QuestInfoScreen
@@ -1036,7 +1065,7 @@ export default function HubClient({
               else if (action === 'open_chest_modal')    setOpen('chest')
               else if (action === 'open_weekly_review') {
                 const w = weeklyReviewState.current?.week ?? weeklyReviewState.late[0]?.week
-                if (w) router.push(`/dashboard/menu/review/${w}`)
+                if (w) router.push(`/dashboard/menu/review/${w}?from=dorm-wars`)
               }
               else if (action === 'go_to_menu')          router.push('/dashboard/menu')
             }}
@@ -1047,6 +1076,13 @@ export default function HubClient({
       {/* Phase 8B — Premium+ gate. Renders on top of the entire hub when
           the user isn't on Monthly Premium / Monthly Max. Hub still SSRs
           underneath (blurred) so the user can see the perks they'd unlock. */}
+      {streakTickEvent && (
+        <StreakTickOverlay
+          event={streakTickEvent}
+          onDone={() => setStreakTickEvent(null)}
+        />
+      )}
+
       {!dormWarsEligible && <PremiumGateOverlay currentPlanId={currentPlanId} />}
 
       {showTour && <DormWarsTour onComplete={() => setShowTour(false)} />}
@@ -1124,12 +1160,12 @@ function PremiumGateOverlay({
       : '/dashboard/explore-plans'
 
   const perks: { icon: typeof Gift; label: string; sub: string; color: string }[] = [
-    { icon: Coins, label: 'Cash for every friend', sub: 'AED 25–40 per conversion', color: GREEN },
+    { icon: Coins, label: 'Cash for every friend', sub: 'AED 20–35 per conversion', color: GREEN },
     { icon: Gift, label: 'Monthly milestones', sub: 'Mystery Cash Drops up to AED 90', color: PURPLE },
     { icon: Percent, label: 'Lifetime % off', sub: '5–10% off your plan forever', color: CYAN },
     { icon: Shirt, label: 'Dormers jacket', sub: 'Tier 3 — yours to keep', color: GOLD },
     { icon: Trophy, label: 'GOAT status', sub: '100 invites = 100 free meals', color: GOLD_LITE },
-    { icon: Flame, label: 'Streak Chests', sub: 'Open every 8 days for AED + jackpots', color: ORANGE },
+    { icon: Flame, label: 'Streak Chests', sub: 'Open every 7 days for AED + jackpots', color: ORANGE },
   ]
 
   return (
@@ -1289,6 +1325,170 @@ function PremiumGateOverlay({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  STREAK TICK OVERLAY — full-screen celebration on each new daily visit.
+//
+//  State machine:
+//    first-visit   — count was 0, now 1 (brand new streak)
+//    continued     — count incremented by 1, not a chest boundary
+//    chest-unlock  — count just crossed a 7-day chest boundary
+//    streak-broken — count reset to 1 (missed a day, old progress gone)
+//    cycle-reset   — day 28→1 transition (new 4-week cycle begins)
+//    same-day      — count unchanged (no overlay)
+//    ineligible    — user has no active plan (no overlay)
+// ════════════════════════════════════════════════════════════════════════════
+
+type StreakTickEvent =
+  | { kind: 'first-visit'; count: 1 }
+  | { kind: 'continued'; count: number; daysToChest: number }
+  | { kind: 'chest-unlock'; count: number; chestNum: number }
+  | { kind: 'streak-broken'; count: 1; oldCount: number }
+  | { kind: 'cycle-reset'; count: number; cycleNum: number }
+
+function deriveStreakTickEvent(
+  prevCount: number,
+  newCount: number,
+  lastChestDay: number,
+): StreakTickEvent | null {
+  if (newCount === prevCount) return null
+  if (newCount === 1 && prevCount === 0) return { kind: 'first-visit', count: 1 }
+  if (newCount === 1 && prevCount > 1) return { kind: 'streak-broken', count: 1, oldCount: prevCount }
+
+  const prevCycle = prevCount === 0 ? 1 : Math.floor((prevCount - 1) / 28) + 1
+  const newCycle = Math.floor((newCount - 1) / 28) + 1
+  if (newCycle > prevCycle && newCount > 28) {
+    return { kind: 'cycle-reset', count: newCount, cycleNum: newCycle }
+  }
+
+  const newLastChestDay = newCount < prevCount ? 0 : lastChestDay
+  const gap = newCount - newLastChestDay
+  if (gap >= 7 && gap < 14 && (prevCount - newLastChestDay) < 7) {
+    const cycleStart = (newCycle - 1) * 28
+    const chestInCycle = Math.max(1, Math.min(4, Math.floor((newCount - cycleStart) / 7)))
+    return { kind: 'chest-unlock', count: newCount, chestNum: chestInCycle }
+  }
+
+  const daysToChest = 7 - (gap % 7 || 7)
+  return { kind: 'continued', count: newCount, daysToChest: daysToChest === 0 ? 7 : daysToChest }
+}
+
+function StreakTickOverlay({
+  event, onDone,
+}: {
+  event: StreakTickEvent
+  onDone: () => void
+}) {
+  const tier = flameTierForOverlay(event.count)
+
+  useEffect(() => {
+    const t = setTimeout(onDone, event.kind === 'chest-unlock' ? 3500 : 2800)
+    return () => clearTimeout(t)
+  }, [event, onDone])
+
+  let emoji: string
+  let headline: string
+  let subline: string
+  let accentColor = tier.color
+
+  switch (event.kind) {
+    case 'first-visit':
+      emoji = '🔥'
+      headline = 'Day 1'
+      subline = 'Your streak begins — visit daily to unlock chests'
+      break
+    case 'continued':
+      emoji = '🔥'
+      headline = `Day ${event.count}`
+      subline = event.daysToChest === 1
+        ? 'One more day until your next chest!'
+        : `${event.daysToChest} days to next chest`
+      break
+    case 'chest-unlock':
+      emoji = '🎁'
+      headline = `Chest #${event.chestNum} unlocked!`
+      subline = 'Tap the streak chip to open it'
+      accentColor = GOLD_LITE
+      break
+    case 'streak-broken':
+      emoji = '💨'
+      headline = 'Streak reset'
+      subline = `${event.oldCount}-day streak ended — Day 1 starts fresh`
+      accentColor = MIST_DIM
+      break
+    case 'cycle-reset':
+      emoji = '🔄'
+      headline = `Cycle ${event.cycleNum} begins`
+      subline = 'New 4-week track — 4 fresh chests to earn'
+      break
+  }
+
+  return (
+    <div
+      onClick={onDone}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: 'rgba(9,24,37,0.92)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        animation: 'hub-streak-overlay-in 400ms cubic-bezier(0.16,1,0.3,1) both',
+        cursor: 'pointer',
+        padding: 32,
+      }}
+    >
+      <div style={{
+        fontSize: 56, lineHeight: 1,
+        animation: 'hub-streak-emoji-pop 500ms cubic-bezier(0.16,1,0.3,1) both',
+        marginBottom: 16,
+      }}>
+        {emoji}
+      </div>
+      <div style={{
+        fontFamily: DISPLAY, fontSize: 36, fontWeight: 900,
+        color: accentColor, letterSpacing: '-0.02em',
+        textAlign: 'center', lineHeight: 1.1,
+        animation: 'hub-streak-text-up 500ms cubic-bezier(0.16,1,0.3,1) 120ms both',
+        textShadow: `0 0 24px ${accentColor}66`,
+      }}>
+        {headline}
+      </div>
+      <div style={{
+        fontFamily: BODY, fontSize: 14, fontWeight: 600,
+        color: CREAM, opacity: 0.75,
+        marginTop: 8, textAlign: 'center', lineHeight: 1.4,
+        animation: 'hub-streak-text-up 500ms cubic-bezier(0.16,1,0.3,1) 220ms both',
+        maxWidth: 280,
+      }}>
+        {subline}
+      </div>
+      <div style={{
+        fontFamily: BODY, fontSize: 11, fontWeight: 600,
+        color: MIST_DIM, marginTop: 24,
+        animation: 'hub-streak-text-up 500ms cubic-bezier(0.16,1,0.3,1) 400ms both',
+      }}>
+        Tap anywhere to continue
+      </div>
+    </div>
+  )
+}
+
+// Overlay needs flameTier but the function is defined below — thin wrapper
+// avoids a forward-reference issue. The real flameTier is used once it's defined.
+function flameTierForOverlay(count: number): { color: string } {
+  if (count < 8) return { color: '#ff9466' }
+  if (count < 15) return { color: '#f57f20' }
+  if (count < 22) return { color: '#f57f20' }
+  if (count < 29) return { color: GOLD_LITE }
+  if (count < 40) return { color: GOLD_LITE }
+  if (count < 50) return { color: PURPLE }
+  if (count < 60) return { color: '#4fa9d6' }
+  if (count < 70) return { color: CYAN }
+  if (count < 80) return { color: GREEN }
+  if (count < 90) return { color: PINK }
+  return { color: GOLD }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  STREAK FLAME — Phase 8E intensity tiers
 //
 //  Days 1-7    : pale orange (warming up)
@@ -1390,13 +1590,13 @@ function StreakChestStrip({
       {/* Stacked label + count — mirrors the wallet pill's layout exactly
           so the two chips align visually as a matched pair. */}
       <div style={{ textAlign: 'left' }}>
-        <div style={{
+        <div className="hub-chip-eyebrow" style={{
           fontFamily: BODY, fontSize: 8, fontWeight: 900, color: tier.color,
           letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
         }}>
           Streak
         </div>
-        <div style={{
+        <div className="hub-chip-value" style={{
           fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM,
           letterSpacing: '-0.02em', lineHeight: 1.1, fontFeatureSettings: '"tnum"',
           marginTop: 2,
@@ -1430,12 +1630,11 @@ function StreakChestStrip({
         />
         {chestReady && (
           <span style={{
-            position: 'absolute', inset: -4, borderRadius: '50%',
-            border: `1.5px solid ${GOLD}`,
+            position: 'absolute', inset: 0, borderRadius: '50%',
+            '--pr-color': `${GOLD}88`,
             animation: 'hub-pulse-ring 2.2s ease-out infinite',
-            opacity: 0.55,
             pointerEvents: 'none',
-          }} />
+          } as React.CSSProperties} />
         )}
       </span>
     </button>
@@ -1481,7 +1680,7 @@ function TopChrome({
   const RING_R = 21
   const RING_CIRC = 2 * Math.PI * RING_R
   return (
-    <header style={{
+    <header className="hub-topchrome" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 12, flexWrap: 'wrap',
       flexShrink: 0,
@@ -1560,7 +1759,7 @@ function TopChrome({
             <progression.Icon size={18} strokeWidth={2.4} color={progression.color} />
           </span>
         </span>
-        <div style={{ minWidth: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div className="hub-identity-text" style={{ minWidth: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Eyebrow — matches the wallet/streak chip rhythm. At apex,
               the eyebrow reads "APEX TIER" instead of "TIER" so the
               chip telegraphs the user's terminal status without needing
@@ -1626,7 +1825,7 @@ function TopChrome({
         >
           <CoinIcon size={26} />
           <div style={{ textAlign: 'left' }}>
-            <div style={{
+            <div className="hub-chip-eyebrow" style={{
               fontFamily: BODY, fontSize: 8, fontWeight: 900, color: GOLD,
               letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1,
             }}>
@@ -1641,14 +1840,15 @@ function TopChrome({
               display: 'inline-flex', alignItems: 'baseline', gap: 6,
               marginTop: 2, lineHeight: 1.1,
             }}>
-              <span style={{
+              <span className="hub-chip-value" style={{
                 fontFamily: DISPLAY, fontSize: 18, fontWeight: 900, color: CREAM,
                 letterSpacing: '-0.02em', fontFeatureSettings: '"tnum"',
+                whiteSpace: 'nowrap',
               }}>
-                AED {wallet}
+                <span className="hub-chip-unit">AED </span>{wallet}
               </span>
               {walletPending > 0 && (
-                <span style={{
+                <span className="hub-chip-pending" style={{
                   fontFamily: BODY, fontSize: 10, fontWeight: 800, color: GOLD_LITE,
                   letterSpacing: '0.02em', fontFeatureSettings: '"tnum"',
                 }}>
@@ -1680,11 +1880,13 @@ function TopChrome({
 // ════════════════════════════════════════════════════════════════════════════
 
 function HeroCTA({
-  onClick, nextCycleMilestone, cycleRecruits,
+  onClick, nextCycleMilestone, cycleRecruits, cashPerRecruit,
 }: {
   onClick: () => void
   nextCycleMilestone?: CycleMilestone
   cycleRecruits: number
+  /** Exact AED the user's current rung pays per recruit — shown verbatim. */
+  cashPerRecruit: number
 }) {
   const recruitsLeft = nextCycleMilestone ? nextCycleMilestone.at - cycleRecruits : 0
   return (
@@ -1702,7 +1904,7 @@ function HeroCTA({
         letterSpacing: '0.01em',
         maxWidth: 620, lineHeight: 1.4,
       }}>
-        Earn <span style={{ color: GOLD_LITE, fontWeight: 800 }}>AED 20</span> every time a friend joins Dormers.
+        Earn <span style={{ color: GOLD_LITE, fontWeight: 800 }}>AED {cashPerRecruit}</span> every time a friend joins Dormers.
       </div>
 
       {/* THE button — restrained sizing per top-design audit. Previous scale
@@ -1958,12 +2160,11 @@ function CycleColumn({
                 <span className="hub-dot-tip">Click to reveal</span>
                 {isNext && (
                   <span style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: '100%', height: '100%', borderRadius: '50%',
-                    border: `2px solid ${m.color}`,
-                    pointerEvents: 'none',
+                    position: 'absolute', inset: 0, borderRadius: '50%',
+                    '--mh-color': `${m.color}99`,
                     animation: 'hub-milestone-halo 2.4s ease-out infinite',
-                  }} />
+                    pointerEvents: 'none',
+                  } as React.CSSProperties} />
                 )}
               </button>
             )
@@ -2064,11 +2265,9 @@ function LifetimeColumn({
   const fillPct = Math.min(100, (recruits / lifeMax) * 100)
   const nextIdx = LIFETIME_TIERS.findIndex(t => recruits < t.at)
 
-  // Layer 1 cash for current tier — used in the body line.
-  const currentCash = LAYER1_LADDER.slice().reverse().find(l => {
-    const [low] = l.range.split('–').map(s => parseInt(s, 10))
-    return recruits >= low
-  })?.cash ?? 20
+  // Layer 1 cash for current tier — used in the body line. Resolved straight
+  // from the ladder function so it can't drift from the label parsing.
+  const currentCash = cashForLifetimeConversion(recruits)
 
   return (
     <Column eyebrow="Lifetime Path" title="Permanent perks unlock as you climb" accent={CYAN} icon={Trophy} onOpen={onOpen}>
@@ -2134,12 +2333,11 @@ function LifetimeColumn({
                 <span className="hub-dot-tip">Click to reveal</span>
                 {isNext && (
                   <span style={{
-                    position: 'absolute', top: '50%', left: '50%',
-                    width: '100%', height: '100%', borderRadius: '50%',
-                    border: `2px solid ${t.color}`,
-                    pointerEvents: 'none',
+                    position: 'absolute', inset: 0, borderRadius: '50%',
+                    '--mh-color': `${t.color}99`,
                     animation: 'hub-milestone-halo 2.4s ease-out infinite',
-                  }} />
+                    pointerEvents: 'none',
+                  } as React.CSSProperties} />
                 )}
               </button>
             )
@@ -2331,12 +2529,15 @@ function ordinal(n: number): string {
   }
 }
 
-function questInfoMeta(kind: SideQuestInfoKind): { title: string; accent: string } {
+function questInfoMeta(kind: SideQuestInfoKind, planTier?: WrapPlanTier): { title: string; accent: string } {
   switch (kind) {
     case 'google_review':  return { title: 'Google review · AED 10',          accent: GREEN  }
     case 'weekly_reviews': return { title: 'Weekly reviews · up to AED 20',   accent: CYAN   }
-    case 'monthly_wrap':   return { title: 'Monthly wrap · AED 5',            accent: VIOLET }
-    case 'streak_chest':   return { title: 'Streak chest · every 8 days',     accent: ORANGE }
+    case 'monthly_wrap': {
+      const vocab = wrapVocabFor(planTier ?? 'monthly')
+      return { title: `${capitalize(vocab.qualifier)} wrap · AED 5`, accent: VIOLET }
+    }
+    case 'streak_chest':   return { title: 'Streak chest · every 7 days',     accent: ORANGE }
   }
 }
 
@@ -2462,13 +2663,13 @@ function QuestInfoScreen({
     // streak_chest
     const { count, chestReady, daysUntilNext } = chestState
     return {
-      reward: 'Mystery cash · AED 5–12 (90%) or a week-long 2× doubler (5%)',
+      reward: 'Mystery cash · AED 5–12, with a rare 7-day 2× doubler on later chests',
       how: [
         'Visit the dashboard at least once a day to keep your streak alive',
-        'Every 8 unbroken days = chest unlock',
+        'Every 7 unbroken days = chest unlock',
         'Tap the chest in the top-right strip — instant RNG roll',
       ],
-      catch: 'Streak breaks if you miss a day. Chest progress resets to 0 — re-earn 8 days to unlock again.',
+      catch: 'Streak breaks if you miss a day. Chest progress resets to 0 — re-earn 7 days to unlock again.',
       status: chestReady
         ? `Chest ready · ${count}-day streak.`
         : count > 0
@@ -2484,7 +2685,7 @@ function QuestInfoScreen({
     }
   })()
 
-  const accentColor = questInfoMeta(kind).accent
+  const accentColor = questInfoMeta(kind, monthlyReviewWindow.planTier).accent
 
   return (
     <div>
@@ -2855,7 +3056,7 @@ function SideRewardsColumn({
               chipColor = GREEN
               chipBg = `${GREEN}14`
               chipBorder = `${GREEN}55`
-              subLine = 'Wrap submitted · next one at the end of your cycle'
+              subLine = `${capitalize(wrapVocabFor(w.planTier).qualifier)} wrap submitted · next one at the end of your cycle`
               subColor = GREEN
               clickable = true
               onClick = () => onShowInfo('monthly_wrap')
@@ -3351,10 +3552,24 @@ function HubStyles() {
         border-top-color: #091825;
       }
 
+      @keyframes hub-streak-overlay-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes hub-streak-emoji-pop {
+        0%   { transform: scale(0.3); opacity: 0; }
+        60%  { transform: scale(1.15); opacity: 1; }
+        100% { transform: scale(1);    opacity: 1; }
+      }
+      @keyframes hub-streak-text-up {
+        from { opacity: 0; transform: translateY(14px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
       @keyframes hub-pulse-ring {
-        0%   { transform: scale(1);   opacity: 0.75; }
-        70%  { transform: scale(1.7); opacity: 0;    }
-        100% { transform: scale(1.7); opacity: 0;    }
+        0%   { box-shadow: 0 0 0 0 var(--pr-color, rgba(255,200,50,0.6)); }
+        70%  { box-shadow: 0 0 0 8px transparent; }
+        100% { box-shadow: 0 0 0 8px transparent; }
       }
       @keyframes hub-pulse-fade-in {
         from { opacity: 0; transform: translateY(-4px); }
@@ -3364,9 +3579,9 @@ function HubStyles() {
          bars. Outward ring at 2.6× scale drives the eye to the goal in
          play. Uses a centred ::after via inline style on the wrapper. */
       @keyframes hub-milestone-halo {
-        0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.65; }
-        70%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
-        100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0;    }
+        0%   { box-shadow: 0 0 0 0 var(--mh-color, rgba(255,200,50,0.55)); }
+        70%  { box-shadow: 0 0 0 12px transparent; }
+        100% { box-shadow: 0 0 0 12px transparent; }
       }
       /* Focused-milestone pulse — fires on the OUTER wrapper of a flip card
          inside the This Month / Lifetime Path modals when the user clicks
@@ -3535,23 +3750,137 @@ function HubStyles() {
       /* Responsive grids — audit P1-9. Fixed repeat(3, 1fr) made each
          progress column ~110px wide at 375px, colliding milestone dots
          with their numeric labels. Collapse to two columns at <1024px,
-         single column at <720px so phones get readable, scrollable cards. */
+         single column at <768px so phones get readable, scrollable cards. */
       .hub-progress-grid {
         display: grid;
         gap: 14px;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .hub-activity-grid {
         display: grid;
         gap: 14px;
-        grid-template-columns: 1.1fr 1fr;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
       }
       @media (max-width: 1024px) {
-        .hub-progress-grid { grid-template-columns: repeat(2, 1fr); }
+        .hub-progress-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
-      @media (max-width: 720px) {
+      @media (max-width: 768px) {
+        /* minmax(0,1fr) — NOT plain 1fr. A 1fr track is minmax(auto,1fr), and
+           that 'auto' floor won't shrink below the widest item's min-content
+           (the Scouts strip + Side-Rewards rows push it to ~430px), dragging
+           every stacked card that wide and clipping them under .hub-root's
+           overflow:hidden. minmax(0,…) lets the track shrink so cards fit. */
         .hub-progress-grid,
-        .hub-activity-grid  { grid-template-columns: 1fr; }
+        .hub-activity-grid  { grid-template-columns: minmax(0, 1fr); }
+        /* Belt-and-suspenders: the progress-grid items are display:contents
+           wrappers, so the real grid items are the columns one level down —
+           let them shrink too. */
+        .hub-activity-grid > *,
+        .hub-progress-grid > * > * { min-width: 0; }
+
+        /* Full-bleed mobile shell — the hub owns all its own insets now that
+           the dashboard gutter is zeroed for this page (layout.tsx). Side
+           padding drops to the 16px mobile rhythm; the bottom inset respects
+           the home-indicator safe area. The top inset now only clears the
+           notch (+14px) because the TopChrome row sits BESIDE the fixed
+           hamburger rather than below it (see below). The inline clamp()
+           padding on .hub-root is desktop-tuned, so override it here. */
+        .hub-root {
+          padding: calc(env(safe-area-inset-top) + 14px) 16px
+                   max(env(safe-area-inset-bottom), 28px) 16px !important;
+          gap: 14px !important;
+        }
+
+        /* Top chrome — on a phone, the identity avatar + wallet + streak ride
+           a SINGLE row tucked in beside the fixed hamburger (DashboardShell
+           renders it at top:16/left:16, 44×44). padding-left clears the burger
+           (44 + 8 gap from the 16px root inset). The identity collapses to an
+           avatar-only tap target (its tier name + perk badges live in the
+           Progression modal it opens), and the wallet/streak chips drop their
+           eyebrow→value stack to a compact icon + value so all three fit one
+           line without wrapping. (The streak button sits under a
+           display:contents [data-tour] wrapper, so target it explicitly.) */
+        .hub-topchrome {
+          order: -1 !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          gap: 8px !important;
+          padding-left: 52px !important;
+          min-height: 44px;
+        }
+        /* Banner tray — sits AFTER TopChrome (order 0 vs -1) and compacts
+           to a single tight line so it takes minimal vertical space. */
+        .hub-banner-tray { order: 0 !important; }
+        .hub-banner-inner { gap: 6px !important; }
+        .hub-banner-inner > div[role="status"] {
+          padding: 8px 12px !important;
+          border-radius: 10px !important;
+          gap: 8px !important;
+          font-size: 11px !important;
+        }
+        .hub-banner-inner > div[role="status"] button {
+          width: 26px !important; height: 26px !important;
+        }
+        /* Identity → avatar-only circle: hide the tier-name text block and
+           tighten the pill so it reads as a round avatar button.
+           order:99 sends it to the far right of the row. */
+        .hub-topchrome > button { flex: 0 0 auto !important; padding: 4px !important; order: 99 !important; margin-left: auto !important; }
+        .hub-identity-text { display: none !important; }
+        /* Wallet + streak size to content — no force-grow, so neither chip
+           has dead space when optional elements (pending AED) are absent. */
+        .hub-topchrome > div { display: flex !important; gap: 8px !important; flex: 0 1 auto !important; min-width: 0 !important; }
+        .hub-topchrome > div > button,
+        .hub-topchrome > div > [data-tour="streak-chest"] > button {
+          flex: 0 1 auto !important; min-width: 0 !important;
+          gap: 7px !important; padding: 6px 10px !important;
+          overflow: hidden !important;
+        }
+        /* Collapse each chip to a single icon + value line: the eyebrow label
+           (WALLET/STREAK) is redundant beside its icon at this size, and the
+           "AED" unit is carried by the coin glyph — dropping both lets the
+           value stay on one line in the narrowed chip. */
+        .hub-topchrome .hub-chip-eyebrow,
+        .hub-topchrome .hub-chip-unit { display: none !important; }
+        .hub-topchrome .hub-chip-value { font-size: 17px !important; }
+
+        /* Modals stay CENTERED on mobile (NOT bottom-docked). A bottom-flush
+           sheet puts its lower edge at the layout-viewport bottom, which on a
+           real phone sits BEHIND the browser's bottom toolbar — hiding the
+           sheet's footer / last rows. Centered + capped to the SMALL viewport
+           (svh accounts for visible browser chrome) keeps the whole modal on
+           screen, top and bottom. The header is pinned so the close X stays
+           put while a tall modal scrolls its body. */
+        .hub-modal-dialog { max-height: 86svh !important; }
+        .hub-modal-header {
+          position: sticky; top: 0; z-index: 3;
+          background-color: ${BG_MID} !important;
+        }
+        .hub-modal-body {
+          padding: 18px 18px max(env(safe-area-inset-bottom), 20px) !important;
+        }
+        /* Wallet summary — Available + Pending stack instead of squeezing two
+           24px AED figures side-by-side on a phone. */
+        .hub-wallet-summary-grid { grid-template-columns: 1fr !important; }
+
+        /* Streak Chest calendar — on a phone the per-week row was sized for the
+           desktop modal (6× 28px flames + 52px chest + label + arrow) and
+           overflowed, pushing the chest off-screen behind a horizontal scroll.
+           The flames now flex-shrink (above); here we also trim the chest, the
+           inter-cell gaps and the week label so the flames keep a comfortable
+           size all the way down to 320px. */
+        .hub-streak-row { gap: 8px !important; padding: 8px 10px !important; }
+        .hub-streak-row > span:first-child { min-width: 28px !important; }
+        .hub-streak-flames { gap: 4px !important; }
+        .hub-streak-chest { width: 46px !important; height: 46px !important; }
+      }
+
+      /* Ultra-narrow phones (≤345px, e.g. iPhone SE 1st-gen): drop the wallet's
+         "+pending" qualifier from the TopChrome row so the three chips keep
+         breathing room. The figure still lives in the wallet history modal. */
+      @media (max-width: 345px) {
+        .hub-topchrome .hub-chip-pending { display: none !important; }
       }
 
       .hub-scouts-scroll::-webkit-scrollbar { display: none; }
@@ -3586,7 +3915,7 @@ function HubStyles() {
         }`
     }).join('\n')}
 
-      @media (max-width: 900px) {
+      @media (max-width: 1024px) {
         .hub-column-tap { padding: 12px !important; }
       }
 
@@ -3623,14 +3952,16 @@ function Modal({
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKey)
-    // Defer focus until after the open animation kicks off so the focus
-    // ring doesn't flash before the modal is visible.
     const t = setTimeout(() => dialogRef.current?.focus(), 60)
+    // Lock body scroll while modal is open — prevents iOS Safari from
+    // scrolling the background page when the user drags inside the modal.
+    const body = document.body
+    const prev = body.style.overflow
+    body.style.overflow = 'hidden'
     return () => {
       clearTimeout(t)
       document.removeEventListener('keydown', handleKey)
-      // Restore focus to whatever triggered the modal so keyboard users
-      // don't lose their place when it closes.
+      body.style.overflow = prev
       previouslyFocused?.focus?.()
     }
   }, [open, onClose])
@@ -3639,12 +3970,14 @@ function Modal({
   return (
     <div
       onClick={onClose}
+      className="hub-modal-overlay"
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         backgroundColor: `color-mix(in srgb, ${accent} 14%, rgba(0,0,0,0.78))`,
         backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
+        touchAction: 'none',
       }}
     >
       <div
@@ -3653,9 +3986,13 @@ function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        className="hub-modal-dialog"
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: 640, width: '100%', maxHeight: '88vh', overflow: 'auto',
+          overscrollBehavior: 'contain',
+          touchAction: 'pan-y',
+          WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           backgroundImage: `linear-gradient(180deg, ${BG_MID} 0%, ${BG_DEEP} 100%)`,
           border: `1.5px solid ${accent}55`,
@@ -3665,7 +4002,7 @@ function Modal({
           outline: 'none',
         }}
       >
-        <div style={{
+        <div className="hub-modal-header" style={{
           padding: '18px 22px',
           borderBottom: `1px solid ${accent}28`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -3696,7 +4033,7 @@ function Modal({
             <X size={14} strokeWidth={2.4} />
           </button>
         </div>
-        <div style={{ padding: 22 }}>
+        <div className="hub-modal-body" style={{ padding: 22 }}>
           {children}
         </div>
       </div>
@@ -3963,7 +4300,7 @@ function TrophyLadderScreen({ recruits, focusedAt }: { recruits: number; focused
           Cash per recruit (scales lifetime)
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {LAYER1_LADDER.map(l => {
+          {LAYER1_CASH_LADDER.map(l => {
             // Range strings are "1–2", "3–5", "6–9", "10+". Parse the
             // bounds so we can compute both "tier reached" (low <=
             // recruits) and "tier IS the current bucket" (recruits falls
@@ -4282,7 +4619,7 @@ function StreakChestScreen({
             : chestClaimed ? GREEN
               : GOLD_LITE
           return (
-            <div key={weekNum} style={{
+            <div key={weekNum} className="hub-streak-row" style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '8px 12px', borderRadius: 12,
               backgroundColor: isCurrentWeek ? `${tier.color}10` : 'rgba(255,255,255,0.02)',
@@ -4300,8 +4637,10 @@ function StreakChestScreen({
                 Wk {weekNum}
               </span>
 
-              {/* Flame days — 6 small circles, evenly spaced */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'space-between' }}>
+              {/* Flame days — 6 small circles that flex to fill the row and
+                  SHRINK on narrow phones (min-width:0) so the row never
+                  overflows past the chest. */}
+              <div className="hub-streak-flames" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
                 {[1, 2, 3, 4, 5, 6].map(d => {
                   const dayNum = weekStartDay + d - 1
                   const isPast = dayNum < cyclePos
@@ -4309,7 +4648,7 @@ function StreakChestScreen({
                   return (
                     <div key={d} style={{
                       position: 'relative',
-                      width: 28, height: 28, borderRadius: '50%',
+                      flex: '0 1 28px', minWidth: 0, aspectRatio: 1, borderRadius: '50%',
                       backgroundColor: isToday ? `${tier.color}33`
                         : isPast ? `${tier.color}1a`
                           : 'rgba(0,0,0,0.3)',
@@ -4318,7 +4657,6 @@ function StreakChestScreen({
                           : `${tier.color}22`}`,
                       boxShadow: isToday ? `0 0 12px ${tier.color}99, inset 0 0 6px ${tier.color}44` : 'none',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
                     }}>
                       <Flame
                         size={13} strokeWidth={isPast || isToday ? 2.6 : 2}
@@ -4330,11 +4668,11 @@ function StreakChestScreen({
                       />
                       {isToday && (
                         <span style={{
-                          position: 'absolute', inset: -5, borderRadius: '50%',
-                          border: `1.5px solid ${tier.color}`,
+                          position: 'absolute', inset: 0, borderRadius: '50%',
+                          '--pr-color': `${tier.color}99`,
                           animation: 'hub-pulse-ring 2.2s ease-out infinite',
-                          opacity: 0.6, pointerEvents: 'none',
-                        }} />
+                          pointerEvents: 'none',
+                        } as React.CSSProperties} />
                       )}
                     </div>
                   )
@@ -4351,7 +4689,7 @@ function StreakChestScreen({
               {/* Chest — visually different shape (rounded square, not
                   circle) and bigger than flames so it reads as "the
                   reward at the end of the week." */}
-              <div style={{
+              <div className="hub-streak-chest" style={{
                 position: 'relative',
                 width: 52, height: 52, borderRadius: 12,
                 backgroundColor: chestBg,
@@ -4385,11 +4723,11 @@ function StreakChestScreen({
                 )}
                 {chestReady && (
                   <span style={{
-                    position: 'absolute', inset: -5, borderRadius: 14,
-                    border: `1.5px solid ${GOLD}`,
+                    position: 'absolute', inset: 0, borderRadius: 12,
+                    '--pr-color': `${GOLD}99`,
                     animation: 'hub-pulse-ring 2.2s ease-out infinite',
-                    opacity: 0.6, pointerEvents: 'none',
-                  }} />
+                    pointerEvents: 'none',
+                  } as React.CSSProperties} />
                 )}
               </div>
             </div>
@@ -4474,13 +4812,27 @@ function StreakChestScreen({
         </div>
       )}
 
-      <p style={{
-        fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
-        lineHeight: 1.5, margin: '16px 0 0', textAlign: 'center',
+      <div style={{
+        marginTop: 18, padding: '12px 14px', borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${MIST_FAINT}`,
       }}>
-        Cash chests drop straight into your wallet · doubler from chests #3 + #4
-        boosts every reward for 7 days
-      </p>
+        <div style={{
+          fontFamily: BODY, fontSize: 10, fontWeight: 800, color: MIST,
+          letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8,
+        }}>
+          How it works
+        </div>
+        <div style={{
+          fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST_DIM,
+          lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          <span>Visit this page once a day — each visit adds <span style={{ color: tier.color, fontWeight: 800 }}>+1</span> to your streak.</span>
+          <span>Every <span style={{ color: GOLD_LITE, fontWeight: 800 }}>7 unbroken days</span> unlocks a mystery chest (AED 5–12).</span>
+          <span>Miss a day and your streak resets to 0 — chest progress starts over.</span>
+          <span style={{ color: MIST, fontWeight: 700, marginTop: 2 }}>Chests #3 & #4 can roll a rare 2× doubler that boosts all rewards for 7 days.</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -4750,7 +5102,7 @@ function GoogleReviewScreen({ onClose }: { onClose: () => void }) {
         return
       }
 
-      const valueAed = data?.row?.value_aed ?? 25
+      const valueAed = data?.row?.value_aed ?? LAYER4_VALUE_AED.google_review
       if (data?.decision === 'auto_approved') {
         setResult({ decision: 'auto_approved', reason: data.reason ?? '', valueAed })
         // Fire the signature-moment overlay. The in-modal screen STILL
@@ -5479,7 +5831,7 @@ function walletEventMeta(ev: RewardEvent): {
   // 'layer4_weekly_survey' below is the legacy source name from earlier code
   // and stays as a fallback for any historical rows.
   if (base === 'layer4_weekly_review') return { Icon: MessageSquareText, label: 'Weekly review', accent: CYAN, doubled }
-  if (base === 'layer4_monthly_review') return { Icon: Calendar, label: 'Monthly wrap', accent: VIOLET, doubled }
+  if (base === 'layer4_monthly_review') return { Icon: Calendar, label: 'Plan wrap', accent: VIOLET, doubled }
   if (base === 'layer4_weekly_survey') return { Icon: MessageSquareText, label: 'Weekly survey', accent: CYAN, doubled }
   if (base === 'layer4_renew_invite_combo') return { Icon: Zap, label: 'Renew + invite combo', accent: ORANGE, doubled }
   // Phase 8E — streak chest credit
@@ -5694,7 +6046,7 @@ function PendingReviewChooserRow({
     : (item as LateItem).daysLate >= 23
   return (
     <WalletActionableRow
-      href={`/dashboard/menu/review/${item.week}`}
+      href={`/dashboard/menu/review/${item.week}?from=dorm-wars`}
       title={`Week ${item.week}`}
       sub={item.range}
       chip={chip}
@@ -6189,7 +6541,7 @@ function WalletHistoryModal({
           until the all-or-nothing threshold is met. Per refactoring-ui
           hierarchy: same shape + spacing, color carries the meaning —
           gold for spendable, muted gold for at-risk. */}
-      <div style={{
+      <div className="hub-wallet-summary-grid" style={{
         display: 'grid',
         gridTemplateColumns: walletPending > 0 ? '1fr 1fr' : '1fr',
         gap: 10,
@@ -6299,7 +6651,7 @@ function WalletHistoryModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {weeklyReviewState.current && (
               <WalletActionableRow
-                href={`/dashboard/menu/review/${weeklyReviewState.current.week}`}
+                href={`/dashboard/menu/review/${weeklyReviewState.current.week}?from=dorm-wars`}
                 title={`Week ${weeklyReviewState.current.week}`}
                 sub={weeklyReviewState.current.range}
                 chip={weeklyReviewState.current.daysLeft === 0 ? 'Last day' : `${weeklyReviewState.current.daysLeft}d left`}
@@ -6311,7 +6663,7 @@ function WalletHistoryModal({
             {weeklyReviewState.late.map(item => (
               <WalletActionableRow
                 key={`late-${item.week}`}
-                href={`/dashboard/menu/review/${item.week}`}
+                href={`/dashboard/menu/review/${item.week}?from=dorm-wars`}
                 title={`Week ${item.week}`}
                 sub={item.range}
                 chip={`${item.daysLate}d late`}
@@ -6329,7 +6681,7 @@ function WalletHistoryModal({
                   : `${monthlyWindow.daysLeftForFullReward}d left`
               return (
                 <WalletActionableRow
-                  href="/dashboard/menu/review/monthly"
+                  href="/dashboard/menu/review/monthly?from=dorm-wars"
                   title="Monthly wrap"
                   sub={monthlyWindow.cycleLabel ?? 'Cycle'}
                   chip={chip}
@@ -6509,10 +6861,12 @@ function WalletHistoryModal({
 // ════════════════════════════════════════════════════════════════════════════
 
 function SendScoutModal({
-  step, scoutName, onNameChange, onSend, onClose, onTrackJourney,
+  step, scoutName, cashPerRecruit, onNameChange, onSend, onClose, onTrackJourney,
 }: {
   step: SendStep
   scoutName: string
+  /** Exact AED the user's current rung pays per recruit — shown verbatim. */
+  cashPerRecruit: number
   onNameChange: (s: string) => void
   onSend: () => void
   onClose: () => void
@@ -6606,7 +6960,7 @@ function SendScoutModal({
                 Who&apos;s the friend?
               </div>
               <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 400, color: MIST, lineHeight: 1.55, marginBottom: 20 }}>
-                We&apos;ll track their journey from the moment you send the link.
+                We&apos;ll track their journey from the moment they claim their meal.
               </div>
               <input
                 type="text" autoFocus value={scoutName}
@@ -6644,7 +6998,7 @@ function SendScoutModal({
                 fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
                 lineHeight: 1.5, margin: '14px 0 0', textAlign: 'center',
               }}>
-                Opens WhatsApp · they eat free · you earn AED 20 when they subscribe
+                Opens WhatsApp · they eat free · you earn AED {cashPerRecruit} when they subscribe
               </p>
             </>
           )}
@@ -6820,11 +7174,11 @@ function JourneyScreen({
                 }}>
                   {current && (
                     <span style={{
-                      position: 'absolute', inset: -6, borderRadius: '50%',
-                      border: `2px solid ${stg.color}`,
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      '--pr-color': `${stg.color}88`,
                       animation: 'hub-pulse-ring 1.8s ease-out infinite',
-                      opacity: 0.55,
-                    }} />
+                      pointerEvents: 'none',
+                    } as React.CSSProperties} />
                   )}
                   {done ? <Check size={14} strokeWidth={3} /> : current ? <Zap size={14} strokeWidth={2.6} /> : <Lock size={11} strokeWidth={2.4} />}
                 </span>

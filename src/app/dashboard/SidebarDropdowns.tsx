@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { MobileSheet } from './_shared/MobileSheet'
+import { useIsCompact } from './_mobile/kit'
 import {
   Bug, Check, CheckCircle2, ChevronRight, CreditCard, LogOut, MessagesSquare,
   Plus, User as UserIcon, Gift, ArrowRight, Sparkles,
@@ -11,6 +14,7 @@ import * as Sentry from '@sentry/nextjs'
 import { signout } from '@/app/login/actions'
 import { OG, OG3, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
+import { totalCashForConversions } from '@/contexts/dorm-wars/domain/constants'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'
@@ -41,12 +45,58 @@ const MILESTONES = [
   { at: 10, label: 'Pause unlock'            },
 ]
 
+// Credit a referrer earns scales with their lifetime converted count
+// (AED 20 → 35 per recruit). totalCashForConversions sums each conversion at
+// its own rung so the badge matches what creditInviterOnConversion actually
+// deposits — single source of truth in the dorm-wars LAYER1_CASH_LADDER.
+
+// Robust copy. The async Clipboard API only exists in a SECURE context
+// (https / localhost). On a phone served over a LAN IP (plain http),
+// `navigator.clipboard` is undefined, so the write throws and the "Copied"
+// success feedback never fires — the reported bug where the copy animation
+// played on desktop but not on mobile. Fall back to the legacy execCommand
+// path (with the iOS-safe selection range) so the copy AND its feedback work
+// everywhere.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch { /* fall through to the legacy path */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.top = '0'
+    ta.style.left = '0'
+    ta.style.opacity = '0'
+    ta.style.pointerEvents = 'none'
+    document.body.appendChild(ta)
+    const range = document.createRange()       // iOS Safari needs a real range
+    range.selectNodeContents(ta)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+    ta.setSelectionRange(0, text.length)
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
+
 interface Props {
   openDropdown: DropdownKind
   setOpenDropdown: (k: DropdownKind) => void
   onMobileClose?: () => void
   customerCid: string
   referralData: ReferralData
+  /** Premium/Max → the badge shows the live Dorm Wars wallet. Others →
+   *  standalone Refer & Earn, badge shows referral-only earnings. */
+  dormWarsEligible?: boolean
   displayName: string
   userEmail: string
   initials: string
@@ -58,12 +108,23 @@ interface Props {
 
 export function SidebarDropdowns({
   openDropdown, setOpenDropdown, onMobileClose,
-  customerCid, referralData, displayName, userEmail, initials,
+  customerCid, referralData, dormWarsEligible = false, displayName, userEmail, initials,
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
 }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [referralCopied, setReferralCopied] = useState(false)
+  // Below 768px a rail-anchored popover has no horizontal room to grow into —
+  // it clips off the right edge. The natural compact-width equivalent (per the
+  // iOS HIG, and what the rest of this mobile redesign does) is a bottom sheet.
+  const compact = useIsCompact()
+
+  // On mobile, the trigger lives inside the slide-in drawer. When a sheet takes
+  // over, close the drawer so there's ONE focused surface — never drawer-scrim
+  // stacked under sheet-scrim.
+  useEffect(() => {
+    if (compact && openDropdown) onMobileClose?.()
+  }, [compact, openDropdown, onMobileClose])
 
   // Suppress all data-tooltip rendering while ANY dropdown is open + close
   // on Escape + outside-click. Body class is consumed by the global CSS rule.
@@ -74,7 +135,10 @@ export function SidebarDropdowns({
   }, [openDropdown])
 
   useEffect(() => {
-    if (!openDropdown) return
+    // Desktop popover only — the mobile sheet owns its own ESC + scrim dismiss
+    // (and its content isn't inside `dropdownRef`, so this outside-click handler
+    // would otherwise fire on every in-sheet tap and close it instantly).
+    if (!openDropdown || compact) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenDropdown(null) }
     // Outside-click dismiss. Uses 'click' (not 'mousedown') so the trigger
     // button's own onClick toggle runs FIRST in the bubble phase; by the
@@ -92,13 +156,14 @@ export function SidebarDropdowns({
       window.removeEventListener('keydown', onKey)
       document.removeEventListener('click', onClick)
     }
-  }, [openDropdown, setOpenDropdown])
+  }, [openDropdown, setOpenDropdown, compact])
 
   const shareUrl = customerCid ? referralUrl(customerCid) : ''
 
   const copyShareLink = () => {
     if (!shareUrl) return
-    navigator.clipboard.writeText(shareUrl).then(() => {
+    copyText(shareUrl).then(ok => {
+      if (!ok) return
       setReferralCopied(true)
       setTimeout(() => setReferralCopied(false), 1800)
     })
@@ -110,41 +175,11 @@ export function SidebarDropdowns({
 
   if (!openDropdown) return null
 
-  return (
+  // The three panel bodies, shared by both presentations (desktop popover and
+  // mobile bottom sheet). They use light-theme tokens, so they read cleanly on
+  // either the frosted-glass popover or the cream sheet surface.
+  const body = (
     <>
-      <motion.div
-        ref={dropdownRef}
-        // Soft scale-in from the sidebar's edge. transform-origin sits on
-        // the LEFT side because the dropdown emerges horizontally outward
-        // from the sidebar's right edge — anchoring the origin to the left
-        // makes the entry feel like it's growing out of the icon. Custom
-        // easing (quart-out) keeps it crisp without spring overshoot,
-        // appropriate for a utility panel (not a celebration moment).
-        initial={{ opacity: 0, scale: 0.96, x: -6 }}
-        animate={{ opacity: 1, scale: 1,    x:  0 }}
-        transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}
-        style={{
-          position: 'absolute',
-          left: 'calc(100% + 8px)',
-          // Anchor each dropdown to the y-position of the icon that opens
-          // it. Theme toggle is now an inline button (no dropdown), so the
-          // 'settings' anchor is gone.
-          ...(openDropdown === 'dormwars' ? { bottom: 168 } :
-              openDropdown === 'notif'    ? { bottom: 110 } :
-                                            { bottom: 16 }),
-          minWidth: 280,
-          background: 'var(--ds-glass-bg-strong)',
-          backdropFilter: 'blur(18px) saturate(1.4)',
-          WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--ds-border2)',
-          boxShadow: 'var(--ds-shadow-modal)',
-          padding: openDropdown === 'profile' ? 0 : 8,
-          fontFamily: BODY, zIndex: 200,
-          overflow: 'hidden',
-          transformOrigin: 'left center',
-        }}
-      >
         {openDropdown === 'dormwars' && (
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
@@ -153,18 +188,32 @@ export function SidebarDropdowns({
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG }}>
                 Refer &amp; Earn
               </div>
-              {referralData.creditBalance > 0 && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '3px 8px', borderRadius: 999,
-                  background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
-                  fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
-                  textTransform: 'uppercase', lineHeight: 1, fontFeatureSettings: '"tnum"',
-                }}>
-                  <Gift size={9} strokeWidth={2.8} />
-                  AED {referralData.creditBalance.toFixed(0)} credit
-                </span>
-              )}
+              {(() => {
+                // Premium/Max users have Dorm Wars access → the badge mirrors
+                // their live Dorm Wars wallet. Everyone else (Weekly Flex /
+                // Trial / no sub) treats Refer & Earn as their own model, so the
+                // badge shows referral-only earnings — the AED 20→35 ladder
+                // summed across their conversions — which the Dorm Wars wallet
+                // would never reflect.
+                const amount = dormWarsEligible
+                  ? referralData.creditBalance
+                  : totalCashForConversions(referralData.converted)
+                // Wallet users: hide an empty wallet (unchanged). Standalone
+                // users: always show, so it reads 0 → 20 → 40 as they convert.
+                if (dormWarsEligible && amount <= 0) return null
+                return (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '3px 8px', borderRadius: 999,
+                    background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
+                    fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
+                    textTransform: 'uppercase', lineHeight: 1, fontFeatureSettings: '"tnum"',
+                  }}>
+                    <Gift size={9} strokeWidth={2.8} />
+                    AED {amount.toFixed(0)} credit
+                  </span>
+                )
+              })()}
             </div>
 
             {/* ── Next milestone — single line ── */}
@@ -188,6 +237,7 @@ export function SidebarDropdowns({
               onClick={copyShareLink}
               disabled={!customerCid}
               aria-label="Copy your referral link"
+              className="refer-copy-btn"
               style={{
                 width: '100%', padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
@@ -197,7 +247,8 @@ export function SidebarDropdowns({
                 background: referralCopied ? 'var(--ds-success-wash)' : 'var(--ds-og-wash)',
                 cursor: customerCid ? 'pointer' : 'default',
                 textAlign: 'center', fontFamily: BODY,
-                transition: 'background 200ms, border-color 200ms',
+                WebkitTapHighlightColor: 'transparent',
+                transition: 'background 200ms, border-color 200ms, transform 120ms cubic-bezier(0.16,1,0.3,1)',
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 700, color: D.fg, fontFeatureSettings: '"tnum"', marginBottom: 3, wordBreak: 'break-all' }}>
@@ -266,7 +317,10 @@ export function SidebarDropdowns({
                 <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: D.fg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
                 <div style={{ fontSize: 12, color: D.fgMuted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
               </div>
-              <BugReportIconButton />
+              {/* Desktop only — bug-report is a desktop affordance, and on mobile
+                  the sheet's focus trap would land on it and auto-show its
+                  tooltip. Dropping it here removes the focus target entirely. */}
+              {!compact && <BugReportIconButton />}
             </div>
             <div style={{ padding: 6 }}>
               {[
@@ -303,33 +357,96 @@ export function SidebarDropdowns({
             </div>
           </>
         )}
+    </>
+  )
+
+  const styleBlock = (
+    <style jsx global>{`
+      /* Copy button — instant press feedback (<100ms) so the tap registers on
+         touch before the copy completes, then the success state animates in. */
+      .refer-copy-btn:active:not(:disabled) { transform: scale(0.985); }
+      .utility-row:hover { background: var(--ds-og-wash) !important; }
+      .utility-signout-row:hover { background: var(--ds-danger-wash) !important; color: var(--ds-danger-fg) !important; }
+      .utility-bug-row:hover { background: var(--ds-og-wash) !important; color: ${OG} !important; }
+      .now-tray-row:hover { background: var(--ds-og-wash) !important; }
+      .now-tray-card-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: inset 3px 0 0 ${OG}, 0 6px 16px rgba(245,127,32,0.14) !important;
+      }
+      .now-tray-card-monthly:hover {
+        transform: translateY(-1px);
+        box-shadow: inset 3px 0 0 ${OG}, 0 6px 16px rgba(245,127,32,0.14) !important;
+      }
+      .now-tray-card-monthly-late:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(9,24,37,0.08) !important;
+        border-color: var(--ds-og-border) !important;
+      }
+
+      /* Suppress all data-tooltip while a dropdown is open */
+      body.dropdown-open [data-tooltip]::after,
+      body.dropdown-open [data-tooltip]::before {
+        display: none !important;
+      }
+    `}</style>
+  )
+
+  // ── Mobile (<768): present as a bottom sheet. PORTALED to <body> so it
+  //    escapes the sidebar's translateX() transform — a transformed ancestor
+  //    becomes the containing block for fixed children, which would otherwise
+  //    drag the fixed sheet off-screen with the closing drawer. The negative
+  //    side-margin lets each panel's own padding + full-bleed dividers govern.
+  //    Dismiss via grab handle / swipe / scrim (hideClose avoids colliding with
+  //    the panels' own top-right header elements). ──
+  if (compact) {
+    const sheet = (
+      <>
+        <MobileSheet
+          open
+          onClose={() => setOpenDropdown(null)}
+          hideClose
+          ariaLabel={openDropdown === 'dormwars' ? 'Refer and earn' : openDropdown === 'notif' ? 'Now' : 'Account menu'}
+        >
+          <div style={{ margin: '0 -20px' }}>{body}</div>
+        </MobileSheet>
+        {styleBlock}
+      </>
+    )
+    return typeof document !== 'undefined' ? createPortal(sheet, document.body) : null
+  }
+
+  // ── Desktop: the rail-anchored frosted popover, emerging from the icon. ──
+  return (
+    <>
+      <motion.div
+        ref={dropdownRef}
+        // Soft scale-in from the sidebar's edge; transform-origin on the LEFT
+        // so it reads as growing out of the icon. Quart-out, no spring.
+        initial={{ opacity: 0, scale: 0.96, x: -6 }}
+        animate={{ opacity: 1, scale: 1,    x:  0 }}
+        transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}
+        style={{
+          position: 'absolute',
+          left: 'calc(100% + 8px)',
+          ...(openDropdown === 'dormwars' ? { bottom: 168 } :
+              openDropdown === 'notif'    ? { bottom: 110 } :
+                                            { bottom: 16 }),
+          minWidth: 280,
+          background: 'var(--ds-glass-bg-strong)',
+          backdropFilter: 'blur(18px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--ds-border2)',
+          boxShadow: 'var(--ds-shadow-modal)',
+          padding: openDropdown === 'profile' ? 0 : 8,
+          fontFamily: BODY, zIndex: 200,
+          overflow: 'hidden',
+          transformOrigin: 'left center',
+        }}
+      >
+        {body}
       </motion.div>
-
-      <style jsx global>{`
-        .utility-row:hover { background: var(--ds-og-wash) !important; }
-        .utility-signout-row:hover { background: var(--ds-danger-wash) !important; color: var(--ds-danger-fg) !important; }
-        .utility-bug-row:hover { background: var(--ds-og-wash) !important; color: ${OG} !important; }
-        .now-tray-row:hover { background: var(--ds-og-wash) !important; }
-        .now-tray-card-primary:hover {
-          transform: translateY(-1px);
-          box-shadow: inset 3px 0 0 ${OG}, 0 6px 16px rgba(245,127,32,0.14) !important;
-        }
-        .now-tray-card-monthly:hover {
-          transform: translateY(-1px);
-          box-shadow: inset 3px 0 0 ${OG}, 0 6px 16px rgba(245,127,32,0.14) !important;
-        }
-        .now-tray-card-monthly-late:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 16px rgba(9,24,37,0.08) !important;
-          border-color: var(--ds-og-border) !important;
-        }
-
-        /* Suppress all data-tooltip while a dropdown is open */
-        body.dropdown-open [data-tooltip]::after,
-        body.dropdown-open [data-tooltip]::before {
-          display: none !important;
-        }
-      `}</style>
+      {styleBlock}
     </>
   )
 }

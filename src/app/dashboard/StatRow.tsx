@@ -4,6 +4,7 @@ import { Truck, CalendarDays, PiggyBank, ChevronRight, Pencil } from 'lucide-rea
 import { OG, BODY, S } from './_shared/tokens'
 import type { Subscription } from './_shared/types'
 import { formatSavedAmount, type CycleSavings } from '@/contexts/subscriptions/domain/savings'
+import { CompactMetricStrip, type CompactMetric } from './_shared/CompactMetricStrip'
 
 const SAVINGS_LAST_SEEN_KEY = 'dormers:last-seen-savings'
 
@@ -113,6 +114,9 @@ export function StatRow({
     const daysLeft = startsInFuture ? daysToStart : daysToEnd
     const endLabel = new Date(sub.end_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
     const startLabel = new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+    // Short variants (no weekday) for the compact mobile strip's tight cells.
+    const endLabelShort = new Date(sub.end_date).toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })
+    const startLabelShort = new Date(sub.start_date).toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })
 
     // Red urgency only for active subs nearing their end — a scheduled sub
     // starting in 2 days is *good* news, not urgent. Don't paint it red.
@@ -168,7 +172,7 @@ export function StatRow({
     const evenings = cycleSavings?.evenings ?? 0
     const noDeliveriesYet = sub.delivered_meals === 0
     const savingsSub: ReactNode = !hasBenchmark
-        ? <span style={{ color: OG, fontWeight: 700 }}>Set your benchmark <ChevronRight size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: '-1px' }} /></span>
+        ? <span style={{ color: OG, fontWeight: 700 }}>Set your dinner spend <ChevronRight size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: '-1px' }} /></span>
         : noDeliveriesYet
             ? <>Saving starts with your first meal</>
             : savedAmount === 0
@@ -177,13 +181,38 @@ export function StatRow({
                     ? <>vs AED {benchmarkAed}/meal · <span style={{ color: OG, fontWeight: 700 }}>renew to keep saving</span></>
                     : <>vs AED {benchmarkAed}/meal · {evenings} evening{evenings === 1 ? '' : 's'} won back</>
 
+    // Compact strip (mobile ≤768) — same figures as the cards below, rebuilt as
+    // a 3-across band so three KPIs ride one line instead of three tall cards.
+    // CSS toggles cards↔strip; both share the values computed above (no drift).
+    const compactMetrics: CompactMetric[] = [
+        {
+            label: 'Deliveries',
+            value: deliveriesLeft,
+            sub: `of ${totalDeliveries}`,
+            accent: true,
+        },
+        {
+            label: isPaused ? 'Plan paused' : startsInFuture ? 'Days to start' : 'Days left',
+            value: isPaused ? '—' : daysLeft,
+            sub: isPaused ? 'resumes later' : startsInFuture ? `starts ${startLabelShort}` : `ends ${endLabelShort}`,
+            danger: daysColor === 'red',
+        },
+        {
+            label: 'Saved',
+            value: hasBenchmark ? `AED ${formatSavedAmount(savedAmount)}` : 'Set',
+            sub: hasBenchmark ? `vs AED ${benchmarkAed}` : 'Tap to set',
+            onClick: onSetBenchmark,
+            ariaLabel: hasBenchmark ? 'Edit your usual dinner spend' : 'Set your usual dinner spend',
+        },
+    ]
+
     return (
-        <div style={{
-            gridColumn: 'span 12',
+        <div style={{ gridColumn: 'span 12' }}>
+        <div className="stat-row stat-row-cards" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 16,
-        }} className="stat-row">
+        }}>
             {/* 1 — Deliveries left (the page's most decision-relevant number) */}
             <StatTile
                 color="orange"
@@ -235,7 +264,7 @@ export function StatRow({
                 onClick={onSetBenchmark}
                 disabled={!onSetBenchmark}
                 className="stat-row-cta"
-                aria-label={hasBenchmark ? 'Edit your takeout benchmark' : 'Set your takeout benchmark'}
+                aria-label={hasBenchmark ? 'Edit your usual dinner spend' : 'Set your usual dinner spend'}
                 style={{
                     ...TILE_SURFACES.default,
                     position: 'relative',
@@ -376,23 +405,40 @@ export function StatRow({
                                 marginTop: 6, lineHeight: 1.5, fontWeight: 700,
                                 display: 'inline-flex', alignItems: 'center', gap: 4,
                             }}>
-                                Set your benchmark
+                                Set your dinner spend
                                 <ChevronRight size={12} strokeWidth={2.5} />
                             </div>
                         </div>
                     </>
                 )}
             </button>
+        </div>
 
-            <style jsx>{`
-                @media (max-width: 900px) {
+        <CompactMetricStrip
+            className="stat-row-strip"
+            ariaLabel="Plan stats"
+            metrics={compactMetrics}
+        />
+
+        <style jsx>{`
+                /* Mobile (≤768) shows the compact strip; the cards take over
+                   above. !important beats the strip's inline display:grid. */
+                :global(.stat-row-strip) { display: none !important; }
+                @media (max-width: 768px) {
+                    :global(.stat-row-cards) { display: none !important; }
+                    :global(.stat-row-strip) { display: grid !important; }
+                }
+                /* Canonical scale (640/768/1024) — applies to the desktop/tablet
+                   cards only (strip owns ≤768). */
+                @media (max-width: 640px) {
                     :global(.stat-row) { grid-template-columns: 1fr !important; }
                 }
-                /* Three tiles get tight on mid-desktop — collapse to 2-up. The
-                   savings tile spans both columns on its second row so it
-                   doesn't sit orphaned next to an empty cell. Operational
-                   metrics share row 1; the reflective metric owns row 2. */
-                @media (max-width: 1100px) and (min-width: 901px) {
+                /* Tablet + the full-width zone below the desktop sidebar:
+                   three tiles get tight, so collapse to 2-up. The savings tile
+                   spans both columns on its second row so it doesn't sit
+                   orphaned next to an empty cell. Operational metrics share
+                   row 1; the reflective metric owns row 2. */
+                @media (max-width: 1024px) and (min-width: 641px) {
                     :global(.stat-row) { grid-template-columns: repeat(2, 1fr) !important; }
                     :global(.stat-row) > :nth-child(3) { grid-column: 1 / -1 !important; }
                 }

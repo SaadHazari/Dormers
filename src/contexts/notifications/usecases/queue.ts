@@ -94,3 +94,43 @@ export async function queueCustomerNotification(
     }
 }
 
+/**
+ * Cancel pending (unsent) notifications of the given kinds for a customer.
+ *
+ * Used when a later action supersedes an earlier one — e.g. pausing
+ * supersedes a same-cycle skip, so the skip's queued `meal_resumed_confirm`
+ * ("meals resume tonight") must not fire: it would contradict the pause AND
+ * double up with the pause's own resume confirm on the day the customer
+ * comes back. Last-in wins.
+ *
+ * We don't hard-delete. Closing the row out with sent_at + a sentinel wamid
+ * (mirrors the dispatcher's 'skipped:unverified' path) keeps the ops audit
+ * trail intact — "we queued this resume confirm, then the pause superseded
+ * it" — and drops it from the pending partial index so the cron skips it.
+ *
+ * The CAS-style `.is('sent_at', null)` filter is what makes this safe against
+ * the dispatcher: if the cron already grabbed and sent the row, sent_at is
+ * set, this update matches zero rows, and we never stomp a real send.
+ *
+ * Throws on DB error so the calling subscriber can log it; the action that
+ * triggered the cancel (pause) has already committed and stays successful.
+ */
+export async function cancelPendingCustomerNotifications(
+    customerId: string,
+    kinds: CustomerNotificationKind[],
+): Promise<void> {
+    if (kinds.length === 0) return
+    const admin = createAdminSupabaseClient()
+    const { error } = await admin
+        .from('customer_notifications')
+        .update({ sent_at: new Date().toISOString(), wamid: 'cancelled:superseded' })
+        .eq('customer_id', customerId)
+        .in('kind', kinds)
+        .is('sent_at', null)
+    if (error) {
+        throw new Error(
+            `cancelPendingCustomerNotifications failed — customer=${customerId} kinds=${kinds.join(',')}: ${error.message}`,
+        )
+    }
+}
+

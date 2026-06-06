@@ -133,6 +133,29 @@ html::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Edge */
 }
 
+/* MobileSheet scrollable regions hide their scrollbar (matches dashboard chrome) */
+.mobile-sheet-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+.mobile-sheet-scroll::-webkit-scrollbar { display: none; }
+
+/* Compact (bottom-sheet) height cap — iOS-safe. `svh` is the SMALL viewport
+   (toolbars SHOWING): a static, pessimistic measure, so a bottom-pinned sheet
+   never grows under Safari's chrome and never jitters as the URL bar collapses
+   (which `dvh` would). The two declarations are a REAL cascade fallback —
+   legacy engines keep 92vh, modern engines override with 92svh. This only works
+   in a stylesheet; a duplicate key in a React inline-style object collapses to
+   one value (last write wins) and drops the fallback — so keep this here, never
+   inline it. Paired with the flex:none footer's safe-area padding, this is what
+   guarantees the CTA stays tappable above the toolbar + home indicator. */
+.mobile-sheet-surface-compact {
+  max-height: 92vh;
+  max-height: 92svh;
+}
+
+/* The bug-report icon is desktop-only — on mobile it just distracts. */
+@media (max-width: 768px) {
+  .bug-trigger { display: none !important; }
+}
+
 body {
   background: #091825;
   color: var(--foreground);
@@ -307,6 +330,27 @@ html.light .hiw-text-block {
 @keyframes tooltipIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* ── Touch / mobile: no hover tooltips ─────────────────────────────────────────
+   Both the pure-CSS [data-tooltip] popups and the state-driven role="tooltip"
+   bubbles (nav items, the Now/Refer/Profile triggers, the Report-a-bug icon,
+   plan-progress hints) are HOVER affordances. A touch screen can't hover, so a
+   tap leaves the trigger stuck in :hover/:focus and the bubble lingers — even
+   after navigating to a new page (the reported bug: a Plan / Profile / Report-a-
+   bug tooltip that won't disappear). They add nothing on touch anyway (the open
+   drawer already shows full labels), so suppress every hover tooltip on any
+   non-hover pointer and below the mobile breakpoint. The Dorm Wars tour renders
+   its own custom bubbles (not these selectors), so it is unaffected. */
+@media (hover: none), (max-width: 768px) {
+  [data-tooltip]::after,
+  [data-tooltip]::before {
+    content: none !important;
+    display: none !important;
+  }
+  [role="tooltip"] {
+    display: none !important;
+  }
 }
 
 /* ── Dashboard focus rings ─────────────────────────────────────────────────────

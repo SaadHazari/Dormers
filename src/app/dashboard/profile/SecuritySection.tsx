@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, MessageCircle, ShieldCheck, ShieldAlert, X, ChevronRight, Eye, EyeOff, Check } from 'lucide-react'
-import { OG, BG, BODY, S, TIER1 } from '../_shared/tokens'
+import { Mail, Lock, MessageCircle, ShieldCheck, ShieldAlert, ChevronRight, Eye, EyeOff, Check } from 'lucide-react'
+import { OG, BODY, S, TIER1 } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
+import { MobileSheet } from '../_shared/MobileSheet'
 import {
   requestEmailChange,
   changePassword,
@@ -34,25 +34,30 @@ export function SecuritySection({
   email,
   emailConfirmed,
   whatsapp,
+  embedded = false,
 }: {
   email: string
   emailConfirmed: boolean
   whatsapp: WhatsappStatus
+  /** When rendered inside the mobile MobileColumn (gap-driven rhythm), drop the
+   *  card's own bottom margin so spacing stays on the 14px column grid. */
+  embedded?: boolean
 }) {
   const [openModal, setOpenModal] = useState<null | 'email' | 'password' | 'whatsapp'>(null)
 
   return (
     <div style={{
       ...TIER1,
-      padding: 24,
+      padding: embedded ? 18 : 24,
       borderRadius: 'var(--radius-md)',
       border: '1.5px solid rgba(58,111,140,0.20)',
-      marginBottom: 20,
+      marginBottom: embedded ? 0 : 20,
     }}>
       <Eyebrow color="#3a6f8c">Security &amp; verification</Eyebrow>
 
-      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ marginTop: embedded ? 12 : 18, display: 'flex', flexDirection: 'column', gap: 0 }}>
         <SecurityRow
+          embedded={embedded}
           icon={<Mail size={18} strokeWidth={2} color="currentColor" />}
           label="Email"
           value={email}
@@ -62,6 +67,7 @@ export function SecuritySection({
         />
         <Divider />
         <SecurityRow
+          embedded={embedded}
           icon={<Lock size={18} strokeWidth={2} color="currentColor" />}
           label="Password"
           value="••••••••"
@@ -72,6 +78,7 @@ export function SecuritySection({
         />
         <Divider />
         <SecurityRow
+          embedded={embedded}
           icon={<MessageCircle size={18} strokeWidth={2} color="currentColor" />}
           label="WhatsApp"
           value={whatsapp.number ?? 'Not set'}
@@ -105,7 +112,7 @@ function Divider() {
 }
 
 function SecurityRow({
-  icon, label, value, valueClassName, status, actionLabel, onClick,
+  icon, label, value, valueClassName, status, actionLabel, onClick, embedded = false,
 }: {
   icon: React.ReactNode
   label: string
@@ -114,7 +121,38 @@ function SecurityRow({
   status: 'verified' | 'unverified' | 'set' | 'unset'
   actionLabel: string
   onClick: () => void
+  embedded?: boolean
 }) {
+  // Mobile (embedded): the WHOLE row is the tap target — status badge leads,
+  // the manage action is a quiet trailing chevron (no competing pill). This is
+  // the "reassurance, not a form" treatment. Desktop keeps the explicit pill.
+  if (embedded) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`${actionLabel} — ${label}`}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 2px', minHeight: 44,
+          background: 'transparent', border: 'none', textAlign: 'left',
+          cursor: 'pointer', fontFamily: BODY, touchAction: 'manipulation',
+        }}
+      >
+        <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: 'var(--ds-skeleton-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ds-fg-soft)' }}>{icon}</span>
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: S.fgMuted }}>{label}</span>
+          {/* Don't reuse the global .password-dots class here — it sets a 22px
+              !important that would clash with the desktop tree (both mount). The
+              dot row is styled inline instead. */}
+          <span style={{ fontSize: valueClassName === 'password-dots' ? 16 : 13.5, fontWeight: 600, color: 'var(--ds-fg)', lineHeight: 1.2, letterSpacing: valueClassName === 'password-dots' ? '0.14em' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+        </span>
+        <StatusBadge status={status} />
+        <ChevronRight size={17} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0, color: 'var(--ds-fg-tint)' }} />
+      </button>
+    )
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -207,79 +245,34 @@ function StatusBadge({ status }: { status: 'verified' | 'unverified' | 'set' | '
 
 // ─── Modal shell ──────────────────────────────────────────────────────────
 
+// ModalShell now delegates to the shared MobileSheet primitive: a centered
+// dialog ≥768px (the look it always had — a near no-op on desktop) and a
+// bottom sheet <768px (slide-up, grab handle, safe-area, bottom-pinned CTA
+// band). The action cluster is passed via `footer` so it pins to the thumb
+// zone on mobile; ESC / scrim-dismiss / focus-trap / scroll-lock are all
+// owned by MobileSheet now. The title + subtitle render as the body header.
 function ModalShell({
-  isOpen, onClose, title, subtitle, children,
+  isOpen, onClose, title, subtitle, footer, children,
 }: {
   isOpen: boolean
   onClose: () => void
   title: string
   subtitle?: string
+  footer?: React.ReactNode
   children: React.ReactNode
 }) {
-  useEffect(() => {
-    if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, onClose])
-
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          onClick={onClose}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'var(--ds-overlay-strong)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 12 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: BG,
-              borderRadius: 'var(--radius-md)',
-              padding: 28,
-              maxWidth: 460, width: '100%',
-              border: '1px solid var(--ds-og-border)',
-              boxShadow: 'var(--ds-shadow-modal)',
-              position: 'relative',
-            }}
-          >
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                position: 'absolute', top: 14, right: 14,
-                background: 'none', border: 'none',
-                color: S.fgMuted, cursor: 'pointer',
-                width: 28, height: 28, borderRadius: 6,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <X size={16} strokeWidth={2.4} />
-            </button>
-            <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2, letterSpacing: '-0.01em', paddingRight: 28 }}>
-              {title}
-            </div>
-            {subtitle && (
-              <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>
-                {subtitle}
-              </div>
-            )}
-            <div style={{ marginTop: 18 }}>{children}</div>
-          </motion.div>
-        </motion.div>
+    <MobileSheet open={isOpen} onClose={onClose} ariaLabel={title} footer={footer}>
+      <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2, letterSpacing: '-0.01em', paddingRight: 32 }}>
+        {title}
+      </div>
+      {subtitle && (
+        <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>
+          {subtitle}
+        </div>
       )}
-    </AnimatePresence>
+      <div style={{ marginTop: 18 }}>{children}</div>
+    </MobileSheet>
   )
 }
 
@@ -402,6 +395,14 @@ function ChangeEmailModal({
       subtitle={emailConfirmed
         ? `Your account email is currently ${currentEmail}. Enter a new one and confirm via the link we send.`
         : `Your account email ${currentEmail} hasn't been verified yet. Resend the verification link, or replace it with a different address.`}
+      footer={
+        <>
+          <button onClick={onClose} disabled={pending} style={secondaryBtn(pending)}>Cancel</button>
+          <button onClick={handleSave} disabled={pending || !newEmail.trim()} style={primaryBtn(pending)}>
+            {pending ? 'Sending…' : 'Send verification'}
+          </button>
+        </>
+      }
     >
       {!emailConfirmed && (
         <div style={{ marginBottom: 18 }}>
@@ -435,13 +436,6 @@ function ChangeEmailModal({
 
       <FlashError msg={error} />
       <FlashSuccess msg={success} />
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-        <button onClick={onClose} disabled={pending} style={secondaryBtn(pending)}>Cancel</button>
-        <button onClick={handleSave} disabled={pending || !newEmail.trim()} style={primaryBtn(pending)}>
-          {pending ? 'Sending…' : 'Send verification'}
-        </button>
-      </div>
     </ModalShell>
   )
 }
@@ -499,6 +493,16 @@ function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       onClose={onClose}
       title="Change password"
       subtitle="Enter your current password to confirm it's you, then choose a new one. Forgot it? We can email a reset link instead."
+      footer={
+        <>
+          <button onClick={onClose} disabled={pending || sendingReset} style={secondaryBtn(pending || sendingReset)}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={pending || sendingReset || !canSubmit} style={primaryBtn(pending)}>
+            {pending ? 'Updating…' : 'Update password'}
+          </button>
+        </>
+      }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
@@ -549,16 +553,7 @@ function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       <FlashError msg={error} />
       <FlashSuccess msg={success} />
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-        <button onClick={onClose} disabled={pending || sendingReset} style={secondaryBtn(pending || sendingReset)}>
-          Cancel
-        </button>
-        <button onClick={handleSave} disabled={pending || sendingReset || !canSubmit} style={primaryBtn(pending)}>
-          {pending ? 'Updating…' : 'Update password'}
-        </button>
-      </div>
-
-      <div style={{ marginTop: 14, textAlign: 'center' }}>
+      <div style={{ marginTop: 18, textAlign: 'center' }}>
         <button
           onClick={handleSendReset}
           disabled={pending || sendingReset}
@@ -772,6 +767,27 @@ function WhatsappVerifyModal({
       subtitle={stage === 'enter'
         ? "Enter the number you'd like delivery messages to come to. We'll send a 6-digit code on WhatsApp."
         : `Enter the 6-digit code we just sent to ${phone}.`}
+      footer={stage === 'enter' ? (
+        <>
+          <button onClick={onClose} disabled={sending} style={secondaryBtn(sending)}>Cancel</button>
+          <button onClick={handleSendCode} disabled={sending || !phone.trim()} style={primaryBtn(sending)}>
+            {sending ? 'Sending…' : 'Send code'}
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            onClick={() => { setStage('enter'); setCode(''); setError(null); setSuccess(null) }}
+            disabled={verifying}
+            style={secondaryBtn(verifying)}
+          >
+            Use different number
+          </button>
+          <button onClick={handleVerify} disabled={verifying || code.length !== 6} style={primaryBtn(verifying)}>
+            {verifying ? 'Verifying…' : 'Verify'}
+          </button>
+        </>
+      )}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
@@ -804,32 +820,8 @@ function WhatsappVerifyModal({
       <FlashError msg={error} />
       <FlashSuccess msg={success} />
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-        {stage === 'enter' ? (
-          <>
-            <button onClick={onClose} disabled={sending} style={secondaryBtn(sending)}>Cancel</button>
-            <button onClick={handleSendCode} disabled={sending || !phone.trim()} style={primaryBtn(sending)}>
-              {sending ? 'Sending…' : 'Send code'}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => { setStage('enter'); setCode(''); setError(null); setSuccess(null) }}
-              disabled={verifying}
-              style={secondaryBtn(verifying)}
-            >
-              Use different number
-            </button>
-            <button onClick={handleVerify} disabled={verifying || code.length !== 6} style={primaryBtn(verifying)}>
-              {verifying ? 'Verifying…' : 'Verify'}
-            </button>
-          </>
-        )}
-      </div>
-
       {stage === 'sent' && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}>
+        <div style={{ marginTop: 18, textAlign: 'center' }}>
           <button
             onClick={handleSendCode}
             disabled={sending || verifying}

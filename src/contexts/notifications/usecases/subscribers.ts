@@ -11,7 +11,11 @@
  */
 
 import { eventBus } from '@/shared/events/event-bus'
-import { queueCustomerNotification, type CustomerNotificationKind } from './queue'
+import {
+  queueCustomerNotification,
+  cancelPendingCustomerNotifications,
+  type CustomerNotificationKind,
+} from './queue'
 
 const VALID_KINDS = new Set<CustomerNotificationKind>([
   'meal_skipped_confirm',
@@ -52,6 +56,27 @@ eventBus.on('subscription.notification-due', async (payload) => {
   } catch (err) {
     console.error(
       `notifications subscriber: queueCustomerNotification threw for kind=${payload.kind}:`,
+      err,
+    )
+  }
+})
+
+eventBus.on('subscription.notification-cancel', async (payload) => {
+  // Narrow + validate the kinds at the boundary, same as notification-due.
+  // Unknown kinds are dropped silently — a cancel for a kind we don't queue
+  // is a no-op, not an error worth logging.
+  const kinds = payload.kinds.filter((k): k is CustomerNotificationKind =>
+    VALID_KINDS.has(k as CustomerNotificationKind),
+  )
+  if (kinds.length === 0) return
+  // Swallow failures: the superseding action (pause) already committed; a
+  // missed cancel shouldn't surface as a user-visible error. Worst case the
+  // stale row remains queued — the same outcome as before this fix existed.
+  try {
+    await cancelPendingCustomerNotifications(payload.customerId, kinds)
+  } catch (err) {
+    console.error(
+      `notifications subscriber: cancelPendingCustomerNotifications threw:`,
       err,
     )
   }

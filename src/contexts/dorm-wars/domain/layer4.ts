@@ -159,10 +159,15 @@ export async function maybeFireAnniversary(
       `❌ anniversary credit insert failed — customer=${customerId} year=${anniversaryYear}:`,
       creditErr,
     )
-    // Leave the layer4 row in place so ops can spot the orphan and back-
-    // fill the credit manually. The user will see "Earned!" in the UI
-    // either way; the credit will hit their wallet on next reconciliation.
-    return inserted as Layer4Row
+    // Self-heal: delete the just-inserted marker so its UNIQUE doesn't
+    // permanently block a retry. The next hub load re-fires cleanly and
+    // deposits the credit — there is no reconciliation job to back-fill an
+    // orphan. Mirrors the delete-to-allow-retry pattern in
+    // autoRejectLayer4Reward. (Worst case, a spurious error after the credit
+    // actually committed yields a rare double AED 50 — strictly better than a
+    // silent permanent loss.) Returning null = "not fired this load".
+    await sb.from('layer4_rewards').delete().eq('id', inserted.id)
+    return null
   }
 
   // Link the credit row back + stamp awarded_at.

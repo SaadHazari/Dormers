@@ -49,6 +49,9 @@ interface Props {
    *  user's most-recent historical order; the takeover only consumes it when
    *  the just-created sub has been detected (i.e. the order is fresh). */
   mostRecentOrder?: RecentOrder | null
+  /** DEV-ONLY (preview harness): forwarded to ActiveDashboard to force a
+   *  time/session-driven hero state. Never set by production callers. */
+  previewState?: string
 }
 
 /**
@@ -60,7 +63,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -261,6 +264,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       profileGate={missingFields}
       outOfZone={outOfZone}
       monthlyWindow={monthlyWindow}
+      previewState={previewState}
     />
   )
 }

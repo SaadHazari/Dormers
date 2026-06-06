@@ -7,6 +7,7 @@ import { normalisePhone } from '@/shared/phone'
 import { generateCid } from '@/shared/cid'
 import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/usecases/awarder'
 import { isDoublerActive, applyDoubler } from '@/contexts/dorm-wars/domain/doubler'
+import { cashForLifetimeConversion } from '@/contexts/dorm-wars/domain/constants'
 import { PLANS, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans'
 import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
@@ -789,12 +790,25 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
 
   const creditStatus = reviewItem ? 'pending' : 'approved'
 
+  // Layer 1 cash scales with the inviter's lifetime paid conversions. We
+  // already marked THIS referral 'converted' above, so this count includes
+  // it — i.e. it's the inviter's Nth conversion, priced at the Nth rung. Must
+  // stay in sync with LAYER1_CASH_LADDER, which the Dorm Wars hub renders as
+  // "Cash per recruit (scales lifetime)". Unbounded (no date filter): the
+  // ladder is a lifetime-count scale, distinct from the monthly-cap count above.
+  const { count: lifetimeConversions } = await supabaseAdmin
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('inviter_user_id', referral.inviter_user_id)
+    .eq('status', 'converted')
+  const baseCash = cashForLifetimeConversion(lifetimeConversions ?? 1)
+
   // Phase 8F — week-long doubler. If the inviter has an active doubler
   // chest outcome (rolled the 5% bucket in the last 7 days), Layer 1 cash
   // doubles. Source string carries the '_2x' suffix so ops analytics can
   // measure how much extra AED the doubler distributes.
   const doublerActive = await isDoublerActive(supabaseAdmin, referral.inviter_user_id)
-  const { value: cashAmount, source: cashSource } = applyDoubler(20, 'referral_conversion', doublerActive)
+  const { value: cashAmount, source: cashSource } = applyDoubler(baseCash, 'referral_conversion', doublerActive)
 
   await supabaseAdmin
     .from('credits')

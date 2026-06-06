@@ -10,6 +10,7 @@ import { PlanGlyph } from './_shared/PlanGlyph'
 import { fmt } from './_shared/format'
 import { btnStyle } from './_shared/buttons'
 import type { Subscription } from './_shared/types'
+import { groupPauseRanges, buildPauseLookup } from './_shared/pause-ranges'
 
 // ── Calendar-bar helpers ──────────────────────────────────────────────────────
 // The bar is a true date-pegged timeline: one pill per working day from
@@ -148,11 +149,20 @@ export function PlanProgress({
         [sub.start_date, sub.end_date, weekType],
     )
 
-    // O(1) lookup for "is this date a skip?"
+    // O(1) lookup for "is this date a skip?" / "was this date paused?"
     const skipDateSet = useMemo(
         () => new Set(sub.skipped_dates ?? []),
         [sub.skipped_dates],
     )
+    const pausedDateSet = useMemo(
+        () => new Set(sub.paused_dates ?? []),
+        [sub.paused_dates],
+    )
+    const pauseRanges = useMemo(
+        () => groupPauseRanges(sub.paused_dates ?? [], weekType, skipDateSet),
+        [sub.paused_dates, weekType, skipDateSet],
+    )
+    const pauseLookup = useMemo(() => buildPauseLookup(pauseRanges), [pauseRanges])
 
     // AE clock — ticks every 60s so the today pill flips at midnight (date
     // roll) and at 20:00 (pre-delivery → delivered) without a refresh.
@@ -282,13 +292,19 @@ export function PlanProgress({
                 {pillDays.map((pillDate, i) => {
                     const pillIso = isoOf(pillDate)
 
+                    // Collapse multi-day pause ranges: skip non-start dates
+                    const pillRange = pauseLookup.get(pillIso)
+                    const isCollapsedRange = pillRange != null && pillRange.count >= 2
+                    if (isCollapsedRange && pillIso !== pillRange.startIso) return null
+
                     // Classify
                     const isPillSkipped = skipDateSet.has(pillIso)
+                    const isPillPaused = pausedDateSet.has(pillIso)
                     const isToday = pillIso === aeNow.iso
                     const isPast = pillIso < aeNow.iso
                     const isMakeup = i >= totalDeliveries
 
-                    // Pause overrides everything from pause_date forward.
+                    // Pause overrides everything from pause_date forward (live pause).
                     const isPausedOverlay = isPaused && pauseCutoffIso != null && pillIso >= pauseCutoffIso
 
                     let state: PillState
@@ -296,6 +312,8 @@ export function PlanProgress({
                         state = 'paused'
                     } else if (isPillSkipped) {
                         state = isToday ? 'today-skipped' : 'skipped'
+                    } else if (isPillPaused || isCollapsedRange) {
+                        state = 'paused'
                     } else if (isPast) {
                         state = 'delivered'
                     } else if (isToday) {
@@ -307,15 +325,15 @@ export function PlanProgress({
                         state = 'remaining'
                     }
 
-                    // Planned-pause start flag — for the structural marker
-                    // (1px navy line) that visually anchors where the pause
-                    // begins WITHOUT painting a misleading multi-day zone.
-                    // Variant B is open-ended — we don't know when pause
-                    // ends — so painting a range would imply a duration
-                    // the system can't actually commit to.
+                    // Planned-pause start flag
                     const isPlannedPauseStart =
                         !!sub.planned_pause_start
                         && pillIso === sub.planned_pause_start
+
+                    // Historical pause boundary markers — vertical lines
+                    // bracket each pause range (start left + end right).
+                    const isPauseRangeStart = pauseRanges.some(r => pillIso === r.startIso)
+                    const isPauseRangeEnd = pauseRanges.some(r => pillIso === r.endIso)
 
                     // Visual treatment — constrained to 4 states:
                     //   • Orange gradient → delivered (today or past)
@@ -325,18 +343,25 @@ export function PlanProgress({
                     // Make-up days, planned-pause-range, and currently-paused
                     // all collapse into "plain gray pill" — their meaning
                     // surfaces via banners and text, not via more pill colors.
+                    const isSkipHatch = state === 'skipped' || state === 'today-skipped'
+                    const isPausePill = state === 'paused'
+                    const isMakeupPill = state === 'makeup'
                     const backgroundColor =
                         state === 'delivered' || state === 'today-delivered'
                             ? OG
-                            : state === 'skipped' || state === 'today-skipped'
+                            : isSkipHatch
                                 ? 'var(--ds-fg-tint)'
-                                : 'var(--ds-skeleton-base)'
+                                : isPausePill
+                                    ? 'rgba(9,24,37,0.12)'
+                                    : 'var(--ds-skeleton-base)'
                     const backgroundImage =
                         state === 'delivered' || state === 'today-delivered'
                             ? `linear-gradient(180deg, ${OG} 0%, ${OG3} 100%)`
-                            : state === 'skipped' || state === 'today-skipped'
-                                ? 'repeating-linear-gradient(135deg, rgba(255,255,255,0.16) 0px, rgba(255,255,255,0.16) 2px, transparent 2px, transparent 5px)'
-                                : 'none'
+                            : isSkipHatch
+                                ? 'repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 5px)'
+                                : isPausePill
+                                    ? 'repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 2px, transparent 2px, transparent 5px)'
+                                    : 'none'
 
                     const opacity = 1
                     // Today (pre-delivery) gets a static orange ring instead
@@ -448,9 +473,15 @@ export function PlanProgress({
                             statusColor = TIER_POP_TEXT.muted
                             break
                         case 'paused':
-                            statusLabel = 'On hold'
-                            dateCopy = dateLabel
-                            footnote = 'Deliveries paused — resume to keep them coming'
+                            if (isCollapsedRange && pillRange) {
+                                statusLabel = 'Paused'
+                                dateCopy = `${formatPillDate(new Date(pillRange.startIso + 'T00:00:00'), aeNow.iso)} – ${formatPillDate(new Date(pillRange.endIso + 'T00:00:00'), aeNow.iso)}`
+                                footnote = `${pillRange.count} delivery day${pillRange.count > 1 ? 's' : ''}`
+                            } else {
+                                statusLabel = 'On hold'
+                                dateCopy = dateLabel
+                                footnote = 'Deliveries paused — resume to keep them coming'
+                            }
                             statusColor = TIER_POP_TEXT.faint
                             break
                     }
@@ -490,11 +521,11 @@ export function PlanProgress({
                             }}
                             style={{
                                 position: 'relative',
-                                flex: 1,
+                                flex: isCollapsedRange ? 1.5 : 1,
                                 minWidth: 3,
                                 height: 10,
                                 padding: 0,
-                                border: 'none',
+                                border: isMakeupPill ? '1px solid rgba(9,24,37,0.18)' : 'none',
                                 borderRadius: 'var(--radius-pill)',
                                 backgroundColor,
                                 backgroundImage,
@@ -518,18 +549,35 @@ export function PlanProgress({
                                 vertical line in the gap before this pill.
                                 Communicates "pause begins here" structurally
                                 without painting a multi-day color zone. */}
-                            {isPlannedPauseStart && (
+                            {(isPlannedPauseStart || isPauseRangeStart) && (
                                 <span
                                     aria-hidden
                                     style={{
                                         position: 'absolute',
-                                        left: -3,
+                                        left: 0,
                                         top: -4,
                                         bottom: -4,
                                         width: 1,
                                         background: NV,
                                         pointerEvents: 'none',
                                         borderRadius: 1,
+                                        transform: 'translateX(calc(-50% - 1.5px))',
+                                    }}
+                                />
+                            )}
+                            {isPauseRangeEnd && (
+                                <span
+                                    aria-hidden
+                                    style={{
+                                        position: 'absolute',
+                                        right: 0,
+                                        top: -4,
+                                        bottom: -4,
+                                        width: 1,
+                                        background: NV,
+                                        pointerEvents: 'none',
+                                        borderRadius: 1,
+                                        transform: 'translateX(calc(50% + 1.5px))',
                                     }}
                                 />
                             )}
@@ -639,6 +687,17 @@ export function PlanProgress({
                         · {untracedSkips} earlier skip{untracedSkips === 1 ? '' : 's'} not date-traced
                     </span>
                 )}
+                {(() => {
+                    if (pauseRanges.length === 0) return null
+                    const r = pauseRanges[pauseRanges.length - 1]
+                    const label = r.count === 1 ? `Paused ${fmt(r.startIso)}` : `Paused ${fmt(r.startIso)}–${fmt(r.endIso)}`
+                    return (
+                        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, color: S.fgFaint, fontSize: 11 }}>
+                            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: 'rgba(9,24,37,0.12)', backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 2px, transparent 2px, transparent 3px)', display: 'inline-block' }} />
+                            {label}
+                        </span>
+                    )
+                })()}
             </div>
 
             {/* 4 — Timeline */}

@@ -102,6 +102,19 @@ export async function pauseSubscription(subscriptionId: string) {
     return { error: 'Pause didn\'t take. Refresh and try again, or message us on WhatsApp.' };
   }
 
+  // ── Supersede the skip's pending resume confirm (last-in wins) ─────────
+  // If the customer skipped a meal earlier this cycle, skipMeal pre-queued a
+  // morning-after `meal_resumed_confirm` ("meals resume tonight") for the
+  // next eligible delivery day. Pausing supersedes that skip: the message is
+  // now wrong (no meal is coming), and if left queued it would also land
+  // alongside this pause's own resume confirm on the day the customer comes
+  // back — two "welcome back" messages for one return. Cancel it so the only
+  // resumption message reflects their most recent action: the pause.
+  await eventBus.emit('subscription.notification-cancel', {
+    customerId: auth.user.id,
+    kinds: ['meal_resumed_confirm'],
+  });
+
   // ── WhatsApp confirmation ──────────────────────────────────────────────
   // Immediate "your plan is paused" confirm. Pause is open-ended — the
   // copy explicitly tells the user resume is their call, no fake auto-
@@ -185,25 +198,15 @@ export async function resumeSubscription(subscriptionId: string) {
   }
 
   // ── WhatsApp confirmation ──────────────────────────────────────────────
-  // Schedule the "you're back on" message for 9 AM AE TOMORROW (or
-  // technically the next eligible delivery day, since resume on a Friday
-  // with a 5DAYS plan should land Monday morning, not Saturday).
-  const tomorrowAEIso = (() => {
-    const tomorrow = new Date(aeNow.getTime() + 24 * 60 * 60 * 1000);
-    return `${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth() + 1).padStart(2, '0')}-${String(tomorrow.getUTCDate()).padStart(2, '0')}`;
-  })();
-  const resumeMsgDateIso = nextEligibleDeliveryDay({
-    fromAeDateIso: todayAE,
-    weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
-    skippedDates:  subscription.skipped_dates ?? [],
-    pausedDates:   nextPausedDates,
-    subEndDateIso: subscription.end_date,
-  }) ?? tomorrowAEIso;
+  // Immediate "your plan is back on" confirm — mirrors the pause confirm
+  // which also sends instantly. Previously deferred to 9 AM on the next
+  // delivery day, which left the user with no feedback for up to 3 days
+  // (e.g. resume on Friday with a 5-day plan → Monday 9 AM).
   await eventBus.emit('subscription.notification-due', {
     customerId: auth.user.id,
     kind: 'plan_resumed_confirm',
-    scheduledFor: ae9amUtcOnDate(resumeMsgDateIso),
-    payload: { resume_date: resumeMsgDateIso },
+    scheduledFor: new Date(),
+    payload: { resume_date: todayAE },
   });
 
   revalidatePath('/dashboard', 'layout');
@@ -366,11 +369,18 @@ export async function skipMeal(subscriptionId: string) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
   }
 
-  // Today's AE wall date as YYYY-MM-DD. aeNow was already shifted by +4h
-  // above, so getUTCFullYear/getUTCMonth/getUTCDate give AE date components
-  // regardless of the server's local tz. Drives the new skipped_dates ledger
-  // that the dashboard's calendar progress bar reads pill-by-pill.
+  // Make-up day guard — mirrors skipFutureDate's check. Skipping a make-up
+  // day would create a runaway loop (skip → end_date extends → new make-up
+  // day → skip again…). Make-up days are the extra days past the original
+  // delivery count, earned by earlier skips.
   const todayAEIso = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
+  const mealsPerDelivery = subscription.meals_per_day ?? 1;
+  const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
+  const todayPosition = workingDayPosition(subscription.start_date, todayAEIso, wt);
+  if (todayPosition > totalDeliveries) {
+    return { error: "Make-up days can't be skipped — they're extra days earned by earlier skips." };
+  }
+
   const nextSkippedDates = [...(subscription.skipped_dates ?? []), todayAEIso]
 
   // Promote skip to a real DB status — flips Active → Skipped. The

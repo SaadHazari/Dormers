@@ -173,7 +173,13 @@ export function DormWarsTour({ onComplete }: { onComplete: () => void }) {
 
   const persistAndClose = () => {
     startMarking(async () => {
-      await markDormWarsTourCompleted()
+      const res = await markDormWarsTourCompleted()
+      if (res.ok === false) {
+        // Persist failed — the tour will re-fire next session. Surface it so
+        // it's diagnosable instead of looping silently. We still close the
+        // tour so the user isn't trapped behind a failed save.
+        console.error('Dorm Wars tour completion did not persist:', res.error)
+      }
       onComplete()
     })
   }

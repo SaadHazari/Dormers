@@ -18,6 +18,7 @@ import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from '../d
 import { getCycleRecruits, getCycleChainSubIds } from '@/infra/supabase/dorm-wars-repo'
 import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from '../domain/meal-pricing'
 import { isDoublerActive, applyDoubler } from '../domain/doubler'
+import { sendOpsAlertEmail } from '@/infra/zeptomail/client'
 
 // Use the wide-generic form so this matches the type returned by bare
 // createClient(url, key) — which is SupabaseClient<any, "public", "public", any, any>.
@@ -64,6 +65,59 @@ async function depositCredit(
       error,
     )
     throw new Error(`depositCredit failed: ${error.message}`)
+  }
+}
+
+/**
+ * Durable, contact-enriched ops alert for the milestone-20 Dorm Weekend —
+ * the only Layer 2 reward fulfilled manually. Sends an email to the ops
+ * inbox AND logs (so it's actionable from logs too), enriched with the
+ * customer's name + WhatsApp like the Tier 3 jacket path. NEVER throws: a
+ * notification failure must not undo the award, and the cycle_rewards row
+ * remains the durable record ops can query for unfulfilled weekends.
+ */
+async function notifyOpsDormWeekend(
+  sb: AdminClient,
+  customerId: string,
+  cycleRewardId: string,
+): Promise<void> {
+  try {
+    const { data: contact } = await sb
+      .from('customers')
+      .select('name, whatsapp_number, dorm_name')
+      .eq('id', customerId)
+      .maybeSingle()
+    const name = (contact?.name as string | null) ?? '(unknown)'
+    const whatsapp = (contact?.whatsapp_number as string | null) ?? '(missing)'
+    const dorm = (contact?.dorm_name as string | null) ?? '(unknown dorm)'
+
+    console.log(
+      `🏆 DORM WEEKEND unlocked — coordinate the dorm event within a week.`,
+      `\n   customer_id=${customerId}`,
+      `\n   name=${name}`,
+      `\n   whatsapp=${whatsapp}`,
+      `\n   dorm=${dorm}`,
+      `\n   cycle_rewards.id=${cycleRewardId}`,
+    )
+
+    await sendOpsAlertEmail({
+      subject: `🏆 Dorm Weekend unlocked — ${name} (${dorm})`,
+      html:
+        `<p><strong>${name}</strong> hit 20 recruits this cycle and unlocked the Dorm Weekend event.</p>` +
+        `<p>The in-app promise is to coordinate within a week — please reach out.</p>` +
+        `<ul>` +
+        `<li>Name: ${name}</li>` +
+        `<li>WhatsApp: ${whatsapp}</li>` +
+        `<li>Dorm: ${dorm}</li>` +
+        `<li>customer_id: ${customerId}</li>` +
+        `<li>cycle_rewards.id: ${cycleRewardId}</li>` +
+        `</ul>`,
+    })
+  } catch (err) {
+    console.error(
+      `⚠️  dorm_weekend ops alert failed for ${customerId} (award preserved, follow up from logs):`,
+      err,
+    )
   }
 }
 
@@ -137,28 +191,38 @@ export async function awardCycleAndTierRewards(
 
       if (!inserted) continue // already awarded — idempotent
 
-      // Side effects on first-award only. Phase 8F: applyDoubler tags the
-      // source with '_2x' and doubles the AED when the doubler is active,
-      // so analytics can attribute the boosted payout to the chest.
-      if (m.kind === 'mystery_drop' || m.kind === 'free_week' || m.kind === 'free_month') {
-        const { value: paid, source } = applyDoubler(value!, `cycle_milestone_${m.at}`, doublerActive)
-        await depositCredit(sb, customerId, paid, source)
-      }
-      if (m.kind === 'cash_and_skips') {
-        const { value: paid, source } = applyDoubler(500, 'cycle_milestone_15', doublerActive)
-        await depositCredit(sb, customerId, paid, source)
-        // Bonus skips are NOT doubled — operational kitchen impact would
-        // double too, which we don't want. Only the AED component scales.
-        await sb.rpc('increment_bonus_skips', {
-          p_sub_id: subscriptionId,
-          p_amount: MILESTONE_15_BONUS_SKIPS,
-        })
-      }
-      if (m.kind === 'dorm_weekend') {
-        // Decision #8: stub — row written, no credit, ops-visible log.
-        console.log(
-          `🏆 DORM WEEKEND unlocked for customer ${customerId} — manual fulfilment needed (cycle_rewards.id=${inserted.id as string})`,
-        )
+      try {
+        // Side effects on first-award only. Phase 8F: applyDoubler tags the
+        // source with '_2x' and doubles the AED when the doubler is active,
+        // so analytics can attribute the boosted payout to the chest.
+        if (m.kind === 'mystery_drop' || m.kind === 'free_week' || m.kind === 'free_month') {
+          const { value: paid, source } = applyDoubler(value!, `cycle_milestone_${m.at}`, doublerActive)
+          await depositCredit(sb, customerId, paid, source)
+        }
+        if (m.kind === 'cash_and_skips') {
+          const { value: paid, source } = applyDoubler(500, 'cycle_milestone_15', doublerActive)
+          await depositCredit(sb, customerId, paid, source)
+          // Bonus skips are NOT doubled — operational kitchen impact would
+          // double too, which we don't want. Only the AED component scales.
+          await sb.rpc('increment_bonus_skips', {
+            p_sub_id: subscriptionId,
+            p_amount: MILESTONE_15_BONUS_SKIPS,
+          })
+        }
+        if (m.kind === 'dorm_weekend') {
+          // Decision #8: no credit — manual fulfilment. notifyOpsDormWeekend
+          // never throws, so a failed alert won't trip the self-heal below;
+          // the cycle_rewards row stays as the durable unlock record.
+          await notifyOpsDormWeekend(sb, customerId, inserted.id as string)
+        }
+      } catch (err) {
+        // Self-heal: the cycle_rewards marker is committed but a paid side
+        // effect threw (credit deposit / skips RPC). Delete the marker so
+        // this milestone re-awards on the inviter's NEXT conversion instead
+        // of leaving a credited-less row the hub would render as "earned".
+        // Rethrow so the conversion webhook records the miss and retries.
+        await sb.from('cycle_rewards').delete().eq('id', inserted.id as string)
+        throw err
       }
     }
   }
@@ -200,49 +264,58 @@ export async function awardCycleAndTierRewards(
 
     if (!inserted) continue // already awarded — idempotent
 
-    // Side effects on first-award only:
-    if (t.tier === 2) {
-      // Tier 2 perk = 10% off forever + Early Access flag.
-      // (Discount % itself lands at checkout time via
-      // getActiveLifetimeTierPercent → synthesizePerSessionCoupon, no action here.)
-      await sb.from('customers').update({ early_access: true }).eq('id', customerId)
+    try {
+      // Side effects on first-award only:
+      if (t.tier === 2) {
+        // Tier 2 perk = 10% off forever + Early Access flag.
+        // (Discount % itself lands at checkout time via
+        // getActiveLifetimeTierPercent → synthesizePerSessionCoupon, no action here.)
+        await sb.from('customers').update({ early_access: true }).eq('id', customerId)
+      }
+      if (t.tier === 3) {
+        // Jacket + merch fulfilment is manual + handled entirely over WhatsApp
+        // per user spec ("any details of the jacket merch will be discussed
+        // over whatsapp"). No in-app sizing / address capture. Enrich the ops
+        // log with the customer's WhatsApp number + name so the fulfilment
+        // team can reach out without a second lookup.
+        const { data: contact } = await sb
+          .from('customers')
+          .select('name, whatsapp_number')
+          .eq('id', customerId)
+          .maybeSingle()
+        console.log(
+          `🧥 TIER 3 (jacket_merch) unlocked — reach out on WhatsApp to confirm size + delivery.`,
+          `\n   customer_id=${customerId}`,
+          `\n   name=${(contact?.name as string | null) ?? '(unknown)'}`,
+          `\n   whatsapp=${(contact?.whatsapp_number as string | null) ?? '(missing)'}`,
+          `\n   lifetime_rewards.id=${inserted.id as string}`,
+        )
+      }
+      if (t.tier === 4) {
+        // Phase 8D — "100 free meals" now scales to the customer's actual
+        // plan + meal preference instead of the old flat AED 5500 (which
+        // assumed AED 55/meal, far above any real per-meal price). Typical
+        // payouts: AED 1750 (Monthly Max Veg) → AED 2200 (Monthly Premium
+        // NonVeg). Partial-redeems across many future checkouts via the
+        // existing per-session synth + clamp.
+        //
+        // priceCtx for a lapsed customer (no active sub) falls back to the
+        // most recent Premium+ sub they ever had, then to Monthly Premium
+        // NonVeg if there's no Premium+ history. See meal-pricing.ts.
+        await depositCredit(sb, customerId, tier4MealsValue(priceCtx), 'tier_4_meals')
+        await sb.from('customers').update({ hall_wall: true }).eq('id', customerId)
+      }
+      // Tier 1 (5% off) has no immediate side effect — the discount applies at
+      // next checkout via getActiveLifetimeTierPercent + synthesizePerSessionCoupon
+      // (wired in 07-02). Same is true for the % component of tier 2/3/4 —
+      // only the FLAG and CREDIT side effects need imperative action here.
+    } catch (err) {
+      // Self-heal: the lifetime_rewards marker is committed but a side effect
+      // threw (tier-4 credit deposit / flag update). Delete the marker so the
+      // tier re-awards on the next conversion instead of stranding a perk that
+      // never paid out. Rethrow so the webhook records the miss and retries.
+      await sb.from('lifetime_rewards').delete().eq('id', inserted.id as string)
+      throw err
     }
-    if (t.tier === 3) {
-      // Jacket + merch fulfilment is manual + handled entirely over WhatsApp
-      // per user spec ("any details of the jacket merch will be discussed
-      // over whatsapp"). No in-app sizing / address capture. Enrich the ops
-      // log with the customer's WhatsApp number + name so the fulfilment
-      // team can reach out without a second lookup.
-      const { data: contact } = await sb
-        .from('customers')
-        .select('name, whatsapp_number')
-        .eq('id', customerId)
-        .maybeSingle()
-      console.log(
-        `🧥 TIER 3 (jacket_merch) unlocked — reach out on WhatsApp to confirm size + delivery.`,
-        `\n   customer_id=${customerId}`,
-        `\n   name=${(contact?.name as string | null) ?? '(unknown)'}`,
-        `\n   whatsapp=${(contact?.whatsapp_number as string | null) ?? '(missing)'}`,
-        `\n   lifetime_rewards.id=${inserted.id as string}`,
-      )
-    }
-    if (t.tier === 4) {
-      // Phase 8D — "100 free meals" now scales to the customer's actual
-      // plan + meal preference instead of the old flat AED 5500 (which
-      // assumed AED 55/meal, far above any real per-meal price). Typical
-      // payouts: AED 1750 (Monthly Max Veg) → AED 2200 (Monthly Premium
-      // NonVeg). Partial-redeems across many future checkouts via the
-      // existing per-session synth + clamp.
-      //
-      // priceCtx for a lapsed customer (no active sub) falls back to the
-      // most recent Premium+ sub they ever had, then to Monthly Premium
-      // NonVeg if there's no Premium+ history. See meal-pricing.ts.
-      await depositCredit(sb, customerId, tier4MealsValue(priceCtx), 'tier_4_meals')
-      await sb.from('customers').update({ hall_wall: true }).eq('id', customerId)
-    }
-    // Tier 1 (5% off) has no immediate side effect — the discount applies at
-    // next checkout via getActiveLifetimeTierPercent + synthesizePerSessionCoupon
-    // (wired in 07-02). Same is true for the % component of tier 2/3/4 —
-    // only the FLAG and CREDIT side effects need imperative action here.
   }
 }

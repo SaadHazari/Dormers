@@ -39,6 +39,7 @@ export interface MonthlyReviewTakeoverProps {
     planTier: WrapPlanTier
     onSubmit: (payload: MonthlyReviewPayload) => Promise<MonthlyReviewSubmitResult>
     onClose: () => void
+    closeLabel?: string
 }
 
 export function MonthlyReviewTakeover({
@@ -48,6 +49,7 @@ export function MonthlyReviewTakeover({
     planTier,
     onSubmit,
     onClose,
+    closeLabel = 'Back to dashboard',
 }: MonthlyReviewTakeoverProps) {
     const vocab = wrapVocabFor(planTier)
     // Trial = a single meal. It gets its own short flow (opening + 3 questions)
@@ -362,9 +364,9 @@ export function MonthlyReviewTakeover({
                     always gets a polite yes). Optional. */}
                 {isTrial && step === 2 && !isReveal && (
                     <div style={SCREEN}>
-                        <Eyebrow color={TIER_POP_TEXT.muted}>Tonight&rsquo;s meal</Eyebrow>
-                        <H1>How was it &mdash; <Accent>honestly</Accent>?</H1>
-                        <Sub>Most useful if you tell us what was off. That&rsquo;s how the kitchen gets better.</Sub>
+                        <Eyebrow color={TIER_POP_TEXT.muted}>The meal itself</Eyebrow>
+                        <H1>How was your first <Accent>Dormers meal</Accent>?</H1>
+                        <Sub>Honestly — it&rsquo;s most useful when you tell us what was off. That&rsquo;s how the kitchen gets better.</Sub>
                         <BigTextarea
                             value={frictionMoment}
                             setValue={setFrictionMoment}
@@ -639,6 +641,7 @@ export function MonthlyReviewTakeover({
                         stats={reveal.stats}
                         planTier={planTier}
                         onClose={onClose}
+                        closeLabel={closeLabel}
                     />
                 )}
             </main>
@@ -671,12 +674,14 @@ function RevealScreen({
     stats,
     planTier,
     onClose,
+    closeLabel = 'Back to dashboard',
 }: {
     userName: string
     rewardPct: 50 | 100
     stats: MonthlyRevealStats
     planTier: WrapPlanTier
     onClose: () => void
+    closeLabel?: string
 }) {
     const vocab = wrapVocabFor(planTier)
     const router = useRouter()
@@ -791,12 +796,13 @@ function RevealScreen({
                 </div>
             )}
 
-            <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 10, maxWidth: 400 }}>
                 <button
                     onClick={() => { onClose(); router.push(nextHref) }}
                     style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                        padding: '14px 28px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        width: '100%',
+                        padding: '14px 24px',
                         borderRadius: 'var(--radius-pill)',
                         border: 0,
                         background: OG,
@@ -819,9 +825,10 @@ function RevealScreen({
                         letterSpacing: '0.06em', textTransform: 'uppercase',
                         color: TIER_POP_TEXT.faint,
                         padding: '8px 12px',
+                        textAlign: 'center',
                     }}
                 >
-                    Back to dashboard
+                    {closeLabel}
                 </button>
             </div>
         </div>

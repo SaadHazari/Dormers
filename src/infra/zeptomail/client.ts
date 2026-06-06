@@ -67,9 +67,13 @@
  */
 
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
+import { SUPPORT_EMAIL } from '@/shared/contacts';
 
 const REGION = process.env.ZEPTOMAIL_REGION ?? 'com';
 const API_URL = `https://api.zeptomail.${REGION}/v1.1/email/template`;
+// Raw (non-template) send endpoint — used for internal ops alerts where the
+// body is generated in code rather than from a ZeptoMail template.
+const RAW_API_URL = `https://api.zeptomail.${REGION}/v1.1/email`;
 
 // Post-payment fanout runs synchronously from the Stripe webhook AND from
 // the hourly retry cron. 10s is generous for a templated send; longer than
@@ -114,6 +118,48 @@ async function sendTemplate(params: {
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`ZeptoMail ${res.status}: ${text || res.statusText}`);
+  }
+}
+
+/**
+ * Internal ops alert — a raw-HTML email to the ops inbox (no ZeptoMail
+ * template needed; reuses the same API token + from-address as the
+ * customer-facing sends). Recipient is OPS_ALERT_EMAIL when set, else the
+ * canonical SUPPORT_EMAIL. Used for manual-fulfilment rewards (e.g. the Dorm
+ * Weekend event) so a high-effort unlock can't be silently dropped.
+ *
+ * Throws on send failure — callers that must not block on it should wrap in
+ * try/catch (the durable record of the event lives in the DB regardless).
+ */
+export async function sendOpsAlertEmail(input: {
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const token = process.env.ZEPTOMAIL_API_TOKEN;
+  const fromAddress = process.env.ZEPTOMAIL_FROM_ADDRESS;
+  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers';
+  const to = process.env.OPS_ALERT_EMAIL ?? SUPPORT_EMAIL;
+  if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
+  if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
+
+  const res = await fetchWithTimeout(RAW_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      from: { address: fromAddress, name: fromName },
+      to: [{ email_address: { address: to } }],
+      subject: input.subject,
+      htmlbody: input.html,
+    }),
+  }, { timeoutMs: SEND_TIMEOUT_MS });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`ZeptoMail ops alert ${res.status}: ${text || res.statusText}`);
   }
 }
 

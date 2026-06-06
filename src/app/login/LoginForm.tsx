@@ -240,7 +240,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
                                                     placeholder="••••••••"
                                                     onKeyDown={capsKeyDown}
                                                     onKeyUp={capsKeyUp}
-                                                    className={`${fieldClass} pr-11 ${showPassword ? '' : 'text-[18px] tracking-[0.22em] font-semibold'}`}
+                                                    className={`${fieldClass} pr-11`}
                                                 />
                                                 <button type="button" tabIndex={-1} onClick={() => setShowPassword(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 transition-colors ${tokens.eyeBtn}`}>
                                                     {showPassword ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}

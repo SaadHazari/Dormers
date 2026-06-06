@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, MessageCircle, Heart } from 'lucide-react'
+import { MessageCircle, Heart, Sparkles } from 'lucide-react'
 import { OG, BODY, MONO, S as BASE_S, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
-import { SUPPORT_EMAIL, whatsAppHref } from '@/shared/contacts'
+import { whatsAppHref } from '@/shared/contacts'
+import { MobileSupport } from '../_mobile/MobileSupport'
+import { SupportChat } from '../_mobile/SupportChat'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Matches MenuClient/PlanClient: hierarchy comes from scale + weight + colour,
@@ -30,15 +33,15 @@ interface Customer {
 const FAQS = [
   {
     q: 'When is my meal delivered?',
-    a: 'Every weekday (Monday–Saturday) by 7-8 PM, directly to your dorm building. Sunday is always a rest day — no delivery.',
+    a: 'Every weekday (Monday–Saturday) by 7–8 PM, directly to your dorm building. Sunday is always a rest day — no delivery.',
   },
   {
     q: 'Can I skip a meal?',
-    a: 'Yes — Weekly Flex includes 1 skip, Monthly Premium includes 3 skips per cycle. Credits are automatically added back when you skip. Use the Skip button on your dashboard before midnight the day prior.',
+    a: 'Yes — Weekly Flex includes 1 skip, Monthly Premium and Monthly Max include 3 skips per cycle. To skip tonight, tap Skip before 2 PM (Dubai time); after that you can still skip any upcoming day. You never lose the meal — your end date just moves out by a day.',
   },
   {
     q: 'How does pausing work?',
-    a: 'Monthly Premium subscribers get 1 free pause per cycle (indefinite duration). When you resume, your end date extends by the exact number of days paused — you never lose meals.',
+    a: 'Monthly Premium and Monthly Max subscribers get 1 free pause per cycle (indefinite duration). When you resume, your end date extends by the exact number of days paused — you never lose meals.',
   },
   {
     q: 'Can I change my meal preference (Veg/Non-Veg)?',
@@ -66,13 +69,17 @@ export default function SupportClient({
   customer,
   userEmail,
   totalDelivered,
+  customerContext,
 }: {
   customer: Customer | null
   userEmail: string
   totalDelivered: number
+  customerContext?: string
 }) {
+  const [chatOpen, setChatOpen] = useState(false)
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
+    <>
+    <div className="support-desktop" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
 
         {/* Header — matches Menu/Plan: motion fade-in, single-typeface display, period accent. */}
@@ -179,56 +186,55 @@ export default function SupportClient({
               </div>
             </div>
 
-            {/* 2. Email — TIER2 surface (recedes vs the accent-bordered Account card) */}
+            {/* 2. AI Assistant — instant answers, escalates to WhatsApp for account-specific issues */}
             <div style={{
               ...TIER2,
               padding: 'clamp(20px, 2.2vw, 28px)',
               borderRadius: 'var(--radius-md)',
+              border: '1.5px solid rgba(245,127,32,0.28)',
               display: 'flex', flexDirection: 'column', gap: 14,
               minHeight: 260,
             }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
-                background: 'rgba(245,127,32,0.14)',
+                background: 'linear-gradient(135deg, #ffaa00, #f57f20)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: OG,
+                boxShadow: '0 4px 14px rgba(245,127,32,0.35)',
               }}>
-                <Mail size={20} strokeWidth={2} aria-hidden />
+                <Sparkles size={20} strokeWidth={2.2} color="#fff" aria-hidden />
               </div>
-              <Eyebrow color={OG}>Within 24 hours</Eyebrow>
+              <Eyebrow color={OG}>Instant</Eyebrow>
               <h3 style={{
                 margin: 0, fontFamily: DISPLAY,
                 fontSize: 'clamp(18px, 1.6vw, 22px)',
                 fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25, color: 'var(--ds-fg)',
               }}>
-                Email us
+                Ask Doro
               </h3>
               <p style={{
                 margin: 0, fontFamily: BODY, fontSize: 13,
                 color: S.fgMuted, lineHeight: 1.6,
               }}>
-                For billing, plan changes, or anything that needs a paper trail.
+                Our AI assistant knows skips, delivery, plans, and rewards. Loops in a human when it can&rsquo;t help.
               </p>
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                data-tooltip="Opens your email app"
-                className="support-cta-email"
+              <button
+                type="button"
+                onClick={() => setChatOpen(true)}
+                className="support-cta-agent"
                 style={{
                   marginTop: 'auto', alignSelf: 'flex-start',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '11px 18px', borderRadius: 999,
-                  background: 'rgba(245,127,32,0.14)',
-                  border: '1px solid rgba(245,127,32,0.25)',
-                  color: OG,
+                  background: OG, color: '#fff',
                   fontFamily: BODY, fontSize: 12, fontWeight: 700,
                   letterSpacing: '0.06em', textTransform: 'uppercase',
-                  textDecoration: 'none',
-                  transition: 'background 150ms, border-color 150ms',
-                  maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  border: 'none', cursor: 'pointer',
+                  boxShadow: '0 6px 18px rgba(245,127,32,0.35)',
+                  transition: 'transform 150ms, box-shadow 150ms',
                 }}
               >
-                {SUPPORT_EMAIL}
-              </a>
+                <Sparkles size={14} strokeWidth={2.4} /> Start chatting
+              </button>
             </div>
 
             {/* 3. WhatsApp — TIER2 surface + green accent border. Green is the
@@ -312,19 +318,33 @@ export default function SupportClient({
         </div>
       </div>
 
+      <SupportChat open={chatOpen} onClose={() => setChatOpen(false)} customerContext={customerContext} />
+
       <style>{`
         .support-cta-wa:hover {
           transform: translateY(-1px);
           box-shadow: 0 8px 22px rgba(37,211,102,0.40) !important;
         }
-        .support-cta-email:hover {
-          background: rgba(245,127,32,0.20) !important;
-          border-color: rgba(245,127,32,0.40) !important;
+        .support-cta-agent:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 22px rgba(245,127,32,0.45) !important;
         }
         @media (max-width: 1024px) {
           .support-grid { grid-template-columns: 1fr !important; }
         }
+        /* Mobile (≤768) swaps the desktop support tree for MobileSupport. Pure
+           CSS toggle — no flash, desktop DOM untouched. */
+        .support-mobile { display: none; }
+        @media (max-width: 768px) {
+          .support-desktop { display: none; }
+          .support-mobile { display: block; }
+        }
       `}</style>
     </div>
+
+      <div className="support-mobile">
+        <MobileSupport customer={customer} userEmail={userEmail} totalDelivered={totalDelivered} customerContext={customerContext} />
+      </div>
+    </>
   )
 }

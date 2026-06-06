@@ -25,16 +25,18 @@ const DARK_PALETTE: Record<string, { bg: string; fg: string; mark: string }> = {
 /**
  * Pill-style tag indicating the kind of meal (Veg / Non Veg / Off-day).
  * `compact=true` shortens "Non Veg" to "N.V" for tight grids (e.g. the
- * 7-column next-week layout). `onDark=true` switches to the dark-surface
- * palette for use inside TIER_POP cards.
+ * 7-column next-week layout). `oneLine=true` shortens it to "N.VEG" — the
+ * middle ground used in the hero card, where "Non-Veg" can wrap onto two
+ * lines when the meta row gets squeezed on a phone. `onDark=true` switches
+ * to the dark-surface palette for use inside TIER_POP cards.
  *
  * Was duplicated near-verbatim in ClientDashboard and MenuClient; the
  * compact variant came from MenuClient.
  */
-export function MealTag({ kind, compact, onDark }: { kind: string; compact?: boolean; onDark?: boolean }) {
+export function MealTag({ kind, compact, onDark, oneLine }: { kind: string; compact?: boolean; onDark?: boolean; oneLine?: boolean }) {
     const c = (onDark ? DARK_PALETTE : PALETTE)[kind] || (onDark ? DARK_PALETTE : PALETTE).Veg
     const labelText =
-        kind === 'Non Veg' ? (compact ? 'N.V' : 'Non-Veg')
+        kind === 'Non Veg' ? (compact ? 'N.V' : oneLine ? 'N.VEG' : 'Non-Veg')
         : kind === 'Mix'   ? (compact ? 'Mix' : 'Religious Mix')
         : kind
     return (
@@ -52,6 +54,7 @@ export function MealTag({ kind, compact, onDark }: { kind: string; compact?: boo
                 fontWeight: 700,
                 letterSpacing: '0.10em',
                 textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
             }}
         >
             <span

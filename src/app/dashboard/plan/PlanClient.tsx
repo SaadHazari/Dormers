@@ -24,6 +24,8 @@ import { NoPlanView } from '../NoPlanView'
 import { changeStartDate, cancelPlannedPause } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { whatsAppHref } from '@/shared/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from '@/contexts/subscriptions/domain/pricing'
+import { MobilePlan } from '../_mobile/MobilePlan'
+import { MobileExplore } from '../_mobile/MobileExplore'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -1382,7 +1384,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, padding: '28px 28px 48px', fontFamily: BODY, color: S.fg }}>
+    <>
+    <div className="plan-desktop" style={{ minHeight: '100vh', background: BG, padding: '28px 28px 48px', fontFamily: BODY, color: S.fg }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
 
         {cancelBanner && (
@@ -1831,16 +1834,16 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           gap: 18px;
           grid-template-columns: 1fr;
         }
-        @media (min-width: 560px) {
+        @media (min-width: 640px) {
           .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        @media (min-width: 920px) {
+        @media (min-width: 1024px) {
           .plans-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
         /* Trust strip — collapses to a single column below 720px so the
            three promises stack instead of getting cramped at narrow widths. */
-        @media (max-width: 720px) {
+        @media (max-width: 768px) {
           .explore-trust-strip { grid-template-columns: 1fr !important; gap: 14px !important; }
         }
 
@@ -1852,10 +1855,48 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           grid-template-columns: 1fr;
           gap: 18px;
         }
-        @media (min-width: 920px) {
+        @media (min-width: 1024px) {
           .plan-reference-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
         }
       `}</style>
     </div>
+
+    <div className="plan-mobile">
+      {isExplore ? (
+        <MobileExplore
+          customer={customer}
+          userEmail={userEmail}
+          activeSubscription={activeSubscription}
+          pref={pref}
+          prefLabel={prefLabel}
+          weekType={weekType}
+          vegDayCount={vegDayCount}
+          setVegDayCount={setVegDayCount}
+          selected={selected}
+          setSelected={setSelected}
+          outOfZone={outOfZone}
+          creditBalanceAed={creditBalanceAed}
+        />
+      ) : (
+        <MobilePlan
+          customer={customer}
+          activeSubscription={activeSubscription}
+          queuedSub={queuedSub}
+          primaryIsPaused={primaryIsPaused}
+          endedPlans={endedPlans}
+          outOfZone={outOfZone}
+          onRenew={openPricing}
+          onConfirmCancelPause={handleCancelPlannedPause}
+        />
+      )}
+    </div>
+    <style>{`
+      .plan-mobile { display: none; }
+      @media (max-width: 768px) {
+        .plan-desktop { display: none; }
+        .plan-mobile { display: block; }
+      }
+    `}</style>
+    </>
   )
 }

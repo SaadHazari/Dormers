@@ -7,11 +7,15 @@ import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subs
 import {
     MONTHLY_FULL_REWARD_WINDOW_DAYS,
     MONTHLY_LATE_CAP_DAYS,
+    PRE_END_WRAP_WINDOW,
     monthlyReviewAed,
+    planTierFrom,
+    wrapVocabFor,
     type MonthlyReviewPayload,
     type MonthlyReviewSubmitResult,
 } from '@/contexts/subscriptions/domain/monthly-review'
 import { getMonthlyRevealStats } from '@/utils/supabase/monthly-review-queries'
+import { MENU_DATA } from '@/contexts/menu/domain/catalog-data'
 
 /**
  * Service-role client for credit writes. Mirrors the weekly review action
@@ -51,40 +55,39 @@ export async function submitMonthlyReview(
 
     const supabase = await createClient()
 
-    // Pick the most-recently-ended subscription whose end_date is in the past.
-    // Previous code ordered ALL subs (including future-end_date Active sub
-    // after a renewal) by end_date DESC, picking the wrong sub for a user
-    // who just finished a cycle and started a new one. Filtering to
-    // end_date <= today first ensures we target the cycle the user is
-    // actually being asked to review.
+    // Mirror the eligibility query in monthly-review-queries.ts exactly:
+    // same AE-adjusted "today", same pre-end window expansion, same
+    // tier-specific gating. Any divergence between these two queries
+    // causes the UI to show "eligible" while the submit rejects.
     const now = new Date()
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const todayIso = today.toISOString().slice(0, 10)
+    const ae = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+    const today = new Date(Date.UTC(ae.getUTCFullYear(), ae.getUTCMonth(), ae.getUTCDate()))
+    const maxPreEnd = Math.max(...Object.values(PRE_END_WRAP_WINDOW))
+    const maxFuture = new Date(today)
+    maxFuture.setUTCDate(today.getUTCDate() + maxPreEnd)
+    const maxFutureIso = maxFuture.toISOString().slice(0, 10)
 
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, end_date, status')
+        .select('id, end_date, status, plan_name')
         .eq('customer_id', user.id)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED, SUBSCRIPTION_STATUS.ENDED])
-        .lte('end_date', todayIso)
+        .lte('end_date', maxFutureIso)
         .order('end_date', { ascending: false })
         .limit(1)
         .maybeSingle()
 
     if (!sub) {
-        // No sub has ended yet — either user is brand new or only has
-        // active/future cycles. Distinct error from "cycle has expired."
-        return { ok: false, error: 'Your cycle hasn’t ended yet — come back when it wraps.' }
+        return { ok: false, error: "Your cycle hasn't ended yet — come back when it wraps." }
     }
 
+    const planTier = planTierFrom(sub.plan_name as string | null)
+    const preEndWindow = PRE_END_WRAP_WINDOW[planTier]
     const endDate = new Date(sub.end_date.slice(0, 10) + 'T00:00:00Z')
     const daysSinceEnd = Math.floor((today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24))
 
-    if (daysSinceEnd < 0) {
-        // Defensive — the .lte filter above should prevent this, but if
-        // somehow end_date == today's row gets picked the math says 0
-        // (≥0 — allowed). Keep this branch for safety against TZ skew.
-        return { ok: false, error: 'Your cycle hasn’t ended yet — come back when it wraps.' }
+    if (daysSinceEnd < -preEndWindow) {
+        return { ok: false, error: "Your cycle hasn't ended yet — come back when it wraps." }
     }
     if (daysSinceEnd > MONTHLY_LATE_CAP_DAYS) {
         return { ok: false, error: 'The review window for this cycle has expired.' }
@@ -126,9 +129,10 @@ export async function submitMonthlyReview(
         .single()
 
     if (insertError) {
-        // 23505 = unique_violation → double-submit attempt
+        // 23505 = unique_violation -> double-submit attempt
         if (insertError.code === '23505') {
-            return { ok: false, error: 'You’ve already submitted your monthly wrap.' }
+            const vocab = wrapVocabFor(planTier)
+            return { ok: false, error: `You've already submitted your ${vocab.qualifier} wrap.` }
         }
         return { ok: false, error: 'Could not save your wrap. Please try again.' }
     }
@@ -161,6 +165,17 @@ export async function submitMonthlyReview(
     }
 
     const revealStats = await getMonthlyRevealStats(user.id, sub.id)
+
+    if (revealStats?.favoriteDish?.name) {
+        const dishId = Number(revealStats.favoriteDish.name)
+        const dish = MENU_DATA.find(d => d.id === dishId)
+        if (dish) {
+            revealStats.favoriteDish = {
+                name: dish.name,
+                image: typeof dish.image === 'string' ? dish.image : (dish.image as { src: string }).src,
+            }
+        }
+    }
 
     // Cache invalidation is deliberately deferred to the client `onClose`
     // handler. Calling revalidatePath here triggers a router refresh that

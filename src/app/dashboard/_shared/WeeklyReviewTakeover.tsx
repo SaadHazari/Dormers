@@ -107,6 +107,8 @@ export interface WeeklyReviewTakeoverProps {
      * modal entirely. Default 4.
      */
     weeksExpected?: number
+    /** Label for the close/back CTA. Defaults to "Back to dashboard". */
+    closeLabel?: string
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ export function WeeklyReviewTakeover({
     onContinueChain,
     priorSubmissions = 0,
     weeksExpected = 4,
+    closeLabel = 'Back to dashboard',
 }: WeeklyReviewTakeoverProps) {
     // Phase 8K — first-submit ack modal. Show ONLY when ALL of:
     //   • the sub has the all-or-nothing rule (weeksExpected > 1)
@@ -873,7 +876,7 @@ export function WeeklyReviewTakeover({
                             </div>
                         ) : (
                             <div>
-                                <ContinueButton enabled onClick={onClose} label="Back to dashboard" />
+                                <ContinueButton enabled onClick={onClose} label={closeLabel} />
                             </div>
                         )}
                     </div>

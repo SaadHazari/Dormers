@@ -1,13 +1,14 @@
 // Streamed loading state for /dashboard/dorm-wars. Without this file the
 // route shows a blank flash while page.tsx awaits its 7+ parallel queries
 // (customer, referralData, invites, activeSubscription, dailyDrop, streak,
-// rewards, cycleRecruits, lifetimeTier, perkFlags). Matches the dorm-wars
+// rewards, cycleRecruits, perkFlags). Matches the dorm-wars
 // hub palette (navy ground + warm orange accent) so the transition into
 // the loaded hub feels continuous, not a theme jump.
 
 export default function HubLoading() {
   return (
     <div
+      className="hub-loading"
       style={{
         backgroundColor: '#091825',
         backgroundImage:

@@ -21,6 +21,7 @@ export function ReviewClient({
     daysLeftForFullReward,
     priorSubmissions,
     weeksExpected,
+    returnTo = '/dashboard',
 }: {
     userName: string
     week: number
@@ -29,8 +30,10 @@ export function ReviewClient({
     daysLeftForFullReward: number
     priorSubmissions: number
     weeksExpected: number
+    returnTo?: string
 }) {
     const router = useRouter()
+    const returnLabel = returnTo.includes('dorm-wars') ? 'Back to Dorm Wars' : 'Back to dashboard'
 
     return (
         <WeeklyReviewTakeover
@@ -42,8 +45,12 @@ export function ReviewClient({
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
             onSubmit={(payload: WeeklyReviewPayload) => submitWeeklyReview(week, payload)}
-            onClose={() => router.push('/dashboard')}
-            onContinueChain={(nextWeek) => router.push(`/dashboard/menu/review/${nextWeek}`)}
+            onClose={() => router.push(returnTo)}
+            onContinueChain={(nextWeek) => {
+                const fromParam = returnTo.includes('dorm-wars') ? '?from=dorm-wars' : ''
+                router.push(`/dashboard/menu/review/${nextWeek}${fromParam}`)
+            }}
+            closeLabel={returnLabel}
         />
     )
 }

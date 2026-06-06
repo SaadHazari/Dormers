@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages } from 'ai';
+import { streamText, convertToModelMessages, type UIMessage } from 'ai';
 import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
 import { DORMERS_KNOWLEDGE } from '@/contexts/chatbot/domain/knowledge';
@@ -7,6 +7,18 @@ export const maxDuration = 30;
 
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 4000;
+
+function normalizeMessages(raw: Record<string, unknown>[]): UIMessage[] {
+    return raw.map((m) => ({
+        id: (m.id as string) ?? crypto.randomUUID(),
+        role: m.role as 'user' | 'assistant',
+        parts: Array.isArray(m.parts)
+            ? m.parts
+            : typeof m.content === 'string'
+                ? [{ type: 'text' as const, text: m.content }]
+                : [{ type: 'text' as const, text: '' }],
+    })) as UIMessage[]
+}
 
 export async function POST(req: Request) {
     let body: unknown;
@@ -33,18 +45,26 @@ export async function POST(req: Request) {
         }
     }
 
-    // NOTE: per-IP/per-session rate limiting needs an external store (Upstash,
-    // Vercel KV, or Supabase) to survive across serverless invocations. The
-    // size caps above bound per-request cost but do not throttle frequency.
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        console.error('[chat] GOOGLE_GENERATIVE_AI_API_KEY is not set');
+        return NextResponse.json({ error: 'Chat service not configured' }, { status: 503 });
+    }
 
     try {
+        const normalized = normalizeMessages(messages as Record<string, unknown>[])
+        const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000)
+        const aeTime = `${aeNow.getUTCHours()}:${String(aeNow.getUTCMinutes()).padStart(2, '0')}`
+        const aeDow = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][aeNow.getUTCDay()]
+        const aeDate = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
+        const system = `${DORMERS_KNOWLEDGE}\n\n# RIGHT NOW\nCurrent Dubai time: ${aeTime} on ${aeDow}, ${aeDate}. Use this to determine if the skip cutoff (2 PM) has passed, whether today is a delivery day, etc.`
         const result = streamText({
-            model: google('gemini-2.5-flash'),
-            system: DORMERS_KNOWLEDGE,
-            messages: await convertToModelMessages(messages),
+            model: google('gemini-3.1-flash-lite'),
+            system,
+            messages: await convertToModelMessages(normalized),
         });
         return result.toUIMessageStreamResponse();
-    } catch {
+    } catch (err) {
+        console.error('[chat] stream error:', err instanceof Error ? err.message : err);
         return NextResponse.json({ error: 'Chat service unavailable' }, { status: 502 });
     }
 }

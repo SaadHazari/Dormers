@@ -31,7 +31,7 @@ export default async function ReviewPage({
     searchParams,
 }: {
     params: Promise<{ week: string }>
-    searchParams?: Promise<{ just_submitted?: string }>
+    searchParams?: Promise<{ just_submitted?: string; from?: string }>
 }) {
     const { week: weekParam } = await params
     const sp = (await searchParams) ?? {}
@@ -119,6 +119,8 @@ export default async function ReviewPage({
     // (Weekly Flex), since there's no "all of one" to fail.
     const weeksExpected = weeks.length
 
+    const returnTo = sp.from === 'dorm-wars' ? '/dashboard/dorm-wars' : '/dashboard'
+
     return (
         <ReviewClient
             userName={userName}
@@ -128,6 +130,7 @@ export default async function ReviewPage({
             daysLeftForFullReward={daysLeftForFullReward}
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
+            returnTo={returnTo}
         />
     )
 }

@@ -11,8 +11,9 @@ const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
  * Was duplicated in ClientDashboard (with span+aria) and MenuClient
  * (without aria) — this version is the union.
  */
-export function HeatBar({ level }: { level: number }) {
+export function HeatBar({ level, onDark = false }: { level: number; onDark?: boolean }) {
     const text = SPICE_LABELS[level] ?? ''
+    const inactiveColor = onDark ? 'rgba(245,240,232,0.28)' : 'var(--ds-border-strong)'
     return (
         <span
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
@@ -26,7 +27,7 @@ export function HeatBar({ level }: { level: number }) {
                             width: 5,
                             height: 9,
                             borderRadius: 1.5,
-                            background: i < level ? OG : 'var(--ds-border-strong)',
+                            background: i < level ? OG : inactiveColor,
                             display: 'inline-block',
                         }}
                     />

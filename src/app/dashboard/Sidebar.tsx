@@ -46,6 +46,9 @@ interface Props {
   customerDorm: string
   userEmail: string
   referralData?: ReferralData
+  /** Premium/Max → has Dorm Wars access (badge shows the live wallet). Others
+   *  treat Refer & Earn standalone (badge shows referral-only earnings). */
+  dormWarsEligible?: boolean
   mobileOpen?: boolean
   onMobileClose?: () => void
   /** Pending/late weekly reviews — drives weekly tray content. */
@@ -56,7 +59,7 @@ interface Props {
 
 export default function Sidebar({
   customerName, customerCid, customerDorm, userEmail,
-  referralData = DEFAULT_REFERRAL, mobileOpen = false, onMobileClose,
+  referralData = DEFAULT_REFERRAL, dormWarsEligible = false, mobileOpen = false, onMobileClose,
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
 }: Props) {
@@ -98,6 +101,11 @@ export default function Sidebar({
   const [hover, setHover] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<DropdownKind>(null)
   const drawerOpen = mobileOpen
+  // The rail expands its labels on desktop hover. Touch devices never hover,
+  // so the open mobile drawer must also count as "expanded" — otherwise the
+  // 280px drawer renders a column of centered icons with the labels collapsed
+  // to zero width. Drive every label/gap/justify off this, not `hover`.
+  const expanded = hover || drawerOpen
 
   // Profile / History live in dropdowns and aren't visible at mount, so Next's
   // automatic Link prefetcher never sees them. Prefetch imperatively after a
@@ -135,8 +143,8 @@ export default function Sidebar({
   // Item base style — used for both nav links and utility icon-rows
   const rowStyle = (active = false, soon = false): React.CSSProperties => ({
     display: 'flex', alignItems: 'center',
-    gap: hover ? 12 : 0,
-    justifyContent: hover ? 'flex-start' : 'center',
+    gap: expanded ? 12 : 0,
+    justifyContent: expanded ? 'flex-start' : 'center',
     padding: '11px 12px', borderRadius: 'var(--radius-sm)',
     fontFamily: BODY, fontSize: 13, fontWeight: 600,
     background: active ? 'rgba(245,127,32,0.18)' : 'transparent',
@@ -151,8 +159,8 @@ export default function Sidebar({
   })
 
   const labelStyle: React.CSSProperties = {
-    opacity: hover ? 1 : 0,
-    maxWidth: hover ? 200 : 0,
+    opacity: expanded ? 1 : 0,
+    maxWidth: expanded ? 200 : 0,
     overflow: 'hidden',
     transition: 'opacity 180ms, max-width 220ms',
     whiteSpace: 'nowrap',
@@ -177,7 +185,7 @@ export default function Sidebar({
         style={{
           position: 'fixed', top: 16, left: 16, bottom: 16,
           zIndex: 60,
-          width: hover ? 240 : 76,
+          width: expanded ? 240 : 76,
           padding: '14px 12px',
           background: NV2,
           borderRadius: 'var(--radius-md)',
@@ -186,18 +194,26 @@ export default function Sidebar({
           transition: 'width 220ms cubic-bezier(.22,1,.36,1)',
         }}
       >
-        {/* Mobile close button */}
+        {/* Close — pinned to the drawer's top-right (the floating hamburger is
+            hidden while open, so this is the one dismiss affordance). Absolute so
+            it costs no vertical space: the logo + nav rise to fill the top. */}
         {drawerOpen && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button
-              type="button"
-              onClick={() => onMobileClose?.()}
-              aria-label="Close menu"
-              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${S.divider}`, background: 'rgba(237,232,218,0.06)', color: CR, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <X size={14} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onMobileClose?.()}
+            aria-label="Close menu"
+            style={{
+              // Mirrors the hamburger exactly (white circle, navy glyph) so the
+              // open/close affordance reads as one continuous control.
+              position: 'absolute', top: 14, right: 14, zIndex: 2,
+              width: 44, height: 44, borderRadius: 'var(--radius-md)',
+              border: '1px solid rgba(9,24,37,0.10)', background: 'rgba(255,255,255,0.9)',
+              backdropFilter: 'blur(20px) saturate(1.4)', boxShadow: 'var(--shadow-md)',
+              color: '#091825', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            }}
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         )}
 
         {/* ── Logo / Wordmark ───────────────────────────────────────────────── */}
@@ -295,8 +311,8 @@ export default function Sidebar({
             className={openDropdown === 'dormwars' ? 'sidebar-nav-active' : 'sidebar-dormwars-row'}
             style={{
               display: 'flex', alignItems: 'center',
-              gap: hover ? 10 : 0,
-              justifyContent: hover ? 'flex-start' : 'center',
+              gap: expanded ? 10 : 0,
+              justifyContent: expanded ? 'flex-start' : 'center',
               padding: '9px 10px', borderRadius: 'var(--radius-sm)',
               fontFamily: BODY, fontSize: 12, fontWeight: 700,
               background: openDropdown === 'dormwars' ? 'rgba(245,127,32,0.18)' : 'transparent',
@@ -426,8 +442,8 @@ export default function Sidebar({
             className="sidebar-profile-chip"
             style={{
               display: 'flex', alignItems: 'center',
-              gap: hover ? 10 : 0,
-              justifyContent: hover ? 'flex-start' : 'center',
+              gap: expanded ? 10 : 0,
+              justifyContent: expanded ? 'flex-start' : 'center',
               padding: '6px 8px', borderRadius: 'var(--radius-sm)',
               background: openDropdown === 'profile' ? 'rgba(237,232,218,0.08)' : 'transparent',
               border: 'none', cursor: 'pointer',
@@ -439,7 +455,7 @@ export default function Sidebar({
             <div style={{ width: 36, height: 36, flexShrink: 0, borderRadius: '50%', background: `linear-gradient(135deg, ${OG3}, ${OG})`, color: NV2, fontFamily: BODY, fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 12px rgba(245,127,32,0.30)' }}>
               {initials}
             </div>
-            <div style={{ minWidth: 0, opacity: hover ? 1 : 0, maxWidth: hover ? 160 : 0, overflow: 'hidden', transition: 'opacity 180ms, max-width 220ms', whiteSpace: 'nowrap' }}>
+            <div style={{ minWidth: 0, opacity: expanded ? 1 : 0, maxWidth: expanded ? 160 : 0, overflow: 'hidden', transition: 'opacity 180ms, max-width 220ms', whiteSpace: 'nowrap' }}>
               <div style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: CR, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
               {customerCid && (
                 <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted, lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -456,6 +472,7 @@ export default function Sidebar({
           onMobileClose={onMobileClose}
           customerCid={customerCid}
           referralData={referralData}
+          dormWarsEligible={dormWarsEligible}
           displayName={displayName}
           userEmail={userEmail}
           initials={initials}

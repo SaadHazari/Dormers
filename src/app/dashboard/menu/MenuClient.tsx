@@ -13,6 +13,7 @@ import { MealTag } from '../_shared/MealTag'
 import { vegDayNumbersFor } from '@/contexts/subscriptions/domain/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { MobileMenu, type MobileMenuCell } from '../_mobile/MobileMenu'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -52,7 +53,7 @@ interface ActiveSubLike {
   end_date?: string | null
 }
 
-type WeekMeal = {
+export type WeekMeal = {
   day: string        // 'Monday' … 'Sunday'
   date: string       // 'Apr 28' — display string
   iso: string        // 'YYYY-MM-DD' — used for matching against skipped_dates / planned_pause_start
@@ -350,7 +351,7 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
               <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: 'rgba(245,240,232,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                 <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: TIER_POP_TEXT.faint }}>Spice</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <HeatBar level={meal.heat} />
+                  <HeatBar level={meal.heat} onDark />
                   <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: TIER_POP_TEXT.muted, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span>
                 </div>
               </div>
@@ -415,14 +416,14 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
 // (full / preview). Variant: 'full' = TIER2 surface, full body (this-week).
 // Variant: 'preview' = TIER3 surface, compact body (next-week) — physically
 // half the visual weight so the eye reads "preview, not primary."
-type WeekDayState = 'past' | 'today' | 'future'
+export type WeekDayState = 'past' | 'today' | 'future'
 type WeekDayVariant = 'full' | 'preview'
 // Reasons a day card might show "no delivery" treatment. All visually
 // collapse into the same dim-card-with-moon-icon pattern; only the chip
 // label differs so the customer reads the cause at a glance. Same family
 // across past skips, today skips, future scheduled skips, and planned-
 // pause-affected days — Refactoring UI's constrained scale.
-type NoDeliveryReason =
+export type NoDeliveryReason =
   | 'today-skipped'    // status === 'Skipped' OR resumed-after-cutoff (today)
   | 'past-skipped'     // past day, date is in skipped_dates ledger
   | 'future-skipped'   // future day, scheduled via Plan a Skip
@@ -947,8 +948,19 @@ export default function MenuClient({
 
   const DAY_ABBREVS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
+  // ── Mobile cell data — same classification the desktop grid uses, flattened
+  //    to plain props for the presentational MobileMenu (≤768). ──
+  const thisWeekCells: MobileMenuCell[] = thisWeek.meals.slice(0, 6).map((meal, i) => {
+    const state: WeekDayState = i < thisTodayIdx ? 'past' : i === thisTodayIdx ? 'today' : 'future'
+    return { meal, dayLabel: DAY_ABBREVS[i], state, reason: classifyNoDelivery(meal, state) }
+  })
+  const nextWeekCells: MobileMenuCell[] = nextWeek.meals.slice(0, 6).map((meal, i) => ({
+    meal, dayLabel: DAY_ABBREVS[i], state: 'future' as WeekDayState, reason: classifyNoDelivery(meal, 'future'),
+  }))
+
   return (
-    <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
+    <>
+      <div className="menu-desktop" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
 
         {/* ── Page header ── */}
@@ -1048,12 +1060,38 @@ export default function MenuClient({
         </AnimatePresence>
 
       </div>
+    </div>{/* /.menu-desktop */}
+
+      {/* ── Mobile (≤768) — the redesigned single-screen /menu. ── */}
+      <div className="menu-mobile">
+        <MobileMenu
+          prefTag={prefTag}
+          todayMeal={todayMeal}
+          dorm={customer?.dorm_name ?? null}
+          subStatus={activeSubscription?.status ?? null}
+          resumedAfterCutoff={resumedAfterCutoff}
+          nextDeliveryLabel={nextDeliveryLabel(weekType)}
+          thisWeekCells={thisWeekCells}
+          nextWeekCells={nextWeekCells}
+          onRenew={() => router.push('/dashboard/explore-plans')}
+        />
+      </div>
 
       <style>{`
+        /* Mobile (≤768) swaps the desktop /menu tree for MobileMenu. Pure CSS
+           toggle — no flash, desktop intact. */
+        .menu-mobile { display: none; }
+        @media (max-width: 768px) {
+          .menu-desktop { display: none; }
+          .menu-mobile { display: block; }
+        }
+        .mobile-menu-peek::-webkit-scrollbar { display: none; }
+        .mobile-menu-peek { scrollbar-width: none; }
+
         /* Today spotlight stacks vertical on narrow viewports.
            Image (now :last-child) goes BELOW the text and gains side padding so
            it sits framed inside the card — same treatment as desktop. */
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
           .today-spotlight { grid-template-columns: 1fr !important; }
           .today-spotlight > div:last-child {
             padding-left: clamp(16px, 1.6vw, 20px) !important;
@@ -1123,6 +1161,6 @@ export default function MenuClient({
           }
         }
       `}</style>
-    </div>
+    </>
   )
 }

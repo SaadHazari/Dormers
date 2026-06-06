@@ -311,7 +311,7 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     void notifyAdmin(
       `Free-checkout referral inviter credit FAILED for invitee ${userId} (order ${orderId}). ` +
-      `Error: ${msg}. Inviter lost their AED 20 + milestone fires — re-run manually.`,
+      `Error: ${msg}. Inviter lost their Layer 1 credit (AED 20–35) + milestone fires — re-run manually.`,
       orderId,
     )
   }

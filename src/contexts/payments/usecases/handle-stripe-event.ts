@@ -603,7 +603,7 @@ async function handleCheckoutCompleted(
   // Fire referral conversion credit — MUST be awaited. On serverless
   // (Netlify Functions) the function instance can be torn down as soon as
   // the response is sent, killing any in-flight Promise. A fire-and-forget
-  // here would intermittently drop Layer 1 (AED 20) credits and entire
+  // here would intermittently drop Layer 1 (AED 20–35) credits and entire
   // Layer 2/3 milestone fires under load. Idempotent on retry via the
   // referrals.status='gift_claimed' guard inside creditInviterOnConversion.
   try {
@@ -613,7 +613,7 @@ async function handleCheckoutCompleted(
     const msg = err instanceof Error ? err.message : String(err)
     void notifyAdmin(
       `Referral inviter credit FAILED for invitee ${user_id} (order ${orderId}). ` +
-      `Error: ${msg}. Inviter has lost their AED 20 (and any Layer 2/3 milestone) — ` +
+      `Error: ${msg}. Inviter has lost their Layer 1 credit (AED 20–35, and any Layer 2/3 milestone) — ` +
       `re-run the awarder manually after diagnosing.`,
       orderId,
     )

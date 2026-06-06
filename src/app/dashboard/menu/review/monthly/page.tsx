@@ -16,7 +16,11 @@ import { MonthlyReviewClient } from './MonthlyReviewClient'
  * cycleLabel + planTier (single source of truth from the query) so this
  * route no longer needs its own duplicate fetch.
  */
-export default async function MonthlyReviewPage() {
+export default async function MonthlyReviewPage({
+    searchParams,
+}: {
+    searchParams?: Promise<{ from?: string }>
+}) {
     const user = await getUserFromHeaders()
     if (!user) redirect('/login')
 
@@ -26,6 +30,8 @@ export default async function MonthlyReviewPage() {
     const customer = await getCustomer(user.id)
     const fullName = customer?.name?.trim() ?? ''
     const userName = fullName.split(' ')[0] || 'there'
+    const sp = (await searchParams) ?? {}
+    const returnTo = sp.from === 'dorm-wars' ? '/dashboard/dorm-wars' : '/dashboard'
 
     return (
         <MonthlyReviewClient
@@ -33,6 +39,7 @@ export default async function MonthlyReviewPage() {
             cycleLabel={window.cycleLabel ?? 'cycle'}
             daysLeftForFullReward={window.daysLeftForFullReward}
             planTier={window.planTier}
+            returnTo={returnTo}
         />
     )
 }

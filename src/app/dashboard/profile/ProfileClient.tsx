@@ -1,15 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Heart, ChevronDown, Calendar, Pencil, X } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Check, Heart, ChevronDown, Calendar, Pencil } from 'lucide-react'
 import { updateProfile } from '@/contexts/identity/usecases/profile-actions'
 import { savePendingPreferences, discardPendingPreferences } from '@/contexts/subscriptions/usecases/preferences-actions'
-import { OG, BG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
+import { OG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { SecuritySection } from './SecuritySection'
 import { ALLERGENS, DORMS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
 import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/contexts/subscriptions/domain/preferences'
+import { useIsCompact, MobileSheet } from '../_mobile/kit'
+import { MobileProfile } from '../_mobile/MobileProfile'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Mirrors Menu/Plan: hierarchy comes from scale + weight + colour, not a
@@ -90,6 +92,115 @@ function SelectWrap({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Pending / promoted preference banners — module-level so BOTH the desktop tree
+// and the mobile tree (MobileProfile) render the exact same element. The diff
+// rows are pre-formatted by the caller (label/from/to) so the banner stays
+// presentational.
+function PendingPrefsBanner({
+  rows, onDiscard, discarding,
+}: {
+  rows: { key: string; label: string; from: string; to: string }[]
+  onDiscard: () => void
+  discarding: boolean
+}) {
+  return (
+    <div style={{
+      marginBottom: 20,
+      padding: '14px 18px',
+      borderRadius: 'var(--radius-sm)',
+      background: 'linear-gradient(135deg, rgba(255,170,0,0.12) 0%, rgba(245,127,32,0.10) 100%)',
+      border: '1.5px solid rgba(245,127,32,0.40)',
+      boxShadow: '0 4px 14px rgba(245,127,32,0.10)',
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '4px 10px', borderRadius: 999,
+          background: '#FFAA00', color: '#3a2200',
+          fontFamily: BODY, fontSize: 10, fontWeight: 800,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+          boxShadow: '0 0 0 3px rgba(255,170,0,0.20)',
+        }}>
+          <Calendar size={11} strokeWidth={2.6} aria-hidden /> From next plan
+        </span>
+        <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: OG }}>
+          You&rsquo;ve queued these for your next subscription. Today&rsquo;s plan keeps cooking as before.
+        </span>
+      </div>
+      <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: BODY, fontSize: 13, color: 'var(--ds-fg)', lineHeight: 1.55 }}>
+        {rows.map(d => (
+          <li key={d.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: OG, minWidth: 110 }}>
+              {d.label}
+            </span>
+            <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'var(--ds-fg-tint)' }}>
+              {d.from}
+            </span>
+            <span style={{ color: 'var(--ds-fg-faint)' }}>→</span>
+            <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{d.to}</strong>
+          </li>
+        ))}
+      </ul>
+      <div>
+        <button
+          type="button"
+          onClick={onDiscard}
+          disabled={discarding}
+          style={{
+            fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            background: 'transparent', border: 'none',
+            color: OG,
+            cursor: discarding ? 'not-allowed' : 'pointer',
+            padding: '4px 0',
+            textDecoration: 'underline',
+            textDecorationColor: 'rgba(245,127,32,0.40)',
+            textUnderlineOffset: 3,
+          }}
+        >
+          Discard these changes
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function PromotedPrefsBanner() {
+  return (
+    <div style={{
+      marginBottom: 20,
+      padding: '14px 18px',
+      borderRadius: 'var(--radius-sm)',
+      background: 'linear-gradient(135deg, rgba(29,138,48,0.10) 0%, rgba(29,138,48,0.06) 100%)',
+      border: '1.5px solid rgba(29,138,48,0.32)',
+      boxShadow: '0 4px 14px rgba(29,138,48,0.08)',
+      display: 'flex', alignItems: 'center', gap: 10,
+    }}>
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 26, height: 26, borderRadius: 999,
+        background: 'var(--ds-success-fg)', color: '#fff', flexShrink: 0,
+        boxShadow: '0 0 0 3px rgba(29,138,48,0.18)',
+      }}>
+        <Check size={14} strokeWidth={3} aria-hidden />
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{
+          fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+          color: 'var(--ds-success-fg)',
+        }}>
+          New meal preferences applied
+        </span>
+        <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: 'var(--ds-success-fg)' }}>
+          Your queued changes are now your active preferences. They&rsquo;ll power your next plan&rsquo;s deliveries.
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export default function ProfileClient({
   customer, userEmail, emailConfirmed = false, activeSubscription = null,
 }: {
@@ -104,6 +215,7 @@ export default function ProfileClient({
   activeSubscription?: { week_type?: '5DAYS' | '6DAYS' | null; veg_days?: string[] | null } | null
 }) {
   const hasActiveSub = !!activeSubscription
+  const compact = useIsCompact()   // gates the mobile-only account-edit sheet
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState<null | 'account' | 'preferences-now' | 'preferences-next' | 'discarded'>(null)
   const [error, setError] = useState<string | null>(null)
@@ -203,13 +315,15 @@ export default function ProfileClient({
 
   // Save the name + dorm fields. Always immediate — these are never
   // snapshotted onto subscriptions, so no pending-flow needed.
-  const handleSaveAccount = () => {
+  const handleSaveAccount = (nextName: string = name, nextDorm: string = dorm) => {
     setError(null)
     startTransition(async () => {
-      const res = await updateProfile({ name, dorm_name: dorm })
+      const res = await updateProfile({ name: nextName, dorm_name: nextDorm })
       if (res?.error) {
         setError(res.error)
       } else {
+        setName(nextName)
+        setDorm(nextDorm)
         setSaved('account')
         setEditAccount(false)
         setTimeout(() => setSaved(null), 2500)
@@ -285,8 +399,315 @@ export default function ProfileClient({
   const allergensLabel = (v: string | null) =>
     !v?.trim() ? 'None' : v
 
+  // ── Mobile (<768) repack — flat, fully-resolved props + shared banner nodes.
+  // The desktop tree and MobileProfile render the SAME banner elements. ──
+  const pendingRows = pendingDiff.map(d => {
+    let from: string
+    let to: string
+    if (d.key === 'meal_preference_type') { from = prefLabel(d.from); to = prefLabel(d.to) }
+    else if (d.key === 'week_type') { from = weekLabel(d.from); to = weekLabel(d.to) }
+    else if (d.key === 'allergens') { from = allergensLabel(d.from); to = allergensLabel(d.to) }
+    else if (d.key === 'veg_days') { from = '—'; to = d.to.join(', ') }
+    else { from = d.from ?? '—'; to = d.to }
+    return { key: d.key, label: d.label, from, to }
+  })
+  const pendingBannerEl = showsPending
+    ? <PendingPrefsBanner rows={pendingRows} onDiscard={handleDiscardPending} discarding={isPending} />
+    : null
+  const promotedBannerEl = showsPromoted ? <PromotedPrefsBanner /> : null
+
+  const isReligiousNow = /religious/i.test(effectivePreferences(customer).meal_preference_type ?? '')
+  const rawVegDaysNow = activeSubscription?.veg_days ?? customer?.veg_days ?? null
+  const mobileVegDays = (isReligiousNow && rawVegDaysNow && rawVegDaysNow.length > 0)
+    ? rawVegDaysNow.map(d => d.slice(0, 3))
+    : null
+
+  const mobileData = {
+    displayName,
+    initials,
+    userEmail,
+    cid: customer?.cid ?? null,
+    email: userEmail,
+    emailConfirmed,
+    whatsappNumber: customer?.whatsapp_number ?? null,
+    whatsappVerified: !!customer?.whatsapp_verified,
+    fullName: customer?.name ?? null,
+    dormName: customer?.dorm_name ?? null,
+    createdAtLabel: customer?.created_at
+      ? new Date(customer.created_at).toLocaleDateString('en-AE', { month: 'long', year: 'numeric' })
+      : null,
+    mealPrefLabel,
+    weekTypeLabel,
+    spiceLevel: customer?.spice_level_preference ?? null,
+    allergensDisplay: allergensCsv.length > 0 ? allergensCsv.join(', ') : 'None',
+    vegDaysDisplay: mobileVegDays,
+    hasActiveSub,
+    pendingBanner: pendingBannerEl,
+    promotedBanner: promotedBannerEl,
+    saved,
+  }
+
+  // Reset + close the mobile account-edit sheet (mirrors the desktop Cancel).
+  const closeAccountSheet = () => {
+    if (isPending) return
+    setName(customer?.name ?? '')
+    setDorm(customer?.dorm_name ?? '')
+    setEditAccount(false)
+    setError(null)
+  }
+
+  // ── Edit-preferences sheet — responsive MobileSheet shared by BOTH trees
+  //    (centered dialog ≥768, bottom sheet <768). Lives outside both display-
+  //    toggled trees so it renders on mobile (a display:none ancestor would
+  //    hide a fixed child). Same buffered form / save flow as before. ──
+  const prefsSheetEl = (
+    <MobileSheet
+      open={showPrefsModal}
+      onClose={() => { if (!isPending) setShowPrefsModal(false) }}
+      maxWidth={520}
+      ariaLabel="Edit preferences"
+      footer={
+        <>
+          <button
+            onClick={() => setShowPrefsModal(false)}
+            disabled={isPending}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-input-bg)', color: 'var(--ds-fg)', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: isPending ? 0.6 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSavePreferences}
+            disabled={isPending}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)', opacity: isPending ? 0.7 : 1 }}
+          >
+            {isPending ? 'Saving…' : (hasActiveSub ? 'Save for next subscription' : 'Save preferences')}
+          </button>
+        </>
+      }
+    >
+      <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG, lineHeight: 1 }}>
+        Edit preferences
+      </div>
+      <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 22, fontWeight: 800, color: 'var(--ds-fg)', lineHeight: 1.18, letterSpacing: '-0.01em', paddingRight: 32 }}>
+        Update what we cook for you.
+      </div>
+      {hasActiveSub && (
+        <p style={{ margin: '12px 0 0 0', fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>
+          Your live plan keeps cooking with its current preferences. Anything you change here applies <strong style={{ color: 'var(--ds-fg)' }}>from your next subscription</strong>.
+        </p>
+      )}
+
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <FieldLabel>Meal preference</FieldLabel>
+          <SelectWrap>
+            <select
+              className="profile-field profile-select"
+              value={mealPref}
+              onChange={e => setMealPref(e.target.value)}
+              style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
+            >
+              <option value="">Select…</option>
+              {PREFERENCES.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </SelectWrap>
+        </div>
+
+        <div>
+          <FieldLabel>Delivery week</FieldLabel>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { value: '6DAYS' as const, label: 'Mon–Sat (6 days)' },
+              { value: '5DAYS' as const, label: 'Mon–Fri (5 days)' },
+            ].map(opt => {
+              const active = weekType === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setWeekType(opt.value)}
+                  style={{
+                    flex: '1 1 200px',
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    fontFamily: BODY, fontSize: 13, fontWeight: 600,
+                    border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
+                    background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
+                    color: active ? OG : 'var(--ds-fg)',
+                    transition: 'background 120ms, border-color 120ms, color 120ms',
+                    textAlign: 'left',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {isReligiousMode && (
+          <div>
+            <FieldLabel>Religious-mix veg days</FieldLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${workingDays.length}, minmax(0, 1fr))`, gap: 6 }}>
+                {workingDays.map(day => {
+                  const active = vegDays.includes(day)
+                  const atCap = !active && vegDays.length >= vegDayCap
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleVegDay(day)}
+                      disabled={atCap}
+                      style={{
+                        padding: '10px 0', borderRadius: 8,
+                        border: `1px solid ${active ? '#5fa1c4' : 'var(--ds-border-tier1)'}`,
+                        background: active ? 'rgba(58,111,140,0.20)' : (atCap ? 'var(--ds-skeleton-base)' : 'var(--ds-input-bg)'),
+                        color: active ? '#5fa1c4' : (atCap ? 'var(--ds-fg-tint)' : 'var(--ds-fg)'),
+                        fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                        cursor: atCap ? 'not-allowed' : 'pointer',
+                        transition: 'background 120ms, border-color 120ms, color 120ms',
+                      }}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.45 }}>
+                <span>{vegDays.length} of up to {vegDayCap} chosen.</span>
+                <span style={{ color: vegDays.length === 0 ? 'var(--ds-danger-fg)' : 'var(--ds-success-fg)', fontWeight: 700 }}>
+                  {vegDays.length === 0 ? 'Pick at least 1' : `${W - vegDays.length} day${W - vegDays.length === 1 ? '' : 's'} non-veg`}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <FieldLabel>Allergens</FieldLabel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {ALLERGENS.map(a => {
+              const active = selectedAllergens.has(a)
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => toggleAllergen(a)}
+                  style={{
+                    padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                    fontFamily: BODY, fontSize: 12, fontWeight: 600,
+                    border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
+                    background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
+                    color: active ? OG : 'var(--ds-fg)',
+                    transition: 'background 120ms, border-color 120ms, color 120ms',
+                  }}
+                >
+                  {a}
+                </button>
+              )
+            })}
+          </div>
+          {selectedAllergens.size === 0 && (
+            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 11, color: S.fgSub }}>None selected — tap any allergen above to flag it.</div>
+          )}
+        </div>
+
+        <div>
+          <FieldLabel>Spice level</FieldLabel>
+          <SelectWrap>
+            <select
+              className="profile-field profile-select"
+              value={spice}
+              onChange={e => setSpice(e.target.value)}
+              style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
+            >
+              <option value="">Select…</option>
+              {SPICE_LEVELS.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </SelectWrap>
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+            {error}
+          </div>
+        )}
+      </div>
+    </MobileSheet>
+  )
+
+  // ── Account-edit sheet — mobile-only (desktop edits inline in the card). ──
+  const accountSheetEl = (
+    <MobileSheet
+      open={editAccount}
+      onClose={closeAccountSheet}
+      ariaLabel="Edit account details"
+      footer={
+        <>
+          <button
+            onClick={closeAccountSheet}
+            disabled={isPending}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-input-bg)', color: 'var(--ds-fg)', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: isPending ? 0.6 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSaveAccount(name, dorm)}
+            disabled={isPending}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)', opacity: isPending ? 0.7 : 1 }}
+          >
+            {isPending ? 'Saving…' : 'Save details'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2, letterSpacing: '-0.01em', paddingRight: 32 }}>
+        Edit details
+      </div>
+      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <FieldLabel>Full name</FieldLabel>
+          <input
+            className="profile-field"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Your name"
+            style={fieldShell}
+          />
+        </div>
+        <div>
+          <FieldLabel>Dorm / building</FieldLabel>
+          <SelectWrap>
+            <select
+              className="profile-field profile-select"
+              value={dorm}
+              onChange={e => setDorm(e.target.value)}
+              style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
+            >
+              <option value="">Select…</option>
+              {DORMS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </SelectWrap>
+        </div>
+        {error && (
+          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+            {error}
+          </div>
+        )}
+      </div>
+    </MobileSheet>
+  )
+
   return (
-    <div className="profile-root" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
+    <>
+    <div className="profile-desktop" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
 
         {/* Header — matches Menu/Plan: motion fade-in, single typeface, period accent */}
@@ -428,7 +849,7 @@ export default function ProfileClient({
                   Cancel
                 </button>
                 <button
-                  onClick={handleSaveAccount}
+                  onClick={() => handleSaveAccount()}
                   disabled={isPending}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 28px', borderRadius: 999, border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: isPending ? 'not-allowed' : 'pointer', opacity: isPending ? 0.7 : 1, transition: 'background 300ms, opacity 150ms', boxShadow: '0 0 16px rgba(245,127,32,0.4)' }}
                 >
@@ -450,120 +871,14 @@ export default function ProfileClient({
             preferences container) so the customer can always see what's
             queued without opening the modal. Discard reverts; opening the
             modal lets them tweak the queued change in place. */}
-        {showsPending && (
-          <div style={{
-            marginBottom: 20,
-            padding: '14px 18px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'linear-gradient(135deg, rgba(255,170,0,0.12) 0%, rgba(245,127,32,0.10) 100%)',
-            border: '1.5px solid rgba(245,127,32,0.40)',
-            boxShadow: '0 4px 14px rgba(245,127,32,0.10)',
-            display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '4px 10px', borderRadius: 999,
-                background: '#FFAA00', color: '#3a2200',
-                fontFamily: BODY, fontSize: 10, fontWeight: 800,
-                letterSpacing: '0.16em', textTransform: 'uppercase',
-                boxShadow: '0 0 0 3px rgba(255,170,0,0.20)',
-              }}>
-                <Calendar size={11} strokeWidth={2.6} aria-hidden /> From next plan
-              </span>
-              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: OG }}>
-                You&rsquo;ve queued these for your next subscription. Today&rsquo;s plan keeps cooking as before.
-              </span>
-            </div>
-            <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: BODY, fontSize: 13, color: 'var(--ds-fg)', lineHeight: 1.55 }}>
-              {pendingDiff.map(d => {
-                let from: string
-                let to: string
-                if (d.key === 'meal_preference_type') {
-                  from = prefLabel(d.from); to = prefLabel(d.to)
-                } else if (d.key === 'week_type') {
-                  from = weekLabel(d.from); to = weekLabel(d.to)
-                } else if (d.key === 'allergens') {
-                  from = allergensLabel(d.from); to = allergensLabel(d.to)
-                } else if (d.key === 'veg_days') {
-                  from = '—'; to = d.to.join(', ')
-                } else {
-                  from = d.from ?? '—'; to = d.to
-                }
-                return (
-                  <li key={d.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: OG, minWidth: 110 }}>
-                      {d.label}
-                    </span>
-                    <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'var(--ds-fg-tint)' }}>
-                      {from}
-                    </span>
-                    <span style={{ color: 'var(--ds-fg-faint)' }}>→</span>
-                    <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{to}</strong>
-                  </li>
-                )
-              })}
-            </ul>
-            <div>
-              <button
-                type="button"
-                onClick={handleDiscardPending}
-                disabled={isPending}
-                style={{
-                  fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
-                  letterSpacing: '0.06em', textTransform: 'uppercase',
-                  background: 'transparent', border: 'none',
-                  color: OG,
-                  cursor: isPending ? 'not-allowed' : 'pointer',
-                  padding: '4px 0',
-                  textDecoration: 'underline',
-                  textDecorationColor: 'rgba(245,127,32,0.40)',
-                  textUnderlineOffset: 3,
-                }}
-              >
-                Discard these changes
-              </button>
-            </div>
-          </div>
-        )}
+        {pendingBannerEl}
 
         {/* Post-end "preferences applied" banner — replaces the orange
             "queued for next sub" banner once the layout's auto-promotion
             has drained pending_* into canonical. Stays visible until the
             customer starts a new sub (then hasActiveSub flips and the
             banner naturally hides). */}
-        {showsPromoted && (
-          <div style={{
-            marginBottom: 20,
-            padding: '14px 18px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'linear-gradient(135deg, rgba(29,138,48,0.10) 0%, rgba(29,138,48,0.06) 100%)',
-            border: '1.5px solid rgba(29,138,48,0.32)',
-            boxShadow: '0 4px 14px rgba(29,138,48,0.08)',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26, borderRadius: 999,
-              background: 'var(--ds-success-fg)', color: '#fff', flexShrink: 0,
-              boxShadow: '0 0 0 3px rgba(29,138,48,0.18)',
-            }}>
-              <Check size={14} strokeWidth={3} aria-hidden />
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{
-                fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
-                letterSpacing: '0.16em', textTransform: 'uppercase',
-                color: 'var(--ds-success-fg)',
-              }}>
-                New meal preferences applied
-              </span>
-              <span style={{ fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: 'var(--ds-success-fg)' }}>
-                Your queued changes are now your active preferences. They&rsquo;ll power your next plan&rsquo;s deliveries.
-              </span>
-            </div>
-          </div>
-        )}
+        {promotedBannerEl}
 
         {/* Meal preferences — read-only snapshot of what we cook for the
               CURRENT subscription. Edits go through the modal; if a live
@@ -697,248 +1012,9 @@ export default function ProfileClient({
           )}
         </div>
 
-        {/* ── Edit Preferences modal — gates ALL meal-pref edits behind a
-              confirm step so a mid-cycle change can't silently flip the
-              kitchen's plate decisions. The warning at the top makes it
-              explicit: changes don't touch the live sub, only the next one. */}
-        <AnimatePresence>
-          {showPrefsModal && (
-            <motion.div
-              key="prefs-modal-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              onClick={() => !isPending && setShowPrefsModal(false)}
-              style={{
-                position: 'fixed', inset: 0, zIndex: 200,
-                background: 'var(--ds-overlay-strong)',
-                backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 24, overflow: 'auto',
-              }}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                onClick={e => e.stopPropagation()}
-                style={{
-                  background: BG,
-                  borderRadius: 'var(--radius-md)',
-                  padding: 28,
-                  maxWidth: 520, width: '100%',
-                  border: '1px solid rgba(245,127,32,0.20)',
-                  boxShadow: 'var(--shadow-lg)',
-                  position: 'relative',
-                  maxHeight: 'calc(100vh - 48px)',
-                  overflow: 'auto',
-                }}
-              >
-                <button
-                  onClick={() => !isPending && setShowPrefsModal(false)}
-                  aria-label="Close"
-                  style={{
-                    position: 'absolute', top: 14, right: 14,
-                    background: 'none', border: 'none',
-                    color: S.fgMuted, cursor: 'pointer',
-                    width: 28, height: 28, borderRadius: 6,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <X size={16} strokeWidth={2.4} />
-                </button>
-
-                <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG, lineHeight: 1 }}>
-                  Edit preferences
-                </div>
-                <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 22, fontWeight: 800, color: 'var(--ds-fg)', lineHeight: 1.18, letterSpacing: '-0.01em', paddingRight: 28 }}>
-                  Update what we cook for you.
-                </div>
-                {/* Friendly forward-looking note — not a lockout wall.
-                    Tells the user the change is for the NEXT plan so they
-                    can save it confidently. We surface the diff in the
-                    pending banner outside the modal once saved. */}
-                {hasActiveSub && (
-                  <p style={{
-                    margin: '12px 0 0 0',
-                    fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55,
-                  }}>
-                    Your live plan keeps cooking with its current preferences. Anything you change here applies <strong style={{ color: 'var(--ds-fg)' }}>from your next subscription</strong>.
-                  </p>
-                )}
-
-                <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <FieldLabel>Meal preference</FieldLabel>
-                    <SelectWrap>
-                      <select
-                        className="profile-field profile-select"
-                        value={mealPref}
-                        onChange={e => setMealPref(e.target.value)}
-                        style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
-                      >
-                        <option value="">Select…</option>
-                        {PREFERENCES.map(p => (
-                          <option key={p.value} value={p.value}>{p.label}</option>
-                        ))}
-                      </select>
-                    </SelectWrap>
-                  </div>
-
-                  <div>
-                    <FieldLabel>Delivery week</FieldLabel>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {[
-                        { value: '6DAYS' as const, label: 'Mon–Sat (6 days)' },
-                        { value: '5DAYS' as const, label: 'Mon–Fri (5 days)' },
-                      ].map(opt => {
-                        const active = weekType === opt.value
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setWeekType(opt.value)}
-                            style={{
-                              flex: '1 1 200px',
-                              padding: '12px 16px',
-                              borderRadius: 10,
-                              cursor: 'pointer',
-                              fontFamily: BODY, fontSize: 13, fontWeight: 600,
-                              border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
-                              background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
-                              color: active ? OG : 'var(--ds-fg)',
-                              transition: 'background 120ms, border-color 120ms, color 120ms',
-                              textAlign: 'left',
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Religious-mix only — veg-day picker. Sits right after
-                      Delivery week (it's tied to the same week_type
-                      constraint) and ABOVE Allergens so the foundational
-                      religious-mix decision is finalised before the user
-                      moves on to allergen selection. Cap = W-1 (picking
-                      all-veg defeats "mix"; switch to plain Veg instead). */}
-                  {isReligiousMode && (
-                    <div>
-                      <FieldLabel>Religious-mix veg days</FieldLabel>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${workingDays.length}, minmax(0, 1fr))`, gap: 6 }}>
-                          {workingDays.map(day => {
-                            const active = vegDays.includes(day)
-                            const atCap = !active && vegDays.length >= vegDayCap
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => toggleVegDay(day)}
-                                disabled={atCap}
-                                style={{
-                                  padding: '10px 0', borderRadius: 8,
-                                  border: `1px solid ${active ? '#5fa1c4' : 'var(--ds-border-tier1)'}`,
-                                  background: active ? 'rgba(58,111,140,0.20)' : (atCap ? 'var(--ds-skeleton-base)' : 'var(--ds-input-bg)'),
-                                  color: active ? '#5fa1c4' : (atCap ? 'var(--ds-fg-tint)' : 'var(--ds-fg)'),
-                                  fontFamily: BODY, fontSize: 12, fontWeight: 700,
-                                  letterSpacing: '0.04em', textTransform: 'uppercase',
-                                  cursor: atCap ? 'not-allowed' : 'pointer',
-                                  transition: 'background 120ms, border-color 120ms, color 120ms',
-                                }}
-                              >
-                                {day.slice(0, 3)}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, lineHeight: 1.45 }}>
-                          <span>{vegDays.length} of up to {vegDayCap} chosen.</span>
-                          <span style={{ color: vegDays.length === 0 ? 'var(--ds-danger-fg)' : 'var(--ds-success-fg)', fontWeight: 700 }}>
-                            {vegDays.length === 0 ? 'Pick at least 1' : `${W - vegDays.length} day${W - vegDays.length === 1 ? '' : 's'} non-veg`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <FieldLabel>Allergens</FieldLabel>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {ALLERGENS.map(a => {
-                        const active = selectedAllergens.has(a)
-                        return (
-                          <button
-                            key={a}
-                            type="button"
-                            onClick={() => toggleAllergen(a)}
-                            style={{
-                              padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
-                              fontFamily: BODY, fontSize: 12, fontWeight: 600,
-                              border: `1px solid ${active ? 'rgba(245,127,32,0.40)' : S.border2}`,
-                              background: active ? 'var(--ds-og-wash-strong)' : 'var(--ds-input-bg)',
-                              color: active ? OG : 'var(--ds-fg)',
-                              transition: 'background 120ms, border-color 120ms, color 120ms',
-                            }}
-                          >
-                            {a}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {selectedAllergens.size === 0 && (
-                      <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 11, color: S.fgSub }}>None selected — tap any allergen above to flag it.</div>
-                    )}
-                  </div>
-
-                  <div>
-                    <FieldLabel>Spice level</FieldLabel>
-                    <SelectWrap>
-                      <select
-                        className="profile-field profile-select"
-                        value={spice}
-                        onChange={e => setSpice(e.target.value)}
-                        style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
-                      >
-                        <option value="">Select…</option>
-                        {SPICE_LEVELS.map(s => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
-                    </SelectWrap>
-                  </div>
-
-                  {error && (
-                    <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
-                      {error}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                    <button
-                      onClick={() => setShowPrefsModal(false)}
-                      disabled={isPending}
-                      style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-input-bg)', color: 'var(--ds-fg)', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', opacity: isPending ? 0.6 : 1 }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSavePreferences}
-                      disabled={isPending}
-                      style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)', opacity: isPending ? 0.7 : 1 }}
-                    >
-                      {isPending ? 'Saving…' : (hasActiveSub ? 'Save for next subscription' : 'Save preferences')}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Edit-preferences sheet now lives outside both trees (prefsSheetEl,
+            rendered below) so it works on mobile; the desktop dialog is the
+            same MobileSheet in its ≥768 centered-dialog form. */}
 
         {/* Religious-mix veg days now live INSIDE the Meal Preferences card
             above (read-only display) and inside the Edit Preferences modal
@@ -953,6 +1029,23 @@ export default function ProfileClient({
           </span>
         </div>
       </div>
+    </div>{/* /.profile-desktop */}
+
+      {/* ── Mobile (≤768) — the redesigned single-screen profile. ── */}
+      <div className="profile-mobile">
+        <MobileProfile
+          {...mobileData}
+          onOpenPrefs={() => setShowPrefsModal(true)}
+          onEditAccount={() => setEditAccount(true)}
+        />
+      </div>
+
+      {/* Shared edit sheets — rendered outside both display-toggled trees so a
+          display:none ancestor can't hide them on mobile. Prefs is responsive
+          (centered dialog ≥768, bottom sheet <768); account is mobile-only
+          (desktop still edits inline in its card). */}
+      {prefsSheetEl}
+      {compact && accountSheetEl}
 
       <style jsx global>{`
         /* Strip native browser appearance from selects so they render at the
@@ -977,7 +1070,14 @@ export default function ProfileClient({
         @media (max-width: 640px) {
           .profile-grid-2 { grid-template-columns: 1fr !important; }
         }
+        /* Mobile (≤768) swaps the desktop profile tree for MobileProfile. Pure
+           CSS toggle — no flash, desktop DOM untouched. */
+        .profile-mobile { display: none; }
+        @media (max-width: 768px) {
+          .profile-desktop { display: none; }
+          .profile-mobile { display: block; }
+        }
       `}</style>
-    </div>
+    </>
   )
 }
