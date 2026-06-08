@@ -26,9 +26,11 @@ export async function login(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    const explicitNext = formData.get('next_url') as string
-    const defaultDest = isAdminEmail(data.email) ? '/admin' : '/dashboard'
-    redirect(safeNext(explicitNext || defaultDest))
+    const explicitNext = (formData.get('next_url') as string)?.trim()
+    const dest = explicitNext
+        ? safeNext(explicitNext)
+        : isAdminEmail(data.email) ? '/admin' : '/dashboard'
+    redirect(dest)
 }
 
 export async function signup(formData: FormData) {

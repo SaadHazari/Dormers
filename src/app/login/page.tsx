@@ -10,7 +10,7 @@ export default async function LoginPage({
         <LoginForm
             error={params?.error}
             message={params?.message}
-            nextUrl={params?.next || '/dashboard'}
+            nextUrl={params?.next || ''}
             prefillEmail={params?.email}
             step={params?.step}
         />
