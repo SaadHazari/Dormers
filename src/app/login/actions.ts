@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
+import { isAdminEmail } from '@/contexts/admin/usecases/require-admin'
+
+function safeNext(raw: string): string {
+    return /^\/[^/\\]/.test(raw) ? raw : '/dashboard'
+}
 
 export async function login(formData: FormData) {
     const supabase = await createClient()
@@ -21,8 +26,9 @@ export async function login(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    const nextUrl = formData.get('next_url') as string || '/dashboard'
-    redirect(nextUrl)
+    const explicitNext = formData.get('next_url') as string
+    const defaultDest = isAdminEmail(data.email) ? '/admin' : '/dashboard'
+    redirect(safeNext(explicitNext || defaultDest))
 }
 
 export async function signup(formData: FormData) {
@@ -45,13 +51,13 @@ export async function signup(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    const nextUrl = formData.get('next_url') as string || '/dashboard'
-    redirect(nextUrl)
+    redirect(safeNext(formData.get('next_url') as string || '/dashboard'))
 }
 
 export async function signout() {
     const supabase = await createClient()
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) console.error('signOut failed:', error.message)
     redirect('/login')
 }
 
