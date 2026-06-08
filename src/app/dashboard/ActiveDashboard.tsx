@@ -11,7 +11,7 @@ import { FutureSkipModal, type FutureSkipMode } from './_shared/FutureSkipModal'
 import { PlanPauseModal } from './_shared/PlanPauseModal'
 import { SavingsBenchmarkModal } from './_shared/SavingsBenchmarkModal'
 import { MobileSheet } from './_shared/MobileSheet'
-import { MENU_DATA, getMenuWeek, findDishForDate } from '@/contexts/menu/domain/catalog-data'
+import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
 import { cleanPlanName, OG, BODY, S, NV2 } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
 import { ProfileBanner } from './_shared/ProfileBanner'
@@ -64,7 +64,8 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function buildCurrentWeekMenu(
   vegDayNumbers: Set<number>,
   weekType: WeekType,
-  now: Date = new Date()
+  now: Date = new Date(),
+  allDishes?: Dish[],
 ): { menu: MenuItem[]; weekStatus: WeekStatus } {
   const todayMidnight = new Date(now); todayMidnight.setHours(0, 0, 0, 0)
   const todayDay = todayMidnight.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
@@ -78,12 +79,13 @@ function buildCurrentWeekMenu(
   // Fetch ALL dishes for this week (both isVeg variants) so per-day picks
   // can choose whichever the customer needs. Falls back to last week if the
   // current week is empty — same heuristic as before.
-  let dishes = MENU_DATA.filter(d => d.week === weekKey)
+  const _allDishes = allDishes ?? MENU_DATA
+  let dishes = _allDishes.filter(d => d.week === weekKey)
   let usedFallback = false
   if (dishes.length === 0) {
     const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate() - 7)
     const lastKey = getMenuWeek(lastMonday)
-    const lastDishes = MENU_DATA.filter(d => d.week === lastKey)
+    const lastDishes = _allDishes.filter(d => d.week === lastKey)
     if (lastDishes.length > 0) {
       dishes = lastDishes
       usedFallback = true
@@ -343,21 +345,15 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
-  /** Missing-field labels — empty array = profile complete; non-empty disables purchase CTAs. */
   profileGate?: string[]
-  /** True when the customer's dorm is outside the listed delivery radius — disables purchase CTAs and renders the OutOfZoneBanner above ProfileBanner. */
   outOfZone?: boolean
   justCheckedOut?: boolean
-  /** Monthly wrap window — drives the slim strip above HeroToday for the
-   *  post-cron, queued-plan case. Self-renders nothing when not eligible. */
   monthlyWindow?: MonthlyReviewWindow
-  /** DEV-ONLY (preview harness): force a time/session-driven hero state
-   *  ('delivered' | 'resumed') so it's viewable without waiting for the AE
-   *  clock. Never passed by production callers. */
   previewState?: string
+  menuData?: Dish[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -838,8 +834,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     [customer?.meal_preference_type, sub.veg_days, subWeekType]
   )
   const { menu: weekMenu } = useMemo(
-    () => buildCurrentWeekMenu(vegDayNumbers, subWeekType),
-    [vegDayNumbers, subWeekType]
+    () => buildCurrentWeekMenu(vegDayNumbers, subWeekType, new Date(), menuData),
+    [vegDayNumbers, subWeekType, menuData]
   )
   const todayMeal = weekMenu.find(m => m.state === 'today') ?? null
 
@@ -1166,11 +1162,14 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // Per-day veg/non-veg via vegDayNumbers; heat is the dish's intrinsic spice.
   // (Reflects the catalog as it is now, not a literal historical snapshot —
   // matches the weekly-review page; revisit once a menu CMS lands.)
+  const _resolveDishes = menuData ?? MENU_DATA
   const resolveDish = (iso: string) => {
     const d = new Date(iso + 'T12:00:00Z')
     if (d.getUTCDay() === 0) return null
     const wantVeg = vegDayNumbers.has(d.getUTCDay() - 1)
-    const dish = findDishForDate(d, wantVeg)
+    const dayOfWeek = d.getUTCDay() - 1
+    const week = getMenuWeek(d)
+    const dish = _resolveDishes.find(dd => dd.week === week && dd.dayOfWeek === dayOfWeek && dd.isVeg === wantVeg) ?? null
     return {
       dateLabel: d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' }),
       name: dish?.name ?? null,

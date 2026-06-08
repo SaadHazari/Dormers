@@ -4,21 +4,26 @@ import { useState, useTransition } from 'react'
 import { Check, X, ExternalLink, Image as ImageIcon, ShieldAlert } from 'lucide-react'
 import { approveLayer4Row, rejectLayer4Row } from './actions'
 import type { PendingRow } from './page'
+import { useAdminTheme } from '../_components/AdminThemeProvider'
 
-// Minimal admin queue. Internal-only — styling matches Dormers brand
-// (#091825 navy, #f57f20 orange, cream text) but kept scan-dense rather
-// than designed for delight. Each row exposes the AI verdict, the
-// screenshot, and two buttons.
+function useColors() {
+    const { isLight } = useAdminTheme()
+    return {
+        BG_DEEP:    isLight ? '#f5f0e8' : '#091825',
+        BG_MID:     isLight ? 'rgba(0,0,0,0.04)' : '#1e3a4f',
+        GOLD:       '#f57f20',
+        TEXT:       isLight ? '#091825' : '#ede8da',
+        GREEN:      isLight ? '#1d8a30' : '#5fb479',
+        RED:        isLight ? '#c0392b' : '#e0716e',
+        MIST:       isLight ? 'rgba(9,24,37,0.55)' : 'rgba(237,232,218,0.55)',
+        MIST_DIM:   isLight ? 'rgba(9,24,37,0.30)' : 'rgba(237,232,218,0.30)',
+        MIST_FAINT: isLight ? 'rgba(9,24,37,0.08)' : 'rgba(237,232,218,0.12)',
+        CODE_BG:    isLight ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.32)',
+        IMG_BG:     isLight ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.45)',
+        IMG_TAG_BG: isLight ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.7)',
+    }
+}
 
-const BG_DEEP = '#091825'
-const BG_MID  = '#1e3a4f'
-const GOLD    = '#f57f20'
-const CREAM   = '#ede8da'
-const GREEN   = '#5fb479'
-const RED     = '#e0716e'
-const MIST    = 'rgba(237,232,218,0.55)'
-const MIST_DIM = 'rgba(237,232,218,0.30)'
-const MIST_FAINT = 'rgba(237,232,218,0.12)'
 const BODY = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 
 type RowState =
@@ -28,55 +33,49 @@ type RowState =
   | { state: 'error'; message: string }
 
 export default function QueueClient({ rows }: { rows: PendingRow[] }) {
+  const c = useColors()
   return (
-    <main style={{
-      backgroundColor: BG_DEEP,
-      minHeight: '100vh',
-      padding: '32px 24px',
-      fontFamily: BODY,
-      color: CREAM,
-    }}>
-      <div style={{ maxWidth: 880, margin: '0 auto' }}>
-        <header style={{ marginBottom: 28 }}>
-          <h1 style={{
-            fontFamily: BODY, fontSize: 24, fontWeight: 900,
-            letterSpacing: '-0.01em', margin: 0,
-          }}>
-            Layer 4 Queue
-          </h1>
-          <p style={{
-            fontFamily: BODY, fontSize: 13, fontWeight: 500, color: MIST,
-            margin: '6px 0 0', lineHeight: 1.5,
-          }}>
-            Pending Layer 4 claims awaiting manual verification. {rows.length} row{rows.length === 1 ? '' : 's'}.
-          </p>
-        </header>
+    <div style={{ fontFamily: BODY, color: c.TEXT }}>
+      <header style={{ marginBottom: 28 }}>
+        <h1 style={{
+          fontFamily: BODY, fontSize: 20, fontWeight: 900,
+          letterSpacing: '-0.01em', margin: 0,
+        }}>
+          Layer 4 Queue
+        </h1>
+        <p style={{
+          fontFamily: BODY, fontSize: 13, fontWeight: 500, color: c.MIST,
+          margin: '6px 0 0', lineHeight: 1.5,
+        }}>
+          Pending Layer 4 claims awaiting manual verification. {rows.length} row{rows.length === 1 ? '' : 's'}.
+        </p>
+      </header>
 
-        {rows.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {rows.map(row => <Row key={row.id} row={row} />)}
-          </div>
-        )}
-      </div>
-    </main>
+      {rows.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {rows.map(row => <Row key={row.id} row={row} />)}
+        </div>
+      )}
+    </div>
   )
 }
 
 function EmptyState() {
+  const c = useColors()
   return (
     <div style={{
       padding: '40px 24px',
       borderRadius: 14,
-      border: `1px dashed ${MIST_FAINT}`,
+      border: `1px dashed ${c.MIST_FAINT}`,
       textAlign: 'center',
     }}>
       <div style={{ fontSize: 32, marginBottom: 8 }}>✨</div>
-      <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 800, color: CREAM, marginBottom: 4 }}>
+      <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 800, color: c.TEXT, marginBottom: 4 }}>
         Queue is clear
       </div>
-      <div style={{ fontFamily: BODY, fontSize: 12, fontWeight: 600, color: MIST }}>
+      <div style={{ fontFamily: BODY, fontSize: 12, fontWeight: 600, color: c.MIST }}>
         No pending Layer 4 claims to review right now.
       </div>
     </div>
@@ -84,6 +83,7 @@ function EmptyState() {
 }
 
 function Row({ row }: { row: PendingRow }) {
+  const c = useColors()
   const [rowState, setRowState] = useState<RowState>({ state: 'idle' })
   const [pending, startTransition] = useTransition()
 
@@ -117,22 +117,21 @@ function Row({ row }: { row: PendingRow }) {
     <div style={{
       padding: '18px 18px 16px',
       borderRadius: 14,
-      backgroundColor: BG_MID,
-      border: `1px solid ${acted ? (rowState.outcome === 'approved' ? `${GREEN}55` : `${RED}55`) : MIST_FAINT}`,
+      backgroundColor: c.BG_MID,
+      border: `1px solid ${acted ? (rowState.outcome === 'approved' ? `${c.GREEN}55` : `${c.RED}55`) : c.MIST_FAINT}`,
       opacity: acted ? 0.55 : 1,
       transition: 'opacity 220ms ease, border-color 220ms ease',
     }}>
-      {/* Top row — customer + meta */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', gap: 16,
         flexWrap: 'wrap',
         marginBottom: 12,
       }}>
         <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 900, color: CREAM, marginBottom: 2 }}>
+          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 900, color: c.TEXT, marginBottom: 2 }}>
             {row.customer_name ?? '(no name)'}
           </div>
-          <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST }}>
+          <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, color: c.MIST }}>
             {row.customer_email ?? row.customer_id}
           </div>
         </div>
@@ -140,37 +139,36 @@ function Row({ row }: { row: PendingRow }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <span style={{
             padding: '3px 8px', borderRadius: 999,
-            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: GOLD,
+            fontFamily: BODY, fontSize: 10, fontWeight: 900, color: c.GOLD,
             letterSpacing: '0.14em', textTransform: 'uppercase',
-            backgroundColor: `${GOLD}14`, border: `1px solid ${GOLD}55`,
+            backgroundColor: `${c.GOLD}14`, border: `1px solid ${c.GOLD}55`,
           }}>
             {row.kind.replace(/_/g, ' ')} · AED {row.value_aed}
           </span>
-          <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM }}>
+          <span style={{ fontFamily: BODY, fontSize: 10, fontWeight: 600, color: c.MIST_DIM }}>
             {timeAgo(row.claimed_at)}
           </span>
         </div>
       </div>
 
-      {/* Duplicate badge — surfaces collisions caught by the hash or reviewer-name check. */}
       {row.duplicate_of && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '8px 12px', borderRadius: 8,
-          backgroundColor: `${RED}18`, border: `1px solid ${RED}66`,
+          backgroundColor: `${c.RED}18`, border: `1px solid ${c.RED}66`,
           marginBottom: 10,
         }}>
-          <ShieldAlert size={14} strokeWidth={2.6} color={RED} />
+          <ShieldAlert size={14} strokeWidth={2.6} color={c.RED} />
           <span style={{
-            fontFamily: BODY, fontSize: 11, fontWeight: 800, color: CREAM,
+            fontFamily: BODY, fontSize: 11, fontWeight: 800, color: c.TEXT,
             letterSpacing: '0.06em',
           }}>
             Duplicate of{' '}
             <code style={{
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: 10, fontWeight: 700, color: GOLD,
+              fontSize: 10, fontWeight: 700, color: c.GOLD,
               padding: '1px 5px', borderRadius: 4,
-              backgroundColor: 'rgba(0,0,0,0.35)',
+              backgroundColor: c.CODE_BG,
             }}>
               {row.duplicate_of.row_id.slice(0, 8)}
             </code>
@@ -179,14 +177,13 @@ function Row({ row }: { row: PendingRow }) {
         </div>
       )}
 
-      {/* Extracted review body (when present, helps ops eyeball-compare) */}
       {row.kind === 'google_review' && row.extracted_review_text && (
         <div style={{
           padding: '10px 12px',
           borderRadius: 8,
-          backgroundColor: 'rgba(0,0,0,0.22)',
-          border: `1px dashed ${MIST_FAINT}`,
-          fontFamily: BODY, fontSize: 11, fontWeight: 500, color: MIST,
+          backgroundColor: c.CODE_BG,
+          border: `1px dashed ${c.MIST_FAINT}`,
+          fontFamily: BODY, fontSize: 11, fontWeight: 500, color: c.MIST,
           fontStyle: 'italic',
           lineHeight: 1.55,
           marginBottom: 10,
@@ -198,14 +195,13 @@ function Row({ row }: { row: PendingRow }) {
         </div>
       )}
 
-      {/* AI verdict notes */}
       {row.notes && (
         <div style={{
           padding: '10px 12px',
           borderRadius: 8,
-          backgroundColor: 'rgba(0,0,0,0.32)',
-          border: `1px solid ${MIST_FAINT}`,
-          fontFamily: BODY, fontSize: 11, fontWeight: 500, color: MIST,
+          backgroundColor: c.CODE_BG,
+          border: `1px solid ${c.MIST_FAINT}`,
+          fontFamily: BODY, fontSize: 11, fontWeight: 500, color: c.MIST,
           lineHeight: 1.55,
           marginBottom: 12,
           whiteSpace: 'pre-wrap',
@@ -215,7 +211,6 @@ function Row({ row }: { row: PendingRow }) {
         </div>
       )}
 
-      {/* Screenshot (google_review only) */}
       {row.kind === 'google_review' && (
         <div style={{ marginBottom: 14 }}>
           {row.screenshot_url ? (
@@ -229,8 +224,8 @@ function Row({ row }: { row: PendingRow }) {
                 position: 'relative',
                 borderRadius: 10,
                 overflow: 'hidden',
-                border: `1px solid ${MIST_FAINT}`,
-                backgroundColor: 'rgba(0,0,0,0.45)',
+                border: `1px solid ${c.MIST_FAINT}`,
+                backgroundColor: c.IMG_BG,
                 maxHeight: 320,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
@@ -244,8 +239,8 @@ function Row({ row }: { row: PendingRow }) {
                   position: 'absolute', top: 8, right: 8,
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   padding: '4px 8px', borderRadius: 6,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  fontFamily: BODY, fontSize: 10, fontWeight: 700, color: CREAM,
+                  backgroundColor: c.IMG_TAG_BG,
+                  fontFamily: BODY, fontSize: 10, fontWeight: 700, color: '#f5f0e8',
                 }}>
                   <ExternalLink size={10} strokeWidth={2.6} />
                   Open
@@ -255,19 +250,18 @@ function Row({ row }: { row: PendingRow }) {
           ) : (
             <div style={{
               padding: '14px 16px', borderRadius: 8,
-              backgroundColor: `${RED}14`,
-              border: `1px solid ${RED}44`,
-              fontFamily: BODY, fontSize: 11, fontWeight: 700, color: CREAM,
+              backgroundColor: `${c.RED}14`,
+              border: `1px solid ${c.RED}44`,
+              fontFamily: BODY, fontSize: 11, fontWeight: 700, color: c.TEXT,
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              <ImageIcon size={14} strokeWidth={2.6} color={RED} />
+              <ImageIcon size={14} strokeWidth={2.6} color={c.RED} />
               Screenshot not found in storage — verify on Google directly.
             </div>
           )}
         </div>
       )}
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           type="button"
@@ -276,8 +270,8 @@ function Row({ row }: { row: PendingRow }) {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '10px 18px', borderRadius: 999,
-            backgroundColor: acted && rowState.outcome === 'approved' ? `${GREEN}44` : GREEN,
-            color: BG_DEEP,
+            backgroundColor: acted && rowState.outcome === 'approved' ? `${c.GREEN}44` : c.GREEN,
+            color: c.BG_DEEP,
             fontFamily: BODY, fontSize: 12, fontWeight: 900,
             letterSpacing: '0.10em', textTransform: 'uppercase',
             border: 'none',
@@ -296,10 +290,10 @@ function Row({ row }: { row: PendingRow }) {
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '10px 18px', borderRadius: 999,
             backgroundColor: 'transparent',
-            color: acted && rowState.outcome === 'rejected' ? `${RED}aa` : CREAM,
+            color: acted && rowState.outcome === 'rejected' ? `${c.RED}aa` : c.TEXT,
             fontFamily: BODY, fontSize: 12, fontWeight: 900,
             letterSpacing: '0.10em', textTransform: 'uppercase',
-            border: `1px solid ${RED}66`,
+            border: `1px solid ${c.RED}66`,
             cursor: pending || acted ? 'default' : 'pointer',
             opacity: pending ? 0.7 : 1,
           }}
@@ -309,7 +303,7 @@ function Row({ row }: { row: PendingRow }) {
         </button>
 
         {rowState.state === 'error' && (
-          <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: RED }}>
+          <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: c.RED }}>
             Error: {rowState.message}
           </span>
         )}

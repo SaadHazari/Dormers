@@ -58,7 +58,9 @@ const DORM_D   = DISH_D  + 0.55;  // 10.90 (was 11.85)
 // Strike (the strike-through animation used inside the checklist) lives
 // in HeroChecklist.tsx now — it's only used there.
 
-export default function HeroReveal() {
+import type { Dish } from '@/contexts/menu/domain/catalog-data'
+
+export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
   const router = useRouter();
 
   const [isPreloading, setIsPreloading] = useState(true);
@@ -249,7 +251,7 @@ export default function HeroReveal() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={st({ delay: DISH_D, duration: 0.55, ease: E })}
               >
-                <TonightsMeal />
+                <TonightsMeal menuData={menuData} />
               </motion.div>
 
             </div>

@@ -3,6 +3,7 @@ import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/inf
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import MenuClient from './MenuClient'
+import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
 
 export default async function MenuPage({
   searchParams,
@@ -37,10 +38,11 @@ export default async function MenuPage({
   // (for the Now tray) and no longer needed here — LastWeekSection and
   // MonthlyWrapTrigger used to live on this page but moved into the tray.
   // See project_now_tray_architecture memory.
-  const [customer, activeSubscription, queuedSub] = await Promise.all([
+  const [customer, activeSubscription, queuedSub, menuDishes] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getQueuedSubscription(user.id),
+    getMenuDishes(),
   ])
 
   return (
@@ -50,6 +52,7 @@ export default async function MenuPage({
         activeSubscription={activeSubscription}
         userEmail={user.email}
         hasQueuedRenewal={!!queuedSub}
+        menuData={menuDishes}
       />
     </Suspense>
   )

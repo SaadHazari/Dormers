@@ -7,16 +7,16 @@ import { useTheme } from "next-themes";
 import { MENU_DATA, Dish, getMenuWeek } from "@/contexts/menu/domain/catalog-data";
 import { SpiceMeter } from "@/app/components/SpiceMeter";
 
-function getTodayDishes(): Dish[] {
+function getTodayDishes(allDishes: Dish[]): Dish[] {
   const now = new Date();
   const jsDay = now.getDay();
   const menuDay = jsDay === 0 ? 0 : jsDay - 1;
   const week = getMenuWeek(now);
-  return MENU_DATA.filter((d) => d.week === week && d.dayOfWeek === menuDay);
+  return allDishes.filter((d) => d.week === week && d.dayOfWeek === menuDay);
 }
 
-export default function TonightsMeal() {
-  const dishes = getTodayDishes();
+export default function TonightsMeal({ menuData }: { menuData?: Dish[] }) {
+  const dishes = getTodayDishes(menuData ?? MENU_DATA);
   const nonVeg = dishes.find((d) => !d.isVeg) ?? dishes[0];
   const veg = dishes.find((d) => d.isVeg);
   const variants = [nonVeg, veg].filter(Boolean) as Dish[];

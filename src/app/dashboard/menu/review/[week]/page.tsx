@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
 import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
-import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
+import { getMenuWeek } from '@/contexts/menu/domain/catalog-data'
+import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { ReviewClient } from './ReviewClient'
 import type { WeeklyReviewMeal } from '../../../_shared/WeeklyReviewTakeover'
@@ -87,6 +88,8 @@ export default async function ReviewPage({
     // away via the "Back to dashboard" button.
     if (existing && !justSubmitted) redirect('/dashboard/menu')
 
+    const menuDishes = await getMenuDishes()
+
     // Phase 8K — count prior submissions on this sub to drive the
     // first-time acknowledgement modal. If the user has already submitted
     // ≥1 review, they don't need to see the all-or-nothing rule explainer
@@ -112,6 +115,7 @@ export default async function ReviewPage({
         weekType,
         skippedDates: sub.skipped_dates,
         pausedDates: sub.paused_dates,
+        allDishes: menuDishes,
     })
 
     // Total weeks expected for this sub's cycle — drives the all-or-nothing
@@ -173,6 +177,7 @@ function mealsForReviewWeek({
     weekType,
     skippedDates,
     pausedDates,
+    allDishes,
 }: {
     weekStart: Date
     mealPreference: string | null | undefined
@@ -180,6 +185,7 @@ function mealsForReviewWeek({
     weekType: WeekType
     skippedDates: string[] | null | undefined
     pausedDates: string[] | null | undefined
+    allDishes: import('@/contexts/menu/domain/catalog-data').Dish[]
 }): WeeklyReviewMeal[] {
     const menuWeek = getMenuWeek(weekStart)
     const vegDayNumbers = vegDayNumbersFor(mealPreference, vegDays, weekType)
@@ -199,7 +205,7 @@ function mealsForReviewWeek({
         const isPaused = !isSkipped && pausedSet.has(dayIso)
 
         const isVegForToday = vegDayNumbers.has(dayOfWeek)
-        const dish = MENU_DATA.find((d) =>
+        const dish = allDishes.find((d) =>
             d.week === menuWeek && d.dayOfWeek === dayOfWeek && d.isVeg === isVegForToday,
         )
         if (!dish) continue

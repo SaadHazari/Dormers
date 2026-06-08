@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
-import { MENU_DATA, getMenuWeek } from '@/contexts/menu/domain/catalog-data'
+import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
 
 import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
@@ -82,6 +82,7 @@ const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 function buildFullMenu(
   vegDayNumbers: Set<number>,
   weekType: '5DAYS' | '6DAYS',
+  allDishes?: Dish[],
 ): { week: string; meals: WeekMeal[] }[] {
   const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0)
   const todayDay = todayMidnight.getDay()
@@ -104,7 +105,7 @@ function buildFullMenu(
     // Pull all dishes for this week (both isVeg variants) so per-day picks
     // can pull whichever the customer needs. Religious-mix users may need
     // veg on Mon and non-veg on Tue from the same week's catalogue.
-    const dishes = MENU_DATA.filter(d => d.week === weekKey)
+    const dishes = (allDishes ?? MENU_DATA).filter(d => d.week === weekKey)
     const dishByDayAndVeg = new Map<string, typeof dishes[number]>()
     for (const d of dishes) dishByDayAndVeg.set(`${d.dayOfWeek}_${d.isVeg}`, d)
 
@@ -821,17 +822,13 @@ export default function MenuClient({
   customer,
   activeSubscription,
   hasQueuedRenewal = false,
+  menuData,
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
   userEmail?: string
-  // True when the customer has a Scheduled follow-up subscription queued
-  // behind the active one. When true, days past the active sub's end date
-  // are still "Upcoming" (the queued cycle will deliver them). When false,
-  // those days get the "Plan ends" dim treatment so the customer sees the
-  // structural reason their plan is fading out instead of cheerfully
-  // teasing dishes they won't receive.
   hasQueuedRenewal?: boolean
+  menuData?: Dish[]
 }) {
   // week_type: prefer the active sub's snapshot (canonical for this cycle).
   // Fall back to the customer's preference (relevant for users browsing
@@ -924,7 +921,7 @@ export default function MenuClient({
   const isReligious = mpt.includes('religious')
   const isVegPref   = mpt.includes('plant') || (mpt.includes('veg') && !mpt.includes('non'))
   const prefTag: 'Veg' | 'Non Veg' | 'Mix' = isReligious ? 'Mix' : (isVegPref ? 'Veg' : 'Non Veg')
-  const FULL_MENU = buildFullMenu(vegDayNumbers, weekType)
+  const FULL_MENU = buildFullMenu(vegDayNumbers, weekType, menuData)
   const thisWeek  = FULL_MENU[0]
   const nextWeek  = FULL_MENU[1]
 

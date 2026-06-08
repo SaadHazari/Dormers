@@ -14,6 +14,7 @@ import { whatsAppHref } from '@/shared/contacts'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import type { Customer, Subscription } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
 interface RecentOrder {
   id: string
@@ -52,6 +53,7 @@ interface Props {
   /** DEV-ONLY (preview harness): forwarded to ActiveDashboard to force a
    *  time/session-driven hero state. Never set by production callers. */
   previewState?: string
+  menuData?: Dish[]
 }
 
 /**
@@ -63,7 +65,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -265,6 +267,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       outOfZone={outOfZone}
       monthlyWindow={monthlyWindow}
       previewState={previewState}
+      menuData={menuData}
     />
   )
 }

@@ -5,6 +5,7 @@ import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
 import type { Viewport } from 'next'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
+import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -72,13 +73,14 @@ export default async function DashboardPage({
     // monthlyWindow IS needed here for the post-cron strip + empty banner — the
     // React cache() wrapper makes the second call free since the layout fetched
     // it first. See project_now_tray_architecture memory.
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder] = await Promise.all([
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
         getQueuedSubscription(user.id),
         getMonthlyReviewWindow(user.id),
         getMostRecentOrder(user.id),
+        getMenuDishes(),
     ])
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are
@@ -96,6 +98,7 @@ export default async function DashboardPage({
                 userEmail={user.email}
                 monthlyWindow={monthlyWindow}
                 mostRecentOrder={mostRecentOrder}
+                menuData={menuDishes}
             />
         </Suspense>
     )

@@ -5,9 +5,9 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
 import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
-import { MENU_DATA, getMenuWeek } from "@/contexts/menu/domain/catalog-data";
+import { MENU_DATA, getMenuWeek, type Dish } from "@/contexts/menu/domain/catalog-data";
 
-export default function Menu() {
+export default function Menu({ menuData }: { menuData?: Dish[] }) {
   const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(() => {
@@ -17,7 +17,7 @@ export default function Menu() {
 
   const [selectedWeek, setSelectedWeek] = useState<string>(() => getMenuWeek(new Date()));
 
-  const availableDishes = MENU_DATA.filter(
+  const availableDishes = (menuData ?? MENU_DATA).filter(
     (dish) => dish.isVeg === isVegOnly && dish.week === selectedWeek
   );
 

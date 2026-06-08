@@ -15,7 +15,7 @@ import {
     type MonthlyReviewSubmitResult,
 } from '@/contexts/subscriptions/domain/monthly-review'
 import { getMonthlyRevealStats } from '@/utils/supabase/monthly-review-queries'
-import { MENU_DATA } from '@/contexts/menu/domain/catalog-data'
+import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
 
 /**
  * Service-role client for credit writes. Mirrors the weekly review action
@@ -161,6 +161,11 @@ export async function submitMonthlyReview(
                 `❌ monthly-review credit insert failed — customer=${user.id} sub=${sub.id} aed=${rewardAed}:`,
                 creditError,
             )
+            const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+            void notifyAdmin(
+                `Monthly review credit INSERT FAILED — customer ${user.id}, sub ${sub.id}, AED ${rewardAed}. ` +
+                `Review saved but credit missing. Manual credit needed.`,
+            )
         }
     }
 
@@ -168,7 +173,8 @@ export async function submitMonthlyReview(
 
     if (revealStats?.favoriteDish?.name) {
         const dishId = Number(revealStats.favoriteDish.name)
-        const dish = MENU_DATA.find(d => d.id === dishId)
+        const menuDishes = await getMenuDishes()
+        const dish = menuDishes.find(d => d.id === dishId)
         if (dish) {
             revealStats.favoriteDish = {
                 name: dish.name,

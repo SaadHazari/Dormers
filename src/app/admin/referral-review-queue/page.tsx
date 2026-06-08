@@ -1,34 +1,15 @@
-import { createClient as createAdmin } from '@supabase/supabase-js'
-import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import QueueClient, { type PendingReferralRow } from './QueueClient'
 
 export const metadata = { title: 'Referral review queue — Dormers admin' }
 export const dynamic = 'force-dynamic'
 
-/**
- * Admin queue for soft-flagged referrals.
- *
- * When a referral converts but the fraud heuristics surface a soft signal
- * (same device, suspicious pattern, etc.), the credit is parked as
- * 'pending' and a row is inserted into referral_review_queue. Until an
- * admin marks the row approved/rejected, the inviter sees that AED stuck
- * in their wallet's pending pool.
- *
- * Stale rows (>24h) escalate via WhatsApp to the admin number stored in
- * vault.decrypted_secrets — the message includes a deep link to this page
- * with the queue row highlighted via ?focus=<id>.
- */
 export default async function ReferralReviewQueuePage({
     searchParams,
 }: {
     searchParams?: Promise<{ focus?: string }>
 }) {
-    await requireAdmin()
-
-    const sb = createAdmin(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    const sb = createAdminSupabaseClient()
 
     const sp = (await searchParams) ?? {}
     const focusId = sp.focus ?? null

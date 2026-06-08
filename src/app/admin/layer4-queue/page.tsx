@@ -1,5 +1,4 @@
-import { createClient as createAdmin } from '@supabase/supabase-js'
-import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import QueueClient from './QueueClient'
 import type { Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
 
@@ -26,15 +25,7 @@ const SCREENSHOT_BUCKET = 'review-screenshots'
 const SIGNED_URL_TTL_SECONDS = 60 * 60 // 1 hour — fine for an admin browse session
 
 export default async function Layer4QueuePage() {
-  // Page-level admin gate. requireAdmin() redirects to /dashboard if the
-  // current user isn't in the ADMIN_EMAILS allowlist. Server actions
-  // re-check independently so direct POSTs are blocked too.
-  await requireAdmin()
-
-  const sb = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const sb = createAdminSupabaseClient()
 
   const { data: pendingRows } = await sb
     .from('layer4_rewards')
