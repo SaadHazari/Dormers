@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Truck, Pause, SkipForward, Leaf, Drumstick } from 'lucide-react'
+import { Truck, Pause, SkipForward, Leaf, Drumstick, Building2, UtensilsCrossed } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
 
@@ -52,20 +52,15 @@ function mealLabel(pref: string | null): string {
 }
 
 type StatusFilter = 'all' | 'Active' | 'Paused' | 'Skipped'
-type MealFilter = 'all' | 'veg' | 'nonveg'
+type GroupBy = 'dorm' | 'meal'
 
 export function DeliveriesClient({ subscriptions }: Props) {
     const { t } = useAdminTheme()
     const router = useRouter()
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-    const [mealFilter, setMealFilter] = useState<MealFilter>('all')
+    const [groupBy, setGroupBy] = useState<GroupBy>('dorm')
 
-    const afterStatus = statusFilter === 'all' ? subscriptions : subscriptions.filter(s => s.status === statusFilter)
-    const filtered = mealFilter === 'all'
-        ? afterStatus
-        : mealFilter === 'veg'
-            ? afterStatus.filter(s => isVeg(s.meal_preference))
-            : afterStatus.filter(s => !isVeg(s.meal_preference))
+    const filtered = statusFilter === 'all' ? subscriptions : subscriptions.filter(s => s.status === statusFilter)
 
     const activeCt = subscriptions.filter(s => s.status === 'Active').length
     const pausedCt = subscriptions.filter(s => s.status === 'Paused').length
@@ -73,15 +68,13 @@ export function DeliveriesClient({ subscriptions }: Props) {
     const vegCt = subscriptions.filter(s => isVeg(s.meal_preference)).length
     const nonvegCt = subscriptions.length - vegCt
 
-    // Group: Dorm → Meal Type → Subs
-    const byDorm = new Map<string, Sub[]>()
-    for (const s of filtered) {
-        const dorm = s.dorm_name || 'Unknown Dorm'
-        const list = byDorm.get(dorm) ?? []
-        list.push(s)
-        byDorm.set(dorm, list)
-    }
-    const dorms = Array.from(byDorm.entries()).sort((a, b) => b[1].length - a[1].length)
+    // Group based on the active view
+    const groups = groupBy === 'dorm'
+        ? groupByKey(filtered, s => s.dorm_name || 'Unknown Dorm')
+        : groupByKey(filtered, s => mealLabel(s.meal_preference))
+
+    // Sort: largest group first
+    const sortedGroups = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length)
 
     return (
         <div>
@@ -99,8 +92,24 @@ export function DeliveriesClient({ subscriptions }: Props) {
                 <SummaryCard label="Veg" value={vegCt} icon={<Leaf size={13} className="text-emerald-500" />} />
             </div>
 
-            {/* Filters row */}
-            <div className="flex flex-wrap gap-4 mb-4">
+            {/* Controls row: view switcher + status filter */}
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+                {/* View switcher (Notion-style) */}
+                <div className={`inline-flex rounded-lg border ${t.border} overflow-hidden`}>
+                    <ViewTab
+                        active={groupBy === 'dorm'}
+                        onClick={() => setGroupBy('dorm')}
+                        icon={<Building2 size={12} strokeWidth={2.2} />}
+                        label="By Dorm"
+                    />
+                    <ViewTab
+                        active={groupBy === 'meal'}
+                        onClick={() => setGroupBy('meal')}
+                        icon={<UtensilsCrossed size={12} strokeWidth={2.2} />}
+                        label="By Meal Type"
+                    />
+                </div>
+
                 {/* Status filter */}
                 <div className="flex gap-1.5 overflow-x-auto">
                     {([['all', 'All', subscriptions.length], ['Active', 'Active', activeCt], ['Paused', 'Paused', pausedCt], ['Skipped', 'Skipped', skippedCt]] as const).map(([key, label, count]) => (
@@ -116,100 +125,70 @@ export function DeliveriesClient({ subscriptions }: Props) {
                         </button>
                     ))}
                 </div>
-
-                {/* Meal type filter */}
-                <div className="flex gap-1.5">
-                    {([
-                        ['all', 'All Meals', subscriptions.length],
-                        ['nonveg', 'Non-Veg', nonvegCt],
-                        ['veg', 'Veg', vegCt],
-                    ] as const).map(([key, label, count]) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => setMealFilter(key)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase transition-colors border whitespace-nowrap ${
-                                mealFilter === key
-                                    ? key === 'veg' ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600'
-                                      : key === 'nonveg' ? `${t.accentBg} ${t.accent}`
-                                      : `${t.accentBg} ${t.accent}`
-                                    : `${t.card} ${t.muted}`
-                            }`}
-                        >
-                            {key === 'veg' && <Leaf size={10} strokeWidth={2.5} />}
-                            {key === 'nonveg' && <Drumstick size={10} strokeWidth={2.5} />}
-                            {label} <span className="tabular-nums">{count}</span>
-                        </button>
-                    ))}
-                </div>
             </div>
 
-            {/* Grouped by dorm, then by meal type within each dorm */}
-            {dorms.map(([dorm, subs]) => {
-                const dormNonVeg = subs.filter(s => !isVeg(s.meal_preference))
-                const dormVeg = subs.filter(s => isVeg(s.meal_preference))
-
-                return (
-                    <div key={dorm} className="mb-6">
-                        <div className="flex items-center gap-2 mb-3">
-                            <h2 className={`text-[14px] font-black ${t.heading}`}>{dorm}</h2>
-                            <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${t.accentBg} ${t.accent}`}>
-                                {subs.length}
-                            </span>
-                        </div>
-
-                        {/* Non-Veg section */}
-                        {dormNonVeg.length > 0 && (
-                            <MealTypeSection
-                                label="Non-Veg"
-                                icon={<Drumstick size={12} strokeWidth={2.2} />}
-                                color="text-[#f57f20]"
-                                bgColor="bg-[#f57f20]/[0.08]"
-                                subs={dormNonVeg}
-                                onRowClick={(s) => router.push(`/admin/customers/${s.customer_id}`)}
-                            />
-                        )}
-
-                        {/* Veg section */}
-                        {dormVeg.length > 0 && (
-                            <MealTypeSection
-                                label="Veg"
-                                icon={<Leaf size={12} strokeWidth={2.2} />}
-                                color="text-emerald-500"
-                                bgColor="bg-emerald-500/[0.08]"
-                                subs={dormVeg}
-                                onRowClick={(s) => router.push(`/admin/customers/${s.customer_id}`)}
-                            />
-                        )}
-                    </div>
-                )
-            })}
+            {/* Grouped sections */}
+            {sortedGroups.map(([groupName, subs]) => (
+                <GroupSection
+                    key={groupName}
+                    name={groupName}
+                    subs={subs}
+                    groupBy={groupBy}
+                    onRowClick={(s) => router.push(`/admin/customers/${s.customer_id}`)}
+                />
+            ))}
 
             {filtered.length === 0 && (
-                <div className={`text-center py-12 text-sm font-semibold ${t.faint}`}>No subscriptions match these filters</div>
+                <div className={`text-center py-12 text-sm font-semibold ${t.faint}`}>No subscriptions match this filter</div>
             )}
         </div>
     )
 }
 
-function MealTypeSection({ label, icon, color, bgColor, subs, onRowClick }: {
-    label: string
-    icon: React.ReactNode
-    color: string
-    bgColor: string
-    subs: Sub[]
-    onRowClick: (s: Sub) => void
+function ViewTab({ active, onClick, icon, label }: {
+    active: boolean; onClick: () => void; icon: React.ReactNode; label: string
+}) {
+    const { t } = useAdminTheme()
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold tracking-[0.04em] uppercase transition-colors ${
+                active ? `${t.accentBg} ${t.accent}` : `${t.muted} hover:${t.body}`
+            }`}
+        >
+            {icon} {label}
+        </button>
+    )
+}
+
+function GroupSection({ name, subs, groupBy, onRowClick }: {
+    name: string; subs: Sub[]; groupBy: GroupBy; onRowClick: (s: Sub) => void
 }) {
     const { t } = useAdminTheme()
 
+    const isVegGroup = name === 'Veg'
+    const isMealView = groupBy === 'meal'
+    const iconColor = isMealView
+        ? isVegGroup ? 'text-emerald-500' : 'text-[#f57f20]'
+        : t.heading
+    const icon = isMealView
+        ? isVegGroup ? <Leaf size={14} strokeWidth={2.2} /> : <Drumstick size={14} strokeWidth={2.2} />
+        : <Building2 size={14} strokeWidth={2.2} />
+    const badgeBg = isMealView
+        ? isVegGroup ? 'bg-emerald-500/[0.08] text-emerald-500' : 'bg-[#f57f20]/[0.08] text-[#f57f20]'
+        : `${t.accentBg} ${t.accent}`
+
+    // Secondary grouping label in each row depends on the view
+    const secondaryLabel = isMealView ? 'Dorm' : 'Preference'
+    const secondaryValue = (s: Sub) => isMealView ? (s.dorm_name || '—') : mealLabel(s.meal_preference)
+
     return (
-        <div className="mb-3">
-            <div className={`flex items-center gap-1.5 mb-1.5 ${color}`}>
+        <div className="mb-6">
+            <div className={`flex items-center gap-2 mb-2 ${iconColor}`}>
                 {icon}
-                <span className="text-[11px] font-black tracking-[0.10em] uppercase">
-                    {label}
-                </span>
-                <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${bgColor} ${color}`}>
+                <h2 className="text-[14px] font-black">{name}</h2>
+                <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${badgeBg}`}>
                     {subs.length}
                 </span>
             </div>
@@ -221,7 +200,7 @@ function MealTypeSection({ label, icon, color, bgColor, subs, onRowClick }: {
                         <tr className={t.tableHeader}>
                             <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Customer</th>
                             <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Plan</th>
-                            <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Preference</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">{secondaryLabel}</th>
                             <th className="text-center px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Status</th>
                             <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Progress</th>
                             <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">End Date</th>
@@ -244,7 +223,7 @@ function MealTypeSection({ label, icon, color, bgColor, subs, onRowClick }: {
                                     {s.plan_name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                     <div className={`text-[10px] ${t.faint}`}>{s.week_type} · {s.meals_per_day}/day</div>
                                 </td>
-                                <td className={`px-3 py-2 ${t.body}`}>{mealLabel(s.meal_preference)}</td>
+                                <td className={`px-3 py-2 ${t.body}`}>{secondaryValue(s)}</td>
                                 <td className="px-3 py-2 text-center">
                                     <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
                                         {STATUS_ICON[s.status]} {s.status}
@@ -277,7 +256,7 @@ function MealTypeSection({ label, icon, color, bgColor, subs, onRowClick }: {
                             </AdminBadge>
                         </div>
                         <div className={`text-[11px] ${t.muted}`}>
-                            {s.plan_name.replace(/-/g, ' ')} · {mealLabel(s.meal_preference)} · {s.delivered_meals}/{s.total_meals} meals
+                            {s.plan_name.replace(/-/g, ' ')} · {secondaryValue(s)} · {s.delivered_meals}/{s.total_meals} meals
                         </div>
                     </div>
                 ))}
@@ -297,4 +276,15 @@ function SummaryCard({ label, value, accent, icon }: { label: string; value: num
             <div className={`text-[18px] font-black tabular-nums ${accent ? t.accent : t.heading}`}>{value}</div>
         </div>
     )
+}
+
+function groupByKey(subs: Sub[], keyFn: (s: Sub) => string): Map<string, Sub[]> {
+    const map = new Map<string, Sub[]>()
+    for (const s of subs) {
+        const key = keyFn(s)
+        const list = map.get(key) ?? []
+        list.push(s)
+        map.set(key, list)
+    }
+    return map
 }
