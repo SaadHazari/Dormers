@@ -11,13 +11,16 @@ export const config = {
     // narrow on purpose.
     //   /dashboard/:path*  → redirect to /login if not authed
     //   /admin/:path*      → session needed so requireAdmin() can read x-user-email
+    //   /api/admin/:path*  → same: admin API routes read x-user-email and 401
+    //                        on their own (they still re-check the allowlist)
     //   /login             → redirect authed users to /dashboard (or ?next)
     //   /onboarding        → same redirect-when-authed treatment
-    // Public pages, API routes (which do their own auth), the Supabase auth
-    // callback, and static assets are intentionally excluded.
+    // Public pages, other API routes (which do their own auth), the Supabase
+    // auth callback, and static assets are intentionally excluded.
     matcher: [
         '/dashboard/:path*',
         '/admin/:path*',
+        '/api/admin/:path*',
         '/login',
         '/onboarding',
     ],

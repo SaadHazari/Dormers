@@ -3,6 +3,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // pdfkit (label PDF engine) reads its glyph/unicode data files via fs at
+  // runtime — bundling it breaks those reads. Externalizing keeps it as a
+  // plain node_modules require; Netlify's file tracing ships its data files.
+  serverExternalPackages: ['pdfkit'],
   // No remote image hosts whitelisted — every image in the codebase is a
   // local /public asset or static import. Adding a remote source must come
   // with an explicit hostname allowlist here. Security: prevents an
