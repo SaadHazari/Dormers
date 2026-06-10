@@ -10,6 +10,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendStartDayEmail } from '@/infra/zeptomail/client'
+import { timingSafeCompare } from '@/shared/crypto'
+import { notifyAdmin } from '@/infra/admin-alerts/notify'
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
   }
   const authHeader = req.headers.get('authorization') ?? ''
   const presented = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (presented !== expected) {
+  if (!presented || !timingSafeCompare(presented, expected)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
@@ -64,11 +66,22 @@ export async function POST(req: Request) {
   const firstName =
     (customer.name ?? '').trim().split(/\s+/)[0] || 'there'
 
-  await sendStartDayEmail({
-    toEmail: customer.email,
-    firstName,
-    dormName: customer.dorm_name,
-  })
+  try {
+    await sendStartDayEmail({
+      toEmail: customer.email,
+      firstName,
+      dormName: customer.dorm_name,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('❌ start-day email failed:', msg)
+    void notifyAdmin(
+      `Start-day email FAILED for subscription ${subId} (${customer.email}). ` +
+      `Customer won't receive their "Today's the day" welcome. Error: ${msg}`,
+      subId.slice(0, 18),
+    )
+    return NextResponse.json({ error: 'email_send_failed', subscription_id: subId }, { status: 502 })
+  }
 
   const { error: markErr } = await supabase
     .from('subscriptions')

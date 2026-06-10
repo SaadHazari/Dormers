@@ -12,6 +12,8 @@ import { constructWebhookEvent } from '@/infra/stripe/client'
 import { handleStripeEvent } from '@/contexts/payments/usecases/handle-stripe-event'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   // We need the parsed event id in the outer catch for the admin alert
   // payload (e.g. "checkout.session.completed evt_xxx threw"). Declared

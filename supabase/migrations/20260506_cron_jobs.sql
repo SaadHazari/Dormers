@@ -7,6 +7,8 @@
 --   Cron A — subscription_status_tick   00:05 Asia/Dubai (20:05 UTC)
 --     • Skipped   → Active   (auto-revert so today's delivery proceeds)
 --     • Scheduled → Active   (on start_date)
+--     • Active    → Skipped  (pre-registered future skip in skipped_dates)
+--     • Active|Skipped → Paused (planned_pause_start = today)
 --     • Active|Paused with delivered_meals >= total_meals AND end_date < today
 --                  → Ended   (consumption + calendar both consumed)
 --
@@ -51,24 +53,44 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Skipped → Active (auto-revert at the start of every day)
+  -- 1. Revert yesterday's Skipped → Active.
   UPDATE public.subscriptions
   SET status = 'Active'
   WHERE status = 'Skipped';
 
-  -- Scheduled → Active when start_date arrives
+  -- 2. Promote subs whose start_date has arrived: Scheduled → Active.
   UPDATE public.subscriptions
   SET status = 'Active'
-  WHERE status = 'Scheduled' AND start_date <= CURRENT_DATE;
+  WHERE status = 'Scheduled' AND start_date <= public.ae_today();
 
-  -- Active|Paused → Ended only when BOTH the calendar AND consumption are done.
-  -- Pure end_date < today is not enough — a sub that's had its end_date pushed
-  -- out by a skip should still get its final meal.
+  -- 3. Promote pre-registered future skips: Active → Skipped when today
+  --    is in skipped_dates.
+  UPDATE public.subscriptions
+  SET status = 'Skipped'
+  WHERE status = 'Active'
+    AND public.ae_today() = ANY(skipped_dates);
+
+  -- 4. Activate planned pauses. When today AE matches planned_pause_start
+  --    and the sub is Active or Skipped, flip to Paused. Skipped→Paused is
+  --    allowed because Paused takes precedence operationally. pause_date
+  --    is stamped so paused_days starts incrementing via pause_tick;
+  --    resume_cutoff_date is set so a same-day resume gets the cutoff-aware
+  --    messaging rather than the bare same-day lock; planned_pause_start
+  --    is cleared since it's served its purpose.
+  UPDATE public.subscriptions
+  SET status = 'Paused',
+      pause_date = NOW(),
+      resume_cutoff_date = public.ae_today(),
+      planned_pause_start = NULL
+  WHERE status IN ('Active', 'Skipped')
+    AND planned_pause_start = public.ae_today();
+
+  -- 5. End completed cycles.
   UPDATE public.subscriptions
   SET status = 'Ended'
   WHERE status IN ('Active', 'Paused')
     AND delivered_meals >= total_meals
-    AND end_date < CURRENT_DATE;
+    AND end_date < public.ae_today();
 END;
 $$;
 
@@ -77,17 +99,36 @@ CREATE OR REPLACE FUNCTION public.subscription_delivery_tick()
 RETURNS void
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  cogs_today numeric;
 BEGIN
-  -- Increment delivered_meals for every Active sub on a delivery day.
-  -- LEAST() guards against drift if a subscription somehow has more delivered
-  -- than total (data corruption / manual fixes).
-  UPDATE public.subscriptions
-  SET delivered_meals = LEAST(
-        total_meals,
-        COALESCE(delivered_meals, 0) + COALESCE(meals_per_day, 1)
-      )
-  WHERE status = 'Active'
-    AND public.is_delivery_day(CURRENT_DATE, week_type);
+  cogs_today := public.current_cogs_aed_per_meal();
+
+  WITH delivered_today AS (
+    UPDATE public.subscriptions s
+       SET delivered_meals = LEAST(
+             s.total_meals,
+             COALESCE(s.delivered_meals, 0) + COALESCE(s.meals_per_day, 1)
+           ),
+           last_delivery_tick_date = CURRENT_DATE
+     WHERE s.status = 'Active'
+       AND COALESCE(s.delivered_meals, 0) < s.total_meals
+       AND public.is_delivery_day(CURRENT_DATE, s.week_type)
+       AND (s.resume_cutoff_date IS NULL OR s.resume_cutoff_date::date < CURRENT_DATE)
+       AND (s.last_delivery_tick_date IS NULL OR s.last_delivery_tick_date < CURRENT_DATE)
+    RETURNING s.id AS subscription_id, s.customer_id, s.plan_name
+  )
+  INSERT INTO public.comped_meal_ledger (
+    subscription_id, customer_id, plan_name, cogs_aed, expense_category, delivered_at
+  )
+  SELECT d.subscription_id,
+         d.customer_id,
+         d.plan_name,
+         cogs_today,
+         public.expense_category_for_plan(d.plan_name),
+         now()
+    FROM delivered_today d
+   WHERE public.expense_category_for_plan(d.plan_name) IS NOT NULL;
 END;
 $$;
 
@@ -97,11 +138,18 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- For every Paused sub, +1 paused_days. The end_date trigger fires
-  -- automatically and pushes end_date out by one calendar day.
   UPDATE public.subscriptions
-  SET paused_days = COALESCE(paused_days, 0) + 1
-  WHERE status = 'Paused';
+  SET
+    paused_days  = COALESCE(paused_days, 0) + 1,
+    paused_dates = CASE
+      WHEN CURRENT_DATE::text = ANY(COALESCE(paused_dates, '{}'::text[]))
+        THEN paused_dates
+      ELSE array_append(COALESCE(paused_dates, '{}'::text[]), CURRENT_DATE::text)
+    END,
+    last_pause_tick_date = CURRENT_DATE
+  WHERE status = 'Paused'
+    AND public.is_delivery_day(CURRENT_DATE, week_type)
+    AND (last_pause_tick_date IS NULL OR last_pause_tick_date < CURRENT_DATE);
 END;
 $$;
 

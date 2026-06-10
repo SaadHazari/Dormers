@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
+import { timingSafeCompare } from '@/shared/crypto'
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   }
   const authHeader = req.headers.get('authorization') ?? ''
   const presented = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (presented !== expected) {
+  if (!presented || !timingSafeCompare(presented, expected)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

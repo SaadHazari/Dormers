@@ -58,7 +58,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<HandleResu
     return handleDisputeCreated(event, supabaseAdmin)
   }
   if (event.type === 'checkout.session.expired') {
-    return handleCheckoutExpired(event)
+    return handleCheckoutExpired(event, supabaseAdmin)
   }
   // Unknown event type — acknowledge so Stripe doesn't retry.
   return { ok: true }
@@ -481,7 +481,12 @@ async function handleCheckoutCompleted(
         .eq('id', splitToProcess.id)
         .eq('status', flipFromStatus)
       if (splitFlipErr) {
-        console.error('⚠️  split credit flip failed (non-fatal):', splitFlipErr)
+        console.error('⚠️  split credit flip failed:', splitFlipErr)
+        void notifyAdmin(
+          `Split credit FLIP failed for order ${orderId} (row ${splitToProcess.id}). ` +
+          `Credit may be stuck in '${flipFromStatus}' status — manual reconcile needed.`,
+          orderId,
+        )
       } else if (remainderFils > 0) {
         const { error: insertErr } = await supabaseAdmin.from('credits').insert({
           customer_id: user_id,
@@ -491,8 +496,13 @@ async function handleCheckoutCompleted(
         })
         if (insertErr) {
           console.error(
-            '⚠️  split remainder insert failed — user may have lost credit:',
+            '❌ split remainder insert failed — user lost credit:',
             insertErr,
+          )
+          void notifyAdmin(
+            `Split credit REMAINDER insert failed for order ${orderId}. ` +
+            `Customer lost ${remainderFils} fils of unused credit. Manual credit needed.`,
+            orderId,
           )
         } else {
           console.log(
@@ -577,9 +587,12 @@ async function handleCheckoutCompleted(
       .eq('id', user_id)
 
     if (customerError) {
-      // Don't fail the webhook — subscription + order are already saved.
-      // Log for reconciliation between `customers` and `subscriptions`.
       console.error('⚠️  Customer profile update failed:', customerError)
+      void notifyAdmin(
+        `Customer profile patch FAILED for user ${user_id} after checkout (order ${orderId}). ` +
+        `Subscription is Active but preference/allergens may be stale — kitchen could deliver wrong meals.`,
+        orderId,
+      )
     }
   }
 
@@ -688,7 +701,13 @@ async function handleCheckoutCompleted(
         { skipChannels: ['zoho'] },
       )
     } catch (err) {
-      console.error('⚠️  post-payment fan-out wrapper threw:', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('❌ post-payment fan-out wrapper threw:', err)
+      void notifyAdmin(
+        `Post-payment fanout CRASHED for order ${orderId} (user ${user_id}). ` +
+        `Customer paid but received no WhatsApp/email confirmation. Error: ${msg}`,
+        orderId,
+      )
     }
 
     // Schedule the Zoho receipt for T+2min. The dispatch_zoho_due cron
@@ -700,7 +719,12 @@ async function handleCheckoutCompleted(
       })
       .eq('id', orderId)
     if (schedErr) {
-      console.error('⚠️  failed to set zoho_scheduled_for:', schedErr)
+      console.error('❌ failed to set zoho_scheduled_for:', schedErr)
+      void notifyAdmin(
+        `Failed to stamp zoho_scheduled_for on order ${orderId}. ` +
+        `Zoho cron will never pick up this order — no FTA invoice will be generated. Manual dispatch needed.`,
+        orderId,
+      )
     }
   } else {
     console.warn(
@@ -790,6 +814,11 @@ async function handleChargeRefunded(
       .eq('status', 'applied')
     if (restoreErr) {
       console.error(`❌ refund credit restore failed for order ${orderRow.id}:`, restoreErr)
+      void notifyAdmin(
+        `Refund credit RESTORE failed for order ${orderRow.id}. ` +
+        `Full refund issued but credits couldn't be flipped back to 'approved'. Customer lost their wallet balance.`,
+        orderRow.id.toString().slice(0, 18),
+      )
     } else {
       restoredCount = count ?? 0
       console.log(`↩️  Full refund — restored ${restoredCount} credit row(s) for order ${orderRow.id}`)
@@ -806,6 +835,19 @@ async function handleChargeRefunded(
     .from('orders')
     .update({ invoice_status: isFullRefund ? 'Refunded' : 'Partially Refunded' })
     .eq('id', orderRow.id)
+
+  // On full refund, alert ops that the subscription needs manual review.
+  // We don't auto-end here because some full refunds are operational
+  // goodwill (re-issue + refund) where the sub should keep running.
+  if (isFullRefund) {
+    void notifyAdmin(
+      `Full REFUND on order ${orderRow.id} (customer ${orderRow.customer_id}). ` +
+      `Credits restored (${restoredCount} rows). ⚠️ Subscription is still Active — ` +
+      `end it manually if the customer is leaving, or leave it if this is a re-issue.`,
+      orderRow.id.toString().slice(0, 18),
+    )
+  }
+
   Sentry.metrics.count('payment.refund_handled', 1)
   return { ok: true, refundHandled: true, restored: restoredCount }
 }
@@ -847,25 +889,37 @@ async function handleDisputeCreated(
   const amountAed = dispute.amount ? (dispute.amount / 100).toFixed(2) : '0.00'
 
   let orderId: string | null = null
+  let customerId: string | null = null
   if (chargeId) {
     const { data: charge } = await supabaseAdmin
       .from('orders')
-      .select('id, customer_id')
+      .select('id, customer_id, subscription_id')
       .eq('stripe_payment_id', chargeId)
       .maybeSingle()
     if (charge?.id) {
       orderId = charge.id as string
+      customerId = charge.customer_id as string | null
       await supabaseAdmin
         .from('orders')
         .update({ invoice_status: 'Disputed' })
         .eq('id', orderId)
+      // Pause the subscription while the dispute is open so the customer
+      // doesn't keep receiving meals on a charge they're contesting.
+      if (charge.subscription_id) {
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({ status: 'Paused', pause_date: new Date().toISOString() })
+          .eq('id', charge.subscription_id)
+          .in('status', ['Active', 'Skipped', 'Scheduled'])
+      }
     }
   }
 
   void notifyAdmin(
-    `DISPUTE filed on charge ${chargeId ?? 'unknown'}${orderId ? ` (order ${orderId})` : ''}. ` +
+    `DISPUTE filed on charge ${chargeId ?? 'unknown'}${orderId ? ` (order ${orderId})` : ''}` +
+    `${customerId ? ` customer ${customerId}` : ''}. ` +
     `Amount AED ${amountAed}, reason: ${reason}. ` +
-    `Respond inside Stripe's evidence window — order marked Disputed.`,
+    `Subscription auto-paused. Respond inside Stripe's evidence window.`,
     orderId ?? chargeId?.slice(0, 18) ?? 'unknown',
   )
   Sentry.metrics.count('payment.dispute_created', 1)
@@ -878,13 +932,30 @@ async function handleDisputeCreated(
 // expired it. No money moved, no order, no customer-visible side effect
 // — but it's the cleanest abandoned-checkout signal we have. Log only
 // for now; analytics can join on this later if we want recovery emails.
-function handleCheckoutExpired(event: Stripe.Event): HandleResult {
+async function handleCheckoutExpired(
+  event: Stripe.Event,
+  supabaseAdmin: SupabaseClient,
+): Promise<HandleResult> {
   const session = event.data.object as Stripe.Checkout.Session
   const email = session.customer_details?.email ?? session.metadata?.email ?? 'unknown'
   const amountAed = session.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00'
   console.log(
     `⏳ checkout.session.expired ${session.id} — ${email} abandoned AED ${amountAed}`,
   )
+  const reservationToken = session.metadata?.reservation_token
+  if (reservationToken) {
+    const { count } = await supabaseAdmin
+      .from('credits')
+      .update(
+        { status: 'approved', reserved_token: null, reserved_until: null },
+        { count: 'exact' },
+      )
+      .eq('reserved_token', reservationToken)
+      .eq('status', 'reserved')
+    if ((count ?? 0) > 0) {
+      console.log(`↩️  Released ${count} reserved credit(s) for expired session ${session.id}`)
+    }
+  }
   Sentry.metrics.count('payment.session_expired', 1)
   return { ok: true }
 }

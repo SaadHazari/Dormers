@@ -56,8 +56,8 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     creditAppliedFils, appliedCreditIdsFull, splitCredit,
   } = input
 
-  const planDef = resolvePlan(planString) ?? resolvePlan('Trial')
-  if (!planDef) throw new Error('free-checkout: cannot resolve plan')
+  const planDef = resolvePlan(planString)
+  if (!planDef) throw new Error(`free-checkout: cannot resolve plan '${planString}'`)
 
   // ── Customer snapshot + week_type resolution (matches webhook) ─────────
   type CustomerRow = {
@@ -208,13 +208,16 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
       .in('id', appliedCreditIdsFull)
       .eq('status', 'reserved')
     if (flipErr) {
-      console.error('⚠️  free-checkout credit flip failed (non-fatal):', flipErr)
+      console.error('❌ free-checkout credit flip failed — rolling back:', flipErr)
+      await supabaseAdmin.from('subscriptions').delete().eq('id', subData.id)
+      await supabaseAdmin.from('orders').delete().eq('id', orderId)
       void notifyAdmin(
-        `Free-checkout credit flip FAILED for order ${orderId} (user ${userId}). ` +
+        `Free-checkout credit flip FAILED for user ${userId}. ` +
         `Wanted ${appliedCreditIdsFull.length} row(s); Supabase error: ${flipErr.message}. ` +
-        `Customer kept the credit they redeemed AND got their plan — manual reconcile needed.`,
-        orderId,
+        `Subscription + order rolled back. Customer should retry.`,
+        userId.slice(0, 18),
       )
+      throw new Error(`free-checkout: credit flip failed — rolled back sub+order: ${flipErr.message}`)
     } else if ((flippedCount ?? 0) < appliedCreditIdsFull.length) {
       void notifyAdmin(
         `Free-checkout credit MISMATCH for order ${orderId}. ` +

@@ -560,7 +560,12 @@ export async function claimGift(payload: {
     .single()
 
   if (refErr || !referralRow) {
-    console.error('claimGift: referral insert failed', refErr)
+    console.error('❌ claimGift: referral insert failed', refErr)
+    const { notifyAdmin: alertAdmin } = await import('@/infra/admin-alerts/notify')
+    void alertAdmin(
+      `Referral INSERT FAILED for inviter ${inviterCid} → phone ${phoneE164}. ` +
+      `Prospective customer was blocked from claiming their welcome meal. Error: ${refErr?.message ?? 'no row returned'}`,
+    )
     return { error: 'Something went wrong. Please try again.' }
   }
 
@@ -631,11 +636,8 @@ export async function claimGift(payload: {
     }, { onConflict: 'id', ignoreDuplicates: false })
 
   if (customerErr) {
-    // Don't fail the claim — the gift_claimed row + referral row are already
-    // written, so the trial meal flow can still complete via ops. Log for
-    // reconciliation: a customers-row insert failure here means the user
-    // won't have a dashboard until ops creates the row manually.
-    console.error(`⚠️  customers row insert failed for trial user ${verifiedUser.id}:`, customerErr)
+    console.error(`❌ customers row insert failed for trial user ${verifiedUser.id}:`, customerErr)
+    return { error: 'Profile setup failed. Please try again or message us on WhatsApp.' }
   } else {
     // Close the referral linkup loop now (no need to wait for the webhook's
     // phone-match scan): set invitee_user_id on the referral row directly.
@@ -704,11 +706,12 @@ export async function claimGift(payload: {
       })
 
     if (subErr) {
-      // Non-fatal: the gift_claimed referral + customer row are already
-      // written. Ops can backfill via admin tool. Log for reconciliation —
-      // a missing subscription means kitchen won't see this customer's
-      // welcome meal in tomorrow's delivery list.
-      console.error(`⚠️  welcome meal subscription insert failed for ${verifiedUser.id}:`, subErr)
+      console.error(`❌ welcome meal subscription insert failed for ${verifiedUser.id}:`, subErr)
+      const { notifyAdmin: alertAdmin } = await import('@/infra/admin-alerts/notify')
+      void alertAdmin(
+        `Welcome meal subscription INSERT FAILED for trial user ${verifiedUser.id}. ` +
+        `Customer claimed the gift but no sub exists — kitchen won't prepare their meal. Manual backfill needed.`,
+      )
     } else {
       // Queue the welcome WhatsApp now that the sub is live. Distinct kind
       // (not payment_order_confirmed) so the voice is right — no "Successful
@@ -753,11 +756,18 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
 
   if (!referral) return  // no referral, or already converted
 
-  // Mark converted.
-  await supabaseAdmin
+  // Mark converted. CAS guard on status='gift_claimed' prevents a concurrent
+  // webhook retry from double-converting the same referral and awarding
+  // duplicate Layer 1 credit.
+  const { count: flipped } = await supabaseAdmin
     .from('referrals')
-    .update({ status: 'converted', converted_at: new Date().toISOString() })
+    .update(
+      { status: 'converted', converted_at: new Date().toISOString() },
+      { count: 'exact' },
+    )
     .eq('id', referral.id)
+    .eq('status', 'gift_claimed')
+  if ((flipped ?? 0) === 0) return
 
   if (!referral.inviter_user_id) return
 
@@ -810,7 +820,7 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
   const doublerActive = await isDoublerActive(supabaseAdmin, referral.inviter_user_id)
   const { value: cashAmount, source: cashSource } = applyDoubler(baseCash, 'referral_conversion', doublerActive)
 
-  await supabaseAdmin
+  const { error: creditErr } = await supabaseAdmin
     .from('credits')
     .insert({
       customer_id: referral.inviter_user_id,
@@ -819,6 +829,15 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
       referral_id: referral.id,
       status:      creditStatus,
     })
+  if (creditErr) {
+    console.error(`❌ Layer 1 credit insert failed for inviter ${referral.inviter_cid}:`, creditErr)
+    const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+    void notifyAdmin(
+      `Referral Layer 1 credit INSERT FAILED for inviter ${referral.inviter_cid} (referral ${referral.id}). ` +
+      `AED ${cashAmount} lost. Referral already marked converted — manual credit needed. Error: ${creditErr.message}`,
+      referral.id.slice(0, 18),
+    )
+  }
 
   console.log(`✅ Credit AED ${cashAmount} → inviter ${referral.inviter_cid} (status: ${creditStatus}${doublerActive ? ', 2x doubler' : ''})`)
 

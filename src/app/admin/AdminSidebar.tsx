@@ -6,9 +6,9 @@ import {
     LayoutDashboard, Truck, Activity,
     Users, CreditCard, Coins,
     Share2, Swords,
-    UtensilsCrossed, DollarSign,
+    UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
-    Search, X,
+    Search, X, Tag,
 } from 'lucide-react'
 import { useAdminTheme } from './_components/AdminThemeProvider'
 import { AdminBadgeCount } from './_components/AdminBadge'
@@ -30,6 +30,7 @@ const NAV_GROUPS = [
         items: [
             { label: 'Overview',        href: '/admin',            icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Delivery Queue',  href: '/admin/deliveries', icon: <Truck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Labels',          href: '/admin/labels',     icon: <Tag size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Cron Health',     href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
@@ -57,6 +58,7 @@ const NAV_GROUPS = [
         label: 'Content',
         items: [
             { label: 'Menu CMS',         href: '/admin/menu',     icon: <UtensilsCrossed size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'QR Codes',         href: '/admin/qr-codes', icon: <QrCode size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Pricing',           href: '/admin/pricing',  icon: <DollarSign size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },

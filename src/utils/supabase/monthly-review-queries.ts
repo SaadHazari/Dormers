@@ -28,11 +28,7 @@ import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
  * positive when post-end. UI uses the sign to switch the chip vocabulary
  * between "Nd to end" and "Nd left for full reward" / "Nd late".
  *
- * `USE_DEMO` short-circuit available for previewing the takeover UI before
- * the user has any real eligible subscription.
  */
-
-const USE_DEMO = false
 
 function aeToday(): Date {
     const now = new Date()
@@ -158,14 +154,6 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
 }
 
 export const getMonthlyReviewWindow = cache(async (userId: string): Promise<MonthlyReviewWindow> => {
-    if (USE_DEMO) {
-        return {
-            eligible: true, submitted: false,
-            daysLeftForFullReward: 5, daysSinceCycleEnd: 2,
-            expired: false, preCron: false, cycleLabel: 'April cycle',
-            planTier: 'monthly',
-        }
-    }
     return computeMonthlyReviewWindow(userId)
 })
 

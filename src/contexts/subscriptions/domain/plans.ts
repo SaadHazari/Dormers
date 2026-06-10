@@ -243,3 +243,15 @@ const VEG_PRICE_PER_MEAL: Record<PlanId, number> = {
 export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
   return Math.round(VEG_PRICE_PER_MEAL[id] * totalMealsFor(id, weekType) * 100)
 }
+
+const NONVEG_PRICE_PER_MEAL: Record<PlanId, number> = {
+  'monthly-max': 21.5,
+  'monthly-premium': 22,
+  'weekly-flex': 23,
+  'trial': 25,
+  'welcome-gift': 0,
+}
+
+export function maxPriceFilsFor(id: PlanId, weekType: WeekType): number {
+  return Math.round(NONVEG_PRICE_PER_MEAL[id] * totalMealsFor(id, weekType) * 100)
+}

@@ -69,7 +69,14 @@
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
 import { SUPPORT_EMAIL } from '@/shared/contacts';
 
-const REGION = process.env.ZEPTOMAIL_REGION ?? 'com';
+const VALID_ZEPTO_REGIONS = new Set(['com', 'eu', 'in', 'com.au', 'com.cn', 'sa'])
+const REGION = (() => {
+  const r = process.env.ZEPTOMAIL_REGION ?? 'com'
+  if (!VALID_ZEPTO_REGIONS.has(r)) {
+    throw new Error(`Invalid ZEPTOMAIL_REGION '${r}'. Must be one of: ${[...VALID_ZEPTO_REGIONS].join(', ')}`)
+  }
+  return r
+})()
 const API_URL = `https://api.zeptomail.${REGION}/v1.1/email/template`;
 // Raw (non-template) send endpoint — used for internal ops alerts where the
 // body is generated in code rather than from a ZeptoMail template.

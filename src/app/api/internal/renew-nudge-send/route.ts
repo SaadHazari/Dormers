@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cycleSavings, type SubscriptionForSavings, type CustomerForSavings } from '@/contexts/subscriptions/domain/savings'
 import { runRenewNudgeForCustomer } from '@/contexts/notifications/usecases/renew-nudge-fanout'
+import { timingSafeCompare } from '@/shared/crypto'
 
 const RENEW_LINK = 'https://dormers.ae/dashboard/plan?renew=1'
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   }
   const authHeader = req.headers.get('authorization') ?? ''
   const presented = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (presented !== expected) {
+  if (!presented || !timingSafeCompare(presented, expected)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

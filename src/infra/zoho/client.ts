@@ -173,6 +173,12 @@ export async function zohoFetch<T = unknown>(
     cachedToken = null;
     res = await doRequest(await getAccessToken());
   }
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('retry-after') || '5')
+    const delayMs = Math.min(retryAfter * 1000, 30_000)
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+    res = await doRequest(await getAccessToken());
+  }
 
   const text = await res.text();
   let json: unknown = {};

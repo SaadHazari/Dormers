@@ -18,11 +18,12 @@ import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subs
 
 export const getCustomer = cache(async (userId: string) => {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('customers')
     .select('*')
     .eq('id', userId)
     .maybeSingle()
+  if (error) console.error('getCustomer failed:', error.message)
   return data
 })
 
@@ -38,7 +39,7 @@ export const getCustomer = cache(async (userId: string) => {
  */
 export const getActiveSubscription = cache(async (userId: string) => {
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('subscriptions')
     .select('*')
     .eq('customer_id', userId)
@@ -46,6 +47,7 @@ export const getActiveSubscription = cache(async (userId: string) => {
     .order('start_date', { ascending: true })
     .limit(1)
     .maybeSingle()
+  if (error) console.error('getActiveSubscription failed:', error.message)
   return data
 })
 

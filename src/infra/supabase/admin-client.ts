@@ -15,11 +15,20 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout'
+
+const SUPABASE_TIMEOUT_MS = 15_000
 
 export function createAdminSupabaseClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, init) =>
+          fetchWithTimeout(url as string, init as RequestInit, { timeoutMs: SUPABASE_TIMEOUT_MS }),
+      },
+    },
   )
 }

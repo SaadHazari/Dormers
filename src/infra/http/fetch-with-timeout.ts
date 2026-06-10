@@ -46,7 +46,10 @@ export async function fetchWithTimeout(
   try {
     return await fetch(url, { ...init, signal: controller.signal })
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (
+      (err instanceof DOMException && err.name === 'AbortError') ||
+      (err instanceof Error && err.name === 'AbortError')
+    ) {
       throw new FetchTimeoutError(String(url), options.timeoutMs)
     }
     throw err

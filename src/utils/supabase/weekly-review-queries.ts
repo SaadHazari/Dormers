@@ -24,32 +24,7 @@ import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
  * `next/headers` via the Supabase server client — keeping it separate
  * means the client-facing lib stays import-safe from React components.
  *
- * Flip `USE_DEMO` to bypass the query and return a hardcoded state —
- * useful for previewing UI variants without seeded data.
  */
-
-const USE_DEMO = false
-const DEMO_STATE: WeeklyReviewState = EMPTY_REVIEW_STATE
-
-// Single pending, within 7-day window:
-// const DEMO_STATE: WeeklyReviewState = {
-//     current: { week: 4, range: 'Dec 16 — Dec 22', daysLeft: 5 },
-//     late: [],
-//     justSubmitted: null,
-//     rewards: { submitted: 3, total: 4, aedEarned: 18, aedPending: 6, cycle: 'Dec cycle', label: 'Rewards' },
-// }
-
-// Multiple pending + catch-up backlog:
-// const DEMO_STATE: WeeklyReviewState = {
-//     current: { week: 4, range: 'Dec 16 — Dec 22', daysLeft: 5 },
-//     late: [
-//         { week: 3, range: 'Dec 9 — Dec 15',  daysLate: 11 },
-//         { week: 2, range: 'Dec 2 — Dec 8',   daysLate: 18 },
-//         { week: 1, range: 'Nov 25 — Dec 1',  daysLate: 25 },
-//     ],
-//     justSubmitted: null,
-//     rewards: { submitted: 0, total: 4, aedEarned: 0, aedPending: 24, cycle: 'Dec cycle', label: 'Rewards' },
-// }
 
 interface WeeklyReviewRow {
     week_number: number
@@ -195,6 +170,6 @@ async function computeWeeklyReviewState(userId: string): Promise<WeeklyReviewSta
 }
 
 export const getWeeklyReviewState = cache(async (userId: string): Promise<WeeklyReviewState> => {
-    if (USE_DEMO) return DEMO_STATE
+
     return computeWeeklyReviewState(userId)
 })

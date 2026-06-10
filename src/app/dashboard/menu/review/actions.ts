@@ -154,8 +154,11 @@ export async function submitWeeklyReview(
                 `❌ weekly-review pending credit insert failed — customer=${user.id} week=${week} aed=${rewardAed}:`,
                 creditError,
             )
-            // Non-fatal: the weekly_reviews row is the source of truth.
-            // Ops can reconcile any orphan from review-row → no-credit.
+            const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+            void notifyAdmin(
+                `Weekly review credit INSERT FAILED — customer ${user.id}, week ${week}, AED ${rewardAed}. ` +
+                `Review row exists but credit was not created. Manual reconcile needed.`,
+            )
         } else {
             // Count submitted reviews for this cycle, then flip if we've
             // hit the threshold.
@@ -189,6 +192,11 @@ export async function submitWeeklyReview(
                         console.error(
                             `❌ weekly-review threshold-flip failed — customer=${user.id} sub=${sub.id}:`,
                             flipError,
+                        )
+                        const { notifyAdmin: alertFlipAdmin } = await import('@/infra/admin-alerts/notify')
+                        void alertFlipAdmin(
+                            `Weekly review threshold-flip FAILED — customer ${user.id}, sub ${sub.id}. ` +
+                            `All reviews submitted but pending credits couldn't be approved. Manual flip needed.`,
                         )
                     } else {
                         lumpSumApprovedAed = (flipped ?? []).reduce(

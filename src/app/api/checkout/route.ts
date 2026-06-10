@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { stripeClient, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@/utils/supabase/server';
-import { resolvePlan, minPriceFilsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
+import { resolvePlan, minPriceFilsFor, maxPriceFilsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
 import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-synth';
 import { getRedeemableCredit } from '@/infra/supabase/subscriptions-repo';
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo';
+import { notifyAdmin } from '@/infra/admin-alerts/notify';
 
 export async function POST(req: Request) {
   let stripe;
@@ -15,6 +16,7 @@ export async function POST(req: Request) {
     stripe = stripeClient();
   } catch (err) {
     console.error("❌ Stripe client init failed:", err);
+    void notifyAdmin("Stripe client INIT FAILED — every checkout is broken. Check STRIPE_SECRET_KEY env var immediately.");
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
 
@@ -105,14 +107,15 @@ export async function POST(req: Request) {
       // AE = UTC+4 year-round (no DST). Server-authoritative — even if the
       // client computed the cutoff differently, this is the boundary that
       // counts for what the kitchen can actually deliver.
-      const aeHour = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours();
+      const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000);
+      const aeHour = aeNow.getUTCHours();
       const sameDayAllowed = !liveSub && aeHour < 14;
 
-      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const today = new Date(Date.UTC(aeNow.getUTCFullYear(), aeNow.getUTCMonth(), aeNow.getUTCDate()));
       const minStart = new Date(today);
-      if (!sameDayAllowed) minStart.setDate(minStart.getDate() + 1);
-      const maxStart = new Date(today); maxStart.setDate(maxStart.getDate() + 31);
-      const requested = new Date(start_date + 'T00:00:00');
+      if (!sameDayAllowed) minStart.setUTCDate(minStart.getUTCDate() + 1);
+      const maxStart = new Date(today); maxStart.setUTCDate(maxStart.getUTCDate() + 31);
+      const requested = new Date(start_date + 'T00:00:00Z');
       if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
         return NextResponse.json({ error: 'start_date must be within the allowed window' }, { status: 400 });
       }
@@ -152,6 +155,9 @@ export async function POST(req: Request) {
     // Monthly Max via the cheapest-preference × cycle-meals lower bound.
     if (amount < minPriceFilsFor(planDef.id, customerWeekType)) {
       return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
+    }
+    if (amount > maxPriceFilsFor(planDef.id, customerWeekType)) {
+      return NextResponse.json({ error: 'Amount exceeds plan price' }, { status: 400 });
     }
 
     // ── Out-of-zone gate ───────────────────────────────────────────────────
@@ -313,6 +319,9 @@ export async function POST(req: Request) {
       creditRows,
     });
     const stripeNetFils = amount - couponResult.discountFils;
+    if (stripeNetFils < 0) {
+      return NextResponse.json({ error: 'Discount exceeds plan price' }, { status: 400 });
+    }
     const isFreeCheckout = stripeNetFils === 0;
 
     // Reserve the credit rows the coupon actually consumed. Done AFTER synth
@@ -489,7 +498,10 @@ export async function POST(req: Request) {
 
   } catch (error: unknown) {
     const err = error as { message?: string };
-    console.error('❌ Stripe error:', err?.message || error);
-    return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 });
+    console.error('❌ Checkout error:', err?.message || error);
+    void notifyAdmin(
+      `Checkout CRASHED: ${err?.message || 'Unknown error'}. Customer was blocked from purchasing.`,
+    );
+    return NextResponse.json({ error: 'Checkout failed. Please try again or contact support.' }, { status: 500 });
   }
 }

@@ -1,12 +1,28 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react"; // <-- Updated Import!
+import { useChat } from "@ai-sdk/react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send } from "lucide-react";
 import { whatsAppHref } from "@/shared/contacts";
 import { useBodyScrollLock } from "@/ui-system/hooks/useBodyScrollLock";
 import { closeChat as broadcastClose, subscribeChatBus } from "@/contexts/chatbot/ui/chat-bus";
+
+function renderMd(s: string): React.ReactNode {
+    const parts: React.ReactNode[] = [];
+    const re = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    let key = 0;
+    while ((match = re.exec(s)) !== null) {
+        if (match.index > last) parts.push(s.slice(last, match.index));
+        if (match[2]) parts.push(<strong key={key++} style={{ fontWeight: 700 }}>{match[2]}</strong>);
+        else if (match[3]) parts.push(<em key={key++} style={{ fontStyle: 'italic' }}>{match[3]}</em>);
+        last = match.index + match[0].length;
+    }
+    if (last < s.length) parts.push(s.slice(last));
+    return parts.length ? parts : s;
+}
 
 const LOADING_WORDS = [
     "prepping...", "cooking...", "heating up...", "chopping...",
@@ -52,8 +68,8 @@ function TypingLoader() {
 }
 
 export default function AIChatbot() {
-    const [input, setInput] = useState(''); // <-- Manually managing input now
-    const { messages, status, sendMessage } = useChat(); // <-- v5 destructured vars
+    const [input, setInput] = useState('');
+    const { messages, status, sendMessage } = useChat();
     const [isOpen, setIsOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +168,7 @@ export default function AIChatbot() {
 
                                                     return (
                                                         <div key={index} className="flex flex-col gap-3">
-                                                            {cleanText && <span className="whitespace-pre-wrap">{cleanText}</span>}
+                                                            {cleanText && <span className="whitespace-pre-wrap">{m.role === 'user' ? cleanText : renderMd(cleanText)}</span>}
                                                             {hasEscalation && (
                                                                 <a
                                                                     href={whatsAppHref()}
@@ -165,7 +181,8 @@ export default function AIChatbot() {
                                                             )}
                                                             {hasViewPlans && (
                                                                 <a
-                                                                    href="#"
+                                                                    href="/maintenance"
+                                                                    onClick={closeChat}
                                                                     className="bg-[#f57f20]/15 backdrop-blur-sm border border-[#f57f20]/35 text-[#f57f20] py-2 px-5 rounded-full flex items-center justify-center font-black uppercase tracking-wider text-[11px] hover:bg-[#f57f20]/25 transition-all w-fit mt-1"
                                                                 >
                                                                     View Plans
@@ -173,8 +190,8 @@ export default function AIChatbot() {
                                                             )}
                                                             {hasViewMenu && (
                                                                 <a
-                                                                    href="#menu" // Make sure this matches the ID of your menu section
-                                                                    onClick={closeChat} // Closes the chat automatically so they can see the menu!
+                                                                    href="#menu"
+                                                                    onClick={closeChat}
                                                                     className="bg-[#f57f20]/15 backdrop-blur-sm border border-[#f57f20]/35 text-[#f57f20] py-2 px-5 rounded-full flex items-center justify-center font-black uppercase tracking-wider text-[11px] hover:bg-[#f57f20]/25 transition-all w-fit mt-1"
                                                                 >
                                                                     View Menu

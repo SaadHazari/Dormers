@@ -48,11 +48,9 @@ async function depositCredit(
   amountAed: number,
   source: string,
 ): Promise<void> {
-  // The cycle_rewards / lifetime_rewards marker row that triggered this call
-  // is ALREADY inserted by the caller — its UNIQUE constraint blocks retry.
-  // If this credit insert silently fails we permanently lose the deposit.
-  // Throw so the caller's try/catch surfaces the failure to logs (and to the
-  // outer webhook telemetry) instead of leaking money.
+  if (amountAed <= 0) {
+    throw new Error(`depositCredit: amountAed must be positive, got ${amountAed} (source=${source})`)
+  }
   const { error } = await sb.from('credits').insert({
     customer_id: customerId,
     amount_aed: amountAed,

@@ -179,7 +179,7 @@ export async function createAccount(
         : []
 
     // Upsert the customer profile (trigger may or may not have run yet)
-    await supabaseAdmin.from('customers').upsert({
+    const { error: customerError } = await supabaseAdmin.from('customers').upsert({
         id: userId,
         cid: generateCid(payload.dorm),
         email: payload.email,
@@ -196,6 +196,15 @@ export async function createAccount(
         veg_days: cleanVegDays.length > 0 ? cleanVegDays : null,
         out_of_zone: !dormListed,
     })
+    if (customerError) {
+        console.error('❌ Onboarding customer upsert failed:', customerError.message)
+        const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+        void notifyAdmin(
+            `Onboarding customer upsert FAILED for user ${userId}. ` +
+            `Auth account exists but no customers row — dashboard won't load. Error: ${customerError.message}`,
+        )
+        return { error: 'Profile setup failed. Please try again or message us on WhatsApp.' }
+    }
 
     // Email confirmation disabled — session is live, go straight to dashboard
     if (authData.session) {

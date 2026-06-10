@@ -17,6 +17,7 @@ interface Props {
 const NAV_COMMANDS: PaletteCommand[] = [
     { id: 'nav-overview',    label: 'Overview',         group: 'Navigation', href: '/admin',            keywords: ['home', 'dashboard', 'kpi'] },
     { id: 'nav-deliveries',  label: 'Delivery Queue',   group: 'Navigation', href: '/admin/deliveries', keywords: ['orders', 'today', 'meals'] },
+    { id: 'nav-labels',      label: 'Labels',           group: 'Navigation', href: '/admin/labels',     keywords: ['print', 'thermal', 'sticker', 'kitchen', 'label'] },
     { id: 'nav-cron',        label: 'Cron Health',      group: 'Navigation', href: '/admin/cron',       keywords: ['jobs', 'tick', 'health', 'status'] },
     { id: 'nav-customers',   label: 'All Customers',    group: 'Navigation', href: '/admin/customers',  keywords: ['users', 'search', 'lookup'] },
     { id: 'nav-payments',    label: 'Payments',         group: 'Navigation', href: '/admin/payments',   keywords: ['stripe', 'billing', 'charges'] },
@@ -24,6 +25,7 @@ const NAV_COMMANDS: PaletteCommand[] = [
     { id: 'nav-referrals',   label: 'Referrals',        group: 'Navigation', href: '/admin/referrals',  keywords: ['invite', 'fraud', 'queue'] },
     { id: 'nav-dormwars',    label: 'Dorm Wars',        group: 'Navigation', href: '/admin/dorm-wars',  keywords: ['gamification', 'streaks', 'rewards', 'layer4'] },
     { id: 'nav-menu',        label: 'Menu CMS',         group: 'Navigation', href: '/admin/menu',       keywords: ['dishes', 'food', 'rotation', 'catalog'] },
+    { id: 'nav-qr',          label: 'QR Codes',         group: 'Navigation', href: '/admin/qr-codes',   keywords: ['qr', 'code', 'scan', 'print', 'dish'] },
     { id: 'nav-pricing',     label: 'Pricing',          group: 'Navigation', href: '/admin/pricing',    keywords: ['price', 'plans', 'aed'] },
     { id: 'nav-audit',       label: 'Audit Log',        group: 'Navigation', href: '/admin/audit',      keywords: ['log', 'history', 'who'] },
     { id: 'nav-comms',       label: 'Communications',   group: 'Navigation', href: '/admin/comms',      keywords: ['email', 'whatsapp', 'notifications', 'messages'] },

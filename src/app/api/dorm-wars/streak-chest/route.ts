@@ -65,6 +65,11 @@ export async function POST() {
         `❌ streak-chest credit insert failed — customer=${user.id} value=${chest.value_aed} chest_id=${chest.chest_id}:`,
         creditErr,
       )
+      const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+      void notifyAdmin(
+        `Streak chest credit INSERT FAILED — customer ${user.id} won AED ${chest.value_aed} ` +
+        `(chest ${chest.chest_id}) but credit was not deposited. UNIQUE prevents retry — manual credit needed.`,
+      )
       return NextResponse.json(
         { error: 'credit_deposit_failed', value_aed: chest.value_aed, chest_id: chest.chest_id },
         { status: 500 },

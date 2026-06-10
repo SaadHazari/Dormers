@@ -29,14 +29,15 @@ export const updateSession = async (request: NextRequest) => {
         },
     );
 
-    // Local JWT verification via the project's asymmetric public key (JWKS).
-    // No network round-trip to Supabase Auth — claims are verified in-process.
-    // The JWKS itself is fetched and cached by the SDK (refreshed periodically),
-    // so only a cold start may incur a one-time JWKS fetch.
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
-    const user = !claimsError && claimsData?.claims
-        ? { id: claimsData.claims.sub, email: (claimsData.claims.email as string | undefined) ?? '' }
-        : null;
+    let user: { id: string; email: string } | null = null;
+    try {
+        const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+        user = !claimsError && claimsData?.claims
+            ? { id: claimsData.claims.sub, email: (claimsData.claims.email as string | undefined) ?? '' }
+            : null;
+    } catch (err) {
+        console.error('middleware getClaims threw:', err);
+    }
 
     const isPreview = process.env.NODE_ENV === 'development' && request.nextUrl.searchParams.get('preview') === '1'
     const isProtectedRoute =
@@ -74,7 +75,7 @@ export const updateSession = async (request: NextRequest) => {
     if (user && isAuthPage) {
         const url = request.nextUrl.clone();
         const nextParam = request.nextUrl.searchParams.get('next');
-        url.pathname = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
+        url.pathname = nextParam && /^\/[^/\\]/.test(nextParam) ? nextParam : '/dashboard';
         url.search = '';
         return applyBufferedCookies(NextResponse.redirect(url));
     }

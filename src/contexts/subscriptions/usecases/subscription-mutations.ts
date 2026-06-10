@@ -226,10 +226,7 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Gate on Scheduled — once a plan has started, the operations team is
   // already cooking on a schedule; moving the start date is a manual reschedule.
-  const isScheduled =
-    subscription.status === SUBSCRIPTION_STATUS.SCHEDULED ||
-    new Date(subscription.start_date).getTime() > Date.now();
-  if (!isScheduled) {
+  if (subscription.status !== SUBSCRIPTION_STATUS.SCHEDULED) {
     return { error: 'Your plan has already started — message us on WhatsApp if you need to reschedule.' };
   }
 

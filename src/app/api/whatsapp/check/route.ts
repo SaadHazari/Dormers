@@ -23,32 +23,22 @@ export async function POST(req: NextRequest) {
 
     const supabase = admin()
 
-    // Most recent unverified, unexpired OTP for this phone.
-    const { data: otp, error: lookupErr } = await supabase
-        .from('whatsapp_otps')
-        .select('id, code_hash, attempts')
-        .eq('phone', phone)
-        .is('verified_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    // Atomic attempt increment — prevents concurrent brute-force bypass.
+    // The RPC increments attempts AND returns the row in a single UPDATE,
+    // so N concurrent requests each burn one attempt instead of all reading
+    // the same stale count.
+    const { data: rows, error: rpcErr } = await supabase
+        .rpc('verify_otp_attempt', { p_phone: phone, p_max_attempts: MAX_ATTEMPTS })
 
-    if (lookupErr) {
-        console.error('OTP lookup error:', lookupErr)
+    if (rpcErr) {
+        console.error('OTP verify_otp_attempt RPC error:', rpcErr)
         return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
-    if (!otp) return NextResponse.json({ error: 'no_active_code' }, { status: 400 })
 
-    if (otp.attempts >= MAX_ATTEMPTS) {
-        return NextResponse.json({ error: 'too_many_attempts' }, { status: 429 })
+    const otp = rows?.[0]
+    if (!otp) {
+        return NextResponse.json({ error: 'no_active_code_or_too_many_attempts' }, { status: 400 })
     }
-
-    // Always increment attempts — both correct and wrong tries count, so a
-    // brute-force attacker can't get free guesses.
-    await supabase.from('whatsapp_otps')
-        .update({ attempts: otp.attempts + 1 })
-        .eq('id', otp.id)
 
     if (otp.code_hash !== sha256(code)) {
         return NextResponse.json({ error: 'incorrect_code' }, { status: 400 })

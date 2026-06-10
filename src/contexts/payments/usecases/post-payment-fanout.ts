@@ -154,6 +154,12 @@ async function runChannel(
     const message = err instanceof Error ? err.message : String(err)
     console.error(`❌ post-payment ${channel} failed for order ${ctx.orderId}:`, message)
     await appendChannelError(ctx, channel, message)
+    const { notifyAdmin } = await import('@/infra/admin-alerts/notify')
+    void notifyAdmin(
+      `Post-payment ${channel} FAILED for order ${ctx.orderId} (customer ${ctx.customerId}). ` +
+      `Customer paid but ${channel} confirmation was not delivered. Error: ${message}`,
+      ctx.orderId,
+    )
   }
 }
 

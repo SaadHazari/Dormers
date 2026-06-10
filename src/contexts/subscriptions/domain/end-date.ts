@@ -164,6 +164,7 @@ export function planKindFromName(planName: string): PlanKind {
   const n = planName.toLowerCase()
   if (n.includes('monthly')) return 'monthly'
   if (n.includes('weekly')) return 'weekly'
+  if (n.includes('welcome') || n.includes('gift')) return 'gift'
   if (n.includes('trial')) return 'trial'
   throw new Error(`Cannot resolve planKind from: ${planName}`)
 }
