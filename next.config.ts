@@ -7,10 +7,22 @@ const nextConfig: NextConfig = {
   // runtime — bundling it breaks those reads. Externalizing keeps it as a
   // plain node_modules require; Netlify's file tracing ships its data files.
   serverExternalPackages: ['pdfkit'],
-  // No remote image hosts whitelisted — every image in the codebase is a
-  // local /public asset or static import. Adding a remote source must come
-  // with an explicit hostname allowlist here. Security: prevents an
-  // attacker-controlled URL from being proxied through our Image optimizer.
+  // Remote image allowlist. The admin menu CMS (uploadDishImage in
+  // src/app/admin/menu/actions.ts) stores full Supabase Storage public URLs
+  // in dishes.image_path, so the optimizer must accept that one host —
+  // locked to the public-objects path. Everything else stays /public-local;
+  // any new remote source needs its own explicit entry here. Security:
+  // prevents attacker-controlled URLs from being proxied through our
+  // Image optimizer.
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'butfgoqneixophdlwljd.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
   experimental: {
     // Extend the App Router client-side route cache so return visits to a
     // page within the window are served from memory (no server round-trip).

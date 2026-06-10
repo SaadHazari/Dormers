@@ -6,7 +6,7 @@ import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subs
 import { getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
 import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
 import { getMenuWeek } from '@/contexts/menu/domain/catalog-data'
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { ReviewClient } from './ReviewClient'
 import type { WeeklyReviewMeal } from '../../../_shared/WeeklyReviewTakeover'
@@ -47,19 +47,25 @@ export default async function ReviewPage({
     const week = Number.parseInt(weekParam, 10)
     if (!Number.isFinite(week) || week < 1) redirect('/dashboard/menu')
 
-    const user = await getUserFromHeaders()
+    // Kick off the catalog load immediately — it needs no auth context and
+    // never rejects (fails open to static MENU_DATA), so it downloads in
+    // parallel with the auth + subscription round trips below.
+    const menuDishesPromise = getMenuDishes()
+
+    const [user, supabase] = await Promise.all([getUserFromHeaders(), createClient()])
     if (!user) redirect('/login')
 
-    const supabase = await createClient()
-
-    const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('id, start_date, plan_name, week_type, veg_days, skipped_dates, paused_dates')
-        .eq('customer_id', user.id)
-        .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
-        .order('start_date', { ascending: true })
-        .limit(1)
-        .maybeSingle()
+    const [{ data: sub }, customer] = await Promise.all([
+        supabase
+            .from('subscriptions')
+            .select('id, start_date, plan_name, week_type, veg_days, skipped_dates, paused_dates')
+            .eq('customer_id', user.id)
+            .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
+            .order('start_date', { ascending: true })
+            .limit(1)
+            .maybeSingle(),
+        getCustomer(user.id),
+    ])
 
     if (!sub) redirect('/dashboard/menu')
 
@@ -74,34 +80,36 @@ export default async function ReviewPage({
     if (daysSinceEnd < 1) redirect('/dashboard/menu')
     if (daysSinceEnd > 30) redirect('/dashboard/menu')
 
-    // If a review for this week already exists, bounce back so the
-    // just-submitted success bar can surface there instead.
-    const { data: existing } = await supabase
-        .from('weekly_reviews')
-        .select('id')
-        .eq('customer_id', user.id)
-        .eq('subscription_id', sub.id)
-        .eq('week_number', week)
-        .maybeSingle()
+    // Both weekly_reviews lookups only need sub.id — run them together,
+    // alongside the catalog promise started at the top of the function.
+    const [{ data: existing }, { count: priorSubmissionsCount }, menuDishes] = await Promise.all([
+        // If a review for this week already exists, bounce back so the
+        // just-submitted success bar can surface there instead.
+        supabase
+            .from('weekly_reviews')
+            .select('id')
+            .eq('customer_id', user.id)
+            .eq('subscription_id', sub.id)
+            .eq('week_number', week)
+            .maybeSingle(),
+        // Phase 8K — count prior submissions on this sub to drive the
+        // first-time acknowledgement modal. If the user has already submitted
+        // ≥1 review, they don't need to see the all-or-nothing rule explainer
+        // (already learned it). Skips localStorage entirely for that case.
+        supabase
+            .from('weekly_reviews')
+            .select('id', { count: 'exact', head: true })
+            .eq('customer_id', user.id)
+            .eq('subscription_id', sub.id),
+        menuDishesPromise,
+    ])
     // Skip the bounce when the takeover has just submitted and is
     // showing the thank-you screen client-side. The user will navigate
     // away via the "Back to dashboard" button.
     if (existing && !justSubmitted) redirect('/dashboard/menu')
 
-    const menuDishes = await getMenuDishes()
-
-    // Phase 8K — count prior submissions on this sub to drive the
-    // first-time acknowledgement modal. If the user has already submitted
-    // ≥1 review, they don't need to see the all-or-nothing rule explainer
-    // (already learned it). Skips localStorage entirely for that case.
-    const { count: priorSubmissionsCount } = await supabase
-        .from('weekly_reviews')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_id', user.id)
-        .eq('subscription_id', sub.id)
     const priorSubmissions = priorSubmissionsCount ?? 0
 
-    const customer = await getCustomer(user.id)
     const fullName = customer?.name?.trim() ?? ''
     const userName = fullName.split(' ')[0] || 'there'
 

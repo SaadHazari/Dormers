@@ -184,6 +184,7 @@ export default function TonightsMeal({ menuData }: { menuData?: Dish[] }) {
                 src={dish.image}
                 alt={dish.name}
                 fill
+                priority
                 className="object-cover"
                 sizes="(max-width: 1024px) 50vw, 380px"
               />
