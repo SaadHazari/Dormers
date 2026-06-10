@@ -13,10 +13,14 @@ const ROOT = resolve(__dirname, '../../..')
 const read = (rel: string) => readFileSync(resolve(ROOT, rel), 'utf-8')
 
 // ── #14: Max price ceiling on checkout ──────────────────────────────────────
+// The ceiling moved from plans.ts' hand-maintained NONVEG_PRICE_PER_MEAL
+// table (which drifted) to the single pricing engine: checkout validates
+// against priceBoundsFils (code defaults + plan_pricing DB overrides).
 describe('#14: Checkout has a max price ceiling', () => {
   const src = read('src/app/api/checkout/route.ts')
-  it('imports maxPriceFilsFor', () => {
-    expect(src).toContain('maxPriceFilsFor')
+  it('derives the band from the effective price engine', () => {
+    expect(src).toContain('priceBoundsFils')
+    expect(src).toContain('fetchActivePriceOverrides')
   })
   it('rejects amounts above the plan ceiling', () => {
     expect(src).toContain("'Amount exceeds plan price'")
@@ -28,8 +32,9 @@ describe('#14: maxPriceFilsFor exists in plans.ts', () => {
   it('exports maxPriceFilsFor function', () => {
     expect(src).toContain('export function maxPriceFilsFor')
   })
-  it('uses NonVeg prices as the ceiling', () => {
-    expect(src).toContain('NONVEG_PRICE_PER_MEAL')
+  it('delegates the ceiling to the single pricing engine (no duplicate table)', () => {
+    expect(src).toContain('perMealPriceBounds')
+    expect(src).not.toContain('NONVEG_PRICE_PER_MEAL')
   })
 })
 

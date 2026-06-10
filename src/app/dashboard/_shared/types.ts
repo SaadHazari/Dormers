@@ -69,6 +69,11 @@ export interface Subscription {
   // Phase 1 additions
   week_type?: '5DAYS' | '6DAYS' | null
   start_date_changed_at?: string | null
+  // Goodwill meals an admin gifted onto this plan (damaged delivery, spice
+  // complaint…). Already counted inside total_meals; the end_date trigger
+  // appends one working day per gifted meal. Kept as its own column so the
+  // plan page can label the gift instead of silently inflating the total.
+  bonus_meals?: number | null
   // Religious-mix subs only — list of day names (e.g. ['Monday','Wednesday'])
   // that are veg deliveries. Length matches vegDayCount picked at checkout.
   // Drives per-day dish selection on the dashboard + /menu page.

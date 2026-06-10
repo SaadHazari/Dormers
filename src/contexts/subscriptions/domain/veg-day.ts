@@ -28,6 +28,25 @@ export function workingDayNumbers(weekType: WeekType): Set<number> {
 }
 
 /**
+ * Day-NAME resolution for kitchen-ops surfaces (labels, delivery queue):
+ * is this customer eating veg on the given day? Religious mix resolves via
+ * their chosen veg_days; veg always true; non-veg always false. Day names
+ * compare case-insensitively ('Monday' … 'Saturday').
+ */
+export function isVegOnDayName(
+  mealPref: string | null | undefined,
+  vegDays: string[] | null | undefined,
+  dayName: string,
+): boolean {
+  const pref = (mealPref ?? '').toLowerCase()
+  if (pref.includes('religious')) {
+    const day = dayName.toLowerCase()
+    return (vegDays ?? []).some(d => d.toLowerCase() === day)
+  }
+  return pref.includes('plant') || (pref.includes('veg') && !pref.includes('non'))
+}
+
+/**
  * Of the working days, which are veg for this customer?
  *
  *   • Veg preference                      → all working days

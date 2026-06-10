@@ -3,6 +3,7 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
+import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import {
   autoApproveLayer4Reward,
   autoRejectLayer4Reward,
@@ -32,7 +33,7 @@ const KIND_TO_SOURCE: Record<Layer4Kind, string> = {
 }
 
 export async function approveLayer4Row(rowId: string): Promise<{ ok: true } | { error: string }> {
-  await requireAdmin()
+  const adminUser = await requireAdmin()
   const sb = admin()
 
   const { data: row } = await sb
@@ -61,6 +62,12 @@ export async function approveLayer4Row(rowId: string): Promise<{ ok: true } | { 
     return { error: 'approve_failed' }
   }
 
+  // Audit trail — this deposits an AED credit; parity with every other
+  // mutating admin action.
+  await logAdminAction(adminUser.email, 'approve_layer4_reward', 'layer4_rewards', rowId, {
+    customer_id: row.customer_id, kind, value_aed: valueAed,
+  })
+
   revalidatePath('/admin/layer4-queue')
   return { ok: true }
 }
@@ -69,7 +76,7 @@ export async function rejectLayer4Row(
   rowId: string,
   reason?: string,
 ): Promise<{ ok: true } | { error: string }> {
-  await requireAdmin()
+  const adminUser = await requireAdmin()
   const sb = admin()
 
   const { data: row } = await sb
@@ -92,6 +99,10 @@ export async function rejectLayer4Row(
     console.error('rejectLayer4Row failed:', err)
     return { error: 'reject_failed' }
   }
+
+  await logAdminAction(adminUser.email, 'reject_layer4_reward', 'layer4_rewards', rowId, {
+    reason: reason ?? 'unspecified',
+  })
 
   revalidatePath('/admin/layer4-queue')
   return { ok: true }

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { stripeClient, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@/utils/supabase/server';
-import { resolvePlan, minPriceFilsFor, maxPriceFilsFor, planKindOf } from '@/contexts/subscriptions/domain/plans';
+import { resolvePlan, planKindOf } from '@/contexts/subscriptions/domain/plans';
+import { priceBoundsFils, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing';
+import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo';
 import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
@@ -78,6 +80,12 @@ export async function POST(req: Request) {
     if (!planDef) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
+    // Welcome Meal is provisioned by claimGift only — it has no price and
+    // must never be purchasable. (Previously rejected implicitly by its
+    // 0-fils ceiling; explicit now that bounds come from the price engine.)
+    if (planKindOf(planDef.id) === 'gift') {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
 
     // start_date must be a YYYY-MM-DD inside the allowed window — the same
     // window the date picker enforces. Without this guard, a tampered POST
@@ -150,13 +158,22 @@ export async function POST(req: Request) {
       customerRow?.pending_week_type ?? customerRow?.week_type;
     const customerWeekType: WeekType = effectiveWeekTypeRaw === '5DAYS' ? '5DAYS' : '6DAYS';
 
-    // Minimum-price floor — week_type-aware so 5DAYS submissions don't get
-    // rejected against the 6DAYS floor. Tamper-defense: prevents AED 1 /
-    // Monthly Max via the cheapest-preference × cycle-meals lower bound.
-    if (amount < minPriceFilsFor(planDef.id, customerWeekType)) {
+    // Price band — week_type-aware so 5DAYS submissions don't get rejected
+    // against the 6DAYS floor. Tamper-defense: prevents AED 1 / Monthly Max
+    // via the cheapest-preference × cycle-meals lower bound.
+    //
+    // Bounds come from the EFFECTIVE price engine: code defaults overlaid
+    // with active plan_pricing rows (admin-set). When an admin raises a
+    // price, the floor rises with it — a stale tab still POSTing the old
+    // amount gets rejected here instead of buying at the retired price.
+    // fetchActivePriceOverrides fails open to [] (code prices), so a DB
+    // blip degrades to defaults rather than blocking checkout.
+    const priceOverrides = await fetchActivePriceOverrides();
+    const bounds = priceBoundsFils(PLAN_ID_BY_KEBAB[planDef.id], customerWeekType, priceOverrides);
+    if (amount < bounds.minFils) {
       return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
     }
-    if (amount > maxPriceFilsFor(planDef.id, customerWeekType)) {
+    if (amount > bounds.maxFils) {
       return NextResponse.json({ error: 'Amount exceeds plan price' }, { status: 400 });
     }
 

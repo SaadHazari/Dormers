@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/infra/supabase/subscriptions-repo'
+import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
@@ -38,11 +39,14 @@ export default async function PlanPage({
   // can render "AED X applied" before submit. RLS lets the user read their
   // own rows, so the user-scoped server client is sufficient.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, redeemable] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
     getRedeemableCredit(supabase, user.id),
+    // Admin-set price overrides (plan_pricing) — same rows /api/checkout
+    // validates against, so displayed price === charged price.
+    fetchActivePriceOverrides(),
   ])
   const creditBalanceAed = redeemable.balanceFils / 100
 
@@ -54,6 +58,7 @@ export default async function PlanPage({
         allSubscriptions={allSubscriptions}
         userEmail={user.email}
         creditBalanceAed={creditBalanceAed}
+        priceOverrides={priceOverrides}
       />
     </Suspense>
   )

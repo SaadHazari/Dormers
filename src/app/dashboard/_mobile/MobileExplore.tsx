@@ -6,7 +6,7 @@ import { Check, Info, Utensils, CalendarDays, Unlock } from 'lucide-react'
 import type { Customer, Subscription } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobileCheckout } from './MobileCheckout'
 import { MobileColumn, CARD, PlanGlyph, SectionTitle, eyebrow, OG, S, BODY, useIsCompact } from './kit'
 
@@ -31,9 +31,12 @@ interface Props {
   setSelected: (fn: (prev: PlanId | null) => PlanId | null) => void
   outOfZone: boolean
   creditBalanceAed: number
+  /** Active admin price overrides (plan_pricing rows) — threaded into the
+   *  cards + checkout sheet so mobile shows the DB-backed price. */
+  priceOverrides?: PriceOverride[]
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, creditBalanceAed }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, creditBalanceAed, priceOverrides = [] }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -99,6 +102,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
             weekType={weekType}
             selected={selected === plan.id}
             onSelect={() => setSelected(prev => prev === plan.id ? null : plan.id)}
+            priceOverrides={priceOverrides}
           />
         ))}
       </div>
@@ -118,6 +122,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
         weekType={weekType}
         outOfZone={outOfZone}
         creditBalanceAed={creditBalanceAed}
+        priceOverrides={priceOverrides}
       />
     </MobileColumn>
   )
@@ -151,13 +156,13 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect }: {
-  plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides }: {
+  plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
 }) {
   const priceUnknown = pref === 'Religious' && vegDayCount == null
   const safeCount = vegDayCount ?? 3
-  const price = pricePerMeal(plan.id, pref, safeCount, weekType)
-  const total = totalPrice(plan.id, pref, safeCount, weekType)
+  const price = pricePerMeal(plan.id, pref, safeCount, weekType, priceOverrides)
+  const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
   const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
   const W = weekType === '5DAYS' ? 5 : 6
@@ -174,8 +179,8 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect }: {
   const features = baseFeatures.slice(0, 3)
 
   let saveAmount: number | null = null
-  if (plan.id === 'Monthly Premium') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType) * 4 - total; if (d > 0) saveAmount = d }
-  else if (plan.id === 'Monthly Max') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType) * 8 - total; if (d > 0) saveAmount = d }
+  if (plan.id === 'Monthly Premium') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 4 - total; if (d > 0) saveAmount = d }
+  else if (plan.id === 'Monthly Max') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 8 - total; if (d > 0) saveAmount = d }
   const showSave = saveAmount !== null && !priceUnknown
   const saveLabel = saveAmount !== null ? (saveAmount % 1 === 0 ? `${saveAmount}` : saveAmount.toFixed(2)) : ''
 

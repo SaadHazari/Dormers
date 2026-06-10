@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Gift, SkipForward, Coins, Pause, Play } from 'lucide-react'
+import { Gift, SkipForward, Coins, Pause, Play, UtensilsCrossed } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
 import { AdminButton } from '../../_components/AdminButton'
 import {
     adminCompMeal, adminAdjustSkips, adminIssueCredit,
-    adminPauseSub, adminResumeSub,
+    adminPauseSub, adminResumeSub, adminGiftMeals,
 } from './actions'
 
 interface Props {
@@ -25,6 +25,7 @@ export function InterventionPanel({ customerId, activeSub }: Props) {
             </h3>
 
             <div className="flex flex-wrap gap-2">
+                <GiftMealsAction activeSub={activeSub} onResult={setResult} />
                 <CompMealAction customerId={customerId} activeSub={activeSub} onResult={setResult} />
                 <AdjustSkipsAction activeSub={activeSub} onResult={setResult} />
                 <IssueCreditAction customerId={customerId} onResult={setResult} />
@@ -44,6 +45,48 @@ export function InterventionPanel({ customerId, activeSub }: Props) {
                 </div>
             )}
         </div>
+    )
+}
+
+// Gift Meals vs Comp Meal — two different tools:
+//   • Gift Meals CHANGES the plan: +N meals on the dashboard count and +N
+//     delivery days on the calendar. Use for goodwill (damaged box, bad
+//     spice level) where the customer should literally get more food.
+//   • Comp Meal is a pure accounting record (expense ledger) for a meal
+//     that already went out without revenue. The customer sees nothing.
+function GiftMealsAction({
+    activeSub,
+    onResult,
+}: {
+    activeSub: Record<string, unknown> | null
+    onResult: (r: { ok: boolean; message: string }) => void
+}) {
+    const [isPending, startTransition] = useTransition()
+
+    function handle() {
+        if (!activeSub) {
+            onResult({ ok: false, message: 'No live subscription to gift meals onto' })
+            return
+        }
+        const countStr = window.prompt('How many meals to gift (1–5)? Each one adds a delivery day to the plan:')
+        if (!countStr) return
+        const count = parseInt(countStr, 10)
+        if (isNaN(count) || count < 1 || count > 5) {
+            onResult({ ok: false, message: 'Enter a number between 1 and 5' })
+            return
+        }
+        const reason = window.prompt('Reason (e.g. "damaged delivery", "spice complaint"):')
+        if (!reason) return
+        startTransition(async () => {
+            const res = await adminGiftMeals(activeSub.id as string, count, reason)
+            onResult(res)
+        })
+    }
+
+    return (
+        <AdminButton variant="primary" loading={isPending} icon={<UtensilsCrossed size={13} />} onClick={handle} disabled={!activeSub}>
+            Gift Meals
+        </AdminButton>
     )
 }
 

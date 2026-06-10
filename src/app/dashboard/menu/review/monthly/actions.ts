@@ -15,7 +15,7 @@ import {
     type MonthlyReviewSubmitResult,
 } from '@/contexts/subscriptions/domain/monthly-review'
 import { getMonthlyRevealStats } from '@/utils/supabase/monthly-review-queries'
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 
 /**
  * Service-role client for credit writes. Mirrors the weekly review action

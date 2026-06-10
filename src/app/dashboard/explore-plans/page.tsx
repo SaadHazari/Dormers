@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/infra/supabase/subscriptions-repo'
+import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import PlanClient from '../plan/PlanClient'
@@ -49,11 +50,14 @@ export default async function ExplorePlansPage({
   // also needs the Dorm Wars approved credit balance to render the discount
   // row before submit.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, redeemable] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
     getRedeemableCredit(supabase, user.id),
+    // Admin-set price overrides (plan_pricing) — the pricing grid, the
+    // checkout sheet, and /api/checkout validation all read the same rows.
+    fetchActivePriceOverrides(),
   ])
   const creditBalanceAed = redeemable.balanceFils / 100
 
@@ -65,6 +69,7 @@ export default async function ExplorePlansPage({
       userEmail={user.email}
       mode="explore"
       creditBalanceAed={creditBalanceAed}
+      priceOverrides={priceOverrides}
     />
   )
 }

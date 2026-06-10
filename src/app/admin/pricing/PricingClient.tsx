@@ -5,9 +5,9 @@ import { Plus } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminBadge } from '../_components/AdminBadge'
-import { createPricingRow } from './actions'
+import { createPricingRow, endPricingRow } from './actions'
 
-interface PricingRow {
+export interface PricingRow {
     id: string
     plan_id: string
     preference: string
@@ -20,41 +20,73 @@ interface PricingRow {
     created_at: string
 }
 
-interface Props {
-    rows: PricingRow[]
+/** One Veg/NonVeg line of the effective price table (server-derived). */
+export interface EffectiveRow {
+    plan: string
+    pref: 'Veg' | 'NonVeg'
+    codeDefault: number
+    effective: number
 }
 
-const CODE_PRICES: Array<{ plan: string; pref: string; perMeal: number }> = [
-    { plan: 'monthly-max',     pref: 'Veg',    perMeal: 17.5 },
-    { plan: 'monthly-max',     pref: 'NonVeg', perMeal: 21.5 },
-    { plan: 'monthly-premium', pref: 'Veg',    perMeal: 18 },
-    { plan: 'monthly-premium', pref: 'NonVeg', perMeal: 23 },
-    { plan: 'weekly-flex',     pref: 'Veg',    perMeal: 19 },
-    { plan: 'weekly-flex',     pref: 'NonVeg', perMeal: 25 },
-    { plan: 'trial',           pref: 'Veg',    perMeal: 20 },
-    { plan: 'trial',           pref: 'NonVeg', perMeal: 20 },
-]
+/** Religious-mix prices for one plan, per veg-day count (server-derived). */
+export interface ReligiousPlanRow {
+    plan: string
+    /** Trial — single flat price, count column is meaningless. */
+    flat: boolean
+    cells: Array<{ count: number; codeDefault: number; effective: number }>
+}
 
-export function PricingClient({ rows }: Props) {
+interface Props {
+    rows: PricingRow[]
+    effective: EffectiveRow[]
+    religious: ReligiousPlanRow[]
+}
+
+// Today in Asia/Dubai — effective_to is EXCLUSIVE: a row ending today is
+// already retired. Mirrors fetchActivePriceOverrides / the checkout band.
+function todayAE(): string {
+    return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+function rowStatus(r: PricingRow): 'active' | 'scheduled' | 'expired' {
+    const today = todayAE()
+    if (r.effective_to && r.effective_to <= today) return 'expired'
+    if (r.effective_from > today) return 'scheduled'
+    return 'active'
+}
+
+export function PricingClient({ rows, effective, religious }: Props) {
     const { t } = useAdminTheme()
     const [showForm, setShowForm] = useState(false)
     const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+    const [isEnding, startEnding] = useTransition()
+    const [endingId, setEndingId] = useState<string | null>(null)
 
-    const hasDbPrices = rows.length > 0
+    const handleEnd = (row: PricingRow) => {
+        if (!window.confirm(`End this override now? ${row.plan_id} ${row.preference} reverts to its code-default price immediately.`)) return
+        setEndingId(row.id)
+        startEnding(async () => {
+            const res = await endPricingRow(row.id)
+            setResult(res)
+            setEndingId(null)
+        })
+    }
+
+    const overriddenCount = effective.filter(e => e.effective !== e.codeDefault).length
+        + religious.reduce((n, r) => n + r.cells.filter(c => c.effective !== c.codeDefault).length, 0)
 
     return (
         <div>
             <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Pricing</h1>
             <p className={`text-[13px] font-medium mb-5 ${t.muted}`}>
-                {hasDbPrices
-                    ? `${rows.length} DB-backed price entries`
-                    : 'Prices currently live in code (plans.ts). Add DB entries to override.'}
+                These are the prices customers see and pay right now — code defaults overlaid with your DB overrides.
+                {overriddenCount > 0 ? ` ${overriddenCount} price${overriddenCount === 1 ? '' : 's'} currently overridden.` : ' No overrides active — all prices are code defaults.'}
             </p>
 
-            {/* Code-defined prices (always shown as reference) */}
+            {/* Effective prices — Veg / Non-Veg */}
             <div className={`${t.card} rounded-xl p-4 mb-5`}>
                 <h2 className={`text-[10px] font-black tracking-[0.14em] uppercase mb-3 ${t.muted}`}>
-                    Code-Defined Prices (plans.ts)
+                    Effective Prices — Veg / Non-Veg (AED per meal)
                 </h2>
                 <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-[13px]">
@@ -62,39 +94,103 @@ export function PricingClient({ rows }: Props) {
                             <tr className={t.tableHeader}>
                                 <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Plan</th>
                                 <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Preference</th>
-                                <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Per Meal (AED)</th>
+                                <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Code Default</th>
+                                <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Effective Now</th>
+                                <th className="text-center px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Source</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {CODE_PRICES.map(p => (
-                                <tr key={`${p.plan}-${p.pref}`} className={t.tableRow}>
-                                    <td className={`px-3 py-2 font-bold ${t.body}`}>{p.plan.replace(/-/g, ' ')}</td>
-                                    <td className={`px-3 py-2 ${t.muted}`}>{p.pref}</td>
-                                    <td className={`px-3 py-2 text-right font-bold tabular-nums ${t.heading}`}>{p.perMeal.toFixed(2)}</td>
+                            {effective.map(e => {
+                                const overridden = e.effective !== e.codeDefault
+                                return (
+                                    <tr key={`${e.plan}-${e.pref}`} className={t.tableRow}>
+                                        <td className={`px-3 py-2 font-bold ${t.body}`}>{e.plan.replace(/-/g, ' ')}</td>
+                                        <td className={`px-3 py-2 ${t.muted}`}>{e.pref === 'NonVeg' ? 'Non-Veg' : 'Veg'}</td>
+                                        <td className={`px-3 py-2 text-right tabular-nums ${overridden ? `line-through ${t.faint}` : `font-bold ${t.heading}`}`}>
+                                            {e.codeDefault.toFixed(2)}
+                                        </td>
+                                        <td className={`px-3 py-2 text-right font-black tabular-nums ${overridden ? 'text-[#f57f20]' : t.heading}`}>
+                                            {e.effective.toFixed(2)}
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                            <AdminBadge variant={overridden ? 'active' : 'ended'}>
+                                                {overridden ? 'DB Override' : 'Code'}
+                                            </AdminBadge>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="sm:hidden flex flex-col gap-1.5">
+                    {effective.map(e => {
+                        const overridden = e.effective !== e.codeDefault
+                        return (
+                            <div key={`${e.plan}-${e.pref}`} className="flex items-center justify-between py-1.5">
+                                <span className={`text-[12px] font-bold ${t.body}`}>
+                                    {e.plan.replace(/-/g, ' ')} · {e.pref === 'NonVeg' ? 'Non-Veg' : 'Veg'}
+                                </span>
+                                <span className={`text-[13px] font-black tabular-nums ${overridden ? 'text-[#f57f20]' : t.heading}`}>
+                                    {overridden && <span className={`mr-2 line-through font-medium ${t.faint}`}>{e.codeDefault.toFixed(2)}</span>}
+                                    AED {e.effective.toFixed(2)}
+                                </span>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Effective prices — Religious mix */}
+            <div className={`${t.card} rounded-xl p-4 mb-5`}>
+                <h2 className={`text-[10px] font-black tracking-[0.14em] uppercase mb-1 ${t.muted}`}>
+                    Effective Prices — Religious Mix (AED per meal, by veg days/week)
+                </h2>
+                <p className={`text-[11px] mb-3 ${t.faint}`}>
+                    6-day week shown; 5-day customers use columns 1–4 of the same table. Trial is one flat price. Orange = DB override.
+                </p>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                        <thead>
+                            <tr className={t.tableHeader}>
+                                <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Plan</th>
+                                {[1, 2, 3, 4, 5].map(n => (
+                                    <th key={n} className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">{n} veg</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {religious.map(r => (
+                                <tr key={r.plan} className={t.tableRow}>
+                                    <td className={`px-3 py-2 font-bold ${t.body}`}>{r.plan.replace(/-/g, ' ')}</td>
+                                    {r.flat ? (
+                                        <td colSpan={5} className={`px-3 py-2 text-right tabular-nums ${r.cells[0].effective !== r.cells[0].codeDefault ? 'font-black text-[#f57f20]' : `font-bold ${t.heading}`}`}>
+                                            {r.cells[0].effective.toFixed(2)} <span className={`font-medium ${t.faint}`}>(flat, any mix)</span>
+                                        </td>
+                                    ) : (
+                                        r.cells.map(c => {
+                                            const overridden = c.effective !== c.codeDefault
+                                            return (
+                                                <td key={c.count} className={`px-3 py-2 text-right tabular-nums ${overridden ? 'font-black text-[#f57f20]' : `font-bold ${t.heading}`}`}>
+                                                    {c.effective.toFixed(2)}
+                                                </td>
+                                            )
+                                        })
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-                <div className="sm:hidden flex flex-col gap-1.5">
-                    {CODE_PRICES.map(p => (
-                        <div key={`${p.plan}-${p.pref}`} className="flex items-center justify-between py-1.5">
-                            <span className={`text-[12px] font-bold ${t.body}`}>
-                                {p.plan.replace(/-/g, ' ')} · {p.pref}
-                            </span>
-                            <span className={`text-[13px] font-black tabular-nums ${t.heading}`}>AED {p.perMeal}</span>
-                        </div>
-                    ))}
-                </div>
             </div>
 
-            {/* DB overrides */}
-            {hasDbPrices && (
+            {/* DB override rows — full history with status + end action */}
+            {rows.length > 0 && (
                 <div className={`${t.card} rounded-xl p-4 mb-5`}>
                     <h2 className={`text-[10px] font-black tracking-[0.14em] uppercase mb-3 ${t.muted}`}>
                         DB Overrides (plan_pricing)
                     </h2>
-                    <div className="hidden sm:block overflow-x-auto">
+                    <div className="overflow-x-auto">
                         <table className="w-full text-[13px]">
                             <thead>
                                 <tr className={t.tableHeader}>
@@ -102,41 +198,49 @@ export function PricingClient({ rows }: Props) {
                                     <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Preference</th>
                                     <th className="text-left px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Week</th>
                                     <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Per Meal</th>
-                                    <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Effective</th>
+                                    <th className="text-right px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">From</th>
                                     <th className="text-center px-3 py-2 text-[10px] font-bold tracking-[0.06em] uppercase">Status</th>
+                                    <th className="px-3 py-2" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {rows.map(r => {
-                                    const isCurrent = !r.effective_to || new Date(r.effective_to) > new Date()
+                                    const status = rowStatus(r)
                                     return (
                                         <tr key={r.id} className={t.tableRow}>
                                             <td className={`px-3 py-2 font-bold ${t.body}`}>{r.plan_id.replace(/-/g, ' ')}</td>
-                                            <td className={`px-3 py-2 ${t.muted}`}>{r.preference}</td>
+                                            <td className={`px-3 py-2 ${t.muted}`}>
+                                                {r.preference === 'NonVeg' ? 'Non-Veg' : r.preference}
+                                                {r.preference === 'Religious' && (
+                                                    <span className={t.faint}> · {r.veg_day_count == null ? 'all counts' : `${r.veg_day_count} veg`}</span>
+                                                )}
+                                            </td>
                                             <td className={`px-3 py-2 ${t.muted}`}>{r.week_type}</td>
                                             <td className={`px-3 py-2 text-right font-bold tabular-nums ${t.heading}`}>AED {Number(r.price_per_meal).toFixed(2)}</td>
-                                            <td className={`px-3 py-2 text-right text-[11px] tabular-nums ${t.faint}`}>{r.effective_from}</td>
+                                            <td className={`px-3 py-2 text-right text-[11px] tabular-nums ${t.faint}`}>
+                                                {r.effective_from}{r.effective_to ? ` → ${r.effective_to}` : ''}
+                                            </td>
                                             <td className="px-3 py-2 text-center">
-                                                <AdminBadge variant={isCurrent ? 'active' : 'ended'}>
-                                                    {isCurrent ? 'Active' : 'Expired'}
+                                                <AdminBadge variant={status === 'expired' ? 'ended' : 'active'}>
+                                                    {status === 'active' ? 'Active' : status === 'scheduled' ? 'Scheduled' : 'Expired'}
                                                 </AdminBadge>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                {status !== 'expired' && (
+                                                    <AdminButton
+                                                        variant="ghost"
+                                                        loading={isEnding && endingId === r.id}
+                                                        onClick={() => handleEnd(r)}
+                                                    >
+                                                        End
+                                                    </AdminButton>
+                                                )}
                                             </td>
                                         </tr>
                                     )
                                 })}
                             </tbody>
                         </table>
-                    </div>
-                    <div className="sm:hidden flex flex-col gap-2">
-                        {rows.map(r => (
-                            <div key={r.id} className="flex items-center justify-between py-1.5">
-                                <div>
-                                    <div className={`text-[12px] font-bold ${t.body}`}>{r.plan_id.replace(/-/g, ' ')} · {r.preference}</div>
-                                    <div className={`text-[10px] ${t.faint}`}>From {r.effective_from}</div>
-                                </div>
-                                <span className={`text-[13px] font-black tabular-nums ${t.heading}`}>AED {Number(r.price_per_meal).toFixed(2)}</span>
-                            </div>
-                        ))}
                     </div>
                 </div>
             )}
@@ -167,10 +271,12 @@ function NewPriceForm({ onResult, onCancel }: {
 }) {
     const { t } = useAdminTheme()
     const [isPending, startTransition] = useTransition()
+    const [preference, setPreference] = useState('Veg')
 
     function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
         const fd = new FormData(e.currentTarget)
+        const vegDayRaw = fd.get('veg_day_count') as string | null
         startTransition(async () => {
             const res = await createPricingRow(
                 fd.get('plan_id') as string,
@@ -178,6 +284,7 @@ function NewPriceForm({ onResult, onCancel }: {
                 fd.get('week_type') as string,
                 parseFloat(fd.get('price_per_meal') as string),
                 fd.get('effective_from') as string,
+                vegDayRaw && vegDayRaw !== '' ? parseInt(vegDayRaw, 10) : null,
             )
             onResult(res)
         })
@@ -202,7 +309,7 @@ function NewPriceForm({ onResult, onCancel }: {
                 </div>
                 <div>
                     <label className={`block text-[10px] font-bold tracking-[0.08em] uppercase mb-1 ${t.faint}`}>Preference</label>
-                    <select name="preference" required className={fieldCls}>
+                    <select name="preference" required className={fieldCls} value={preference} onChange={e => setPreference(e.target.value)}>
                         <option value="Veg">Veg</option>
                         <option value="NonVeg">Non-Veg</option>
                         <option value="Religious">Religious</option>
@@ -211,19 +318,33 @@ function NewPriceForm({ onResult, onCancel }: {
                 <div>
                     <label className={`block text-[10px] font-bold tracking-[0.08em] uppercase mb-1 ${t.faint}`}>Week Type</label>
                     <select name="week_type" required className={fieldCls}>
-                        <option value="6DAYS">6 Days</option>
-                        <option value="5DAYS">5 Days</option>
+                        <option value="6DAYS">6 Days (default for everyone)</option>
+                        <option value="5DAYS">5 Days only</option>
                     </select>
                 </div>
+                {preference === 'Religious' && (
+                    <div>
+                        <label className={`block text-[10px] font-bold tracking-[0.08em] uppercase mb-1 ${t.faint}`}>Veg Days / Week</label>
+                        <select name="veg_day_count" className={fieldCls} defaultValue="">
+                            <option value="">All counts (flat price)</option>
+                            {[1, 2, 3, 4, 5].map(n => (
+                                <option key={n} value={n}>{n} veg day{n === 1 ? '' : 's'}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <div>
                     <label className={`block text-[10px] font-bold tracking-[0.08em] uppercase mb-1 ${t.faint}`}>Price Per Meal (AED)</label>
                     <input name="price_per_meal" type="number" step="0.01" min="0" required className={fieldCls} placeholder="17.50" />
                 </div>
                 <div>
                     <label className={`block text-[10px] font-bold tracking-[0.08em] uppercase mb-1 ${t.faint}`}>Effective From</label>
-                    <input name="effective_from" type="date" required className={fieldCls} defaultValue={new Date().toISOString().slice(0, 10)} />
+                    <input name="effective_from" type="date" required className={fieldCls} defaultValue={todayAE()} />
                 </div>
             </div>
+            <p className={`text-[11px] mb-3 ${t.faint}`}>
+                Takes effect on the plan page, checkout, and server-side price validation the moment it&apos;s active — a 6-day row prices everyone unless a 5-day row exists.
+            </p>
             <div className="flex gap-2">
                 <AdminButton type="submit" loading={isPending}>Save</AdminButton>
                 <AdminButton variant="ghost" type="button" onClick={onCancel}>Cancel</AdminButton>

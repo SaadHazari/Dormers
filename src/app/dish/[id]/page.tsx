@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { MENU_DATA } from '@/contexts/menu/domain/catalog-data'
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import DishPageClient from './DishPageClient'
 import type { Metadata } from 'next'
 

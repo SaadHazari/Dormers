@@ -5,7 +5,7 @@ import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
 import type { Viewport } from 'next'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are

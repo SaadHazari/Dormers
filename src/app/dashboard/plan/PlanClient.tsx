@@ -23,7 +23,7 @@ import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
 import { changeStartDate, cancelPlannedPause } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
@@ -63,6 +63,11 @@ interface Props {
    *  defaults to 0 when the SSR fetch returns nothing (no credits / fetch
    *  failure / preview mode). */
   creditBalanceAed?: number
+  /** Active admin price overrides (plan_pricing rows, server-fetched).
+   *  Threaded into every pricePerMeal/totalPrice call so the cards, the
+   *  checkout panels, and the POSTed amount all show the DB-backed price.
+   *  Defaults to [] (code prices) in preview mode / fetch failure. */
+  priceOverrides?: PriceOverride[]
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -430,6 +435,17 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
             gap: 18,
           }}>
             <Stat label="Meals delivered" value={`${sub.delivered_meals}/${sub.total_meals}`} light />
+            {/* Gifted-meals surface — only renders when support has added
+                goodwill meals onto this plan. The gift is already inside the
+                delivered/total figure and the end date; this tile makes the
+                gesture visible instead of silently inflating the numbers. */}
+            {(sub.bonus_meals ?? 0) > 0 && (
+              <Stat
+                label="Gifted by Dormers"
+                value={`+${sub.bonus_meals} meal${(sub.bonus_meals ?? 0) === 1 ? '' : 's'}`}
+                light
+              />
+            )}
             <Stat
               label="Skips left"
               value={skipAllowance > 0 ? `${skipsLeft} of ${skipAllowance}` : '—'}
@@ -714,7 +730,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides,
 }: {
   plan: PlanDef
   pref: Pref
@@ -724,6 +740,7 @@ function PlanCard({
   weekType: WeekType
   selected: boolean
   onSelect: (id: PlanId) => void
+  priceOverrides?: PriceOverride[]
 }) {
   // Religious-mix prices DEPEND on vegDayCount (it's a weighted average),
   // so when count is null we can't honestly show a number. Veg/NonVeg
@@ -733,8 +750,8 @@ function PlanCard({
   // value is never actually displayed for that branch, but the helpers
   // need a real number to avoid Math.floor(null) → 0 fallthrough.
   const safeCount = vegDayCount ?? 3
-  const price = pricePerMeal(plan.id, pref, safeCount, weekType)
-  const total = totalPrice(plan.id, pref, safeCount, weekType)
+  const price = pricePerMeal(plan.id, pref, safeCount, weekType, priceOverrides)
+  const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
   const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
 
@@ -763,11 +780,11 @@ function PlanCard({
   let saveAmount: number | null = null
   let saveAgainst: string | null = null
   if (plan.id === 'Monthly Premium') {
-    const flexFourWeeks = totalPrice('Weekly Flex', pref, safeCount, weekType) * 4
+    const flexFourWeeks = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 4
     const diff = flexFourWeeks - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   } else if (plan.id === 'Monthly Max') {
-    const eightWeeksFlex = totalPrice('Weekly Flex', pref, safeCount, weekType) * 8
+    const eightWeeksFlex = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 8
     const diff = eightWeeksFlex - total
     if (diff > 0) { saveAmount = diff; saveAgainst = 'Weekly Flex' }
   }
@@ -1270,7 +1287,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0 }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0, priceOverrides = [] }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   const router = useRouter()
@@ -1679,6 +1696,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     weekType={weekType}
                     selected={selected === p.id}
                     onSelect={(id) => setSelected(prev => prev === id ? null : id)}
+                    priceOverrides={priceOverrides}
                   />
                 ))}
               </div>
@@ -1704,6 +1722,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     weekType={weekType}
                     outOfZone={outOfZone}
                     creditBalanceAed={creditBalanceAed}
+                    priceOverrides={priceOverrides}
                   />
                 )}
               </AnimatePresence>
@@ -1876,6 +1895,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           setSelected={setSelected}
           outOfZone={outOfZone}
           creditBalanceAed={creditBalanceAed}
+          priceOverrides={priceOverrides}
         />
       ) : (
         <MobilePlan

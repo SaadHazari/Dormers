@@ -3,7 +3,7 @@ import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/inf
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import MenuClient from './MenuClient'
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 
 export default async function MenuPage({
   searchParams,

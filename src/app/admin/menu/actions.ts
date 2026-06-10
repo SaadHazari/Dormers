@@ -8,6 +8,18 @@ import { MENU_DATA } from '@/contexts/menu/domain/catalog-data'
 
 type Result = { ok: boolean; message: string }
 
+// Every surface that renders the CMS-backed catalog. The dashboard pages are
+// force-dynamic (fresh on every load), but /dish/[id] is SSG'd and the
+// marketing home is static — without these calls a dish rename would go live
+// on the dashboard while the public dish page kept the stale name.
+function revalidateMenuSurfaces() {
+    revalidatePath('/admin/menu')
+    revalidatePath('/dashboard/menu')
+    revalidatePath('/dashboard')
+    revalidatePath('/')
+    revalidatePath('/dish/[id]', 'page')
+}
+
 export async function seedMenuFromStatic(): Promise<Result> {
     const admin = await requireAdmin()
     const sb = createAdminSupabaseClient()
@@ -106,7 +118,7 @@ export async function updateDish(
     if (error) return { ok: false, message: error.message }
 
     await logAdminAction(admin.email, 'update_dish', 'dish', dishId, updates)
-    revalidatePath('/admin/menu')
+    revalidateMenuSurfaces()
     return { ok: true, message: 'Dish updated' }
 }
 
@@ -122,7 +134,7 @@ export async function toggleDishActive(dishId: string, isActive: boolean): Promi
     if (error) return { ok: false, message: error.message }
 
     await logAdminAction(admin.email, isActive ? 'activate_dish' : 'deactivate_dish', 'dish', dishId)
-    revalidatePath('/admin/menu')
+    revalidateMenuSurfaces()
     return { ok: true, message: isActive ? 'Dish activated' : 'Dish deactivated' }
 }
 
@@ -168,9 +180,7 @@ export async function uploadDishImage(
         storagePath, publicUrl,
     })
 
-    revalidatePath('/admin/menu')
-    revalidatePath('/dashboard/menu')
-    revalidatePath('/')
+    revalidateMenuSurfaces()
     return { ok: true, message: `Image uploaded and saved for dish` }
 }
 
@@ -195,6 +205,6 @@ export async function assignDishToSlot(
     await logAdminAction(admin.email, 'assign_dish_to_slot', 'week_meal_slot', menuWeekId, {
         dishId, dayOfWeek, isVeg,
     })
-    revalidatePath('/admin/menu')
+    revalidateMenuSurfaces()
     return { ok: true, message: 'Slot updated' }
 }

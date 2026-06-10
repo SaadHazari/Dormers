@@ -1,4 +1,4 @@
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import Home from './HomeClient'
 
 export default async function HomePage() {

@@ -17,7 +17,8 @@
 import 'server-only'
 import QRCode from 'qrcode'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { findDishForDate } from '@/contexts/menu/domain/catalog-data'
+import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
+import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
 import { getDormMapping, type DormShape } from './dorm-shapes'
 import { qrUrl, formatCustomerName, type LabelData, INK, CREAM } from './label-spec'
 
@@ -92,8 +93,12 @@ export async function getDailyLabels(): Promise<DailyLabels> {
   for (const c of (customersRes.data ?? []) as CustomerRow[]) customers.set(c.id, c)
 
   const isSaturday = jsDow === 6
-  const vegDish = findDishForDate(today, true)
-  const nonVegDish = findDishForDate(today, false)
+  // CMS-aware lookup — kitchen labels must print the dish name the admin
+  // edited at /admin/menu, not the name frozen in catalog-data.ts at build.
+  const [vegDish, nonVegDish] = await Promise.all([
+    findDishForDateWithOverrides(today, true),
+    findDishForDateWithOverrides(today, false),
+  ])
 
   type Pending = Omit<LabelMeta, 'orderId'> & { subscriptionId: string }
   const pending: Pending[] = []
@@ -105,16 +110,7 @@ export async function getDailyLabels(): Promise<DailyLabels> {
     const cust = customers.get(sub.customer_id)
     if (!cust) continue
 
-    const pref = cust.meal_preference_type?.toLowerCase() ?? ''
-    let isVegToday: boolean
-    if (pref === 'veg' || pref.includes('vegetarian')) {
-      isVegToday = true
-    } else if (pref.includes('religious')) {
-      const vegDays = (cust.veg_days ?? []).map(d => d.toLowerCase())
-      isVegToday = vegDays.includes(dayName.toLowerCase())
-    } else {
-      isVegToday = false
-    }
+    const isVegToday = isVegOnDayName(cust.meal_preference_type, cust.veg_days, dayName)
 
     const dish = isVegToday ? vegDish : nonVegDish
     if (!dish) continue

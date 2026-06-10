@@ -30,6 +30,7 @@ export type CustomerNotificationKind =
     | 'payment_order_confirmed'
     | 'welcome_meal_confirmed'
     | 'subscription_renew_nudge'
+    | 'meals_gifted_confirm'
 
 /**
  * Queue a WhatsApp notification for a customer.

@@ -8,8 +8,9 @@ import {
     Share2, Swords,
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
-    Search, X, Tag,
+    Search, X, Tag, LogOut,
 } from 'lucide-react'
+import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
 import { AdminBadgeCount } from './_components/AdminBadge'
 import { useCommandPalette } from './_components/CommandPaletteProvider'
@@ -75,7 +76,7 @@ type BadgeKey = 'referrals' | 'layer4'
 
 export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOpen, onMobileClose }: SidebarProps) {
     const pathname = usePathname()
-    const { t } = useAdminTheme()
+    const { t, isLight } = useAdminTheme()
     const { setOpen: openPalette } = useCommandPalette()
 
     const badges: Record<BadgeKey, number> = {
@@ -130,6 +131,25 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
         </nav>
     )
 
+    // Sign out — pinned footer, goes danger-red on hover (mirrors the dashboard pattern)
+    const signoutItem = isLight
+        ? 'text-[#091825]/65 hover:text-[#c0392b] hover:bg-[#c0392b]/[0.08]'
+        : 'text-[#ede8da]/55 hover:text-[#e0716e] hover:bg-[#e0716e]/[0.10]'
+
+    const signoutFooter = (
+        <div className="px-2 py-3">
+            <form action={signout}>
+                <button
+                    type="submit"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors duration-100 ${signoutItem}`}
+                >
+                    <LogOut size={ICON_SIZE} strokeWidth={ICON_STROKE} />
+                    <span className="flex-1 text-left">Sign out</span>
+                </button>
+            </form>
+        </div>
+    )
+
     return (
         <>
             {/* Desktop sidebar — fixed rail */}
@@ -146,6 +166,9 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
                 </div>
                 <div className={`flex-1 overflow-y-auto ${t.sidebarBorder}`}>
                     {navContent}
+                </div>
+                <div className={`${t.sidebarBorder} border-t`}>
+                    {signoutFooter}
                 </div>
             </aside>
 
@@ -175,6 +198,9 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
                             </button>
                         </div>
                         {navContent}
+                        <div className={`border-t ${t.border}`}>
+                            {signoutFooter}
+                        </div>
                     </aside>
                 </div>
             )}

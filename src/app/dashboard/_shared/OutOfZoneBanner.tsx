@@ -34,7 +34,8 @@ export function OutOfZoneBanner({ show }: { show: boolean }) {
       }}>
         <MapPin size={18} strokeWidth={2.4} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Real flex-basis so the CTA wraps below on phones — see ProfileBanner. */}
+      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
         <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
           Your dorm is outside our usual delivery radius.
         </div>

@@ -3,6 +3,7 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
+import { logAdminAction } from '@/contexts/admin/usecases/audit'
 
 function admin() {
     return createAdmin(
@@ -64,6 +65,12 @@ export async function approveReferralReview(
         return { error: 'credit_update_failed' }
     }
 
+    // Audit trail — this is the highest-value queue decision (it makes a
+    // credit spendable); every other admin mutation logs, so must this.
+    await logAdminAction(user.email, 'approve_referral_review', 'referral_review_queue', queueId, {
+        referral_id: row.referral_id,
+    })
+
     revalidatePath('/admin/referral-review-queue')
     return { ok: true }
 }
@@ -115,6 +122,10 @@ export async function rejectReferralReview(
         console.error('rejectReferralReview: credit update failed', creditError)
         return { error: 'credit_update_failed' }
     }
+
+    await logAdminAction(user.email, 'reject_referral_review', 'referral_review_queue', queueId, {
+        referral_id: row.referral_id, reason: reason ?? 'unspecified',
+    })
 
     revalidatePath('/admin/referral-review-queue')
     return { ok: true }

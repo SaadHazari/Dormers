@@ -12,6 +12,7 @@ interface Sub {
     customer_name: string | null
     dorm_name: string | null
     meal_preference: string | null
+    veg_today: boolean
     whatsapp_number: string | null
     plan_name: string
     status: string
@@ -39,10 +40,12 @@ const STATUS_VARIANT: Record<string, 'active' | 'warning' | 'neutral'> = {
     Skipped: 'warning',
 }
 
-function isVeg(pref: string | null): boolean {
-    return pref?.toLowerCase() === 'veg'
+function isReligiousMix(pref: string | null): boolean {
+    return pref?.toLowerCase().includes('religious') ?? false
 }
 
+// Preference column (By Dorm view) keeps the raw preference visible —
+// religious-mix customers still read "Religious Mix" there.
 function mealLabel(pref: string | null): string {
     if (!pref) return 'Unknown'
     const p = pref.toLowerCase()
@@ -65,13 +68,14 @@ export function DeliveriesClient({ subscriptions }: Props) {
     const activeCt = subscriptions.filter(s => s.status === 'Active').length
     const pausedCt = subscriptions.filter(s => s.status === 'Paused').length
     const skippedCt = subscriptions.filter(s => s.status === 'Skipped').length
-    const vegCt = subscriptions.filter(s => isVeg(s.meal_preference)).length
+    const vegCt = subscriptions.filter(s => s.veg_today).length
     const nonvegCt = subscriptions.length - vegCt
 
-    // Group based on the active view
+    // Group based on the active view. Meal view places religious-mix
+    // customers in Veg or Non-Veg by TODAY's chosen day — no separate group.
     const groups = groupBy === 'dorm'
         ? groupByKey(filtered, s => s.dorm_name || 'Unknown Dorm')
-        : groupByKey(filtered, s => mealLabel(s.meal_preference))
+        : groupByKey(filtered, s => s.veg_today ? 'Veg' : 'Non-Veg')
 
     // Sort: largest group first
     const sortedGroups = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length)
@@ -215,6 +219,7 @@ function GroupSection({ name, subs, groupBy, onRowClick }: {
                             >
                                 <td className={`px-3 py-2 font-bold ${t.heading}`}>
                                     {s.customer_name || '(no name)'}
+                                    {isMealView && isReligiousMix(s.meal_preference) && <MixPill />}
                                     {s.whatsapp_number && (
                                         <div className={`text-[10px] font-medium ${t.faint}`}>{s.whatsapp_number}</div>
                                     )}
@@ -250,7 +255,10 @@ function GroupSection({ name, subs, groupBy, onRowClick }: {
                         onClick={() => onRowClick(s)}
                     >
                         <div className="flex items-center justify-between mb-1">
-                            <span className={`text-[13px] font-bold ${t.heading}`}>{s.customer_name || '(no name)'}</span>
+                            <span className={`text-[13px] font-bold ${t.heading}`}>
+                                {s.customer_name || '(no name)'}
+                                {isMealView && isReligiousMix(s.meal_preference) && <MixPill />}
+                            </span>
                             <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
                                 {s.status}
                             </AdminBadge>
@@ -262,6 +270,17 @@ function GroupSection({ name, subs, groupBy, onRowClick }: {
                 ))}
             </div>
         </div>
+    )
+}
+
+// Marks religious-mix customers inside the Veg/Non-Veg groups (meal view) —
+// they're placed by today's chosen day and flip groups on other days.
+function MixPill() {
+    const { t } = useAdminTheme()
+    return (
+        <span className={`ml-1.5 align-middle inline-block px-1.5 py-px rounded-full text-[8px] font-bold tracking-[0.08em] uppercase ${t.accentBg} ${t.accent}`}>
+            Mix
+        </span>
     )
 }
 

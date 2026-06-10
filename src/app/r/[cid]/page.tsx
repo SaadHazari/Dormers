@@ -1,4 +1,4 @@
-import { getMenuDishes } from '@/infra/supabase/menu-image-overrides'
+import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import ReferralLandingPage from './ReferralClient'
 
 export default async function ReferralPage() {

@@ -19,6 +19,7 @@
  */
 
 import type { WeekType } from './end-date'
+import { perMealPriceBounds, PLAN_ID_BY_KEBAB } from './pricing'
 
 export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift'
 
@@ -217,41 +218,37 @@ export function totalMealsFor(id: PlanId, weekType: WeekType): number {
 }
 
 /**
- * Minimum valid checkout amount in fils (AED × 100) for (plan, week_type).
+ * Minimum / maximum valid checkout amount in fils (AED × 100) for
+ * (plan, week_type).
+ *
+ * These used to carry their own Veg/NonVeg price tables — a duplicate of
+ * pricing.ts that drifted (the admin panel's copy drifted the same way).
+ * They now DELEGATE to the single pricing engine so a price exists in
+ * exactly one place. Note these are the CODE-DEFAULT bounds: the checkout
+ * route validates against the override-aware `priceBoundsFils` directly,
+ * threading in the active plan_pricing rows.
  *
  * The static `def.minPriceFils` field bakes in the 6DAYS meal count, so a
  * 5DAYS customer's legit total would fail the floor check (5×19=AED 95 vs
- * the static 6×19=AED 114 floor for Weekly Flex). Use this helper after
- * resolving the customer's week_type so the lower bound matches their
- * actual cycle length.
- *
- * Cheapest preference (Veg) × meals-for-cycle gives the floor. Religious
- * mix and NonVeg are always >= Veg per pricing.ts, so this remains a safe
- * lower bound.
+ * the static 6×19=AED 114 floor for Weekly Flex). Use these helpers after
+ * resolving the customer's week_type so the bound matches their actual
+ * cycle length.
  */
-const VEG_PRICE_PER_MEAL: Record<PlanId, number> = {
-  'monthly-max': 17.5,
-  'monthly-premium': 18,
-  'weekly-flex': 19,
-  'trial': 20,
-  // welcome-gift: free meal, not buyable through checkout. Zero here means
-  // minPriceFilsFor returns 0; checkout's `amount >= minPriceFilsFor` check
-  // is unreachable for this plan because checkout doesn't accept it.
-  'welcome-gift': 0,
-}
-
 export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
-  return Math.round(VEG_PRICE_PER_MEAL[id] * totalMealsFor(id, weekType) * 100)
-}
-
-const NONVEG_PRICE_PER_MEAL: Record<PlanId, number> = {
-  'monthly-max': 21.5,
-  'monthly-premium': 22,
-  'weekly-flex': 23,
-  'trial': 25,
-  'welcome-gift': 0,
+  // welcome-gift: free meal, not buyable through checkout — floor 0 keeps
+  // the historical behaviour (max 0 below is what rejects it).
+  if (id === 'welcome-gift') return 0
+  // Per-meal prices are week_type-invariant; pricing.ts doesn't model
+  // 7DAYS, so map it to the 6DAYS per-meal table and let totalMealsFor
+  // (which DOES understand 7DAYS) supply the meal count.
+  const pricingWeekType = weekType === '5DAYS' ? '5DAYS' : '6DAYS'
+  const { min } = perMealPriceBounds(PLAN_ID_BY_KEBAB[id], pricingWeekType)
+  return Math.round(min * totalMealsFor(id, weekType) * 100)
 }
 
 export function maxPriceFilsFor(id: PlanId, weekType: WeekType): number {
-  return Math.round(NONVEG_PRICE_PER_MEAL[id] * totalMealsFor(id, weekType) * 100)
+  if (id === 'welcome-gift') return 0
+  const pricingWeekType = weekType === '5DAYS' ? '5DAYS' : '6DAYS'
+  const { max } = perMealPriceBounds(PLAN_ID_BY_KEBAB[id], pricingWeekType)
+  return Math.round(max * totalMealsFor(id, weekType) * 100)
 }

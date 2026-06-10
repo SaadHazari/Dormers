@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle } from 'lucide-react'
+import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle, Gift } from 'lucide-react'
 import type { Customer, Subscription } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
@@ -216,10 +216,14 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
       {/* Behavioural metric strip — hidden for scheduled (no activity yet) */}
       {!startsInFuture && (
         <CompactMetricStrip
-          columns={futureSkipCount > 0 ? 2 : 3}
+          columns={futureSkipCount > 0 || (sub.bonus_meals ?? 0) > 0 ? 2 : 3}
           ariaLabel="Plan progress"
           metrics={[
             { label: 'Delivered', value: `${sub.delivered_meals}/${sub.total_meals}`, glyph: <Utensils size={13} strokeWidth={2.2} /> },
+            // Goodwill meals support added — already inside the delivered/total
+            // figure; this tile makes the gift visible. Mirrors the desktop
+            // plan page's "Gifted by Dormers" stat. Hidden when zero.
+            ...((sub.bonus_meals ?? 0) > 0 ? [{ label: 'Gifted', value: `+${sub.bonus_meals}`, accent: true, glyph: <Gift size={13} strokeWidth={2.2} /> }] : []),
             { label: 'Skips left', value: skipAllowance > 0 ? `${skipsLeft} of ${skipAllowance}` : '—', glyph: <SkipForward size={13} strokeWidth={2.2} /> },
             { label: 'Pause', value: pauseStatus, glyph: <PauseCircle size={13} strokeWidth={2.2} /> },
             ...(futureSkipCount > 0 ? [{ label: 'Scheduled', value: `${futureSkipCount}`, accent: true, glyph: <CalendarClock size={13} strokeWidth={2.2} /> }] : []),

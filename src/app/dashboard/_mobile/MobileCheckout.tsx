@@ -6,7 +6,7 @@ import { Loader2, Lock, MapPin, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer } from '../_shared/types'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobileDatePicker } from './MobileDatePicker'
 import { MobileSheet, PlanGlyph, eyebrow, OG, S, BODY } from './kit'
 
@@ -55,9 +55,12 @@ interface Props {
   weekType: WeekType
   outOfZone?: boolean
   creditBalanceAed?: number
+  /** Active admin price overrides (plan_pricing rows) — same rows the
+   *  server validates against, so the sheet total === charged amount. */
+  priceOverrides?: PriceOverride[]
 }
 
-export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditBalanceAed = 0 }: Props) {
+export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditBalanceAed = 0, priceOverrides = [] }: Props) {
   const open = selected !== null
   // Retain the last selected plan so the sheet keeps its content while it
   // animates out (selected → null) instead of blanking instantly.
@@ -127,7 +130,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
       const res = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(totalPrice(plan, pref, vegDayCount, weekType) * 100),
+          amount: Math.round(totalPrice(plan, pref, vegDayCount, weekType, priceOverrides) * 100),
           name: customer?.name ?? '',
           email: customer?.email ?? userEmail,
           phone: customer?.whatsapp_number ?? '',
@@ -157,7 +160,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
   }
 
   if (!plan) return null
-  const total = totalPrice(plan, pref, vegDayCount, weekType)
+  const total = totalPrice(plan, pref, vegDayCount, weekType, priceOverrides)
   const appliedAed = Math.min(creditBalanceAed, total)
   const leftoverAed = Math.max(0, creditBalanceAed - appliedAed)
   // What the customer actually pays now — gross minus the Dorm Wars credit the
@@ -170,7 +173,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
   const planDef = PLANS.find(p => p.id === plan)
   const W = weekType === '5DAYS' ? 5 : 6
   const meals = mealsForPlan(plan, weekType)
-  const perMeal = pricePerMeal(plan, pref, vegDayCount, weekType)
+  const perMeal = pricePerMeal(plan, pref, vegDayCount, weekType, priceOverrides)
   const planKindLabel =
     plan === 'Weekly Flex' ? 'Weekly plan'
     : (plan === 'Monthly Premium' || plan === 'Monthly Max') ? 'Monthly plan'

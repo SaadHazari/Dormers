@@ -10,7 +10,7 @@ import { PlanGlyph } from '../_shared/PlanGlyph'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 
 interface CheckoutCustomer {
   name?: string | null
@@ -59,6 +59,10 @@ interface Props {
    *  Display amount is `min(creditBalanceAed, planTotalAed)` — mirrors the
    *  hard cap the coupon synth applies server-side (REDEEM-03). */
   creditBalanceAed?: number
+  /** Active admin price overrides (plan_pricing rows) — threaded from the
+   *  page SSR fetch so the displayed total and the POSTed amount both use
+   *  the DB-backed price the server validates against. */
+  priceOverrides?: PriceOverride[]
 }
 
 // Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
@@ -117,7 +121,7 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
  */
 export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
-  outOfZone = false, creditBalanceAed = 0,
+  outOfZone = false, creditBalanceAed = 0, priceOverrides = [],
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // weekType is the effective cadence (pending → canonical fallback) supplied
@@ -274,7 +278,7 @@ export function CheckoutPanel({
       const res = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(totalPrice(selected, pref, vegDayCount, weekType) * 100),
+          amount: Math.round(totalPrice(selected, pref, vegDayCount, weekType, priceOverrides) * 100),
           name: customer?.name ?? '',
           email: customer?.email ?? userEmail,
           phone: customer?.whatsapp_number ?? '',
@@ -350,7 +354,7 @@ export function CheckoutPanel({
               <span>{selected}</span>
             </div>
             <div className="checkout-plan-meta">
-              {pricePerMeal(selected, pref, vegDayCount, weekType)} AED/meal &middot; {mealsForPlan(selected, weekType)} meals
+              {pricePerMeal(selected, pref, vegDayCount, weekType, priceOverrides)} AED/meal &middot; {mealsForPlan(selected, weekType)} meals
             </div>
             {startDate && (
               <div className="checkout-plan-when">
@@ -365,7 +369,7 @@ export function CheckoutPanel({
           <div className="checkout-total-block">
             <div className="checkout-total-line">
               <span className="checkout-total-num">
-                {totalPrice(selected, pref, vegDayCount, weekType)}
+                {totalPrice(selected, pref, vegDayCount, weekType, priceOverrides)}
               </span>
               <span className="checkout-total-cur">AED</span>
             </div>
@@ -392,7 +396,7 @@ export function CheckoutPanel({
             divider and the action strip so the customer's eye reads:
             plan → divider → "credit applied" → date+CTA. */}
         {creditBalanceAed > 0 && (() => {
-          const planTotalAed = totalPrice(selected, pref, vegDayCount, weekType)
+          const planTotalAed = totalPrice(selected, pref, vegDayCount, weekType, priceOverrides)
           const appliedAed   = Math.min(creditBalanceAed, planTotalAed)
           const leftoverAed  = Math.max(0, creditBalanceAed - appliedAed)
           // Hint copy depends on whether there's leftover credit. Without

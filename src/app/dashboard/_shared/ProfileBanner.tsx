@@ -31,7 +31,10 @@ export function ProfileBanner({ missing }: { missing: string[] }) {
       }}>
         <AlertTriangle size={18} strokeWidth={2.4} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* flex-basis must be a real width (not `flex: 1` ≡ basis 0) — with a
+          0 basis the wrap never engages and phones squeeze the text to a
+          one-word-per-line sliver beside the no-shrink CTA. */}
+      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
         <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
           Finish your profile to unlock plan purchase.
         </div>
