@@ -25,6 +25,25 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // Sentry's value is production monitoring. Traces + profiles stay on.
     beforeSend: isDev ? () => null : undefined,
 
+    // Browser-injected script noise — not our code. iOS browsers built on
+    // the Firefox-for-iOS codebase (Firefox, Brave on iOS) inject user
+    // scripts (`window.__firefox__.reader`, YouTube-quality tweaks) into
+    // every page; when those scripts throw, the global onerror handler
+    // attributes the crash to our page. Matched against the error message,
+    // so one `__firefox__` pattern covers all variants. Filtering client-side
+    // means the events are never sent — keeps the quota for real errors.
+    ignoreErrors: [
+      /__firefox__/,
+      // Crypto-wallet extensions (MetaMask, Brave's built-in wallet) inject
+      // `window.ethereum` into every page and throw when it's locked/absent.
+      /window\.ethereum/,
+      // Safari extension content scripts surface under this name.
+      /safari-extension/,
+      /safari-web-extension/,
+      // Chrome extensions that throw inside the page context.
+      /chrome-extension/,
+    ],
+
     // Trace sampling: 100% in dev so every nav is visible; 10% in prod for cost.
     tracesSampleRate: isDev ? 1.0 : 0.1,
 
