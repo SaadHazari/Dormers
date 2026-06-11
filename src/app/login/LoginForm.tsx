@@ -102,34 +102,58 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     return (
         <div
             className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-            style={{
-                background: tokens.pageBackground,
-                transition: 'background 320ms ease',
-            }}
+            style={{ background: authTokens(true).pageBackground }}
         >
+            {/* Dark page gradient — crossfaded via opacity. CSS cannot
+                transition between two background-image gradients, so the old
+                `transition: background` snapped the page in one frame while
+                everything else faded over 200-450ms — the visible "jitter"
+                on mobile theme flips. An opacity fade composites on the GPU,
+                so the 320ms shift is one smooth crossfade. */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                    background: authTokens(false).pageBackground,
+                    opacity: isLight ? 0 : 1,
+                    transition: 'opacity 320ms ease',
+                }}
+            />
+
             {/* Hanging-bulb theme toggle — self-positioned fixed top-right. */}
             <ThemeToggle />
 
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className={`absolute -bottom-32 -left-32 w-[560px] h-[560px] rounded-full blur-[140px] ${isLight ? 'bg-[#f57f20]/[0.08]' : 'bg-[#f57f20]/[0.05]'}`} />
-                <div className={`absolute -top-20 -right-20 w-[420px] h-[420px] rounded-full blur-[120px] ${isLight ? 'bg-[#f57f20]/[0.05]' : 'bg-[#f57f20]/[0.04]'}`} />
+                {/* Corner glow blobs — radial gradients, NOT filter:blur. A
+                    140px gaussian over a 560px circle forces a huge filter
+                    surface mobile GPUs must re-render mid-flip; a radial
+                    gradient paints the same soft blob for free. */}
+                <div
+                    className="absolute -bottom-32 -left-32 w-[560px] h-[560px]"
+                    style={{ background: `radial-gradient(closest-side, rgba(245,127,32,${isLight ? 0.10 : 0.06}) 0%, rgba(245,127,32,${isLight ? 0.05 : 0.03}) 55%, rgba(245,127,32,0) 100%)` }}
+                />
+                <div
+                    className="absolute -top-20 -right-20 w-[420px] h-[420px]"
+                    style={{ background: `radial-gradient(closest-side, rgba(245,127,32,${isLight ? 0.06 : 0.05}) 0%, rgba(245,127,32,${isLight ? 0.03 : 0.025}) 55%, rgba(245,127,32,0) 100%)` }}
+                />
                 {/* Ambient warm tint — dark mode only. Three offset radial
                     sources so the page reads as an environmental hue rather
-                    than one visible circle. Stacks on top of the corner blobs
-                    above to deepen the warmth toward the centre. */}
-                {!isLight && (
-                    <div
-                        aria-hidden
-                        className="absolute inset-0"
-                        style={{
-                            background: `
-                                radial-gradient(ellipse 70% 55% at 50% 45%, rgba(245,127,32,0.12), transparent 70%),
-                                radial-gradient(ellipse 55% 45% at 25% 70%, rgba(245,127,32,0.07), transparent 70%),
-                                radial-gradient(ellipse 55% 45% at 75% 30%, rgba(245,127,32,0.07), transparent 70%)
-                            `,
-                        }}
-                    />
-                )}
+                    than one visible circle. Kept mounted and opacity-faded:
+                    mount/unmounting a full-screen layer mid-toggle forced a
+                    whole-page repaint at the worst possible moment. */}
+                <div
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{
+                        background: `
+                            radial-gradient(ellipse 70% 55% at 50% 45%, rgba(245,127,32,0.12), transparent 70%),
+                            radial-gradient(ellipse 55% 45% at 25% 70%, rgba(245,127,32,0.07), transparent 70%),
+                            radial-gradient(ellipse 55% 45% at 75% 30%, rgba(245,127,32,0.07), transparent 70%)
+                        `,
+                        opacity: isLight ? 0 : 1,
+                        transition: 'opacity 320ms ease',
+                    }}
+                />
             </div>
 
             <motion.div

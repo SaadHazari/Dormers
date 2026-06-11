@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 // Hanging bulb (LEFT) + separate red flip switch (RIGHT) clustered close
 // together in the top-right corner. The lever rotates 0° (UP = light on) ↔
@@ -66,8 +66,10 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
     }
 
     const flick = () => {
-        playSwitchClick(!isLight)
+        // Theme first, sound second — AudioContext setup (especially its lazy
+        // first-tap creation) must never delay the visual flip.
         setTheme(isLight ? 'dark' : 'light')
+        playSwitchClick(!isLight)
     }
 
     const onKey = (e: React.KeyboardEvent) => {
@@ -117,15 +119,27 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
                             <stop offset="50%"  stopColor="#161616" />
                             <stop offset="100%" stopColor="#0a0a0a" />
                         </linearGradient>
-                        <filter id="halo-tight" x="-100%" y="-100%" width="300%" height="300%">
-                            <feGaussianBlur stdDeviation="9" />
-                        </filter>
-                        <filter id="halo-mid" x="-150%" y="-150%" width="400%" height="400%">
-                            <feGaussianBlur stdDeviation="18" />
-                        </filter>
-                        <filter id="halo-ambient" x="-300%" y="-300%" width="700%" height="700%">
-                            <feGaussianBlur stdDeviation="38" />
-                        </filter>
+                        {/* Halo gradients — replace the old feGaussianBlur halo
+                            filters. Mobile Safari re-rasterizes SVG filters on
+                            every animation frame (the ambient one covered a
+                            700% filter region), which janked the whole theme
+                            flip; radial gradients paint the same soft bloom
+                            for free. Stops approximate a gaussian falloff. */}
+                        <radialGradient id="halo-grad-tight" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%"  stopColor="#fff2c2" stopOpacity="1" />
+                            <stop offset="60%" stopColor="#fff2c2" stopOpacity="0.75" />
+                            <stop offset="100%" stopColor="#fff2c2" stopOpacity="0" />
+                        </radialGradient>
+                        <radialGradient id="halo-grad-mid" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%"  stopColor="#ffe4a8" stopOpacity="1" />
+                            <stop offset="55%" stopColor="#ffe4a8" stopOpacity="0.7" />
+                            <stop offset="100%" stopColor="#ffe4a8" stopOpacity="0" />
+                        </radialGradient>
+                        <radialGradient id="halo-grad-ambient" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%"  stopColor="#ffe2a4" stopOpacity="1" />
+                            <stop offset="45%" stopColor="#ffe2a4" stopOpacity="0.6" />
+                            <stop offset="100%" stopColor="#ffe2a4" stopOpacity="0" />
+                        </radialGradient>
                         <filter id="filament-glow" x="-100%" y="-100%" width="300%" height="300%">
                             <feGaussianBlur stdDeviation="2.2" />
                         </filter>
@@ -141,21 +155,21 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
                         strokeLinecap="round"
                     />
 
-                    {/* Ambient environmental glow — three stacked blurs, only when on */}
-                    <AnimatePresence>
-                        {isLight && (
-                            <motion.g
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                            >
-                                <circle cx="-20" cy="235" r="170" fill="#ffe2a4" filter="url(#halo-ambient)" opacity="0.22" />
-                                <circle cx="-20" cy="230" r="92"  fill="#ffe4a8" filter="url(#halo-mid)"     opacity="0.45" />
-                                <circle cx="-20" cy="228" r="44"  fill="#fff2c2" filter="url(#halo-tight)"   opacity="0.7" />
-                            </motion.g>
-                        )}
-                    </AnimatePresence>
+                    {/* Ambient environmental glow — three stacked gradient
+                        discs, kept mounted and opacity-faded (mount/unmount
+                        through AnimatePresence forced re-rasterization at the
+                        worst moment). Radii ≈ old circle r + 1.5×blur so the
+                        bloom footprint matches the filtered version. */}
+                    <motion.g
+                        initial={false}
+                        animate={{ opacity: isLight ? 1 : 0 }}
+                        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ pointerEvents: 'none' }}
+                    >
+                        <circle cx="-20" cy="235" r="225" fill="url(#halo-grad-ambient)" opacity="0.22" />
+                        <circle cx="-20" cy="230" r="119" fill="url(#halo-grad-mid)"     opacity="0.45" />
+                        <circle cx="-20" cy="228" r="57"  fill="url(#halo-grad-tight)"   opacity="0.7" />
+                    </motion.g>
 
                     {/* ── Bulb (inverted, on the LEFT, near the switch) ───── */}
                     <ellipse cx="-20" cy="160" rx="6" ry="2.2" fill="#0e0e0e" />
@@ -164,7 +178,12 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
                     <rect x="-31" y="168" width="22" height="6" fill="url(#screw)" rx="1" />
                     <rect x="-31" y="176" width="22" height="6" fill="url(#screw)" rx="1" />
 
-                    <motion.path
+                    {/* Glass — fill swaps discretely. framer-motion can't tween
+                        between url(#…) gradient fills (it degenerated into
+                        per-frame string churn), and an instant flip reads like
+                        a real bulb snapping on while the halo blooms around
+                        it. */}
+                    <path
                         d="M -28 182
                            L -28 192
                            C -38 192, -46 208, -46 230
@@ -172,12 +191,9 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
                            C -4 262, 6 248, 6 230
                            C 6 208, -2 192, -12 192
                            L -12 182 Z"
-                        animate={{
-                            fill: isLight
-                                ? 'url(#bulb-on)'
-                                : (resolvedTheme === 'dark' ? 'url(#bulb-off-dark)' : 'url(#bulb-off-light)'),
-                        }}
-                        transition={{ duration: 0.35 }}
+                        fill={isLight
+                            ? 'url(#bulb-on)'
+                            : (resolvedTheme === 'dark' ? 'url(#bulb-off-dark)' : 'url(#bulb-off-light)')}
                         stroke={isLight ? '#c69240' : 'rgba(150,165,185,0.30)'}
                         strokeOpacity={isLight ? 0.55 : 0.6}
                         strokeWidth="1"
