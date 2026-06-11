@@ -21,6 +21,7 @@ import {
   ASC, LINE,
   TOP_PAD_TOP, TOP_PAD_BOTTOM, BRAND_TOP, DORM_TOP_SHAPE, DORM_TOP_NAME,
   DISH, PREF, QR_TILE,
+  PREF_VEG, VEG_PLATE,
   FRONT_PAD, ORDER_LBL, ORDER_ID, DORM_FRONT_SHAPE, DORM_FRONT_NAME,
   FOR_LBL, CUSTOMER, FRONT_FOOT,
   TAIL_BORDER, TAIL_GAP, TEAR, TAIL_ID, TAIL_BRAND,
@@ -148,9 +149,9 @@ export function renderLabelsPdf(labels: LabelData[], opts: RenderOptions = {}): 
     shapeNumber(
       label.dormShape, label.dormNumber, shapeX, topMm, shapeSpec.size,
       shapeSpec.numSize, shapeSpec.numWeight,
-      // Outlined shape sits on the ink plate → cream digit. Solid ink shape
-      // on the cream ticket → cream digit too. (Both faces knock out cream.)
-      CREAM,
+      // Outlined shape: digit matches the stroke (cream on the ink plate,
+      // ink on the veg plate). Solid shape always knocks out cream.
+      mode === 'outline' ? color : CREAM,
     )
     const nameTop = topMm + shapeSpec.size + nameSpec.marginTop
     text(label.dormDisplayName, centerX, baselineFor(nameTop, nameSpec.size), {
@@ -166,17 +167,28 @@ export function renderLabelsPdf(labels: LabelData[], opts: RenderOptions = {}): 
     doc.rect(0, 0, PAGE_W * MM, PAGE_H * MM).fillColor(stock).fill()
 
     // ════ TOP — the plate ════════════════════════════════════════════════
-    doc.rect(0, 0, PAGE_W * MM, TOP_H * MM).fillColor(INK).fill()
+    // The plate IS the meal-pref signal: NON-VEG = solid ink (the original
+    // locked design), VEG = open stock plate with an ink frame. Dark vs
+    // light is readable across the kitchen — no reading required.
+    const isVeg = label.mealPref === 'VEG'
+    const plateInk = isVeg ? INK : CREAM   // everything drawn ON the plate
+    if (isVeg) {
+      const bw = VEG_PLATE.border
+      doc.rect((bw / 2) * MM, (bw / 2) * MM, (PAGE_W - bw) * MM, (TOP_H - bw) * MM)
+        .lineWidth(bw * MM).strokeColor(INK).stroke()
+    } else {
+      doc.rect(0, 0, PAGE_W * MM, TOP_H * MM).fillColor(INK).fill()
+    }
 
     // Brand, top-left.
     text("DORMERS'", PAD_X, baselineFor(TOP_PAD_TOP, BRAND_TOP.size), {
-      weight: BRAND_TOP.weight, size: BRAND_TOP.size, ls: BRAND_TOP.ls, color: CREAM,
+      weight: BRAND_TOP.weight, size: BRAND_TOP.size, ls: BRAND_TOP.ls, color: plateInk,
     })
 
     // Dorm marker, top-right (outlined).
     dormColumn(label, TOP_PAD_TOP,
       { size: DORM_TOP_SHAPE.size, numSize: DORM_TOP_SHAPE.numSize, numWeight: DORM_TOP_SHAPE.numWeight, stroke: DORM_TOP_SHAPE.stroke },
-      DORM_TOP_NAME, 'outline', CREAM)
+      DORM_TOP_NAME, 'outline', plateInk)
 
     // Bottom-aligned body: dish block (left) + QR tile (right).
     const bodyBottom = TOP_H - TOP_PAD_BOTTOM
@@ -186,29 +198,36 @@ export function renderLabelsPdf(labels: LabelData[], opts: RenderOptions = {}): 
     const tileY = bodyBottom - tile
     doc.roundedRect(tileX * MM, tileY * MM, tile * MM, tile * MM, QR_TILE.radius * MM)
       .fillColor(CREAM).fill()
+    if (isVeg) {
+      // Cream tile on the stock plate needs a hairline to read as a tile.
+      doc.roundedRect(tileX * MM, tileY * MM, tile * MM, tile * MM, QR_TILE.radius * MM)
+        .lineWidth(VEG_PLATE.qrTileStroke * MM).strokeColor(INK).stroke()
+    }
     doc.image(Buffer.from(label.qrPngBase64, 'base64'),
       (tileX + QR_TILE.pad) * MM, (tileY + QR_TILE.pad) * MM,
       { width: QR_TILE.img * MM, height: QR_TILE.img * MM })
 
-    // Meal preference row (cream square + caps), bottom of the dish block.
-    const prefRowH = PREF.size * LINE
+    // Meal preference row (square + caps), bottom of the dish block. On the
+    // veg plate the word VEG prints oversized — the redundant second cue.
+    const pref = isVeg ? PREF_VEG : PREF
+    const prefRowH = pref.size * LINE
     const prefTop = bodyBottom - prefRowH
-    const sqY = prefTop + prefRowH / 2 - PREF.sq / 2
-    doc.roundedRect(PAD_X * MM, sqY * MM, PREF.sq * MM, PREF.sq * MM, PREF.sqRadius * MM)
-      .fillColor(CREAM).fill()
-    text(label.mealPref, PAD_X + PREF.sq + PREF.gap, baselineFor(prefTop, PREF.size), {
-      weight: PREF.weight, size: PREF.size, ls: PREF.ls, color: CREAM,
+    const sqY = prefTop + prefRowH / 2 - pref.sq / 2
+    doc.roundedRect(PAD_X * MM, sqY * MM, pref.sq * MM, pref.sq * MM, pref.sqRadius * MM)
+      .fillColor(plateInk).fill()
+    text(label.mealPref, PAD_X + pref.sq + pref.gap, baselineFor(prefTop, pref.size), {
+      weight: pref.weight, size: pref.size, ls: pref.ls, color: plateInk,
     })
 
     // Dish name — the hero. Fitted: ≤2 lines, whole words, shrink-to-fit.
     const dish = fitDishName(label.dishName, measure)
     const lineAdvance = dish.sizeMm * DISH.lineHeight
-    const dishTop = prefTop - PREF.marginTop - dish.lines.length * lineAdvance
+    const dishTop = prefTop - pref.marginTop - dish.lines.length * lineAdvance
     // CSS half-leading: baseline inside a 1.06 line box.
     const innerBaseline = ((DISH.lineHeight - LINE) / 2 + ASC) * dish.sizeMm
     dish.lines.forEach((line, i) => {
       text(line, PAD_X, dishTop + i * lineAdvance + innerBaseline, {
-        weight: DISH.weight, size: dish.sizeMm, ls: DISH.ls, color: CREAM,
+        weight: DISH.weight, size: dish.sizeMm, ls: DISH.ls, color: plateInk,
       })
     })
 

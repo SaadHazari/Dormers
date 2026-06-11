@@ -156,11 +156,15 @@ export async function getDailyLabels(): Promise<DailyLabels> {
     return { ...meta, orderId: `DM-${orderNo}` }
   })
 
-  // Kitchen/driver order: by dorm (routing number), then customer.
+  // Print order: NON-VEG block first, then VEG — the printed stack splits
+  // into two clean piles at the colour break (dark plates, then light), one
+  // per counter side. Within each pile: dorm (routing number), then customer.
   labels.sort((a, b) =>
-    a.dormNumber !== b.dormNumber
-      ? a.dormNumber - b.dormNumber
-      : a.customerName.localeCompare(b.customerName),
+    a.mealPref !== b.mealPref
+      ? (a.mealPref === 'NON-VEG' ? -1 : 1)
+      : a.dormNumber !== b.dormNumber
+        ? a.dormNumber - b.dormNumber
+        : a.customerName.localeCompare(b.customerName),
   )
 
   return { dateIso, dayName, labels }

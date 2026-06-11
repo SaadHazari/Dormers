@@ -7,7 +7,12 @@
 // previews the generated PDF itself, so screen and print can never diverge.
 //
 // Locked decisions (do not revisit — see label brief §9):
-//   • TOP = black plate (dish face), FRONT = clean cream ticket, TAIL = seal.
+//   • TOP plate encodes meal pref (owner revision, 2026-06-11): NON-VEG =
+//     solid black plate (the original design, unchanged); VEG = stock plate
+//     with a black border + black text + oversized VEG marker. Kitchen rule:
+//     dark label → meat, light label → veg — readable across the counter,
+//     no hunting for the small pref text.
+//   • FRONT = clean cream ticket, TAIL = seal.
 //   • Dish name only on TOP. No dish name on FRONT.
 //   • Dorm shape+number on both TOP (outlined) and FRONT (solid).
 //   • Mono #091825 on cream #ede8da. No other colour, bars or decoration.
@@ -61,6 +66,13 @@ export const DORM_TOP_NAME = { size: 1.7, weight: 600 as const, ls: 0.45, margin
 export const DISH = { size: 7.2, weight: 800 as const, ls: -0.12, lineHeight: 1.06 }
 export const DISH_SIZE_LADDER = [7.2, 6.6, 6.0, 5.4, 4.8]   // shrink-to-fit steps
 export const PREF = { size: 1.85, weight: 600 as const, ls: 0.4, sq: 2, sqRadius: 0.25, gap: 1.2, marginTop: 2 }
+// VEG plate variant: the word VEG is the second redundant cue (after the
+// plate colour itself), so it prints bigger and heavier than the non-veg row.
+export const PREF_VEG = { size: 2.6, weight: 800 as const, ls: 0.5, sq: 2.8, sqRadius: 0.35, gap: 1.4, marginTop: 2 }
+// VEG plate frame: stock-coloured plate with an ink border, inset so the
+// stroke never clips at the page edge. qrTileStroke keeps the QR tile
+// reading as a tile when cream-on-cream would otherwise vanish.
+export const VEG_PLATE = { border: 1.0, qrTileStroke: 0.3 }
 export const QR_TILE = { img: 16, pad: 1.6, radius: 1.2 }   // tile = 19.2 × 19.2
 export const TOP_BODY_GAP = 4                               // dish block ↔ QR tile
 

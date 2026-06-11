@@ -4,6 +4,10 @@
 // can't attach a file to a wa.me link, so we upload the PDF to a private
 // storage bucket and hand back a 7-day signed URL the kitchen can tap.
 // (On mobile the client shares the PDF file directly — no upload needed.)
+//
+// Body (optional): { order: "DM-1042" } narrows the upload to that single
+// label — the per-label WhatsApp button in the admin grid (reprints,
+// "this one box only" messages to the kitchen).
 
 import { NextResponse } from 'next/server'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
@@ -18,19 +22,29 @@ export const runtime = 'nodejs'
 const BUCKET = 'kitchen-labels'
 const SIGNED_URL_TTL_S = 7 * 24 * 60 * 60   // 7 days — outlives any print delay
 
-export async function POST() {
+export async function POST(request: Request) {
   const user = await getUserFromHeaders()
   if (!user || !isAdminEmail(user.email)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // Body is optional — the whole-day share posts nothing.
+  const order: string | null = await request.json()
+    .then(b => (typeof b?.order === 'string' ? b.order : null))
+    .catch(() => null)
 
   const { dateIso, labels, noDeliveryReason } = await getDailyLabels()
   if (labels.length === 0) {
     return NextResponse.json({ error: noDeliveryReason ?? 'No labels today' }, { status: 404 })
   }
 
-  const pdf = await renderLabelsPdf(await toLabelData(labels), {
-    title: `Dormers' Labels — ${dateIso}`,
+  const selected = order ? labels.filter(l => l.orderId === order) : labels
+  if (selected.length === 0) {
+    return NextResponse.json({ error: `No label ${order} today` }, { status: 404 })
+  }
+
+  const pdf = await renderLabelsPdf(await toLabelData(selected), {
+    title: order ? `Dormers' Label — ${order}` : `Dormers' Labels — ${dateIso}`,
   })
 
   const sb = createAdminSupabaseClient()
@@ -41,7 +55,10 @@ export async function POST() {
     return NextResponse.json({ error: `bucket: ${bucketError.message}` }, { status: 500 })
   }
 
-  const path = `dormers-labels-${dateIso}.pdf`
+  // order matched a generated DM id above, so it's path-safe.
+  const path = order
+    ? `dormers-label-${dateIso}-${order}.pdf`
+    : `dormers-labels-${dateIso}.pdf`
   const { error: uploadError } = await sb.storage.from(BUCKET).upload(path, pdf, {
     contentType: 'application/pdf',
     upsert: true,
@@ -67,7 +84,7 @@ export async function POST() {
   return NextResponse.json({
     downloadUrl: download.data.signedUrl,
     printUrl: inline.data.signedUrl,
-    count: labels.length,
+    count: selected.length,
     dateIso,
   })
 }

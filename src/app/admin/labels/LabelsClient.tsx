@@ -6,9 +6,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { Download, Link2, MessageCircle, Printer, Tag } from 'lucide-react'
+import { Download, Eye, Link2, MessageCircle, Printer, Tag, X } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
+import { AdminModal } from '../_components/AdminModal'
 import { SHAPE_D } from './label-spec'
 import type { LabelMeta } from './data'
 import type { DormShape } from './dorm-shapes'
@@ -29,8 +30,10 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
-  const [sharing, setSharing] = useState(false)
+  // 'batch' while the whole-day share runs, an orderId for a per-label share.
+  const [sharing, setSharing] = useState<string | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<{ label: LabelMeta; pageIndex: number } | null>(null)
 
   const filename = `dormers-labels-${dateIso}.pdf`
   const dateDisplay = new Date(dateIso + 'T00:00:00').toLocaleDateString('en-AE', {
@@ -69,33 +72,56 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
     URL.revokeObjectURL(url)
   }
 
+  /** Single-label PDF — same engine/route as the batch, narrowed to one page. */
+  const labelPdfUrl = (orderId: string) =>
+    `${pdfUrl}${pdfUrl.includes('?') ? '&' : '?'}order=${encodeURIComponent(orderId)}`
+
+  // AdminModal leaves Esc to the consumer.
+  useEffect(() => {
+    if (!viewing) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setViewing(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewing])
+
   const summary = `Dormers' labels — ${dateDisplay} · ${labels.length} meal${labels.length !== 1 ? 's' : ''}`
 
   /**
-   * Publishes today's PDF (7-day signed URLs) and opens WhatsApp with a
+   * Publishes the PDF (7-day signed URLs) and opens WhatsApp with a
    * prefilled message. The window must open synchronously (inside the
    * click) or popup blockers eat it — we navigate it once the link is ready.
+   * Pass a label to share just that one (reprints, "this box only").
    */
-  async function shareViaWhatsApp(kind: 'pdf' | 'printLink') {
+  async function shareViaWhatsApp(kind: 'pdf' | 'printLink', label?: LabelMeta) {
+    if (sharing) return
     const popup = window.open('about:blank', '_blank')
-    setSharing(true)
+    setSharing(label ? label.orderId : 'batch')
     setShareNote(null)
     try {
-      const res = await fetch('/api/admin/labels/share', { method: 'POST' })
+      const res = await fetch('/api/admin/labels/share', {
+        method: 'POST',
+        ...(label && {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: label.orderId }),
+        }),
+      })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Share failed')
+      const heading = label
+        ? `Dormers' label — ${label.orderId} · ${label.customerName} (${label.mealPref}) — ${dateDisplay}`
+        : summary
       const message = kind === 'printLink'
-        ? `${summary}\nOpen this link in the browser on the printer computer and hit Print — pages are already 4×6, no scaling needed:\n${body.printUrl}`
-        : `${summary}\n${body.downloadUrl}`
+        ? `${heading}\nOpen this link in the browser on the printer computer and hit Print — pages are already 4×6, no scaling needed:\n${body.printUrl}`
+        : `${heading}\n${body.downloadUrl}`
       const wa = `https://wa.me/?text=${encodeURIComponent(message)}`
       if (popup) popup.location.href = wa
       else window.open(wa, '_blank')
-      setShareNote('Link ready — pick the kitchen chat in WhatsApp. Link stays live for 7 days.')
+      setShareNote(`Link${label ? ` for ${label.orderId}` : ''} ready — pick the kitchen chat in WhatsApp. Link stays live for 7 days.`)
     } catch (e) {
       popup?.close()
       setShareNote(e instanceof Error ? e.message : 'Share failed')
     } finally {
-      setSharing(false)
+      setSharing(null)
     }
   }
 
@@ -150,7 +176,7 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
             variant="ghost"
             icon={<MessageCircle size={14} />}
             onClick={handleWhatsAppPdf}
-            loading={sharing}
+            loading={sharing === 'batch'}
             disabled={!pdfBlob && !pdfError}
           >
             WhatsApp PDF
@@ -159,7 +185,7 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
             variant="ghost"
             icon={<Link2 size={14} />}
             onClick={() => shareViaWhatsApp('printLink')}
-            loading={sharing}
+            loading={sharing === 'batch'}
             disabled={!pdfBlob && !pdfError}
           >
             WhatsApp Print Link
@@ -206,7 +232,12 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {group.items.map(({ label, pageIndex }) => (
               <div key={label.orderId} className={`rounded-xl overflow-hidden ${t.card}`}>
-                <PdfPage doc={pdfDoc} pageNumber={pageIndex + 1} />
+                <div
+                  className={pdfDoc ? 'cursor-zoom-in' : undefined}
+                  onClick={() => pdfDoc && setViewing({ label, pageIndex })}
+                >
+                  <PdfPage doc={pdfDoc} pageNumber={pageIndex + 1} />
+                </div>
                 <div className={`px-3 py-2 border-t ${t.border}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className={`text-[11px] font-bold truncate ${t.heading}`}>{label.customerName}</span>
@@ -217,12 +248,87 @@ export default function LabelsClient({ dateIso, labels, noDeliveryReason, pdfUrl
                   <div className={`text-[10px] font-semibold mt-0.5 ${t.faint}`}>
                     {label.orderId} · {label.dishName}
                   </div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <CardAction
+                      icon={<Eye size={13} />}
+                      label={`View ${label.orderId}`}
+                      disabled={!pdfDoc}
+                      onClick={() => setViewing({ label, pageIndex })}
+                      t={t}
+                    />
+                    <CardAction
+                      icon={<Printer size={13} />}
+                      label={`Print ${label.orderId} only`}
+                      onClick={() => window.open(labelPdfUrl(label.orderId), '_blank')}
+                      t={t}
+                    />
+                    <CardAction
+                      icon={<MessageCircle size={13} />}
+                      label={`WhatsApp ${label.orderId} print link`}
+                      loading={sharing === label.orderId}
+                      disabled={sharing !== null && sharing !== label.orderId}
+                      onClick={() => shareViaWhatsApp('printLink', label)}
+                      t={t}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </section>
       ))}
+
+      {/* Single-label zoom — the same PDF page, big enough to read. */}
+      {viewing && (
+        <AdminModal
+          label={`Label ${viewing.label.orderId}`}
+          maxW="max-w-[400px]"
+          onBackdrop={() => setViewing(null)}
+        >
+          <div className={`flex items-center justify-between gap-2 px-4 py-3 border-b ${t.border}`}>
+            <div className="min-w-0">
+              <div className={`text-[13px] font-extrabold truncate ${t.heading}`}>
+                {viewing.label.orderId} · {viewing.label.customerName}
+              </div>
+              <div className={`text-[11px] font-semibold mt-0.5 ${t.faint}`}>
+                {viewing.label.dishName} ·{' '}
+                <span className={viewing.label.mealPref === 'VEG' ? t.success : t.accent}>
+                  {viewing.label.mealPref}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setViewing(null)}
+              className={`p-1.5 rounded-lg shrink-0 cursor-pointer ${t.sidebarItem}`}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="min-h-0 overflow-y-auto">
+            <PdfPage key={viewing.label.orderId} doc={pdfDoc} pageNumber={viewing.pageIndex + 1} />
+          </div>
+          <div className={`flex items-center gap-2 px-4 py-3 border-t ${t.border}`}>
+            <AdminButton
+              icon={<Printer size={14} />}
+              onClick={() => window.open(labelPdfUrl(viewing.label.orderId), '_blank')}
+              className="flex-1"
+            >
+              Print
+            </AdminButton>
+            <AdminButton
+              variant="ghost"
+              icon={<MessageCircle size={14} />}
+              loading={sharing === viewing.label.orderId}
+              onClick={() => shareViaWhatsApp('printLink', viewing.label)}
+              className="flex-1"
+            >
+              WhatsApp
+            </AdminButton>
+          </div>
+        </AdminModal>
+      )}
     </div>
   )
 }
@@ -247,6 +353,32 @@ function groupByDorm(labels: LabelMeta[]): DormGroup[] {
     g.items.push({ label, pageIndex })
   })
   return [...groups.values()]
+}
+
+/** Compact icon button for the per-label action row (view / print / share). */
+function CardAction({ icon, label, onClick, disabled, loading, t }: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  loading?: boolean
+  t: Record<string, string>
+}) {
+  const off = disabled || loading
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={off}
+      onClick={onClick}
+      className={`flex-1 inline-flex items-center justify-center py-1.5 rounded-lg border transition-colors ${t.border} ${t.sidebarItem} ${off ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      {loading
+        ? <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        : icon}
+    </button>
+  )
 }
 
 function StatCard({ label, value, t }: { label: string; value: number; t: Record<string, string> }) {
