@@ -1,30 +1,41 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Database, Eye, EyeOff, Flame } from 'lucide-react'
+import { useMemo, useState, useTransition } from 'react'
+import { Database, Eye, EyeOff, Flame, Plus, Trash2, Upload } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminBadge } from '../_components/AdminBadge'
-import { Upload } from 'lucide-react'
-import { seedMenuFromStatic, toggleDishActive, updateDish, uploadDishImage } from './actions'
+import { createDish, deleteDish, seedMenuFromStatic, toggleDishActive, updateDish, uploadDishImage } from './actions'
+import { SlotEditorModal, type SlotTarget } from './SlotEditorModal'
 
 type Row = Record<string, unknown>
+type Result = { ok: boolean; message: string }
 
 interface Props {
     dishes: Row[]
     weeks: Row[]
     slots: Row[]
+    currentWeekKey: string
+    todayDow: number
 }
 
 type Tab = 'rotation' | 'dishes'
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export function MenuCmsClient({ dishes, weeks, slots }: Props) {
+export function MenuCmsClient({ dishes, weeks, slots, currentWeekKey, todayDow }: Props) {
     const { t } = useAdminTheme()
     const [tab, setTab] = useState<Tab>('rotation')
-    const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+    const [result, setResult] = useState<Result | null>(null)
+    const [slotTarget, setSlotTarget] = useState<SlotTarget | null>(null)
 
     const isEmpty = dishes.length === 0
+
+    const targetWeek = slotTarget ? weeks.find(w => w.id === slotTarget.weekId) : null
+    const targetIsToday = Boolean(
+        slotTarget && targetWeek &&
+        (targetWeek.week_key as string) === currentWeekKey &&
+        slotTarget.dayIdx === todayDow,
+    )
 
     return (
         <div>
@@ -32,7 +43,7 @@ export function MenuCmsClient({ dishes, weeks, slots }: Props) {
             <p className={`text-[13px] font-medium mb-4 ${t.muted}`}>
                 {isEmpty
                     ? 'No dishes in database. Seed from static catalog to get started.'
-                    : `${dishes.length} dishes · ${weeks.length} weeks · ${slots.length} slots`}
+                    : `${dishes.length} dishes · ${weeks.length} weeks · ${slots.length} slots — tap any slot to rearrange`}
             </p>
 
             {/* Seed button (only if empty) */}
@@ -55,19 +66,38 @@ export function MenuCmsClient({ dishes, weeks, slots }: Props) {
                     </div>
 
                     {tab === 'rotation' && (
-                        <RotationView weeks={weeks} slots={slots} dishes={dishes} />
+                        <RotationView
+                            weeks={weeks}
+                            slots={slots}
+                            dishes={dishes}
+                            currentWeekKey={currentWeekKey}
+                            todayDow={todayDow}
+                            onSlotClick={setSlotTarget}
+                        />
                     )}
 
                     {tab === 'dishes' && (
-                        <DishList dishes={dishes} onResult={setResult} />
+                        <DishList dishes={dishes} slots={slots} weeks={weeks} onResult={setResult} />
                     )}
                 </>
+            )}
+
+            {slotTarget && (
+                <SlotEditorModal
+                    target={slotTarget}
+                    dishes={dishes}
+                    weeks={weeks}
+                    slots={slots}
+                    isToday={targetIsToday}
+                    onClose={() => setSlotTarget(null)}
+                    onResult={setResult}
+                />
             )}
         </div>
     )
 }
 
-function SeedAction({ onResult }: { onResult: (r: { ok: boolean; message: string }) => void }) {
+function SeedAction({ onResult }: { onResult: (r: Result) => void }) {
     const { t } = useAdminTheme()
     const [isPending, startTransition] = useTransition()
 
@@ -93,7 +123,14 @@ function SeedAction({ onResult }: { onResult: (r: { ok: boolean; message: string
     )
 }
 
-function RotationView({ weeks, slots, dishes }: { weeks: Row[]; slots: Row[]; dishes: Row[] }) {
+function RotationView({ weeks, slots, dishes, currentWeekKey, todayDow, onSlotClick }: {
+    weeks: Row[]
+    slots: Row[]
+    dishes: Row[]
+    currentWeekKey: string
+    todayDow: number
+    onSlotClick: (target: SlotTarget) => void
+}) {
     const { t } = useAdminTheme()
 
     const dishMap = new Map<string, Row>()
@@ -103,11 +140,26 @@ function RotationView({ weeks, slots, dishes }: { weeks: Row[]; slots: Row[]; di
         <div className="flex flex-col gap-5">
             {weeks.map(week => {
                 const weekSlots = slots.filter(s => s.menu_week_id === week.id)
+                const weekLabel = (week.label as string) || (week.week_key as string)
+                const isCurrentWeek = (week.week_key as string) === currentWeekKey
+
+                const slotTarget = (dayIdx: number, isVeg: boolean): SlotTarget => ({
+                    weekId: week.id as string,
+                    weekLabel,
+                    dayIdx,
+                    isVeg,
+                })
+
                 return (
-                    <div key={week.id as string} className={`${t.card} rounded-xl p-4`}>
-                        <h2 className={`text-[14px] font-black mb-3 ${t.heading}`}>
-                            {week.label as string || week.week_key as string}
-                        </h2>
+                    <div key={week.id as string} className={`${t.card} rounded-xl p-4 ${isCurrentWeek ? 'border-[#f57f20]/30' : ''}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <h2 className={`text-[14px] font-black ${t.heading}`}>{weekLabel}</h2>
+                            {isCurrentWeek && (
+                                <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold tracking-[0.08em] uppercase ${t.accentBg} ${t.accent}`}>
+                                    Live this week
+                                </span>
+                            )}
+                        </div>
 
                         {/* Desktop grid */}
                         <div className="hidden sm:grid grid-cols-6 gap-2">
@@ -116,36 +168,33 @@ function RotationView({ weeks, slots, dishes }: { weeks: Row[]; slots: Row[]; di
                                 const nonvegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === false)
                                 const vegDish = vegSlot ? dishMap.get(vegSlot.dish_id as string) ?? null : null
                                 const nonvegDish = nonvegSlot ? dishMap.get(nonvegSlot.dish_id as string) ?? null : null
+                                const isToday = isCurrentWeek && dayIdx === todayDow
 
                                 return (
                                     <div key={dayIdx}>
-                                        <div className={`text-[10px] font-bold tracking-[0.10em] uppercase mb-1.5 text-center ${t.faint}`}>
-                                            {day}
-                                        </div>
-                                        <DishSlotCard dish={nonvegDish} label="Non-Veg" />
-                                        <DishSlotCard dish={vegDish} label="Veg" />
+                                        <DayHeader day={day} isToday={isToday} />
+                                        <SlotButton dish={nonvegDish} label="Non-Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, false))} />
+                                        <SlotButton dish={vegDish} label="Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, true))} />
                                     </div>
                                 )
                             })}
                         </div>
 
                         {/* Mobile list */}
-                        <div className="sm:hidden flex flex-col gap-2">
+                        <div className="sm:hidden flex flex-col gap-2.5">
                             {DAYS.map((day, dayIdx) => {
                                 const vegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === true)
                                 const nonvegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === false)
                                 const vegDish = vegSlot ? dishMap.get(vegSlot.dish_id as string) ?? null : null
                                 const nonvegDish = nonvegSlot ? dishMap.get(nonvegSlot.dish_id as string) ?? null : null
+                                const isToday = isCurrentWeek && dayIdx === todayDow
 
                                 return (
-                                    <div key={dayIdx} className={`py-2 border-b last:border-b-0 ${t.border}`}>
-                                        <div className={`text-[10px] font-bold tracking-[0.10em] uppercase mb-1 ${t.faint}`}>{day}</div>
-                                        <div className={`text-[12px] font-bold ${t.body}`}>
-                                            {nonvegDish ? nonvegDish.name as string : '(empty)'}
-                                        </div>
-                                        <div className={`text-[12px] font-medium ${t.muted}`}>
-                                            {vegDish ? vegDish.name as string : '(empty)'}
-                                            <span className={`text-[9px] font-bold uppercase tracking-wider ml-1 ${t.success}`}>veg</span>
+                                    <div key={dayIdx}>
+                                        <DayHeader day={day} isToday={isToday} align="left" />
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            <SlotButton dish={nonvegDish} label="Non-Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, false))} />
+                                            <SlotButton dish={vegDish} label="Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, true))} />
                                         </div>
                                     </div>
                                 )
@@ -158,13 +207,41 @@ function RotationView({ weeks, slots, dishes }: { weeks: Row[]; slots: Row[]; di
     )
 }
 
-function DishSlotCard({ dish, label }: { dish: Row | null; label: string }) {
+function DayHeader({ day, isToday, align = 'center' }: { day: string; isToday: boolean; align?: 'center' | 'left' }) {
+    const { t } = useAdminTheme()
+    return (
+        <div className={`flex items-center gap-1 mb-1.5 ${align === 'center' ? 'justify-center' : ''}`}>
+            <span className={`text-[10px] font-bold tracking-[0.10em] uppercase ${isToday ? t.accent : t.faint}`}>
+                {day}
+            </span>
+            {isToday && (
+                <span className="px-1 py-px rounded bg-[#f57f20] text-white text-[7.5px] font-black tracking-[0.08em] uppercase">
+                    Today
+                </span>
+            )}
+        </div>
+    )
+}
+
+function SlotButton({ dish, label, isToday, onClick }: {
+    dish: Row | null
+    label: string
+    isToday: boolean
+    onClick: () => void
+}) {
     const { t, isLight } = useAdminTheme()
 
     return (
-        <div className={`rounded-lg p-2 mb-1.5 text-center ${
-            isLight ? 'bg-[#091825]/[0.03]' : 'bg-white/[0.03]'
-        }`}>
+        <button
+            type="button"
+            onClick={onClick}
+            title="Tap to change this slot"
+            className={`w-full rounded-lg p-2 mb-1.5 text-center border transition-colors cursor-pointer ${
+                isLight ? 'bg-[#091825]/[0.03]' : 'bg-white/[0.03]'
+            } ${isToday ? 'border-[#f57f20]/35' : 'border-transparent'} hover:border-[#f57f20]/50 ${
+                isLight ? 'hover:bg-[#f57f20]/[0.05]' : 'hover:bg-[#f57f20]/[0.07]'
+            }`}
+        >
             <div className={`text-[9px] font-bold tracking-[0.10em] uppercase mb-0.5 ${
                 label === 'Veg' ? t.success : t.accent
             }`}>
@@ -175,16 +252,37 @@ function DishSlotCard({ dish, label }: { dish: Row | null; label: string }) {
                     {dish.name as string}
                 </div>
             ) : (
-                <div className={`text-[10px] font-medium italic ${t.faint}`}>Empty</div>
+                <div className={`text-[10px] font-medium italic ${t.faint}`}>Empty — tap to assign</div>
             )}
-        </div>
+        </button>
     )
 }
 
-function DishList({ dishes, onResult }: { dishes: Row[]; onResult: (r: { ok: boolean; message: string }) => void }) {
+function DishList({ dishes, slots, weeks, onResult }: {
+    dishes: Row[]
+    slots: Row[]
+    weeks: Row[]
+    onResult: (r: Result) => void
+}) {
     const { t } = useAdminTheme()
     const [editId, setEditId] = useState<string | null>(null)
+    const [showNew, setShowNew] = useState(false)
     const [filter, setFilter] = useState<'all' | 'veg' | 'nonveg'>('all')
+
+    const weekLabelById = useMemo(
+        () => new Map(weeks.map(w => [w.id as string, (w.label as string) || (w.week_key as string)])),
+        [weeks],
+    )
+    const slotsByDish = useMemo(() => {
+        const m = new Map<string, Row[]>()
+        for (const s of slots) {
+            const k = s.dish_id as string
+            const arr = m.get(k)
+            if (arr) arr.push(s)
+            else m.set(k, [s])
+        }
+        return m
+    }, [slots])
 
     const filtered = filter === 'all' ? dishes : filter === 'veg'
         ? dishes.filter(d => d.is_veg === true)
@@ -192,7 +290,7 @@ function DishList({ dishes, onResult }: { dishes: Row[]; onResult: (r: { ok: boo
 
     return (
         <div>
-            <div className="flex gap-1.5 mb-4">
+            <div className="flex items-center gap-1.5 mb-4 flex-wrap">
                 {(['all', 'nonveg', 'veg'] as const).map(f => (
                     <button
                         key={f}
@@ -205,13 +303,29 @@ function DishList({ dishes, onResult }: { dishes: Row[]; onResult: (r: { ok: boo
                         {f === 'all' ? `All (${dishes.length})` : f === 'veg' ? `Veg (${dishes.filter(d => d.is_veg).length})` : `Non-Veg (${dishes.filter(d => !d.is_veg).length})`}
                     </button>
                 ))}
+                <div className="flex-1" />
+                <AdminButton onClick={() => setShowNew(v => !v)} icon={<Plus size={13} />}>
+                    New Dish
+                </AdminButton>
             </div>
+
+            {showNew && (
+                <NewDishForm
+                    onResult={onResult}
+                    onCreated={dishId => {
+                        setShowNew(false)
+                        setEditId(dishId) // open the editor so a photo can be uploaded right away
+                    }}
+                />
+            )}
 
             <div className="flex flex-col gap-2">
                 {filtered.map(dish => (
                     <DishRow
                         key={dish.id as string}
                         dish={dish}
+                        assignments={slotsByDish.get(dish.id as string) ?? []}
+                        weekLabelById={weekLabelById}
                         isEditing={editId === dish.id}
                         onEdit={() => setEditId(editId === dish.id ? null : dish.id as string)}
                         onResult={onResult}
@@ -222,15 +336,18 @@ function DishList({ dishes, onResult }: { dishes: Row[]; onResult: (r: { ok: boo
     )
 }
 
-function DishRow({ dish, isEditing, onEdit, onResult }: {
+function DishRow({ dish, assignments, weekLabelById, isEditing, onEdit, onResult }: {
     dish: Row
+    assignments: Row[]
+    weekLabelById: Map<string, string>
     isEditing: boolean
     onEdit: () => void
-    onResult: (r: { ok: boolean; message: string }) => void
+    onResult: (r: Result) => void
 }) {
     const { t } = useAdminTheme()
     const [isPending, startTransition] = useTransition()
     const isActive = dish.is_active as boolean
+    const isSlotted = assignments.length > 0
 
     function handleToggle() {
         startTransition(async () => {
@@ -238,6 +355,20 @@ function DishRow({ dish, isEditing, onEdit, onResult }: {
             onResult(res)
         })
     }
+
+    function handleDelete() {
+        if (!confirm(`Delete "${dish.name as string}" permanently? This cannot be undone.`)) return
+        startTransition(async () => {
+            const res = await deleteDish(dish.id as string)
+            onResult(res)
+        })
+    }
+
+    const assignmentText = isSlotted
+        ? assignments
+            .map(s => `${weekLabelById.get(s.menu_week_id as string) ?? '?'} · ${DAYS[Number(s.day_of_week)] ?? '?'}`)
+            .join('  ·  ')
+        : 'Not on the rotation'
 
     return (
         <div className={`${t.card} rounded-xl p-3 ${!isActive ? 'opacity-50' : ''}`}>
@@ -260,9 +391,23 @@ function DishRow({ dish, isEditing, onEdit, onResult }: {
                     <div className={`text-[10px] font-semibold mt-0.5 ${t.faint}`}>
                         {dish.calories as string} · {dish.protein as string} protein · Allergens: {(dish.allergens as string[])?.join(', ') || 'none'}
                     </div>
+                    <div className={`text-[10px] font-bold mt-0.5 ${isSlotted ? t.muted : t.warning}`}>
+                        {assignmentText}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                    {!isSlotted && (
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={isPending}
+                            className={`p-1.5 rounded-lg transition-colors ${t.danger} ${isPending ? 'opacity-50' : ''}`}
+                            title="Delete dish"
+                        >
+                            <Trash2 size={14} strokeWidth={2} />
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={handleToggle}
@@ -289,7 +434,98 @@ function DishRow({ dish, isEditing, onEdit, onResult }: {
     )
 }
 
-function DishEditor({ dish, onResult }: { dish: Row; onResult: (r: { ok: boolean; message: string }) => void }) {
+function NewDishForm({ onResult, onCreated }: {
+    onResult: (r: Result) => void
+    onCreated: (dishId: string) => void
+}) {
+    const { t } = useAdminTheme()
+    const [isPending, startTransition] = useTransition()
+
+    function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
+        const fd = new FormData(e.currentTarget)
+        startTransition(async () => {
+            const res = await createDish({
+                name: fd.get('name') as string,
+                description: fd.get('description') as string,
+                is_veg: fd.get('is_veg') === 'veg',
+                spice_level: parseInt(fd.get('spice_level') as string, 10),
+                allergens: (fd.get('allergens') as string).split(',').map(s => s.trim()).filter(Boolean),
+                calories: fd.get('calories') as string,
+                protein: fd.get('protein') as string,
+                carbs: fd.get('carbs') as string,
+                fat: fd.get('fat') as string,
+            })
+            onResult(res)
+            if (res.ok && res.dishId) onCreated(res.dishId)
+        })
+    }
+
+    const fieldCls = `w-full px-2.5 py-1.5 rounded-lg border text-[12px] font-medium ${t.input} ${t.inputFocus}`
+
+    return (
+        <div className={`${t.card} rounded-xl p-4 mb-4`}>
+            <div className={`text-[13px] font-black mb-3 ${t.heading}`}>New Dish</div>
+            <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+                    <div>
+                        <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Name</label>
+                        <input name="name" required placeholder="e.g. Chicken Karahi" className={fieldCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Lane</label>
+                            <select name="is_veg" defaultValue="nonveg" className={fieldCls}>
+                                <option value="nonveg">Non-Veg</option>
+                                <option value="veg">Veg</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Spice (1-3)</label>
+                            <input name="spice_level" type="number" min={1} max={3} defaultValue={2} required className={fieldCls} />
+                        </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Description</label>
+                        <textarea name="description" rows={2} className={fieldCls} />
+                    </div>
+                    <div>
+                        <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Allergens (comma-separated)</label>
+                        <input name="allergens" placeholder="gluten, dairy" className={fieldCls} />
+                    </div>
+                    <div>
+                        <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Calories</label>
+                        <input name="calories" placeholder="650 kcal" className={fieldCls} />
+                    </div>
+                    <div>
+                        <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Protein</label>
+                        <input name="protein" placeholder="35g" className={fieldCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Carbs</label>
+                            <input name="carbs" placeholder="70g" className={fieldCls} />
+                        </div>
+                        <div>
+                            <label className={`block text-[9px] font-bold tracking-[0.08em] uppercase mb-0.5 ${t.faint}`}>Fat</label>
+                            <input name="fat" placeholder="20g" className={fieldCls} />
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <AdminButton type="submit" loading={isPending} icon={<Plus size={13} />}>
+                        Add Dish
+                    </AdminButton>
+                    <span className={`text-[10px] font-medium ${t.faint}`}>
+                        Photo upload opens right after — then assign it to a day from the rotation tab.
+                    </span>
+                </div>
+            </form>
+        </div>
+    )
+}
+
+function DishEditor({ dish, onResult }: { dish: Row; onResult: (r: Result) => void }) {
     const { t } = useAdminTheme()
     const [isPending, startTransition] = useTransition()
     const [uploadPending, startUpload] = useTransition()

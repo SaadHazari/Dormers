@@ -18,6 +18,8 @@ function revalidateMenuSurfaces() {
     revalidatePath('/dashboard')
     revalidatePath('/')
     revalidatePath('/dish/[id]', 'page')
+    revalidatePath('/dashboard/menu/review/[week]', 'page')
+    revalidatePath('/r/[cid]', 'page')
 }
 
 export async function seedMenuFromStatic(): Promise<Result> {
@@ -207,4 +209,186 @@ export async function assignDishToSlot(
     })
     revalidateMenuSurfaces()
     return { ok: true, message: 'Slot updated' }
+}
+
+/** Empty a rotation slot — that day/lane will render no dish until refilled. */
+export async function clearSlot(
+    menuWeekId: string,
+    dayOfWeek: number,
+    isVeg: boolean,
+): Promise<Result> {
+    const admin = await requireAdmin()
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 5) {
+        return { ok: false, message: 'Invalid day' }
+    }
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb
+        .from('week_meal_slots')
+        .delete()
+        .eq('menu_week_id', menuWeekId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_veg', isVeg)
+
+    if (error) return { ok: false, message: error.message }
+
+    await logAdminAction(admin.email, 'clear_slot', 'week_meal_slot', menuWeekId, { dayOfWeek, isVeg })
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Slot cleared' }
+}
+
+/** Swap the dishes of two existing slots (e.g. Butter Chicken Mon ↔ Biryani Sat). */
+export async function swapSlotDishes(slotIdA: string, slotIdB: string): Promise<Result> {
+    const admin = await requireAdmin()
+    if (slotIdA === slotIdB) return { ok: false, message: 'Pick two different slots to swap' }
+    const sb = createAdminSupabaseClient()
+
+    const { data: rows, error: readErr } = await sb
+        .from('week_meal_slots')
+        .select('id, dish_id')
+        .in('id', [slotIdA, slotIdB])
+    if (readErr) return { ok: false, message: readErr.message }
+
+    const a = rows?.find(r => r.id === slotIdA)
+    const b = rows?.find(r => r.id === slotIdB)
+    if (!a || !b) return { ok: false, message: 'One of the slots no longer exists — refresh and try again' }
+
+    const { error: errA } = await sb.from('week_meal_slots').update({ dish_id: b.dish_id }).eq('id', a.id)
+    if (errA) return { ok: false, message: errA.message }
+
+    const { error: errB } = await sb.from('week_meal_slots').update({ dish_id: a.dish_id }).eq('id', b.id)
+    if (errB) {
+        // Restore A so a half-swap never leaves the same dish on both days.
+        await sb.from('week_meal_slots').update({ dish_id: a.dish_id }).eq('id', a.id)
+        return { ok: false, message: errB.message }
+    }
+
+    await logAdminAction(admin.email, 'swap_slot_dishes', 'week_meal_slot', slotIdA, { with: slotIdB })
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Dishes swapped' }
+}
+
+/** Move a slot's dish to another day/lane, leaving the source slot empty. */
+export async function moveSlotDish(
+    fromSlotId: string,
+    toWeekId: string,
+    toDayOfWeek: number,
+    toIsVeg: boolean,
+): Promise<Result> {
+    const admin = await requireAdmin()
+    if (!Number.isInteger(toDayOfWeek) || toDayOfWeek < 0 || toDayOfWeek > 5) {
+        return { ok: false, message: 'Invalid day' }
+    }
+    const sb = createAdminSupabaseClient()
+
+    const { data: from, error: readErr } = await sb
+        .from('week_meal_slots')
+        .select('id, dish_id, menu_week_id, day_of_week, is_veg')
+        .eq('id', fromSlotId)
+        .maybeSingle()
+    if (readErr) return { ok: false, message: readErr.message }
+    if (!from) return { ok: false, message: 'Source slot no longer exists — refresh and try again' }
+    if (
+        from.menu_week_id === toWeekId &&
+        Number(from.day_of_week) === toDayOfWeek &&
+        Boolean(from.is_veg) === toIsVeg
+    ) {
+        return { ok: true, message: 'Dish is already in that slot' }
+    }
+
+    const { error: upErr } = await sb
+        .from('week_meal_slots')
+        .upsert(
+            { menu_week_id: toWeekId, dish_id: from.dish_id, day_of_week: toDayOfWeek, is_veg: toIsVeg, sort_order: 0 },
+            { onConflict: 'menu_week_id,day_of_week,is_veg' },
+        )
+    if (upErr) return { ok: false, message: upErr.message }
+
+    const { error: delErr } = await sb.from('week_meal_slots').delete().eq('id', from.id)
+    if (delErr) return { ok: false, message: `Dish placed, but the old slot was not cleared: ${delErr.message}` }
+
+    await logAdminAction(admin.email, 'move_slot_dish', 'week_meal_slot', from.id, {
+        dishId: from.dish_id, toWeekId, toDayOfWeek, toIsVeg,
+    })
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Dish moved' }
+}
+
+/** Add a brand-new dish to the catalog (unslotted until assigned). */
+export async function createDish(input: {
+    name: string
+    description: string
+    is_veg: boolean
+    spice_level: number
+    allergens: string[]
+    calories: string
+    protein: string
+    carbs: string
+    fat: string
+}): Promise<Result & { dishId?: string }> {
+    const admin = await requireAdmin()
+
+    const name = input.name?.trim()
+    if (!name) return { ok: false, message: 'Dish name is required' }
+    const spice = Math.round(input.spice_level)
+    if (!Number.isFinite(spice) || spice < 1 || spice > 3) {
+        return { ok: false, message: 'Spice level must be between 1 and 3' }
+    }
+
+    const sb = createAdminSupabaseClient()
+
+    // Every dish gets a real legacy_id: the catalog assigns NULL-legacy_id rows
+    // synthetic ids by read order, which would shuffle /dish/{id} URLs (and any
+    // printed QR codes) between loads. max+1 keeps the public id permanent.
+    const { data: maxRow, error: maxErr } = await sb
+        .from('dishes')
+        .select('legacy_id')
+        .not('legacy_id', 'is', null)
+        .order('legacy_id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    if (maxErr) return { ok: false, message: maxErr.message }
+    const legacyId = ((maxRow?.legacy_id as number | null) ?? 0) + 1
+
+    const { data: created, error } = await sb
+        .from('dishes')
+        .insert({
+            legacy_id: legacyId,
+            name,
+            description: input.description?.trim() ?? '',
+            is_veg: input.is_veg,
+            spice_level: spice,
+            allergens: input.allergens.map(a => a.trim()).filter(Boolean),
+            calories: input.calories?.trim() ?? '',
+            protein: input.protein?.trim() ?? '',
+            carbs: input.carbs?.trim() ?? '',
+            fat: input.fat?.trim() ?? '',
+            micro_nutrients: [],
+            is_active: true,
+        })
+        .select('id')
+        .single()
+    if (error) return { ok: false, message: error.message }
+
+    await logAdminAction(admin.email, 'create_dish', 'dish', created.id as string, { legacyId, name })
+    revalidateMenuSurfaces()
+    return { ok: true, message: `"${name}" added — now upload a photo and assign it to a day`, dishId: created.id as string }
+}
+
+/** Permanently delete a dish. Blocked by FK while it's still slotted anywhere. */
+export async function deleteDish(dishId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb.from('dishes').delete().eq('id', dishId)
+    if (error) {
+        if (error.code === '23503') {
+            return { ok: false, message: 'This dish is still on the rotation — clear its slots first, then delete.' }
+        }
+        return { ok: false, message: error.message }
+    }
+
+    await logAdminAction(admin.email, 'delete_dish', 'dish', dishId)
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Dish deleted' }
 }

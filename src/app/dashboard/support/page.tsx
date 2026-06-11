@@ -3,7 +3,8 @@ import { getCustomer, getAllSubscriptions } from '@/infra/supabase/subscriptions
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import SupportClient from './SupportClient'
-import { findDishForDate } from '@/contexts/menu/domain/catalog-data'
+import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
+import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
 interface Sub {
   plan_name: string | null
@@ -23,6 +24,7 @@ function buildCustomerContext(
   activeSub: Sub | undefined,
   queuedSub: Sub | undefined,
   totalDelivered: number,
+  todayDish: Dish | null,
 ): string {
   const lines: string[] = []
   lines.push('# THIS CUSTOMER')
@@ -90,8 +92,6 @@ function buildCustomerContext(
     }
     if (activeSub.status === 'Active' || activeSub.status === 'Skipped') {
       if (activeSub.status === 'Active') lines.push('Plan is actively delivering meals on weekdays by 7–8 PM.')
-      const isVeg = customer?.meal_preference_type === 'Veg'
-      const todayDish = findDishForDate(new Date(), isVeg)
       if (todayDish) {
         lines.push('')
         lines.push('# TONIGHT\'S MEAL')
@@ -153,7 +153,11 @@ export default async function SupportPage({
     ?? allSubscriptions.find(s => s.status === 'Skipped')
     ?? allSubscriptions.find(s => s.status === 'Paused')
   const queuedSub = allSubscriptions.find(s => s.status === 'Scheduled')
-  const customerContext = buildCustomerContext(customer, activeSub, queuedSub, totalDelivered)
+  // Same CMS source + same UAE-day math as the kitchen labels, so the bot
+  // describes the dish the kitchen actually delivers tonight.
+  const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000)
+  const todayDish = await findDishForDateWithOverrides(aeNow, customer?.meal_preference_type === 'Veg')
+  const customerContext = buildCustomerContext(customer, activeSub, queuedSub, totalDelivered, todayDish)
 
   return (
     <Suspense>
