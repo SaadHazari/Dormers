@@ -174,7 +174,9 @@ export function ForgotPasswordFlow({
             ? `Enter the ${OTP_LENGTH}-digit code we just sent.`
             : 'Choose a strong new password.'
 
-    const fieldClass   = `w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all duration-200 border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`
+    // 16px on phones is deliberate: iOS Safari auto-zooms the page when a
+    // focused input's font-size is under 16px. Desktop gets the designed 14px.
+    const fieldClass   = `w-full rounded-xl px-4 py-3 text-[16px] sm:text-[14px] outline-none transition-all duration-200 border ${tokens.field} ${tokens.fieldFocus} disabled:opacity-60`
     // Masked password inputs use 18px wide-tracked semibold so the dots read as
     // a deliberate visual. Without this override the text placeholder inherits
     // that same emphasis and looks off — wide-tracked bold 18px placeholder
@@ -241,7 +243,7 @@ export function ForgotPasswordFlow({
                                 onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
                                 placeholder={'•'.repeat(OTP_LENGTH)}
                                 disabled={isPending || verified}
-                                className={`${fieldClass} pr-11 text-[18px] font-mono tracking-[0.35em] ${
+                                className={`${fieldClass} pr-11 !text-[18px] font-mono tracking-[0.35em] ${
                                     verified ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.10)]' : ''
                                 }`}
                             />

@@ -60,7 +60,9 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     const isLight = useIsLight()
     const tokens = authTokens(isLight)
 
-    const fieldClass = `w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all duration-200 border ${tokens.field} ${tokens.fieldFocus}`
+    // 16px on phones is deliberate: iOS Safari auto-zooms the page when a
+    // focused input's font-size is under 16px. Desktop gets the designed 14px.
+    const fieldClass = `w-full rounded-xl px-4 py-3 text-[16px] sm:text-[14px] outline-none transition-all duration-200 border ${tokens.field} ${tokens.fieldFocus}`
     const labelClass = `block text-[11px] font-semibold uppercase tracking-widest mb-2 ${tokens.label}`
     const headingClass = `text-[20px] font-bold tracking-tight leading-snug ${tokens.heading}`
     const sublineClass = `text-[13px] mt-1 ${tokens.subline}`
