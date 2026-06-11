@@ -79,9 +79,9 @@ function ShellInner({ pendingReferrals, pendingLayer4, children }: Props) {
                 <MenuIcon size={18} strokeWidth={2} className={t.heading} />
             </button>
 
-            {/* Main content */}
+            {/* Main content — generous gutters so pages never crowd the rail */}
             <main className="lg:ml-[220px] min-h-screen">
-                <div className="max-w-[1200px] mx-auto px-4 pt-16 pb-8 lg:pt-6">
+                <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-10 pt-16 pb-12 lg:pt-8">
                     {children}
                 </div>
             </main>

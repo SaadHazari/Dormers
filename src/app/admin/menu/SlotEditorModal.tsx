@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Copy, MoveRight, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Copy, MoveRight, Plus, Search, Trash2, UtensilsCrossed, X } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
+import { AdminModal } from '../_components/AdminModal'
 import { DishThumb } from './DishThumb'
 import { assignDishToSlot, clearSlot, moveSlotDish, swapSlotDishes } from './actions'
 
@@ -17,6 +18,7 @@ export interface SlotTarget {
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAYS_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 interface Props {
     target: SlotTarget
@@ -33,6 +35,7 @@ export function SlotEditorModal({ target, dishes, weeks, slots, isToday, onClose
     const [search, setSearch] = useState('')
     const [showAllLanes, setShowAllLanes] = useState(false)
     const [picked, setPicked] = useState<Row | null>(null) // dish in the confirm step
+    const [armClear, setArmClear] = useState(false)
     const [isPending, startTransition] = useTransition()
 
     const lane = target.isVeg ? 'Veg' : 'Non-Veg'
@@ -48,6 +51,13 @@ export function SlotEditorModal({ target, dishes, weeks, slots, isToday, onClose
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [picked, onClose])
+
+    // Disarm the two-tap clear after a beat.
+    useEffect(() => {
+        if (!armClear) return
+        const id = setTimeout(() => setArmClear(false), 3000)
+        return () => clearTimeout(id)
+    }, [armClear])
 
     const dishById = useMemo(() => new Map(dishes.map(d => [d.id as string, d])), [dishes])
     const weekLabelById = useMemo(
@@ -107,240 +117,289 @@ export function SlotEditorModal({ target, dishes, weeks, slots, isToday, onClose
     const chipLabel = (s: Row) => slotLabel(s).replace('Week ', 'W')
 
     function handleClear() {
-        if (!confirm(`Empty this slot? ${DAYS[target.dayIdx]} (${target.weekLabel}) will have no ${lane} dish until you assign one.`)) return
+        if (!armClear) { setArmClear(true); return }
+        setArmClear(false)
         run(() => clearSlot(target.weekId, target.dayIdx, target.isVeg))
     }
 
     const pickedElsewhere = picked ? elsewhereOf(picked.id as string) : []
 
     return (
-        <div
-            className={`fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 ${t.backdrop}`}
-            onClick={() => { if (!isPending) onClose() }}
+        <AdminModal
+            label={`Edit ${DAYS_FULL[target.dayIdx]} ${lane} slot`}
+            onBackdrop={() => { if (!isPending) onClose() }}
         >
-            <div
-                className={`w-full max-w-[480px] max-h-[88vh] flex flex-col rounded-2xl overflow-hidden ${t.overlay}`}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* ── Header ─────────────────────────────────────────────── */}
-                <div className={`px-4 pt-4 pb-3.5 border-b ${t.border}`}>
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-baseline gap-2 min-w-0">
-                            <span className={`text-[15px] font-black tracking-tight ${t.heading}`}>
-                                {DAYS[target.dayIdx]}
-                            </span>
-                            <span className={`text-[11px] font-bold ${target.isVeg ? t.success : t.accent}`}>
-                                {lane}
-                            </span>
-                            <span className={`text-[11px] font-semibold ${t.faint}`}>
-                                {target.weekLabel}
-                            </span>
+            {/* ── Header ─────────────────────────────────────────────── */}
+            <div className={`px-5 pt-4 pb-4 border-b ${t.border}`}>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className={`text-[10px] font-black tracking-[0.14em] uppercase ${t.faint}`}>
+                            {target.weekLabel} rotation
                         </div>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className={`p-1.5 -mr-1 rounded-lg transition-colors ${t.muted}`}
-                            aria-label="Close"
-                        >
-                            <X size={16} strokeWidth={2.2} />
-                        </button>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className={`text-[16px] font-black tracking-tight ${t.heading}`}>
+                                {DAYS_FULL[target.dayIdx]}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${target.isVeg ? 'bg-[#1d8a30]' : 'bg-[#f57f20]'}`} />
+                                <span className={`text-[11px] font-bold tracking-[0.06em] uppercase ${t.muted}`}>{lane}</span>
+                            </span>
+                            {isToday && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-[#f57f20] text-white text-[10px] font-black tracking-[0.06em] uppercase leading-none">
+                                    Today
+                                </span>
+                            )}
+                        </div>
                     </div>
-
-                    {isToday && (
-                        <div className={`mt-2.5 px-2.5 py-1.5 rounded-lg border text-[10.5px] font-bold ${t.warningBg} ${t.warning}`}>
-                            TODAY&apos;s slot — labels printed earlier still carry the current dish.
-                        </div>
-                    )}
-
-                    {/* Current dish hero */}
-                    <div className={`mt-3 flex items-center gap-3 p-2.5 rounded-xl border ${t.border} ${
-                        isLight ? 'bg-[#091825]/[0.025]' : 'bg-white/[0.03]'
-                    }`}>
-                        {currentDish ? (
-                            <DishThumb
-                                src={currentDish.image_path as string | null}
-                                alt={currentDish.name as string}
-                                className="w-12 h-12 rounded-lg shrink-0"
-                            />
-                        ) : (
-                            <div className={`w-12 h-12 rounded-lg shrink-0 border border-dashed ${t.borderStrong}`} />
-                        )}
-                        <div className="flex-1 min-w-0">
-                            <div className={`text-[8.5px] font-bold tracking-[0.14em] uppercase ${t.faint}`}>
-                                Currently serving
-                            </div>
-                            <div className={`text-[13px] font-bold truncate ${currentDish ? t.heading : t.faint}`}>
-                                {currentDish ? (currentDish.name as string) : 'Nothing — pick a dish below'}
-                            </div>
-                        </div>
-                        {currentSlot && !picked && (
-                            <button
-                                type="button"
-                                onClick={handleClear}
-                                disabled={isPending}
-                                className={`shrink-0 inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[9.5px] font-bold tracking-[0.04em] uppercase transition-colors ${t.dangerBg} ${t.danger} ${isPending ? 'opacity-50' : ''}`}
-                                title="Remove the dish from this day"
-                            >
-                                <Trash2 size={11} strokeWidth={2.2} />
-                                Clear day
-                            </button>
-                        )}
-                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`w-9 h-9 -mr-1.5 -mt-1 shrink-0 rounded-lg flex items-center justify-center transition-colors duration-150 ${t.muted} ${
+                            isLight ? 'hover:bg-[#091825]/[0.05]' : 'hover:bg-white/[0.06]'
+                        }`}
+                        aria-label="Close"
+                    >
+                        <X size={16} strokeWidth={2.2} />
+                    </button>
                 </div>
 
-                {picked ? (
-                    /* ── Confirm step ───────────────────────────────────── */
-                    <div className="flex-1 overflow-y-auto px-4 py-3">
-                        <button
-                            type="button"
-                            onClick={() => setPicked(null)}
-                            className={`inline-flex items-center gap-0.5 mb-3 text-[10px] font-bold tracking-[0.06em] uppercase transition-colors ${t.muted}`}
-                        >
-                            <ChevronLeft size={12} strokeWidth={2.5} />
-                            All dishes
-                        </button>
+                {/* Current dish — the photo carries it */}
+                <div className="relative h-20 rounded-xl overflow-hidden mt-3">
+                    {currentDish ? (
+                        <>
+                            <BannerPhoto src={currentDish.image_path as string | null} alt={currentDish.name as string} />
+                            <span className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+                            <span className="absolute inset-0 px-4 flex flex-col justify-center">
+                                <span className="text-[10px] font-black tracking-[0.14em] uppercase text-white/70">
+                                    Currently serving
+                                </span>
+                                <span className="text-[14px] font-black text-white truncate mt-0.5 [text-shadow:0_1px_3px_rgba(0,0,0,0.5)] pr-20">
+                                    {currentDish.name as string}
+                                </span>
+                            </span>
+                            {!picked && (
+                                <button
+                                    type="button"
+                                    onClick={handleClear}
+                                    disabled={isPending}
+                                    className={`absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.04em] uppercase transition-colors duration-150 ${
+                                        armClear
+                                            ? 'bg-[#c0392b] text-white'
+                                            : 'bg-black/45 text-white/90 hover:bg-black/60'
+                                    } ${isPending ? 'opacity-50' : ''}`}
+                                    title="Remove the dish from this day"
+                                >
+                                    <Trash2 size={11} strokeWidth={2.2} />
+                                    {armClear ? 'Sure?' : 'Clear'}
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <span className={`absolute inset-0 rounded-xl border border-dashed ${t.borderStrong} flex items-center justify-center gap-2`}>
+                            <UtensilsCrossed size={14} className={t.faint} strokeWidth={2} />
+                            <span className={`text-[12px] font-semibold ${t.muted}`}>
+                                Nothing scheduled — pick a dish below
+                            </span>
+                        </span>
+                    )}
+                </div>
 
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <DishThumb
-                                src={picked.image_path as string | null}
-                                alt={picked.name as string}
-                                className="w-11 h-11 rounded-lg shrink-0"
-                            />
-                            <div className="min-w-0">
-                                <div className={`text-[13px] font-bold truncate ${t.heading}`}>{picked.name as string}</div>
-                                <div className={`text-[10px] font-semibold ${t.muted}`}>
-                                    Now on {pickedElsewhere.map(slotLabel).join(', ')}
-                                </div>
+                {isToday && (
+                    <div className={`mt-2 px-3 py-2 rounded-lg border text-[12px] font-semibold ${t.warningBg} ${t.warning}`}>
+                        Today&apos;s slot — labels printed earlier keep the old dish.
+                    </div>
+                )}
+            </div>
+
+            {picked ? (
+                /* ── Confirm step ───────────────────────────────────── */
+                <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+                    <button
+                        type="button"
+                        onClick={() => setPicked(null)}
+                        className={`inline-flex items-center gap-1 mb-3 px-2 py-1.5 -ml-2 rounded-lg text-[11px] font-bold tracking-[0.06em] uppercase transition-colors duration-150 ${t.muted} ${
+                            isLight ? 'hover:bg-[#091825]/[0.05]' : 'hover:bg-white/[0.05]'
+                        }`}
+                    >
+                        <ChevronLeft size={13} strokeWidth={2.5} />
+                        All dishes
+                    </button>
+
+                    <div className={`flex items-center gap-3 p-3 rounded-xl border ${t.border} ${
+                        isLight ? 'bg-[#091825]/[0.02]' : 'bg-white/[0.03]'
+                    } mb-4`}>
+                        <DishThumb
+                            src={picked.image_path as string | null}
+                            alt={picked.name as string}
+                            className="w-14 h-14 rounded-lg shrink-0"
+                        />
+                        <div className="min-w-0">
+                            <div className={`text-[14px] font-black truncate ${t.heading}`}>{picked.name as string}</div>
+                            <div className={`text-[11px] font-semibold mt-0.5 ${t.muted}`}>
+                                Currently on {pickedElsewhere.map(slotLabel).join(', ')}
                             </div>
                         </div>
+                    </div>
 
-                        <div className={`text-[9px] font-bold tracking-[0.10em] uppercase mb-1.5 ${t.faint}`}>
-                            Place on {DAYS[target.dayIdx]} · {target.weekLabel} by…
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            {pickedElsewhere.length === 1 ? (
-                                <>
-                                    {currentSlot && currentDish && (
-                                        <OptionCard
-                                            accent
-                                            icon={<ArrowLeftRight size={15} strokeWidth={2.2} />}
-                                            title="Swap the two days"
-                                            consequence={`${currentDish.name as string} moves to ${slotLabel(pickedElsewhere[0])}`}
-                                            disabled={isPending}
-                                            onClick={() => run(() => swapSlotDishes(currentSlot.id as string, pickedElsewhere[0].id as string))}
-                                        />
-                                    )}
+                    <div className={`text-[10px] font-black tracking-[0.12em] uppercase mb-2 ${t.faint}`}>
+                        Place on {DAYS[target.dayIdx]} · {target.weekLabel} by…
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        {pickedElsewhere.length === 1 ? (
+                            <>
+                                {currentSlot && currentDish && (
                                     <OptionCard
-                                        icon={<MoveRight size={15} strokeWidth={2.2} />}
-                                        title="Move it here"
-                                        consequence={`${slotLabel(pickedElsewhere[0])} becomes empty`}
+                                        accent
+                                        icon={<ArrowLeftRight size={15} strokeWidth={2.2} />}
+                                        title="Swap the two days"
+                                        consequence={`${currentDish.name as string} moves to ${slotLabel(pickedElsewhere[0])}`}
                                         disabled={isPending}
-                                        onClick={() => run(() => moveSlotDish(pickedElsewhere[0].id as string, target.weekId, target.dayIdx, target.isVeg))}
+                                        onClick={() => run(() => swapSlotDishes(currentSlot.id as string, pickedElsewhere[0].id as string))}
                                     />
-                                    <OptionCard
-                                        icon={<Copy size={15} strokeWidth={2.2} />}
-                                        title="Serve both days"
-                                        consequence={`Stays on ${slotLabel(pickedElsewhere[0])} as well`}
-                                        disabled={isPending}
-                                        onClick={() => run(() => assignDishToSlot(target.weekId, picked.id as string, target.dayIdx, target.isVeg))}
-                                    />
-                                </>
-                            ) : (
+                                )}
+                                <OptionCard
+                                    icon={<MoveRight size={15} strokeWidth={2.2} />}
+                                    title="Move it here"
+                                    consequence={`${slotLabel(pickedElsewhere[0])} becomes empty`}
+                                    disabled={isPending}
+                                    onClick={() => run(() => moveSlotDish(pickedElsewhere[0].id as string, target.weekId, target.dayIdx, target.isVeg))}
+                                />
                                 <OptionCard
                                     icon={<Copy size={15} strokeWidth={2.2} />}
-                                    title="Add it here too"
-                                    consequence={`Keeps its other ${pickedElsewhere.length} days`}
+                                    title="Serve both days"
+                                    consequence={`Also stays on ${slotLabel(pickedElsewhere[0])}`}
                                     disabled={isPending}
                                     onClick={() => run(() => assignDishToSlot(target.weekId, picked.id as string, target.dayIdx, target.isVeg))}
                                 />
-                            )}
-                        </div>
+                            </>
+                        ) : (
+                            <OptionCard
+                                accent
+                                icon={<Copy size={15} strokeWidth={2.2} />}
+                                title="Add it here too"
+                                consequence={`Keeps its other ${pickedElsewhere.length} days`}
+                                disabled={isPending}
+                                onClick={() => run(() => assignDishToSlot(target.weekId, picked.id as string, target.dayIdx, target.isVeg))}
+                            />
+                        )}
                     </div>
-                ) : (
-                    /* ── Pick step ──────────────────────────────────────── */
-                    <>
-                        <div className={`flex items-center gap-2 px-4 py-2.5 border-b ${t.border}`}>
-                            <div className={`flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${t.input}`}>
-                                <Search size={13} className={t.faint} strokeWidth={2.2} />
-                                <input
-                                    type="text"
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                    placeholder="Search dishes..."
-                                    autoFocus
-                                    className="flex-1 bg-transparent text-[12px] font-medium outline-none"
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowAllLanes(v => !v)}
-                                className={`shrink-0 px-2.5 py-1.5 rounded-full text-[9px] font-bold tracking-[0.06em] uppercase border transition-colors ${
-                                    showAllLanes ? `${t.accentBg} ${t.accent}` : `${t.card} ${t.muted}`
-                                }`}
-                            >
-                                {showAllLanes ? '✓ All dishes' : `Show ${otherLane} too`}
-                            </button>
+                </div>
+            ) : (
+                /* ── Pick step ──────────────────────────────────────── */
+                <>
+                    <div className={`flex items-center gap-2 px-4 py-3 border-b ${t.border}`}>
+                        <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border ${t.input}`}>
+                            <Search size={14} className={t.faint} strokeWidth={2.2} />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search dishes…"
+                                autoFocus
+                                className="flex-1 min-w-0 bg-transparent text-[13px] font-medium outline-none"
+                            />
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowAllLanes(v => !v)}
+                            className={`shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-full text-[11px] font-bold tracking-[0.04em] uppercase border transition-colors duration-150 ${
+                                showAllLanes ? `${t.accentBg} ${t.accent}` : `${t.card} ${t.muted} ${t.cardHover}`
+                            }`}
+                        >
+                            {!showAllLanes && <Plus size={11} strokeWidth={2.5} />}
+                            {showAllLanes ? 'All lanes' : `${otherLane}`}
+                        </button>
+                    </div>
 
-                        <div className="flex-1 overflow-y-auto px-2 py-1.5">
-                            {unassigned.length === 0 && scheduled.length === 0 && (
-                                <div className={`text-center py-10 text-[12px] font-semibold ${t.muted}`}>
-                                    No dishes match — try the {otherLane} lane or add a new dish first.
+                    <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+                        {unassigned.length === 0 && scheduled.length === 0 && (
+                            <div className="text-center py-12 px-6">
+                                <Search size={20} className={`mx-auto mb-3 ${t.faint}`} strokeWidth={2} />
+                                <div className={`text-[13px] font-semibold ${t.muted}`}>
+                                    No {showAllLanes ? '' : `${lane.toLowerCase()} `}dishes match
+                                    {q ? ` “${search.trim()}”` : ''}.
                                 </div>
-                            )}
+                                {!showAllLanes && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAllLanes(true)}
+                                        className={`mt-2 text-[12px] font-bold ${t.accent}`}
+                                    >
+                                        Search {otherLane} dishes too
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
-                            {unassigned.length > 0 && (
-                                <>
-                                    <GroupLabel>Ready to assign — one tap</GroupLabel>
-                                    {unassigned.map(dish => (
-                                        <DishOptionRow
-                                            key={dish.id as string}
-                                            dish={dish}
-                                            disabled={isPending}
-                                            meta={<span className={`text-[10px] font-semibold ${t.success}`}>Not scheduled yet</span>}
-                                            onClick={() => run(() => assignDishToSlot(target.weekId, dish.id as string, target.dayIdx, target.isVeg))}
-                                        />
-                                    ))}
-                                </>
-                            )}
+                        {unassigned.length > 0 && (
+                            <>
+                                <GroupLabel>Not scheduled — tap to assign</GroupLabel>
+                                {unassigned.map(dish => (
+                                    <DishOptionRow
+                                        key={dish.id as string}
+                                        dish={dish}
+                                        disabled={isPending}
+                                        meta={<span className={`text-[11px] font-semibold ${t.success}`}>Available</span>}
+                                        onClick={() => run(() => assignDishToSlot(target.weekId, dish.id as string, target.dayIdx, target.isVeg))}
+                                    />
+                                ))}
+                            </>
+                        )}
 
-                            {scheduled.length > 0 && (
-                                <>
-                                    <GroupLabel>On the rotation — swap, move, or copy</GroupLabel>
-                                    {scheduled.map(dish => (
-                                        <DishOptionRow
-                                            key={dish.id as string}
-                                            dish={dish}
-                                            disabled={isPending}
-                                            meta={
-                                                <span className="flex items-center gap-1 flex-wrap">
-                                                    {elsewhereOf(dish.id as string).map(s => (
-                                                        <span
-                                                            key={s.id as string}
-                                                            className={`px-1.5 py-px rounded border text-[8.5px] font-bold ${t.accentBg} ${t.accent}`}
-                                                        >
-                                                            {chipLabel(s)}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            }
-                                            onClick={() => setPicked(dish)}
-                                        />
-                                    ))}
-                                </>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
+                        {scheduled.length > 0 && (
+                            <>
+                                <GroupLabel divider={unassigned.length > 0}>On the rotation — tap for options</GroupLabel>
+                                {scheduled.map(dish => (
+                                    <DishOptionRow
+                                        key={dish.id as string}
+                                        dish={dish}
+                                        disabled={isPending}
+                                        meta={
+                                            <span className="flex items-center gap-1 flex-wrap">
+                                                {elsewhereOf(dish.id as string).map(s => (
+                                                    <span
+                                                        key={s.id as string}
+                                                        className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${t.accentBg} ${t.accent}`}
+                                                    >
+                                                        {chipLabel(s)}
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        }
+                                        onClick={() => setPicked(dish)}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
+        </AdminModal>
     )
 }
 
-function GroupLabel({ children }: { children: React.ReactNode }) {
+/** Banner photo with quiet fallback (mirrors DishThumb, but fills a parent). */
+function BannerPhoto({ src, alt }: { src: string | null; alt: string }) {
+    const { isLight } = useAdminTheme()
+    const [broken, setBroken] = useState(false)
+    if (!src || broken) {
+        return <span className={`absolute inset-0 ${isLight ? 'bg-[#091825]/[0.06]' : 'bg-white/[0.06]'}`} />
+    }
+    return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+            src={src}
+            alt={alt}
+            onError={() => setBroken(true)}
+            className="absolute inset-0 w-full h-full object-cover"
+        />
+    )
+}
+
+function GroupLabel({ children, divider = false }: { children: React.ReactNode; divider?: boolean }) {
     const { t } = useAdminTheme()
     return (
-        <div className={`px-2.5 pt-2.5 pb-1 text-[9px] font-bold tracking-[0.10em] uppercase ${t.faint}`}>
+        <div className={`px-3 pt-3 pb-1.5 text-[10px] font-black tracking-[0.12em] uppercase ${t.faint} ${divider ? `mt-2 border-t ${t.border}` : ''}`}>
             {children}
         </div>
     )
@@ -358,20 +417,20 @@ function DishOptionRow({ dish, meta, disabled, onClick }: {
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-150 ${
                 isLight ? 'hover:bg-[#091825]/[0.04]' : 'hover:bg-white/[0.04]'
             } ${disabled ? 'opacity-60' : ''}`}
         >
             <DishThumb
                 src={dish.image_path as string | null}
                 alt={dish.name as string}
-                className="w-10 h-10 rounded-md shrink-0"
+                className="w-12 h-12 rounded-lg shrink-0"
             />
             <span className="flex-1 min-w-0">
-                <span className={`block text-[12px] font-bold truncate ${t.heading}`}>{dish.name as string}</span>
+                <span className={`block text-[13px] font-bold truncate ${t.heading}`}>{dish.name as string}</span>
                 <span className="block mt-0.5">{meta}</span>
             </span>
-            <ChevronRight size={13} className={`shrink-0 ${t.faint}`} strokeWidth={2.2} />
+            <ChevronRight size={14} className={`shrink-0 ${t.faint}`} strokeWidth={2.2} />
         </button>
     )
 }
@@ -390,16 +449,22 @@ function OptionCard({ icon, title, consequence, onClick, disabled, accent = fals
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors duration-150 active:scale-[0.99] ${
                 accent
-                    ? 'border-[#f57f20]/45 bg-[#f57f20]/[0.05] hover:bg-[#f57f20]/[0.09]'
+                    ? 'border-[#f57f20]/45 bg-[#f57f20]/[0.06] hover:bg-[#f57f20]/[0.10]'
                     : `${t.border} ${isLight ? 'hover:bg-[#091825]/[0.03]' : 'hover:bg-white/[0.04]'}`
             } ${disabled ? 'opacity-60' : ''}`}
         >
-            <span className={`mt-0.5 shrink-0 ${accent ? t.accent : t.muted}`}>{icon}</span>
+            <span className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center ${
+                accent
+                    ? `bg-[#f57f20]/[0.12] ${t.accent}`
+                    : `${isLight ? 'bg-[#091825]/[0.04]' : 'bg-white/[0.05]'} ${t.muted}`
+            }`}>
+                {icon}
+            </span>
             <span className="min-w-0">
-                <span className={`block text-[12.5px] font-bold ${t.heading}`}>{title}</span>
-                <span className={`block text-[11px] font-medium mt-0.5 ${t.muted}`}>{consequence}</span>
+                <span className={`block text-[13px] font-bold ${t.heading}`}>{title}</span>
+                <span className={`block text-[12px] font-medium mt-0.5 ${t.muted}`}>{consequence}</span>
             </span>
         </button>
     )
