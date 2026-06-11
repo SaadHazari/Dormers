@@ -387,8 +387,12 @@ export default function TestimonialsBubbles() {
                   {msg.text}
                 </p>
 
+                {/* clip-path keeps only the lower half of the rotated diamond
+                    (clip applies before transform) — the upper half used to
+                    overlap the translucent bubble, doubling the glass tint and
+                    letting the bubble's white border show through the tail. */}
                 <div
-                  className={`absolute -bottom-2 w-4 h-4 transform rotate-45 ${
+                  className={`absolute -bottom-2 w-4 h-4 transform rotate-45 [clip-path:polygon(100%_0,100%_100%,0_100%)] ${
                     msg.from === "user"
                       ? "right-4 bg-[#1E6B8A]/20 border-r border-b border-white/15"
                       : "left-4 bg-[#FF7F00]/15 border-r border-b border-[#FF7F00]/30"

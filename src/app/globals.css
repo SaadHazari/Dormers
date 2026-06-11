@@ -137,6 +137,26 @@ html::-webkit-scrollbar {
 .mobile-sheet-scroll { scrollbar-width: none; -ms-overflow-style: none; }
 .mobile-sheet-scroll::-webkit-scrollbar { display: none; }
 
+/* FAQ list (.custom-scroll) + AI chat (.custom-scrollbar) — these classes were
+   referenced but never defined, so the browser-default light scrollbar painted
+   a thin white strip over the dark panels. Translucent thumb instead. */
+.custom-scroll,
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.custom-scroll::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+html.light .custom-scroll { scrollbar-color: rgba(9, 24, 37, 0.25) transparent; }
+html.light .custom-scroll::-webkit-scrollbar-thumb { background: rgba(9, 24, 37, 0.25); }
+
 /* Compact (bottom-sheet) height cap — iOS-safe. `svh` is the SMALL viewport
    (toolbars SHOWING): a static, pessimistic measure, so a bottom-pinned sheet
    never grows under Safari's chrome and never jitters as the URL bar collapses
@@ -161,6 +181,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
   -ms-overflow-style: none; /* IE/Edge */
+  /* iOS Safari ignores overflow-x:hidden on html alone — any too-wide child
+     makes the page horizontally pannable, exposing an edge strip. `clip`
+     (not `hidden`!) clips without creating a scroll container, so
+     position:sticky descendants (HowItWorksMobile, footer reveal) keep working. */
+  overflow-x: clip;
 }
 
 /* Used by ClientDashboard's BtnSpinner */
@@ -241,9 +266,13 @@ html.light .h-proof-qualifier { color: rgba(9,24,37,0.45); }
 html.light .h-proof-unit      { color: rgba(9,24,37,0.45); }
 html.light .h-proof-num       { color: #1E3A4F; }
 html.light .h-proof-prefix    { color: #1E3A4F; }
-html.light .h-text-block {
-  box-shadow: 0 -20px 40px rgba(9,24,37,0.06) !important;
-}
+html.light .h-skip,
+html.light .h-skip-mobile { color: #1E3A4F; }
+html.light .h-type-cursor { color: rgba(9,24,37,0.55); }
+
+/* Marketing shell — dark base flips to the light page tone (must beat the
+   scoped styled-jsx rule in (main)/layout.tsx) */
+html.light .main_content { background-color: #EEE9DA !important; }
 
 /* ── HowItWorks ─────────────────────────────────────────────── */
 html.light .hiw-section { background: #F0EBE0 !important; }

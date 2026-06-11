@@ -96,6 +96,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           z-index: 1;
           display: flex;
           flex-direction: column;
+          /* Must paint its own dark base: this clip-path'd layer sits
+             directly on the cream wrapper (footer reveal), and without a
+             background any subpixel gap or compositing seam in the page
+             leaks cream through as a faint light hairline on mobile.
+             Light theme flips this via html.light in globals.css. */
+          background-color: #1E3A4F;
           border-bottom-left-radius: 46px;
           border-bottom-right-radius: 46px;
           clip-path: inset(0 0 0 0 round 0 0 46px 46px);

@@ -18,10 +18,14 @@ export const renderFaqCard = (faq, index, openFAQ, toggleFAQ, theme) => {
     ? "linear-gradient(135deg, rgba(255,140,0,0.65) 0%, rgba(255,80,0,0.3) 100%)"
     : "linear-gradient(135deg, #FF8C00 0%, #FF5000 100%)";
   const openBgColor = theme === "light" ? "#1E3A4F" : "#EEE9DA";
+  // All three branches must share the SAME style keys (`background` shorthand
+  // + `border`): mixing shorthand/longhand across re-renders makes React drop
+  // properties when diffing, and a branch without `border` shifts the card
+  // 1.5px and loses the gradient ring.
   const cardStyle = isOpen
-    ? { backgroundColor: openBgColor }
+    ? { background: openBgColor, border: "1.5px solid transparent" }
     : isOrange
-    ? { backgroundColor: color }
+    ? { background: color, border: "1.5px solid transparent" }
     : {
         background: `linear-gradient(${color}, ${color}) padding-box, ${borderGrad} border-box`,
         border: "1.5px solid transparent",

@@ -88,6 +88,7 @@ export function HeroCloser({
 
                 {(closerPhase === "cursor" || closerPhase === "typing") && (
                     <motion.span
+                        className="h-type-cursor"
                         animate={
                             closerPhase === "cursor" ? { opacity: [1, 0] } : { opacity: 1 }
                         }
@@ -99,7 +100,6 @@ export function HeroCloser({
                         style={{
                             fontFamily: "Montserrat, sans-serif",
                             fontWeight: 300,
-                            color: "rgba(237,232,218,0.55)",
                         }}
                     >
                         |
@@ -108,13 +108,13 @@ export function HeroCloser({
 
                 {closerPhase === "done" && (
                     <motion.span
+                        className="h-type-cursor"
                         initial={{ opacity: 1 }}
                         animate={{ opacity: 0 }}
                         transition={{ delay: 0.6, duration: 0.5 }}
                         style={{
                             fontFamily: "Montserrat, sans-serif",
                             fontWeight: 300,
-                            color: "rgba(237,232,218,0.55)",
                         }}
                     >
                         |

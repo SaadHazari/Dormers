@@ -209,6 +209,11 @@ export const HERO_REVEAL_CSS = `
     white-space: nowrap;
   }
 
+  /* ── Typewriter cursor (HeroCloser) — light theme flips via globals.css ── */
+  .h-type-cursor {
+    color: rgba(237, 232, 218, 0.55);
+  }
+
   /* ── Skip Intro button ── */
   .h-skip {
     position: absolute;
