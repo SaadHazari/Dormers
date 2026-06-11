@@ -86,7 +86,10 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
             </span>
 
             <style jsx>{`
-                .monthly-wrap-strip:hover { background: var(--ds-og-wash); }
+                /* :global() — class sits on a <Link>; styled-jsx only attaches
+                   its scope hash to plain DOM elements, so without :global()
+                   this rule never matches. */
+                :global(.monthly-wrap-strip:hover) { background: var(--ds-og-wash); }
             `}</style>
         </Link>
     )

@@ -220,27 +220,34 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     return (
       <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-          <OutOfZoneBanner show={outOfZone} />
-          <ProfileBanner missing={missingFields} />
-          {checkoutCanceled && (
-            <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
-              Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
-            </div>
-          )}
           {/* Phase 7: trial-gift banner removed. Welcome meals are real
               subscriptions now — they hit ActiveDashboard, not this branch. */}
-          {/* Monthly wrap banner — only renders when the user's previous
-              cycle's wrap is still open AND no plan is currently active. Lives
-              ABOVE NoPlanView so the narrative reads "wrap the last cycle
-              first, then pick what's next." Self-renders nothing when not
-              eligible. See project_now_tray_architecture memory. */}
-          <MonthlyWrapEmptyBanner monthlyWindow={monthlyWindow} />
+          {/* Banner stack is passed INTO NoPlanView so the greeting ribbon
+              always renders first — the greeting owns the top of the
+              dashboard, banners (gates, cancel notice, monthly wrap) slot
+              in directly below it, above the hero. The wrap banner only
+              renders when the previous cycle's wrap is still open AND no
+              plan is active; the narrative still reads "wrap the last
+              cycle first, then pick what's next." See
+              project_now_tray_architecture memory. */}
           <NoPlanView
             customer={customer}
             allSubscriptions={allSubscriptions}
             userEmail={userEmail}
             purchaseGated={purchaseGated}
             outOfZone={outOfZone}
+            banners={
+              <>
+                <OutOfZoneBanner show={outOfZone} />
+                <ProfileBanner missing={missingFields} />
+                {checkoutCanceled && (
+                  <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
+                    Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.
+                  </div>
+                )}
+                <MonthlyWrapEmptyBanner monthlyWindow={monthlyWindow} />
+              </>
+            }
           />
         </div>
       </div>

@@ -8,7 +8,7 @@ import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
   CalendarDays, Unlock, Heart, Moon,
 } from 'lucide-react'
-import { OG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
+import { OG, OG_DEEP, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { StatusDot } from '../_shared/StatusDot'
@@ -138,7 +138,7 @@ function ChangeStartDateModal({
             <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 8, lineHeight: 1.6 }}>
               Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.
             </div>
-            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG, fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG_DEEP, fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
               You can only change the start date <strong>once</strong>. After saving, this option will be locked for this plan.
             </div>
 

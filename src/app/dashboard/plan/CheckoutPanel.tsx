@@ -605,7 +605,7 @@ export function CheckoutPanel({
                       }
                       // Further out (e.g. Sunday → Monday, or queued past
                       // weekend) — show the weekday name so the user knows.
-                      const weekday = new Date(earliestIso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' })
+                      const weekday = new Date(earliestIso + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'long' })
                       return <>Earliest start: <strong>{weekday}</strong>.</>
                     })()}
               </p>

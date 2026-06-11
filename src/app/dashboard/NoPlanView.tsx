@@ -21,6 +21,11 @@ interface Props {
   purchaseGated?: boolean
   /** Subset of purchaseGated: true when the gate is the out-of-zone flag (vs missing profile fields). Drives the disabled-CTA tooltip copy. */
   outOfZone?: boolean
+  /** Banner stack (out-of-zone / profile gate / checkout-canceled / monthly
+   *  wrap) rendered BETWEEN the greeting ribbon and the hero card. The
+   *  greeting must always be the first thing on the dashboard — banners
+   *  slot in below it, never above. */
+  banners?: React.ReactNode
 }
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
@@ -38,7 +43,7 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
  * preselect param so /dashboard/explore-plans can land on the user's
  * previous tier.
  */
-export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false }: Props) {
+export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false, banners = null }: Props) {
   const gateTooltip = outOfZone
     ? 'Outside delivery radius — message us on WhatsApp'
     : 'Complete your profile first'
@@ -117,6 +122,11 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           )}
         </motion.div>
       )}
+
+      {/* ── Banner stack — gates and wrap nudges sit BELOW the greeting
+            (the greeting always owns the top of the page) but above the
+            hero so they're still read before the plan picker. ── */}
+      {banners}
 
       {/* ── Hero card — light TIER1 surface (matches the rest of the dashboard).
             Two-zone grid: copy left, illustration right. Stacks vertically on
@@ -264,7 +274,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             className="noplan-art"
             style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <OrbitMark />
+            <OrbitMark spin={!prefersReducedMotion} />
           </motion.div>
         </div>
       </motion.div>
@@ -320,18 +330,25 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           gap: clamp(24px, 4vw, 56px);
           align-items: center;
         }
-        @media (max-width: 720px) {
+        /* 768 = the app-wide mobile boundary (was 720 — the only surface on
+           a non-standard breakpoint, leaving 720–768 in a half-mobile state).
+           NOTE: .noplan-art sits on a motion.div and .noplan-secondary-link
+           on a <Link> — styled-jsx only attaches its scope hash to plain DOM
+           elements, so scoped rules NEVER match components. :global() opts
+           out of scoping; without it these rules are dead CSS (the art used
+           to render below the copy on phones because order:-1 never fired). */
+        @media (max-width: 768px) {
           .noplan-grid {
             grid-template-columns: 1fr;
             gap: 28px;
           }
-          .noplan-art {
+          :global(.noplan-art) {
             order: -1;
             max-width: 220px;
             margin-inline: auto;
           }
         }
-        .noplan-secondary-link:hover {
+        :global(.noplan-secondary-link:hover) {
           color: var(--ds-fg) !important;
           border-color: var(--ds-border-strong) !important;
         }
@@ -351,11 +368,16 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
  *   • Centre seed: a small navy dot that anchors the eye
  *   • Orbiting dot: bright OG with soft halo + inner highlight
  *
- * Animation is pure CSS so it runs off the main thread (transforms only,
- * GPU-eligible). Honours prefers-reduced-motion via media query — falls
- * back to a static dot at the 3 o'clock rest position.
+ * Animation is SMIL (<animateTransform>) rather than CSS keyframes: the
+ * previous CSS approach (transform-box: view-box + scoped keyframes in a
+ * styled-jsx block inside the SVG) rendered a static dot on iOS Safari.
+ * SMIL rotation around an explicit centre point runs identically in every
+ * engine and needs no transform-box/transform-origin support. Reduced
+ * motion is honoured by the caller via the `spin` prop (framer's
+ * useReducedMotion) — falls back to a static dot at the 3 o'clock rest
+ * position.
  */
-function OrbitMark() {
+function OrbitMark({ spin = true }: { spin?: boolean }) {
   return (
     <svg
       viewBox="0 0 280 280"
@@ -403,10 +425,19 @@ function OrbitMark() {
           unmoored. Tiny enough to read as origin, not as content. */}
       <circle cx="140" cy="140" r="3.5" fill="currentColor" fillOpacity="0.55" />
 
-      {/* Orbiting group — rotates around (140, 140) at 14s/loop. Native
-          CSS, transform-only, GPU-accelerated. The dot starts at 3 o'clock
-          and orbits clockwise. */}
-      <g className="orbit-mark__satellite">
+      {/* Orbiting group — rotates around (140, 140) at 14s/loop via SMIL.
+          The dot starts at 3 o'clock and orbits clockwise. */}
+      <g>
+        {spin && (
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0 140 140"
+            to="360 140 140"
+            dur="14s"
+            repeatCount="indefinite"
+          />
+        )}
         {/* Trailing halo — softens the leading edge, gives the dot
             radiance without a literal glow filter. */}
         <circle cx="220" cy="140" r="22" fill={OG} fillOpacity="0.18" />
@@ -416,22 +447,6 @@ function OrbitMark() {
             so it reads as a body, not a flat sticker. */}
         <circle cx="217" cy="137" r="3.5" fill="#fff" fillOpacity="0.55" />
       </g>
-
-      <style jsx>{`
-        .orbit-mark__satellite {
-          transform-box: view-box;
-          transform-origin: 140px 140px;
-          animation: orbit-mark-spin 14s linear infinite;
-          will-change: transform;
-        }
-        @keyframes orbit-mark-spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .orbit-mark__satellite { animation: none; }
-        }
-      `}</style>
     </svg>
   )
 }

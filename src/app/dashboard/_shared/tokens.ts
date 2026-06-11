@@ -11,6 +11,12 @@ export function cleanPlanName(s: string): string {
 // ── Brand colors ──────────────────────────────────────────────────────────────
 export const OG  = '#f57f20'
 export const OG3 = '#ffaa00'
+// Deep orange-brown for SMALL text sitting on og-wash / cream surfaces.
+// Brand orange #f57f20 only reaches ~2.3:1 contrast there (WCAG AA needs
+// 4.5:1); this hits ~6.4:1 while staying in the orange family. Already the
+// de-facto convention in the Now tray + wrap banners — keep OG itself for
+// large text, fills, gradients and graphics.
+export const OG_DEEP = '#8c4214'
 export const NV  = '#091825'
 export const NV2 = '#1e3a4f'
 export const CR  = '#ede8da'

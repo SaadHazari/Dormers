@@ -22,7 +22,7 @@ import { OG, OG3, NV, CR, BODY, S } from '../_shared/tokens'
  */
 
 // ── Re-exports so a page does one import ─────────────────────────────────────
-export { OG, OG3, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
+export { OG, OG3, OG_DEEP, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
 export { MobileSheet } from '../_shared/MobileSheet'
 export { CompactMetricStrip, type CompactMetric } from '../_shared/CompactMetricStrip'
 export { computeArrivalLabel, type DeliveryWeekType } from '../_shared/delivery-phase'

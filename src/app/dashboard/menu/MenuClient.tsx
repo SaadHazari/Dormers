@@ -126,7 +126,7 @@ function buildFullMenu(
 
       meals.push({
         day:   FULL_DAYS[i],
-        date:  day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date:  day.toLocaleDateString('en-AE', { day: 'numeric', month: 'short' }),
         iso,
         dish:  isOff ? (i === 6 ? 'Sunday OFF' : 'Off') : dish?.name ?? 'Menu coming soon',
         sub:   isOff ? 'No delivery — rest day' : dish?.description ?? '',

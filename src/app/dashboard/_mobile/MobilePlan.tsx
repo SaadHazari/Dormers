@@ -14,7 +14,7 @@ import { StatusDot } from '../_shared/StatusDot'
 import { MobileDatePicker } from './MobileDatePicker'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
-  eyebrow, eyebrowSm, solidNavyBtn, OG, S, BODY, cleanPlanName,
+  eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
 } from './kit'
 
 /**
@@ -285,7 +285,7 @@ function ChangeStartSheet({ sub, open, onClose }: { sub: Subscription; open: boo
       </>}>
       <SectionTitle size={20}>Change start date</SectionTitle>
       <p style={{ margin: '8px 0 0', fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.</p>
-      <div style={{ margin: '12px 0 16px', padding: '10px 12px', borderRadius: 10, background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+      <div style={{ margin: '12px 0 16px', padding: '10px 12px', borderRadius: 10, background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG_DEEP, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
         You can only change the start date <strong>once</strong>. After saving, this option locks for this plan.
       </div>
       <MobileDatePicker value={picked} onChange={setPicked} minDate={minIso} maxDate={maxIso} weekType={sub.week_type === '5DAYS' || sub.week_type === '6DAYS' ? sub.week_type : undefined} />

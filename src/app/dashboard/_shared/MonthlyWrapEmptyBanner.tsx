@@ -136,7 +136,10 @@ export function MonthlyWrapEmptyBanner({ monthlyWindow }: { monthlyWindow: Month
             </div>
 
             <style jsx>{`
-                .monthly-wrap-empty-banner:hover {
+                /* :global() — class sits on a <Link>; styled-jsx only attaches
+                   its scope hash to plain DOM elements, so without :global()
+                   this rule never matches. */
+                :global(.monthly-wrap-empty-banner:hover) {
                     transform: translateY(-1px);
                     box-shadow: inset 4px 0 0 ${OG}, 0 12px 30px rgba(245,127,32,0.14), 0 1px 3px rgba(9,24,37,0.04) !important;
                 }

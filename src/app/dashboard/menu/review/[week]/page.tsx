@@ -148,7 +148,7 @@ export default async function ReviewPage({
 }
 
 function formatDate(d: Date): string {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    return d.toLocaleDateString('en-AE', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

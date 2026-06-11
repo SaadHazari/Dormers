@@ -36,7 +36,7 @@ export function CheckoutSuccessTakeover({
     onDismiss,
 }: Props) {
     const deliveryPretty = new Date(firstDeliveryDateIso + 'T00:00:00Z').toLocaleDateString(
-        'en-GB',
+        'en-AE',
         { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' },
     )
 

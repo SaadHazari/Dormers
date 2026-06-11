@@ -3,7 +3,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import Image, { type StaticImageData } from 'next/image'
 import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight } from 'lucide-react'
-import { OG, OG3, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
+import { OG, OG3, OG_DEEP, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
 import { MealTag } from '../_shared/MealTag'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
@@ -150,7 +150,7 @@ const PAUSE_FILL: CSSProperties = {
 
 function fmtRangeDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })
 }
 
 function isWorkingDay(d: Date, weekType: '5DAYS' | '6DAYS'): boolean {
@@ -272,7 +272,10 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
           which also gives the value line room to stay on one line). ── */}
       <div style={{ paddingLeft: 64, paddingRight: 16, minHeight: 34, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: S.fg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {data.greeting}, {data.customerName}
+          {/* Mirror the desktop hero: when no name is on file the helper
+              falls back to 'there' — drop the suffix rather than greeting
+              the customer with "Good evening, there". */}
+          {data.greeting}{data.customerName !== 'there' ? `, ${data.customerName}` : ''}
         </div>
         {/* Value line — secondary, glance-zone. Two plain facts: the first-party
             delivery count (always true) and the saved figure. Both numbers sit in
@@ -523,7 +526,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
               <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: S.fg }}>Plan ended</span>
               <span style={{ display: 'block', fontSize: 11.5, color: S.fgMuted, marginTop: 1 }}>Renew to keep meals coming.</span>
             </span>
-            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: OG }}>Renew <ChevronRight size={14} strokeWidth={2.6} /></span>
+            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: OG_DEEP }}>Renew <ChevronRight size={14} strokeWidth={2.6} /></span>
           </a>
         )}
 
@@ -747,7 +750,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
             <div style={{ fontSize: 13.5, fontWeight: 700, color: S.fg }}>Rate your {data.wrap.cycleLabel}</div>
             <div style={{ fontSize: 12, color: S.fgMuted, marginTop: 1 }}>2 mins · {data.wrap.late ? `${data.wrap.daysLeft}d late` : `${data.wrap.daysLeft}d left to earn`}</div>
           </div>
-          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.12)', border: '1px solid rgba(245,127,32,0.32)', color: OG, fontSize: 12, fontWeight: 800, fontFeatureSettings: '"tnum"' }}>
+          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.12)', border: '1px solid rgba(245,127,32,0.32)', color: OG_DEEP, fontSize: 12, fontWeight: 800, fontFeatureSettings: '"tnum"' }}>
             <Gift size={13} strokeWidth={2.4} /> +AED {data.wrap.reward}
           </span>
         </button>
@@ -812,7 +815,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
 
       {cellInfo && (() => {
         const d = new Date(cellInfo.iso + 'T00:00:00')
-        const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        const dateStr = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
         const stateLabel =
           cellInfo.state === 'delivered' ? 'Delivered'
           : cellInfo.state === 'skipped' ? 'Skipped'
@@ -882,7 +885,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
                 {/* No-image fallback keeps the Delivered + date row in the body. */}
                 {(!dd.name || !dd.image) && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <span style={{ padding: '4px 9px', borderRadius: 999, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG, fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Delivered</span>
+                    <span style={{ padding: '4px 9px', borderRadius: 999, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG_DEEP, fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' }}>Delivered</span>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>{dd.dateLabel}</span>
                   </div>
                 )}

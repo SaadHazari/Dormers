@@ -12,7 +12,7 @@ import { PlanPauseModal } from './_shared/PlanPauseModal'
 import { SavingsBenchmarkModal } from './_shared/SavingsBenchmarkModal'
 import { MobileSheet } from './_shared/MobileSheet'
 import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
-import { cleanPlanName, OG, BODY, S, NV2 } from './_shared/tokens'
+import { cleanPlanName, OG, OG_DEEP, BODY, S, NV2 } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
 import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
@@ -110,7 +110,7 @@ function buildCurrentWeekMenu(
 
     out.push({
       day:   DAY_LABELS[i],
-      date:  date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date:  date.toLocaleDateString('en-AE', { day: 'numeric', month: 'short' }),
       dish:  dish?.name ?? '—',
       sub:   dish?.description ?? '',
       tag:   wantVeg ? 'Veg' : 'Non Veg',
@@ -1960,7 +1960,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           <div style={{ fontFamily: BODY, fontSize: 14, color: S.fgMuted, marginTop: 12, lineHeight: 1.65 }}>
             This uses your <strong style={{ color: S.fg }}>1 free pause</strong> for the cycle. Your end date extends by the days you stay paused. Resume any time after tomorrow.
           </div>
-          <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', fontFamily: BODY, fontSize: 12, color: OG, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', fontFamily: BODY, fontSize: 12, color: OG_DEEP, lineHeight: 1.5 }}>
             Pauses available: <strong>1 of 1</strong>
           </div>
           {/* Pause-later affordance — opens the PlanPauseModal so customers
