@@ -1,6 +1,23 @@
-# Supabase Region Migration — Tokyo → Frankfurt
+# Supabase Region Migration — Tokyo → Ohio (us-east-2)
 
-**Status:** planned, not scheduled. Needs a quiet 1-hour window.
+**Status: ✅ COMPLETE — cut over 2026-06-11 ~05:05 UTC.**
+Final destination changed from Frankfurt to **us-east-2 (Ohio)**: Netlify's
+functions-region picker is paywalled (Pro), so we co-located the DB with
+Netlify's free default region instead — same ~1ms function↔DB win, $0/month.
+New project ref: `yjjayivwfqjfppawgyaz` ("Dormers-Ohio"). Verified post-cutover:
+all 24 table counts + customers checksum identical, 31 auth users, 19 vault
+secrets, 16 crons firing (zoho tick + start-day emails succeeded), 5 storage
+objects copied, smoke tests green, zero delta rows lost.
+Old Tokyo project (`butfgoqneixophdlwljd`) kept as rollback until ~2026-06-25,
+then delete. Local dump copies in `~/.dormers-migration/` (chmod 700).
+All user sessions were invalidated by the cutover (new signing keys).
+Bonus fixes found during cutover: old project's Auth had Site URL =
+localhost:3004 and wrong SMTP port/username — auth emails were silently
+broken before; correctly configured on Ohio.
+
+---
+Original plan below, kept for reference (region names refer to Frankfurt).
+
 **Written:** 2026-06-10. Live-project inventory verified via Supabase MCP on this date.
 
 ## Why
