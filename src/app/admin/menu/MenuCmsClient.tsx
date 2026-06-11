@@ -1,11 +1,12 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Database, Eye, EyeOff, Flame, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowLeftRight, ChevronRight, Database, Eye, EyeOff, Flame, Plus, Trash2, Upload } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminBadge } from '../_components/AdminBadge'
 import { createDish, deleteDish, seedMenuFromStatic, toggleDishActive, updateDish, uploadDishImage } from './actions'
+import { DishThumb } from './DishThumb'
 import { SlotEditorModal, type SlotTarget } from './SlotEditorModal'
 
 type Row = Record<string, unknown>
@@ -143,6 +144,10 @@ function RotationView({ weeks, slots, dishes, currentWeekKey, todayDow, onSlotCl
                 const weekLabel = (week.label as string) || (week.week_key as string)
                 const isCurrentWeek = (week.week_key as string) === currentWeekKey
 
+                const dishAt = (dayIdx: number, isVeg: boolean): Row | null => {
+                    const slot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && Boolean(s.is_veg) === isVeg)
+                    return slot ? dishMap.get(slot.dish_id as string) ?? null : null
+                }
                 const slotTarget = (dayIdx: number, isVeg: boolean): SlotTarget => ({
                     weekId: week.id as string,
                     weekLabel,
@@ -161,40 +166,50 @@ function RotationView({ weeks, slots, dishes, currentWeekKey, todayDow, onSlotCl
                             )}
                         </div>
 
-                        {/* Desktop grid */}
-                        <div className="hidden sm:grid grid-cols-6 gap-2">
-                            {DAYS.map((day, dayIdx) => {
-                                const vegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === true)
-                                const nonvegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === false)
-                                const vegDish = vegSlot ? dishMap.get(vegSlot.dish_id as string) ?? null : null
-                                const nonvegDish = nonvegSlot ? dishMap.get(nonvegSlot.dish_id as string) ?? null : null
-                                const isToday = isCurrentWeek && dayIdx === todayDow
-
-                                return (
-                                    <div key={dayIdx}>
-                                        <DayHeader day={day} isToday={isToday} />
-                                        <SlotButton dish={nonvegDish} label="Non-Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, false))} />
-                                        <SlotButton dish={vegDish} label="Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, true))} />
+                        {/* Desktop: lane rows × day columns */}
+                        <div className="hidden sm:block">
+                            <div className="grid grid-cols-[64px_repeat(6,minmax(0,1fr))] gap-1.5 mb-1.5">
+                                <div />
+                                {DAYS.map((day, dayIdx) => (
+                                    <DayHeader key={day} day={day} isToday={isCurrentWeek && dayIdx === todayDow} />
+                                ))}
+                            </div>
+                            {([false, true] as const).map(laneVeg => (
+                                <div key={String(laneVeg)} className="grid grid-cols-[64px_repeat(6,minmax(0,1fr))] gap-1.5 mb-1.5 items-stretch">
+                                    <div className="flex items-center">
+                                        <span className={`text-[9px] font-bold tracking-[0.08em] uppercase ${laneVeg ? t.success : t.accent}`}>
+                                            {laneVeg ? 'Veg' : 'Non-Veg'}
+                                        </span>
                                     </div>
-                                )
-                            })}
+                                    {DAYS.map((_, dayIdx) => (
+                                        <SlotCell
+                                            key={dayIdx}
+                                            dish={dishAt(dayIdx, laneVeg)}
+                                            isToday={isCurrentWeek && dayIdx === todayDow}
+                                            onClick={() => onSlotClick(slotTarget(dayIdx, laneVeg))}
+                                        />
+                                    ))}
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Mobile list */}
-                        <div className="sm:hidden flex flex-col gap-2.5">
+                        {/* Mobile: one tappable row per lane per day */}
+                        <div className="sm:hidden flex flex-col gap-3">
                             {DAYS.map((day, dayIdx) => {
-                                const vegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === true)
-                                const nonvegSlot = weekSlots.find(s => Number(s.day_of_week) === dayIdx && s.is_veg === false)
-                                const vegDish = vegSlot ? dishMap.get(vegSlot.dish_id as string) ?? null : null
-                                const nonvegDish = nonvegSlot ? dishMap.get(nonvegSlot.dish_id as string) ?? null : null
                                 const isToday = isCurrentWeek && dayIdx === todayDow
-
                                 return (
                                     <div key={dayIdx}>
                                         <DayHeader day={day} isToday={isToday} align="left" />
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            <SlotButton dish={nonvegDish} label="Non-Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, false))} />
-                                            <SlotButton dish={vegDish} label="Veg" isToday={isToday} onClick={() => onSlotClick(slotTarget(dayIdx, true))} />
+                                        <div className="flex flex-col gap-1.5">
+                                            {([false, true] as const).map(laneVeg => (
+                                                <MobileSlotRow
+                                                    key={String(laneVeg)}
+                                                    dish={dishAt(dayIdx, laneVeg)}
+                                                    laneVeg={laneVeg}
+                                                    isToday={isToday}
+                                                    onClick={() => onSlotClick(slotTarget(dayIdx, laneVeg))}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
                                 )
@@ -210,7 +225,7 @@ function RotationView({ weeks, slots, dishes, currentWeekKey, todayDow, onSlotCl
 function DayHeader({ day, isToday, align = 'center' }: { day: string; isToday: boolean; align?: 'center' | 'left' }) {
     const { t } = useAdminTheme()
     return (
-        <div className={`flex items-center gap-1 mb-1.5 ${align === 'center' ? 'justify-center' : ''}`}>
+        <div className={`flex items-center gap-1 mb-0.5 ${align === 'center' ? 'justify-center' : ''}`}>
             <span className={`text-[10px] font-bold tracking-[0.10em] uppercase ${isToday ? t.accent : t.faint}`}>
                 {day}
             </span>
@@ -223,9 +238,56 @@ function DayHeader({ day, isToday, align = 'center' }: { day: string; isToday: b
     )
 }
 
-function SlotButton({ dish, label, isToday, onClick }: {
+function SlotCell({ dish, isToday, onClick }: {
     dish: Row | null
-    label: string
+    isToday: boolean
+    onClick: () => void
+}) {
+    const { t, isLight } = useAdminTheme()
+
+    if (!dish) {
+        return (
+            <button
+                type="button"
+                onClick={onClick}
+                title="Tap to change this slot"
+                className={`min-h-[92px] rounded-lg border border-dashed ${t.borderStrong} flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer hover:border-[#f57f20]/60 ${
+                    isToday ? 'bg-[#f57f20]/[0.04]' : ''
+                }`}
+            >
+                <Plus size={14} className={t.faint} strokeWidth={2.2} />
+                <span className={`text-[9px] font-bold tracking-[0.06em] uppercase ${t.faint}`}>Assign</span>
+            </button>
+        )
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title="Tap to change this slot"
+            className={`group relative min-h-[92px] rounded-lg overflow-hidden border text-left transition-all cursor-pointer ${
+                isLight ? 'bg-white' : 'bg-white/[0.04]'
+            } ${isToday ? 'border-[#f57f20]/45' : t.border} hover:border-[#f57f20]/70 hover:shadow-md`}
+        >
+            <DishThumb src={dish.image_path as string | null} alt={dish.name as string} className="h-14 w-full" />
+            <div className="p-1.5">
+                <div className={`text-[10.5px] font-bold leading-[1.3] line-clamp-2 ${t.heading}`}>
+                    {dish.name as string}
+                </div>
+            </div>
+            <span className={`absolute top-1 right-1 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${
+                isLight ? 'bg-white/95 text-[#091825]/70' : 'bg-[#0d2035]/95 text-[#ede8da]/80'
+            }`}>
+                <ArrowLeftRight size={11} strokeWidth={2.2} />
+            </span>
+        </button>
+    )
+}
+
+function MobileSlotRow({ dish, laneVeg, isToday, onClick }: {
+    dish: Row | null
+    laneVeg: boolean
     isToday: boolean
     onClick: () => void
 }) {
@@ -236,24 +298,26 @@ function SlotButton({ dish, label, isToday, onClick }: {
             type="button"
             onClick={onClick}
             title="Tap to change this slot"
-            className={`w-full rounded-lg p-2 mb-1.5 text-center border transition-colors cursor-pointer ${
-                isLight ? 'bg-[#091825]/[0.03]' : 'bg-white/[0.03]'
-            } ${isToday ? 'border-[#f57f20]/35' : 'border-transparent'} hover:border-[#f57f20]/50 ${
-                isLight ? 'hover:bg-[#f57f20]/[0.05]' : 'hover:bg-[#f57f20]/[0.07]'
-            }`}
+            className={`w-full min-h-[56px] flex items-center gap-2.5 rounded-lg border p-1.5 pr-2.5 text-left transition-colors cursor-pointer ${
+                isLight ? 'bg-white' : 'bg-white/[0.04]'
+            } ${isToday ? 'border-[#f57f20]/40' : t.border} active:border-[#f57f20]/60`}
         >
-            <div className={`text-[9px] font-bold tracking-[0.10em] uppercase mb-0.5 ${
-                label === 'Veg' ? t.success : t.accent
-            }`}>
-                {label}
-            </div>
             {dish ? (
-                <div className={`text-[11px] font-bold leading-tight ${t.body}`}>
-                    {dish.name as string}
-                </div>
+                <DishThumb src={dish.image_path as string | null} alt={dish.name as string} className="w-11 h-11 rounded-md shrink-0" />
             ) : (
-                <div className={`text-[10px] font-medium italic ${t.faint}`}>Empty — tap to assign</div>
+                <div className={`w-11 h-11 rounded-md shrink-0 border border-dashed ${t.borderStrong} flex items-center justify-center`}>
+                    <Plus size={13} className={t.faint} strokeWidth={2.2} />
+                </div>
             )}
+            <span className="flex-1 min-w-0">
+                <span className={`block text-[8.5px] font-bold tracking-[0.10em] uppercase ${laneVeg ? t.success : t.accent}`}>
+                    {laneVeg ? 'Veg' : 'Non-Veg'}
+                </span>
+                <span className={`block text-[12.5px] font-bold leading-[1.25] line-clamp-2 ${dish ? t.heading : t.faint}`}>
+                    {dish ? (dish.name as string) : 'Empty — tap to assign'}
+                </span>
+            </span>
+            <ChevronRight size={14} className={`shrink-0 ${t.faint}`} strokeWidth={2.2} />
         </button>
     )
 }
@@ -373,10 +437,15 @@ function DishRow({ dish, assignments, weekLabelById, isEditing, onEdit, onResult
     return (
         <div className={`${t.card} rounded-xl p-3 ${!isActive ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-3">
+                <DishThumb
+                    src={dish.image_path as string | null}
+                    alt={dish.name as string}
+                    className="w-14 h-14 rounded-lg shrink-0 self-start"
+                />
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[13px] font-bold ${t.heading}`}>{dish.name as string}</span>
-                        <AdminBadge variant={dish.is_veg ? 'active' : 'neutral'}>
+                        <AdminBadge variant={dish.is_veg ? 'active' : 'neutral'} className="whitespace-nowrap">
                             {dish.is_veg ? 'Veg' : 'Non-Veg'}
                         </AdminBadge>
                         <span className="inline-flex items-center gap-0.5">
