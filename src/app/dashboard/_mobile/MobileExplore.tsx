@@ -6,6 +6,7 @@ import { Check, Info, Utensils, CalendarDays, Unlock } from 'lucide-react'
 import type { Customer, Subscription } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
+import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobileCheckout } from './MobileCheckout'
 import { MobileColumn, CARD, PlanGlyph, SectionTitle, eyebrow, OG, S, BODY, useIsCompact } from './kit'
@@ -30,13 +31,17 @@ interface Props {
   selected: PlanId | null
   setSelected: (fn: (prev: PlanId | null) => PlanId | null) => void
   outOfZone: boolean
+  /** Profile incomplete — frosts the plan stack + blocks selection (same
+   *  gate as the dashboard home; /api/checkout rejects anyway). */
+  profileGated: boolean
+  missingFields: string[]
   creditBalanceAed: number
   /** Active admin price overrides (plan_pricing rows) — threaded into the
    *  cards + checkout sheet so mobile shows the DB-backed price. */
   priceOverrides?: PriceOverride[]
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, creditBalanceAed, priceOverrides = [] }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditBalanceAed, priceOverrides = [] }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -91,20 +96,25 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
 
       <OutOfZoneBanner show={outOfZone} />
 
-      {/* Plan cards — recommended first, single column */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {ordered.map(plan => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            pref={pref}
-            vegDayCount={vegDayCount}
-            weekType={weekType}
-            selected={selected === plan.id}
-            onSelect={() => setSelected(prev => prev === plan.id ? null : plan.id)}
-            priceOverrides={priceOverrides}
-          />
-        ))}
+      {/* Plan cards — recommended first, single column. Profile gate frosts
+          the stack until the profile is complete; the onSelect guard covers
+          the keyboard path the overlay can't intercept. */}
+      <div style={{ position: 'relative' }}>
+        {profileGated && <ProfileGateOverlay missing={missingFields} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {ordered.map(plan => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              pref={pref}
+              vegDayCount={vegDayCount}
+              weekType={weekType}
+              selected={selected === plan.id}
+              onSelect={() => { if (profileGated) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
+              priceOverrides={priceOverrides}
+            />
+          ))}
+        </div>
       </div>
 
       <div style={{ textAlign: 'center', padding: '8px 0 4px', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgFaint }}>

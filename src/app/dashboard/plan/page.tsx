@@ -23,7 +23,7 @@ export default async function PlanPage({
     return (
       <Suspense>
         <PlanClient
-          customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', whatsapp_number: '+971 50 000 0000', dorm_name: 'YUGO', meal_preference_type: 'Non Veg', allergens: 'None', spice_level_preference: 'Medium', created_at: new Date().toISOString() }}
+          customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', whatsapp_number: '+971 50 000 0000', whatsapp_verified: true, dorm_name: 'YUGO', meal_preference_type: 'Non Veg', allergens: 'None', spice_level_preference: 'Medium', created_at: new Date().toISOString() }}
           activeSubscription={{ id: 'prev-sub', plan_name: 'Monthly Premium', status: 'Active', start_date: '2026-04-01', end_date: '2026-05-01', total_meals: 24, delivered_meals: 6, skipped_meals_count: 1, has_paused_before: false, pause_date: null, last_skipped_date: null, paused_days: 0, created_at: new Date().toISOString() }}
           allSubscriptions={[]}
           userEmail="test@dormers.ae"

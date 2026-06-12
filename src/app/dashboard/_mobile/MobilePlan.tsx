@@ -55,13 +55,16 @@ interface Props {
   primaryIsPaused: boolean
   endedPlans: Subscription[]
   outOfZone: boolean
+  /** Profile incomplete — disables the empty-state CTA (same gate as the
+   *  dashboard home + desktop NoPlanView; /api/checkout rejects anyway). */
+  profileGated: boolean
   /** Routes to /dashboard/explore-plans (openPricing in plan mode). */
   onRenew: () => void
   /** PlanClient.handleCancelPlannedPause — runs the action + refresh. */
   onConfirmCancelPause: () => void
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, onRenew, onConfirmCancelPause }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause }: Props) {
   return (
     <MobileColumn style={{ color: S.fg }}>
       <div style={{ paddingLeft: 56, minHeight: 34, display: 'flex', alignItems: 'center' }}>
@@ -70,7 +73,7 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
 
       {activeSubscription
         ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} />
-        : <EmptyState onRenew={onRenew} />}
+        : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} />}
 
       {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} />}
 
@@ -424,19 +427,34 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 }
 
 // ── Empty state (no active plan) ─────────────────────────────────────────────
-function EmptyState({ onRenew }: { onRenew: () => void }) {
+function EmptyState({ onRenew, profileGated, outOfZone }: { onRenew: () => void; profileGated: boolean; outOfZone: boolean }) {
+  const gated = profileGated || outOfZone
   return (
     <section style={{ ...CARD, padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
       <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CalendarDays size={20} strokeWidth={2} /></span>
       <SectionTitle size={20}>No active plan</SectionTitle>
       <p style={{ margin: 0, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>Pick a plan and your dinners start arriving 7–8 PM, every evening.</p>
-      <button type="button" onClick={onRenew} style={{ ...orangePill, color: '#fff', maxWidth: 280 }}>Browse plans →</button>
+      {gated ? (
+        <>
+          <span style={{ ...lightDisabledPill, maxWidth: 280 }}>Browse plans →</span>
+          <p style={{ margin: '-4px 0 0', fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
+            {outOfZone
+              ? 'Your dorm is outside our delivery radius — message us on WhatsApp.'
+              : <>Finish your profile to unlock plans.{' '}
+                  <Link href="/dashboard/profile" style={{ color: OG, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Complete profile →</Link>
+                </>}
+          </p>
+        </>
+      ) : (
+        <button type="button" onClick={onRenew} style={{ ...orangePill, color: '#fff', maxWidth: 280 }}>Browse plans →</button>
+      )}
     </section>
   )
 }
 
 // ── Button atoms ─────────────────────────────────────────────────────────────
 const orangePill: CSSProperties = { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 18px', borderRadius: 999, background: OG, color: '#fff', border: 'none', fontFamily: BODY, fontSize: 13.5, fontWeight: 800, letterSpacing: '0.04em', cursor: 'pointer', boxShadow: '0 6px 18px -6px rgba(245,127,32,0.6)' }
+const lightDisabledPill: CSSProperties = { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 18px', borderRadius: 999, background: 'var(--ds-skeleton-base)', color: S.fgFaint, border: '1px dashed var(--ds-border-strong)', fontFamily: BODY, fontSize: 13.5, fontWeight: 800, letterSpacing: '0.04em', cursor: 'not-allowed' }
 const darkDisabledPill: CSSProperties = { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 18px', borderRadius: 999, background: 'rgba(237,232,218,0.05)', color: 'rgba(245,240,232,0.45)', border: '1px dashed rgba(237,232,218,0.26)', fontFamily: BODY, fontSize: 13.5, fontWeight: 800, cursor: 'default' }
 const darkOutlinePill: CSSProperties = { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 18px', borderRadius: 999, background: 'rgba(237,232,218,0.10)', color: CREAM, border: '1px solid rgba(237,232,218,0.34)', fontFamily: BODY, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }
 const sheetGhostBtn: CSSProperties = { flex: 1, padding: '13px 0', borderRadius: 999, border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }
