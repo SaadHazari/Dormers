@@ -13,10 +13,13 @@ import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
+import { ProfileBanner } from '../_shared/ProfileBanner'
+import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
 import { Tooltip } from '../_shared/Tooltip'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import { CheckoutPanel } from './CheckoutPanel'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { DateField } from './DateField'
@@ -182,7 +185,7 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false }: {
+function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null }: {
   sub: Subscription | null
   onRenewClick: () => void
   // Opens the cancel-planned-pause confirmation modal. Wired by PlanClient
@@ -195,6 +198,11 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   // the QueuedSubCallout below would be redundant noise.
   hasQueuedSub?: boolean
   outOfZone?: boolean
+  /** Full purchase gate (profile incomplete OR out of zone) — disables the
+   *  empty-state CTA exactly like the dashboard home. */
+  purchaseGated?: boolean
+  /** ProfileBanner node shown above the empty-state hero when profile gated. */
+  gateBanner?: React.ReactNode
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
 
@@ -202,7 +210,7 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
     // Reuse the dashboard's NoPlanView so the new-customer entry point reads
     // identically across /dashboard and /dashboard/plan — same brand DNA grid,
     // same headline, same CTA. Single source of truth for the empty state.
-    return <NoPlanView outOfZone={outOfZone} purchaseGated={outOfZone} />
+    return <NoPlanView outOfZone={outOfZone} purchaseGated={purchaseGated || outOfZone} banners={gateBanner} />
   }
   const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
@@ -1290,6 +1298,12 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0, priceOverrides = [] }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
+  // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
+  // empty-state CTA and the /explore-plans grid must never offer a purchase
+  // path that /api/checkout will reject (PROFILE_INCOMPLETE).
+  const missingFields = missingProfileFields(customer)
+  const profileGated = missingFields.length > 0
+  const purchaseGated = profileGated || outOfZone
   const router = useRouter()
   const [, startPlanTransition] = useTransition()
 
@@ -1462,6 +1476,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
               hasQueuedSub={!!queuedSub}
               outOfZone={outOfZone}
+              purchaseGated={purchaseGated}
+              gateBanner={profileGated ? <ProfileBanner missing={missingFields} /> : null}
             />
           </div>
         )}
@@ -1686,19 +1702,27 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   3-column zone that orphans the 4th plan. The recommended
                   card sits in row position 3 of 4 at desktop and bottom-left
                   of a 2x2 grid at tablet, both deliberate. */}
-              <div id="plans-grid" className="plans-grid" style={{ marginBottom: 24 }}>
-                {PLANS.map(p => (
-                  <PlanCard
-                    key={p.id}
-                    plan={p}
-                    pref={pref}
-                    vegDayCount={vegDayCount}
-                    weekType={weekType}
-                    selected={selected === p.id}
-                    onSelect={(id) => setSelected(prev => prev === id ? null : id)}
-                    priceOverrides={priceOverrides}
-                  />
-                ))}
+              {/* Profile gate — frosted overlay over the grid until the
+                  profile is complete (mirrors the dashboard-home gate;
+                  /api/checkout rejects incomplete profiles anyway). The
+                  onSelect guard below covers the keyboard path the overlay
+                  can't intercept. */}
+              <div style={{ position: 'relative', marginBottom: 24 }}>
+                {profileGated && <ProfileGateOverlay missing={missingFields} />}
+                <div id="plans-grid" className="plans-grid">
+                  {PLANS.map(p => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      pref={pref}
+                      vegDayCount={vegDayCount}
+                      weekType={weekType}
+                      selected={selected === p.id}
+                      onSelect={(id) => { if (profileGated) return; setSelected(prev => prev === id ? null : id) }}
+                      priceOverrides={priceOverrides}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Checkout panel — slides in once a plan is selected.
@@ -1894,6 +1918,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           selected={selected}
           setSelected={setSelected}
           outOfZone={outOfZone}
+          profileGated={profileGated}
+          missingFields={missingFields}
           creditBalanceAed={creditBalanceAed}
           priceOverrides={priceOverrides}
         />
@@ -1905,6 +1931,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           primaryIsPaused={primaryIsPaused}
           endedPlans={endedPlans}
           outOfZone={outOfZone}
+          profileGated={profileGated}
           onRenew={openPricing}
           onConfirmCancelPause={handleCancelPlannedPause}
         />
