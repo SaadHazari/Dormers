@@ -87,6 +87,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
+    // ── Staff Monthly gate ─────────────────────────────────────────────────
+    // Intern remuneration plan: only an ACTIVE staff record may buy it, and
+    // only the paid 6-day flavor comes through here (the free 5-day plan is
+    // provisioned server-side by contexts/staff, never via checkout). The
+    // price is the flat Saturday surcharge, validated exactly below — the
+    // generic preference band doesn't apply to this plan.
+    const isStaffPlan = planDef.id === 'staff-monthly';
+    if (isStaffPlan) {
+      const { createAdminSupabaseClient } = await import('@/infra/supabase/admin-client');
+      const { data: staffRow } = await createAdminSupabaseClient()
+        .from('staff_members')
+        .select('id')
+        .eq('customer_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (!staffRow) {
+        return NextResponse.json({ error: 'Invalid plan' }, { status: 403 });
+      }
+    }
+
     // start_date must be a YYYY-MM-DD inside the allowed window — the same
     // window the date picker enforces. Without this guard, a tampered POST
     // could schedule a sub starting yesterday — which the webhook would store
@@ -168,13 +188,23 @@ export async function POST(req: Request) {
     // amount gets rejected here instead of buying at the retired price.
     // fetchActivePriceOverrides fails open to [] (code prices), so a DB
     // blip degrades to defaults rather than blocking checkout.
-    const priceOverrides = await fetchActivePriceOverrides();
-    const bounds = priceBoundsFils(PLAN_ID_BY_KEBAB[planDef.id], customerWeekType, priceOverrides);
-    if (amount < bounds.minFils) {
-      return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
-    }
-    if (amount > bounds.maxFils) {
-      return NextResponse.json({ error: 'Amount exceeds plan price' }, { status: 400 });
+    if (isStaffPlan) {
+      // Exact-match: the paid staff flavor is 6DAYS at the flat Saturday
+      // surcharge (AED 20 × 4), nothing else. A 5DAYS profile has no
+      // business POSTing money — its plan is free and provisioned directly.
+      const { staffSurchargeFils } = await import('@/contexts/staff/domain/staff-plan');
+      if (customerWeekType !== '6DAYS' || amount !== staffSurchargeFils(customerWeekType)) {
+        return NextResponse.json({ error: 'Invalid staff plan amount' }, { status: 400 });
+      }
+    } else {
+      const priceOverrides = await fetchActivePriceOverrides();
+      const bounds = priceBoundsFils(PLAN_ID_BY_KEBAB[planDef.id], customerWeekType, priceOverrides);
+      if (amount < bounds.minFils) {
+        return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
+      }
+      if (amount > bounds.maxFils) {
+        return NextResponse.json({ error: 'Amount exceeds plan price' }, { status: 400 });
+      }
     }
 
     // ── Out-of-zone gate ───────────────────────────────────────────────────
@@ -288,8 +318,14 @@ export async function POST(req: Request) {
       .eq('status', 'reserved')
       .lt('reserved_until', new Date().toISOString());
 
-    const { rows: creditRows } = await getRedeemableCredit(supabase, user.id);
-    const tierPercent = await getActiveLifetimeTierPercent(supabase, user.id);
+    // Staff surcharge is exempt from every discount mechanism — credits,
+    // lifetime tiers, and the welcome rate. The amount is already the
+    // at-cost Saturday price, and clean refunds on offboarding need the
+    // charge to be exactly AED 20 × 4 with no coupon math underneath.
+    const { rows: creditRows } = isStaffPlan
+      ? { rows: [] as Awaited<ReturnType<typeof getRedeemableCredit>>['rows'] }
+      : await getRedeemableCredit(supabase, user.id);
+    const tierPercent = isStaffPlan ? 0 : await getActiveLifetimeTierPercent(supabase, user.id);
 
     // ── Trial-convert welcome rate (5% off the first monthly+ plan) ───────
     // One-time 5% for a customer graduating from a trial/Welcome Meal to their
@@ -306,7 +342,7 @@ export async function POST(req: Request) {
     // sub. After this purchase the customer owns a monthly sub, so they never
     // qualify again.
     let welcomePercent: 0 | 5 = 0;
-    if (tierPercent === 0 && planKindOf(planDef.id) === 'monthly') {
+    if (tierPercent === 0 && planKindOf(planDef.id) === 'monthly' && !isStaffPlan) {
       const { data: priorSubs } = await supabase
         .from('subscriptions')
         .select('plan_name')

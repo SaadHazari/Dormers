@@ -1,0 +1,401 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { logAdminAction } from '@/contexts/admin/usecases/audit'
+import { normalisePhone } from '@/shared/phone'
+import { generateClaimCode, hashClaimCode, CODE_TTL_DAYS } from '@/contexts/staff/domain/claim-code'
+import { STAFF_PLAN_NAME, STAFF_SATURDAY_MEAL_AED, unusedSaturdays } from '@/contexts/staff/domain/staff-plan'
+import { refundPaymentFils } from '@/infra/stripe/refunds'
+
+type Result = { ok: boolean; message: string }
+type CodeResult = Result & { code?: string }
+
+function aeTodayIso(): string {
+    return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+/** Stripe payment intent behind a staff sub's prepaid Saturdays, if any. */
+async function paidIntentForSub(sb: ReturnType<typeof createAdminSupabaseClient>, subscriptionId: string) {
+    const { data } = await sb
+        .from('orders')
+        .select('stripe_payment_id')
+        .eq('subscription_id', subscriptionId)
+        .eq('payment_method', 'stripe')
+        .not('stripe_payment_id', 'is', null)
+        .maybeSingle()
+    return (data?.stripe_payment_id as string | null) ?? null
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Register an intern and mint their claim code. The plaintext code is
+ * returned ONCE for the admin to send over WhatsApp — only its hash is
+ * stored, so there is no "view code again" path. Use regenerate instead.
+ */
+export async function addStaffMember(
+    name: string,
+    email: string,
+    whatsapp: string,
+): Promise<CodeResult> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const cleanName = name.trim()
+    const cleanEmail = email.trim().toLowerCase()
+    const phone = normalisePhone(whatsapp)
+
+    if (cleanName.length < 2) return { ok: false, message: 'Name looks too short' }
+    if (!EMAIL_RE.test(cleanEmail)) return { ok: false, message: 'That email doesn\'t look valid' }
+    if (!/^\+\d{10,15}$/.test(phone)) return { ok: false, message: 'WhatsApp number must be a full number (e.g. 0501234567 or +9715…)' }
+
+    const code = generateClaimCode()
+    const expires = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000)
+
+    const { data: row, error } = await sb
+        .from('staff_members')
+        .insert({
+            name: cleanName,
+            email: cleanEmail,
+            whatsapp_number: phone,
+            claim_code_hash: hashClaimCode(code),
+            code_expires_at: expires.toISOString(),
+            created_by: admin.email,
+        })
+        .select('id')
+        .single()
+
+    if (error) {
+        if (error.code === '23505') {
+            return { ok: false, message: 'This email already has a live staff record — end it first to re-invite.' }
+        }
+        console.error('addStaffMember failed:', error)
+        return { ok: false, message: error.message }
+    }
+
+    await logAdminAction(admin.email, 'add_staff_member', 'staff_members', row.id, {
+        name: cleanName, email: cleanEmail, whatsapp: phone, code_expires_at: expires.toISOString(),
+    })
+
+    revalidatePath('/admin/staff')
+    return { ok: true, message: `${cleanName} registered — send them the code now, it won't be shown again.`, code }
+}
+
+/**
+ * Mint a fresh code for an unclaimed invite (the old one expired or got
+ * lost). Old code stops working immediately — there is only ever one valid
+ * code per row.
+ */
+export async function regenerateStaffCode(staffId: string): Promise<CodeResult> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const code = generateClaimCode()
+    const expires = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000)
+
+    const { data: row, error } = await sb
+        .from('staff_members')
+        .update({
+            claim_code_hash: hashClaimCode(code),
+            code_expires_at: expires.toISOString(),
+            code_verified_at: null,
+        })
+        .eq('id', staffId)
+        .eq('status', 'invited')
+        .select('id, name')
+        .maybeSingle()
+
+    if (error) {
+        console.error('regenerateStaffCode failed:', error)
+        return { ok: false, message: error.message }
+    }
+    if (!row) return { ok: false, message: 'Only unclaimed invites can get a new code.' }
+
+    await logAdminAction(admin.email, 'regenerate_staff_code', 'staff_members', staffId, {
+        code_expires_at: expires.toISOString(),
+    })
+
+    revalidatePath('/admin/staff')
+    return { ok: true, message: `New code for ${row.name} — the old one is dead.`, code }
+}
+
+/**
+ * Kill an unclaimed invite. Offboarding an ACTIVE staff member (terminate
+ * plan + refund unused Saturdays) is a separate, heavier action — this one
+ * only covers "invited the wrong person / they never joined".
+ */
+export async function revokeStaffInvite(staffId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: row, error } = await sb
+        .from('staff_members')
+        .update({
+            status: 'ended',
+            ended_at: new Date().toISOString(),
+            ended_by: admin.email,
+        })
+        .eq('id', staffId)
+        .eq('status', 'invited')
+        .select('id, name, email')
+        .maybeSingle()
+
+    if (error) {
+        console.error('revokeStaffInvite failed:', error)
+        return { ok: false, message: error.message }
+    }
+    if (!row) return { ok: false, message: 'Invite not found, or already claimed — use offboarding for active staff.' }
+
+    await logAdminAction(admin.email, 'revoke_staff_invite', 'staff_members', staffId, {
+        name: row.name, email: row.email,
+    })
+
+    revalidatePath('/admin/staff')
+    return { ok: true, message: `Invite for ${row.name} revoked — their code no longer works.` }
+}
+
+/**
+ * Send (or re-send) the claim code on command. Because only the code's
+ * hash is stored, every send MINTS A FRESH CODE — the previous one stops
+ * working the moment this commits. Mint-then-send ordering means a failed
+ * send leaves a valid (unsent) code behind; the admin just retries, which
+ * mints again. No state can strand.
+ */
+export async function sendStaffInvite(
+    staffId: string,
+    channel: 'email' | 'whatsapp',
+): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const code = generateClaimCode()
+    const expires = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000)
+
+    const { data: row, error } = await sb
+        .from('staff_members')
+        .update({
+            claim_code_hash: hashClaimCode(code),
+            code_expires_at: expires.toISOString(),
+            code_verified_at: null,
+        })
+        .eq('id', staffId)
+        .eq('status', 'invited')
+        .select('id, name, email, whatsapp_number')
+        .maybeSingle()
+
+    if (error) {
+        console.error('sendStaffInvite mint failed:', error)
+        return { ok: false, message: error.message }
+    }
+    if (!row) return { ok: false, message: 'Only unclaimed invites can be sent a code.' }
+
+    const firstName = (row.name as string).split(' ')[0] || 'there'
+    const expiresPretty = expires.toLocaleDateString('en-AE', { day: 'numeric', month: 'long' })
+
+    try {
+        if (channel === 'email') {
+            const { sendStaffInviteEmail } = await import('@/infra/zeptomail/client')
+            await sendStaffInviteEmail({
+                toEmail: row.email as string,
+                firstName,
+                code,
+                expiresPretty,
+            })
+        } else {
+            // Two messages: the auth-format code (essential — throws on
+            // failure) + the welcome/claim-button utility template
+            // (best-effort while it's in Meta review).
+            const { sendStaffInviteWhatsApp } = await import('@/infra/meta-whatsapp/client')
+            const res = await sendStaffInviteWhatsApp(row.whatsapp_number as string, firstName, code)
+            if (!res.welcomeSent) {
+                await logAdminAction(admin.email, 'send_staff_invite', 'staff_members', staffId, {
+                    channel, code_expires_at: expires.toISOString(), welcome_failed: res.welcomeError,
+                })
+                revalidatePath('/admin/staff')
+                return {
+                    ok: true,
+                    message: `Code sent to ${row.name} on WhatsApp — but the welcome message didn't go out (${res.welcomeError ?? 'template unavailable'}). Tell them to use dormers.ae/staff/claim.`,
+                }
+            }
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : 'send failed'
+        console.error(`sendStaffInvite ${channel} failed:`, err)
+        return { ok: false, message: `A fresh code was minted but the ${channel} didn't go out: ${msg}` }
+    }
+
+    await logAdminAction(admin.email, 'send_staff_invite', 'staff_members', staffId, {
+        channel, code_expires_at: expires.toISOString(),
+    })
+
+    revalidatePath('/admin/staff')
+    return {
+        ok: true,
+        message: `Fresh code sent to ${row.name} by ${channel === 'email' ? 'email' : 'WhatsApp'} — any older code is now dead.`,
+    }
+}
+
+/**
+ * The green check. Flips a queued staff renewal to approved — the next
+ * status tick activates it on its start date. Also drains the customer's
+ * pending week-type so menus/labels follow the renewed cycle's cadence.
+ */
+export async function approveStaffRenewal(subscriptionId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: sub, error } = await sb
+        .from('subscriptions')
+        .update({ staff_approval: 'approved' })
+        .eq('id', subscriptionId)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        .eq('staff_approval', 'pending')
+        .eq('status', 'Scheduled')
+        .select('id, customer_id, week_type, start_date')
+        .maybeSingle()
+
+    if (error) {
+        console.error('approveStaffRenewal failed:', error)
+        return { ok: false, message: error.message }
+    }
+    if (!sub) return { ok: false, message: 'Renewal not found or already handled.' }
+
+    await sb.from('customers')
+        .update({ week_type: sub.week_type, pending_week_type: null })
+        .eq('id', sub.customer_id)
+
+    await logAdminAction(admin.email, 'approve_staff_renewal', 'subscription', subscriptionId, {
+        customer_id: sub.customer_id, week_type: sub.week_type, start_date: sub.start_date,
+    })
+
+    revalidatePath('/admin/staff')
+    return { ok: true, message: `Renewal approved — starts ${sub.start_date}.` }
+}
+
+/**
+ * Decline a queued staff renewal. A prepaid 6-day renewal is refunded IN
+ * FULL first — the sub only flips to Ended once Stripe accepts the refund,
+ * so money can never be stranded on a declined cycle.
+ */
+export async function declineStaffRenewal(subscriptionId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: sub } = await sb
+        .from('subscriptions')
+        .select('id, customer_id, week_type, staff_approval, status')
+        .eq('id', subscriptionId)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        .maybeSingle()
+    if (!sub || sub.staff_approval !== 'pending' || sub.status !== 'Scheduled') {
+        return { ok: false, message: 'Renewal not found or already handled.' }
+    }
+
+    let refundNote = 'free cycle, nothing to refund'
+    const intent = await paidIntentForSub(sb, subscriptionId)
+    if (intent) {
+        try {
+            const refundId = await refundPaymentFils(intent) // full refund
+            refundNote = `AED ${STAFF_SATURDAY_MEAL_AED * 4} refunded (${refundId})`
+        } catch (err) {
+            console.error('declineStaffRenewal refund failed:', err)
+            return { ok: false, message: 'Stripe refund failed — renewal left pending. Check Stripe and retry.' }
+        }
+    }
+
+    const { error } = await sb
+        .from('subscriptions')
+        .update({ status: 'Ended' })
+        .eq('id', subscriptionId)
+        .eq('staff_approval', 'pending')
+    if (error) {
+        console.error('declineStaffRenewal end failed:', error)
+        return { ok: false, message: `Refund went through (${refundNote}) but ending the sub failed: ${error.message}` }
+    }
+
+    await logAdminAction(admin.email, 'decline_staff_renewal', 'subscription', subscriptionId, {
+        customer_id: sub.customer_id, refund: refundNote,
+    })
+
+    revalidatePath('/admin/staff')
+    return { ok: true, message: `Renewal declined — ${refundNote}.` }
+}
+
+/**
+ * Offboarding — internship over. Locked semantics (2026-06-12):
+ * terminate immediately, refund what wasn't enjoyed.
+ *
+ *   1. staff record → ended (their claim/renewal access dies)
+ *   2. any queued renewal → ended, full refund if prepaid
+ *   3. the live cycle → ended today; on a prepaid 6-day cycle the
+ *      Saturdays still ahead are refunded at the flat AED 20 each
+ *
+ * Refund failures do NOT block the termination — the plan must end the day
+ * employment ends; the message tells the admin to settle the refund in
+ * Stripe manually.
+ */
+export async function offboardStaffMember(staffId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: staff, error: staffErr } = await sb
+        .from('staff_members')
+        .update({ status: 'ended', ended_at: new Date().toISOString(), ended_by: admin.email })
+        .eq('id', staffId)
+        .eq('status', 'active')
+        .select('id, name, customer_id')
+        .maybeSingle()
+    if (staffErr) return { ok: false, message: staffErr.message }
+    if (!staff?.customer_id) return { ok: false, message: 'Staff member not found or not active.' }
+
+    const today = aeTodayIso()
+    const notes: string[] = []
+
+    const { data: subsRaw } = await sb
+        .from('subscriptions')
+        .select('id, status, week_type, end_date')
+        .eq('customer_id', staff.customer_id)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+
+    for (const sub of subsRaw ?? []) {
+        const wasQueued = sub.status === 'Scheduled'
+        const { error: endErr } = await sb
+            .from('subscriptions')
+            .update(wasQueued ? { status: 'Ended' } : { status: 'Ended', end_date: today })
+            .eq('id', sub.id)
+        if (endErr) {
+            notes.push(`could not end sub ${sub.id}: ${endErr.message}`)
+            continue
+        }
+
+        if (sub.week_type === '6DAYS') {
+            const intent = await paidIntentForSub(sb, sub.id as string)
+            if (intent) {
+                // Queued cycle: nothing enjoyed → full refund. Live cycle:
+                // refund the Saturdays still ahead of today, flat AED 20 each.
+                const saturdays = wasQueued ? 4 : unusedSaturdays(today, sub.end_date as string)
+                if (saturdays > 0) {
+                    try {
+                        const refundId = await refundPaymentFils(intent, saturdays * STAFF_SATURDAY_MEAL_AED * 100)
+                        notes.push(`refunded ${saturdays} Saturday${saturdays === 1 ? '' : 's'} (AED ${saturdays * STAFF_SATURDAY_MEAL_AED}, ${refundId})`)
+                    } catch (err) {
+                        console.error('offboardStaffMember refund failed:', err)
+                        notes.push(`REFUND FAILED for ${saturdays} Saturdays — settle manually in Stripe (intent ${intent})`)
+                    }
+                }
+            }
+        }
+    }
+
+    await logAdminAction(admin.email, 'offboard_staff_member', 'staff_members', staffId, {
+        name: staff.name, customer_id: staff.customer_id, notes,
+    })
+
+    revalidatePath('/admin/staff')
+    revalidatePath('/admin/customers')
+    const detail = notes.length ? ` — ${notes.join('; ')}` : ''
+    return { ok: true, message: `${staff.name} offboarded, plan terminated${detail}.` }
+}

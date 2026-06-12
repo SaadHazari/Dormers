@@ -39,6 +39,10 @@ export function EmailStep({ form, set }: {
     const [resendIn, setResendIn] = useState(0)
     const [isPending, startTransition] = useTransition()
     const codeRef = useRef<HTMLInputElement>(null)
+    // Staff claims land on the plan chooser after the email OTP, not the
+    // (empty) dashboard. Set by createAccount's result; a ref because the
+    // OTP verify below doesn't re-touch the staff registry.
+    const staffClaimedRef = useRef(false)
 
     const isLight = useIsLight()
     const tokens = authTokens(isLight)
@@ -75,6 +79,7 @@ export function EmailStep({ form, set }: {
             if (!result) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} ; return }
             if ('error' in result) { setError(result.error); return }
             if ('requiresConfirmation' in result) {
+                staffClaimedRef.current = result.staffClaimed === true
                 try { sessionStorage.removeItem(DRAFT_KEY) } catch {}
                 setStage('sent')
                 setResendIn(45)
@@ -91,7 +96,7 @@ export function EmailStep({ form, set }: {
             const res = await verifyEmailOtp(form.email.trim(), token)
             if ('error' in res) { setError(prettifyError(res.error)); return }
             setVerified(true)
-            setTimeout(() => router.replace('/dashboard'), 500)
+            setTimeout(() => router.replace(staffClaimedRef.current ? '/staff/plan' : '/dashboard'), 500)
         })
     }
 

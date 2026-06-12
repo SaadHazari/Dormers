@@ -24,7 +24,7 @@ export interface OnboardingPayload {
 }
 
 export type CreateAccountResult =
-    | { requiresConfirmation: true; email: string }
+    | { requiresConfirmation: true; email: string; staffClaimed?: boolean }
     | { error: string }
 
 // Bounces a duplicate-signup attempt to /login with the email prefilled and
@@ -206,13 +206,21 @@ export async function createAccount(
         return { error: 'Profile setup failed. Please try again or message us on WhatsApp.' }
     }
 
-    // Email confirmation disabled — session is live, go straight to dashboard
+    // Staff claim linkage — if this signup matches a pending intern claim
+    // (email + OTP-verified phone + a code verified on /staff/claim within
+    // the last hour), the registry row flips to active and the intern is
+    // routed to the staff plan chooser instead of the dashboard. A normal
+    // signup is untouched (returns false, costs one indexed lookup).
+    const { linkStaffClaimIfEligible } = await import('@/contexts/staff/usecases/link-claim')
+    const staffClaimed = await linkStaffClaimIfEligible(userId, payload.email, payload.phone)
+
+    // Email confirmation disabled — session is live, go straight through
     if (authData.session) {
         revalidatePath('/', 'layout')
-        redirect('/dashboard')
+        redirect(staffClaimed ? '/staff/plan' : '/dashboard')
     }
 
-    return { requiresConfirmation: true, email: payload.email }
+    return { requiresConfirmation: true, email: payload.email, staffClaimed }
 }
 
 // ─── Email OTP verification ───────────────────────────────────────────────

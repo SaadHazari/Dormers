@@ -21,7 +21,7 @@
 import type { WeekType } from './end-date'
 import { perMealPriceBounds, PLAN_ID_BY_KEBAB } from './pricing'
 
-export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift'
+export type PlanId = 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | 'staff-monthly'
 
 export type PlanKind = 'trial' | 'weekly' | 'monthly' | 'gift'
 
@@ -115,11 +115,31 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     maxSkips: 0,
     minPriceFils: 0, // Not buyable through checkout; never reaches the floor check.
   },
+  // Staff Monthly — intern remuneration plan. NOT publicly sellable: the
+  // checkout route gates it to active staff_members records and validates
+  // the exact Saturday surcharge (flat AED 20 × 4) instead of the generic
+  // preference price band — see contexts/staff/domain/staff-plan.ts.
+  // No pause (employment-month-bound; pausing would stretch the cycle past
+  // the stipend month). Skips stay — interns have exams too.
+  'staff-monthly': {
+    id: 'staff-monthly',
+    label: 'Staff Monthly',
+    matchesAny: ['Staff Monthly'],
+    totalMeals: 24, // 6DAYS static default; 5DAYS staff = 20 via totalMealsFor
+    durationDays: 28,
+    mealsPerDay: 1,
+    canPause: false,
+    maxSkips: 3,
+    minPriceFils: 0, // floor/ceiling handled by the staff gate, not the band
+  },
 }
 
 // Most-specific labels checked first so "Monthly Max" doesn't get shadowed
 // by a future "Monthly" alias on monthly-premium.
 const RESOLUTION_ORDER: PlanId[] = [
+  // staff-monthly before the monthly plans — "Staff Monthly" contains
+  // "Monthly" so it must be checked before any monthly alias could shadow it.
+  'staff-monthly',
   'monthly-max',
   'monthly-premium',
   'weekly-flex',
@@ -237,7 +257,9 @@ export function totalMealsFor(id: PlanId, weekType: WeekType): number {
 export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
   // welcome-gift: free meal, not buyable through checkout — floor 0 keeps
   // the historical behaviour (max 0 below is what rejects it).
-  if (id === 'welcome-gift') return 0
+  // staff-monthly: priced by the flat Saturday surcharge in the checkout's
+  // staff gate, not by the preference band — no band entry here.
+  if (id === 'welcome-gift' || id === 'staff-monthly') return 0
   // Per-meal prices are week_type-invariant; pricing.ts doesn't model
   // 7DAYS, so map it to the 6DAYS per-meal table and let totalMealsFor
   // (which DOES understand 7DAYS) supply the meal count.
@@ -247,7 +269,7 @@ export function minPriceFilsFor(id: PlanId, weekType: WeekType): number {
 }
 
 export function maxPriceFilsFor(id: PlanId, weekType: WeekType): number {
-  if (id === 'welcome-gift') return 0
+  if (id === 'welcome-gift' || id === 'staff-monthly') return 0
   const pricingWeekType = weekType === '5DAYS' ? '5DAYS' : '6DAYS'
   const { max } = perMealPriceBounds(PLAN_ID_BY_KEBAB[id], pricingWeekType)
   return Math.round(max * totalMealsFor(id, weekType) * 100)

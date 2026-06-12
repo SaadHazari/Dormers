@@ -8,7 +8,7 @@ import {
     Share2, Swords,
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
-    Search, X, Tag, LogOut,
+    Search, X, Tag, LogOut, UserCog,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -39,6 +39,7 @@ const NAV_GROUPS = [
         label: 'Customers',
         items: [
             { label: 'All Customers',   href: '/admin/customers',      icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Staff',           href: '/admin/staff',          icon: <UserCog size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {

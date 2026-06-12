@@ -1,6 +1,13 @@
 # Supabase Region Migration — Tokyo → Ohio (us-east-2)
 
 **Status: ✅ COMPLETE — cut over 2026-06-11 ~05:05 UTC.**
+
+> ⚠️ **OPEN ITEM — delete the old Tokyo project (`butfgoqneixophdlwljd`) by 2026-06-25.**
+> Post-cutover sweep on 2026-06-12 confirmed Ohio fully healthy (all 16 crons
+> succeeding, 0 unsent notifications, 0 net failures, storage + vault intact,
+> no zombie subscription states). DDL applied to Tokyo by mistake on 06-12
+> (staff_members) was re-applied to Ohio — nothing else lives only on Tokyo.
+> Also confirm Netlify PRODUCTION env vars point at Ohio before next deploy.
 Final destination changed from Frankfurt to **us-east-2 (Ohio)**: Netlify's
 functions-region picker is paywalled (Pro), so we co-located the DB with
 Netlify's free default region instead — same ~1ms function↔DB win, $0/month.

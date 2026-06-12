@@ -312,7 +312,7 @@ interface Props {
   // they'd unlock by upgrading. `currentPlanId` powers the overlay copy
   // (different framing for "no sub yet" vs "Weekly Flex" vs "Trial").
   dormWarsEligible: boolean
-  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | null
+  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | 'staff-monthly' | null
   // Phase 8C — Happening Now feed is cross-dorm now. Each item carries
   // firstName + dormName + isElite (hall_wall flag) so the feed can tag
   // GOATs (tier-4 customers) inline as rare social proof.
@@ -1142,7 +1142,7 @@ function EliteDormerBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
 function PremiumGateOverlay({
   currentPlanId,
 }: {
-  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | null
+  currentPlanId: 'monthly-max' | 'monthly-premium' | 'weekly-flex' | 'trial' | 'welcome-gift' | 'staff-monthly' | null
 }) {
   // Copy adapts to the current plan so the upsell lands honestly.
   const sub =

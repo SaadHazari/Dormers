@@ -11,6 +11,7 @@ const PREVIEW_CUSTOMER = {
   name: 'Saad Hazari',
   email: 'preview@dormers.ae',
   whatsapp_number: '+971 50 000 0000',
+  whatsapp_verified: true,
   dorm_name: 'YUGO',
   meal_preference_type: 'Non Veg',
   allergens: 'None',
@@ -45,6 +46,20 @@ export default async function ExplorePlansPage({
 
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
+
+  // Active staff don't buy public plans — their remuneration funnel (free
+  // 5-day / prepaid Saturdays / renewal + approval) lives at /staff/plan.
+  // This catches every "Renew" / "Explore plans" CTA across the dashboard.
+  {
+    const { createAdminSupabaseClient } = await import('@/infra/supabase/admin-client')
+    const { data: staffRow } = await createAdminSupabaseClient()
+      .from('staff_members')
+      .select('id')
+      .eq('customer_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (staffRow) redirect('/staff/plan')
+  }
 
   // Same SSR fetch as /dashboard/plan — the CheckoutPanel on this route
   // also needs the Dorm Wars approved credit balance to render the discount

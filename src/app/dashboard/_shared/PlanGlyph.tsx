@@ -1,4 +1,4 @@
-import { Crown, Gem, Gift, Sparkles, Utensils, Star, type LucideIcon } from 'lucide-react'
+import { Crown, Gem, Gift, Sparkles, Utensils, Star, Briefcase, type LucideIcon } from 'lucide-react'
 import { OG } from './tokens'
 import { resolvePlan, type PlanId } from '@/contexts/subscriptions/domain/plans'
 
@@ -11,6 +11,7 @@ const GLYPHS: Record<PlanId, LucideIcon> = {
   'weekly-flex': Sparkles,     // light-touch, flexible
   'trial': Utensils,           // food-first, no commitment
   'welcome-gift': Gift,        // the referee freebie — explicit gift wrap
+  'staff-monthly': Briefcase,  // the intern remuneration plan — work badge
 }
 
 export function PlanGlyph({
