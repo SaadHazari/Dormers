@@ -20,7 +20,7 @@ export interface OnboardingPayload {
     email: string
     password: string
     /** '5DAYS' (Mon–Fri) or '6DAYS' (Mon–Sat). Optional in payload; defaults to 6DAYS. */
-    weekType?: '5DAYS' | '6DAYS'
+    weekType?: '' | '5DAYS' | '6DAYS'
 }
 
 export type CreateAccountResult =
@@ -192,7 +192,7 @@ export async function createAccount(
         allergens: payload.allergens.length ? payload.allergens.join(', ') : 'None',
         spice_level_preference: payload.spiceLevel,
         // Phase 1 column — defaults to 6DAYS until the onboarding step is built.
-        week_type: payload.weekType ?? '6DAYS',
+        week_type: payload.weekType || '6DAYS',
         veg_days: cleanVegDays.length > 0 ? cleanVegDays : null,
         out_of_zone: !dormListed,
     })

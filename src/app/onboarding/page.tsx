@@ -20,7 +20,7 @@ export default function OnboardingPage() {
     const [form, setForm] = useState<FormState>({
         preference: '', vegDays: [], allergens: [], spiceLevel: '',
         dorm: '', customDorm: '', university: '', customUniversity: '',
-        weekType: '6DAYS',
+        weekType: '',
         name: '', phone: '', phoneVerified: false, email: '', password: '',
     })
 

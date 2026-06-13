@@ -28,7 +28,7 @@ function earliestStartIso(weekType: '5DAYS' | '6DAYS'): string {
  * on claimGift's Welcome Meal provisioning: a direct subscription insert,
  * no orders row (this is remuneration, not revenue — the expense side is
  * written per delivered meal by the delivery tick under
- * intern_compensation), no Stripe, no Zoho.
+ * staff_comped_meals), no Stripe, no Zoho.
  *
  * The paid 6-day flavor never comes here — it flows through /api/checkout's
  * staff gate so the webhook writes the order + Zoho invoice + confirms.

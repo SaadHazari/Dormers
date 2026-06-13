@@ -70,7 +70,7 @@ export interface FormState {
     customDorm: string
     university: string
     customUniversity: string
-    weekType: '5DAYS' | '6DAYS'
+    weekType: '' | '5DAYS' | '6DAYS'
     name: string
     phone: string
     phoneVerified: boolean
