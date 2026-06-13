@@ -400,3 +400,63 @@ export async function sendRenewNudgeEmail(input: {
     },
   });
 }
+
+/**
+ * Refund confirmation email — fired from handleChargeRefunded after Stripe
+ * processes a full or partial refund. Conditional "wallet credit restored"
+ * section renders only when credits_restored is non-empty.
+ */
+export async function sendRefundProcessedEmail(input: {
+  toEmail: string;
+  firstName: string;
+  refundAed: string;
+  orderNumber: string;
+  creditsRestored: boolean;
+}): Promise<void> {
+  const templateKey = process.env.ZEPTOMAIL_TPL_REFUND_PROCESSED;
+  if (!templateKey) throw new Error('ZEPTOMAIL_TPL_REFUND_PROCESSED is not set');
+
+  await sendTemplate({
+    templateKey,
+    to: { email: input.toEmail, name: input.firstName },
+    mergeInfo: {
+      first_name: input.firstName,
+      refund_aed: input.refundAed,
+      order_number: input.orderNumber,
+      credits_restored: input.creditsRestored ? 'yes' : '',
+    },
+  });
+}
+
+/**
+ * Subscription ended email — fired when subscription_status_tick flips a sub
+ * to Ended. Mirrors the renewal nudge recap format with the same conditional
+ * savings/rewards blocks.
+ */
+export async function sendSubscriptionEndedEmail(input: {
+  toEmail: string;
+  firstName: string;
+  planName: string;
+  mealsDelivered: number;
+  evenings: number;
+  aedSaved: number | null;
+  aedEarned: number;
+  renewLink: string;
+}): Promise<void> {
+  const templateKey = process.env.ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED;
+  if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED is not set');
+
+  await sendTemplate({
+    templateKey,
+    to: { email: input.toEmail, name: input.firstName },
+    mergeInfo: {
+      first_name: input.firstName,
+      plan_name: input.planName,
+      meals_delivered: input.mealsDelivered,
+      evenings: input.evenings,
+      aed_saved: input.aedSaved == null ? '' : String(input.aedSaved),
+      aed_earned: input.aedEarned > 0 ? String(input.aedEarned) : '',
+      renew_link: input.renewLink,
+    },
+  });
+}

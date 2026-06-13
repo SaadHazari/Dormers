@@ -841,6 +841,26 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
 
   console.log(`✅ Credit AED ${cashAmount} → inviter ${referral.inviter_cid} (status: ${creditStatus}${doublerActive ? ', 2x doubler' : ''})`)
 
+  // WhatsApp: tell the inviter their friend converted + how much they earned.
+  if (!creditErr && creditStatus === 'approved') {
+    const { data: invitee } = await supabaseAdmin
+      .from('customers')
+      .select('name')
+      .eq('id', inviteeUserId)
+      .maybeSingle()
+    const inviteeName = (invitee?.name ?? '').trim().split(/\s+/)[0] || 'Your friend'
+    try {
+      await queueCustomerNotification(
+        referral.inviter_user_id,
+        'referral_converted',
+        new Date(),
+        { referral: inviteeName, credit_aed: String(cashAmount) },
+      )
+    } catch (err) {
+      console.error('⚠️  referral_converted notification failed (non-fatal):', err)
+    }
+  }
+
   // Layer 2/3 reward fire — runs AFTER the Layer 1 credit insert so the
   // cycle/lifetime counts (which both filter on referrals.status='converted')
   // include the conversion we just recorded above.

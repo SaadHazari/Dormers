@@ -31,6 +31,9 @@ export type CustomerNotificationKind =
     | 'welcome_meal_confirmed'
     | 'subscription_renew_nudge'
     | 'meals_gifted_confirm'
+    | 'referral_converted'
+    | 'refund_processed'
+    | 'subscription_ended'
 
 /**
  * Queue a WhatsApp notification for a customer.

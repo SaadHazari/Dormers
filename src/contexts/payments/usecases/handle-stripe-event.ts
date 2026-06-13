@@ -32,6 +32,8 @@ import {
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
+import { sendRefundProcessedEmail } from '@/infra/zeptomail/client'
 
 export type HandleResult =
   | { ok: true; deduped?: boolean; refundHandled?: boolean; restored?: number }
@@ -846,6 +848,39 @@ async function handleChargeRefunded(
       `end it manually if the customer is leaving, or leave it if this is a re-issue.`,
       orderRow.id.toString().slice(0, 18),
     )
+  }
+
+  // Notify the customer — WhatsApp + email. Non-fatal: the refund is
+  // already processed; a notification failure shouldn't block the webhook.
+  try {
+    const { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('name, email')
+      .eq('id', orderRow.customer_id)
+      .maybeSingle()
+    if (customer) {
+      const firstName = (customer.name ?? '').trim().split(/\s+/)[0] || 'there'
+      const refundAed = (charge.amount_refunded / 100).toFixed(2)
+
+      await queueCustomerNotification(
+        orderRow.customer_id,
+        'refund_processed',
+        new Date(),
+        { refund_aed: refundAed },
+      )
+
+      if (customer.email) {
+        await sendRefundProcessedEmail({
+          toEmail: customer.email,
+          firstName,
+          refundAed,
+          orderNumber: orderRow.id,
+          creditsRestored: isFullRefund && restoredCount > 0,
+        })
+      }
+    }
+  } catch (err) {
+    console.error('⚠️  refund notification failed (non-fatal):', err)
   }
 
   Sentry.metrics.count('payment.refund_handled', 1)

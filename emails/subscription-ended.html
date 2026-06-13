@@ -1,0 +1,148 @@
+<html>
+
+<head></head>
+
+<body>
+  <div>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .main-card {
+          border: 2px solid #FF8C00 !important;
+          background-color: #1a1a1a !important;
+        }
+
+        .text-content {
+          color: #fcfcfc !important;
+        }
+
+        .sub-container-orange {
+          background-color: #261a0d !important;
+          border: 1.2px solid #FF8C00 !important;
+        }
+
+        .sub-container-green {
+          background-color: #0d1a10 !important;
+          border: 1.2px solid #2e7d32 !important;
+        }
+
+        .footer-text {
+          color: #555555 !important;
+        }
+
+        .muted-line {
+          color: #aaaaaa !important;
+        }
+      }
+    </style>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
+      <tbody>
+        <tr>
+          <td align="center">
+            <table class="main-card" width="100%" border="0" cellspacing="0" cellpadding="0"
+              style="max-width: 600px; background-color: #ffffff; border: 2px solid #FF8C00; border-radius: 13px; overflow: hidden;">
+              <tbody>
+                <tr>
+                  <td class="text-content"
+                    style="padding: 42px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #757575; font-weight: 500;">
+                    <h1
+                      style="margin: 0 0 26px 0; font-size: 26px; line-height: 1.2; font-weight: 700; color: #757575;">
+                      {{meals_delivered}} meals. {{evenings}} evenings. All yours. 🎉
+                    </h1>
+                    <p style="margin: 0px 0px 32px; line-height: 26px;">
+                      <span class="size" style="font-size: 16px;">Hey {{first_name}}, your <b>{{plan_name}}</b> plan ended today. Here's what that looked like:</span>
+                    </p>
+
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-orange"
+                      style="background-color: #fffaf5; border: 1.2px solid #FF8C00; border-radius: 8px; margin-bottom: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px;">📊 Your cycle recap</span></b></span>
+                            </p>
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px;"><b>{{meals_delivered}} meals</b> delivered to your door.</span></span>
+                            </p>
+                            {{#aed_saved}}
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px;"><b>AED {{aed_saved}}</b> below what takeout would've cost.</span></span>
+                            </p>
+                            {{/aed_saved}}
+                            {{#aed_earned}}
+                            <p style="margin: 0px 0px 12px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px;"><b>AED {{aed_earned}}</b> earned in referral rewards.</span></span>
+                            </p>
+                            {{/aed_earned}}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-orange"
+                      style="background-color: #fffaf5; border: 1.2px solid #FF8C00; border-radius: 8px; margin-bottom: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px;">🔒 Nothing resets</span></b></span>
+                            </p>
+                            <p style="margin: 0px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px;">Your preferences, favourites, and wallet balance are all saved exactly where you left them. Whenever you're ready to pick back up, everything's waiting.</span></span>
+                            </p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div style="text-align: center; margin-bottom: 26px;">
+                      <a href="{{renew_link}}"
+                        style="background-color: #FF8C00; color: #ffffff; padding: 15px 36px; text-decoration: none; font-size: 15px; font-weight: 700; border-radius: 8px; display: inline-block;">See plans &rarr;</a>
+                    </div>
+
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-green"
+                      style="background-color: #f2faf3; border: 1.2px solid #2e7d32; border-radius: 8px; margin-bottom: 42px;">
+                      <tbody>
+                        <tr>
+                          <td style="padding: 26px;">
+                            <p style="margin: 0px 0px 8px; text-transform: uppercase;">
+                              <span class="colour" style="color:rgb(46, 125, 50)"><b><span class="size" style="font-size: 14px;">💬 We're still here</span></b></span>
+                            </p>
+                            <p style="margin: 0px 0px 16px; line-height: 24px;">
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px;">Questions about your plan, your wallet, or anything else? We're a tap away on WhatsApp.</span></span>
+                            </p>
+                            <a href="https://wa.me/971504619384"
+                              style="background-color: #2e7d32; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Chat with Support</a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                      style="border-top: 1px solid #eeeeee; padding-top: 26px;">
+                      <tbody>
+                        <tr>
+                          <td style="font-size: 14px; line-height: 22px; color: #757575;">
+                            It's been our privilege serving you.<br>
+                            <span class="colour" style="color:rgb(117, 117, 117)"><b><span class="size" style="font-size:16px">Team Dormers</span></b></span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td class="footer-text" align="center"
+                            style="padding-top: 42px; font-size: 12px; color: #b0b0b0; letter-spacing: 1px; text-transform: uppercase;">
+                            Made with ♥️ in Dubai
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+
+</html>
