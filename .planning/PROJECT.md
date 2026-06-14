@@ -1,62 +1,96 @@
-# Dormer's Website — Menu Section Revamp
+# Dormer's — Ops Interfaces & Delivery Chain of Custody
 
 ## What This Is
 
-Dormer's is a UAE-based meal plan delivery service. The website is a Next.js 15 marketing and ordering site where customers browse weekly meal menus, select plans, and check out via Stripe. This project revamps the Menu section to be image-forward and interaction-simple — replacing button-heavy navigation with natural scrolling and surfacing food photography as the primary engagement driver.
+Dormer's is a UAE-based meal plan delivery service. The platform includes a Next.js 15 marketing site, customer dashboard, admin panel, and now operational interfaces for the kitchen team and delivery riders. This milestone adds two ungated PWA pages that replace manual Make.com/WhatsApp workflows with a verified delivery chain of custody — kitchen sees what to cook, rider verifies each handoff with photos, and customers get auto-notified when their meal arrives.
 
 ## Core Value
 
-Food photos that make you want to order — a menu you browse naturally, not navigate laboriously.
+Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
+
+## Current Milestone: v2.0 Ops Interfaces — Kitchen Display + Delivery Chain of Custody
+
+**Goal:** Build two ungated, mobile-first PWA pages for kitchen staff and delivery riders, replacing manual workflows with a verified chain-of-custody system that auto-notifies customers.
+
+**Target features:**
+- Kitchen display page with recipes, photos, and 2PM-gated meal counts
+- Delivery rider page with dorm-shaped pickup/drop-off verification
+- Gemini-powered box count verification (triple match)
+- Automatic WhatsApp customer notifications on verified delivery
+- 8 PM failsafe cron for unconfirmed dorms
+- WhatsApp inbound trigger (rider texts dorm name)
+- iOS Shortcuts for owner quick-send
+- 48+ recipes seeded from cookbook PDF
 
 ## Requirements
 
 ### Validated
 
-- ✓ 4-week rotating menu (veg + non-veg, 6 days/week, 48 dishes) — existing
-- ✓ Stripe checkout integration — existing
-- ✓ Dark/light theme support — existing
-- ✓ REV-01: Next.js image optimization enabled — WebP/AVIF served at responsive sizes — Validated in Phase 01: foundations-data
-- ✓ REV-02: Spice level + allergen fields on all 48 dishes (real CSV values) — Validated in Phase 01: foundations-data
+- ✓ WhatsApp notification dispatcher pipeline (pg_cron + customer_notifications table) — existing
+- ✓ Menu catalog DB-first (dishes, menu_weeks, week_meal_slots) — existing
+- ✓ 4-week rotating menu with veg/non-veg resolution — existing
+- ✓ Dorm shapes in label pipeline (circle/square/triangle/hexagon/star/plus) — existing
+- ✓ Active subscription queries with skip/pause filtering — existing
+- ✓ Admin deliveries page with dorm grouping — existing
 
 ### Active
 
-- [ ] REV-03: Replace 6 letter-button day selector with horizontally scrollable food card gallery — all days visible, swipe to browse, tap to select
-- [ ] REV-04: Each gallery card shows: day label, food photo (optimized), dish name, spice chilli icons, allergen icons
-- [ ] REV-05: Replace week dropdown with horizontally scrollable tab strip (Week 1–4)
-- [ ] REV-06: Refine Veg/Non-Veg toggle styling to match new design language
-- [ ] REV-07: Tap a dish card → slide-up detail sheet showing dish description + nutrition icon (opens existing modal)
-- [ ] REV-08: Nutrition info accessible via small icon only — remove the "Nutrition Info" text button
+(See REQUIREMENTS.md for full scoped requirements with REQ-IDs)
 
 ### Out of Scope
 
-- New dishes or menu data changes beyond spice/allergen fields — focus is UI/UX only
-- Replacing the MUI Modal for nutrition info — refinement only, not a rewrite
-- Changing the ordering flow or Stripe integration — separate concern
-- Backend/API for dynamic menu data — static data is fine for now
+- Customer-side pickup confirmation (QR/PIN on bag) — adds friction to every meal, not needed if dorm-side delivery is provable
+- Full delivery route optimization — rider determines their own route
+- Real-time GPS tracking of rider — privacy concerns, overkill for current scale
+- Kitchen inventory/procurement management — separate concern
+- Modifying the existing admin labels pipeline — kitchen can link to it, not replace it
 
 ## Context
 
-- **Stack:** Next.js 15, React 19, Tailwind CSS v4, Framer Motion v12, MUI (Modal only in menu)
-- **Images:** Located in `/public/images/Week{1-4}/{NonVeg|Veg}/` — mix of .jpg, .png, .webp; Week 1 non-veg uses static imports, all others use string paths
-- **Image problem:** `next.config.ts` has `images: { unoptimized: true }` — this is the confirmed root cause of slow loads
-- **Current menu state:** 1,600-line single component; data + UI co-located in `src/app/components/Menu.tsx`
-- **Framer Motion available:** Can be used for card animations and sheet transitions
-- **Currency:** AED — UAE market; mobile-first usage expected
+- **Stack:** Next.js 15, React 19, Tailwind CSS v4, Supabase (Ohio), Stripe, Meta WhatsApp Cloud API, Google Gemini API
+- **Existing infra:** WhatsApp dispatcher (pg_cron every 5 min), customer_notifications queue table, menu-catalog.ts, subscriptions-repo.ts, dorm-shapes.ts, label PDF pipeline
+- **Kitchen team:** Non-technical, needs zero-friction access — no login, no app install, just a URL
+- **Delivery rider:** Android phone, WhatsApp-native, may change frequently — onboarding must be one sentence
+- **Cookbook:** 60-page PDF (Dormers_cook_book_Golden.pdf) with 48+ structured recipes including ingredient sections, methods, and allergen notes. Each dish has a code (CRNC01, RCVV01, etc.)
+- **Count cutoff:** 2 PM UAE is the customer skip/pause deadline — kitchen counts must not show before this
+- **Dorm mapping:** Myriad=circle, KSK=square, Yugo=triangle, DSOA=hexagon, Study World=star, Other=plus
 
 ## Constraints
 
-- **Consistency:** Existing dark/light theme (colors: `#1E3A4F` navy, `#EEE9DA` cream) must be preserved
-- **Data:** No backend — all 48 dishes are hardcoded in MENU_DATA; spice/allergen values will be placeholders
-- **Existing images:** Cannot re-shoot or rename image files — optimization must work with existing paths
+- **No login:** Both ops pages must be ungated — secret token in URL, no auth flow
+- **Mobile-first:** Primary use is on phones (kitchen propped up, rider in hand) — must work at 375px
+- **WhatsApp dependency:** Customer notifications use existing Meta template system — template must be registered in Business Manager before dispatch
+- **Gemini API:** Box counting requires vision API access — needs API key in environment
+- **2 PM cutoff:** Meal counts must not display before 2 PM UAE — customers can still skip/pause until then
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Card gallery over day strip + big card | Shows all days at once → more browsable, images front and center | — Pending |
-| Keep nutrition modal, access via icon | Reduces button clutter while keeping data accessible | — Pending |
-| Keep veg/non-veg slider, refine only | Toggle is intuitive — simplify don't replace | — Pending |
-| Placeholder spice/allergen data | Real data not available yet; structure must exist for future fill-in | — Pending |
+| Secret-token URL over login | Kitchen/rider need zero-friction access; data isn't sensitive (dish names + counts) | — Pending |
+| Triple-match verification (expected + rider + Gemini) | Double verification catches both photo fraud and miscounts | — Pending |
+| Photo unclear → retake once → escalate | Balances rider convenience (90% succeed) with preventing bad photos slipping through | — Pending |
+| Customer WhatsApp only on verified delivery | Prevents false notifications; rider can't skip verification | — Pending |
+| Dorm name text (not numbers) for WhatsApp trigger | Numbers are arbitrary and break when routes change; names are self-documenting | — Pending |
+| Counts hidden until 2 PM UAE | Customers can skip/pause until 2 PM; showing earlier counts would cause kitchen to prep wrong amounts | — Pending |
+| Recipes as JSONB column on dishes table | 1:1 with dishes, no separate table needed; structured for rendering | — Pending |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-05-15 — Phase 06 complete: Dorm Wars game-feel pass — AV craft layer that flips perceived class from "polished web" to "studio-built game". 5 waves landed: atmosphere stack (animated SVG grain + vignette + bloom on hot OG elements + stratified parallax + cursor reticle), audio system (3-stem ambient bed + 8-stinger library + ducking + spatial pan + AnalyserNode-driven audio-reactive bloom + ENABLE-AUDIO pre-prompt with default OFF reversing Phase 5 D-29), persistent HUD pod scoped to dorm-wars only (callsign + rank chevron + AED wallet via NumberRoll + streak flame + CRT scanline + mobile collapsed pill), cinema moments (RankUpCutscene 8-step letterbox+stamp choreography + TitleScreenInterstitial upgrade with typed callsign + ink-bleed stamp + 4s intro stinger + EdgeAlert INCOMING strip + ChromaticAberration + ImpactFlash + screen shake), and asset integration sweep (16 hand-authored stencil SVG icons replacing Lucide on dorm-wars + Black Ops One via next/font/google + Unsplash anchor photo with mandatory D-07 duotone treatment + 9-slice stamped borders). Audio stems shipped as silent placeholders pending user curation from documented CC0/CC-BY sources. Wave 1 perf-gate (60fps idle scroll DevTools recording) deferred to user-side phase-end UAT. Build passes, lint passes, dorm-wars route 24.2 KB / 153 KB First Load JS.*
+*Last updated: 2026-06-14 — Milestone v2.0 started: Ops Interfaces — Kitchen Display + Delivery Chain of Custody*
