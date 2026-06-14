@@ -1,101 +1,202 @@
-# Requirements: Dormer's Menu Revamp
+# Requirements: Ops Interfaces — Kitchen Display + Delivery Chain of Custody
 
-**Defined:** 2026-04-03
-**Core Value:** Food photos that make you want to order — a menu you browse naturally, not navigate laboriously.
+**Defined:** 2026-06-14
+**Core Value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
 
 ## v1 Requirements
 
-### Performance
+### Database & Schema
 
-- [x] **PERF-01**: Next.js image optimization enabled (remove `unoptimized: true` from next.config.ts) — images served as WebP/AVIF with responsive sizing
-- [x] **PERF-02**: All dish images in Menu use `<Image>` with correct `sizes` attribute for responsive loading
+- [ ] **DB-01**: `recipe` JSONB column added to `dishes` table with structure `{ sections: [{ heading, items }], method: string[], notes: string }`
+- [ ] **DB-02**: All 48+ recipes from Dormers_cook_book_Golden.pdf seeded into the `dishes` table with correct dish code mapping
+- [ ] **DB-03**: `ops_tokens` table created with token, role (kitchen/rider), label, is_active, revoked_at
+- [ ] **DB-04**: `delivery_events` table created with delivery_date, dorm_name, expected/rider/gemini counts, photo_path, verified flag, UNIQUE(delivery_date, dorm_name, trip_number)
+- [ ] **DB-05**: `delivery_confirmed` and `delivery_unconfirmed_8pm` kinds added to `customer_notifications` CHECK constraint
+- [ ] **DB-06**: `delivery_confirmed` CASE branch added to `dispatch_customer_notifications_tick` dispatcher
+- [ ] **DB-07**: Explicit GRANTs on new tables for `authenticated` and `service_role`
 
-### Data
+### Token Auth
 
-- [x] **DATA-01**: All 48 dishes in MENU_DATA have a `spiceLevel` field (integer 1–3)
-- [x] **DATA-02**: All 48 dishes in MENU_DATA have an `allergens` field (array of strings: `['gluten', 'dairy', 'nuts', 'eggs', 'soy', 'shellfish']`)
-- [x] **DATA-03**: Placeholder values are used where real values are unknown — data structure ready for future fill-in
+- [ ] **TOK-01**: Secret tokens are random 32-char hex strings stored in `ops_tokens` table
+- [ ] **TOK-02**: Token validated server-side on every page load — invalid/revoked token returns 404
+- [ ] **TOK-03**: `<meta name="referrer" content="no-referrer">` on both kitchen and ops pages
+- [ ] **TOK-04**: Token rotation via admin panel without requiring a deploy
 
-### Gallery Navigation
+### Kitchen Display
 
-- [x] **GALL-01**: Day navigation is a horizontally scrollable card gallery — all 6 days visible as swipeable cards
-- [x] **GALL-02**: Each gallery card shows: day label (Mon–Sat), food photo, dish name, spice icon row, allergen icon row
-- [x] **GALL-03**: Selected day card is visually distinct (highlighted border or scale treatment)
-- [x] **GALL-04**: Gallery auto-scrolls to selected day on initial load (today's day)
-- [x] **GALL-05**: Scroll behavior is smooth and touch-friendly (no scrollbar visible)
+- [ ] **KIT-01**: `/kitchen/[token]` page shows today's veg and non-veg dish with photo and name
+- [ ] **KIT-02**: Tap-to-expand recipe modal with sticky section navigator (Ingredients / Method / Notes)
+- [ ] **KIT-03**: Meal counts hidden before 2 PM UAE — shows "Counts locked until 2 PM" placeholder
+- [ ] **KIT-04**: After 2 PM UAE, total veg and non-veg counts displayed (no dorm breakdown)
+- [ ] **KIT-05**: 2 PM cutoff evaluated server-side in RSC, never client-side
+- [ ] **KIT-06**: Dark background, Montserrat font, 18px+ body text, 32px+ dish names
+- [ ] **KIT-07**: Works at 375px mobile and desktop — no login, no app install
+- [ ] **KIT-08**: 60-second auto-refresh with "last updated HH:MM" timestamp
+- [ ] **KIT-09**: Veg = emerald green, non-veg = brand orange `#f57f20` color coding
 
-### Week Navigation
+### Rider — Pickup
 
-- [ ] **WEEK-01**: Week selector is a horizontally scrollable tab strip (Week 1, Week 2, Week 3, Week 4)
-- [ ] **WEEK-02**: Active week tab is visually highlighted
-- [ ] **WEEK-03**: Tab strip replaces the existing `<select>` dropdown and `CustomSelect` component in the menu header
+- [ ] **RID-01**: `/ops/[token]` page shows dorm buttons with label shapes (Myriad=circle, KSK=square, Yugo=triangle, DSOA=hexagon, Study World=star)
+- [ ] **RID-02**: Dorm buttons are 80×80px minimum tap targets in a 2-column grid with shape SVG + name label
+- [ ] **RID-03**: At kitchen, rider sees expected meal count per dorm
+- [ ] **RID-04**: Rider confirms pickup with timestamp logged to `delivery_events`
 
-### Diet Toggle
+### Rider — Drop-off & Verification
 
-- [ ] **DIET-01**: Veg/Non-Veg toggle slider is retained and functional
-- [ ] **DIET-02**: Toggle styling is refined to match the new card gallery design language
+- [ ] **VER-01**: At dorm, rider taps dorm button → camera opens → takes photo of boxes
+- [ ] **VER-02**: Camera uses `getUserMedia` as primary with `<input capture>` fallback for cross-platform support
+- [ ] **VER-03**: Photo resized client-side to max 1600px / JPEG 85 before upload
+- [ ] **VER-04**: Photo uploaded to private `delivery-photos` Supabase storage bucket via server-side API route
+- [ ] **VER-05**: Rider enters box count manually
+- [ ] **VER-06**: Gemini `gemini-2.5-flash` counts boxes independently from photo, returning `{ count, confidence, reason, imageQuality }`
+- [ ] **VER-07**: Triple match: expected === rider === Gemini → large green tick (1.5–2s) → auto-confirm
+- [ ] **VER-08**: Any count mismatch → escalates to owner via `notifyAdmin` with photo + all three numbers
+- [ ] **VER-09**: Photo unclear (Gemini confidence low / imageQuality not clear) → "Retake photo" prompt
+- [ ] **VER-10**: Second unclear photo → escalates to owner
+- [ ] **VER-11**: Gemini timeout (`null` count) → requires manual rider confirmation, never auto-completes
+- [ ] **VER-12**: Submit button disabled until photo taken + non-zero count entered
+- [ ] **VER-13**: Delivery event data trail: who (token_id), when (timestamp), geolocation, expected_count, rider_count, gemini_count, photo_path
 
-### Detail View
+### Delivery Notifications
 
-- [ ] **DETL-01**: Tapping/clicking a dish card opens a slide-up detail sheet
-- [ ] **DETL-02**: Detail sheet shows: dish name, description, spice level, allergen row, and a nutrition icon
-- [ ] **DETL-03**: Tapping the nutrition icon in the detail sheet opens the existing nutrition modal
-- [ ] **DETL-04**: The "Nutrition Info" text button in the current card layout is removed
-- [ ] **DETL-05**: Detail sheet can be dismissed by tapping outside or a close affordance
+- [ ] **NOT-01**: On verified delivery (green tick), customer WhatsApp queued via `queueCustomerNotification` with kind `delivery_confirmed`
+- [ ] **NOT-02**: Notifications sent only to active, non-skipped, non-paused subscribers for that dorm on that day
+- [ ] **NOT-03**: Uses existing dispatcher pipeline (pg_cron + `FOR UPDATE SKIP LOCKED`)
+- [ ] **NOT-04**: `delivery_confirmed` Meta template registered as UTILITY category before dispatch code ships
+
+### Failsafe
+
+- [ ] **FAIL-01**: pg_cron at 8 PM UAE (`0 16 * * *` UTC) checks for dorms with active subs but no verified delivery event today
+- [ ] **FAIL-02**: Sends owner WhatsApp alert via `notifyAdmin` with list of pending dorms + quick actions link
+- [ ] **FAIL-03**: Failsafe function is idempotent — calling twice in same window does not send duplicate alerts
+- [ ] **FAIL-04**: Internal API route authenticated with `INTERNAL_RETRY_SECRET` bearer token
+
+### WhatsApp Inbound
+
+- [ ] **WAI-01**: `/api/ops/whatsapp-inbound` route handles Meta GET verification handshake
+- [ ] **WAI-02**: POST handler verifies `X-Hub-Signature-256` HMAC before processing
+- [ ] **WAI-03**: Returns HTTP 200 before any async processing (prevents Meta retry)
+- [ ] **WAI-04**: Deduplicates on WhatsApp message ID with unique constraint
+- [ ] **WAI-05**: Fuzzy matches rider's text to dorm name with conservative threshold
+- [ ] **WAI-06**: Ambiguous match → replies asking rider to confirm ("Did you mean X?")
+- [ ] **WAI-07**: Only processes text messages from allowlisted sender phone numbers
+- [ ] **WAI-08**: Non-text messages (images, voice, reactions) ignored or replied with "Send dorm name as text"
+
+### iOS Shortcuts & PWA
+
+- [ ] **PWA-01**: iOS Shortcut file generated for each dorm — one-tap delivery confirmation for owner
+- [ ] **PWA-02**: PWA manifest for `/kitchen` and `/ops` routes enabling add-to-home-screen
+- [ ] **PWA-03**: iOS meta tags for standalone display (apple-mobile-web-app-capable, status-bar-style, title)
+
+### Architecture
+
+- [ ] **ARC-01**: New `ops` bounded context at `src/contexts/ops/` with domain/ and usecases/ layers
+- [ ] **ARC-02**: `dorm-shapes.ts` moved from `src/app/admin/labels/` to `src/shared/`
+- [ ] **ARC-03**: Gemini box count verification in API route with `maxDuration = 60` (not server action)
+- [ ] **ARC-04**: Cross-context notification queueing via `queueCustomerNotification` import
+- [ ] **ARC-05**: All ops page loads force-dynamic (no caching — token validation + time-gated counts)
 
 ## v2 Requirements
 
-### Data Enrichment
+### Enhanced Verification
 
-- **DATA-V2-01**: Real spice level values filled in for all 48 dishes
-- **DATA-V2-02**: Real allergen values filled in for all 48 dishes
-- **DATA-V2-03**: Menu data sourced from a CMS or API (not hardcoded)
+- **VER2-01**: Admin panel delivery audit log showing all three counts + photos per dorm per day
+- **VER2-02**: Admin panel token rotation UI with activity log
+- **VER2-03**: Rider-specific tokens for per-rider audit trail (vs single shared rider token)
 
-### Enhanced Gallery
+### Offline & Performance
 
-- **GALL-V2-01**: Swipe gesture between days (left/right swipe changes selected dish)
-- **GALL-V2-02**: "Coming soon" state for days with no dish in the current filter
+- **PERF-01**: Service worker for offline recipe caching on kitchen display
+- **PERF-02**: Background sync for delivery photos when connectivity drops
+
+### Analytics
+
+- **ANA-01**: Delivery success rate dashboard (matches vs mismatches over time)
+- **ANA-02**: Gemini accuracy tracking (how often AI count differs from rider count)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Ordering flow changes | Separate concern — Stripe integration not touched |
-| Replacing MUI Modal for nutrition | Refinement only, not rewrite |
-| Adding new dishes or weeks | Data management, not UI revamp |
-| Dynamic menu from backend | Static data sufficient for v1 |
-| Image re-shooting or renaming | Cannot change existing image file paths |
+| Customer-side pickup confirmation (QR/PIN) | Adds friction to every meal; not needed if dorm-side delivery is provable |
+| Full delivery route optimization | Rider determines their own route |
+| Real-time GPS tracking of rider | Privacy concerns, overkill for current scale |
+| Kitchen inventory/procurement management | Separate concern |
+| Modifying existing admin labels pipeline | Kitchen can link to it, not replace it |
+| Native mobile app for rider | PWA + WhatsApp covers the use case; native is high-maintenance |
+| Customer WhatsApp for unconfirmed deliveries | v1 failsafe alerts owner only — customer-facing needs more thought |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 1 | Complete |
-| PERF-02 | Phase 1 | Complete |
-| DATA-01 | Phase 1 | Complete |
-| DATA-02 | Phase 1 | Complete |
-| DATA-03 | Phase 1 | Complete |
-| GALL-01 | Phase 2 | Complete |
-| GALL-02 | Phase 2 | Complete |
-| GALL-03 | Phase 2 | Complete |
-| GALL-04 | Phase 2 | Complete |
-| GALL-05 | Phase 2 | Complete |
-| WEEK-01 | Phase 3 | Pending |
-| WEEK-02 | Phase 3 | Pending |
-| WEEK-03 | Phase 3 | Pending |
-| DIET-01 | Phase 3 | Pending |
-| DIET-02 | Phase 3 | Pending |
-| DETL-01 | Phase 3 | Pending |
-| DETL-02 | Phase 3 | Pending |
-| DETL-03 | Phase 3 | Pending |
-| DETL-04 | Phase 3 | Pending |
-| DETL-05 | Phase 3 | Pending |
+| DB-01 | Phase 1 | Pending |
+| DB-02 | Phase 1 | Pending |
+| DB-03 | Phase 2 | Pending |
+| DB-04 | Phase 2 | Pending |
+| DB-05 | Phase 2 | Pending |
+| DB-06 | Phase 6 | Pending |
+| DB-07 | Phase 2 | Pending |
+| TOK-01 | Phase 2 | Pending |
+| TOK-02 | Phase 2 | Pending |
+| TOK-03 | Phase 3 | Pending |
+| TOK-04 | Phase 9 | Pending |
+| KIT-01 | Phase 3 | Pending |
+| KIT-02 | Phase 3 | Pending |
+| KIT-03 | Phase 3 | Pending |
+| KIT-04 | Phase 3 | Pending |
+| KIT-05 | Phase 3 | Pending |
+| KIT-06 | Phase 3 | Pending |
+| KIT-07 | Phase 3 | Pending |
+| KIT-08 | Phase 3 | Pending |
+| KIT-09 | Phase 3 | Pending |
+| RID-01 | Phase 4 | Pending |
+| RID-02 | Phase 4 | Pending |
+| RID-03 | Phase 4 | Pending |
+| RID-04 | Phase 4 | Pending |
+| VER-01 | Phase 5 | Pending |
+| VER-02 | Phase 5 | Pending |
+| VER-03 | Phase 5 | Pending |
+| VER-04 | Phase 5 | Pending |
+| VER-05 | Phase 5 | Pending |
+| VER-06 | Phase 5 | Pending |
+| VER-07 | Phase 5 | Pending |
+| VER-08 | Phase 5 | Pending |
+| VER-09 | Phase 5 | Pending |
+| VER-10 | Phase 5 | Pending |
+| VER-11 | Phase 5 | Pending |
+| VER-12 | Phase 5 | Pending |
+| VER-13 | Phase 5 | Pending |
+| NOT-01 | Phase 6 | Pending |
+| NOT-02 | Phase 6 | Pending |
+| NOT-03 | Phase 6 | Pending |
+| NOT-04 | Phase 6 | Pending |
+| FAIL-01 | Phase 7 | Pending |
+| FAIL-02 | Phase 7 | Pending |
+| FAIL-03 | Phase 7 | Pending |
+| FAIL-04 | Phase 7 | Pending |
+| WAI-01 | Phase 8 | Pending |
+| WAI-02 | Phase 8 | Pending |
+| WAI-03 | Phase 8 | Pending |
+| WAI-04 | Phase 8 | Pending |
+| WAI-05 | Phase 8 | Pending |
+| WAI-06 | Phase 8 | Pending |
+| WAI-07 | Phase 8 | Pending |
+| WAI-08 | Phase 8 | Pending |
+| PWA-01 | Phase 9 | Pending |
+| PWA-02 | Phase 9 | Pending |
+| PWA-03 | Phase 9 | Pending |
+| ARC-01 | Phase 2 | Pending |
+| ARC-02 | Phase 2 | Pending |
+| ARC-03 | Phase 5 | Pending |
+| ARC-04 | Phase 6 | Pending |
+| ARC-05 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0 ✓
+- v1 requirements: 58 total
+- Mapped to phases: 58
+- Unmapped: 0
 
 ---
-*Requirements defined: 2026-04-03*
-*Last updated: 2026-04-03 after initial definition*
+*Requirements defined: 2026-06-14*
+*Last updated: 2026-06-14 after initial definition*

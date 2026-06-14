@@ -1,98 +1,179 @@
-# Dormer's Menu Revamp — Roadmap
+# Dormer's Ops Interfaces — Roadmap
 
-**Project:** Dormer's Website — Menu Section Revamp
-**Core Value:** Food photos that make you want to order — a menu you browse naturally, not navigate laboriously.
-**Milestone:** v1 (20 requirements across 3 phases)
-**Granularity:** Standard (3 phases)
-**Created:** 2026-04-03
+**Project:** Dormer's — Ops Interfaces & Delivery Chain of Custody
+**Core Value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
+**Milestone:** v2.0 (58 requirements across 9 phases)
+**Granularity:** Standard
+**Created:** 2026-06-14
 
 ---
 
 ## Phases
 
-- [x] **Phase 1: Foundations & Data** - Enable image optimization and extend the data model with spice and allergen fields (completed 2026-04-03)
-- [x] **Phase 2: Card Gallery** - Replace the letter-button day selector with an image-forward scrollable card gallery (completed 2026-04-04)
-- [ ] **Phase 3: Navigation + Detail View** - Replace the week dropdown, refine the diet toggle, and add a slide-up dish detail sheet
-- [x] **Phase 4: Codebase Cleanup** - Audit and remove all files not referenced by the live website (completed 2026-04-18)
+- [ ] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes
+- [ ] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration
+- [ ] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, dark mobile-first UI
+- [ ] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation
+- [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
+- [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
+- [ ] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list
+- [ ] **Phase 8: WhatsApp Inbound Trigger** — Rider texts dorm name, fuzzy match, HMAC verification, message-ID dedup
+- [ ] **Phase 9: iOS Shortcuts + PWA + Polish** — Shortcut files per dorm, PWA manifest, token rotation UI, mobile testing at 375px
 
 ---
 
 ## Phase Details
 
-### Phase 1: Foundations & Data
-**Goal**: Images load fast and the data model supports spice level and allergen display
-**Depends on**: Nothing (first phase)
-**Requirements**: PERF-01, PERF-02, DATA-01, DATA-02, DATA-03
-**Success Criteria** (what must be TRUE):
-  1. Dish images in the Menu component are served as WebP/AVIF at responsive sizes — confirmed by inspecting network requests in Chrome DevTools (no full-size JPG/PNG served to mobile)
-  2. Every `<Image>` in Menu carries a `sizes` attribute appropriate to its rendered width — no missing `sizes` warnings in the Next.js build output
-  3. All 48 dishes in MENU_DATA have a `spiceLevel` integer field (1, 2, or 3) — a console log of MENU_DATA shows no `undefined` spice values
-  4. All 48 dishes have an `allergens` string array — no dish has a missing or null allergens field
-  5. Placeholder values are present where real data is unknown — the structure is ready for a future find-and-replace with real values without schema changes
-**Plans**: 1 plan
-Plans:
-- [x] 01-01-PLAN.md — Enable image optimization and type the Dish data model with spice/allergen placeholders
-**UI hint**: yes
+### Phase 1: Recipe Seeding
+**Goal:** Every dish in the database has a structured recipe from the cookbook PDF, ready for the kitchen display to render
+**Depends on:** Nothing (first phase)
+**Requirements:** DB-01, DB-02
+**Success Criteria:**
+  1. `dishes` table has a `recipe` JSONB column — confirmed via `SELECT column_name FROM information_schema.columns WHERE table_name = 'dishes' AND column_name = 'recipe'`
+  2. All 48+ recipes from Dormers_cook_book_Golden.pdf are seeded with correct dish code mapping (CRNC01, RCVV01, etc.)
+  3. Every seeded recipe has the structure `{ sections: [{ heading, items }], method: string[], notes: string }` — no null sections or empty method arrays
+  4. Recipe data round-trips correctly: `SELECT name, recipe FROM dishes WHERE recipe IS NOT NULL` returns parseable JSONB for every row
+**Plans:** TBD
+**UI hint:** no
 
-### Phase 2: Card Gallery
-**Goal**: Day navigation is image-forward and natural to browse — users scroll through food photos, not tap letter buttons
-**Depends on**: Phase 1
-**Requirements**: GALL-01, GALL-02, GALL-03, GALL-04, GALL-05
-**Success Criteria** (what must be TRUE):
-  1. The six letter-button day selector is gone — in its place is a horizontal row of cards, one per day, that can be scrolled or swiped
-  2. Each card displays the day label (Mon-Sat), an optimized food photo, the dish name, a spice chilli icon row, and an allergen icon row — all visible without tapping
-  3. The currently selected day card is visually distinct from the others (highlighted border or scale treatment) so it is obvious which day is active
-  4. On page load the gallery automatically scrolls so today's day card is visible and centered — the user does not have to scroll to find where they are
-  5. Scrolling the gallery feels smooth on touch devices and no scrollbar is visible — thumb-scrolling works without accidental zooms or jank
-**Plans**: 2 plans
-Plans:
-- [x] 02-PLAN-01.md — Build DishGallery.tsx component with Framer Motion drag, snap-to-card, and selection treatment
-- [x] 02-PLAN-02.md — Wire DishGallery into Menu.tsx, remove letter buttons, visual verification
-**UI hint**: yes
+### Phase 2: Schema & Context Foundation
+**Goal:** All new tables, the ops bounded context, and shared code moves are in place — no UI yet, just the foundation everything else builds on
+**Depends on:** Phase 1
+**Requirements:** DB-03, DB-04, DB-05, DB-07, TOK-01, TOK-02, ARC-01, ARC-02
+**Success Criteria:**
+  1. `ops_tokens` table exists with columns: id (uuid), token (text unique), role (check kitchen/rider), label, is_active, revoked_at, created_at
+  2. `delivery_events` table exists with: delivery_date, dorm_name, expected_count, rider_count, gemini_count, photo_path, verified, confirmed_at, UNIQUE(delivery_date, dorm_name, trip_number)
+  3. `delivery_confirmed` and `delivery_unconfirmed_8pm` are valid values in the `customer_notifications.kind` CHECK constraint
+  4. GRANTs on both new tables allow `authenticated` and `service_role` access
+  5. `src/contexts/ops/` exists with `domain/` and `usecases/` subdirectories containing token validation and delivery event types
+  6. `src/shared/dorm-shapes.ts` exists and the old `src/app/admin/labels/dorm-shapes.ts` imports from it (no duplicate)
+  7. At least one kitchen and one rider token are seeded for development/testing
+**Plans:** TBD
+**UI hint:** no
 
-### Phase 3: Navigation + Detail View
-**Goal**: The full menu experience is cohesive — week selection, diet filtering, and dish detail are all consistent and free of confusing legacy buttons
-**Depends on**: Phase 2
-**Requirements**: WEEK-01, WEEK-02, WEEK-03, DIET-01, DIET-02, DETL-01, DETL-02, DETL-03, DETL-04, DETL-05
-**Success Criteria** (what must be TRUE):
-  1. The week `<select>` dropdown and `CustomSelect` component are removed — in their place is a horizontal tab strip showing Week 1 through Week 4, with the active week clearly highlighted
-  2. The Veg / Non-Veg toggle slider works correctly and its visual styling matches the card gallery design language — it does not look like a leftover from the old layout
-  3. Tapping any dish card opens a slide-up sheet from the bottom of the screen — the sheet is animated and contains the dish name, description, spice level, allergen row, and a nutrition icon
-  4. Tapping the nutrition icon inside the detail sheet opens the existing MUI nutrition modal — the modal works identically to before, only the trigger point has changed
-  5. The "Nutrition Info" text button that previously appeared on the card is gone — no duplicate or orphaned nutrition trigger exists anywhere in the menu layout
-  6. The detail sheet can be dismissed by tapping the backdrop or a visible close control — the user is never trapped inside the sheet
-**Plans**: TBD
-**UI hint**: yes
+### Phase 3: Kitchen Display
+**Goal:** Kitchen staff can open a URL on any phone/tablet and see today's dishes with recipes — counts appear after 2 PM UAE
+**Depends on:** Phase 2
+**Requirements:** TOK-03, KIT-01, KIT-02, KIT-03, KIT-04, KIT-05, KIT-06, KIT-07, KIT-08, KIT-09, ARC-05
+**Success Criteria:**
+  1. `/kitchen/[valid-token]` renders today's veg and non-veg dish with photo, name, and veg/non-veg badge
+  2. Tapping a dish card opens a full-screen recipe modal with sticky Ingredients / Method / Notes tabs
+  3. Before 2 PM UAE: page shows "Counts locked until 2 PM" placeholder — no count numbers visible anywhere
+  4. After 2 PM UAE: total veg and non-veg counts displayed prominently — numbers match the admin deliveries page for the same day
+  5. Invalid or revoked token returns a 404 page — no redirect, no error detail
+  6. Page works at 375px (iPhone SE) with dark background, Montserrat font, minimum 18px body text
+  7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
+  8. `<meta name="referrer" content="no-referrer">` present in page head
+  9. `export const dynamic = 'force-dynamic'` on the page route
+**Plans:** TBD
+**UI hint:** yes
 
-### Phase 4: Codebase Cleanup
-**Goal**: All dead code, orphaned assets, duplicate image directories, and legacy configs are removed — the repo contains only files referenced by the live website
-**Depends on**: Phase 3
-**Requirements**: CLEAN-01, CLEAN-02, CLEAN-03, CLEAN-04, CLEAN-05
-**Success Criteria** (what must be TRUE):
-  1. All 9 orphaned source components are deleted (CurtleAboutUs, ChiliIcon, DishGallery, MatrixText, useResize, ChatWindow, QualifyForm, AboutUs + CSS, CustomSelect)
-  2. Legacy .eslintrc.js is removed; eslint.config.mjs remains the sole ESLint config
-  3. Root scratch files (git_hub_production, test-flex.html) are removed
-  4. Duplicate public/images/Week1/Nonveg/ directory is removed; nonveg1/ is preserved
-  5. 14 unused stock food photos and 5 Next.js default SVGs are removed from public/
-  6. `next build` passes cleanly with exit code 0 after all deletions
-**Plans**: 2 plans
-Plans:
-- [x] 04-01-PLAN.md — Delete orphaned source components, root artifacts, and legacy ESLint config
-- [x] 04-02-PLAN.md — Delete unused images, duplicate directories, and default SVGs; verify clean build
+### Phase 4: Rider Page — Pickup
+**Goal:** Rider opens the ops URL and sees exactly how many boxes to pick up for each dorm, with the familiar dorm shapes from the labels
+**Depends on:** Phase 2
+**Requirements:** RID-01, RID-02, RID-03, RID-04
+**Success Criteria:**
+  1. `/ops/[valid-token]` renders dorm buttons: Myriad (circle), KSK (square), Yugo (triangle), DSOA (hexagon), Study World (star)
+  2. Each button is ≥80×80px with the SVG shape and dorm name label, arranged in a 2-column grid
+  3. Expected meal count per dorm is displayed on each button (derived fresh from active subscriptions for today)
+  4. Rider can tap "Confirm Pickup" which logs a timestamp to `delivery_events` with the expected count
+  5. After pickup confirmation, dorm buttons transition to "drop-off" state (ready for photo verification in Phase 5)
+  6. Works at 375px mobile — primary use case is phone in hand
+**Plans:** TBD
+**UI hint:** yes
+
+### Phase 5: Rider Page — Drop-off & Verification
+**Goal:** At each dorm, rider takes a photo, enters count, Gemini verifies — triple match = green tick, mismatch = owner escalation
+**Depends on:** Phase 4
+**Requirements:** VER-01, VER-02, VER-03, VER-04, VER-05, VER-06, VER-07, VER-08, VER-09, VER-10, VER-11, VER-12, VER-13, ARC-03
+**Success Criteria:**
+  1. Tapping a dorm button in drop-off state opens the camera via `getUserMedia` (fallback to `<input capture>`)
+  2. Photo is resized client-side to max 1600px / JPEG 85 before upload
+  3. Photo uploads to `delivery-photos` Supabase storage bucket via `/api/ops/verify-box-count` route
+  4. Rider enters box count — submit button stays disabled until photo + non-zero count
+  5. Gemini `gemini-2.5-flash` returns `{ count, confidence, reason, imageQuality }` independently from the photo
+  6. All three match (expected === rider === Gemini) → large green tick animation for 1.5–2s
+  7. Count mismatch → owner gets WhatsApp via `notifyAdmin` with photo URL + all three numbers
+  8. Gemini says photo unclear (low confidence / bad quality) → "Retake photo" prompt; second fail → escalate
+  9. Gemini timeout (null count) → manual confirmation flow, never auto-completes
+  10. `delivery_events` row records: token_id, timestamp, geolocation, expected_count, rider_count, gemini_count, gemini_confidence, photo_path
+  11. API route has `export const maxDuration = 60` for Netlify
+**Plans:** TBD
+**UI hint:** yes
+
+### Phase 6: Delivery Notification Fanout
+**Goal:** When a delivery is verified (green tick), every active subscriber in that dorm gets a WhatsApp — fully automatic, using the existing dispatcher
+**Depends on:** Phase 5
+**Requirements:** NOT-01, NOT-02, NOT-03, NOT-04, DB-06, ARC-04
+**Success Criteria:**
+  1. On verified delivery, `queueCustomerNotification` is called with kind `delivery_confirmed` for each active, non-skipped, non-paused subscriber in that dorm
+  2. `dispatch_customer_notifications_tick` has a `delivery_confirmed` CASE branch that sends via the correct Meta template
+  3. `tpl_delivery_confirmed` Vault secret points to the registered UTILITY template name
+  4. Notifications flow through the existing `FOR UPDATE SKIP LOCKED` dispatcher — no direct WhatsApp calls from ops code
+  5. Customer receives the WhatsApp within the dispatcher's 5-minute tick window
+  6. No notification is sent for skipped, paused, or ended subscriptions
+**Plans:** TBD
+**UI hint:** no
+
+### Phase 7: Failsafe Cron
+**Goal:** If any dorm's delivery isn't confirmed by 8 PM UAE, the owner gets a WhatsApp alert so nothing slips through the cracks
+**Depends on:** Phase 6
+**Requirements:** FAIL-01, FAIL-02, FAIL-03, FAIL-04
+**Success Criteria:**
+  1. pg_cron job `ops_failsafe_20_ae` scheduled at `0 16 * * *` (8 PM UAE) — verified via `SELECT * FROM cron.job WHERE jobname = 'ops_failsafe_20_ae'`
+  2. Cron calls `/api/internal/ops-failsafe-send` with bearer auth (`INTERNAL_RETRY_SECRET`)
+  3. Route finds dorms with active subscriptions today but no verified `delivery_events` row
+  4. Owner receives WhatsApp via `notifyAdmin` listing pending dorms + a quick-actions link
+  5. Calling the failsafe twice in the same window does not send duplicate alerts (idempotent)
+  6. If all dorms are already confirmed, the cron fires but sends nothing
+**Plans:** TBD
+**UI hint:** no
+
+### Phase 8: WhatsApp Inbound Trigger
+**Goal:** Rider can text a dorm name to the Dormer's WhatsApp number as a fallback delivery confirmation — fuzzy matched, deduplicated, secure
+**Depends on:** Phase 6
+**Requirements:** WAI-01, WAI-02, WAI-03, WAI-04, WAI-05, WAI-06, WAI-07, WAI-08
+**Success Criteria:**
+  1. `GET /api/ops/whatsapp-inbound` handles Meta's verification handshake correctly
+  2. `POST /api/ops/whatsapp-inbound` verifies `X-Hub-Signature-256` HMAC — rejects unsigned or tampered payloads
+  3. Handler returns 200 before any async processing (Gemini, DB writes, WhatsApp replies)
+  4. Duplicate messages (same WhatsApp message ID) are not processed twice — unique constraint on processed IDs
+  5. "yugo", "YUGO", "yug" all fuzzy-match to Yugo (triangle) — conservative threshold, no false positives
+  6. Ambiguous match → WhatsApp reply to rider: "Did you mean X?" with confirmation options
+  7. Only text messages from allowlisted phone numbers are processed — all others silently ignored
+  8. Non-text messages (images, voice, reactions) get a reply: "Please send the dorm name as text"
+**Plans:** TBD
+**UI hint:** no
+
+### Phase 9: iOS Shortcuts + PWA + Polish
+**Goal:** Owner has one-tap iPhone shortcuts for each dorm, both pages are add-to-home-screen ready, tokens are rotatable, and everything works at 375px
+**Depends on:** Phase 8
+**Requirements:** PWA-01, PWA-02, PWA-03, TOK-04
+**Success Criteria:**
+  1. iOS Shortcut `.shortcut` files generated for each dorm — tapping fires the delivery confirmation API
+  2. `src/app/manifest.ts` serves a valid PWA manifest with correct icons, display: standalone, theme_color
+  3. iOS meta tags (apple-mobile-web-app-capable, status-bar-style, title) present on kitchen and ops layouts
+  4. Admin panel has a token rotation UI — new token generated, old token revoked, no deploy needed
+  5. Both pages tested and verified at 375px on iOS Safari and Android Chrome
+  6. End-to-end flow tested: kitchen sees dishes → rider picks up → rider drops off → photo verified → customer gets WhatsApp
+**Plans:** TBD
+**UI hint:** yes
 
 ---
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundations & Data | 1/1 | Complete   | 2026-04-03 |
-| 2. Card Gallery | 2/2 | Complete   | 2026-04-04 |
-| 3. Navigation + Detail View | 0/? | Not started | - |
-| 4. Codebase Cleanup | 2/2 | Complete    | 2026-04-18 |
-| 5. Dorm Wars page visual revamp | 3/3 | Complete   | 2026-05-14 |
-| 6. Dorm Wars game-feel pass | 5/5 | Complete   | 2026-05-15 |
-| 7. Dorm Wars reward backend | 0/6 | In progress | - |
+|-------|---------------|--------|-----------|
+| 1. Recipe Seeding | 0/? | Not started | — |
+| 2. Schema & Context Foundation | 0/? | Not started | — |
+| 3. Kitchen Display | 0/? | Not started | — |
+| 4. Rider Page — Pickup | 0/? | Not started | — |
+| 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
+| 6. Delivery Notification Fanout | 0/? | Not started | — |
+| 7. Failsafe Cron | 0/? | Not started | — |
+| 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
+| 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
 
 ---
 
@@ -100,111 +181,72 @@ Plans:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 1 | Pending |
-| PERF-02 | Phase 1 | Pending |
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
-| DATA-03 | Phase 1 | Pending |
-| GALL-01 | Phase 2 | Pending |
-| GALL-02 | Phase 2 | Pending |
-| GALL-03 | Phase 2 | Pending |
-| GALL-04 | Phase 2 | Pending |
-| GALL-05 | Phase 2 | Pending |
-| WEEK-01 | Phase 3 | Pending |
-| WEEK-02 | Phase 3 | Pending |
-| WEEK-03 | Phase 3 | Pending |
-| DIET-01 | Phase 3 | Pending |
-| DIET-02 | Phase 3 | Pending |
-| DETL-01 | Phase 3 | Pending |
-| DETL-02 | Phase 3 | Pending |
-| DETL-03 | Phase 3 | Pending |
-| DETL-04 | Phase 3 | Pending |
-| DETL-05 | Phase 3 | Pending |
-| CLEAN-01 | Phase 4 | Pending |
-| CLEAN-02 | Phase 4 | Pending |
-| CLEAN-03 | Phase 4 | Pending |
-| CLEAN-04 | Phase 4 | Pending |
-| CLEAN-05 | Phase 4 | Pending |
+| DB-01 | Phase 1 | Pending |
+| DB-02 | Phase 1 | Pending |
+| DB-03 | Phase 2 | Pending |
+| DB-04 | Phase 2 | Pending |
+| DB-05 | Phase 2 | Pending |
+| DB-06 | Phase 6 | Pending |
+| DB-07 | Phase 2 | Pending |
+| TOK-01 | Phase 2 | Pending |
+| TOK-02 | Phase 2 | Pending |
+| TOK-03 | Phase 3 | Pending |
+| TOK-04 | Phase 9 | Pending |
+| KIT-01 | Phase 3 | Pending |
+| KIT-02 | Phase 3 | Pending |
+| KIT-03 | Phase 3 | Pending |
+| KIT-04 | Phase 3 | Pending |
+| KIT-05 | Phase 3 | Pending |
+| KIT-06 | Phase 3 | Pending |
+| KIT-07 | Phase 3 | Pending |
+| KIT-08 | Phase 3 | Pending |
+| KIT-09 | Phase 3 | Pending |
+| RID-01 | Phase 4 | Pending |
+| RID-02 | Phase 4 | Pending |
+| RID-03 | Phase 4 | Pending |
+| RID-04 | Phase 4 | Pending |
+| VER-01 | Phase 5 | Pending |
+| VER-02 | Phase 5 | Pending |
+| VER-03 | Phase 5 | Pending |
+| VER-04 | Phase 5 | Pending |
+| VER-05 | Phase 5 | Pending |
+| VER-06 | Phase 5 | Pending |
+| VER-07 | Phase 5 | Pending |
+| VER-08 | Phase 5 | Pending |
+| VER-09 | Phase 5 | Pending |
+| VER-10 | Phase 5 | Pending |
+| VER-11 | Phase 5 | Pending |
+| VER-12 | Phase 5 | Pending |
+| VER-13 | Phase 5 | Pending |
+| NOT-01 | Phase 6 | Pending |
+| NOT-02 | Phase 6 | Pending |
+| NOT-03 | Phase 6 | Pending |
+| NOT-04 | Phase 6 | Pending |
+| FAIL-01 | Phase 7 | Pending |
+| FAIL-02 | Phase 7 | Pending |
+| FAIL-03 | Phase 7 | Pending |
+| FAIL-04 | Phase 7 | Pending |
+| WAI-01 | Phase 8 | Pending |
+| WAI-02 | Phase 8 | Pending |
+| WAI-03 | Phase 8 | Pending |
+| WAI-04 | Phase 8 | Pending |
+| WAI-05 | Phase 8 | Pending |
+| WAI-06 | Phase 8 | Pending |
+| WAI-07 | Phase 8 | Pending |
+| WAI-08 | Phase 8 | Pending |
+| PWA-01 | Phase 9 | Pending |
+| PWA-02 | Phase 9 | Pending |
+| PWA-03 | Phase 9 | Pending |
+| ARC-01 | Phase 2 | Pending |
+| ARC-02 | Phase 2 | Pending |
+| ARC-03 | Phase 5 | Pending |
+| ARC-04 | Phase 6 | Pending |
+| ARC-05 | Phase 3 | Pending |
 
-**v1 requirements mapped:** 20/20
-**Cleanup requirements mapped:** 5/5
+**v1 requirements mapped:** 58/58
 **Orphaned requirements:** 0
-
-### Phase 5: Dorm Wars page visual revamp
-
-**Goal:** Replace `/dashboard/dorm-wars` with the cinematic dark "war room" treatment proven in the visual mock — pixel-fidelity migration, then wire mechanics to existing data (no new backend), then layer cinematic polish (title-screen interstitial, sound, motion refinement) and delete the mock scaffolding.
-**Requirements**: None (product-driven phase — no REQ-IDs mapped; design decisions D-01 through D-34 captured in `.planning/phases/05-dorm-wars-page-visual-revamp/05-CONTEXT.md`)
-**Depends on:** Phase 4
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 05-01-PLAN.md — Wave 1: Structure swap — replace DormWarsClient.tsx + page.tsx with the mock's structure (single-file strategy); preserve hasClaimed/hasConverted state machine; drop MockDisclaimer
-- [x] 05-02-PLAN.md — Wave 2: State mechanics — wire CycleClock to active subscription, rename Daily Drop key to canonical schema, add streak meter, derive TrophyRoom from referralData + streak, map invites to Recruits, tighten FinePrint copy
-- [x] 05-03-PLAN.md — Wave 3: Cinematic polish + cleanup — title-screen interstitial (once per cycle), Web Audio sound system + toggle, Daily Drop particle burst, cycle-clock hover-glow, delete `src/app/dashboard/dorm-wars/mock/` directory entirely
-
-### Phase 6: Dorm Wars game-feel pass
-
-**Goal:** Elevate `/dashboard/dorm-wars` from "polished web" to "studio-built game" through atmosphere, audio, HUD, and cinema craft. Budget includes commissioned assets (stencil icon set, anchor illustration, custom display face, audio stems). Phase 5 nailed structure and copy; this phase adds the AV craft layer that flips perceived class.
-
-**In scope:**
-- Atmosphere stack: animated film grain, vignette, real bloom on hot UI, consistent key-light direction, CRT scanline overlay on HUD only
-- Persistent HUD pod (fixed corner overlay: callsign, rank chevron, AED wallet, streak flame; survives scroll; juices on state change)
-- Audio system: three-stem layered ambient bed (drone + chatter + duct hum), recorded stinger library, ducking (-6dB) during stingers, spatial UI sounds via `StereoPannerNode`, audio-reactive bloom via `AnalyserNode`, sound default OFF with "ENABLE AUDIO" pre-prompt
-- Rank-up cinematic moment (~1.5s): letterbox bars + world dim + stamped "PROMOTED" card + stinger + 1.5px microshake (fires once per cycle max)
-- Motion craft: stratified parallax on scroll (bg 0.5x / mid 0.85x / fg 1x / HUD pinned), impact flash + microshake on conversion, chromatic aberration on stinger events, cursor reticle on interactive surfaces
-- Title-screen interstitial upgrade: typed callsign with cursor blink + key-clicks, ink-bleed "ENTER WAR ROOM" stamp, 4s riser → impact → tail intro stinger
-- Edge-of-viewport diegetic alerts ("INCOMING" strip on rank drop / friend conversion)
-- Number rolls with tabular numerals on AED/conversion counter changes
-- Commissioned assets: stencil/military icon set (~15 icons replacing all Lucide on dorm-wars), one hand-drawn HQ illustration or war-room map (anchor moment), custom stencil display face for rank labels, three audio stems for ambient bed + ~8 stinger stems, 9-slice torn-paper/stamped borders for rank pills and trophy frames
-
-**Out of scope (deferred to future phases):**
-- WebGL / Three.js animated backdrop (own phase — perf budget implications)
-- Color-as-story palette refactor (rivals desaturated, OG reserved for "you", lost states muted red — touches every component, own phase)
-
-**Requirements**: None (product-driven phase — no REQ-IDs mapped; scope locked in conversation 2026-05-15)
-**Depends on:** Phase 5
-**Plans:** 5/5 plans executed — Phase 6 COMPLETE
-
-Plans:
-- [x] 06-01-PLAN.md — Wave 1: Atmosphere foundation (grain, vignette, bloom, parallax, reticle cursor, reduced-motion gate, perf-test gate)
-- [x] 06-02-PLAN.md — Wave 2: Audio system (three-stem ambient bed, stinger library with ducking + spatial pan, audio-reactive bloom, ENABLE AUDIO pre-prompt; default OFF per D-16)
-- [x] 06-03-PLAN.md — Wave 3: HUD pod (desktop 4-row pod + mobile collapsed pill, NumberRoll, CRT scanline overlay, mounted only on /dashboard/dorm-wars per D-12)
-- [x] 06-04-PLAN.md — Wave 4: Cinema moments (rank-up cutscene 8-step choreography, title-screen interstitial upgrade with typed callsign + ink-bleed stamp, edge-of-viewport INCOMING alerts, chromatic aberration, impact flash + microshake)
-- [x] 06-05-PLAN.md — Wave 5: Asset integration sweep (16 stencil icons + 9-slice border, Black Ops One stencil font installed and applied at 5 sites, AnchorImage with full D-07 treatment + Unsplash war-room JPEG, 11 audio stem placeholders pending user curation per ATTRIBUTION.md, Lucide identity-icon sweep on DormWarsClient, Wave 4 D-15 carryover fix)
-
-### Phase 7: Dorm Wars reward backend
-
-**Goal:** Make the Dorm Wars hub a real reward economy. After Phase 7, every reward shown in the hub is server-canonical, auto-awarded on threshold cross, and redeemable at next checkout. Closes the gaps left by Phase 6 (which delivered visual polish but kept reward state client-side / stub-only).
-
-**In scope:**
-- Schema foundation (versioned migrations for existing live tables + 4 new tables + bonus_skips column + customer perk flags)
-- Credit redemption via per-session synthesized Stripe Coupon (combines credit AED + lifetime tier % into one `amount_off` coupon)
-- Layer 2 cycle bonuses (auto-fire on 3/6/10/15/20 conversion thresholds inline in `creditInviterOnConversion`)
-- Layer 3 lifetime tier perks (auto-fire on 10/25/50/100, deliver via per-session coupon for %, credit deposit for AED rewards)
-- Daily Drop server persistence (replace localStorage roulette with `daily_drops` table + RNG endpoint)
-- Streak server persistence (replace localStorage with `streaks` table + tick endpoint)
-- HubClient wire-through to server-canonical values
-
-**Out of scope (deferred to Phase 8):**
-- Layer 4 side rewards (Google review, weekly surveys, anniversary, renew+invite combo)
-- Admin tooling (credit approval UI, review-queue UI)
-- Dorm Weekend real mechanic (group meal, voting) — Phase 7 ships a stub
-- Push notifications / email when rewards fire
-- Migration to persistent Stripe Customers
-
-**Requirements**: None (product-driven phase — design decisions captured in `.planning/phases/07-dorm-wars-reward-backend/07-CONTEXT.md` + 10 architecture decisions resolved in `07-RESEARCH.md`)
-**Depends on:** Phase 6
-**Plans:** 6/6 plans complete ✅ (completed 2026-05-17)
-
-Plans:
-- [x] 07-01-PLAN.md — Wave 1: Schema foundation (4 new tables: daily_drops/streaks/cycle_rewards/lifetime_rewards + bonus_skips + early_access/hall_wall flags; snapshot migration of pre-existing referral/credits tables DROPPED — already versioned remotely)
-- [x] 07-02-PLAN.md — Wave 2: Credit redemption pipeline (coupon-synth library creates per-session single-use Stripe Coupons, checkout route attach, webhook flips approved → applied, CheckoutPanel "AED X applied" UI)
-- [x] 07-03-PLAN.md — Wave 3: Layer 2 cycle awarder (5 milestones at 3/6/10/15/20 conversions fire inline in creditInviterOnConversion, shared getCycleRecruits source-of-truth, UNIQUE-constraint idempotency)
-- [x] 07-04-PLAN.md — Wave 4: Layer 3 lifetime tier perks (4 tiers at 10/25/50/100 lifetime conversions, early_access + hall_wall flag side-effects, tier % stacked into coupon-synth)
-- [x] 07-05-PLAN.md — Wave 5: Daily Drop + Streak server persistence (POST /api/dorm-wars/daily-drop + POST /api/dorm-wars/streak/tick API routes; HubClient localStorage fully purged)
-- [x] 07-06-PLAN.md — Wave 6: Hub wire-through + integration test scaffold + final verification (cycleRecruits + lifetimeTier flow server-canonical into HubClient via props; scripts/test-phase-07-integration.mjs covers credit / daily-drop / streak SQL invariants)
 
 ---
 
-*Roadmap created: 2026-04-03 — Phase 7 complete 2026-05-17*
-*Last updated: 2026-05-16 — Phase 7 planned (6 plans, plan-checker PASS)*
+*Roadmap created: 2026-06-14*
+*Last updated: 2026-06-14 after initial definition*

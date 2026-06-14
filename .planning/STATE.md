@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ops Interfaces — Kitchen Display + Delivery Chain of Custody
-status: defining_requirements
-stopped_at: Milestone v2.0 started — defining requirements
+status: ready_to_plan
+stopped_at: Roadmap defined — 9 phases, 58 requirements. Ready for /gsd:plan-phase 1
 last_updated: "2026-06-14T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 9
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,7 +16,7 @@ progress:
 # Project State — Dormer's Ops Interfaces
 
 **Last updated:** 2026-06-14
-**Session:** Milestone v2.0 initialization
+**Session:** Milestone v2.0 — roadmap defined
 
 ---
 
@@ -25,16 +25,32 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
-**Current focus:** Defining requirements for milestone v2.0
+**Current focus:** Ready to plan Phase 1 (Recipe Seeding)
 
 ---
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-14 — Milestone v2.0 started
+Status: Roadmap defined, ready for `/gsd:plan-phase 1`
+Last activity: 2026-06-14 — Research complete, requirements + roadmap defined
+
+---
+
+## Milestone v2.0 — Phase Overview
+
+| Phase | Name | Requirements | Status |
+|-------|------|-------------|--------|
+| 1 | Recipe Seeding | DB-01, DB-02 | Not started |
+| 2 | Schema & Context Foundation | DB-03–05, DB-07, TOK-01–02, ARC-01–02 | Not started |
+| 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Not started |
+| 4 | Rider Page — Pickup | RID-01–04 | Not started |
+| 5 | Rider Page — Drop-off & Verification | VER-01–13, ARC-03 | Not started |
+| 6 | Delivery Notification Fanout | NOT-01–04, DB-06, ARC-04 | Not started |
+| 7 | Failsafe Cron | FAIL-01–04 | Not started |
+| 8 | WhatsApp Inbound Trigger | WAI-01–08 | Not started |
+| 9 | iOS Shortcuts + PWA + Polish | PWA-01–03, TOK-04 | Not started |
 
 ---
 
@@ -47,3 +63,12 @@ Last activity: 2026-06-14 — Milestone v2.0 started
 - WhatsApp dispatcher pipeline built (pg_cron + customer_notifications)
 - Active subscription queries with skip/pause/veg-day resolution working
 - Admin panel with deliveries page, menu CMS, price editor, customer management
+
+### Research Findings (v2.0)
+- Zero new npm packages needed — all capabilities from existing stack
+- 10th bounded context (`ops`) fits cleanly into layered architecture
+- `getUserMedia` primary camera path (not `<input capture>` alone — iOS PWA breaks it)
+- Gemini `gemini-2.5-flash` for box counting — same pipeline as google-review-verify.ts
+- WhatsApp webhook needs message-ID dedup from day one (Meta retries on >20s)
+- pg_cron: `0 16 * * *` = 8 PM UAE (not `0 20 * * *`)
+- `delivery_confirmed` template must be filed as UTILITY with Meta before Phase 6
