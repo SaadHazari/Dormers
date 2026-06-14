@@ -7,7 +7,7 @@
 
 ### Database & Schema
 
-- [ ] **DB-01**: `recipe` JSONB column added to `dishes` table with structure `{ sections: [{ heading, items }], method: string[], notes: string }`
+- [x] **DB-01**: `recipe` JSONB column added to `dishes` table with structure `{ sections: [{ heading, items }], method: string[], notes: string }`
 - [ ] **DB-02**: All 48+ recipes from Dormers_cook_book_Golden.pdf seeded into the `dishes` table with correct dish code mapping
 - [ ] **DB-03**: `ops_tokens` table created with token, role (kitchen/rider), label, is_active, revoked_at
 - [ ] **DB-04**: `delivery_events` table created with delivery_date, dorm_name, expected/rider/gemini counts, photo_path, verified flag, UNIQUE(delivery_date, dorm_name, trip_number)
@@ -130,7 +130,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | Phase 1 | Pending |
+| DB-01 | Phase 1 | Complete |
 | DB-02 | Phase 1 | Pending |
 | DB-03 | Phase 2 | Pending |
 | DB-04 | Phase 2 | Pending |

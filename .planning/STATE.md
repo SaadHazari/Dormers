@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Ops Interfaces — Kitchen Display + Delivery Chain of Custody
-status: ready_to_plan
-stopped_at: Roadmap defined — 9 phases, 58 requirements. Ready for /gsd:plan-phase 1
-last_updated: "2026-06-14T00:00:00.000Z"
+milestone_name: milestone
+status: executing
+last_updated: "2026-06-14T16:07:07.137Z"
+last_activity: 2026-06-14 -- Phase 01 execution started
 progress:
   total_phases: 9
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 5
+  total_plans: 21
+  completed_plans: 14
 ---
 
 # Project State — Dormer's Ops Interfaces
@@ -25,16 +24,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
-**Current focus:** Ready to plan Phase 1 (Recipe Seeding)
+**Current focus:** Phase 01 — recipe-seeding
+
+---
+
+## Blockers
+
+- **01-01 Task 2:** `recipe` column not yet in live Supabase Ohio DB. Apply via Dashboard SQL editor (https://supabase.com/dashboard/project/yjjayivwfqjfppawgyaz/sql/new) or interactive Claude session using Supabase MCP. SQL: `ALTER TABLE public.dishes ADD COLUMN IF NOT EXISTS recipe jsonb;`
+
+## Decisions
+
+- `recipe` column is JSONB nullable with no DB CHECK constraint — shape validated at app layer in `src/contexts/ops/domain/`
 
 ---
 
 ## Current Position
 
-Phase: Not started
-Plan: —
-Status: Roadmap defined, ready for `/gsd:plan-phase 1`
-Last activity: 2026-06-14 — Research complete, requirements + roadmap defined
+Phase: 01 (recipe-seeding) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 01
+Last activity: 2026-06-14 -- Phase 01 execution started
 
 ---
 
@@ -57,6 +66,7 @@ Last activity: 2026-06-14 — Research complete, requirements + roadmap defined
 ## Accumulated Context
 
 ### From v1.0 (Menu Revamp + Dorm Wars)
+
 - Phases 1-8 completed (foundations, card gallery, codebase cleanup, dorm wars visual + game-feel + rewards)
 - Menu catalog moved to DB-first (dishes, menu_weeks, week_meal_slots)
 - Label pipeline with dorm shapes established
@@ -65,6 +75,7 @@ Last activity: 2026-06-14 — Research complete, requirements + roadmap defined
 - Admin panel with deliveries page, menu CMS, price editor, customer management
 
 ### Research Findings (v2.0)
+
 - Zero new npm packages needed — all capabilities from existing stack
 - 10th bounded context (`ops`) fits cleanly into layered architecture
 - `getUserMedia` primary camera path (not `<input capture>` alone — iOS PWA breaks it)

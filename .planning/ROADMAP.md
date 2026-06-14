@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes
+- [x] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes (completed 2026-06-14)
 - [ ] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration
 - [ ] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, dark mobile-first UI
 - [ ] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation
@@ -33,10 +33,10 @@
   2. All 48+ recipes from Dormers_cook_book_Golden.pdf are seeded with correct dish code mapping (CRNC01, RCVV01, etc.)
   3. Every seeded recipe has the structure `{ sections: [{ heading, items }], method: string[], notes: string }` — no null sections or empty method arrays
   4. Recipe data round-trips correctly: `SELECT name, recipe FROM dishes WHERE recipe IS NOT NULL` returns parseable JSONB for every row
-**Plans:** 2 plans
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Add recipe JSONB column to dishes via migration (DB-01)
+- [x] 01-01-PLAN.md — Add recipe JSONB column to dishes via migration (DB-01)
 - [ ] 01-02-PLAN.md — Extract recipes from cookbook PDF with Gemini, seed all dishes rows (DB-02)
 
 **UI hint:** no
@@ -170,7 +170,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Recipe Seeding | 0/2 | Planned | — |
+| 1. Recipe Seeding | 1/1 | Complete   | 2026-06-14 |
 | 2. Schema & Context Foundation | 0/? | Not started | — |
 | 3. Kitchen Display | 0/? | Not started | — |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
