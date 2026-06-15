@@ -93,7 +93,12 @@ Plans:
   4. Rider can tap "Confirm Pickup" which logs a timestamp to `delivery_events` with the expected count
   5. After pickup confirmation, dorm buttons transition to "drop-off" state (ready for photo verification in Phase 5)
   6. Works at 375px mobile — primary use case is phone in hand
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — getDormCounts use-case, confirmPickup server action, RSC page, RiderClient with dorm shape buttons (RID-01, RID-02, RID-03, RID-04)
+- [ ] 04-02-PLAN.md — Visual verification checkpoint — owner reviews dorm buttons, counts, and pickup flow at 375px (RID-01, RID-02, RID-03, RID-04)
+
 **UI hint:** yes
 
 ### Phase 5: Rider Page — Drop-off & Verification
@@ -182,7 +187,7 @@ Plans:
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
-| 4. Rider Page — Pickup | 0/? | Not started | — |
+| 4. Rider Page — Pickup | 0/2 | Planned | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
@@ -263,4 +268,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 3 complete (kitchen display approved by owner)*
+*Last updated: 2026-06-15 — Phase 4 planned (2 plans, rider pickup page)*
