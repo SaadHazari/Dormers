@@ -48,7 +48,8 @@
     "react-swipeable": "^7.0.2",
     "server-only": "^0.0.1",
     "stripe": "^18.3.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
