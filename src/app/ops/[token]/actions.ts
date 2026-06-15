@@ -35,3 +35,33 @@ export async function confirmPickup(
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
+
+/**
+ * Manual drop-off confirmation — used when Gemini cannot verify (VER-11).
+ * Updates the existing delivery_events row with rider_count only.
+ * Does NOT set verified=true — the 8PM failsafe cron catches unverified rows.
+ */
+export async function confirmDropoff(
+  dormName: string,
+  riderCount: number,
+  opsTokenId: string,
+  deliveryDateIso: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const sb = createAdminSupabaseClient()
+
+  const { data, error } = await sb
+    .from('delivery_events')
+    .update({
+      rider_count: riderCount,
+      verified: false,
+      confirmed_at: new Date().toISOString(),
+    })
+    .eq('delivery_date', deliveryDateIso)
+    .eq('dorm_name', dormName)
+    .eq('trip_number', 1)
+    .select('id')
+
+  if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) return { ok: false, error: 'No delivery event found for this dorm today' }
+  return { ok: true }
+}
