@@ -34,6 +34,8 @@ export type CustomerNotificationKind =
     | 'referral_converted'
     | 'refund_processed'
     | 'subscription_ended'
+    | 'delivery_confirmed'
+    | 'delivery_unconfirmed_8pm'
 
 /**
  * Queue a WhatsApp notification for a customer.
