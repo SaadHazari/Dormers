@@ -4,12 +4,12 @@ milestone: v2.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-06-15"
-last_activity: 2026-06-15 -- Phase 03 Plan 01 complete (data backbone)
+last_activity: 2026-06-15 -- Phase 03 Plan 02 complete (dark UI + recipe modal)
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State — Dormer's Ops Interfaces
@@ -44,15 +44,18 @@ None
 - validate-token returns null for invalid/revoked/wrong-role tokens (callers render 404)
 - [Phase 03]: getKitchenCounts takes pre-computed todayIso/dayName/isSaturday — RSC owns all UAE time logic, use-case stays pure
 - [Phase 03]: Recipe fetched separately by dish name from dishes table — menu-catalog DishRow intentionally omits recipe column
+- [Phase 03 Plan 02]: RecipeModal as separate function above KitchenClient — clean tab-reset useEffect with dish dependency
+- [Phase 03 Plan 02]: Color hex opacity suffix (EMERALD + '1a') for 10% opacity backgrounds — avoids rgba/background shorthand mixing memory rule
+- [Phase 03 Plan 02]: img tag over next/image for dish photos — CMS storage URLs need remotePatterns config (out of scope)
 
 ---
 
 ## Current Position
 
 Phase: 03 (Kitchen Display) — EXECUTING
-Plan: 1 of 3 complete
-Status: Plan 03-01 data backbone complete, Plan 03-02 next (dark UI + recipe modal)
-Last activity: 2026-06-15 -- Phase 03 Plan 01 complete (data backbone)
+Plan: 2 of 3 complete
+Status: Plan 03-02 dark UI complete, Plan 03-03 next (visual verification checkpoint)
+Last activity: 2026-06-15 -- Phase 03 Plan 02 complete (dark UI + recipe modal)
 
 ---
 

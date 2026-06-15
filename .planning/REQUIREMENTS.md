@@ -25,14 +25,14 @@
 ### Kitchen Display
 
 - [x] **KIT-01**: `/kitchen/[token]` page shows today's veg and non-veg dish with photo and name
-- [ ] **KIT-02**: Tap-to-expand recipe modal with sticky section navigator (Ingredients / Method / Notes)
+- [x] **KIT-02**: Tap-to-expand recipe modal with sticky section navigator (Ingredients / Method / Notes)
 - [x] **KIT-03**: Before 2 PM UAE — shows estimated approximate veg/non-veg counts derived from active subscriptions (clearly labeled "Estimated")
 - [x] **KIT-04**: After 2 PM UAE, confirmed total veg and non-veg counts displayed (accounts for skips/pauses; labeled "Confirmed")
 - [x] **KIT-05**: 2 PM cutoff evaluated server-side in RSC, never client-side
-- [ ] **KIT-06**: Dark background, Montserrat font, 18px+ body text, 32px+ dish names
-- [ ] **KIT-07**: Works at 375px mobile and desktop — no login, no app install
-- [ ] **KIT-08**: 60-second auto-refresh with "last updated HH:MM" timestamp
-- [ ] **KIT-09**: Veg = emerald green, non-veg = brand orange `#f57f20` color coding
+- [x] **KIT-06**: Dark background, Montserrat font, 18px+ body text, 32px+ dish names
+- [x] **KIT-07**: Works at 375px mobile and desktop — no login, no app install
+- [x] **KIT-08**: 60-second auto-refresh with "last updated HH:MM" timestamp
+- [x] **KIT-09**: Veg = emerald green, non-veg = brand orange `#f57f20` color coding
 
 ### Rider — Pickup
 

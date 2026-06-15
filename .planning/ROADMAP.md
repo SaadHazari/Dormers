@@ -74,11 +74,11 @@ Plans:
   7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
   8. `<meta name="referrer" content="no-referrer">` present in page head
   9. `export const dynamic = 'force-dynamic'` on the page route
-**Plans:** 0/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 03-01-PLAN.md — Count query use-case + RSC page with token gate, dish/recipe fetch, 2PM estimated/confirmed logic (TOK-03, KIT-01, KIT-03, KIT-04, KIT-05, ARC-05)
-- [ ] 03-02-PLAN.md — Dark mobile-first KitchenClient: styled dish cards, recipe modal with sticky tabs, color coding (KIT-02, KIT-06, KIT-07, KIT-08, KIT-09)
+- [x] 03-01-PLAN.md — Count query use-case + RSC page with token gate, dish/recipe fetch, 2PM estimated/confirmed logic (TOK-03, KIT-01, KIT-03, KIT-04, KIT-05, ARC-05)
+- [x] 03-02-PLAN.md — Dark mobile-first KitchenClient: styled dish cards, recipe modal with sticky tabs, color coding (KIT-02, KIT-06, KIT-07, KIT-08, KIT-09)
 - [ ] 03-03-PLAN.md — Visual verification checkpoint at 375px (KIT-07)
 **UI hint:** yes
 
