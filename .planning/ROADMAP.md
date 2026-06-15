@@ -61,7 +61,7 @@ Plans:
 **UI hint:** no
 
 ### Phase 3: Kitchen Display
-**Goal:** Kitchen staff can open a URL on any phone/tablet and see today's dishes with recipes — counts appear after 2 PM UAE
+**Goal:** Kitchen staff can open a URL on any phone/tablet and see today's dishes with recipes — estimated counts before 2 PM UAE, confirmed counts after 2 PM
 **Depends on:** Phase 2
 **Requirements:** TOK-03, KIT-01, KIT-02, KIT-03, KIT-04, KIT-05, KIT-06, KIT-07, KIT-08, KIT-09, ARC-05
 **Success Criteria:**
@@ -74,7 +74,12 @@ Plans:
   7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
   8. `<meta name="referrer" content="no-referrer">` present in page head
   9. `export const dynamic = 'force-dynamic'` on the page route
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Count query use-case + RSC page with token gate, dish/recipe fetch, 2PM estimated/confirmed logic (TOK-03, KIT-01, KIT-03, KIT-04, KIT-05, ARC-05)
+- [ ] 03-02-PLAN.md — Dark mobile-first KitchenClient: styled dish cards, recipe modal with sticky tabs, color coding (KIT-02, KIT-06, KIT-07, KIT-08, KIT-09)
+- [ ] 03-03-PLAN.md — Visual verification checkpoint at 375px (KIT-07)
 **UI hint:** yes
 
 ### Phase 4: Rider Page — Pickup
@@ -83,7 +88,7 @@ Plans:
 **Requirements:** RID-01, RID-02, RID-03, RID-04
 **Success Criteria:**
   1. `/ops/[valid-token]` renders dorm buttons: Myriad (circle), KSK (square), Yugo (triangle), DSOA (hexagon), Study World (star)
-  2. Each button is ≥80×80px with the SVG shape and dorm name label, arranged in a 2-column grid
+  2. Each button is >=80x80px with the SVG shape and dorm name label, arranged in a 2-column grid
   3. Expected meal count per dorm is displayed on each button (derived fresh from active subscriptions for today)
   4. Rider can tap "Confirm Pickup" which logs a timestamp to `delivery_events` with the expected count
   5. After pickup confirmation, dorm buttons transition to "drop-off" state (ready for photo verification in Phase 5)
@@ -101,7 +106,7 @@ Plans:
   3. Photo uploads to `delivery-photos` Supabase storage bucket via `/api/ops/verify-box-count` route
   4. Rider enters box count — submit button stays disabled until photo + non-zero count
   5. Gemini `gemini-2.5-flash` returns `{ count, confidence, reason, imageQuality }` independently from the photo
-  6. All three match (expected === rider === Gemini) → large green tick animation for 1.5–2s
+  6. All three match (expected === rider === Gemini) → large green tick animation for 1.5-2s
   7. Count mismatch → owner gets WhatsApp via `notifyAdmin` with photo URL + all three numbers
   8. Gemini says photo unclear (low confidence / bad quality) → "Retake photo" prompt; second fail → escalate
   9. Gemini timeout (null count) → manual confirmation flow, never auto-completes
@@ -176,7 +181,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
-| 3. Kitchen Display | 0/? | Not started | — |
+| 3. Kitchen Display | 0/3 | Planned | — |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
@@ -258,4 +263,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 2 complete (2/2 plans executed)*
+*Last updated: 2026-06-15 — Phase 3 planned (3 plans across 3 waves)*
