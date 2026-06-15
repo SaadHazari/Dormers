@@ -117,7 +117,14 @@ Plans:
   9. Gemini timeout (null count) → manual confirmation flow, never auto-completes
   10. `delivery_events` row records: token_id, timestamp, geolocation, expected_count, rider_count, gemini_count, gemini_confidence, photo_path
   11. API route has `export const maxDuration = 60` for Netlify
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Infrastructure + domain: geo migration, delivery-photos bucket, box-count-verify Gemini function, update-delivery-event use-case (VER-06, VER-13, ARC-03)
+- [ ] 05-02-PLAN.md — API route: /api/ops/verify-box-count with multipart handling, Gemini call, triple-match logic, notifyAdmin escalation (VER-04, VER-06–11, ARC-03)
+- [ ] 05-03-PLAN.md — Client UI: camera capture (getUserMedia + fallback), image resize, count input, drop-off modal, per-dorm status tracking (VER-01–03, VER-05, VER-12)
+- [ ] 05-04-PLAN.md — Compile/lint check + visual verification checkpoint (all VER + ARC-03)
+
 **UI hint:** yes
 
 ### Phase 6: Delivery Notification Fanout
@@ -188,7 +195,7 @@ Plans:
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
-| 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
+| 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
@@ -268,4 +275,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 4 complete (rider pickup page approved by owner)*
+*Last updated: 2026-06-15 — Phase 5 planned (4 plans across 3 waves)*
