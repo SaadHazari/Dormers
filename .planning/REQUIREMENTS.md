@@ -19,16 +19,16 @@
 
 - [x] **TOK-01**: Secret tokens are random 32-char hex strings stored in `ops_tokens` table
 - [x] **TOK-02**: Token validated server-side on every page load — invalid/revoked token returns 404
-- [ ] **TOK-03**: `<meta name="referrer" content="no-referrer">` on both kitchen and ops pages
+- [x] **TOK-03**: `<meta name="referrer" content="no-referrer">` on both kitchen and ops pages
 - [ ] **TOK-04**: Token rotation via admin panel without requiring a deploy
 
 ### Kitchen Display
 
-- [ ] **KIT-01**: `/kitchen/[token]` page shows today's veg and non-veg dish with photo and name
+- [x] **KIT-01**: `/kitchen/[token]` page shows today's veg and non-veg dish with photo and name
 - [ ] **KIT-02**: Tap-to-expand recipe modal with sticky section navigator (Ingredients / Method / Notes)
-- [ ] **KIT-03**: Before 2 PM UAE — shows estimated approximate veg/non-veg counts derived from active subscriptions (clearly labeled "Estimated")
-- [ ] **KIT-04**: After 2 PM UAE, confirmed total veg and non-veg counts displayed (accounts for skips/pauses; labeled "Confirmed")
-- [ ] **KIT-05**: 2 PM cutoff evaluated server-side in RSC, never client-side
+- [x] **KIT-03**: Before 2 PM UAE — shows estimated approximate veg/non-veg counts derived from active subscriptions (clearly labeled "Estimated")
+- [x] **KIT-04**: After 2 PM UAE, confirmed total veg and non-veg counts displayed (accounts for skips/pauses; labeled "Confirmed")
+- [x] **KIT-05**: 2 PM cutoff evaluated server-side in RSC, never client-side
 - [ ] **KIT-06**: Dark background, Montserrat font, 18px+ body text, 32px+ dish names
 - [ ] **KIT-07**: Works at 375px mobile and desktop — no login, no app install
 - [ ] **KIT-08**: 60-second auto-refresh with "last updated HH:MM" timestamp
@@ -94,7 +94,7 @@
 - [x] **ARC-02**: `dorm-shapes.ts` moved from `src/app/admin/labels/` to `src/shared/`
 - [ ] **ARC-03**: Gemini box count verification in API route with `maxDuration = 60` (not server action)
 - [ ] **ARC-04**: Cross-context notification queueing via `queueCustomerNotification` import
-- [ ] **ARC-05**: All ops page loads force-dynamic (no caching — token validation + time-gated counts)
+- [x] **ARC-05**: All ops page loads force-dynamic (no caching — token validation + time-gated counts)
 
 ## v2 Requirements
 
@@ -139,13 +139,13 @@
 | DB-07 | Phase 2 | Complete |
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
-| TOK-03 | Phase 3 | Pending |
+| TOK-03 | Phase 3 | Complete |
 | TOK-04 | Phase 9 | Pending |
-| KIT-01 | Phase 3 | Pending |
+| KIT-01 | Phase 3 | Complete |
 | KIT-02 | Phase 3 | Pending |
-| KIT-03 | Phase 3 | Pending |
-| KIT-04 | Phase 3 | Pending |
-| KIT-05 | Phase 3 | Pending |
+| KIT-03 | Phase 3 | Complete |
+| KIT-04 | Phase 3 | Complete |
+| KIT-05 | Phase 3 | Complete |
 | KIT-06 | Phase 3 | Pending |
 | KIT-07 | Phase 3 | Pending |
 | KIT-08 | Phase 3 | Pending |
@@ -190,7 +190,7 @@
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
 | ARC-04 | Phase 6 | Pending |
-| ARC-05 | Phase 3 | Pending |
+| ARC-05 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 58 total

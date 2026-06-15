@@ -74,7 +74,7 @@ Plans:
   7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
   8. `<meta name="referrer" content="no-referrer">` present in page head
   9. `export const dynamic = 'force-dynamic'` on the page route
-**Plans:** 3 plans
+**Plans:** 0/3 plans executed
 
 Plans:
 - [ ] 03-01-PLAN.md — Count query use-case + RSC page with token gate, dish/recipe fetch, 2PM estimated/confirmed logic (TOK-03, KIT-01, KIT-03, KIT-04, KIT-05, ARC-05)
@@ -181,7 +181,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
-| 3. Kitchen Display | 0/3 | Planned | — |
+| 3. Kitchen Display | 0/3 | Planned    |  |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |

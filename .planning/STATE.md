@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: executing
-last_updated: "2026-06-15"
-last_activity: 2026-06-15 -- Phase 02 complete (schema + ops context foundation)
+status: verifying
+last_updated: "2026-06-15T07:05:56.026Z"
+last_activity: 2026-06-15
 progress:
-  total_phases: 9
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 10
+  completed_phases: 7
+  total_plans: 26
+  completed_plans: 18
 ---
 
 # Project State — Dormer's Ops Interfaces
@@ -44,13 +44,15 @@ None
 - validate-token returns null for invalid/revoked/wrong-role tokens (callers render 404)
 
 ---
+- [Phase 03-kitchen-display]: getKitchenCounts takes pre-computed todayIso/dayName/isSaturday — RSC owns all UAE time logic, use-case stays pure
+- [Phase 03-kitchen-display]: Recipe fetched separately by dish name from dishes table — menu-catalog DishRow intentionally omits recipe column
 
 ## Current Position
 
 Phase: 02 (schema-context-foundation) — COMPLETE
 Plan: 2 of 2 complete
-Status: All DB tables live, ops context scaffolded, ready for Phase 03
-Last activity: 2026-06-15 -- Phase 02 complete (schema + ops context foundation)
+Status: Phase complete — ready for verification
+Last activity: 2026-06-15
 
 ---
 
