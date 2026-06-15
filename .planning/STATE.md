@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 05-01-PLAN.md (infrastructure + domain layer)
-last_updated: "2026-06-15T13:40:51.906Z"
+status: executing
+last_updated: "2026-06-15T13:59:33.399Z"
+last_activity: 2026-06-15
 progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 19
-  completed_plans: 15
-  percent: 100
+  total_phases: 12
+  completed_phases: 7
+  total_plans: 32
+  completed_plans: 22
 ---
 
 # Project State — Dormer's Menu Revamp
@@ -28,17 +27,14 @@ progress:
 **Requirements:** 20 v1 requirements, 10 complete, 10 pending
 
 ---
+- [Phase 05]: Drop-off modal is a full-screen overlay within RiderClient — no separate component file; green tick auto-closes after 2s; confirmDropoff sets verified=false for 8PM failsafe
 
 ## Current Position
 
-Phase: 06 (dorm-wars-game-feel-pass) — COMPLETE
-Plan: 5 of 5 (all complete)
-| Field | Value |
-|-------|-------|
-| Active phase | Phase 6: Dorm Wars Game-Feel Pass — COMPLETE (ready for verification) |
-| Active plan | Plan 5 (asset integration sweep) — DONE |
-| Phase status | Phases 1, 2, 4, 5, 6 complete; Phase 3 not started |
-| Overall progress | 13/13 plans complete |
+Phase: 5 (Rider Page — Drop-off & Verification) — EXECUTING
+Plan: 3 of 4
+Status: Plans 05-01, 05-02, 05-03 complete. Plan 05-04 (compile check + visual checkpoint) pending.
+Last activity: 2026-06-15
 
 ```
 Progress: [██████████] 100%

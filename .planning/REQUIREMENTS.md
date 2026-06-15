@@ -43,18 +43,18 @@
 
 ### Rider — Drop-off & Verification
 
-- [ ] **VER-01**: At dorm, rider taps dorm button → camera opens → takes photo of boxes
-- [ ] **VER-02**: Camera uses `getUserMedia` as primary with `<input capture>` fallback for cross-platform support
-- [ ] **VER-03**: Photo resized client-side to max 1600px / JPEG 85 before upload
+- [x] **VER-01**: At dorm, rider taps dorm button → camera opens → takes photo of boxes
+- [x] **VER-02**: Camera uses `getUserMedia` as primary with `<input capture>` fallback for cross-platform support
+- [x] **VER-03**: Photo resized client-side to max 1600px / JPEG 85 before upload
 - [x] **VER-04**: Photo uploaded to private `delivery-photos` Supabase storage bucket via server-side API route
-- [ ] **VER-05**: Rider enters box count manually
+- [x] **VER-05**: Rider enters box count manually
 - [x] **VER-06**: Gemini `gemini-2.5-flash` counts boxes independently from photo, returning `{ count, confidence, reason, imageQuality }`
 - [x] **VER-07**: Triple match: expected === rider === Gemini → large green tick (1.5–2s) → auto-confirm
 - [x] **VER-08**: Any count mismatch → escalates to owner via `notifyAdmin` with photo + all three numbers
 - [x] **VER-09**: Photo unclear (Gemini confidence low / imageQuality not clear) → "Retake photo" prompt
 - [x] **VER-10**: Second unclear photo → escalates to owner
 - [x] **VER-11**: Gemini timeout (`null` count) → requires manual rider confirmation, never auto-completes
-- [ ] **VER-12**: Submit button disabled until photo taken + non-zero count entered
+- [x] **VER-12**: Submit button disabled until photo taken + non-zero count entered
 - [ ] **VER-13**: Delivery event data trail: who (token_id), when (timestamp), geolocation, expected_count, rider_count, gemini_count, photo_path
 
 ### Delivery Notifications
@@ -154,18 +154,18 @@
 | RID-02 | Phase 4 | Complete |
 | RID-03 | Phase 4 | Complete |
 | RID-04 | Phase 4 | Complete |
-| VER-01 | Phase 5 | Pending |
-| VER-02 | Phase 5 | Pending |
-| VER-03 | Phase 5 | Pending |
+| VER-01 | Phase 5 | Complete |
+| VER-02 | Phase 5 | Complete |
+| VER-03 | Phase 5 | Complete |
 | VER-04 | Phase 5 | Complete |
-| VER-05 | Phase 5 | Pending |
+| VER-05 | Phase 5 | Complete |
 | VER-06 | Phase 5 | Complete |
 | VER-07 | Phase 5 | Complete |
 | VER-08 | Phase 5 | Complete |
 | VER-09 | Phase 5 | Complete |
 | VER-10 | Phase 5 | Complete |
 | VER-11 | Phase 5 | Complete |
-| VER-12 | Phase 5 | Pending |
+| VER-12 | Phase 5 | Complete |
 | VER-13 | Phase 5 | Pending |
 | NOT-01 | Phase 6 | Pending |
 | NOT-02 | Phase 6 | Pending |
