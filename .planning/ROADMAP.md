@@ -13,7 +13,7 @@
 - [x] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes (completed 2026-06-14)
 - [x] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration (completed 2026-06-15)
 - [x] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, light mobile-first UI (completed 2026-06-15)
-- [ ] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation
+- [x] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation (completed 2026-06-15)
 - [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
 - [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
 - [ ] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list
@@ -93,11 +93,11 @@ Plans:
   4. Rider can tap "Confirm Pickup" which logs a timestamp to `delivery_events` with the expected count
   5. After pickup confirmation, dorm buttons transition to "drop-off" state (ready for photo verification in Phase 5)
   6. Works at 375px mobile — primary use case is phone in hand
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 04-01-PLAN.md — getDormCounts use-case, confirmPickup server action, RSC page, RiderClient with dorm shape buttons (RID-01, RID-02, RID-03, RID-04)
-- [ ] 04-02-PLAN.md — Visual verification checkpoint — owner reviews dorm buttons, counts, and pickup flow at 375px (RID-01, RID-02, RID-03, RID-04)
+- [x] 04-02-PLAN.md — Visual verification checkpoint — owner approved with shape fixes (RID-01, RID-02, RID-03, RID-04)
 
 **UI hint:** yes
 
@@ -187,7 +187,7 @@ Plans:
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
-| 4. Rider Page — Pickup | 1/2 | Executing | — |
+| 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
@@ -268,4 +268,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 4 planned (2 plans, rider pickup page)*
+*Last updated: 2026-06-15 — Phase 4 complete (rider pickup page approved by owner)*

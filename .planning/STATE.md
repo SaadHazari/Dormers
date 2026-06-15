@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15T12:08:00.000Z"
-last_activity: 2026-06-15 -- Phase 4 Plan 01 complete
+last_updated: "2026-06-15"
+last_activity: 2026-06-15 -- Phase 04 complete (rider pickup approved)
 progress:
-  total_phases: 11
-  completed_phases: 7
-  total_plans: 28
-  completed_plans: 21
+  total_phases: 9
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State — Dormer's Ops Interfaces
 
 **Last updated:** 2026-06-15
-**Session:** Milestone v2.0 — Phase 03 complete, Phase 04 next
+**Session:** Milestone v2.0 — Phase 04 complete, Phase 05 next
 
 ---
 
@@ -53,15 +53,17 @@ None
 - [Phase 04-01]: getDormCounts returns plain Record not Map — Maps are not RSC-serializable
 - [Phase 04-01]: deliveryDateIso computed in RSC, passed as param to confirmPickup — avoids UTC-vs-UAE timezone mismatch in Server Action
 - [Phase 04-01]: Zero-count dorms shown at opacity 0.4 — rider needs to see "0 boxes for DSOA today"; no delivery_events rows created for them
+- [Phase 04]: dormShapeSvg gains optional hideNumber param — rider page uses shape-only (no dorm number inside shape clashing with box count)
+- [Phase 04]: Rider page uses dark variant shapes to match solid navy shapes on printed box labels
 
 ---
 
 ## Current Position
 
-Phase: 4 (Rider Page — Pickup) — EXECUTING
-Plan: 2 of 2 (Plan 01 complete)
-Status: Executing Phase 4
-Last activity: 2026-06-15 -- Phase 4 Plan 01 complete (pickup flow: getDormCounts + confirmPickup + page + RiderClient)
+Phase: 04 (Rider Page — Pickup) — COMPLETE
+Plan: 2 of 2 complete
+Status: Owner approved rider pickup page — dark shapes match labels, number clash resolved
+Last activity: 2026-06-15 -- Phase 04 complete (visual checkpoint passed, user approved)
 
 ---
 
@@ -71,8 +73,8 @@ Last activity: 2026-06-15 -- Phase 4 Plan 01 complete (pickup flow: getDormCount
 |-------|------|-------------|--------|
 | 1 | Recipe Seeding | DB-01, DB-02 | Complete (2026-06-15) |
 | 2 | Schema & Context Foundation | DB-03–05, DB-07, TOK-01–02, ARC-01–02 | Complete (2026-06-15) |
-| 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Executing |
-| 4 | Rider Page — Pickup | RID-01–04 | Not started |
+| 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Complete (2026-06-15) |
+| 4 | Rider Page — Pickup | RID-01–04 | Complete (2026-06-15) |
 | 5 | Rider Page — Drop-off & Verification | VER-01–13, ARC-03 | Not started |
 | 6 | Delivery Notification Fanout | NOT-01–04, DB-06, ARC-04 | Not started |
 | 7 | Failsafe Cron | FAIL-01–04 | Not started |

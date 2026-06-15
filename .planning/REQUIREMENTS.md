@@ -36,10 +36,10 @@
 
 ### Rider — Pickup
 
-- [ ] **RID-01**: `/ops/[token]` page shows dorm buttons with label shapes (Myriad=circle, KSK=square, Yugo=triangle, DSOA=hexagon, Study World=star)
-- [ ] **RID-02**: Dorm buttons are 80×80px minimum tap targets in a 2-column grid with shape SVG + name label
-- [ ] **RID-03**: At kitchen, rider sees expected meal count per dorm
-- [ ] **RID-04**: Rider confirms pickup with timestamp logged to `delivery_events`
+- [x] **RID-01**: `/ops/[token]` page shows dorm buttons with label shapes (Myriad=circle, KSK=square, Yugo=triangle, DSOA=hexagon, Study World=star)
+- [x] **RID-02**: Dorm buttons are 80×80px minimum tap targets in a 2-column grid with shape SVG + name label
+- [x] **RID-03**: At kitchen, rider sees expected meal count per dorm
+- [x] **RID-04**: Rider confirms pickup with timestamp logged to `delivery_events`
 
 ### Rider — Drop-off & Verification
 
@@ -150,10 +150,10 @@
 | KIT-07 | Phase 3 | Complete |
 | KIT-08 | Phase 3 | Complete |
 | KIT-09 | Phase 3 | Complete |
-| RID-01 | Phase 4 | Pending |
-| RID-02 | Phase 4 | Pending |
-| RID-03 | Phase 4 | Pending |
-| RID-04 | Phase 4 | Pending |
+| RID-01 | Phase 4 | Complete |
+| RID-02 | Phase 4 | Complete |
+| RID-03 | Phase 4 | Complete |
+| RID-04 | Phase 4 | Complete |
 | VER-01 | Phase 5 | Pending |
 | VER-02 | Phase 5 | Pending |
 | VER-03 | Phase 5 | Pending |
@@ -201,4 +201,4 @@
 
 ---
 *Requirements defined: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 3 requirements complete (TOK-03, KIT-01–09, ARC-05)*
+*Last updated: 2026-06-15 — Phase 4 requirements complete (RID-01–04)*
