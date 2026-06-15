@@ -149,7 +149,7 @@ export function RiderClient({
       >
         {RIDER_DORMS.map(([dormKey, dormInfo]) => {
           const count = dormCounts[dormKey] ?? 0
-          const svgString = dormShapeSvg(dormInfo.shape, dormInfo.number, 72, 'light')
+          const svgString = dormShapeSvg(dormInfo.shape, dormInfo.number, 72, 'dark', { hideNumber: true })
           const isEmpty = count === 0
 
           return (

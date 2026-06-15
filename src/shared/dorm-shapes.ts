@@ -29,17 +29,22 @@ export function dormShapeSvg(
   number: number,
   size: number,
   variant: 'light' | 'dark',
+  options?: { hideNumber?: boolean },
 ): string {
   const fill = variant === 'light' ? '#ede8da' : '#091825'
   const textFill = variant === 'light' ? '#091825' : '#ede8da'
   const fontSize = shape === 'triangle' ? size * 0.38 : size * 0.44
   const textY = shape === 'triangle' ? '58' : '54'
 
+  const numberEl = options?.hideNumber
+    ? ''
+    : `<text x="50" y="${textY}" text-anchor="middle" dominant-baseline="central"
+      fill="${textFill}" font-family="Montserrat,sans-serif" font-weight="600"
+      font-size="${fontSize}px">${number}</text>`
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
     <g fill="${fill}">${SHAPE_PATHS[shape]}</g>
-    <text x="50" y="${textY}" text-anchor="middle" dominant-baseline="central"
-      fill="${textFill}" font-family="Montserrat,sans-serif" font-weight="600"
-      font-size="${fontSize}px">${number}</text>
+    ${numberEl}
   </svg>`
 }
 
