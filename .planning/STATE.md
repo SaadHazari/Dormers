@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-14T16:07:07.137Z"
-last_activity: 2026-06-14 -- Phase 01 execution started
+last_updated: "2026-06-15"
+last_activity: 2026-06-15 -- Phase 01 complete (recipe column + 48 dishes seeded)
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 21
-  completed_plans: 14
+  completed_plans: 16
 ---
 
 # Project State — Dormer's Ops Interfaces
 
-**Last updated:** 2026-06-14
-**Session:** Milestone v2.0 — roadmap defined
+**Last updated:** 2026-06-15
+**Session:** Milestone v2.0 — Phase 01 complete
 
 ---
 
@@ -24,26 +24,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
-**Current focus:** Phase 01 — recipe-seeding
+**Current focus:** Phase 02 — Schema & Context Foundation
 
 ---
 
 ## Blockers
 
-- **01-01 Task 2:** `recipe` column not yet in live Supabase Ohio DB. Apply via Dashboard SQL editor (https://supabase.com/dashboard/project/yjjayivwfqjfppawgyaz/sql/new) or interactive Claude session using Supabase MCP. SQL: `ALTER TABLE public.dishes ADD COLUMN IF NOT EXISTS recipe jsonb;`
+None
 
 ## Decisions
 
 - `recipe` column is JSONB nullable with no DB CHECK constraint — shape validated at app layer in `src/contexts/ops/domain/`
+- Recipes generated from dish names (fallback) — re-extract from PDF when available via `scripts/extract-recipes.ts`
 
 ---
 
 ## Current Position
 
-Phase: 01 (recipe-seeding) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 01
-Last activity: 2026-06-14 -- Phase 01 execution started
+Phase: 02 (schema-context-foundation) — NOT STARTED
+Plan: 0 of ?
+Status: Phase 01 complete, ready for Phase 02 planning
+Last activity: 2026-06-15 -- Phase 01 complete (recipe column + 48 dishes seeded)
 
 ---
 
@@ -51,7 +52,7 @@ Last activity: 2026-06-14 -- Phase 01 execution started
 
 | Phase | Name | Requirements | Status |
 |-------|------|-------------|--------|
-| 1 | Recipe Seeding | DB-01, DB-02 | Not started |
+| 1 | Recipe Seeding | DB-01, DB-02 | Complete (2026-06-15) |
 | 2 | Schema & Context Foundation | DB-03–05, DB-07, TOK-01–02, ARC-01–02 | Not started |
 | 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Not started |
 | 4 | Rider Page — Pickup | RID-01–04 | Not started |

@@ -33,11 +33,11 @@
   2. All 48+ recipes from Dormers_cook_book_Golden.pdf are seeded with correct dish code mapping (CRNC01, RCVV01, etc.)
   3. Every seeded recipe has the structure `{ sections: [{ heading, items }], method: string[], notes: string }` — no null sections or empty method arrays
   4. Recipe data round-trips correctly: `SELECT name, recipe FROM dishes WHERE recipe IS NOT NULL` returns parseable JSONB for every row
-**Plans:** 1/1 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Add recipe JSONB column to dishes via migration (DB-01)
-- [ ] 01-02-PLAN.md — Extract recipes from cookbook PDF with Gemini, seed all dishes rows (DB-02)
+- [x] 01-02-PLAN.md — Extract recipes from cookbook PDF with Gemini, seed all dishes rows (DB-02)
 
 **UI hint:** no
 
@@ -170,7 +170,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Recipe Seeding | 1/1 | Complete   | 2026-06-14 |
+| 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 0/? | Not started | — |
 | 3. Kitchen Display | 0/? | Not started | — |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
@@ -186,8 +186,8 @@ Plans:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | Phase 1 | Pending |
-| DB-02 | Phase 1 | Pending |
+| DB-01 | Phase 1 | Complete |
+| DB-02 | Phase 1 | Complete |
 | DB-03 | Phase 2 | Pending |
 | DB-04 | Phase 2 | Pending |
 | DB-05 | Phase 2 | Pending |

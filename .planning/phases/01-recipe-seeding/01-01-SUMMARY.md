@@ -39,14 +39,14 @@ completed: 2026-06-14
 
 # Phase 01 Plan 01: Recipe Column Migration Summary
 
-**ALTER TABLE public.dishes ADD COLUMN recipe jsonb — migration file written, committed, and pending live DB apply**
+**ALTER TABLE public.dishes ADD COLUMN recipe jsonb — migration written, committed, and applied to live DB**
 
 ## Performance
 
 - **Duration:** 16 min
 - **Started:** 2026-06-14T16:07:45Z
 - **Completed:** 2026-06-14T16:24:06Z
-- **Tasks:** 1 of 2 complete (Task 2 blocked — authentication gate)
+- **Tasks:** 2 of 2 complete
 - **Files modified:** 1
 
 ## Accomplishments
@@ -58,7 +58,7 @@ completed: 2026-06-14
 ## Task Commits
 
 1. **Task 1: Write migration SQL for recipe column** — `3639a6e` (chore)
-2. **Task 2: Apply migration via Supabase MCP** — BLOCKED (auth gate — see below)
+2. **Task 2: Apply migration via Supabase MCP** — Applied via orchestrator MCP (column verified: jsonb, nullable, 49 dishes intact)
 
 ## Files Created/Modified
 - `supabase/migrations/20260614_dishes_recipe_column.sql` — ALTER TABLE migration adding nullable `recipe jsonb` column to `public.dishes`
