@@ -41,6 +41,8 @@ export interface ComputeEndDateInput {
   skipCount?: number
   /** Total calendar days spent paused this cycle. Pure calendar shift. */
   pauseDays?: number
+  /** Company-wide closure days this cycle. Pure calendar shift, like pauseDays. */
+  closureDays?: number
 }
 
 const W_BY_WEEK: Record<WeekType, number> = {
@@ -110,6 +112,7 @@ export function isoDate(d: Date): string {
 export function computeEndDate(input: ComputeEndDateInput): Date {
   const skipCount = Math.max(0, Math.floor(input.skipCount ?? 0))
   const pauseDays = Math.max(0, Math.floor(input.pauseDays ?? 0))
+  const closureDays = Math.max(0, Math.floor(input.closureDays ?? 0))
   const W = W_BY_WEEK[input.weekType]
 
   // D_base by plan kind
@@ -146,7 +149,7 @@ export function computeEndDate(input: ComputeEndDateInput): Date {
   }
 
   const totalDays = x + penalty
-  const calculated = addDays(S2, totalDays + pauseDays)
+  const calculated = addDays(S2, totalDays + pauseDays + closureDays)
 
   // If the calculated end falls on a non-delivery day, push forward to the
   // next working day so kitchen-ops always land on a delivery cadence.

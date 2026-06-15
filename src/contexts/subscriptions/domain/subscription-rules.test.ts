@@ -35,6 +35,7 @@ function fakeSub(overrides: Partial<Subscription> = {}): Subscription {
     bonus_skips: 0,
     paused_dates: [],
     start_email_sent_at: null,
+    closure_days: 0,
     ...overrides,
   }
 }

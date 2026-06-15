@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
-    LayoutDashboard, Truck, Activity,
+    LayoutDashboard, Truck, Activity, CalendarOff,
     Users, CreditCard, Coins,
     Share2, Swords,
     UtensilsCrossed, DollarSign, QrCode,
@@ -33,6 +33,7 @@ const NAV_GROUPS = [
             { label: 'Delivery Queue',  href: '/admin/deliveries', icon: <Truck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Labels',          href: '/admin/labels',     icon: <Tag size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Cron Health',     href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Holidays',        href: '/admin/holidays',   icon: <CalendarOff size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {

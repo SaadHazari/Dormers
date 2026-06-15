@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15T06:57:04.855Z"
-last_activity: 2026-06-15 -- Phase 03 execution started
+last_updated: "2026-06-15"
+last_activity: 2026-06-15 -- Phase 03 Plan 01 complete (data backbone)
 progress:
-  total_phases: 10
-  completed_phases: 7
-  total_plans: 26
-  completed_plans: 18
+  total_phases: 9
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 5
 ---
 
 # Project State — Dormer's Ops Interfaces
 
 **Last updated:** 2026-06-15
-**Session:** Milestone v2.0 — Phase 02 complete, Phase 03 next
+**Session:** Milestone v2.0 — Phase 03 executing
 
 ---
 
@@ -42,15 +42,17 @@ None
 - Domain files are pure (zero imports) per L1-BOUNDARIES layered architecture rules
 - dorm-shapes barrel at old path preserves backward compatibility for all existing importers
 - validate-token returns null for invalid/revoked/wrong-role tokens (callers render 404)
+- [Phase 03]: getKitchenCounts takes pre-computed todayIso/dayName/isSaturday — RSC owns all UAE time logic, use-case stays pure
+- [Phase 03]: Recipe fetched separately by dish name from dishes table — menu-catalog DishRow intentionally omits recipe column
 
 ---
 
 ## Current Position
 
 Phase: 03 (Kitchen Display) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 03
-Last activity: 2026-06-15 -- Phase 03 execution started
+Plan: 1 of 3 complete
+Status: Plan 03-01 data backbone complete, Plan 03-02 next (dark UI + recipe modal)
+Last activity: 2026-06-15 -- Phase 03 Plan 01 complete (data backbone)
 
 ---
 
@@ -60,7 +62,7 @@ Last activity: 2026-06-15 -- Phase 03 execution started
 |-------|------|-------------|--------|
 | 1 | Recipe Seeding | DB-01, DB-02 | Complete (2026-06-15) |
 | 2 | Schema & Context Foundation | DB-03–05, DB-07, TOK-01–02, ARC-01–02 | Complete (2026-06-15) |
-| 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Not started |
+| 3 | Kitchen Display | TOK-03, KIT-01–09, ARC-05 | Executing |
 | 4 | Rider Page — Pickup | RID-01–04 | Not started |
 | 5 | Rider Page — Drop-off & Verification | VER-01–13, ARC-03 | Not started |
 | 6 | Delivery Notification Fanout | NOT-01–04, DB-06, ARC-04 | Not started |

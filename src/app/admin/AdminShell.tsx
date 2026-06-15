@@ -19,6 +19,7 @@ const NAV_COMMANDS: PaletteCommand[] = [
     { id: 'nav-deliveries',  label: 'Delivery Queue',   group: 'Navigation', href: '/admin/deliveries', keywords: ['orders', 'today', 'meals'] },
     { id: 'nav-labels',      label: 'Labels',           group: 'Navigation', href: '/admin/labels',     keywords: ['print', 'thermal', 'sticker', 'kitchen', 'label'] },
     { id: 'nav-cron',        label: 'Cron Health',      group: 'Navigation', href: '/admin/cron',       keywords: ['jobs', 'tick', 'health', 'status'] },
+    { id: 'nav-holidays',    label: 'Holidays',         group: 'Navigation', href: '/admin/holidays',   keywords: ['holiday', 'closure', 'eid', 'shutdown', 'pause', 'national'] },
     { id: 'nav-customers',   label: 'All Customers',    group: 'Navigation', href: '/admin/customers',  keywords: ['users', 'search', 'lookup'] },
     { id: 'nav-staff',       label: 'Staff',            group: 'Navigation', href: '/admin/staff',      keywords: ['intern', 'staff', 'employee', 'claim', 'code', 'remuneration'] },
     { id: 'nav-payments',    label: 'Payments',         group: 'Navigation', href: '/admin/payments',   keywords: ['stripe', 'billing', 'charges'] },

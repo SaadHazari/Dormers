@@ -19,6 +19,8 @@ export interface CustomerRow {
     delivered_meals: number | null
     total_meals: number | null
     sub_id: string | null
+    sub_start_date: string | null
+    sub_end_date: string | null
 }
 
 export default async function CustomersPage({

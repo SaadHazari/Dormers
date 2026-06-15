@@ -6,6 +6,7 @@ import { Search, User } from 'lucide-react'
 import type { CustomerRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
+import { DayBadge } from '../_components/DayBadge'
 
 interface Props {
     customers: CustomerRow[]
@@ -92,9 +93,12 @@ export function CustomerTable({ customers, initialQuery }: Props) {
                                 </td>
                                 <td className="px-3 py-2.5">
                                     {c.sub_status ? (
-                                        <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
-                                            {c.sub_status}
-                                        </AdminBadge>
+                                        <div className="inline-flex items-center gap-1.5">
+                                            <DayBadge startDate={c.sub_start_date} endDate={c.sub_end_date} status={c.sub_status} />
+                                            <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
+                                                {c.sub_status}
+                                            </AdminBadge>
+                                        </div>
                                     ) : (
                                         <span className={t.faint}>—</span>
                                     )}
@@ -132,9 +136,12 @@ export function CustomerTable({ customers, initialQuery }: Props) {
                                 </div>
                             </div>
                             {c.sub_status && (
-                                <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
-                                    {c.sub_status}
-                                </AdminBadge>
+                                <div className="flex items-center gap-1.5">
+                                    <DayBadge startDate={c.sub_start_date} endDate={c.sub_end_date} status={c.sub_status} />
+                                    <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
+                                        {c.sub_status}
+                                    </AdminBadge>
+                                </div>
                             )}
                         </div>
                         {c.active_plan && (

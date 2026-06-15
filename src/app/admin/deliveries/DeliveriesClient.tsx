@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Truck, Pause, SkipForward, Leaf, Drumstick, Building2, UtensilsCrossed } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
+import { DayBadge } from '../_components/DayBadge'
 
 interface Sub {
     id: string
@@ -230,9 +231,12 @@ function GroupSection({ name, subs, groupBy, onRowClick }: {
                                 </td>
                                 <td className={`px-3 py-2 ${t.body}`}>{secondaryValue(s)}</td>
                                 <td className="px-3 py-2 text-center">
-                                    <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
-                                        {STATUS_ICON[s.status]} {s.status}
-                                    </AdminBadge>
+                                    <div className="inline-flex items-center gap-1.5">
+                                        <DayBadge startDate={s.start_date} endDate={s.end_date} status={s.status} />
+                                        <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
+                                            {STATUS_ICON[s.status]} {s.status}
+                                        </AdminBadge>
+                                    </div>
                                 </td>
                                 <td className={`px-3 py-2 text-right font-bold tabular-nums ${t.heading}`}>
                                     {s.delivered_meals}/{s.total_meals}
@@ -259,9 +263,12 @@ function GroupSection({ name, subs, groupBy, onRowClick }: {
                                 {s.customer_name || '(no name)'}
                                 {isMealView && isReligiousMix(s.meal_preference) && <MixPill />}
                             </span>
-                            <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
-                                {s.status}
-                            </AdminBadge>
+                            <div className="flex items-center gap-1.5">
+                                <DayBadge startDate={s.start_date} endDate={s.end_date} status={s.status} />
+                                <AdminBadge variant={STATUS_VARIANT[s.status] ?? 'neutral'}>
+                                    {s.status}
+                                </AdminBadge>
+                            </div>
                         </div>
                         <div className={`text-[11px] ${t.muted}`}>
                             {s.plan_name.replace(/-/g, ' ')} · {secondaryValue(s)} · {s.delivered_meals}/{s.total_meals} meals

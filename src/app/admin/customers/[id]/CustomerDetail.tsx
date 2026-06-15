@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
 import { AdminBadge } from '../../_components/AdminBadge'
+import { DayBadge } from '../../_components/DayBadge'
 import { AdminCard } from '../../_components/AdminCard'
 import { CustomerTimeline } from './CustomerTimeline'
 import { InterventionPanel } from './InterventionPanel'
@@ -141,9 +142,12 @@ export function CustomerDetail({
                                     <span className={`text-[14px] font-bold ${t.heading}`}>
                                         {(activeSub.plan_name as string)?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                     </span>
-                                    <AdminBadge variant={SUB_STATUS_VARIANT[activeSub.status as string] ?? 'neutral'}>
-                                        {activeSub.status as string}
-                                    </AdminBadge>
+                                    <div className="flex items-center gap-1.5">
+                                        <DayBadge startDate={activeSub.start_date as string} endDate={activeSub.end_date as string} status={activeSub.status as string} />
+                                        <AdminBadge variant={SUB_STATUS_VARIANT[activeSub.status as string] ?? 'neutral'}>
+                                            {activeSub.status as string}
+                                        </AdminBadge>
+                                    </div>
                                 </div>
                                 <div className={`text-[12px] space-y-1 ${t.muted}`}>
                                     <div>Meals: <strong className={t.body}>{activeSub.delivered_meals as number}/{activeSub.total_meals as number}</strong></div>
@@ -198,9 +202,12 @@ export function CustomerDetail({
                                 <span className={`text-[14px] font-bold ${t.heading}`}>
                                     {(sub.plan_name as string)?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                 </span>
-                                <AdminBadge variant={SUB_STATUS_VARIANT[sub.status as string] ?? 'neutral'}>
-                                    {sub.status as string}
-                                </AdminBadge>
+                                <div className="flex items-center gap-1.5">
+                                    <DayBadge startDate={sub.start_date as string} endDate={sub.end_date as string} status={sub.status as string} />
+                                    <AdminBadge variant={SUB_STATUS_VARIANT[sub.status as string] ?? 'neutral'}>
+                                        {sub.status as string}
+                                    </AdminBadge>
+                                </div>
                             </div>
                             <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 text-[12px] ${t.muted}`}>
                                 <div>Start: <strong className={t.body}>{sub.start_date as string}</strong></div>
@@ -298,3 +305,4 @@ function formatDate(iso: string): string {
         timeZone: 'Asia/Dubai',
     })
 }
+

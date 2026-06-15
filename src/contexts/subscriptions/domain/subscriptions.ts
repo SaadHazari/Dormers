@@ -47,6 +47,7 @@ export interface Subscription {
   bonus_skips: number                         // default 0 (Dorm Wars milestone 15)
   paused_dates: string[]                      // YYYY-MM-DD[], default []
   start_email_sent_at: string | null          // ISO timestamp
+  closure_days: number                        // default 0 — company-wide holiday extensions
 }
 
 /**

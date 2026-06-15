@@ -56,6 +56,7 @@ const fakeSubscription: Subscription = {
   bonus_skips: 0,
   paused_dates: [],
   start_email_sent_at: null,
+  closure_days: 0,
 }
 
 beforeEach(() => {
