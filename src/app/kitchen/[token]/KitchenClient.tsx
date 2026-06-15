@@ -54,7 +54,64 @@ function scaleQuantity(text: string, multiplier: number): string {
   )
 }
 
-// ─── Recipe Page (full-screen, replaces the main view) ──────────────────────
+// ─── Method step → section assignment ────────────────────────────────────────
+// Extracts keywords from section headings and matches method steps to sections.
+// "For the salad: toss..." matches "For the salad" section.
+// Unmatched steps attach to the previous section (cooking flows are sequential).
+
+function extractKeywords(heading: string): string[] {
+  const cleaned = heading
+    .toLowerCase()
+    .replace(/^for (the )?/, '')
+    .replace(/ingredients?|assembly|serving|garnish/g, '')
+    .trim()
+  return cleaned
+    .split(/[\s,]+/)
+    .filter(w => w.length > 2)
+}
+
+function assignMethodSteps(
+  sections: RecipeSection[],
+  method: string[],
+): string[][] {
+  if (sections.length <= 1) return [method]
+
+  const sectionKeywords = sections.map(s => extractKeywords(s.heading))
+  const result: string[][] = sections.map(() => [])
+
+  let currentSection = 0
+  for (const step of method) {
+    const lower = step.toLowerCase()
+    let bestMatch = -1
+    let bestScore = 0
+
+    for (let si = 0; si < sectionKeywords.length; si++) {
+      let score = 0
+      for (const kw of sectionKeywords[si]) {
+        if (lower.includes(kw)) score++
+      }
+      if (score > bestScore) {
+        bestScore = score
+        bestMatch = si
+      }
+    }
+
+    if (bestScore > 0) {
+      currentSection = bestMatch
+    }
+    result[currentSection].push(step)
+  }
+
+  return result
+}
+
+function cleanTabLabel(heading: string): string {
+  return heading
+    .replace(/^for (the )?/i, '')
+    .replace(/^\w/, c => c.toUpperCase())
+}
+
+// ─── Recipe Page (full-screen, tabbed by component) ─────────────────────────
 
 function RecipePage({
   dish,
@@ -66,6 +123,15 @@ function RecipePage({
   const color = dish.isVeg ? EMERALD : ORANGE
   const recipe = dish.recipe!
   const multiplier = dish.mealCount / RECIPE_BASE_SERVINGS
+  const hasTabs = recipe.sections.length > 1
+
+  const methodBySections = assignMethodSteps(recipe.sections, recipe.method)
+
+  const [activeTab, setActiveTab] = useState(0)
+
+  useEffect(() => {
+    setActiveTab(0)
+  }, [dish.name])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -74,6 +140,9 @@ function RecipePage({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const currentSection = recipe.sections[activeTab]
+  const currentMethod = methodBySections[activeTab] ?? []
 
   return (
     <div
@@ -84,164 +153,146 @@ function RecipePage({
         backgroundColor: BG,
         color: NAVY,
         fontFamily: FONT,
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'hidden',
       }}
     >
-      {/* ── Header ── */}
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 51,
-          backgroundColor: BG,
-          borderBottom: `1px solid ${BORDER}`,
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              display: 'inline-block',
-              padding: '3px 10px',
-              borderRadius: '20px',
-              backgroundColor: color + '1a',
-              color: color,
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-            }}
-          >
-            {dish.isVeg ? 'Veg' : 'Non-Veg'}
-          </span>
-          <div
-            style={{
-              fontSize: '22px',
-              fontWeight: 800,
-              color: NAVY,
-              lineHeight: 1.2,
-              marginTop: '6px',
-            }}
-          >
-            {dish.name}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          aria-label="Close recipe"
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            border: `1px solid ${BORDER}`,
-            backgroundColor: BG_CARD,
-            color: NAVY,
-            fontSize: '18px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* ── Serving badge ── */}
-      <div style={{ padding: '16px 20px 0' }}>
+      {/* ── Sticky header + tabs ── */}
+      <div style={{ flexShrink: 0, backgroundColor: BG, zIndex: 51 }}>
+        {/* Header row */}
         <div
           style={{
-            display: 'inline-flex',
+            padding: '16px 20px',
+            display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '8px',
-            backgroundColor: color + '12',
-            border: `1px solid ${color}30`,
-            fontSize: '13px',
-            fontWeight: 600,
-            color: color,
+            justifyContent: 'space-between',
+            gap: '12px',
+            borderBottom: hasTabs ? 'none' : `1px solid ${BORDER}`,
           }}
         >
-          Scaled for {dish.mealCount} meals
-          <span style={{ color: MUTED, fontWeight: 400 }}>(base recipe: {RECIPE_BASE_SERVINGS})</span>
-        </div>
-      </div>
-
-      {/* ── Content ── */}
-      <div style={{ padding: '20px' }}>
-        {/* Each section is a separate component block */}
-        {recipe.sections.map((section, si) => (
-          <div
-            key={si}
-            style={{
-              backgroundColor: BG_CARD,
-              borderRadius: '12px',
-              border: `1px solid ${BORDER}`,
-              padding: '20px',
-              marginBottom: '16px',
-            }}
-          >
-            <div
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span
               style={{
-                fontSize: '16px',
+                display: 'inline-block',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                backgroundColor: color + '1a',
+                color: color,
+                fontSize: '11px',
                 fontWeight: 700,
-                color: NAVY,
-                marginBottom: '14px',
-                paddingBottom: '10px',
-                borderBottom: `2px solid ${color}`,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
               }}
             >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '6px',
-                  backgroundColor: color + '1a',
-                  color: color,
-                  fontSize: '12px',
-                  fontWeight: 800,
-                }}
-              >
-                {si + 1}
-              </span>
-              {section.heading}
+              {dish.isVeg ? 'Veg' : 'Non-Veg'}
+            </span>
+            <div
+              style={{
+                fontSize: '22px',
+                fontWeight: 800,
+                color: NAVY,
+                lineHeight: 1.2,
+                marginTop: '6px',
+              }}
+            >
+              {dish.name}
             </div>
-            {section.items.map((item, ii) => (
-              <div
-                key={ii}
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: '8px',
-                  padding: '7px 0',
-                  borderBottom: ii < section.items.length - 1 ? `1px solid ${BORDER}` : 'none',
-                  fontSize: '15px',
-                  lineHeight: 1.5,
-                  color: NAVY,
-                }}
-              >
-                <span style={{ color: MUTED, flexShrink: 0, fontSize: '8px', marginTop: '5px' }}>●</span>
-                <span>{scaleQuantity(item, multiplier)}</span>
-              </div>
-            ))}
           </div>
-        ))}
+          <button
+            onClick={onClose}
+            aria-label="Close recipe"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              border: `1px solid ${BORDER}`,
+              backgroundColor: BG_CARD,
+              color: NAVY,
+              fontSize: '18px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
+        </div>
 
-        {/* ── Method ── */}
+        {/* Tab bar (only if multiple components) */}
+        {hasTabs && (
+          <div
+            style={{
+              display: 'flex',
+              borderBottom: `1px solid ${BORDER}`,
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {recipe.sections.map((section, si) => {
+              const isActive = activeTab === si
+              return (
+                <button
+                  key={si}
+                  onClick={() => setActiveTab(si)}
+                  style={{
+                    flex: hasTabs ? 1 : undefined,
+                    minWidth: 0,
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? color : MUTED,
+                    backgroundColor: isActive ? BG_CARD : 'transparent',
+                    border: 'none',
+                    borderBottom: isActive ? `3px solid ${color}` : '3px solid transparent',
+                    cursor: 'pointer',
+                    fontFamily: FONT,
+                    whiteSpace: 'nowrap',
+                    transition: 'color 0.15s, border-color 0.15s',
+                  }}
+                >
+                  {cleanTabLabel(section.heading)}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Scrollable content for active tab ── */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          padding: '20px',
+        }}
+      >
+        {/* Serving badge */}
+        <div style={{ marginBottom: '20px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              backgroundColor: color + '12',
+              border: `1px solid ${color}30`,
+              fontSize: '13px',
+              fontWeight: 600,
+              color: color,
+            }}
+          >
+            Scaled for {dish.mealCount} meals
+            <span style={{ color: MUTED, fontWeight: 400 }}>(base: {RECIPE_BASE_SERVINGS})</span>
+          </div>
+        </div>
+
+        {/* ── Ingredients ── */}
         <div
           style={{
             backgroundColor: BG_CARD,
@@ -258,25 +309,69 @@ function RecipePage({
               color: NAVY,
               marginBottom: '14px',
               paddingBottom: '10px',
-              borderBottom: `2px solid ${NAVY}`,
+              borderBottom: `2px solid ${color}`,
             }}
           >
-            Method
+            Ingredients
           </div>
-          {recipe.method.length === 0 ? (
+          {currentSection.items.length === 0 ? (
             <p style={{ fontSize: '15px', color: MUTED, fontStyle: 'italic' }}>
-              No method listed
+              No ingredients listed
             </p>
           ) : (
-            recipe.method.map((step, i) => (
+            currentSection.items.map((item, ii) => (
+              <div
+                key={ii}
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '8px',
+                  padding: '7px 0',
+                  borderBottom: ii < currentSection.items.length - 1 ? `1px solid ${BORDER}` : 'none',
+                  fontSize: '15px',
+                  lineHeight: 1.5,
+                  color: NAVY,
+                }}
+              >
+                <span style={{ color: MUTED, flexShrink: 0, fontSize: '8px', marginTop: '5px' }}>●</span>
+                <span>{scaleQuantity(item, multiplier)}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ── Method ── */}
+        {currentMethod.length > 0 && (
+          <div
+            style={{
+              backgroundColor: BG_CARD,
+              borderRadius: '12px',
+              border: `1px solid ${BORDER}`,
+              padding: '20px',
+              marginBottom: '16px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '16px',
+                fontWeight: 700,
+                color: NAVY,
+                marginBottom: '14px',
+                paddingBottom: '10px',
+                borderBottom: `2px solid ${NAVY}`,
+              }}
+            >
+              Method
+            </div>
+            {currentMethod.map((step, i) => (
               <div
                 key={i}
                 style={{
                   display: 'flex',
                   gap: '12px',
-                  marginBottom: i < recipe.method.length - 1 ? '16px' : 0,
-                  paddingBottom: i < recipe.method.length - 1 ? '16px' : 0,
-                  borderBottom: i < recipe.method.length - 1 ? `1px solid ${BORDER}` : 'none',
+                  marginBottom: i < currentMethod.length - 1 ? '16px' : 0,
+                  paddingBottom: i < currentMethod.length - 1 ? '16px' : 0,
+                  borderBottom: i < currentMethod.length - 1 ? `1px solid ${BORDER}` : 'none',
                 }}
               >
                 <div
@@ -297,21 +392,15 @@ function RecipePage({
                 >
                   {i + 1}
                 </div>
-                <div
-                  style={{
-                    fontSize: '15px',
-                    lineHeight: 1.6,
-                    color: NAVY,
-                  }}
-                >
+                <div style={{ fontSize: '15px', lineHeight: 1.6, color: NAVY }}>
                   {step}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* ── Notes ── */}
+        {/* ── Notes (shown on every tab) ── */}
         {recipe.notes && (
           <div
             style={{
@@ -334,22 +423,14 @@ function RecipePage({
             >
               Notes
             </div>
-            <p
-              style={{
-                fontSize: '14px',
-                lineHeight: 1.6,
-                color: '#78350f',
-                margin: 0,
-              }}
-            >
+            <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#78350f', margin: 0 }}>
               {recipe.notes}
             </p>
           </div>
         )}
-      </div>
 
-      {/* Bottom safe area padding */}
-      <div style={{ height: '40px' }} />
+        <div style={{ height: '40px' }} />
+      </div>
     </div>
   )
 }
