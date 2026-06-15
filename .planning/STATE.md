@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_for_verification
-stopped_at: Completed 06-05-PLAN.md (asset integration sweep) — Phase 6 COMPLETE (5/5 plans)
-last_updated: "2026-05-15T22:30:00.000Z"
+status: unknown
+stopped_at: Completed 02-01-PLAN.md (schema foundation migrations) — Phase 02 plan 1 of 2 done
+last_updated: "2026-06-15T06:15:35Z"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 19
+  completed_plans: 15
   percent: 100
 ---
 
 # Project State — Dormer's Menu Revamp
 
-**Last updated:** 2026-04-18
-**Session:** Phase 4 Plan 02 — Image cleanup and build verification complete
+**Last updated:** 2026-06-15
+**Session:** Phase 02 Plan 01 — Schema foundation migrations (ops_tokens, delivery_events, kind CHECK v7)
 
 ---
 
@@ -95,6 +95,9 @@ Phase 4 ██████████ COMPLETE (2/2 plans)
 | Phase 6 Wave 5: Lucide retention scope — identity icons swap to stencil; system glyphs stay Lucide | Identity icons (ranks, drops, mission rewards, HUD-decorative) become stencil per D-04; system glyphs (X, Check, Lock, ChevronUp/Down, Minus, ArrowRight, Send) and decorative non-rank glyphs (Crown for leaderboard #1 winner accent, Users for First Recruit) stay Lucide for pan-app consistency. Acceptance criterion is "all dorm-wars surface icons are stencil OR system-glyph" not "zero Lucide". Documented in DormWarsClient import block |
 | Phase 6 Wave 5: Wave 4 D-15 carryover fix landed in Task 3 | useReducedMotionGate added to DormWarsClient body; conversion-impact useEffect's triggerScreenShake call wrapped in `if (!reduced)`. D-15 contract complete across all dorm-wars motion constructs |
 | Phase 6 Wave 5: Single anchor moment per page (D-07) — AnchorImage mounted once in HeroBlock right column behind cycle clock | Wrapped in `<ParallaxLayer multiplier={0.5}>` for slowest-stratum drift, opacity 0.55 to keep watermark not foreground photo, only shown for non-new-users. JSDoc enforces single-mount contract |
+| Phase 02-01: ops_tokens stores plain-text high-entropy tokens (not hashed) | They are API keys, not passwords; rotation is deactivate-old + insert-new |
+| Phase 02-01: Kind CHECK v7 only extends constraint — no dispatcher changes | Dispatcher CASE branches for delivery_confirmed/delivery_unconfirmed_8pm deferred to Phase 6 when Meta templates are ready |
+| Phase 02-01: delivery_events FK to ops_tokens | Tracks which token was used for each delivery event for audit trail |
 
 ### Architecture Notes
 
@@ -142,9 +145,12 @@ Phase 6 COMPLETE (5/5 plans). All waves executed:
 
 Asset hand-off: 11 audio stems are valid silent MPEG-1 Layer III placeholders (Pixabay/Mixkit/Freesound CDNs blocked HTTP 403 in sandbox). User must hand-curate real CC0/CC-BY/royalty-free stems and overwrite each file in place. Source recommendations + license per stem in `public/audio/dw/ATTRIBUTION.md`. The phase does NOT ship to production with placeholders, but the wave ships with the system fully wired.
 
-Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
+Phase 02 (schema-context-foundation) Plan 01 complete (3/3 tasks):
+- 02-01 Task 1: ops_tokens table migration (b290f44)
+- 02-01 Task 2: delivery_events table migration (6eacd33)
+- 02-01 Task 3: customer_notifications kind CHECK v7 (5ec0415)
 
-**Stopped at:** Completed 06-05-PLAN.md (asset integration sweep) — Phase 6 COMPLETE (5/5 plans)
+**Stopped at:** Completed 02-01-PLAN.md (schema foundation migrations) — Plan 02 pending
 
 ---
 
