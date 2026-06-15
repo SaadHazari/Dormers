@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15"
-last_activity: 2026-06-15 -- Phase 03 complete (kitchen display approved)
+last_updated: "2026-06-15T12:08:00.000Z"
+last_activity: 2026-06-15 -- Phase 4 Plan 01 complete
 progress:
-  total_phases: 9
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 11
+  completed_phases: 7
+  total_plans: 28
+  completed_plans: 21
 ---
 
 # Project State — Dormer's Ops Interfaces
@@ -24,7 +24,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** Meals delivered correctly, provably, every time — with the kitchen and rider workflows as frictionless as opening WhatsApp.
-**Current focus:** Phase 03 — Kitchen Display
+**Current focus:** Phase 4 — Rider Page — Pickup
 
 ---
 
@@ -49,15 +49,19 @@ None
 - [Phase 03 Plan 02]: img tag over next/image for dish photos — CMS storage URLs need remotePatterns config (out of scope)
 - [Phase 03]: Owner overrode KIT-06 dark mode — kitchen display is LIGHT (cream/beige palette), not dark navy
 - [Phase 03]: Recipe method steps split per component via keyword extraction from section headings — tabs for multi-component dishes
+- [Phase 04-01]: One Confirm Pickup button logs all non-zero dorms in parallel (not per-dorm taps) — rider picks up as a single kitchen trip
+- [Phase 04-01]: getDormCounts returns plain Record not Map — Maps are not RSC-serializable
+- [Phase 04-01]: deliveryDateIso computed in RSC, passed as param to confirmPickup — avoids UTC-vs-UAE timezone mismatch in Server Action
+- [Phase 04-01]: Zero-count dorms shown at opacity 0.4 — rider needs to see "0 boxes for DSOA today"; no delivery_events rows created for them
 
 ---
 
 ## Current Position
 
-Phase: 03 (Kitchen Display) — COMPLETE
-Plan: 3 of 3 complete
-Status: Owner approved kitchen display — light mode, tabbed recipes, scaled quantities
-Last activity: 2026-06-15 -- Phase 03 complete (visual checkpoint passed, user approved)
+Phase: 4 (Rider Page — Pickup) — EXECUTING
+Plan: 2 of 2 (Plan 01 complete)
+Status: Executing Phase 4
+Last activity: 2026-06-15 -- Phase 4 Plan 01 complete (pickup flow: getDormCounts + confirmPickup + page + RiderClient)
 
 ---
 

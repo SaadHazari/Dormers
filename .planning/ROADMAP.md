@@ -96,7 +96,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — getDormCounts use-case, confirmPickup server action, RSC page, RiderClient with dorm shape buttons (RID-01, RID-02, RID-03, RID-04)
+- [x] 04-01-PLAN.md — getDormCounts use-case, confirmPickup server action, RSC page, RiderClient with dorm shape buttons (RID-01, RID-02, RID-03, RID-04)
 - [ ] 04-02-PLAN.md — Visual verification checkpoint — owner reviews dorm buttons, counts, and pickup flow at 375px (RID-01, RID-02, RID-03, RID-04)
 
 **UI hint:** yes
@@ -187,7 +187,7 @@ Plans:
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
-| 4. Rider Page — Pickup | 0/2 | Planned | — |
+| 4. Rider Page — Pickup | 1/2 | Executing | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
@@ -220,10 +220,10 @@ Plans:
 | KIT-07 | Phase 3 | Complete |
 | KIT-08 | Phase 3 | Complete |
 | KIT-09 | Phase 3 | Complete |
-| RID-01 | Phase 4 | Pending |
-| RID-02 | Phase 4 | Pending |
-| RID-03 | Phase 4 | Pending |
-| RID-04 | Phase 4 | Pending |
+| RID-01 | Phase 4 | Complete |
+| RID-02 | Phase 4 | Complete |
+| RID-03 | Phase 4 | Complete |
+| RID-04 | Phase 4 | Complete |
 | VER-01 | Phase 5 | Pending |
 | VER-02 | Phase 5 | Pending |
 | VER-03 | Phase 5 | Pending |
