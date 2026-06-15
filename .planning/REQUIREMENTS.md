@@ -9,16 +9,16 @@
 
 - [x] **DB-01**: `recipe` JSONB column added to `dishes` table with structure `{ sections: [{ heading, items }], method: string[], notes: string }`
 - [x] **DB-02**: All 48+ recipes from Dormers_cook_book_Golden.pdf seeded into the `dishes` table with correct dish code mapping
-- [ ] **DB-03**: `ops_tokens` table created with token, role (kitchen/rider), label, is_active, revoked_at
-- [ ] **DB-04**: `delivery_events` table created with delivery_date, dorm_name, expected/rider/gemini counts, photo_path, verified flag, UNIQUE(delivery_date, dorm_name, trip_number)
-- [ ] **DB-05**: `delivery_confirmed` and `delivery_unconfirmed_8pm` kinds added to `customer_notifications` CHECK constraint
+- [x] **DB-03**: `ops_tokens` table created with token, role (kitchen/rider), label, is_active, revoked_at
+- [x] **DB-04**: `delivery_events` table created with delivery_date, dorm_name, expected/rider/gemini counts, photo_path, verified flag, UNIQUE(delivery_date, dorm_name, trip_number)
+- [x] **DB-05**: `delivery_confirmed` and `delivery_unconfirmed_8pm` kinds added to `customer_notifications` CHECK constraint
 - [ ] **DB-06**: `delivery_confirmed` CASE branch added to `dispatch_customer_notifications_tick` dispatcher
-- [ ] **DB-07**: Explicit GRANTs on new tables for `authenticated` and `service_role`
+- [x] **DB-07**: Explicit GRANTs on new tables for `authenticated` and `service_role`
 
 ### Token Auth
 
-- [ ] **TOK-01**: Secret tokens are random 32-char hex strings stored in `ops_tokens` table
-- [ ] **TOK-02**: Token validated server-side on every page load — invalid/revoked token returns 404
+- [x] **TOK-01**: Secret tokens are random 32-char hex strings stored in `ops_tokens` table
+- [x] **TOK-02**: Token validated server-side on every page load — invalid/revoked token returns 404
 - [ ] **TOK-03**: `<meta name="referrer" content="no-referrer">` on both kitchen and ops pages
 - [ ] **TOK-04**: Token rotation via admin panel without requiring a deploy
 
@@ -90,8 +90,8 @@
 
 ### Architecture
 
-- [ ] **ARC-01**: New `ops` bounded context at `src/contexts/ops/` with domain/ and usecases/ layers
-- [ ] **ARC-02**: `dorm-shapes.ts` moved from `src/app/admin/labels/` to `src/shared/`
+- [x] **ARC-01**: New `ops` bounded context at `src/contexts/ops/` with domain/ and usecases/ layers
+- [x] **ARC-02**: `dorm-shapes.ts` moved from `src/app/admin/labels/` to `src/shared/`
 - [ ] **ARC-03**: Gemini box count verification in API route with `maxDuration = 60` (not server action)
 - [ ] **ARC-04**: Cross-context notification queueing via `queueCustomerNotification` import
 - [ ] **ARC-05**: All ops page loads force-dynamic (no caching — token validation + time-gated counts)
@@ -132,13 +132,13 @@
 |-------------|-------|--------|
 | DB-01 | Phase 1 | Complete |
 | DB-02 | Phase 1 | Complete |
-| DB-03 | Phase 2 | Pending |
-| DB-04 | Phase 2 | Pending |
-| DB-05 | Phase 2 | Pending |
+| DB-03 | Phase 2 | Complete |
+| DB-04 | Phase 2 | Complete |
+| DB-05 | Phase 2 | Complete |
 | DB-06 | Phase 6 | Pending |
-| DB-07 | Phase 2 | Pending |
-| TOK-01 | Phase 2 | Pending |
-| TOK-02 | Phase 2 | Pending |
+| DB-07 | Phase 2 | Complete |
+| TOK-01 | Phase 2 | Complete |
+| TOK-02 | Phase 2 | Complete |
 | TOK-03 | Phase 3 | Pending |
 | TOK-04 | Phase 9 | Pending |
 | KIT-01 | Phase 3 | Pending |
@@ -186,8 +186,8 @@
 | PWA-01 | Phase 9 | Pending |
 | PWA-02 | Phase 9 | Pending |
 | PWA-03 | Phase 9 | Pending |
-| ARC-01 | Phase 2 | Pending |
-| ARC-02 | Phase 2 | Pending |
+| ARC-01 | Phase 2 | Complete |
+| ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
 | ARC-04 | Phase 6 | Pending |
 | ARC-05 | Phase 3 | Pending |
@@ -199,4 +199,4 @@
 
 ---
 *Requirements defined: 2026-06-14*
-*Last updated: 2026-06-14 after initial definition*
+*Last updated: 2026-06-15 — Phase 2 requirements complete (DB-03–05, DB-07, TOK-01–02, ARC-01–02)*

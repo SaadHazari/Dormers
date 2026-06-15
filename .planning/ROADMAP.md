@@ -11,7 +11,7 @@
 ## Phases
 
 - [x] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes (completed 2026-06-14)
-- [ ] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration
+- [x] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration (completed 2026-06-15)
 - [ ] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, dark mobile-first UI
 - [ ] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation
 - [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
@@ -53,11 +53,11 @@ Plans:
   5. `src/contexts/ops/` exists with `domain/` and `usecases/` subdirectories containing token validation and delivery event types
   6. `src/shared/dorm-shapes.ts` exists and the old `src/app/admin/labels/dorm-shapes.ts` imports from it (no duplicate)
   7. At least one kitchen and one rider token are seeded for development/testing
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — SQL migrations: ops_tokens + delivery_events tables, kind CHECK extension, GRANTs, dev seed tokens (DB-03, DB-04, DB-05, DB-07, TOK-01)
-- [ ] 02-02-PLAN.md — Ops context scaffold, dorm-shapes move to shared, notification kind type extension (ARC-01, ARC-02, TOK-02)
+- [x] 02-01-PLAN.md — SQL migrations: ops_tokens + delivery_events tables, kind CHECK extension, GRANTs, dev seed tokens (DB-03, DB-04, DB-05, DB-07, TOK-01)
+- [x] 02-02-PLAN.md — Ops context scaffold, dorm-shapes move to shared, notification kind type extension (ARC-01, ARC-02, TOK-02)
 **UI hint:** no
 
 ### Phase 3: Kitchen Display
@@ -175,7 +175,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
-| 2. Schema & Context Foundation | 0/2 | Planning complete | — |
+| 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 0/? | Not started | — |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
@@ -192,13 +192,13 @@ Plans:
 |-------------|-------|--------|
 | DB-01 | Phase 1 | Complete |
 | DB-02 | Phase 1 | Complete |
-| DB-03 | Phase 2 | Pending |
-| DB-04 | Phase 2 | Pending |
-| DB-05 | Phase 2 | Pending |
+| DB-03 | Phase 2 | Complete |
+| DB-04 | Phase 2 | Complete |
+| DB-05 | Phase 2 | Complete |
 | DB-06 | Phase 6 | Pending |
-| DB-07 | Phase 2 | Pending |
-| TOK-01 | Phase 2 | Pending |
-| TOK-02 | Phase 2 | Pending |
+| DB-07 | Phase 2 | Complete |
+| TOK-01 | Phase 2 | Complete |
+| TOK-02 | Phase 2 | Complete |
 | TOK-03 | Phase 3 | Pending |
 | TOK-04 | Phase 9 | Pending |
 | KIT-01 | Phase 3 | Pending |
@@ -246,8 +246,8 @@ Plans:
 | PWA-01 | Phase 9 | Pending |
 | PWA-02 | Phase 9 | Pending |
 | PWA-03 | Phase 9 | Pending |
-| ARC-01 | Phase 2 | Pending |
-| ARC-02 | Phase 2 | Pending |
+| ARC-01 | Phase 2 | Complete |
+| ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
 | ARC-04 | Phase 6 | Pending |
 | ARC-05 | Phase 3 | Pending |
@@ -258,4 +258,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 2 plans created (02-01, 02-02)*
+*Last updated: 2026-06-15 — Phase 2 complete (2/2 plans executed)*
