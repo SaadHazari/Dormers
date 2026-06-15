@@ -27,6 +27,7 @@ import {
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow, type WrapPlanTier } from '@/contexts/subscriptions/domain/monthly-review'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
 import { DormWarsTour } from './DormWarsTour'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -535,6 +536,8 @@ export default function HubClient({
 
   // ── STATE ────────────────────────────────────────────────────────────────
   const router = useRouter()
+  const [, startNavTransition] = useTransition()
+  const navTo = (href: string) => startNavTransition(() => router.push(href))
   const [open, setOpen] = useState<SubScreen>(null)
   // First-visit guided tour. Auto-opens once a few hundred ms after mount
   // so the page paints first; suppressed when behind the Premium gate
@@ -1034,7 +1037,7 @@ export default function HubClient({
           monthlyReviewWindow={monthlyReviewWindow}
           onStart={() => {
             setOpen(null)
-            router.push('/dashboard/menu/review/monthly?from=dorm-wars')
+            navTo('/dashboard/menu/review/monthly?from=dorm-wars')
           }}
         />
       </Modal>
@@ -1065,9 +1068,9 @@ export default function HubClient({
               else if (action === 'open_chest_modal')    setOpen('chest')
               else if (action === 'open_weekly_review') {
                 const w = weeklyReviewState.current?.week ?? weeklyReviewState.late[0]?.week
-                if (w) router.push(`/dashboard/menu/review/${w}?from=dorm-wars`)
+                if (w) navTo(`/dashboard/menu/review/${w}?from=dorm-wars`)
               }
-              else if (action === 'go_to_menu')          router.push('/dashboard/menu')
+              else if (action === 'go_to_menu')          navTo('/dashboard/menu')
             }}
           />
         )}

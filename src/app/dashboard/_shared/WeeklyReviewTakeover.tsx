@@ -85,6 +85,7 @@ export interface WeeklyReviewTakeoverProps {
     onSubmit: (payload: WeeklyReviewPayload) => Promise<WeeklyReviewSubmitResult>
     /** Called when the user dismisses the takeover (X button or post-thank-you "save for later" CTA). */
     onClose: () => void
+    isClosePending?: boolean
     /**
      * Called when the user picks the chain CTA on the thank-you screen
      * ("Continue to Week N · +AED N"). Receives the target week number so
@@ -123,6 +124,7 @@ export function WeeklyReviewTakeover({
     daysLeftForFullReward,
     onSubmit,
     onClose,
+    isClosePending = false,
     onContinueChain,
     priorSubmissions = 0,
     weeksExpected = 4,
@@ -851,32 +853,36 @@ export function WeeklyReviewTakeover({
                                 margin: '0 auto',
                             }}>
                                 <ContinueButton
-                                    enabled
+                                    enabled={!isClosePending}
                                     onClick={() => onContinueChain(nextChain.week)}
                                     label={`Continue to Week ${nextChain.week} · +AED ${nextChain.aed}`}
+                                    loading={isClosePending}
                                 />
                                 <button
                                     type="button"
                                     onClick={onClose}
+                                    disabled={isClosePending}
                                     style={{
                                         width: '100%',
                                         padding: '12px 16px',
                                         background: 'transparent',
                                         border: 0,
-                                        cursor: 'pointer',
+                                        cursor: isClosePending ? 'default' : 'pointer',
                                         fontFamily: BODY,
                                         fontSize: 13,
                                         fontWeight: 600,
                                         letterSpacing: '0.04em',
                                         color: 'rgba(245,240,232,0.65)',
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                                     }}
                                 >
-                                    Save for later
+                                    {isClosePending && <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />}
+                                    {isClosePending ? 'Loading' : 'Save for later'}
                                 </button>
                             </div>
                         ) : (
                             <div>
-                                <ContinueButton enabled onClick={onClose} label={closeLabel} />
+                                <ContinueButton enabled={!isClosePending} onClick={onClose} label={closeLabel} loading={isClosePending} />
                             </div>
                         )}
                     </div>
@@ -887,10 +893,11 @@ export function WeeklyReviewTakeover({
                 <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', gap: 16 }}>
                     <button
                         onClick={onClose}
+                        disabled={isClosePending}
                         style={{
                             background: 'transparent',
                             border: 0,
-                            cursor: 'pointer',
+                            cursor: isClosePending ? 'default' : 'pointer',
                             fontFamily: BODY,
                             fontSize: 12,
                             fontWeight: 600,
@@ -899,9 +906,11 @@ export function WeeklyReviewTakeover({
                             color: TIER_POP_TEXT.faint,
                             padding: '8px 12px',
                             transition: 'color 150ms',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}
                     >
-                        Save & continue later
+                        {isClosePending && <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />}
+                        {isClosePending ? 'Loading' : 'Save & continue later'}
                     </button>
                 </footer>
             )}
@@ -1084,16 +1093,19 @@ function ContinueButton({
     onClick,
     label = 'Continue',
     muted = false,
+    loading = false,
 }: {
     enabled: boolean
     onClick: () => void
     label?: string
     muted?: boolean
+    loading?: boolean
 }) {
     const isPrimary = enabled && !muted
+    const off = !enabled || loading
     return (
         <button
-            disabled={!enabled}
+            disabled={off}
             onClick={onClick}
             style={{
                 marginTop: 32,
@@ -1111,13 +1123,20 @@ function ContinueButton({
                 fontWeight: 700,
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
-                cursor: enabled ? 'pointer' : 'not-allowed',
+                cursor: off ? 'default' : 'pointer',
                 boxShadow: isPrimary ? '0 8px 28px rgba(245,127,32,0.50)' : 'none',
-                transition: 'background 200ms, color 200ms, box-shadow 200ms, transform 150ms',
+                transition: 'background 200ms, color 200ms, box-shadow 200ms, transform 150ms, opacity 150ms',
+                opacity: loading ? 0.85 : 1,
             }}
         >
-            {label}
-            <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
+            {loading ? (
+                <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+            ) : (
+                <>
+                    {label}
+                    <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
+                </>
+            )}
         </button>
     )
 }

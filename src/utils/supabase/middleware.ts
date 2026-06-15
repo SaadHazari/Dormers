@@ -35,6 +35,18 @@ export const updateSession = async (request: NextRequest) => {
         user = !claimsError && claimsData?.claims
             ? { id: claimsData.claims.sub, email: (claimsData.claims.email as string | undefined) ?? '' }
             : null;
+
+        // getClaims() reads the JWT locally without refreshing. When the
+        // access token is stale the email claim can be absent — the user is
+        // authed (has a sub) but requireAdmin() sees an empty email and
+        // bounces to /dashboard. For admin routes, fall back to getUser()
+        // which validates + refreshes the session and always returns email.
+        if (user && !user.email && request.nextUrl.pathname.startsWith('/admin')) {
+            const { data: { user: freshUser } } = await supabase.auth.getUser();
+            if (freshUser?.email) {
+                user.email = freshUser.email;
+            }
+        }
     } catch (err) {
         console.error('middleware getClaims threw:', err);
     }

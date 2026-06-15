@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Activity, Gift,
+  X, Activity, Gift, Shield,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
@@ -45,6 +45,7 @@ interface Props {
   customerCid: string
   customerDorm: string
   userEmail: string
+  isAdmin?: boolean
   referralData?: ReferralData
   /** Premium/Max → has Dorm Wars access (badge shows the live wallet). Others
    *  treat Refer & Earn standalone (badge shows referral-only earnings). */
@@ -59,6 +60,7 @@ interface Props {
 
 export default function Sidebar({
   customerName, customerCid, customerDorm, userEmail,
+  isAdmin = false,
   referralData = DEFAULT_REFERRAL, dormWarsEligible = false, mobileOpen = false, onMobileClose,
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
@@ -430,6 +432,23 @@ export default function Sidebar({
           })()}
 
         </div>
+
+        {/* ── Admin shortcut — visible only for allowlisted admin emails ──── */}
+        {isAdmin && (
+          <div style={{ marginBottom: 4 }}>
+            <Link
+              href="/admin"
+              onClick={() => onMobileClose?.()}
+              data-tooltip="Admin Panel"
+              data-tooltip-placement="right"
+              className="sidebar-nav-item"
+              style={rowStyle(false)}
+            >
+              <Shield size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
+              <span style={labelStyle}>Admin Panel</span>
+            </Link>
+          </div>
+        )}
 
         {/* ── Profile chip (button) — opens profile dropdown ───────────────── */}
         <div style={{ borderTop: `1px solid ${S.divider}`, paddingTop: 10 }}>

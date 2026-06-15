@@ -6,19 +6,21 @@ export const metadata = { title: 'Admin — Dormers' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-    await requireAdmin()
-
     const sb = createAdminSupabaseClient()
 
-    const [referralQ, layer4Q] = await Promise.all([
+    const badgePromise = Promise.allSettled([
         sb.from('referral_review_queue').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         sb.from('layer4_rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
 
+    await requireAdmin()
+
+    const [referralQ, layer4Q] = await badgePromise
+
     return (
         <AdminShell
-            pendingReferrals={referralQ.count ?? 0}
-            pendingLayer4={layer4Q.count ?? 0}
+            pendingReferrals={referralQ.status === 'fulfilled' ? referralQ.value.count ?? 0 : 0}
+            pendingLayer4={layer4Q.status === 'fulfilled' ? layer4Q.value.count ?? 0 : 0}
         >
             {children}
         </AdminShell>

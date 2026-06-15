@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { MonthlyReviewTakeover } from '../../../_shared/MonthlyReviewTakeover'
 import type { MonthlyReviewPayload, WrapPlanTier } from '@/contexts/subscriptions/domain/monthly-review'
@@ -19,6 +20,7 @@ export function MonthlyReviewClient({
     returnTo?: string
 }) {
     const router = useRouter()
+    const [isNavPending, startNavTransition] = useTransition()
     const returnLabel = returnTo.includes('dorm-wars') ? 'Back to Dorm Wars' : 'Back to dashboard'
     return (
         <MonthlyReviewTakeover
@@ -27,9 +29,12 @@ export function MonthlyReviewClient({
             daysLeftForFullReward={daysLeftForFullReward}
             planTier={planTier}
             onSubmit={(payload: MonthlyReviewPayload) => submitMonthlyReview(payload)}
+            isClosePending={isNavPending}
             onClose={() => {
-                router.refresh()
-                router.push(returnTo)
+                startNavTransition(() => {
+                    router.refresh()
+                    router.push(returnTo)
+                })
             }}
             closeLabel={returnLabel}
         />

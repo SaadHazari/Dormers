@@ -357,6 +357,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [isNavPending, startNavTransition] = useTransition()
+  const navTo = (href: string) => startNavTransition(() => router.push(href))
   const [actionError, setActionError]     = useState<string | null>(null)
 
   // Stable home-canvas marker. The home page's orange root-canvas colour is set via
@@ -1782,18 +1784,19 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                   {blocked ? (
                     <span title={outOfZone ? 'Outside delivery radius — message us on WhatsApp' : 'Complete your profile first'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 13px', background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)', borderRadius: 999, fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', cursor: 'not-allowed', flexShrink: 0 }}>Renew <ChevronRight size={13} strokeWidth={2.6} /></span>
                   ) : (
-                    <Link href={`/dashboard/explore-plans?plan=${encodeURIComponent(sub.plan_name)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 13px', background: OG, color: '#fff', borderRadius: 999, fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', textDecoration: 'none', boxShadow: '0 4px 12px rgba(245,127,32,0.40)', flexShrink: 0 }}>Renew <ChevronRight size={13} strokeWidth={2.6} /></Link>
+                    <button type="button" onClick={() => navTo(`/dashboard/explore-plans?plan=${encodeURIComponent(sub.plan_name)}`)} disabled={isNavPending} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 13px', background: OG, color: '#fff', borderRadius: 999, fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', border: 'none', cursor: isNavPending ? 'default' : 'pointer', boxShadow: '0 4px 12px rgba(245,127,32,0.40)', flexShrink: 0, opacity: isNavPending ? 0.85 : 1, transition: 'opacity 150ms' }}>{isNavPending ? <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : <>Renew <ChevronRight size={13} strokeWidth={2.6} /></>}</button>
                   )}
                 </div>
               )
             })() : null}
             onSkip={handleSkipRequest}
-            onViewDish={() => router.push('/dashboard/menu')}
+            isNavPending={isNavPending}
+            onViewDish={() => navTo('/dashboard/menu')}
             onPlanSkip={openPlanSkipPicker}
             onPause={handlePauseRequest}
-            onWrap={() => router.push('/dashboard/menu/review/monthly')}
+            onWrap={() => navTo('/dashboard/menu/review/monthly')}
             onSetBenchmark={() => setBenchmarkModalOpen(true)}
-            onManageQueued={() => router.push('/dashboard/plan')}
+            onManageQueued={() => navTo('/dashboard/plan')}
             onPillSkip={openFutureSkipModal}
             onPillUnskip={openFutureUnskipModal}
             resolveDish={resolveDish}

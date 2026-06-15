@@ -7,8 +7,9 @@ import { OG, OG3, BODY, S, TIER1, TIER3, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { StatusDot } from './_shared/StatusDot'
 import { PlanGlyph } from './_shared/PlanGlyph'
-import { btnStyle } from './_shared/buttons'
+import { btnStyle, BtnSpinner } from './_shared/buttons'
 import { fmt } from './_shared/format'
+import { useNavigation } from './_shared/useNavigation'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 import type { Customer, Subscription } from './_shared/types'
@@ -48,6 +49,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
     ? 'Outside delivery radius — message us on WhatsApp'
     : 'Complete your profile first'
   const prefersReducedMotion = useReducedMotion()
+  const { navigate, isPending } = useNavigation()
 
   const endedPlans     = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
   const lastEnded      = endedPlans[0]
@@ -215,14 +217,20 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
                   <ChevronRight size={16} strokeWidth={2.5} />
                 </span>
               ) : (
-                <Link
-                  href={`/dashboard/explore-plans${renewParam}`}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/dashboard/explore-plans${renewParam}`)}
+                  disabled={isPending}
                   className="btn-primary"
-                  style={btnStyle('primary')}
+                  style={{
+                    ...btnStyle('primary'),
+                    opacity: isPending ? 0.85 : 1,
+                    transition: 'opacity 150ms, transform 150ms, box-shadow 150ms, background 150ms',
+                  }}
                 >
-                  {isReturning ? `Renew ${lastPlanClean}` : 'Pick a plan'}
-                  <ChevronRight size={16} strokeWidth={2.5} />
-                </Link>
+                  {isPending ? <BtnSpinner /> : (isReturning ? `Renew ${lastPlanClean}` : 'Pick a plan')}
+                  {!isPending && <ChevronRight size={16} strokeWidth={2.5} />}
+                </button>
               )}
               {isReturning && (
                 purchaseGated ? (
@@ -242,24 +250,28 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
                     Browse all plans
                   </span>
                 ) : (
-                  <Link
-                    href="/dashboard/explore-plans"
+                  <button
+                    type="button"
+                    onClick={() => navigate('/dashboard/explore-plans')}
+                    disabled={isPending}
                     style={{
                       fontFamily: BODY,
                       fontSize: 13,
                       fontWeight: 600,
-                      color: S.fgMuted,
+                      color: isPending ? S.fgFaint : S.fgMuted,
                       letterSpacing: '0.04em',
                       textTransform: 'uppercase',
-                      textDecoration: 'none',
                       padding: '12px 6px',
                       borderBottom: `1px solid transparent`,
                       transition: 'color 150ms, border-color 150ms',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: isPending ? 'default' : 'pointer',
                     }}
                     className="noplan-secondary-link"
                   >
-                    Browse all plans
-                  </Link>
+                    {isPending ? <BtnSpinner /> : 'Browse all plans'}
+                  </button>
                 )
               )}
             </motion.div>

@@ -4,6 +4,7 @@ import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/inf
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
+import { isAdminEmail } from '@/contexts/admin/usecases/require-admin'
 import DashboardShell from './DashboardShell'
 import { BugReportTrigger } from './_shared/BugReportTrigger'
 import { IdleRefreshToast } from './_shared/IdleRefreshToast'
@@ -36,33 +37,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const userEmail = user?.email ?? ''
 
   if (user) {
-    // Drain pending preferences if the customer's last sub ended without a
-    // renewal. Must run BEFORE the cached getCustomer/getActiveSubscription
-    // helpers so every nested page reads post-promotion canonical values.
-    // Idempotent: a no-op when a live/scheduled sub exists or when no
-    // pending changes are queued.
-    await promotePendingPreferencesIfStale(user.id)
-
-    // Phase 8K — lazy reconciliation of stranded weekly-review pending
-    // credits. Originally lived on the dorm-wars hub only, but users
-    // who never visit that page would have stranded pending AED stuck
-    // in their wallet forever. Running it from the layout means every
-    // dashboard navigation resolves drift. The query is cheap when
-    // nothing's stranded (single SELECT, short-circuits on empty
-    // result), and the admin client is needed because credits RLS
-    // doesn't grant customers direct UPDATE access. Fire-and-forget —
-    // never block the page render on cleanup outcomes.
+    // Fire-and-forget background cleanup — never blocks page render.
     const reviewCleanupAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } },
     )
-    await rejectExpiredWeeklyReviewPending(reviewCleanupAdmin, user.id).catch((err) => {
+    rejectExpiredWeeklyReviewPending(reviewCleanupAdmin, user.id).catch((err) => {
       console.error('layout: rejectExpiredWeeklyReviewPending failed:', err)
     })
+    promotePendingPreferencesIfStale(user.id).catch((err) => {
+      console.error('layout: promotePendingPreferencesIfStale failed:', err)
+    })
 
-    // Cached helpers — pages that re-call these in the same request will
-    // hit React's request-scoped cache and skip the network round-trip.
     const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
@@ -100,6 +87,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         customerDorm={customerDorm}
         userEmail={userEmail}
         planName={planName}
+        isAdmin={isAdminEmail(userEmail)}
         dormWarsEligible={dormWarsEligible}
         referralData={referralData}
         weeklyReviewState={weeklyReviewState}

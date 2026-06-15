@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { WeeklyReviewTakeover, type WeeklyReviewMeal, type WeeklyReviewPayload } from '../../../_shared/WeeklyReviewTakeover'
 import { submitWeeklyReview } from '../actions'
@@ -33,6 +34,7 @@ export function ReviewClient({
     returnTo?: string
 }) {
     const router = useRouter()
+    const [isNavPending, startNavTransition] = useTransition()
     const returnLabel = returnTo.includes('dorm-wars') ? 'Back to Dorm Wars' : 'Back to dashboard'
 
     return (
@@ -45,10 +47,11 @@ export function ReviewClient({
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
             onSubmit={(payload: WeeklyReviewPayload) => submitWeeklyReview(week, payload)}
-            onClose={() => router.push(returnTo)}
+            isClosePending={isNavPending}
+            onClose={() => startNavTransition(() => router.push(returnTo))}
             onContinueChain={(nextWeek) => {
                 const fromParam = returnTo.includes('dorm-wars') ? '?from=dorm-wars' : ''
-                router.push(`/dashboard/menu/review/${nextWeek}${fromParam}`)
+                startNavTransition(() => router.push(`/dashboard/menu/review/${nextWeek}${fromParam}`))
             }}
             closeLabel={returnLabel}
         />

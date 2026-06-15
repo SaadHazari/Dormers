@@ -14,6 +14,7 @@
 
 import { redirect } from 'next/navigation'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
+import { createClient } from '@/utils/supabase/server'
 
 const ADMIN_EMAILS: Set<string> = new Set(
   (process.env.ADMIN_EMAILS ?? '')
@@ -35,7 +36,19 @@ export function isAdminEmail(email: string | null | undefined): boolean {
  * x-user-email headers; we just check the email against the allowlist.
  */
 export async function requireAdmin(): Promise<{ id: string; email: string }> {
-  const user = await getUserFromHeaders()
+  let user = await getUserFromHeaders()
+
+  // Safety net: if middleware forwarded a user ID but the email claim was
+  // absent (stale JWT), fetch fresh user data from Supabase so the
+  // allowlist check has something real to match against.
+  if (user && !user.email) {
+    const supabase = await createClient()
+    const { data } = await supabase.auth.getUser()
+    if (data?.user?.email) {
+      user = { id: user.id, email: data.user.email }
+    }
+  }
+
   if (!user) redirect('/login')
   if (!isAdminEmail(user.email)) redirect('/dashboard')
   return user

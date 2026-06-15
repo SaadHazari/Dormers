@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
@@ -932,6 +933,8 @@ export default function MenuClient({
 
   const [openMeal, setOpenMeal] = useState<WeekMeal | null>(null)
   const router = useRouter()
+  const [, startNavTransition] = useTransition()
+  const navTo = (href: string) => startNavTransition(() => router.push(href))
 
   // Per-card click router. Plan-ends cards short-circuit the dish detail
   // modal and route straight to the renew flow — the card's visual signals
@@ -939,7 +942,7 @@ export default function MenuClient({
   // this destination, so the click pays off the promise. Subtle = the
   // affordance is already there; we just rewire what it does.
   function clickFor(meal: WeekMeal, reason: NoDeliveryReason | null) {
-    if (reason === 'plan-ends') return () => router.push('/dashboard/explore-plans')
+    if (reason === 'plan-ends') return () => navTo('/dashboard/explore-plans')
     return () => setOpenMeal(meal)
   }
 
@@ -973,9 +976,9 @@ export default function MenuClient({
                 while the current cycle keeps cooking as before. No mid-
                 cycle "locked" copy here — the modal already explains
                 the timing. */}
-            <a href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}>
+            <Link href="/dashboard/profile" style={{ color: S.fgSub, fontSize: 12, fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}>
               Change
-            </a>
+            </Link>
             <span style={{ opacity: 0.4 }}>·</span>
             <span>Delivered 7–8 PM · Sunday off</span>
           </div>
@@ -1070,7 +1073,7 @@ export default function MenuClient({
           nextDeliveryLabel={nextDeliveryLabel(weekType)}
           thisWeekCells={thisWeekCells}
           nextWeekCells={nextWeekCells}
-          onRenew={() => router.push('/dashboard/explore-plans')}
+          onRenew={() => navTo('/dashboard/explore-plans')}
         />
       </div>
 

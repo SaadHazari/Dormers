@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } from 'lucide-react'
 import type { WeekMeal, WeekDayState, NoDeliveryReason } from '../menu/MenuClient'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
@@ -88,7 +89,7 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, resumedAfterCu
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 12.5, color: S.fgMuted, marginTop: -6 }}>
         <span>Preference</span>
         <MealTag kind={prefTag} compact />
-        <a href="/dashboard/profile" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 4px', margin: '-6px -4px', color: S.fgSub, fontSize: 12, fontWeight: 700, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3, touchAction: 'manipulation' }}>Change</a>
+        <Link href="/dashboard/profile" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 4px', margin: '-6px -4px', color: S.fgSub, fontSize: 12, fontWeight: 700, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3, touchAction: 'manipulation' }}>Change</Link>
         <span style={{ color: S.fgFaint }}>·</span>
         <span>7–8 PM · Sun off</span>
       </div>

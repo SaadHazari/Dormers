@@ -40,6 +40,7 @@ export interface MonthlyReviewTakeoverProps {
     onSubmit: (payload: MonthlyReviewPayload) => Promise<MonthlyReviewSubmitResult>
     onClose: () => void
     closeLabel?: string
+    isClosePending?: boolean
 }
 
 export function MonthlyReviewTakeover({
@@ -50,6 +51,7 @@ export function MonthlyReviewTakeover({
     onSubmit,
     onClose,
     closeLabel = 'Back to dashboard',
+    isClosePending = false,
 }: MonthlyReviewTakeoverProps) {
     const vocab = wrapVocabFor(planTier)
     // Trial = a single meal. It gets its own short flow (opening + 3 questions)
@@ -642,6 +644,7 @@ export function MonthlyReviewTakeover({
                         planTier={planTier}
                         onClose={onClose}
                         closeLabel={closeLabel}
+                        isClosePending={isClosePending}
                     />
                 )}
             </main>
@@ -650,15 +653,18 @@ export function MonthlyReviewTakeover({
                 <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', gap: 16 }}>
                     <button
                         onClick={onClose}
+                        disabled={isClosePending}
                         style={{
-                            background: 'transparent', border: 0, cursor: 'pointer',
+                            background: 'transparent', border: 0, cursor: isClosePending ? 'default' : 'pointer',
                             fontFamily: BODY, fontSize: 12, fontWeight: 600,
                             letterSpacing: '0.06em', textTransform: 'uppercase',
                             color: TIER_POP_TEXT.faint,
                             padding: '8px 12px',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}
                     >
-                        Save & continue later
+                        {isClosePending && <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />}
+                        {isClosePending ? 'Loading' : 'Save & continue later'}
                     </button>
                 </footer>
             )}
@@ -675,6 +681,7 @@ function RevealScreen({
     planTier,
     onClose,
     closeLabel = 'Back to dashboard',
+    isClosePending = false,
 }: {
     userName: string
     rewardPct: 50 | 100
@@ -682,9 +689,11 @@ function RevealScreen({
     planTier: WrapPlanTier
     onClose: () => void
     closeLabel?: string
+    isClosePending?: boolean
 }) {
     const vocab = wrapVocabFor(planTier)
     const router = useRouter()
+    const [isNextPending, startNextTransition] = useTransition()
     const isTrial = planTier === 'trial'
     // Tier-aware next-trigger destination: trial users haven't chosen a plan yet,
     // so the most meaningful next action is the plan picker. Returning customers
@@ -798,7 +807,11 @@ function RevealScreen({
 
             <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 10, maxWidth: 400 }}>
                 <button
-                    onClick={() => { onClose(); router.push(nextHref) }}
+                    onClick={() => {
+                        onClose()
+                        startNextTransition(() => router.push(nextHref))
+                    }}
+                    disabled={isNextPending || isClosePending}
                     style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                         width: '100%',
@@ -810,25 +823,36 @@ function RevealScreen({
                         fontFamily: BODY,
                         fontSize: 13, fontWeight: 700,
                         letterSpacing: '0.06em', textTransform: 'uppercase',
-                        cursor: 'pointer',
+                        cursor: (isNextPending || isClosePending) ? 'default' : 'pointer',
                         boxShadow: '0 8px 28px rgba(245,127,32,0.50)',
+                        opacity: isNextPending ? 0.85 : 1,
+                        transition: 'opacity 150ms',
                     }}
                 >
-                    {nextLabel}
-                    <ArrowRight size={14} strokeWidth={2.4} />
+                    {isNextPending ? (
+                        <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                    ) : (
+                        <>
+                            {nextLabel}
+                            <ArrowRight size={14} strokeWidth={2.4} />
+                        </>
+                    )}
                 </button>
                 <button
                     onClick={onClose}
+                    disabled={isClosePending || isNextPending}
                     style={{
-                        background: 'transparent', border: 0, cursor: 'pointer',
+                        background: 'transparent', border: 0, cursor: (isClosePending || isNextPending) ? 'default' : 'pointer',
                         fontFamily: BODY, fontSize: 12, fontWeight: 600,
                         letterSpacing: '0.06em', textTransform: 'uppercase',
                         color: TIER_POP_TEXT.faint,
                         padding: '8px 12px',
                         textAlign: 'center',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}
                 >
-                    {closeLabel}
+                    {isClosePending && <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />}
+                    {isClosePending ? 'Loading' : closeLabel}
                 </button>
             </div>
         </div>

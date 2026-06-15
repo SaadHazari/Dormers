@@ -88,22 +88,30 @@ async function findOrCreateContact(params: {
   return createContact(params);
 }
 
-/**
- * Format an ISO date (YYYY-MM-DD) as DDMMYYYY for the customer-facing
- * invoice/receipt number — UAE/EU convention per user preference.
- */
-function ddmmyyyy(iso: string): string {
-  const [y, m, d] = iso.split('-');
-  return `${d}${m}${y}`;
+function yyyymmdd(iso: string): string {
+  return iso.replace(/-/g, '');
+}
+
+function planCode(planName: string): string {
+  const map: Record<string, string> = {
+    'Monthly Max': 'MMAX',
+    'Monthly Premium': 'MPREM',
+    'Weekly Flex': 'WFLEX',
+    'One-Time Trial': 'TRIAL',
+    'Welcome Meal': 'GIFT',
+    'Staff Monthly': 'STAFF',
+  };
+  return map[planName] ?? planName.replace(/\s+/g, '').substring(0, 6).toUpperCase();
 }
 
 /**
- * Create an invoice with a custom invoice_number. The format is
- * `invoice-{cid}-{DDMMYYYY}`. If a duplicate already exists (same customer
- * paid twice on the same day — rare but possible), append `-2`, `-3`, etc.
- * up to 5 attempts. The ?ignore_auto_number_generation=true query param
- * is what allows us to override Zoho's default sequential numbering on a
- * per-request basis without changing org settings.
+ * Create an invoice with a custom invoice_number. Format:
+ * `INV-{cid}-{YYYYMMDD}`. On same-day collision, appends `-2`, `-3`, etc.
+ * up to 5 attempts.
+ *
+ * The P.O.# (reference_number) is a human-readable order ref:
+ * `DRM-{PLANCODE}-{YYYYMMDD}`. The Stripe session ref moves to notes
+ * so it's still available for reconciliation but not customer-facing.
  */
 async function createInvoice(params: {
   contactId: string;
@@ -126,7 +134,13 @@ async function createInvoice(params: {
 }): Promise<ZohoInvoice> {
   const taxId = process.env.ZOHO_VAT_TAX_ID;
   const inclusive = (process.env.ZOHO_VAT_INCLUSIVE ?? 'true') === 'true';
-  const base = `invoice-${params.customerCid}-${ddmmyyyy(params.paymentDateIso)}`;
+  const datePart = yyyymmdd(params.paymentDateIso);
+  const base = `INV-${params.customerCid}-${datePart}`;
+  const poRef = `DRM-${planCode(params.planName)}-${datePart}`;
+  const stripeNote = `Stripe ref: ${params.sessionRef}`;
+  const combinedNotes = params.notes
+    ? `${params.notes}\n${stripeNote}`
+    : stripeNote;
   // Defensive 2dp clamp — the webhook already rounds, but any future caller
   // passing a float that came from `total / qty` would print an ugly rate
   // on the FTA invoice ("5.620833 × 48"). Guarantee a clean display.
@@ -143,7 +157,7 @@ async function createInvoice(params: {
           body: {
             customer_id: params.contactId,
             invoice_number: candidate,
-            reference_number: params.sessionRef,
+            reference_number: poRef,
             is_inclusive_tax: inclusive,
             line_items: [
               {
@@ -156,16 +170,12 @@ async function createInvoice(params: {
             ],
             ...(discount > 0
               ? {
-                  // Invoice-level flat-amount discount (not a percentage).
-                  // is_discount_before_tax=true ⇒ Zoho subtracts the discount
-                  // from the line subtotal before computing tax. Same path Zoho's
-                  // own "Apply Discount" UI uses.
                   discount,
                   is_discount_before_tax: true,
                   discount_type: 'item_level',
                 }
               : {}),
-            ...(params.notes ? { notes: params.notes } : {}),
+            notes: combinedNotes,
           },
         },
       );
@@ -177,7 +187,7 @@ async function createInvoice(params: {
       throw err;
     }
   }
-  throw new Error(`Zoho invoice creation failed: 5 collisions on base "${base}"`);
+  throw new Error(`Zoho invoice creation failed: 5 collisions on "${base}"`);
 }
 
 async function recordPayment(params: {
@@ -188,7 +198,9 @@ async function recordPayment(params: {
   paymentDateIso: string;
   stripeRef: string;
 }): Promise<{ paymentId: string }> {
-  const base = `receipt-${params.customerCid}-${ddmmyyyy(params.paymentDateIso)}`;
+  const datePart = yyyymmdd(params.paymentDateIso);
+  const base = `RCT-${params.customerCid}-${datePart}`;
+  const payRef = `DRM-PAY-${datePart}`;
 
   for (let attempt = 1; attempt <= 5; attempt++) {
     const candidate = attempt === 1 ? base : `${base}-${attempt}`;
@@ -203,7 +215,8 @@ async function recordPayment(params: {
             payment_mode: 'Stripe',
             amount: params.amountAed,
             date: params.paymentDateIso,
-            reference_number: params.stripeRef,
+            reference_number: payRef,
+            notes: `Stripe ref: ${params.stripeRef}`,
             invoices: [
               { invoice_id: params.invoiceId, amount_applied: params.amountAed },
             ],
@@ -217,7 +230,7 @@ async function recordPayment(params: {
       throw err;
     }
   }
-  throw new Error(`Zoho payment recording failed: 5 collisions on base "${base}"`);
+  throw new Error(`Zoho payment recording failed: 5 collisions on "${base}"`);
 }
 
 /**

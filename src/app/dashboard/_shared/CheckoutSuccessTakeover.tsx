@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { BODY, OG, TIER_POP_TEXT } from './tokens'
 
@@ -35,6 +36,7 @@ export function CheckoutSuccessTakeover({
     totalAed,
     onDismiss,
 }: Props) {
+    const [dismissing, setDismissing] = useState(false)
     const deliveryPretty = new Date(firstDeliveryDateIso + 'T00:00:00Z').toLocaleDateString(
         'en-AE',
         { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' },
@@ -125,7 +127,8 @@ export function CheckoutSuccessTakeover({
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <button
                         type="button"
-                        onClick={onDismiss}
+                        onClick={() => { setDismissing(true); onDismiss() }}
+                        disabled={dismissing}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -141,19 +144,39 @@ export function CheckoutSuccessTakeover({
                             fontWeight: 700,
                             letterSpacing: '0.06em',
                             textTransform: 'uppercase',
-                            cursor: 'pointer',
+                            cursor: dismissing ? 'default' : 'pointer',
                             boxShadow: '0 8px 28px rgba(245,127,32,0.50)',
-                            transition: 'transform 150ms cubic-bezier(0.16,1,0.3,1)',
+                            opacity: dismissing ? 0.85 : 1,
+                            transition: 'transform 150ms cubic-bezier(0.16,1,0.3,1), opacity 150ms',
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-1px)'
+                            if (!dismissing) e.currentTarget.style.transform = 'translateY(-1px)'
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)'
                         }}
                     >
-                        Take me to my dashboard
-                        <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
+                        {dismissing ? (
+                            <>
+                                <span
+                                    style={{
+                                        display: 'inline-block',
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: '50%',
+                                        border: '2px solid #fff',
+                                        borderTopColor: 'transparent',
+                                        animation: 'spin 0.8s linear infinite',
+                                    }}
+                                />
+                                Loading dashboard
+                            </>
+                        ) : (
+                            <>
+                                Take me to my dashboard
+                                <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,6 +16,8 @@ import { NavbarMobileMenu } from "./NavbarMobileMenu";
 
 export default function Navbar() {
   const router = useRouter();
+  const [isNavPending, startNavTransition] = useTransition();
+  const navTo = (href: string) => startNavTransition(() => router.push(href));
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(false);
@@ -165,35 +167,46 @@ export default function Navbar() {
             </Link>
 
             <button
-              onClick={() => router.push("/maintenance")}
+              onClick={() => navTo("/maintenance")}
+              disabled={isNavPending}
               className="flex items-center justify-center min-w-[155px] overflow-hidden relative bg-gradient-to-r from-[#f57f20] to-[#ffaa00] text-white px-6 py-2.5 rounded-full shadow-[0_0_20px_rgba(245,127,32,0.4)] hover:scale-105 hover:shadow-[0_0_30px_rgba(245,127,32,0.6)] transition-all duration-300"
+              style={{ opacity: isNavPending ? 0.8 : undefined }}
             >
-              <TextRotate
-                texts={["Get Started", "View Plans"]}
-                mainClassName="text-[12px] uppercase font-black tracking-wider text-white !whitespace-nowrap !flex-nowrap"
-                staggerDuration={0.03}
-                staggerFrom="last"
-                rotationInterval={3500}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              />
+              {isNavPending ? (
+                <span className="inline-block w-[14px] h-[14px] rounded-full border-2 border-white border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+              ) : (
+                <TextRotate
+                  texts={["Get Started", "View Plans"]}
+                  mainClassName="text-[12px] uppercase font-black tracking-wider text-white !whitespace-nowrap !flex-nowrap"
+                  staggerDuration={0.03}
+                  staggerFrom="last"
+                  rotationInterval={3500}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                />
+              )}
             </button>
           </div>
 
           {/* MOBILE: Get Started + Hamburger */}
           <div className="lg:hidden flex items-center gap-2.5">
             <button
-              onClick={() => router.push("/maintenance")}
+              onClick={() => navTo("/maintenance")}
+              disabled={isNavPending}
               className={`flex items-center justify-center min-w-[125px] overflow-hidden relative backdrop-blur-sm px-4 py-2 rounded-full active:scale-95 transition-all duration-200 border ${isLight ? "bg-[#f57f20]/15 border-[#f57f20]/40 text-[#f57f20]" : "bg-[#f57f20]/15 border-[#f57f20]/35 text-[#f57f20]"}`}
-              style={{ WebkitBackdropFilter: "blur(4px)", backdropFilter: "blur(4px)" }}
+              style={{ WebkitBackdropFilter: "blur(4px)", backdropFilter: "blur(4px)", opacity: isNavPending ? 0.7 : undefined }}
             >
-              <TextRotate
-                texts={["Get Started", "View Plans"]}
-                mainClassName="text-[11px] uppercase font-black tracking-wider text-[#f57f20] !whitespace-nowrap !flex-nowrap"
-                staggerDuration={0.03}
-                staggerFrom="last"
-                rotationInterval={3500}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              />
+              {isNavPending ? (
+                <span className="inline-block w-[12px] h-[12px] rounded-full border-2 border-[#f57f20] border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+              ) : (
+                <TextRotate
+                  texts={["Get Started", "View Plans"]}
+                  mainClassName="text-[11px] uppercase font-black tracking-wider text-[#f57f20] !whitespace-nowrap !flex-nowrap"
+                  staggerDuration={0.03}
+                  staggerFrom="last"
+                  rotationInterval={3500}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                />
+              )}
             </button>
 
             <button

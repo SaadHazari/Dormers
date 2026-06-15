@@ -58,14 +58,11 @@ export const PillCard = ({
 }
 
 export const CtaButton = ({
-    children, onClick, disabled = false, type = 'button',
-}: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; type?: 'button' | 'submit' }) => {
+    children, onClick, disabled = false, loading = false, type = 'button',
+}: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; type?: 'button' | 'submit' }) => {
     const isLight = useIsLight()
-    // Disabled style is a desaturated neutral, not faded orange. Faded orange
-    // (the previous opacity-55 approach) collapsed white-on-orange contrast to
-    // ~2.4:1 against the dark navy bg — neutral surface keeps the disabled
-    // state legible in both themes.
-    const stateCls = disabled
+    const off = disabled || loading
+    const stateCls = off
         ? (isLight
             ? 'bg-[#091825]/[0.06] text-[#091825]/65 pointer-events-none'
             : 'bg-white/[0.07] text-white/65 pointer-events-none')
@@ -74,11 +71,27 @@ export const CtaButton = ({
         <button
             type={type}
             onClick={onClick}
-            disabled={disabled}
+            disabled={off}
             className={`w-full flex items-center justify-center gap-2 font-bold text-[14px] py-3.5 rounded-xl transition-all ${stateCls}`}
         >
-            {children}
+            {loading ? <CtaSpinner /> : children}
         </button>
+    )
+}
+
+function CtaSpinner() {
+    return (
+        <span
+            style={{
+                display: 'inline-block',
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                border: '2px solid currentColor',
+                borderTopColor: 'transparent',
+                animation: 'spin 0.8s linear infinite',
+            }}
+        />
     )
 }
 

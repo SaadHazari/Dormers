@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
@@ -62,6 +62,8 @@ import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
 export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
   const router = useRouter();
+  const [isNavPending, startNavTransition] = useTransition();
+  const navTo = (href: string) => startNavTransition(() => router.push(href));
 
   const [isPreloading, setIsPreloading] = useState(true);
   const [skipped, setSkipped] = useState(false);
@@ -204,25 +206,37 @@ export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => router.push("/maintenance")}
+                    onClick={() => navTo("/maintenance")}
+                    disabled={isNavPending}
+                    style={{ opacity: isNavPending ? 0.8 : undefined }}
                   >
-                    <TextRotate
-                      texts={["Get Started", "View Plans"]}
-                      mainClassName="font-bold !whitespace-nowrap !flex-nowrap"
-                      staggerDuration={0.03}
-                      staggerFrom="last"
-                      rotationInterval={3500}
-                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    />
+                    {isNavPending ? (
+                      <span className="inline-block w-[14px] h-[14px] rounded-full border-2 border-white border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+                    ) : (
+                      <TextRotate
+                        texts={["Get Started", "View Plans"]}
+                        mainClassName="font-bold !whitespace-nowrap !flex-nowrap"
+                        staggerDuration={0.03}
+                        staggerFrom="last"
+                        rotationInterval={3500}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      />
+                    )}
                   </motion.button>
                   <motion.button
                     className="h-btn h-btn-secondary"
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => router.push("/maintenance")}
+                    onClick={() => navTo("/maintenance")}
+                    disabled={isNavPending}
+                    style={{ opacity: isNavPending ? 0.6 : undefined }}
                   >
-                    Try a Meal
+                    {isNavPending ? (
+                      <span className="inline-block w-[14px] h-[14px] rounded-full border-2 border-current border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+                    ) : (
+                      'Try a Meal'
+                    )}
                   </motion.button>
 
                   {/* Mobile-only skip intro — centred in CTA row, appears with "You" */}

@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Moon } from 'lucide-react'
 import { OG, OG3, NV, BODY, S, TIER2, TIER_POP_TEXT, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { PlanGlyph } from './_shared/PlanGlyph'
 import { fmt } from './_shared/format'
-import { btnStyle } from './_shared/buttons'
+import { btnStyle, BtnSpinner } from './_shared/buttons'
+import { useNavigation } from './_shared/useNavigation'
 import type { Subscription } from './_shared/types'
 import { groupPauseRanges, buildPauseLookup } from './_shared/pause-ranges'
 
@@ -131,6 +131,7 @@ export function PlanProgress({
     // cancel-planned-pause confirm modal owned by ActiveDashboard.
     onCancelPlannedPause?: () => void
 }) {
+    const { navigate, isPending: isRenewPending } = useNavigation()
     const isMax = sub.plan_name.includes('Monthly Max')
     const mealsPerDelivery = isMax ? 2 : 1
     const total = sub.total_meals
@@ -756,15 +757,15 @@ export function PlanProgress({
                     <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                         <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>Plan ended</div>
                         <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>Renew to keep meals coming.</div>
-                        <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 8, padding: '10px 18px' }}>
-                            Renew →
-                        </Link>
+                        <button type="button" onClick={() => navigate('/dashboard/plan')} disabled={isRenewPending} className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 8, padding: '10px 18px', opacity: isRenewPending ? 0.85 : 1, transition: 'opacity 150ms' }}>
+                            {isRenewPending ? <BtnSpinner /> : 'Renew →'}
+                        </button>
                     </div>
                 ) : renewEligible ? (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <Link href="/dashboard/plan" className="btn-primary" style={{ ...btnStyle('primary-tight'), padding: '10px 20px' }}>
-                            Renew →
-                        </Link>
+                        <button type="button" onClick={() => navigate('/dashboard/plan')} disabled={isRenewPending} className="btn-primary" style={{ ...btnStyle('primary-tight'), padding: '10px 20px', opacity: isRenewPending ? 0.85 : 1, transition: 'opacity 150ms' }}>
+                            {isRenewPending ? <BtnSpinner /> : 'Renew →'}
+                        </button>
                     </div>
                 ) : (startsInFuture || isPaused) ? (
                     <div style={{

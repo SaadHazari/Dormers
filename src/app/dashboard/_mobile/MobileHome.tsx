@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import Image, { type StaticImageData } from 'next/image'
+import Link from 'next/link'
 import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight } from 'lucide-react'
 import { OG, OG3, OG_DEEP, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
 import { MealTag } from '../_shared/MealTag'
@@ -114,6 +115,7 @@ interface Props {
   /** End-of-cycle renew nudge — rendered between the hero and the plan card. */
   renewBanner?: ReactNode
   onSkip?: () => void
+  isNavPending?: boolean
   onViewDish?: () => void
   onPlanSkip?: () => void
   onPause?: () => void
@@ -165,7 +167,7 @@ function isoOf(d: Date): string {
 type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused'
 interface Pill { iso: string; state: PillState; action: 'skip' | 'unskip' | 'info' | 'detail' | 'pause-info' | 'cell-info' | null; pauseRange?: PauseRange }
 
-export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
+export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
   // Delivery-rounded (Monthly Max ships 2 meals/delivery) so "meals left" can
   // never show an un-deliverable odd number — mirrors desktop PlanProgress.
   const perDelivery = data.planName.includes('Monthly Max') ? 2 : 1
@@ -176,6 +178,8 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
   // before the dates column) — count and hatched chips would silently disagree.
   const untracedSkips = Math.max(0, data.skipped - data.skippedDates.length)
   const skipWord = data.skipsPlanned ? `skip${data.skipped === 1 ? '' : 's'} planned` : 'skipped'
+  const [clickedNav, setClickedNav] = useState<string | null>(null)
+  const navClick = (key: string, cb?: () => void) => { setClickedNav(key); cb?.() }
   const [makeupInfo, setMakeupInfo] = useState(false)
   const [dishSheet, setDishSheet] = useState<string | null>(null)
   const [pauseRangeInfo, setPauseRangeInfo] = useState<PauseRange | null>(null)
@@ -482,8 +486,8 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
                 : <><SkipForward size={16} strokeWidth={2.4} /> Skip</>}
             </button>
             )}
-            <button type="button" onClick={onViewDish} style={heroBtn('ghost', false, heroLight)}>
-              <Eye size={16} strokeWidth={2.2} /> View dish
+            <button type="button" onClick={() => navClick('dish', onViewDish)} disabled={isNavPending} style={{ ...heroBtn('ghost', false, heroLight), opacity: isNavPending && clickedNav === 'dish' ? 0.7 : 1, transition: 'opacity 150ms' }}>
+              {isNavPending && clickedNav === 'dish' ? <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : <Eye size={16} strokeWidth={2.2} />} View dish
             </button>
           </div>
           {/* Inline reason — the touch substitute for desktop's hover tooltip.
@@ -521,13 +525,13 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
             Gated on meals (not the date-based renew banner), so it surfaces even
             when deliveries finish ahead of the calendar end date. */}
         {mealsLeft === 0 && !data.queued && (
-          <a href="/dashboard/plan" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '12px 14px', borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', textDecoration: 'none' }}>
+          <Link href="/dashboard/plan" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '12px 14px', borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', textDecoration: 'none' }}>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: S.fg }}>Plan ended</span>
               <span style={{ display: 'block', fontSize: 11.5, color: S.fgMuted, marginTop: 1 }}>Renew to keep meals coming.</span>
             </span>
             <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: OG_DEEP }}>Renew <ChevronRight size={14} strokeWidth={2.6} /></span>
-          </a>
+          </Link>
         )}
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -673,10 +677,11 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
             {onManageQueued && (
               <button
                 type="button"
-                onClick={onManageQueued}
-                style={{ flexShrink: 0, background: 'transparent', border: 'none', padding: '6px 2px', margin: '-6px -2px', fontFamily: BODY, fontSize: 11.5, fontWeight: 700, color: S.fgMuted, cursor: 'pointer', touchAction: 'manipulation', display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                onClick={() => navClick('manage', onManageQueued)}
+                disabled={isNavPending}
+                style={{ flexShrink: 0, background: 'transparent', border: 'none', padding: '6px 2px', margin: '-6px -2px', fontFamily: BODY, fontSize: 11.5, fontWeight: 700, color: S.fgMuted, cursor: isNavPending ? 'default' : 'pointer', touchAction: 'manipulation', display: 'inline-flex', alignItems: 'center', gap: 2, opacity: isNavPending && clickedNav === 'manage' ? 0.7 : 1, transition: 'opacity 150ms' }}
               >
-                Manage <ChevronRight size={13} strokeWidth={2.4} />
+                {isNavPending && clickedNav === 'manage' ? <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : <>Manage <ChevronRight size={13} strokeWidth={2.4} /></>}
               </button>
             )}
           </div>

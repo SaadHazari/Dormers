@@ -12,6 +12,20 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error('Dashboard error:', error)
+    // DEV: write error to a file so CLI can read it
+    if (process.env.NODE_ENV === 'development') {
+      fetch('/api/debug-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack,
+          digest: error.digest,
+          name: error.name,
+          ts: new Date().toISOString(),
+        }),
+      }).catch(() => {})
+    }
   }, [error])
 
   return (
@@ -73,6 +87,32 @@ export default function DashboardError({
           couldn&rsquo;t load this time. Tap retry, or reach out if it keeps
           happening.
         </p>
+        {/* DEV: show full error for debugging */}
+        {process.env.NODE_ENV === 'development' && (
+          <pre
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              color: '#c0392b',
+              fontFamily: 'var(--font-jetbrains), monospace',
+              marginBottom: 18,
+              letterSpacing: '0.02em',
+              textAlign: 'left',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: 200,
+              overflow: 'auto',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'rgba(192,57,43,0.06)',
+              border: '1px solid rgba(192,57,43,0.15)',
+            }}
+          >
+            {error.message}
+            {'\n\n'}
+            {error.stack}
+          </pre>
+        )}
         {error.digest && (
           <p
             style={{

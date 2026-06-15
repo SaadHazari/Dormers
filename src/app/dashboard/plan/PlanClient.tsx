@@ -1406,7 +1406,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   // In 'plan' mode, "Renew" routes the user to /dashboard/explore-plans.
   // In 'explore' mode, the pricing grid is already visible — just scroll to it.
   const openPricing = () => {
-    if (!isExplore) { window.location.href = '/dashboard/explore-plans'; return }
+    if (!isExplore) { router.push('/dashboard/explore-plans'); return }
     requestAnimationFrame(() => {
       setTimeout(() => {
         document.getElementById('plans-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

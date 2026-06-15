@@ -21,6 +21,7 @@ interface Props {
   customerDorm:  string
   userEmail:     string
   planName:      string
+  isAdmin?:      boolean
   dormWarsEligible?: boolean
   referralData?: ReferralData
   weeklyReviewState?: WeeklyReviewState
@@ -33,6 +34,7 @@ const DEFAULT_REFERRAL: ReferralData = { total: 0, converted: 0, creditBalance: 
 
 export default function DashboardShell({
   customerName, customerCid, customerDorm, userEmail,
+  isAdmin = false,
   dormWarsEligible = false,
   referralData = DEFAULT_REFERRAL,
   weeklyReviewState = EMPTY_REVIEW_STATE,
@@ -102,6 +104,7 @@ export default function DashboardShell({
         customerCid={customerCid}
         customerDorm={customerDorm}
         userEmail={userEmail}
+        isAdmin={isAdmin}
         dormWarsEligible={dormWarsEligible}
         referralData={referralData}
         weeklyReviewState={weeklyReviewState}

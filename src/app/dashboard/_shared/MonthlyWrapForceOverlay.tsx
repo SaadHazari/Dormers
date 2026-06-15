@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
@@ -66,21 +66,18 @@ export function MonthlyWrapForceOverlay({
         return () => window.removeEventListener('keydown', onKey)
     }, [visible])
 
+    const [isWrapPending, startWrapTransition] = useTransition()
+
     if (!monthlyWindow.preCron || !visible) return null
 
     const vocab = wrapVocabFor(monthlyWindow.planTier)
     const cycleLabel = monthlyWindow.cycleLabel ?? 'cycle'
     const hasQueued = !!queuedPlanSummary
-    // Headline varies by plan tier — "your month, wrapped" works for monthly
-    // but reads oddly for a trial. Plain-English headline per tier.
     const headline = hasQueued
         ? 'One chapter closes.'
         : vocab.period === 'meal'
             ? 'Your trial, wrapped.'
             : `Your ${vocab.period}, wrapped.`
-    // Plain-English subline. Queued: name the next plan + start date so the
-    // arc reads "close one before opening the next." Non-queued: name the
-    // freshness window so the why-now is obvious.
     const startDateLabel = queuedPlanSummary?.startDate
         ? formatStartDate(queuedPlanSummary.startDate)
         : ''
@@ -96,10 +93,8 @@ export function MonthlyWrapForceOverlay({
     }
 
     function startWrap() {
-        // Persist the dismissal so navigating back to the dashboard during
-        // the form flow doesn't re-pop the overlay.
         try { window.sessionStorage.setItem(DISMISS_KEY, '1') } catch {}
-        router.push('/dashboard/menu/review/monthly')
+        startWrapTransition(() => router.push('/dashboard/menu/review/monthly'))
     }
 
     return (
@@ -220,6 +215,7 @@ export function MonthlyWrapForceOverlay({
                         <button
                             type="button"
                             onClick={startWrap}
+                            disabled={isWrapPending}
                             autoFocus
                             className="mwfo-primary"
                             style={{
@@ -230,12 +226,15 @@ export function MonthlyWrapForceOverlay({
                                 color: '#fff',
                                 fontFamily: BODY, fontSize: 13, fontWeight: 800,
                                 letterSpacing: '0.06em', textTransform: 'uppercase',
-                                cursor: 'pointer',
+                                cursor: isWrapPending ? 'default' : 'pointer',
                                 boxShadow: '0 8px 22px rgba(245,127,32,0.42)',
-                                transition: 'transform 150ms, box-shadow 150ms',
+                                transition: 'transform 150ms, box-shadow 150ms, opacity 150ms',
+                                opacity: isWrapPending ? 0.85 : 1,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                             }}
                         >
-                            Wrap it up · +AED {MONTHLY_REWARD_AED}
+                            {isWrapPending && <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />}
+                            {isWrapPending ? 'Loading' : `Wrap it up · +AED ${MONTHLY_REWARD_AED}`}
                         </button>
                         <button
                             type="button"
