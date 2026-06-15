@@ -14,7 +14,7 @@
 - [x] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration (completed 2026-06-15)
 - [x] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, light mobile-first UI (completed 2026-06-15)
 - [x] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation (completed 2026-06-15)
-- [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
+- [x] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow (completed 2026-06-15)
 - [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
 - [ ] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list
 - [ ] **Phase 8: WhatsApp Inbound Trigger** — Rider texts dorm name, fuzzy match, HMAC verification, message-ID dedup
@@ -117,12 +117,12 @@ Plans:
   9. Gemini timeout (null count) → manual confirmation flow, never auto-completes
   10. `delivery_events` row records: token_id, timestamp, geolocation, expected_count, rider_count, gemini_count, gemini_confidence, photo_path
   11. API route has `export const maxDuration = 60` for Netlify
-**Plans:** 4 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 05-01-PLAN.md — Infrastructure + domain: geo migration, delivery-photos bucket, box-count-verify Gemini function, update-delivery-event use-case (VER-06, VER-13, ARC-03)
-- [ ] 05-02-PLAN.md — API route: /api/ops/verify-box-count with multipart handling, Gemini call, triple-match logic, notifyAdmin escalation (VER-04, VER-06–11, ARC-03)
-- [ ] 05-03-PLAN.md — Client UI: camera capture (getUserMedia + fallback), image resize, count input, drop-off modal, per-dorm status tracking (VER-01–03, VER-05, VER-12)
+- [x] 05-01-PLAN.md — Infrastructure + domain: geo migration, delivery-photos bucket, box-count-verify Gemini function, update-delivery-event use-case (VER-06, VER-13, ARC-03)
+- [x] 05-02-PLAN.md — API route: /api/ops/verify-box-count with multipart handling, Gemini call, triple-match logic, notifyAdmin escalation (VER-04, VER-06–11, ARC-03)
+- [x] 05-03-PLAN.md — Client UI: camera capture (getUserMedia + fallback), image resize, count input, drop-off modal, per-dorm status tracking (VER-01–03, VER-05, VER-12)
 - [ ] 05-04-PLAN.md — Compile/lint check + visual verification checkpoint (all VER + ARC-03)
 
 **UI hint:** yes
@@ -195,7 +195,7 @@ Plans:
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
-| 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
+| 5. Rider Page — Drop-off & Verification | 3/3 | Complete   | 2026-06-15 |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
