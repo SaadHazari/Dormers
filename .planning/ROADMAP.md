@@ -67,8 +67,8 @@ Plans:
 **Success Criteria:**
   1. `/kitchen/[valid-token]` renders today's veg and non-veg dish with photo, name, and veg/non-veg badge
   2. Tapping a dish card opens a full-screen recipe modal with sticky Ingredients / Method / Notes tabs
-  3. Before 2 PM UAE: page shows "Counts locked until 2 PM" placeholder — no count numbers visible anywhere
-  4. After 2 PM UAE: total veg and non-veg counts displayed prominently — numbers match the admin deliveries page for the same day
+  3. Before 2 PM UAE: page shows estimated approximate veg/non-veg counts derived from active subscriptions, clearly labeled "Estimated ~X" — kitchen can start prepping
+  4. After 2 PM UAE: confirmed total veg and non-veg counts displayed prominently, labeled "Confirmed" — numbers match the admin deliveries page for the same day
   5. Invalid or revoked token returns a 404 page — no redirect, no error detail
   6. Page works at 375px (iPhone SE) with dark background, Montserrat font, minimum 18px body text
   7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
