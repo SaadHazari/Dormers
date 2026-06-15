@@ -71,7 +71,7 @@ Rules:
           {
             type: 'file',
             data: pdfBytes,
-            mimeType: 'application/pdf',
+            mediaType: 'application/pdf',
           },
           {
             type: 'text',
