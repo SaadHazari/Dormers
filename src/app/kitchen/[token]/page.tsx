@@ -82,6 +82,7 @@ export default async function KitchenPage({
           image: typeof vegDish.image === 'string' ? vegDish.image : '',
           isVeg: true,
           recipe: recipeMap.get(vegDish.name) ?? null,
+          mealCount: counts.vegCount,
         }
       : null,
     nonVegDish
@@ -90,6 +91,7 @@ export default async function KitchenPage({
           image: typeof nonVegDish.image === 'string' ? nonVegDish.image : '',
           isVeg: false,
           recipe: recipeMap.get(nonVegDish.name) ?? null,
+          mealCount: counts.nonVegCount,
         }
       : null,
   ].filter((d): d is NonNullable<typeof d> => d !== null)
