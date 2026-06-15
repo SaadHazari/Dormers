@@ -4,18 +4,18 @@ milestone: v2.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-06-15"
-last_activity: 2026-06-15 -- Phase 03 Plan 02 complete (dark UI + recipe modal)
+last_activity: 2026-06-15 -- Phase 03 complete (kitchen display approved)
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State — Dormer's Ops Interfaces
 
 **Last updated:** 2026-06-15
-**Session:** Milestone v2.0 — Phase 03 executing
+**Session:** Milestone v2.0 — Phase 03 complete, Phase 04 next
 
 ---
 
@@ -47,15 +47,17 @@ None
 - [Phase 03 Plan 02]: RecipeModal as separate function above KitchenClient — clean tab-reset useEffect with dish dependency
 - [Phase 03 Plan 02]: Color hex opacity suffix (EMERALD + '1a') for 10% opacity backgrounds — avoids rgba/background shorthand mixing memory rule
 - [Phase 03 Plan 02]: img tag over next/image for dish photos — CMS storage URLs need remotePatterns config (out of scope)
+- [Phase 03]: Owner overrode KIT-06 dark mode — kitchen display is LIGHT (cream/beige palette), not dark navy
+- [Phase 03]: Recipe method steps split per component via keyword extraction from section headings — tabs for multi-component dishes
 
 ---
 
 ## Current Position
 
-Phase: 03 (Kitchen Display) — EXECUTING
-Plan: 2 of 3 complete
-Status: Plan 03-02 dark UI complete, Plan 03-03 next (visual verification checkpoint)
-Last activity: 2026-06-15 -- Phase 03 Plan 02 complete (dark UI + recipe modal)
+Phase: 03 (Kitchen Display) — COMPLETE
+Plan: 3 of 3 complete
+Status: Owner approved kitchen display — light mode, tabbed recipes, scaled quantities
+Last activity: 2026-06-15 -- Phase 03 complete (visual checkpoint passed, user approved)
 
 ---
 

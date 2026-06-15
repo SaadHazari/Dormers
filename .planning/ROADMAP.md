@@ -12,7 +12,7 @@
 
 - [x] **Phase 1: Recipe Seeding** — Add recipe JSONB column to dishes table, parse cookbook PDF, seed all 48+ recipes (completed 2026-06-14)
 - [x] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration (completed 2026-06-15)
-- [ ] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, dark mobile-first UI
+- [x] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, light mobile-first UI (completed 2026-06-15)
 - [ ] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation
 - [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
 - [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
@@ -74,12 +74,12 @@ Plans:
   7. "Last updated" timestamp visible, page auto-refreshes every 60 seconds
   8. `<meta name="referrer" content="no-referrer">` present in page head
   9. `export const dynamic = 'force-dynamic'` on the page route
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md — Count query use-case + RSC page with token gate, dish/recipe fetch, 2PM estimated/confirmed logic (TOK-03, KIT-01, KIT-03, KIT-04, KIT-05, ARC-05)
-- [x] 03-02-PLAN.md — Dark mobile-first KitchenClient: styled dish cards, recipe modal with sticky tabs, color coding (KIT-02, KIT-06, KIT-07, KIT-08, KIT-09)
-- [ ] 03-03-PLAN.md — Visual verification checkpoint at 375px (KIT-07)
+- [x] 03-02-PLAN.md — Light mobile-first KitchenClient: styled dish cards, tabbed recipe view with per-component method splitting, color coding (KIT-02, KIT-06, KIT-07, KIT-08, KIT-09)
+- [x] 03-03-PLAN.md — Visual verification checkpoint — owner approved (KIT-07)
 **UI hint:** yes
 
 ### Phase 4: Rider Page — Pickup
@@ -181,7 +181,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Recipe Seeding | 2/2 | Complete   | 2026-06-15 |
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
-| 3. Kitchen Display | 0/3 | Planned    |  |
+| 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 0/? | Not started | — |
 | 5. Rider Page — Drop-off & Verification | 0/? | Not started | — |
 | 6. Delivery Notification Fanout | 0/? | Not started | — |
@@ -204,17 +204,17 @@ Plans:
 | DB-07 | Phase 2 | Complete |
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
-| TOK-03 | Phase 3 | Pending |
+| TOK-03 | Phase 3 | Complete |
 | TOK-04 | Phase 9 | Pending |
-| KIT-01 | Phase 3 | Pending |
-| KIT-02 | Phase 3 | Pending |
-| KIT-03 | Phase 3 | Pending |
-| KIT-04 | Phase 3 | Pending |
-| KIT-05 | Phase 3 | Pending |
-| KIT-06 | Phase 3 | Pending |
-| KIT-07 | Phase 3 | Pending |
-| KIT-08 | Phase 3 | Pending |
-| KIT-09 | Phase 3 | Pending |
+| KIT-01 | Phase 3 | Complete |
+| KIT-02 | Phase 3 | Complete |
+| KIT-03 | Phase 3 | Complete |
+| KIT-04 | Phase 3 | Complete |
+| KIT-05 | Phase 3 | Complete |
+| KIT-06 | Phase 3 | Complete |
+| KIT-07 | Phase 3 | Complete |
+| KIT-08 | Phase 3 | Complete |
+| KIT-09 | Phase 3 | Complete |
 | RID-01 | Phase 4 | Pending |
 | RID-02 | Phase 4 | Pending |
 | RID-03 | Phase 4 | Pending |
@@ -255,7 +255,7 @@ Plans:
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
 | ARC-04 | Phase 6 | Pending |
-| ARC-05 | Phase 3 | Pending |
+| ARC-05 | Phase 3 | Complete |
 
 **v1 requirements mapped:** 58/58
 **Orphaned requirements:** 0
@@ -263,4 +263,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 3 planned (3 plans across 3 waves)*
+*Last updated: 2026-06-15 — Phase 3 complete (kitchen display approved by owner)*

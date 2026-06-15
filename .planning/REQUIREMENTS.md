@@ -25,12 +25,12 @@
 ### Kitchen Display
 
 - [x] **KIT-01**: `/kitchen/[token]` page shows today's veg and non-veg dish with photo and name
-- [x] **KIT-02**: Tap-to-expand recipe modal with sticky section navigator (Ingredients / Method / Notes)
+- [x] **KIT-02**: Tap-to-expand recipe view with tabbed section navigator per component (ingredients + method per tab)
 - [x] **KIT-03**: Before 2 PM UAE — shows estimated approximate veg/non-veg counts derived from active subscriptions (clearly labeled "Estimated")
 - [x] **KIT-04**: After 2 PM UAE, confirmed total veg and non-veg counts displayed (accounts for skips/pauses; labeled "Confirmed")
 - [x] **KIT-05**: 2 PM cutoff evaluated server-side in RSC, never client-side
-- [x] **KIT-06**: Dark background, Montserrat font, 18px+ body text, 32px+ dish names
-- [x] **KIT-07**: Works at 375px mobile and desktop — no login, no app install
+- [x] **KIT-06**: Light cream/beige background (owner override from dark spec), 18px+ body text, 32px+ dish names
+- [x] **KIT-07**: Works at 375px mobile and desktop — no login, no app install — owner verified
 - [x] **KIT-08**: 60-second auto-refresh with "last updated HH:MM" timestamp
 - [x] **KIT-09**: Veg = emerald green, non-veg = brand orange `#f57f20` color coding
 
@@ -142,14 +142,14 @@
 | TOK-03 | Phase 3 | Complete |
 | TOK-04 | Phase 9 | Pending |
 | KIT-01 | Phase 3 | Complete |
-| KIT-02 | Phase 3 | Pending |
+| KIT-02 | Phase 3 | Complete |
 | KIT-03 | Phase 3 | Complete |
 | KIT-04 | Phase 3 | Complete |
 | KIT-05 | Phase 3 | Complete |
-| KIT-06 | Phase 3 | Pending |
-| KIT-07 | Phase 3 | Pending |
-| KIT-08 | Phase 3 | Pending |
-| KIT-09 | Phase 3 | Pending |
+| KIT-06 | Phase 3 | Complete |
+| KIT-07 | Phase 3 | Complete |
+| KIT-08 | Phase 3 | Complete |
+| KIT-09 | Phase 3 | Complete |
 | RID-01 | Phase 4 | Pending |
 | RID-02 | Phase 4 | Pending |
 | RID-03 | Phase 4 | Pending |
@@ -192,6 +192,8 @@
 | ARC-04 | Phase 6 | Pending |
 | ARC-05 | Phase 3 | Complete |
 
+
+
 **Coverage:**
 - v1 requirements: 58 total
 - Mapped to phases: 58
@@ -199,4 +201,4 @@
 
 ---
 *Requirements defined: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 2 requirements complete (DB-03–05, DB-07, TOK-01–02, ARC-01–02)*
+*Last updated: 2026-06-15 — Phase 3 requirements complete (TOK-03, KIT-01–09, ARC-05)*
