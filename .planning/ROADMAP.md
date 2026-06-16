@@ -195,7 +195,13 @@ Plans:
   4. Admin panel has a token rotation UI — new token generated, old token revoked, no deploy needed
   5. Both pages tested and verified at 375px on iOS Safari and Android Chrome
   6. End-to-end flow tested: kitchen sees dishes → rider picks up → rider drops off → photo verified → customer gets WhatsApp
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — PWA manifest (src/app/manifest.ts), icon resizing (icon-192/512/180.png), iOS meta tags on kitchen + ops page.tsx (PWA-02, PWA-03)
+- [ ] 09-02-PLAN.md — Token rotation admin page (/admin/ops-tokens RSC + client + server action + sidebar/Cmd+K) (TOK-04)
+- [ ] 09-03-PLAN.md — /api/ops/mark-delivered endpoint, iOS Shortcuts guide (public/shortcuts/README.md), compile/lint gate, visual verification checkpoint (PWA-01)
+
 **UI hint:** yes
 
 ---
@@ -212,7 +218,7 @@ Plans:
 | 6. Delivery Notification Fanout | 1/1 | Complete | 2026-06-16 |
 | 7. Failsafe Cron | 1/1 | Complete | 2026-06-16 |
 | 8. WhatsApp Inbound Trigger | 2/2 | Complete | 2026-06-16 |
-| 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
+| 9. iOS Shortcuts + PWA + Polish | 0/3 | Planning complete | — |
 
 ---
 
@@ -288,4 +294,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-16 — Phase 8 complete (2/2 plans)*
+*Last updated: 2026-06-16 — Phase 9 planning complete (3 plans)*
