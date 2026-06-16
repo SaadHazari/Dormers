@@ -12,7 +12,7 @@
 - [x] **DB-03**: `ops_tokens` table created with token, role (kitchen/rider), label, is_active, revoked_at
 - [x] **DB-04**: `delivery_events` table created with delivery_date, dorm_name, expected/rider/gemini counts, photo_path, verified flag, UNIQUE(delivery_date, dorm_name, trip_number)
 - [x] **DB-05**: `delivery_confirmed` and `delivery_unconfirmed_8pm` kinds added to `customer_notifications` CHECK constraint
-- [ ] **DB-06**: `delivery_confirmed` CASE branch added to `dispatch_customer_notifications_tick` dispatcher
+- [x] **DB-06**: `delivery_confirmed` CASE branch added to `dispatch_customer_notifications_tick` dispatcher
 - [x] **DB-07**: Explicit GRANTs on new tables for `authenticated` and `service_role`
 
 ### Token Auth
@@ -59,10 +59,10 @@
 
 ### Delivery Notifications
 
-- [ ] **NOT-01**: On verified delivery (green tick), customer WhatsApp queued via `queueCustomerNotification` with kind `delivery_confirmed`
-- [ ] **NOT-02**: Notifications sent only to active, non-skipped, non-paused subscribers for that dorm on that day
-- [ ] **NOT-03**: Uses existing dispatcher pipeline (pg_cron + `FOR UPDATE SKIP LOCKED`)
-- [ ] **NOT-04**: `delivery_confirmed` Meta template registered as UTILITY category before dispatch code ships
+- [x] **NOT-01**: On verified delivery (green tick), customer WhatsApp queued via `queueCustomerNotification` with kind `delivery_confirmed`
+- [x] **NOT-02**: Notifications sent only to active, non-skipped, non-paused subscribers for that dorm on that day
+- [x] **NOT-03**: Uses existing dispatcher pipeline (pg_cron + `FOR UPDATE SKIP LOCKED`)
+- [x] **NOT-04**: `delivery_confirmed` Meta template registered as UTILITY category before dispatch code ships
 
 ### Failsafe
 
@@ -93,7 +93,7 @@
 - [x] **ARC-01**: New `ops` bounded context at `src/contexts/ops/` with domain/ and usecases/ layers
 - [x] **ARC-02**: `dorm-shapes.ts` moved from `src/app/admin/labels/` to `src/shared/`
 - [ ] **ARC-03**: Gemini box count verification in API route with `maxDuration = 60` (not server action)
-- [ ] **ARC-04**: Cross-context notification queueing via `queueCustomerNotification` import
+- [x] **ARC-04**: Cross-context notification queueing via `queueCustomerNotification` import
 - [x] **ARC-05**: All ops page loads force-dynamic (no caching — token validation + time-gated counts)
 
 ## v2 Requirements
@@ -135,7 +135,7 @@
 | DB-03 | Phase 2 | Complete |
 | DB-04 | Phase 2 | Complete |
 | DB-05 | Phase 2 | Complete |
-| DB-06 | Phase 6 | Pending |
+| DB-06 | Phase 6 | Complete |
 | DB-07 | Phase 2 | Complete |
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
@@ -167,10 +167,10 @@
 | VER-11 | Phase 5 | Pending |
 | VER-12 | Phase 5 | Pending |
 | VER-13 | Phase 5 | Pending |
-| NOT-01 | Phase 6 | Pending |
-| NOT-02 | Phase 6 | Pending |
-| NOT-03 | Phase 6 | Pending |
-| NOT-04 | Phase 6 | Pending |
+| NOT-01 | Phase 6 | Complete |
+| NOT-02 | Phase 6 | Complete |
+| NOT-03 | Phase 6 | Complete |
+| NOT-04 | Phase 6 | Complete |
 | FAIL-01 | Phase 7 | Pending |
 | FAIL-02 | Phase 7 | Pending |
 | FAIL-03 | Phase 7 | Pending |
@@ -189,7 +189,7 @@
 | ARC-01 | Phase 2 | Complete |
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
-| ARC-04 | Phase 6 | Pending |
+| ARC-04 | Phase 6 | Complete |
 | ARC-05 | Phase 3 | Complete |
 
 

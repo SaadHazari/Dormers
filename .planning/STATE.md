@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v2.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md (infrastructure + domain layer)
-last_updated: "2026-06-15T13:40:51.906Z"
+stopped_at: Completed 06-01-PLAN.md (delivery notification fanout)
+last_updated: "2026-06-16T07:00:21.236Z"
 progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 19
-  completed_plans: 15
+  total_phases: 13
+  completed_phases: 7
+  total_plans: 32
+  completed_plans: 23
   percent: 100
 ---
 
@@ -144,7 +144,7 @@ Asset hand-off: 11 audio stems are valid silent MPEG-1 Layer III placeholders (P
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 05-01-PLAN.md (infrastructure + domain layer)
+**Stopped at:** Completed 06-01-PLAN.md (delivery notification fanout)
 
 ---
 

@@ -138,7 +138,11 @@ Plans:
   4. Notifications flow through the existing `FOR UPDATE SKIP LOCKED` dispatcher — no direct WhatsApp calls from ops code
   5. Customer receives the WhatsApp within the dispatcher's 5-minute tick window
   6. No notification is sent for skipped, paused, or ended subscriptions
-**Plans:** TBD
+**Plans:** 1 plan (plan 01 complete 2026-06-16)
+
+Plans:
+- [x] 06-01-PLAN.md — Fanout use-case, dispatcher v7 migration, API route trigger with dedup guard (NOT-01, NOT-02, NOT-03, NOT-04, DB-06, ARC-04)
+
 **UI hint:** no
 
 ### Phase 7: Failsafe Cron
@@ -196,7 +200,7 @@ Plans:
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
 | 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
-| 6. Delivery Notification Fanout | 0/? | Not started | — |
+| 6. Delivery Notification Fanout | 1/1 | In progress | 2026-06-16 |
 | 7. Failsafe Cron | 0/? | Not started | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
@@ -212,7 +216,7 @@ Plans:
 | DB-03 | Phase 2 | Complete |
 | DB-04 | Phase 2 | Complete |
 | DB-05 | Phase 2 | Complete |
-| DB-06 | Phase 6 | Pending |
+| DB-06 | Phase 6 | Complete |
 | DB-07 | Phase 2 | Complete |
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
@@ -244,10 +248,10 @@ Plans:
 | VER-11 | Phase 5 | Pending |
 | VER-12 | Phase 5 | Pending |
 | VER-13 | Phase 5 | Pending |
-| NOT-01 | Phase 6 | Pending |
-| NOT-02 | Phase 6 | Pending |
-| NOT-03 | Phase 6 | Pending |
-| NOT-04 | Phase 6 | Pending |
+| NOT-01 | Phase 6 | Complete |
+| NOT-02 | Phase 6 | Complete |
+| NOT-03 | Phase 6 | Complete |
+| NOT-04 | Phase 6 | Complete |
 | FAIL-01 | Phase 7 | Pending |
 | FAIL-02 | Phase 7 | Pending |
 | FAIL-03 | Phase 7 | Pending |
@@ -266,7 +270,7 @@ Plans:
 | ARC-01 | Phase 2 | Complete |
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
-| ARC-04 | Phase 6 | Pending |
+| ARC-04 | Phase 6 | Complete |
 | ARC-05 | Phase 3 | Complete |
 
 **v1 requirements mapped:** 58/58
