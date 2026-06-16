@@ -26,9 +26,11 @@ export async function notifyAdmin(
   message: string,
   buttonText?: string,
 ): Promise<void> {
-  const trimmed = message.length > MAX_MESSAGE_CHARS
-    ? message.slice(0, MAX_MESSAGE_CHARS) + '…'
-    : message
+  // Meta template params reject \n, \t, and 4+ consecutive spaces
+  const sanitised = message.replace(/[\n\t]/g, ' · ').replace(/ {4,}/g, '   ')
+  const trimmed = sanitised.length > MAX_MESSAGE_CHARS
+    ? sanitised.slice(0, MAX_MESSAGE_CHARS) + '…'
+    : sanitised
   try {
     const supabase = createAdminSupabaseClient()
     const { error } = await supabase.rpc('send_admin_whatsapp_alert', {

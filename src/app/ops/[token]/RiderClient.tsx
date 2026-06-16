@@ -211,6 +211,14 @@ export function RiderClient({
       }
 
       const res = await fetch('/api/ops/verify-box-count', { method: 'POST', body: form })
+      if (!res.ok) {
+        setVerifyResult({
+          verified: false,
+          needsManualConfirm: true,
+          reason: `Server error (${res.status}) — please confirm manually`,
+        })
+        return
+      }
       const data: VerifyResponse = await res.json()
       setVerifyResult(data)
 

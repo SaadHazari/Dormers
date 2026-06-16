@@ -30,11 +30,20 @@ export interface BoxCountResult {
  * Requests JSON-only output; defensive parse strips fences anyway.
  */
 function buildBoxCountPrompt(expectedCount: number): string {
-  return `You are counting meal delivery boxes in a photo taken by a delivery rider.
+  return `You are counting Dormers meal boxes in a delivery photo.
 
-The rider says there should be ${expectedCount} box${expectedCount === 1 ? '' : 'es'} for this delivery stop.
+WHAT THE BOXES LOOK LIKE:
+- Rectangular flip-top boxes, roughly 230×170×65 mm (about the size of a large book)
+- Dark navy blue exterior with bold ORANGE text reading "MEALS THAT DON'T SUCK"
+- Orange and white wavy/tiger-stripe pattern on the top lid and side flaps
+- White Dormers logo (an arch/dome shape with a small orange dot) on the top face
+- Side text: "Because you can't survive on instant noodles forever." in orange
+- One short side has a QR code with orange text "Get a FREE 25th Meal"
+- Boxes are often stacked on top of each other or placed side by side
 
-Count the delivery boxes visible in the image. Include boxes that are partially hidden or stacked.
+The rider expects ${expectedCount} box${expectedCount === 1 ? '' : 'es'} at this drop-off.
+
+Count every Dormers box visible in the image. Include boxes that are partially hidden, stacked, or viewed from any angle. A single stack of 3 boxes = 3 boxes.
 
 Output ONLY a JSON object with no commentary, no code fences:
 {
@@ -44,11 +53,13 @@ Output ONLY a JSON object with no commentary, no code fences:
   "imageQuality": "clear" | "unclear"
 }
 
-Field meanings:
-- count: the number of delivery boxes you can count. Return null ONLY if the image is too dark, blurry, or obscured to count at all.
-- confidence: "high" if you can clearly see and count all boxes; "medium" if some boxes are partially obscured; "low" if significant portions are hidden.
-- reason: one short sentence (max 150 chars) describing what you see.
-- imageQuality: "clear" if the image is usable for counting; "unclear" if too dark, blurry, or not showing boxes.
+Rules:
+- count: number of Dormers boxes visible. null ONLY if the image is too dark/blurry to see anything at all.
+- confidence: "high" = clearly see all boxes. "medium" = some partially obscured but countable. "low" = significant guessing needed.
+- reason: one sentence (max 150 chars) describing what you counted.
+- imageQuality: "clear" if you can see boxes at all (even partially). "unclear" ONLY if the photo is completely unusable (pitch black, extreme blur, no boxes visible whatsoever).
+
+IMPORTANT: If you can see ANY navy-blue boxes with orange text, the image is "clear" and you MUST return a count. Only return "unclear" for truly unusable photos.
 
 Output JSON only. No explanation. No code fences.`
 }

@@ -16,7 +16,6 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
@@ -81,9 +80,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'missing_date' }, { status: 400 })
   }
 
-  // ── 3. Auth — validate ops token ────────────────────────────────────
-  const tokenRecord = await validateOpsToken(opsToken, 'rider')
-  if (!tokenRecord) {
+  // ── 3. Auth — validate ops token by ID ───────────────────────────────
+  // The client receives opsToken.id (UUID) from the RSC, not the secret
+  // token string. Look up by primary key instead of by secret.
+  const sb0 = createAdminSupabaseClient()
+  const { data: tokenRecord, error: tokenErr } = await sb0
+    .from('ops_tokens')
+    .select('id, token, role, is_active, revoked_at')
+    .eq('id', opsToken)
+    .single()
+
+  if (tokenErr || !tokenRecord || !tokenRecord.is_active || tokenRecord.revoked_at || tokenRecord.role !== 'rider') {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 })
   }
   log(`auth ok token=${tokenRecord.id}`)
@@ -132,7 +139,7 @@ export async function POST(req: Request) {
 
   // Case A — Photo unclear (VER-09 / VER-10)
   if (geminiResult.imageQuality === 'unclear' || (geminiResult.confidence === 'low' && geminiResult.count === null)) {
-    if (retakeNum >= 1) {
+    if (retakeNum >= 2) {
       // Second unclear photo → escalate (VER-10)
       const signedUrl = await generateSignedUrl(sb, storagePath)
       void notifyAdmin(
