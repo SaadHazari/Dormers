@@ -235,10 +235,9 @@ BEGIN
 
       -- ── v7 kinds ──────────────────────────────────────────────────────────
 
+      -- v7: no-variable template — send empty components array
       WHEN 'delivery_confirmed' THEN
-        jsonb_build_array(
-          jsonb_build_object('type', 'header', 'parameters', jsonb_build_array(
-            jsonb_build_object('type', 'text', 'parameter_name', 'first_name', 'text', first_name))))
+        jsonb_build_array())
 
     END;
 
