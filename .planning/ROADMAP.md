@@ -138,7 +138,11 @@ Plans:
   4. Notifications flow through the existing `FOR UPDATE SKIP LOCKED` dispatcher — no direct WhatsApp calls from ops code
   5. Customer receives the WhatsApp within the dispatcher's 5-minute tick window
   6. No notification is sent for skipped, paused, or ended subscriptions
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Fanout use-case, dispatcher CASE migration, API route wiring with dedup guard (NOT-01, NOT-02, NOT-03, DB-06, ARC-04)
+- [ ] 06-02-PLAN.md — Compile verification + Vault secret insertion checkpoint (NOT-04, DB-06)
 **UI hint:** no
 
 ### Phase 7: Failsafe Cron
@@ -196,7 +200,7 @@ Plans:
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
 | 5. Rider Page — Drop-off & Verification | 3/3 | Complete   | 2026-06-15 |
-| 6. Delivery Notification Fanout | 0/? | Not started | — |
+| 6. Delivery Notification Fanout | 0/2 | Planned | — |
 | 7. Failsafe Cron | 0/? | Not started | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
@@ -275,4 +279,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 5 planned (4 plans across 3 waves)*
+*Last updated: 2026-06-16 — Phase 6 planned (2 plans across 2 waves)*
