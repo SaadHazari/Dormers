@@ -156,7 +156,11 @@ Plans:
   4. Owner receives WhatsApp via `notifyAdmin` listing pending dorms + a quick-actions link
   5. Calling the failsafe twice in the same window does not send duplicate alerts (idempotent)
   6. If all dorms are already confirmed, the cron fires but sends nothing
-**Plans:** TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 07-01-PLAN.md — SQL migration (dedup table + tick function + cron schedule) + API route (auth, dorm lookup, idempotency, notifyAdmin) (FAIL-01, FAIL-02, FAIL-03, FAIL-04)
+
 **UI hint:** no
 
 ### Phase 8: WhatsApp Inbound Trigger
@@ -201,7 +205,7 @@ Plans:
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
 | 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
 | 6. Delivery Notification Fanout | 1/1 | In progress | 2026-06-16 |
-| 7. Failsafe Cron | 0/? | Not started | — |
+| 7. Failsafe Cron | 0/1 | Planning complete | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
 
@@ -279,4 +283,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-15 — Phase 5 planned (4 plans across 3 waves)*
+*Last updated: 2026-06-16 — Phase 7 planned (1 plan, wave 1)*
