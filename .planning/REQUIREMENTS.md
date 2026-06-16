@@ -66,10 +66,10 @@
 
 ### Failsafe
 
-- [ ] **FAIL-01**: pg_cron at 8 PM UAE (`0 16 * * *` UTC) checks for dorms with active subs but no verified delivery event today
-- [ ] **FAIL-02**: Sends owner WhatsApp alert via `notifyAdmin` with list of pending dorms + quick actions link
-- [ ] **FAIL-03**: Failsafe function is idempotent — calling twice in same window does not send duplicate alerts
-- [ ] **FAIL-04**: Internal API route authenticated with `INTERNAL_RETRY_SECRET` bearer token
+- [x] **FAIL-01**: pg_cron at 8 PM UAE (`0 16 * * *` UTC) checks for dorms with active subs but no verified delivery event today
+- [x] **FAIL-02**: Sends owner WhatsApp alert via `notifyAdmin` with list of pending dorms + quick actions link
+- [x] **FAIL-03**: Failsafe function is idempotent — calling twice in same window does not send duplicate alerts
+- [x] **FAIL-04**: Internal API route authenticated with `INTERNAL_RETRY_SECRET` bearer token
 
 ### WhatsApp Inbound
 
@@ -171,10 +171,10 @@
 | NOT-02 | Phase 6 | Complete |
 | NOT-03 | Phase 6 | Complete |
 | NOT-04 | Phase 6 | Complete |
-| FAIL-01 | Phase 7 | Pending |
-| FAIL-02 | Phase 7 | Pending |
-| FAIL-03 | Phase 7 | Pending |
-| FAIL-04 | Phase 7 | Pending |
+| FAIL-01 | Phase 7 | Complete |
+| FAIL-02 | Phase 7 | Complete |
+| FAIL-03 | Phase 7 | Complete |
+| FAIL-04 | Phase 7 | Complete |
 | WAI-01 | Phase 8 | Pending |
 | WAI-02 | Phase 8 | Pending |
 | WAI-03 | Phase 8 | Pending |

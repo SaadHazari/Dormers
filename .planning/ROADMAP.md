@@ -16,7 +16,7 @@
 - [x] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation (completed 2026-06-15)
 - [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
 - [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
-- [ ] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list
+- [x] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list (completed 2026-06-16)
 - [ ] **Phase 8: WhatsApp Inbound Trigger** — Rider texts dorm name, fuzzy match, HMAC verification, message-ID dedup
 - [ ] **Phase 9: iOS Shortcuts + PWA + Polish** — Shortcut files per dorm, PWA manifest, token rotation UI, mobile testing at 375px
 
@@ -159,7 +159,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md — SQL migration (dedup table + tick function + cron schedule) + API route (auth, dorm lookup, idempotency, notifyAdmin) (FAIL-01, FAIL-02, FAIL-03, FAIL-04)
+- [x] 07-01-PLAN.md — SQL migration (dedup table + tick function + cron schedule) + API route (auth, dorm lookup, idempotency, notifyAdmin) (FAIL-01, FAIL-02, FAIL-03, FAIL-04)
 
 **UI hint:** no
 
@@ -204,8 +204,8 @@ Plans:
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
 | 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
-| 6. Delivery Notification Fanout | 1/1 | In progress | 2026-06-16 |
-| 7. Failsafe Cron | 0/1 | Planning complete | — |
+| 6. Delivery Notification Fanout | 1/1 | Complete | 2026-06-16 |
+| 7. Failsafe Cron | 1/1 | Complete | 2026-06-16 |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
 
@@ -256,10 +256,10 @@ Plans:
 | NOT-02 | Phase 6 | Complete |
 | NOT-03 | Phase 6 | Complete |
 | NOT-04 | Phase 6 | Complete |
-| FAIL-01 | Phase 7 | Pending |
-| FAIL-02 | Phase 7 | Pending |
-| FAIL-03 | Phase 7 | Pending |
-| FAIL-04 | Phase 7 | Pending |
+| FAIL-01 | Phase 7 | Complete |
+| FAIL-02 | Phase 7 | Complete |
+| FAIL-03 | Phase 7 | Complete |
+| FAIL-04 | Phase 7 | Complete |
 | WAI-01 | Phase 8 | Pending |
 | WAI-02 | Phase 8 | Pending |
 | WAI-03 | Phase 8 | Pending |
