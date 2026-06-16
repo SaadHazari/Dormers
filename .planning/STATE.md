@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 09-02-PLAN.md (token rotation admin page)
-last_updated: "2026-06-16T13:00:48.909Z"
+stopped_at: Completed 09-03-PLAN.md (mark-delivered endpoint + iOS Shortcuts guide)
+last_updated: "2026-06-16T13:07:42.944Z"
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 40
-  completed_plans: 30
+  completed_plans: 31
   percent: 100
 ---
 
@@ -144,7 +144,7 @@ Asset hand-off: 11 audio stems are valid silent MPEG-1 Layer III placeholders (P
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 09-02-PLAN.md (token rotation admin page)
+**Stopped at:** Completed 09-03-PLAN.md (mark-delivered endpoint + iOS Shortcuts guide)
 
 ---
 

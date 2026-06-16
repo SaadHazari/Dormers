@@ -84,7 +84,7 @@
 
 ### iOS Shortcuts & PWA
 
-- [ ] **PWA-01**: iOS Shortcut file generated for each dorm — one-tap delivery confirmation for owner
+- [x] **PWA-01**: iOS Shortcut file generated for each dorm — one-tap delivery confirmation for owner
 - [x] **PWA-02**: PWA manifest for `/kitchen` and `/ops` routes enabling add-to-home-screen
 - [x] **PWA-03**: iOS meta tags for standalone display (apple-mobile-web-app-capable, status-bar-style, title)
 
@@ -183,7 +183,7 @@
 | WAI-06 | Phase 8 | Complete |
 | WAI-07 | Phase 8 | Complete |
 | WAI-08 | Phase 8 | Complete |
-| PWA-01 | Phase 9 | Pending |
+| PWA-01 | Phase 9 | Complete |
 | PWA-02 | Phase 9 | Complete |
 | PWA-03 | Phase 9 | Complete |
 | ARC-01 | Phase 2 | Complete |
