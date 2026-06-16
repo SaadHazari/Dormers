@@ -88,9 +88,13 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(rawBody) as MetaWebhookPayload
 
-  // Return 200 BEFORE any async work — prevents Meta retry (WAI-03)
-  void processAsync(payload)
-  void relayChatwoot(rawBody, signatureHeader)
+  // Run processing + Chatwoot relay in parallel, then return 200.
+  // Cannot use fire-and-forget on Netlify — serverless kills the
+  // function after the response, so the IIFE never completes.
+  await Promise.all([
+    processAsync(payload),
+    relayChatwoot(rawBody, signatureHeader),
+  ])
   return NextResponse.json({ status: 'ok' })
 }
 
