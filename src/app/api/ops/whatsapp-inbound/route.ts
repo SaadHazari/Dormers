@@ -80,8 +80,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // CRITICAL: req.text() FIRST — JSON.parse() after HMAC check
   const rawBody = await req.text()
+  const signatureHeader = req.headers.get('x-hub-signature-256')
 
-  if (!verifyHmac(rawBody, req.headers.get('x-hub-signature-256'))) {
+  if (!verifyHmac(rawBody, signatureHeader)) {
     return NextResponse.json({ error: 'bad_signature' }, { status: 401 })
   }
 
@@ -89,7 +90,36 @@ export async function POST(req: NextRequest) {
 
   // Return 200 BEFORE any async work — prevents Meta retry (WAI-03)
   void processAsync(payload)
+  void relayChatwoot(rawBody, signatureHeader)
   return NextResponse.json({ status: 'ok' })
+}
+
+// ---------------------------------------------------------------------------
+// Chatwoot relay — forward every payload so the team inbox keeps working
+// ---------------------------------------------------------------------------
+
+const CHATWOOT_WEBHOOK_URL =
+  'https://app.chatwoot.com/webhooks/whatsapp/+971522615450'
+
+async function relayChatwoot(
+  rawBody: string,
+  signatureHeader: string | null,
+): Promise<void> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (signatureHeader) {
+      headers['X-Hub-Signature-256'] = signatureHeader
+    }
+    await fetch(CHATWOOT_WEBHOOK_URL, {
+      method: 'POST',
+      headers,
+      body: rawBody,
+    })
+  } catch (err) {
+    console.error('[whatsapp-inbound] Chatwoot relay failed (non-fatal):', err)
+  }
 }
 
 // ---------------------------------------------------------------------------
