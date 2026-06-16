@@ -19,6 +19,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 
 // Netlify default function timeout is 10s; Gemini Vision on a photo
 // typically takes 5-15s. Without this export the function gets killed
@@ -187,12 +188,37 @@ export async function POST(req: Request) {
   // Case C — Triple match (VER-07)
   const isMatch = expectedCount === riderCount && riderCount === geminiResult.count
   if (isMatch) {
+    // ── Dedup guard: skip fanout if already verified (Pitfall 1) ──────
+    const { data: preCheck } = await sb
+      .from('delivery_events')
+      .select('verified')
+      .eq('delivery_date', deliveryDateIso)
+      .eq('dorm_name', dormName)
+      .eq('trip_number', 1)
+      .maybeSingle()
+
+    const alreadyVerified = preCheck?.verified === true
+
     await updateDeliveryEvent({
       deliveryDateIso, dormName, tripNumber: 1, riderCount,
       geminiCount: geminiResult.count, geminiConfidence: geminiResult.confidence,
       photoPath: storagePath, verified: true,
       geoLat: parseGeo(geoLatRaw), geoLng: parseGeo(geoLngRaw),
     })
+
+    // Fire-and-log: queue customer notifications for this dorm (NOT-01)
+    if (!alreadyVerified) {
+      const isSaturday = new Date(deliveryDateIso + 'T00:00:00+04:00').getDay() === 6
+      try {
+        const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
+        log(`fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)
+      } catch (err) {
+        console.error('[verify-box-count] queueDeliveryConfirmedNotifications failed (non-fatal):', err)
+      }
+    } else {
+      log(`fanout: skipped (already verified) for ${dormName}`)
+    }
+
     return NextResponse.json({
       verified: true,
       needsRetake: false,

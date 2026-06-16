@@ -1,16 +1,23 @@
 'use client'
 
 import * as Sentry from '@sentry/nextjs'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function GlobalError({
   error,
 }: {
   error: Error & { digest?: string }
 }) {
+  const [refreshing, setRefreshing] = useState(false)
+
   useEffect(() => {
     Sentry.captureException(error)
   }, [error])
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    setTimeout(() => window.location.reload(), 300)
+  }
 
   return (
     <html>
@@ -72,15 +79,32 @@ export default function GlobalError({
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
+              disabled={refreshing}
               style={{
                 padding: '12px 28px', borderRadius: 999,
                 backgroundColor: '#f57f20', color: '#ffffff', border: 'none',
                 fontSize: 13, fontWeight: 900, letterSpacing: '0.10em',
-                textTransform: 'uppercase', cursor: 'pointer',
+                textTransform: 'uppercase',
+                cursor: refreshing ? 'default' : 'pointer',
+                opacity: refreshing ? 0.85 : 1,
+                transition: 'opacity 150ms ease',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
               }}
             >
-              Refresh
+              {refreshing && (
+                <span
+                  style={{
+                    width: 14, height: 14,
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#fff',
+                    borderRadius: '50%',
+                    animation: 'ge-spin 600ms linear infinite',
+                    display: 'inline-block', flexShrink: 0,
+                  }}
+                />
+              )}
+              {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
             <a
               href="https://wa.me/971504619384"
@@ -98,6 +122,13 @@ export default function GlobalError({
             </a>
           </div>
         </div>
+        {refreshing && (
+          <style>{`
+            @keyframes ge-spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        )}
       </body>
     </html>
   )

@@ -27,6 +27,7 @@ const SUPPRESS_KEY    = 'dormers:idle-refresh:suppressed-until'
 
 export function IdleRefreshToast() {
   const [show, setShow] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const lastActivityAt = useRef<number>(Date.now())
   const hiddenSince    = useRef<number | null>(null)
 
@@ -85,7 +86,10 @@ export function IdleRefreshToast() {
     setShow(false)
   }
 
-  const refresh = () => { window.location.reload() }
+  const refresh = () => {
+    setRefreshing(true)
+    setTimeout(() => window.location.reload(), 300)
+  }
 
   return (
     <div
@@ -129,18 +133,28 @@ export function IdleRefreshToast() {
       <button
         type="button"
         onClick={refresh}
+        disabled={refreshing}
         style={{
           padding: '6px 12px',
           borderRadius: 'var(--radius-pill)',
           background: OG, color: '#fff', border: 0,
           fontFamily: BODY, fontSize: 12, fontWeight: 700,
           letterSpacing: '0.04em',
-          cursor: 'pointer',
+          cursor: refreshing ? 'default' : 'pointer',
+          opacity: refreshing ? 0.85 : 1,
+          transition: 'opacity 150ms ease',
           flexShrink: 0,
           boxShadow: '0 4px 12px rgba(245,127,32,0.30)',
+          display: 'inline-flex', alignItems: 'center', gap: 5,
         }}
       >
-        Refresh
+        {refreshing && (
+          <RefreshCw
+            size={11} strokeWidth={2.5}
+            style={{ animation: 'idle-refresh-spin 600ms linear infinite' }}
+          />
+        )}
+        {refreshing ? 'Refreshing…' : 'Refresh'}
       </button>
 
       <button
@@ -161,6 +175,9 @@ export function IdleRefreshToast() {
         @keyframes idle-refresh-slide-in {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes idle-refresh-spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

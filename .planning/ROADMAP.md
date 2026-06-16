@@ -14,7 +14,7 @@
 - [x] **Phase 2: Schema & Context Foundation** — ops_tokens + delivery_events tables, ops context scaffold, dorm-shapes move, notification kind registration (completed 2026-06-15)
 - [x] **Phase 3: Kitchen Display** — `/kitchen/[token]` with today's dishes, recipes, 2 PM count gate, light mobile-first UI (completed 2026-06-15)
 - [x] **Phase 4: Rider Page — Pickup** — `/ops/[token]` with dorm shape buttons, expected counts per dorm, pickup confirmation (completed 2026-06-15)
-- [x] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow (completed 2026-06-15)
+- [ ] **Phase 5: Rider Page — Drop-off & Verification** — Photo capture, Gemini box counting, triple-match verification, escalation flow
 - [ ] **Phase 6: Delivery Notification Fanout** — Auto-queue customer WhatsApp on verified delivery via existing dispatcher pipeline
 - [ ] **Phase 7: Failsafe Cron** — 8 PM UAE cron checks unconfirmed dorms, WhatsApps owner with pending list
 - [ ] **Phase 8: WhatsApp Inbound Trigger** — Rider texts dorm name, fuzzy match, HMAC verification, message-ID dedup
@@ -117,12 +117,12 @@ Plans:
   9. Gemini timeout (null count) → manual confirmation flow, never auto-completes
   10. `delivery_events` row records: token_id, timestamp, geolocation, expected_count, rider_count, gemini_count, gemini_confidence, photo_path
   11. API route has `export const maxDuration = 60` for Netlify
-**Plans:** 3/3 plans complete
+**Plans:** 4 plans
 
 Plans:
-- [x] 05-01-PLAN.md — Infrastructure + domain: geo migration, delivery-photos bucket, box-count-verify Gemini function, update-delivery-event use-case (VER-06, VER-13, ARC-03)
-- [x] 05-02-PLAN.md — API route: /api/ops/verify-box-count with multipart handling, Gemini call, triple-match logic, notifyAdmin escalation (VER-04, VER-06–11, ARC-03)
-- [x] 05-03-PLAN.md — Client UI: camera capture (getUserMedia + fallback), image resize, count input, drop-off modal, per-dorm status tracking (VER-01–03, VER-05, VER-12)
+- [ ] 05-01-PLAN.md — Infrastructure + domain: geo migration, delivery-photos bucket, box-count-verify Gemini function, update-delivery-event use-case (VER-06, VER-13, ARC-03)
+- [ ] 05-02-PLAN.md — API route: /api/ops/verify-box-count with multipart handling, Gemini call, triple-match logic, notifyAdmin escalation (VER-04, VER-06–11, ARC-03)
+- [ ] 05-03-PLAN.md — Client UI: camera capture (getUserMedia + fallback), image resize, count input, drop-off modal, per-dorm status tracking (VER-01–03, VER-05, VER-12)
 - [ ] 05-04-PLAN.md — Compile/lint check + visual verification checkpoint (all VER + ARC-03)
 
 **UI hint:** yes
@@ -138,11 +138,11 @@ Plans:
   4. Notifications flow through the existing `FOR UPDATE SKIP LOCKED` dispatcher — no direct WhatsApp calls from ops code
   5. Customer receives the WhatsApp within the dispatcher's 5-minute tick window
   6. No notification is sent for skipped, paused, or ended subscriptions
-**Plans:** 2 plans
+**Plans:** 1 plan (plan 01 complete 2026-06-16)
 
 Plans:
-- [ ] 06-01-PLAN.md — Fanout use-case, dispatcher CASE migration, API route wiring with dedup guard (NOT-01, NOT-02, NOT-03, DB-06, ARC-04)
-- [ ] 06-02-PLAN.md — Compile verification + Vault secret insertion checkpoint (NOT-04, DB-06)
+- [x] 06-01-PLAN.md — Fanout use-case, dispatcher v7 migration, API route trigger with dedup guard (NOT-01, NOT-02, NOT-03, NOT-04, DB-06, ARC-04)
+
 **UI hint:** no
 
 ### Phase 7: Failsafe Cron
@@ -199,8 +199,8 @@ Plans:
 | 2. Schema & Context Foundation | 2/2 | Complete   | 2026-06-15 |
 | 3. Kitchen Display | 3/3 | Complete   | 2026-06-15 |
 | 4. Rider Page — Pickup | 2/2 | Complete   | 2026-06-15 |
-| 5. Rider Page — Drop-off & Verification | 3/3 | Complete   | 2026-06-15 |
-| 6. Delivery Notification Fanout | 0/2 | Planned | — |
+| 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
+| 6. Delivery Notification Fanout | 1/1 | In progress | 2026-06-16 |
 | 7. Failsafe Cron | 0/? | Not started | — |
 | 8. WhatsApp Inbound Trigger | 0/? | Not started | — |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
@@ -216,7 +216,7 @@ Plans:
 | DB-03 | Phase 2 | Complete |
 | DB-04 | Phase 2 | Complete |
 | DB-05 | Phase 2 | Complete |
-| DB-06 | Phase 6 | Pending |
+| DB-06 | Phase 6 | Complete |
 | DB-07 | Phase 2 | Complete |
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
@@ -248,10 +248,10 @@ Plans:
 | VER-11 | Phase 5 | Pending |
 | VER-12 | Phase 5 | Pending |
 | VER-13 | Phase 5 | Pending |
-| NOT-01 | Phase 6 | Pending |
-| NOT-02 | Phase 6 | Pending |
-| NOT-03 | Phase 6 | Pending |
-| NOT-04 | Phase 6 | Pending |
+| NOT-01 | Phase 6 | Complete |
+| NOT-02 | Phase 6 | Complete |
+| NOT-03 | Phase 6 | Complete |
+| NOT-04 | Phase 6 | Complete |
 | FAIL-01 | Phase 7 | Pending |
 | FAIL-02 | Phase 7 | Pending |
 | FAIL-03 | Phase 7 | Pending |
@@ -270,7 +270,7 @@ Plans:
 | ARC-01 | Phase 2 | Complete |
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |
-| ARC-04 | Phase 6 | Pending |
+| ARC-04 | Phase 6 | Complete |
 | ARC-05 | Phase 3 | Complete |
 
 **v1 requirements mapped:** 58/58
@@ -279,4 +279,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-16 — Phase 6 planned (2 plans across 2 waves)*
+*Last updated: 2026-06-15 — Phase 5 planned (4 plans across 3 waves)*

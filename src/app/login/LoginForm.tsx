@@ -83,7 +83,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         if (tab === 'signup') {
-            router.push('/onboarding')
+            startTransition(() => { router.push('/onboarding') })
             return
         }
         // The forgot tab is rendered by <ForgotPasswordFlow> which owns its
@@ -331,11 +331,15 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
 
                                     <button
                                         type="button"
-                                        onClick={() => router.push('/onboarding')}
-                                        className="relative w-full flex items-center justify-center gap-2.5 bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] text-white font-bold text-[14px] py-3.5 rounded-xl transition-all duration-200 shadow-[0_0_24px_rgba(245,127,32,0.22)] hover:shadow-[0_0_36px_rgba(245,127,32,0.38)] overflow-hidden"
+                                        onClick={() => startTransition(() => { router.push('/onboarding') })}
+                                        disabled={isPending}
+                                        className="relative w-full flex items-center justify-center gap-2.5 bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] active:bg-[#e06d1b] disabled:opacity-55 disabled:pointer-events-none text-white font-bold text-[14px] py-3.5 rounded-xl transition-all duration-200 shadow-[0_0_24px_rgba(245,127,32,0.22)] hover:shadow-[0_0_36px_rgba(245,127,32,0.38)] overflow-hidden"
                                     >
-                                        <span>Start Setup</span>
-                                        <span className="text-[16px] leading-none">→</span>
+                                        {isPending ? (
+                                            <><svg className="animate-spin h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg><span>Please wait…</span></>
+                                        ) : (
+                                            <><span>Start Setup</span><span className="text-[16px] leading-none">→</span></>
+                                        )}
                                     </button>
 
                                     <p className={`text-center text-[11px] mt-4 ${tokens.termsBase}`}>
