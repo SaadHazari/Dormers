@@ -11,7 +11,18 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Kitchen — Dormers',
-  other: { referrer: 'no-referrer' },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Dormers Kitchen',
+  },
+  other: {
+    referrer: 'no-referrer',
+    'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
+  },
+  icons: {
+    apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
+  },
 }
 
 const DAYS_OF_WEEK = [
