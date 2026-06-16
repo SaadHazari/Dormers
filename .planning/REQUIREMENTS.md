@@ -20,7 +20,7 @@
 - [x] **TOK-01**: Secret tokens are random 32-char hex strings stored in `ops_tokens` table
 - [x] **TOK-02**: Token validated server-side on every page load — invalid/revoked token returns 404
 - [x] **TOK-03**: `<meta name="referrer" content="no-referrer">` on both kitchen and ops pages
-- [ ] **TOK-04**: Token rotation via admin panel without requiring a deploy
+- [x] **TOK-04**: Token rotation via admin panel without requiring a deploy
 
 ### Kitchen Display
 
@@ -85,8 +85,8 @@
 ### iOS Shortcuts & PWA
 
 - [ ] **PWA-01**: iOS Shortcut file generated for each dorm — one-tap delivery confirmation for owner
-- [ ] **PWA-02**: PWA manifest for `/kitchen` and `/ops` routes enabling add-to-home-screen
-- [ ] **PWA-03**: iOS meta tags for standalone display (apple-mobile-web-app-capable, status-bar-style, title)
+- [x] **PWA-02**: PWA manifest for `/kitchen` and `/ops` routes enabling add-to-home-screen
+- [x] **PWA-03**: iOS meta tags for standalone display (apple-mobile-web-app-capable, status-bar-style, title)
 
 ### Architecture
 
@@ -140,7 +140,7 @@
 | TOK-01 | Phase 2 | Complete |
 | TOK-02 | Phase 2 | Complete |
 | TOK-03 | Phase 3 | Complete |
-| TOK-04 | Phase 9 | Pending |
+| TOK-04 | Phase 9 | Complete |
 | KIT-01 | Phase 3 | Complete |
 | KIT-02 | Phase 3 | Complete |
 | KIT-03 | Phase 3 | Complete |
@@ -184,8 +184,8 @@
 | WAI-07 | Phase 8 | Complete |
 | WAI-08 | Phase 8 | Complete |
 | PWA-01 | Phase 9 | Pending |
-| PWA-02 | Phase 9 | Pending |
-| PWA-03 | Phase 9 | Pending |
+| PWA-02 | Phase 9 | Complete |
+| PWA-03 | Phase 9 | Complete |
 | ARC-01 | Phase 2 | Complete |
 | ARC-02 | Phase 2 | Complete |
 | ARC-03 | Phase 5 | Pending |

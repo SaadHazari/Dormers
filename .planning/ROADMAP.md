@@ -198,8 +198,8 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — PWA manifest (src/app/manifest.ts), icon resizing (icon-192/512/180.png), iOS meta tags on kitchen + ops page.tsx (PWA-02, PWA-03)
-- [ ] 09-02-PLAN.md — Token rotation admin page (/admin/ops-tokens RSC + client + server action + sidebar/Cmd+K) (TOK-04)
+- [x] 09-01-PLAN.md — PWA manifest (src/app/manifest.ts), icon resizing (icon-192/512/180.png), iOS meta tags on kitchen + ops page.tsx (PWA-02, PWA-03)
+- [x] 09-02-PLAN.md — Token rotation admin page (/admin/ops-tokens RSC + client + server action + sidebar/Cmd+K) (TOK-04)
 - [ ] 09-03-PLAN.md — /api/ops/mark-delivered endpoint, iOS Shortcuts guide (public/shortcuts/README.md), compile/lint gate, visual verification checkpoint (PWA-01)
 
 **UI hint:** yes
