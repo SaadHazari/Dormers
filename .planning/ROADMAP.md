@@ -180,7 +180,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md — SQL migration (whatsapp_inbound_processed + whatsapp_rider_allowlist) + fuzzy match domain utility (WAI-04, WAI-05, WAI-06, WAI-07)
-- [ ] 08-02-PLAN.md — API route: GET handshake + POST HMAC + fire-and-forget processing + compile/lint check (WAI-01, WAI-02, WAI-03, WAI-04, WAI-05, WAI-06, WAI-07, WAI-08)
+- [x] 08-02-PLAN.md — API route: GET handshake + POST HMAC + fire-and-forget processing + compile/lint check (WAI-01, WAI-02, WAI-03, WAI-04, WAI-05, WAI-06, WAI-07, WAI-08)
 
 **UI hint:** no
 
@@ -211,7 +211,7 @@ Plans:
 | 5. Rider Page — Drop-off & Verification | 0/4 | Planning complete | — |
 | 6. Delivery Notification Fanout | 1/1 | Complete | 2026-06-16 |
 | 7. Failsafe Cron | 1/1 | Complete | 2026-06-16 |
-| 8. WhatsApp Inbound Trigger | 1/2 | In progress | — |
+| 8. WhatsApp Inbound Trigger | 2/2 | Complete | 2026-06-16 |
 | 9. iOS Shortcuts + PWA + Polish | 0/? | Not started | — |
 
 ---
@@ -288,4 +288,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-06-14*
-*Last updated: 2026-06-16 — Phase 8 Plan 01 complete (1/2 plans)*
+*Last updated: 2026-06-16 — Phase 8 complete (2/2 plans)*
