@@ -144,7 +144,7 @@ Asset hand-off: 11 audio stems are valid silent MPEG-1 Layer III placeholders (P
 
 Next: Phase 3 (not yet planned) — week tabs and detail sheet refinements.
 
-**Stopped at:** Completed 07-01-PLAN.md (failsafe cron)
+**Stopped at:** Completed 08-01-PLAN.md (WhatsApp inbound foundation — SQL migration + fuzzy match utility)
 
 ---
 

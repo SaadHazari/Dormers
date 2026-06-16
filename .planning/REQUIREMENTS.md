@@ -76,10 +76,10 @@
 - [ ] **WAI-01**: `/api/ops/whatsapp-inbound` route handles Meta GET verification handshake
 - [ ] **WAI-02**: POST handler verifies `X-Hub-Signature-256` HMAC before processing
 - [ ] **WAI-03**: Returns HTTP 200 before any async processing (prevents Meta retry)
-- [ ] **WAI-04**: Deduplicates on WhatsApp message ID with unique constraint
-- [ ] **WAI-05**: Fuzzy matches rider's text to dorm name with conservative threshold
-- [ ] **WAI-06**: Ambiguous match → replies asking rider to confirm ("Did you mean X?")
-- [ ] **WAI-07**: Only processes text messages from allowlisted sender phone numbers
+- [x] **WAI-04**: Deduplicates on WhatsApp message ID with unique constraint
+- [x] **WAI-05**: Fuzzy matches rider's text to dorm name with conservative threshold
+- [x] **WAI-06**: Ambiguous match → replies asking rider to confirm ("Did you mean X?")
+- [x] **WAI-07**: Only processes text messages from allowlisted sender phone numbers
 - [ ] **WAI-08**: Non-text messages (images, voice, reactions) ignored or replied with "Send dorm name as text"
 
 ### iOS Shortcuts & PWA
@@ -178,10 +178,10 @@
 | WAI-01 | Phase 8 | Pending |
 | WAI-02 | Phase 8 | Pending |
 | WAI-03 | Phase 8 | Pending |
-| WAI-04 | Phase 8 | Pending |
-| WAI-05 | Phase 8 | Pending |
-| WAI-06 | Phase 8 | Pending |
-| WAI-07 | Phase 8 | Pending |
+| WAI-04 | Phase 8 | Complete |
+| WAI-05 | Phase 8 | Complete |
+| WAI-06 | Phase 8 | Complete |
+| WAI-07 | Phase 8 | Complete |
 | WAI-08 | Phase 8 | Pending |
 | PWA-01 | Phase 9 | Pending |
 | PWA-02 | Phase 9 | Pending |
