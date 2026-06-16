@@ -31,6 +31,7 @@ const NAV_COMMANDS: PaletteCommand[] = [
     { id: 'nav-pricing',     label: 'Pricing',          group: 'Navigation', href: '/admin/pricing',    keywords: ['price', 'plans', 'aed'] },
     { id: 'nav-audit',       label: 'Audit Log',        group: 'Navigation', href: '/admin/audit',      keywords: ['log', 'history', 'who'] },
     { id: 'nav-comms',       label: 'Communications',   group: 'Navigation', href: '/admin/comms',      keywords: ['email', 'whatsapp', 'notifications', 'messages'] },
+    { id: 'nav-ops-tokens',  label: 'Ops Tokens',       group: 'Navigation', href: '/admin/ops-tokens', keywords: ['token', 'rotate', 'kitchen', 'rider', 'ops', 'key', 'revoke'] },
 ]
 
 export default function AdminShell({ pendingReferrals, pendingLayer4, children }: Props) {
