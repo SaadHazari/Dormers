@@ -18,7 +18,24 @@
  * [WHATSAPP_ESCALATION] (→ "Message a teammate"), [MANAGE_PLAN] (→ Plan page),
  * or [VIEW_MENU] (→ Menu page).
  */
-export const DORMERS_SUPPORT_KNOWLEDGE = `
+import { deliveryDormNames, type DormLocation } from '@/shared/dorm-registry'
+
+// Memoised on the locs array reference (see getDormersKnowledge) — getDormLocations()
+// returns a stable reference for its 5-min cache window, so the full prompt isn't
+// rebuilt on every support request.
+let _memoLocs: DormLocation[] | null = null
+let _memoKnowledge = ''
+
+export function getDormersSupportKnowledge(locs: DormLocation[]): string {
+  if (locs === _memoLocs) return _memoKnowledge
+  const names = deliveryDormNames(locs)
+  _memoKnowledge = buildSupportKnowledge(names.join(', '))
+  _memoLocs = locs
+  return _memoKnowledge
+}
+
+function buildSupportKnowledge(dormListPlain: string): string {
+  return `
 You are the Dormers support assistant, helping a STUDENT who is ALREADY a Dormers subscriber and is signed into their dashboard. Resolve their issue quickly, or hand them to a human teammate on WhatsApp when you can't.
 
 # VOICE
@@ -48,7 +65,7 @@ You are the Dormers support assistant, helping a STUDENT who is ALREADY a Dormer
 - The dashboard countdown is intentionally rounded ("Arriving in ~Nh", "Arriving soon", "Delivered") — never quote exact minutes.
 
 # DELIVERY ZONES
-- We currently deliver to these dorms: Yugo, The Myriad, KSK Homes, DSOA Residence, and Study World.
+- We currently deliver to these dorms: ${dormListPlain}.
 - If their building isn't one of those (or they signed up as "Other"), their account may be marked out-of-zone, which blocks buying a plan until we confirm coverage. For any "do you deliver to X?" about a building not on the list, confirm what's known and escalate to verify with [WHATSAPP_ESCALATION]. There's no in-app switch for this — we confirm coverage manually.
 
 # PLANS
@@ -122,4 +139,9 @@ You are a knowledge-only assistant. You CANNOT perform any actions on behalf of 
 
 # REMINDER
 When in doubt, it's always better to bring in a human than to guess. End those replies with [WHATSAPP_ESCALATION].
-`;
+`
+}
+
+// (Removed dead DORMERS_SUPPORT_KNOWLEDGE constant — the route builds knowledge
+// via getDormersSupportKnowledge(locs) from the live dorm_locations table. The
+// old export embedded a hardcoded, drift-prone dorm list and had no importers.)

@@ -10,7 +10,7 @@ import { Download, Eye, Link2, MessageCircle, Printer, Tag, X } from 'lucide-rea
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminModal } from '../_components/AdminModal'
-import { SHAPE_D } from './label-spec'
+import { SHAPE_D, SHAPE_NUM_TWEAK } from './label-spec'
 import type { LabelMeta } from './data'
 import type { DormShape } from './dorm-shapes'
 
@@ -393,13 +393,16 @@ function StatCard({ label, value, t }: { label: string; value: number; t: Record
 function DormBadge({ shape, number, isLight }: { shape: DormShape; number: number; isLight: boolean }) {
   const ink = isLight ? '#091825' : '#ede8da'
   const knockout = isLight ? '#ede8da' : '#091825'
+  const tweak = SHAPE_NUM_TWEAK[shape]
+  const fontSize = 44 * tweak.fontScale
+  const textY = 54 + tweak.dyScale * 100
   return (
     <svg viewBox="0 0 100 100" width={20} height={20} aria-hidden>
       <path d={SHAPE_D[shape]} fill={ink} />
       <text
-        x="50" y={shape === 'triangle' ? 66 : 54} textAnchor="middle" dominantBaseline="central"
+        x="50" y={textY} textAnchor="middle" dominantBaseline="central"
         fill={knockout} fontFamily="var(--font-montserrat), sans-serif" fontWeight={700}
-        fontSize={shape === 'star' || shape === 'triangle' ? 34 : 44}
+        fontSize={fontSize}
       >
         {number}
       </text>

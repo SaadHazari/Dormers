@@ -57,7 +57,7 @@ export function PhoneStep({
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
                 setError(messageForError(data?.error))
-                if (data?.error === 'cooldown' && data.retryAfter) setResendIn(data.retryAfter)
+                if (data?.error === 'cooldown' && data.retryAfter) setResendIn(Number(data.retryAfter) || 30)
                 return
             }
             setStage('sent')

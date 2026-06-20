@@ -15,12 +15,30 @@ export interface OpsToken {
   created_at: string
 }
 
+export interface AllowlistEntry {
+  id: string
+  phone_digits: string
+  label: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export default async function OpsTokensPage() {
   await requireAdmin()
   const sb = createAdminSupabaseClient()
-  const { data } = await sb
-    .from('ops_tokens')
-    .select('id, token, role, label, is_active, revoked_at, created_at')
-    .order('created_at', { ascending: false })
-  return <OpsTokensClient tokens={(data ?? []) as OpsToken[]} />
+  const [{ data: tokenData }, { data: allowData }] = await Promise.all([
+    sb.from('ops_tokens')
+      .select('id, token, role, label, is_active, revoked_at, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false }),
+    sb.from('whatsapp_rider_allowlist')
+      .select('id, phone_digits, label, is_active, created_at')
+      .order('created_at', { ascending: false }),
+  ])
+  return (
+    <OpsTokensClient
+      tokens={(tokenData ?? []) as OpsToken[]}
+      allowlist={(allowData ?? []) as AllowlistEntry[]}
+    />
+  )
 }

@@ -4,6 +4,16 @@ import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import DishPageClient from './DishPageClient'
 import type { Metadata } from 'next'
 
+// These pages are scanned from a QR printed on the physical meal packaging,
+// so the slow path is brutal: every scan was a cold serverless function +
+// three Supabase queries to the Ohio region (we serve Dubai) before any HTML
+// streamed. The menu only changes on admin CMS edits — which already fire
+// `revalidatePath('/dish/[id]', 'page')` (see admin/menu/actions.ts) — so the
+// page is meant to be cached. Make it static + ISR: served instantly from the
+// Netlify edge, regenerated on admin edits (on-demand) or once a day (backstop).
+export const dynamic = 'force-static'
+export const revalidate = 86400
+
 export function generateStaticParams() {
   return MENU_DATA.map(dish => ({ id: String(dish.id) }))
 }

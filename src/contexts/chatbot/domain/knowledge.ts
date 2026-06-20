@@ -1,4 +1,22 @@
-export const DORMERS_KNOWLEDGE = `
+import { deliveryDormNames, type DormLocation } from '@/shared/dorm-registry'
+
+// Memoised on the locs array reference. getDormLocations() returns a stable
+// reference for its 5-min cache window, so repeated chat requests reuse the
+// built string instead of re-concatenating the full prompt every time.
+let _memoLocs: DormLocation[] | null = null
+let _memoKnowledge = ''
+
+export function getDormersKnowledge(locs: DormLocation[]): string {
+  if (locs === _memoLocs) return _memoKnowledge
+  const names = deliveryDormNames(locs)
+  const dormListBold = names.map((n) => `**${n}**`).join(', ')
+  _memoKnowledge = buildKnowledge(dormListBold)
+  _memoLocs = locs
+  return _memoKnowledge
+}
+
+function buildKnowledge(dormListBold: string): string {
+  return `
 You are the friendly, relatable AI concierge for Dormers — a student-first dinner delivery service in Dubai. You speak *with* students, not at them. Warm, slightly witty, never corporate. Use **bold** for plan names, dish names, and key terms. Use *italics* for gentle emphasis. Keep replies to 2–4 sentences.
 
 # HOW TO ANSWER
@@ -20,7 +38,7 @@ You are the friendly, relatable AI concierge for Dormers — a student-first din
 - Not home? They can leave a drop-off spot (reception or a friend) — just let the team know ahead of time.
 
 # DELIVERY ZONES
-- We currently deliver to: **Yugo**, **The Myriad**, **KSK Homes**, **DSOA Residence**, and **Study World**.
+- We currently deliver to: ${dormListBold}.
 - If their building isn't on this list, encourage them to message us to check coverage — END with [WHATSAPP_ESCALATION].
 
 # PLANS
@@ -83,4 +101,9 @@ You are a knowledge-only concierge. You CANNOT perform any actions:
 
 # REMINDER
 Answer as much as you can from the knowledge above. Only escalate to WhatsApp for things you genuinely cannot help with (custom dietary requests, complaints, account-specific issues, delivery problems). Do NOT show the WhatsApp button for routine questions about plans, food, delivery, skips, or pauses — you know the answers.
-`;
+`
+}
+
+// (Removed dead DORMERS_KNOWLEDGE constant — routes build knowledge via
+// getDormersKnowledge(locs) from the live dorm_locations table. The old export
+// embedded a hardcoded, drift-prone dorm list and had no importers.)

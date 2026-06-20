@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { DORM_SHAPE_MAP, dormShapeSvg } from '@/shared/dorm-shapes'
+import { dormShapeSvg } from '@/shared/dorm-shapes'
+import type { DormMapping } from '@/shared/dorm-shapes'
 import type { DormCountsRecord } from '@/contexts/ops/usecases/get-dorm-counts'
 import { confirmPickup, confirmDropoff } from './actions'
 
@@ -14,10 +15,6 @@ const ORANGE  = '#f57f20'
 const EMERALD = '#10b981'
 const FONT    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 
-// Exclude 'Other' — only named dorms get a delivery stop
-const RIDER_DORMS = Object.entries(DORM_SHAPE_MAP).filter(
-  ([key]) => key !== 'Other',
-)
 
 type DormDropoffStatus = 'ready' | 'verified' | 'mismatch' | 'escalated' | 'manual'
 
@@ -32,6 +29,7 @@ interface VerifyResponse {
 
 interface RiderClientProps {
   dormCounts: DormCountsRecord
+  dormShapeMap: Record<string, DormMapping>
   opsTokenId: string
   deliveryDateIso: string
   lastUpdated: string
@@ -66,14 +64,19 @@ function captureGeo(): Promise<{ lat: number; lng: number } | null> {
 
 export function RiderClient({
   dormCounts,
+  dormShapeMap,
   opsTokenId,
   deliveryDateIso,
   lastUpdated,
   noDeliveryReason,
 }: RiderClientProps) {
+  const RIDER_DORMS = Object.entries(dormShapeMap).filter(
+    ([key]) => key !== 'Other',
+  )
   // ── Existing pickup state ────────────────────────────────────────────────
   const [pickedUp, setPickedUp] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [pickupError, setPickupError] = useState<string | null>(null)
 
   // ── Per-dorm drop-off status ─────────────────────────────────────────────
   const [dormStatuses, setDormStatuses] = useState<Record<string, DormDropoffStatus>>({})
@@ -238,6 +241,14 @@ export function RiderClient({
         setDormStatuses(prev => ({ ...prev, [activeDorm]: status }))
         setTimeout(() => closeModal(), 2000)
       }
+    } catch {
+      // fetch itself rejected (rider offline — common in a delivery PWA). Show a
+      // manual-confirm fallback so the rider isn't left with a silent dead end.
+      setVerifyResult({
+        verified: false,
+        needsManualConfirm: true,
+        reason: 'Network error — please confirm manually',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -288,11 +299,16 @@ export function RiderClient({
 
   async function handleConfirmPickup() {
     setConfirming(true)
+    setPickupError(null)
     try {
       const dormsToConfirm = RIDER_DORMS.filter(
         ([dormKey]) => (dormCounts[dormKey] ?? 0) > 0,
       )
-      await Promise.all(
+      // confirmPickup returns { ok: false } on failure instead of throwing, so
+      // inspect every result — without this a revoked token or DB error would
+      // resolve "successfully" and the UI would flip to drop-off against dorms
+      // whose pickup was never recorded.
+      const results = await Promise.all(
         dormsToConfirm.map(([dormKey]) =>
           confirmPickup(
             dormKey,
@@ -302,7 +318,14 @@ export function RiderClient({
           ),
         ),
       )
+      const failed = results.filter(r => !r.ok).length
+      if (failed > 0) {
+        setPickupError(`Couldn't confirm ${failed} dorm${failed > 1 ? 's' : ''}. Tap to retry.`)
+        return
+      }
       setPickedUp(true)
+    } catch {
+      setPickupError('Network error — tap to retry.')
     } finally {
       setConfirming(false)
     }
@@ -500,6 +523,12 @@ export function RiderClient({
           : 'Confirm Pickup'}
       </button>
 
+      {pickupError && (
+        <div style={{ fontSize: '13px', color: '#ef4444', textAlign: 'center', fontFamily: FONT }}>
+          {pickupError}
+        </div>
+      )}
+
       {/* ── Timestamp ───────────────────────────────────────────────────── */}
       <div style={{ fontSize: '12px', color: MUTED, textAlign: 'center' }}>
         Last updated {lastUpdated}
@@ -552,7 +581,7 @@ export function RiderClient({
             }}
           >
             <div style={{ fontSize: '18px', fontWeight: 700, color: NAVY }}>
-              {DORM_SHAPE_MAP[activeDorm]?.displayName ?? activeDorm}
+              {dormShapeMap[activeDorm]?.displayName ?? activeDorm}
             </div>
             <button
               onClick={closeModal}

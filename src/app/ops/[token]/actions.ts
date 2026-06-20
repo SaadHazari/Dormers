@@ -25,6 +25,11 @@ export async function confirmPickup(
 
   const sb = createAdminSupabaseClient()
 
+  // NOTE: `verified` is deliberately omitted. On a fresh insert the column
+  // defaults to false; on conflict (a re-tapped "Confirm Pickup", e.g. after a
+  // PWA reload) it is left untouched, so a dorm that was already delivered and
+  // verified is NOT reset to verified=false (which would re-trigger the 8PM
+  // failsafe). The drop-off path owns the verified flag.
   const { error } = await sb.from('delivery_events').upsert(
     {
       delivery_date: deliveryDateIso,
@@ -33,7 +38,6 @@ export async function confirmPickup(
       expected_count: expectedCount,
       ops_token_id: opsTokenId,
       confirmed_at: new Date().toISOString(),
-      verified: false,
     },
     { onConflict: 'delivery_date,dorm_name,trip_number' },
   )

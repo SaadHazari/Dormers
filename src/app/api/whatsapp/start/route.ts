@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { createHash, randomInt } from 'crypto'
+import { randomInt } from 'crypto'
 import { sendOtpTemplate } from '@/infra/meta-whatsapp/client'
+import { hashOtpCode } from '@/shared/otp-hash'
 
 // Tunables. Conservative for an MVP — every send costs WhatsApp credits.
 const OTP_TTL_MIN          = 10
 const RESEND_COOLDOWN_SEC  = 30
 const MAX_SENDS_PER_HOUR   = 5
-
-const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 
 const admin = () =>
     createAdminClient(
@@ -59,7 +58,7 @@ export async function POST(req: NextRequest) {
     // ghost record (cleaned up by TTL anyway) than miss it.
     const { error: insertErr } = await supabase.from('whatsapp_otps').insert({
         phone,
-        code_hash:  sha256(code),
+        code_hash:  hashOtpCode(phone, code),
         expires_at: expiresAt,
     })
     if (insertErr) {

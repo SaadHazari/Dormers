@@ -8,7 +8,7 @@ import { savePendingPreferences, discardPendingPreferences } from '@/contexts/su
 import { OG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { SecuritySection } from './SecuritySection'
-import { ALLERGENS, DORMS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
+import { ALLERGENS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
 import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/contexts/subscriptions/domain/preferences'
 import { useIsCompact, MobileSheet } from '../_mobile/kit'
 import { MobileProfile } from '../_mobile/MobileProfile'
@@ -202,17 +202,13 @@ function PromotedPrefsBanner() {
 }
 
 export default function ProfileClient({
-  customer, userEmail, emailConfirmed = false, activeSubscription = null,
+  customer, userEmail, emailConfirmed = false, activeSubscription = null, dorms,
 }: {
   customer: Customer | null
   userEmail: string
   emailConfirmed?: boolean
-  /** Used purely to surface the locked veg-day snapshot for religious-mix
-   *  subs. Editing veg_days mid-cycle isn't permitted; the chips are
-   *  read-only with a tooltip pointing the user at renewal.
-   *  When present, also gates meal-preference editing — those fields are
-   *  locked into the active sub and only changeable from the next cycle. */
   activeSubscription?: { week_type?: '5DAYS' | '6DAYS' | null; veg_days?: string[] | null } | null
+  dorms: string[]
 }) {
   const hasActiveSub = !!activeSubscription
   const compact = useIsCompact()   // gates the mobile-only account-edit sheet
@@ -692,7 +688,7 @@ export default function ProfileClient({
               style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
             >
               <option value="">Select…</option>
-              {DORMS.map(d => <option key={d} value={d}>{d}</option>)}
+              {dorms.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </SelectWrap>
         </div>
@@ -818,7 +814,7 @@ export default function ProfileClient({
                     style={{ ...fieldShell, paddingRight: 36, cursor: 'pointer' }}
                   >
                     <option value="">Select…</option>
-                    {DORMS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {dorms.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </SelectWrap>
               </div>

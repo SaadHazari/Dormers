@@ -5,7 +5,7 @@ import { Check } from 'lucide-react'
 import { CtaButton, FieldInput, PillCard, SelectCard } from './primitives'
 import { EmailStep } from './EmailStep'
 import { PhoneStep } from './PhoneStep'
-import { ALLERGENS, DAYS_OF_WEEK, DORMS, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, WEEK_TYPES, type FormState, type Step } from './data'
+import { ALLERGENS, DAYS_OF_WEEK, PREFERENCES, SPICE_LEVELS, UNIVERSITIES, WEEK_TYPES, type FormState, type Step } from './data'
 import { authTokens } from '@/ui-system/tokens/auth-theme'
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
     toggleAllergen: (item: string) => void
     toggleVegDay: (day: string) => void
     isLight: boolean
+    dorms: string[]
 }
 
 /**
@@ -27,7 +28,7 @@ interface Props {
  * internally, so they don't need handleCreate / error / isPending plumbing.
  */
 export function OnboardingSteps({
-    step, form, set, advance, toggleAllergen, toggleVegDay, isLight,
+    step, form, set, advance, toggleAllergen, toggleVegDay, isLight, dorms,
 }: Props) {
     const tokens = authTokens(isLight)
     // Eyebrow stays orange in both modes (brand mark).
@@ -190,7 +191,7 @@ export function OnboardingSteps({
                         <h1 className={headlineCls}>Where should<br />we drop it?</h1>
                     </div>
                     <div className="grid grid-cols-2 gap-2.5">
-                        {DORMS.map(d => (
+                        {dorms.map(d => (
                             <PillCard
                                 key={d}
                                 selected={form.dorm === d}

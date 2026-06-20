@@ -25,7 +25,10 @@ export const SPICE_LEVELS = [
     { value: 'Extra Hot', emoji: '💀', label: 'Extra Hot', desc: 'Absolutely no mercy' },
 ]
 
-export const DORMS = ['The Myriad', 'KSK Homes', 'Yugo', 'DSOA Residence', 'Study World', 'Other']
+// Dorm list is now DB-backed via dorm_locations table.
+// Server components fetch via getDormLocations() and pass as props.
+// This static fallback exists only for backwards compatibility during hydration.
+export const DORMS_FALLBACK = ['The Myriad', 'KSK Homes', 'Yugo', 'DSOA Residence', 'Study World', 'Other']
 
 export const WEEK_TYPES = [
     { value: '6DAYS' as const, emoji: '📅', label: 'Mon–Sat (6 days)', desc: 'One day off (Sundays). The standard cadence.' },

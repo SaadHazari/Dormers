@@ -7,17 +7,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { deliveryDormNames } from '@/shared/dorm-registry'
 
 export const dynamic = 'force-dynamic'
-
-// Canonical dorm names — must match delivery_events.dorm_name exactly
-const VALID_DORM_NAMES = [
-  'The Myriad',
-  'KSK Homes',
-  'Yugo',
-  'DSOA Residence',
-  'Study World',
-] as const
 
 export async function POST(req: NextRequest) {
   let body: { dorm_name?: string; token?: string }
@@ -33,19 +26,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing token' }, { status: 401 })
   }
 
-  // Validate rider token — kitchen tokens are not accepted here
   const opsToken = await validateOpsToken(token, 'rider')
   if (!opsToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (
-    !dorm_name ||
-    !VALID_DORM_NAMES.includes(dorm_name as (typeof VALID_DORM_NAMES)[number])
-  ) {
+  const locs = await getDormLocations()
+  const validNames = deliveryDormNames(locs)
+
+  if (!dorm_name || !validNames.includes(dorm_name)) {
     return NextResponse.json(
       {
-        error: `Invalid dorm_name. Must be one of: ${VALID_DORM_NAMES.join(', ')}`,
+        error: `Invalid dorm_name. Must be one of: ${validNames.join(', ')}`,
       },
       { status: 400 },
     )
@@ -81,8 +73,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Fire-and-log: queue customer delivery notifications for this dorm
+  // deliveryDateIso is already the AE calendar date — read its weekday in UTC
+  // so a UTC server doesn't roll back to Friday (getDay() bug).
   const isSaturday =
-    new Date(deliveryDateIso + 'T00:00:00+04:00').getDay() === 6
+    new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
   try {
     const fanout = await queueDeliveryConfirmedNotifications(
       dorm_name,

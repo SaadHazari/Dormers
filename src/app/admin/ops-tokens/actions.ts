@@ -36,3 +36,38 @@ export async function rotateOpsToken(
   await logAdminAction(admin.email, 'ops_token_rotated', 'ops_token', oldTokenId, { role, label, newId: data.id })
   return { ok: true, newToken: data.token, newUrl, message: 'Token rotated successfully' }
 }
+
+export async function addAllowlistEntry(
+  phoneDigits: string,
+  label: string,
+): Promise<{ ok: boolean; message: string }> {
+  const admin = await requireAdmin()
+  const sb = createAdminSupabaseClient()
+  const digits = phoneDigits.replace(/[^0-9]/g, '')
+  if (digits.length < 8) return { ok: false, message: 'Phone number too short' }
+
+  const { error } = await sb
+    .from('whatsapp_rider_allowlist')
+    .insert({ phone_digits: digits, label: label || null, is_active: true })
+  if (error?.code === '23505') return { ok: false, message: 'Number already exists' }
+  if (error) return { ok: false, message: error.message }
+
+  await logAdminAction(admin.email, 'rider_allowlist_added', 'whatsapp_rider_allowlist', digits, { label })
+  return { ok: true, message: 'Number added' }
+}
+
+export async function toggleAllowlistEntry(
+  id: string,
+  isActive: boolean,
+): Promise<{ ok: boolean; message: string }> {
+  const admin = await requireAdmin()
+  const sb = createAdminSupabaseClient()
+  const { error } = await sb
+    .from('whatsapp_rider_allowlist')
+    .update({ is_active: isActive })
+    .eq('id', id)
+  if (error) return { ok: false, message: error.message }
+
+  await logAdminAction(admin.email, isActive ? 'rider_allowlist_enabled' : 'rider_allowlist_disabled', 'whatsapp_rider_allowlist', id)
+  return { ok: true, message: isActive ? 'Enabled' : 'Disabled' }
+}

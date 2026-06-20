@@ -13,10 +13,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { matchDormName } from '@/contexts/ops/domain/dorm-name-fuzzy-match'
+import { matchDormNameSync } from '@/contexts/ops/domain/dorm-name-fuzzy-match'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { deliveryDormNames, dormAliasMap } from '@/shared/dorm-registry'
 
 export const runtime = 'nodejs'
 
@@ -141,12 +143,15 @@ function verifyHmac(
     'sha256=' +
     createHmac('sha256', appSecret).update(rawBody, 'utf8').digest('hex')
 
-  if (expected.length !== signatureHeader.length) return false
+  // Compare BYTE lengths, not string (UTF-16 code-unit) lengths. An attacker can
+  // craft a header with the same character count but a different byte length
+  // (multi-byte UTF-8); timingSafeEqual throws RangeError on unequal-length
+  // buffers, which would 500 the webhook on any probing request.
+  const expectedBuf = Buffer.from(expected)
+  const actualBuf = Buffer.from(signatureHeader)
+  if (expectedBuf.length !== actualBuf.length) return false
 
-  return timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(signatureHeader),
-  )
+  return timingSafeEqual(expectedBuf, actualBuf)
 }
 
 // ---------------------------------------------------------------------------
@@ -236,14 +241,18 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
     if (!dedup.data || dedup.data.length === 0) return
 
     // WAI-05, WAI-06: Fuzzy match
-    const matchResult = matchDormName(msgText)
+    const locs = await getDormLocations()
+    const canonical = deliveryDormNames(locs)
+    const aliases = dormAliasMap(locs)
+    const matchResult = matchDormNameSync(msgText, canonical, aliases)
 
     // No match — no candidates
     if (matchResult.match === null && matchResult.candidates.length === 0) {
       try {
+        const names = canonical
         await replyToRider(
           senderPhone,
-          `Could not match "${msgText}" to a dorm. Try: The Myriad, KSK Homes, Yugo, DSOA Residence, Study World.`,
+          `Could not match "${msgText}" to a dorm. Try: ${names.join(', ')}.`,
         )
       } catch (err) {
         console.error('[whatsapp-inbound] reply failed (non-fatal):', err)
@@ -271,7 +280,10 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
     // Compute UAE date for this delivery
     const nowUAE = new Date(Date.now() + 4 * 60 * 60 * 1000)
     const todayIso = nowUAE.toISOString().slice(0, 10)
-    const isSaturday = nowUAE.getDay() === 6
+    // nowUAE holds UAE wall-clock in its UTC fields, so read the weekday with
+    // getUTCDay() — getDay() uses the server's local zone and returns the wrong
+    // day on a UTC host (matches the convention in mark-delivered/route.ts).
+    const isSaturday = nowUAE.getUTCDay() === 6
     const dayName = nowUAE.toLocaleDateString('en-AE', {
       weekday: 'long',
       timeZone: 'Asia/Dubai',

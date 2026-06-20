@@ -99,9 +99,15 @@ export const SHAPE_D: Record<DormShape, string> = {
   circle:   'M50 6 A44 44 0 1 0 50 94 A44 44 0 1 0 50 6 Z',
   square:   'M12 6 L88 6 Q94 6 94 12 L94 88 Q94 94 88 94 L12 94 Q6 94 6 88 L6 12 Q6 6 12 6 Z',
   triangle: 'M50 6 L94 90 L6 90 Z',
+  diamond:  'M50 4 L96 50 L50 96 L4 50 Z',
+  pentagon: 'M50 4 L95 38 L77 94 L23 94 L5 38 Z',
   hexagon:  'M50 4 L91 27 L91 73 L50 96 L9 73 L9 27 Z',
+  octagon:  'M33 4 L67 4 L96 33 L96 67 L67 96 L33 96 L4 67 L4 33 Z',
   star:     'M50 4 L61 36 L96 36 L68 58 L79 92 L50 72 L21 92 L32 58 L4 36 L39 36 Z',
+  shield:   'M50 4 L90 20 L90 50 Q90 82 50 96 Q10 82 10 50 L10 20 Z',
   plus:     'M34 6 L66 6 L66 34 L94 34 L94 66 L66 66 L66 94 L34 94 L34 66 L6 66 L6 34 L34 34 Z',
+  oval:     'M50 16 A46 34 0 1 0 50 84 A46 34 0 1 0 50 16 Z',
+  arrow:    'M50 4 L92 52 L70 52 L70 96 L30 96 L30 52 L8 52 Z',
 }
 
 // Per-shape tweaks so the number sits optically centered: triangles and stars
@@ -110,9 +116,15 @@ export const SHAPE_NUM_TWEAK: Record<DormShape, { fontScale: number; dyScale: nu
   circle:   { fontScale: 1,    dyScale: 0 },
   square:   { fontScale: 1,    dyScale: 0 },
   triangle: { fontScale: 0.82, dyScale: 0.10 },
+  diamond:  { fontScale: 0.80, dyScale: 0 },
+  pentagon: { fontScale: 1,    dyScale: 0.04 },
   hexagon:  { fontScale: 1,    dyScale: 0 },
+  octagon:  { fontScale: 1,    dyScale: 0 },
   star:     { fontScale: 0.60, dyScale: 0.07 },
+  shield:   { fontScale: 0.90, dyScale: 0.04 },
   plus:     { fontScale: 0.78, dyScale: 0 },
+  oval:     { fontScale: 0.85, dyScale: 0 },
+  arrow:    { fontScale: 0.70, dyScale: 0.12 },
 }
 
 // Max width available to the dish block on the TOP face:

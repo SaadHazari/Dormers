@@ -1,10 +1,12 @@
 'use server'
 
 import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createHash } from 'node:crypto'
 import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { normalisePhone } from '@/shared/phone'
 import { generateCid } from '@/shared/cid'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { awardCycleAndTierRewards } from '@/contexts/dorm-wars/usecases/awarder'
 import { isDoublerActive, applyDoubler } from '@/contexts/dorm-wars/domain/doubler'
 import { cashForLifetimeConversion } from '@/contexts/dorm-wars/domain/constants'
@@ -79,6 +81,13 @@ async function resolveClientIp(): Promise<string | null> {
   const fwd = h.get('x-forwarded-for')
   if (fwd) return fwd.split(',')[0]!.trim()
   return h.get('x-real-ip') ?? h.get('cf-connecting-ip') ?? null
+}
+
+// Hash the IP rather than storing it raw — the velocity cap only needs to
+// bucket repeat claims, not retain PII. Peppered so the small IPv4 space isn't
+// trivially reversible from the stored hash.
+function hashIp(ip: string): string {
+  return createHash('sha256').update(`referral-ip-v1:${ip}`).digest('hex')
 }
 
 // First name sanitization mirrors src/lib/validation:sanitizeNameInput — letters
@@ -305,9 +314,10 @@ export async function claimGift(payload: {
   // marked verified. Mirrors the check in onboarding's createAccount.
   const { data: phoneOtp } = await supabaseAdmin
     .from('whatsapp_otps')
-    .select('verified_at')
+    .select('id, verified_at')
     .eq('phone', phoneE164)
     .not('verified_at', 'is', null)
+    .is('consumed_at', null)
     .gte('verified_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
     .order('verified_at', { ascending: false })
     .limit(1)
@@ -512,16 +522,13 @@ export async function claimGift(payload: {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { count: ipClaims24h } = await supabaseAdmin
       .from('referral_gifts_claimed')
-      // We don't have a stored IP column; reuse device_fp as a coarse proxy
-      // when fp matches, and supplement with a same-day count via a join on
-      // referrals.created_at + device_fp. For now use device_fp ONLY.
       .select('id', { count: 'exact', head: true })
       .gte('claimed_at', dayAgo)
-      .eq('device_fp', payload.deviceFp ?? '__no_fp_marker__')
-    if ((ipClaims24h ?? 0) >= MAX_CLAIMS_PER_IP_24H && payload.deviceFp) {
+      .eq('ip_hash', hashIp(clientIp))
+    if ((ipClaims24h ?? 0) >= MAX_CLAIMS_PER_IP_24H) {
       return {
         blocked: true,
-        reason: 'Too many gift claims from this device in 24 hours. Try again tomorrow.',
+        reason: 'Too many gift claims from this network in 24 hours. Try again tomorrow.',
       }
     }
   }
@@ -577,6 +584,7 @@ export async function claimGift(payload: {
       email_norm:  emailNorm,
       dorm_name:   payload.dormName,
       device_fp:   payload.deviceFp ?? null,
+      ip_hash:     clientIp ? hashIp(clientIp) : null,
     })
 
   if (claimErr) {
@@ -612,7 +620,8 @@ export async function claimGift(payload: {
   // invitee_user_id field. The webhook's referral-linkup loop keys on
   // phone match; we already have the user id here, so set it explicitly
   // to make the awarder's downstream lookups O(1) instead of O(phone scan).
-  const customerCid = generateCid(payload.dormName)
+  const dormLocs = await getDormLocations()
+  const customerCid = generateCid(payload.dormName, dormLocs)
   const { error: customerErr } = await supabaseAdmin
     .from('customers')
     .upsert({
@@ -637,6 +646,12 @@ export async function claimGift(payload: {
 
   if (customerErr) {
     console.error(`❌ customers row insert failed for trial user ${verifiedUser.id}:`, customerErr)
+    // Roll back the lifetime-dedupe + referral rows so this phone/email isn't
+    // permanently blocked from re-claiming after a failure that left them with
+    // no account and no meal. (The OTP is consumed only on full success below,
+    // so it's still usable on retry.)
+    await supabaseAdmin.from('referral_gifts_claimed').delete().eq('phone_e164', phoneE164)
+    await supabaseAdmin.from('referrals').delete().eq('id', referralRow.id)
     return { error: 'Profile setup failed. Please try again or message us on WhatsApp.' }
   } else {
     // Close the referral linkup loop now (no need to wait for the webhook's
@@ -646,6 +661,16 @@ export async function claimGift(payload: {
       .update({ invitee_user_id: verifiedUser.id })
       .eq('id', referralRow.id)
   }
+
+  // Consume the OTP now that the customer row is committed — single-use, so this
+  // verification can't be replayed for a signup or profile-number change within
+  // the 30-min window. Done post-success so a failed/retried claim above still
+  // finds it usable.
+  await supabaseAdmin
+    .from('whatsapp_otps')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('id', phoneOtp.id)
+    .is('consumed_at', null)
 
   // ── 11b. Welcome Meal subscription ─────────────────────────────────────────
   // Phase 7: the gift IS a Subscription with planKind='gift'. Kitchen ops

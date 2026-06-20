@@ -20,6 +20,8 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
 import { getDormMapping, type DormShape } from './dorm-shapes'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { dormShapeMap } from '@/shared/dorm-registry'
 import { qrUrl, formatCustomerName, type LabelData, INK, CREAM } from './label-spec'
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -95,10 +97,16 @@ export async function getDailyLabels(): Promise<DailyLabels> {
   const isSaturday = jsDow === 6
   // CMS-aware lookup — kitchen labels must print the dish name the admin
   // edited at /admin/menu, not the name frozen in catalog-data.ts at build.
-  const [vegDish, nonVegDish] = await Promise.all([
+  const [vegDish, nonVegDish, locs] = await Promise.all([
     findDishForDateWithOverrides(today, true),
     findDishForDateWithOverrides(today, false),
+    getDormLocations(),
   ])
+  // DB-driven dorm map so labels pick up dorms added/edited via /admin/dorms.
+  // Falls back to the static getDormMapping for unknown/custom dorm names
+  // (same 'Other' behaviour as before). The seed matches the static map, so
+  // existing dorms render identically.
+  const shapeMap = dormShapeMap(locs)
 
   type Pending = Omit<LabelMeta, 'orderId'> & { subscriptionId: string }
   const pending: Pending[] = []
@@ -115,7 +123,7 @@ export async function getDailyLabels(): Promise<DailyLabels> {
     const dish = isVegToday ? vegDish : nonVegDish
     if (!dish) continue
 
-    const dorm = getDormMapping(cust.dorm_name)
+    const dorm = shapeMap[cust.dorm_name ?? ''] ?? getDormMapping(cust.dorm_name)
     pending.push({
       subscriptionId: sub.id,
       dishName: dish.name,

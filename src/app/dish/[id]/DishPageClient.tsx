@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { Flame, Truck } from 'lucide-react'
 import { SpiceMeter } from '@/app/components/SpiceMeter'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -45,6 +46,7 @@ function splitUnit(raw: string): { value: string; unit: string } {
 export default function DishPageClient({ dish }: { dish: SerializedDish }) {
   const weekLabel = dish.week.replace('week', 'Week ')
   const dayLabel = DAYS[dish.dayOfWeek]
+  const cal = splitUnit(dish.nutrients.calories ?? '')
 
   return (
     <div className="relative isolate min-h-screen overflow-x-clip">
@@ -81,8 +83,8 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
 
       <main className="mx-auto max-w-5xl lg:grid lg:grid-cols-[5fr_6fr] lg:items-start lg:gap-12 lg:px-8 lg:pb-24 lg:pt-4">
         {/* Hero — full-bleed rounded-bottom photo on mobile, sticky card on desktop */}
-        <div className="dish-rise relative lg:sticky lg:top-8">
-          <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-square lg:rounded-3xl lg:shadow-[0_16px_40px_rgba(9,24,37,0.16)]">
+        <div className="relative lg:sticky lg:top-8">
+          <div className="dish-photo relative aspect-[4/5] w-full overflow-hidden bg-[#ece4d2] sm:aspect-[16/10] lg:aspect-square lg:rounded-3xl lg:shadow-[0_16px_40px_rgba(9,24,37,0.16)]">
             {dish.image && (
               <Image
                 src={dish.image}
@@ -96,6 +98,12 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
             {/* Base scrim for card depth — desktop only; on the cream mobile
                 photos a dark fade reads as a smudge, not depth. */}
             <div className="absolute inset-0 hidden bg-gradient-to-t from-black/25 via-transparent to-transparent lg:block" />
+            {/* Mobile: a soft warm fade at the very bottom so the photo melts
+                into the cream content sheet instead of ending on a hard line. */}
+            <div
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#fdf8ef] to-transparent lg:hidden"
+            />
 
             {/* Cream glass badge — the dish photos are light studio shots,
                 so a dark scrim pill reads muddy on them. */}
@@ -103,13 +111,27 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
               <span className={`h-1.5 w-1.5 rounded-full ${dish.isVeg ? 'bg-emerald-500' : 'bg-[#f57f20]'}`} />
               {dish.isVeg ? 'Veg' : 'Non-Veg'}
             </span>
+
+            {/* At-a-glance calorie chip — the single number a hungry student
+                cares about, readable before they scroll past the photo. */}
+            {cal.value && (
+              <span className="absolute right-4 top-4 inline-flex items-baseline gap-1 rounded-full border border-[#091825]/10 bg-[#fdfaf2]/80 px-3 py-1 text-[#091825] backdrop-blur-md">
+                <span className="text-[13px] font-black leading-none">{cal.value}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#091825]/55">
+                  {cal.unit || 'kcal'}
+                </span>
+              </span>
+            )}
           </div>
         </div>
 
         {/* Content — on mobile this is a static bottom-sheet over the photo:
             same 20px top radius + upward shadow as the dashboard MobileSheet.
             Opaque cream gradient so the photo reads as background behind it. */}
-        <div className="relative z-[1] -mt-8 rounded-t-[24px] bg-gradient-to-b from-[#fdf8ef] via-[#ede8da] to-[#d9c9a8] px-5 pb-32 pt-7 shadow-[0_-16px_44px_rgba(9,24,37,0.25)] lg:z-auto lg:mt-2 lg:rounded-none lg:bg-none lg:px-0 lg:pb-0 lg:pt-0 lg:shadow-none">
+        <div className="relative z-[1] -mt-9 rounded-t-[28px] bg-gradient-to-b from-[#fdf8ef] via-[#ede8da] to-[#d9c9a8] px-5 pb-32 pt-7 shadow-[0_-16px_44px_rgba(9,24,37,0.25)] lg:z-auto lg:mt-2 lg:rounded-none lg:bg-none lg:px-0 lg:pb-0 lg:pt-0 lg:shadow-none">
+          {/* Grip handle — signifies "this sheet sits over the photo"; mobile only */}
+          <div aria-hidden className="mx-auto mb-5 h-1 w-9 rounded-full bg-[#091825]/15 lg:hidden" />
+
           <p className="dish-rise dish-d1 mb-2 text-[11px] font-bold uppercase tracking-widest text-[#f57f20]">
             {weekLabel}
             {dayLabel && <> &middot; {dayLabel}</>}
@@ -152,7 +174,7 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
           )}
 
           {/* Spice + Allergens */}
-          <div className="dish-rise dish-d3 mb-10 divide-y divide-[#091825]/10 border-y border-[#091825]/10">
+          <div className="dish-rise dish-d3 mb-8 divide-y divide-[#091825]/10 border-y border-[#091825]/10">
             <div className="flex items-center justify-between gap-4 py-3.5">
               <span className={sectionLabel}>Spice</span>
               <div className="flex items-center gap-2.5">
@@ -181,18 +203,31 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
             </div>
           </div>
 
-          {/* Mobile: caption lives in the flow, not the fixed bar, so it never
-              collides with content scrolling underneath the button. */}
-          <p className="dish-rise dish-d4 text-center text-[11px] text-[#091825]/55 lg:hidden">
-            Student meal delivery in Dubai
-          </p>
+          {/* Trust strip — two honest reassurances at the point of decision.
+              Cooked-fresh + dorm delivery are the brand's core promise; no
+              invented numbers (no fake review counts or prices). */}
+          <div className="dish-rise dish-d4 mb-9 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#091825]/70">
+              <Flame size={15} className="text-[#f57f20]" strokeWidth={2.5} />
+              Cooked fresh daily
+            </span>
+            <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#091825]/70">
+              <Truck size={15} className="text-[#f57f20]" strokeWidth={2.5} />
+              Delivered to your dorm
+            </span>
+          </div>
 
           {/* Desktop CTA — inline, where the story ends */}
           <div className="dish-rise dish-d4 hidden lg:block">
             <Link href="/home" className={`${ctaStyles} inline-block px-6 py-3 text-center`}>
               Get meals like this delivered
             </Link>
-            <p className="mt-3 text-[12px] text-[#091825]/50">Student meal delivery in Dubai</p>
+            <Link
+              href="/home"
+              className="ml-5 text-[13px] font-semibold text-[#091825]/55 underline-offset-4 transition-colors hover:text-[#091825]/85 hover:underline"
+            >
+              See this week&apos;s full menu
+            </Link>
           </div>
         </div>
       </main>
@@ -202,8 +237,14 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
           bottom edge, so the fade is seamless. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 lg:hidden">
         <div className="bg-gradient-to-t from-[#dfb98a] via-[#e8d8b6] to-transparent px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-10">
-          <Link href="/home" className={`${ctaStyles} pointer-events-auto block w-full px-6 py-3 text-center`}>
+          <Link href="/home" className={`${ctaStyles} pointer-events-auto block w-full px-6 py-3.5 text-center`}>
             Get meals like this delivered
+          </Link>
+          <Link
+            href="/home"
+            className="pointer-events-auto mt-2.5 block text-center text-[12px] font-semibold text-[#091825]/55 transition-colors hover:text-[#091825]/80"
+          >
+            See this week&apos;s full menu
           </Link>
         </div>
       </div>
@@ -216,8 +257,22 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
         .dish-d2 { animation-delay: 0.12s; }
         .dish-d3 { animation-delay: 0.18s; }
         .dish-d4 { animation-delay: 0.24s; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: none; }
+        }
+        /* Slow settle on the hero photo — gives the food a premium "arrive"
+           moment instead of a static slap-down. This is a plain global style
+           block, so a normal child selector reaches the next/image element
+           directly (no :global, a styled-jsx-only pseudo that drops here). */
+        .dish-photo { animation: dishPhotoIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .dish-photo > img {
+          animation: dishPhotoScale 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes dishPhotoIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes dishPhotoScale { from { transform: scale(1.06); } to { transform: scale(1); } }
         @media (prefers-reduced-motion: reduce) {
-          .dish-rise { animation: none; }
+          .dish-rise, .dish-photo, .dish-photo > img { animation: none; }
         }
       `}</style>
     </div>
@@ -227,9 +282,16 @@ export default function DishPageClient({ dish }: { dish: SerializedDish }) {
 function NutrientCard({ label, raw, accent }: { label: string; raw: string; accent?: boolean }) {
   const { value, unit } = splitUnit(raw)
   return (
-    <div className="rounded-xl border border-[#091825]/10 bg-[#fcf8ee] px-4 py-3.5 shadow-[0_1px_3px_rgba(9,24,37,0.05)] transition-colors hover:bg-white">
+    <div
+      className={`group relative overflow-hidden rounded-xl border bg-[#fcf8ee] px-4 py-3.5 shadow-[0_1px_3px_rgba(9,24,37,0.05)] transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_6px_18px_rgba(9,24,37,0.10)] ${
+        accent ? 'border-[#f57f20]/30' : 'border-[#091825]/10'
+      }`}
+    >
+      {/* Accent rail on the headline macro — gives the grid a focal point
+          without a second color. */}
+      {accent && <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-[#f57f20]" />}
       <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#091825]/45">{label}</p>
-      <p className={`text-[20px] font-bold leading-none ${accent ? 'text-[#f57f20]' : 'text-[#091825]'}`}>
+      <p className={`text-[22px] font-black leading-none ${accent ? 'text-[#f57f20]' : 'text-[#091825]'}`}>
         {value}
         {unit && <span className="ml-1 text-[11px] font-semibold text-[#091825]/45">{unit}</span>}
       </p>

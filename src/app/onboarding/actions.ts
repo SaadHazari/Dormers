@@ -6,7 +6,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 import { generateCid } from '@/shared/cid'
-import { DORMS } from './data'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { dormNames } from '@/shared/dorm-registry'
+import { DAYS_OF_WEEK } from './data'
 
 export interface OnboardingPayload {
     preference: string
@@ -48,7 +50,9 @@ function validateOnboardingPayload(p: OnboardingPayload): string | null {
     if (!isAlphaName(p.name)) return 'Name can only contain letters and spaces.'
     if (!p.phone?.trim()) return 'Phone number is required.'
     if (!p.dorm?.trim()) return 'Please select your dorm.'
+    if (p.dorm.trim().length > 80) return 'Dorm name is too long.'
     if (!p.university?.trim()) return 'Please select your university.'
+    if (p.university.trim().length > 80) return 'University name is too long.'
     if (!p.preference?.trim()) return 'Please select a meal preference.'
     if (!p.spiceLevel?.trim()) return 'Please pick a spice level.'
     // Allergens may be empty (defaults to "None" downstream), but if the array
@@ -66,10 +70,11 @@ function validateOnboardingPayload(p: OnboardingPayload): string | null {
     return null
 }
 
-// Confirm there's a fresh verified OTP for this phone — within the last 30 min,
-// matching the phone the form is submitting. The client-side `phoneVerified`
-// flag is UX hint only; this check is the actual gate.
-async function isPhoneVerified(phone: string): Promise<boolean> {
+// Return the id of a fresh verified OTP for this phone — verified within the
+// last 30 min and not yet consumed. The client-side `phoneVerified` flag is a
+// UX hint only; this is the actual gate. `consumed_at IS NULL` ensures a single
+// verification can't be replayed once an earlier signup/claim already used it.
+async function findVerifiedOtpId(phone: string): Promise<string | null> {
     const supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -80,9 +85,11 @@ async function isPhoneVerified(phone: string): Promise<boolean> {
         .select('id')
         .eq('phone', phone)
         .gte('verified_at', cutoff)
+        .is('consumed_at', null)
+        .order('verified_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-    return !!data
+    return data?.id ?? null
 }
 
 export async function createAccount(
@@ -93,8 +100,10 @@ export async function createAccount(
 
     // Reject signup if the WhatsApp number wasn't verified through our OTP
     // flow. Stops scammers from putting in a fake number that bypasses the
-    // delivery channel.
-    if (!(await isPhoneVerified(payload.phone))) {
+    // delivery channel. The OTP is consumed only after the account succeeds
+    // (below), so a retry after a partial failure still finds it usable.
+    const verifiedOtpId = await findVerifiedOtpId(payload.phone)
+    if (!verifiedOtpId) {
         return { error: 'WhatsApp number not verified. Please complete verification first.' }
     }
 
@@ -159,11 +168,9 @@ export async function createAccount(
     const userId = authData.user?.id
     if (!userId) return { error: 'Account creation failed. Please try again.' }
 
-    // A dorm not in the canonical DORMS list (i.e. submitted via the "Other"
-    // text input at onboarding) sits outside our delivery radius until
-    // customer-service confirms coverage. Flagging here gates checkout and
-    // surfaces the WhatsApp-contact banner on the dashboard.
-    const dormListed = DORMS.includes(payload.dorm) && payload.dorm !== 'Other'
+    const allDorms = await getDormLocations()
+    const allDormNames = dormNames(allDorms)
+    const dormListed = allDormNames.includes(payload.dorm) && payload.dorm !== 'Other'
 
     // Religious-mix users pick their veg days during onboarding (Step 1.5).
     // Persist to customer.veg_days so the choice survives across the user's
@@ -173,15 +180,13 @@ export async function createAccount(
     // carry stale day picks forward.
     const isReligiousOnboarding = /religious/i.test(payload.preference)
     const cleanVegDays = isReligiousOnboarding && Array.isArray(payload.vegDays)
-        ? payload.vegDays.filter(d =>
-            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(d),
-          )
+        ? payload.vegDays.filter(d => DAYS_OF_WEEK.includes(d))
         : []
 
     // Upsert the customer profile (trigger may or may not have run yet)
     const { error: customerError } = await supabaseAdmin.from('customers').upsert({
         id: userId,
-        cid: generateCid(payload.dorm),
+        cid: generateCid(payload.dorm, allDorms),
         email: payload.email,
         name: payload.name,
         whatsapp_number: payload.phone,
@@ -205,6 +210,15 @@ export async function createAccount(
         )
         return { error: 'Profile setup failed. Please try again or message us on WhatsApp.' }
     }
+
+    // Consume the OTP now that the verified number is persisted on the customer
+    // row. Single-use: the same verification can't be replayed for another
+    // signup or to change a profile number elsewhere within the 30-min window.
+    await supabaseAdmin
+        .from('whatsapp_otps')
+        .update({ consumed_at: new Date().toISOString() })
+        .eq('id', verifiedOtpId)
+        .is('consumed_at', null)
 
     // Staff claim linkage — if this signup matches a pending intern claim
     // (email + OTP-verified phone + a code verified on /staff/claim within

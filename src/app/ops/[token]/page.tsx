@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { dormShapeMap } from '@/shared/dorm-registry'
 import { RiderClient } from './RiderClient'
 
 export const dynamic = 'force-dynamic'
@@ -52,11 +54,15 @@ export default async function OpsPage({
   const dayName = DAYS_OF_WEEK[isSunday ? 1 : aeDow]
   const lastUpdated = `${String(aeNow.getUTCHours()).padStart(2, '0')}:${String(aeNow.getUTCMinutes()).padStart(2, '0')}`
 
+  const locs = await getDormLocations()
+  const shapeMap = dormShapeMap(locs)
+
   // Sunday guard — no deliveries
   if (isSunday) {
     return (
       <RiderClient
         dormCounts={{}}
+        dormShapeMap={shapeMap}
         opsTokenId={opsToken.id}
         deliveryDateIso={todayIso}
         lastUpdated={lastUpdated}
@@ -70,6 +76,7 @@ export default async function OpsPage({
   return (
     <RiderClient
       dormCounts={dormCounts}
+      dormShapeMap={shapeMap}
       opsTokenId={opsToken.id}
       deliveryDateIso={todayIso}
       lastUpdated={lastUpdated}

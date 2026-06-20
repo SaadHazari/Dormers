@@ -9,7 +9,6 @@ import { Check, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { FieldInput, CtaButton, PhoneField } from '@/app/onboarding/primitives'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
 import { isPasswordStrong } from '@/shared/validation'
-import { DORMS } from '@/app/onboarding/data'
 import { eligibleTrialDeliveryDates, trialDateIso, trialDeliveryLabel } from '@/contexts/referrals/domain/trial-delivery'
 import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
 import { Flame, X as CloseIcon, Sun, Moon } from 'lucide-react'
@@ -28,7 +27,7 @@ import {
 //
 // Two independent OTP gates run inline:
 //   • WhatsApp OTP via the project's existing /api/whatsapp/* endpoints — 6 digits.
-//   • Email OTP via Supabase Auth — 8 digits (the project's Auth setting).
+//   • Email OTP via Supabase Auth — 6 digits (Auth setting flipped 2026-05-17).
 //
 // The email OTP verification ALSO creates the passwordless auth.users row that
 // claimGift links the customers table to, so trial users land in the main
@@ -39,7 +38,7 @@ const EMAIL_OTP_LENGTH = 6 // Supabase Auth — `{{ .Token }}` from the Magic Li
 
 type Stage = 'enter' | 'sent' | 'verified'
 
-export default function ReferralLandingPage({ menuData }: { menuData?: Dish[] }) {
+export default function ReferralLandingPage({ menuData, dorms = [] }: { menuData?: Dish[]; dorms?: string[] }) {
   const _dishes = menuData ?? MENU_DATA
   const _findDish = (date: Date, isVeg: boolean): Dish | null => {
     const jsDow = date.getUTCDay()
@@ -1023,7 +1022,7 @@ export default function ReferralLandingPage({ menuData }: { menuData?: Dish[] })
                     className={selectCls}
                   >
                     <option value="" disabled>Select your dorm</option>
-                    {DORMS.filter(d => d !== 'Other').map(d => (
+                    {dorms.filter(d => d !== 'Other').map(d => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>

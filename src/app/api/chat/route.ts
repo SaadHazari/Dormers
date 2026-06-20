@@ -1,7 +1,8 @@
 import { streamText, convertToModelMessages, type UIMessage } from 'ai';
 import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
-import { DORMERS_KNOWLEDGE } from '@/contexts/chatbot/domain/knowledge';
+import { getDormersKnowledge } from '@/contexts/chatbot/domain/knowledge';
+import { getDormLocations } from '@/infra/supabase/dorm-locations';
 
 export const maxDuration = 30;
 
@@ -9,15 +10,19 @@ const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 4000;
 
 function normalizeMessages(raw: Record<string, unknown>[]): UIMessage[] {
-    return raw.map((m) => ({
-        id: (m.id as string) ?? crypto.randomUUID(),
-        role: m.role as 'user' | 'assistant',
-        parts: Array.isArray(m.parts)
-            ? m.parts
-            : typeof m.content === 'string'
-                ? [{ type: 'text' as const, text: m.content }]
-                : [{ type: 'text' as const, text: '' }],
-    })) as UIMessage[]
+    // Whitelist roles. The role is client-supplied; without this filter a caller
+    // could forge `system`/`assistant` turns to steer the model (prompt injection).
+    return raw
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+            id: (m.id as string) ?? crypto.randomUUID(),
+            role: m.role as 'user' | 'assistant',
+            parts: Array.isArray(m.parts)
+                ? m.parts
+                : typeof m.content === 'string'
+                    ? [{ type: 'text' as const, text: m.content }]
+                    : [{ type: 'text' as const, text: '' }],
+        })) as UIMessage[]
 }
 
 export async function POST(req: Request) {
@@ -56,7 +61,9 @@ export async function POST(req: Request) {
         const aeTime = `${aeNow.getUTCHours()}:${String(aeNow.getUTCMinutes()).padStart(2, '0')}`
         const aeDow = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][aeNow.getUTCDay()]
         const aeDate = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
-        const system = `${DORMERS_KNOWLEDGE}\n\n# RIGHT NOW\nCurrent Dubai time: ${aeTime} on ${aeDow}, ${aeDate}. Use this to determine if the skip cutoff (2 PM) has passed, whether today is a delivery day, etc.`
+        const locs = await getDormLocations()
+        const knowledge = getDormersKnowledge(locs)
+        const system = `${knowledge}\n\n# RIGHT NOW\nCurrent Dubai time: ${aeTime} on ${aeDow}, ${aeDate}. Use this to determine if the skip cutoff (2 PM) has passed, whether today is a delivery day, etc.`
         const result = streamText({
             model: google('gemini-3.1-flash-lite'),
             system,

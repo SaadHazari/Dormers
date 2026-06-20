@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { createHash } from 'crypto'
+import { hashOtpCode } from '@/shared/otp-hash'
 
 const MAX_ATTEMPTS = 5
-
-const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 
 const admin = () =>
     createAdminClient(
@@ -40,7 +38,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'no_active_code_or_too_many_attempts' }, { status: 400 })
     }
 
-    if (otp.code_hash !== sha256(code)) {
+    if (otp.code_hash !== hashOtpCode(phone, code)) {
         return NextResponse.json({ error: 'incorrect_code' }, { status: 400 })
     }
 

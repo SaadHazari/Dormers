@@ -96,7 +96,11 @@ export async function sendPasswordResetForSelf() {
     redirectTo: `${baseUrl}/auth/confirm?next=${next}`,
   })
   if (error && !/rate/i.test(error.message)) {
+    // A genuine send failure (provider/SMTP issue) — don't claim the link was
+    // sent. Rate-limit errors are intentionally swallowed below (the link from
+    // the earlier request is already on its way).
     console.error('sendPasswordResetForSelf error:', error)
+    return { ok: true as const, message: 'We had trouble sending the link just now — please try again in a moment.' }
   }
   return { ok: true as const, message: `Reset link sent to ${email}.` }
 }
@@ -133,6 +137,7 @@ export async function markWhatsappVerified(phone: string) {
     .select('id, verified_at')
     .eq('phone', trimmed)
     .gte('verified_at', cutoff)
+    .is('consumed_at', null)
     .order('verified_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -142,7 +147,12 @@ export async function markWhatsappVerified(phone: string) {
   }
 
   const nowIso = new Date().toISOString()
-  const { error: updateError, data: rows } = await supabase
+  // Write the verified-phone fields with the service-role client, not the
+  // user-JWT client. whatsapp_verified gates trust, so direct client UPDATE
+  // on it (and whatsapp_number / whatsapp_verified_at) is revoked at the DB
+  // grant level — the write must flow through the admin client, gated by the
+  // fresh-OTP check above. (Auth is already established via getUser().)
+  const { error: updateError, data: rows } = await supabaseAdmin
     .from('customers')
     .update({
       whatsapp_number: trimmed,
@@ -156,6 +166,14 @@ export async function markWhatsappVerified(phone: string) {
   if (!rows || rows.length === 0) {
     return { error: 'Could not save the verified number. Refresh and try again.' }
   }
+
+  // Consume the OTP — single-use, so this verification can't be replayed to
+  // re-attach the number elsewhere within the 30-min window.
+  await supabaseAdmin
+    .from('whatsapp_otps')
+    .update({ consumed_at: nowIso })
+    .eq('id', otp.id)
+    .is('consumed_at', null)
 
   revalidatePath('/dashboard', 'layout')
   return { ok: true as const, message: 'WhatsApp verified.' }

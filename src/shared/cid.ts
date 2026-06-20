@@ -1,32 +1,23 @@
-// Customer CID generator — shared between the main onboarding flow and the
-// referral trial-claim flow (/r/[cid]). Mirrors the original Make.com formula:
-//   upper(substring(dorm; 0; 3)) + formatDate(now; mmss)
-// Produces e.g. "MYR2347" — 3-letter dorm code + zero-padded minutes + seconds.
-//
-// Both callers MUST share this so cid collision semantics + format stay
-// consistent — a trial customer who later subscribes keeps the same cid.
+import { randomInt } from 'crypto'
+import { dormCidCode, type DormLocation } from '@/shared/dorm-registry'
 
-const DORM_CODES: Record<string, string> = {
-  'The Myriad':     'MYR',
-  'KSK Homes':      'KSK',
-  'Yugo':           'YUG',
-  'DSOA Residence': 'DSO',
-  'Study World':    'STU',
-  'Other':          'OTH',
-}
+// Uppercase-only alphabet — every CID lookup normalizes via .toUpperCase(),
+// so the random suffix must stay uppercase to remain matchable.
+const CID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+const SUFFIX_LEN = 4
 
-export function generateCid(dorm: string): string {
-  const code =
-    DORM_CODES[dorm] ??
-    dorm
-      .replace(/\b(the|and|or|of|in|at|for)\b/gi, '')
-      .trim()
-      .replace(/\s+/g, '')
-      .slice(0, 3)
-      .toUpperCase()
-      .padEnd(3, 'X')
+export function generateCid(dorm: string, locs: DormLocation[]): string {
+  const code = dormCidCode(locs, dorm)
   const now = new Date()
   const mm = String(now.getMinutes()).padStart(2, '0')
   const ss = String(now.getSeconds()).padStart(2, '0')
-  return `${code}${mm}${ss}`
+  // Cryptographic random suffix: CIDs appear in public referral URLs (/r/[cid]),
+  // so the keyspace must resist enumeration — Math.random() is predictable and 3
+  // chars (~46k) is small. crypto.randomInt over 4 chars (~1.68M) also keeps two
+  // signups at the same dorm in the same MM:SS from colliding on UNIQUE(cid).
+  let rand = ''
+  for (let i = 0; i < SUFFIX_LEN; i++) {
+    rand += CID_ALPHABET[randomInt(0, CID_ALPHABET.length)]
+  }
+  return `${code}${mm}${ss}${rand}`
 }

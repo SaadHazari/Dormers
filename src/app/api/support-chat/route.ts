@@ -1,23 +1,30 @@
 import { streamText, convertToModelMessages, type UIMessage } from 'ai';
 import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
-import { DORMERS_SUPPORT_KNOWLEDGE } from '@/contexts/chatbot/domain/support-knowledge';
+import { getDormersSupportKnowledge } from '@/contexts/chatbot/domain/support-knowledge';
+import { getDormLocations } from '@/infra/supabase/dorm-locations';
+import { createClient } from '@/utils/supabase/server';
 
 export const maxDuration = 30;
 
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 4000;
+const MAX_CONTEXT_CHARS = 8000;
 
 function normalizeMessages(raw: Record<string, unknown>[]): UIMessage[] {
-    return raw.map((m) => ({
-        id: (m.id as string) ?? crypto.randomUUID(),
-        role: m.role as 'user' | 'assistant',
-        parts: Array.isArray(m.parts)
-            ? m.parts
-            : typeof m.content === 'string'
-                ? [{ type: 'text' as const, text: m.content }]
-                : [{ type: 'text' as const, text: '' }],
-    })) as UIMessage[]
+    // Whitelist roles. The role is client-supplied; without this filter a caller
+    // could forge `system`/`assistant` turns to steer the model (prompt injection).
+    return raw
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+            id: (m.id as string) ?? crypto.randomUUID(),
+            role: m.role as 'user' | 'assistant',
+            parts: Array.isArray(m.parts)
+                ? m.parts
+                : typeof m.content === 'string'
+                    ? [{ type: 'text' as const, text: m.content }]
+                    : [{ type: 'text' as const, text: '' }],
+        })) as UIMessage[]
 }
 
 export async function POST(req: Request) {
@@ -32,8 +39,22 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
     }
 
+    // Support chat is for signed-in customers only. Middleware does NOT cover
+    // this route (see src/middleware.ts matcher), so authenticate here against
+    // the session cookie. Without this the endpoint is anonymous: an attacker
+    // could drive the support bot for free and inject arbitrary "customer data"
+    // through customerContext.
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const bodyObj = body as { messages?: unknown; customerContext?: string }
-    const customerContext = typeof bodyObj.customerContext === 'string' ? bodyObj.customerContext : ''
+    // Cap the client-supplied context. It only ever reflects the caller's own
+    // session (they gain nothing by spoofing their own data to their own bot),
+    // but bound it so it can't be used to balloon prompt-token cost.
+    const customerContext = (typeof bodyObj.customerContext === 'string' ? bodyObj.customerContext : '').slice(0, MAX_CONTEXT_CHARS)
     const messages = bodyObj.messages;
     if (!Array.isArray(messages) || messages.length === 0) {
         return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 });
@@ -59,9 +80,11 @@ export async function POST(req: Request) {
         const aeDow = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][aeNow.getUTCDay()]
         const aeDate = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
         const timeContext = `\n\n# RIGHT NOW\nCurrent Dubai time: ${aeTime} on ${aeDow}, ${aeDate}. Use this to determine if the skip cutoff (2 PM) has passed, whether today is a delivery day, etc.`
+        const locs = await getDormLocations()
+        const supportKnowledge = getDormersSupportKnowledge(locs)
         const system = customerContext
-            ? `${DORMERS_SUPPORT_KNOWLEDGE}${timeContext}\n\n${customerContext}\n\nUse this customer data to answer questions about THEIR plan directly instead of escalating. Only escalate account-specific ACTIONS (refunds, payment failures, missing meals) — not account-specific QUESTIONS you can now answer from the data above.`
-            : `${DORMERS_SUPPORT_KNOWLEDGE}${timeContext}`
+            ? `${supportKnowledge}${timeContext}\n\n${customerContext}\n\nUse this customer data to answer questions about THEIR plan directly instead of escalating. Only escalate account-specific ACTIONS (refunds, payment failures, missing meals) — not account-specific QUESTIONS you can now answer from the data above.`
+            : `${supportKnowledge}${timeContext}`
         const result = streamText({
             model: google('gemini-3.1-flash-lite'),
             system,
