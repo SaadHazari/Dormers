@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 
 /**
  * Log a rider pickup confirmation to delivery_events.
@@ -17,6 +18,11 @@ export async function confirmPickup(
   opsTokenId: string,
   deliveryDateIso: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  // Auth — Server Actions are directly POST-invokable, so re-validate the
+  // rider token here (the page's token gate does NOT protect this action).
+  const token = await validateOpsTokenById(opsTokenId, 'rider')
+  if (!token) return { ok: false, error: 'Invalid or revoked ops token' }
+
   const sb = createAdminSupabaseClient()
 
   const { error } = await sb.from('delivery_events').upsert(
@@ -47,6 +53,11 @@ export async function confirmDropoff(
   opsTokenId: string,
   deliveryDateIso: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  // Auth — Server Actions are directly POST-invokable, so re-validate the
+  // rider token here (the page's token gate does NOT protect this action).
+  const token = await validateOpsTokenById(opsTokenId, 'rider')
+  if (!token) return { ok: false, error: 'Invalid or revoked ops token' }
+
   const sb = createAdminSupabaseClient()
 
   const { data, error } = await sb
