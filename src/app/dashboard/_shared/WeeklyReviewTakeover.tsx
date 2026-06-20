@@ -328,6 +328,14 @@ export function WeeklyReviewTakeover({
                 }
             } else {
                 setSubmitError(result.error)
+                // Submit failed → no row was inserted, so the optimistic
+                // just_submitted marker would otherwise linger in the URL and
+                // suppress the page guard. Clear it.
+                try {
+                    const u = new URL(window.location.href)
+                    u.searchParams.delete('just_submitted')
+                    window.history.replaceState({}, '', u.toString())
+                } catch { /* ignore */ }
             }
         })
     }

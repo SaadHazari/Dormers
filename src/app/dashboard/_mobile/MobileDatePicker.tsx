@@ -95,7 +95,10 @@ export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, 
   }
 
   function onCell(d: Date, inMonth: boolean) {
-    if (isSelectable(d)) { setReason(null); onChange(isoOf(d)); return }
+    // Require inMonth — the grid styles out-of-month cells as non-selectable,
+    // so without this an in-range adjacent-month cell would silently pick a
+    // date from the wrong month.
+    if (inMonth && isSelectable(d)) { setReason(null); onChange(isoOf(d)); return }
     // Inline reason instead of a dead tap (the no-hover substitute).
     const tip = cellTooltip(d, inMonth)
     if (tip) setReason(tip)

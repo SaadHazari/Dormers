@@ -85,15 +85,19 @@ function buildFullMenu(
   weekType: '5DAYS' | '6DAYS',
   allDishes?: Dish[],
 ): { week: string; meals: WeekMeal[] }[] {
-  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0)
-  const todayDay = todayMidnight.getDay()
+  // Anchor on the AE wall date (UTC+4), matching getMenuWeek + the skip/pause
+  // ledger. The previous local-midnight math anchored the week on the browser's
+  // timezone, so a non-Dubai user near midnight could see the wrong week.
+  const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000)
+  const todayMidnight = new Date(Date.UTC(aeNow.getUTCFullYear(), aeNow.getUTCMonth(), aeNow.getUTCDate()))
+  const todayDay = todayMidnight.getUTCDay()
 
   const mondayOffset = todayDay === 0 ? 1 : 1 - todayDay
   const thisMonday = new Date(todayMidnight)
-  thisMonday.setDate(todayMidnight.getDate() + mondayOffset)
+  thisMonday.setUTCDate(todayMidnight.getUTCDate() + mondayOffset)
 
   const nextMonday = new Date(thisMonday)
-  nextMonday.setDate(thisMonday.getDate() + 7)
+  nextMonday.setUTCDate(thisMonday.getUTCDate() + 7)
 
   const blocks = [
     { week: 'This Week', start: thisMonday },
@@ -143,7 +147,9 @@ function buildFullMenu(
 
 // Monday-first index for today: 0=Mon … 5=Sat … 6=Sun
 function todayMonIdx(): number {
-  const d = new Date().getDay()
+  // AE weekday (UTC+4) so the "today" highlight agrees with the AE skip/pause
+  // ledger regardless of the browser's timezone.
+  const d = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCDay()
   return d === 0 ? 6 : d - 1
 }
 

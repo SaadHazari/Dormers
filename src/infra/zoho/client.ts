@@ -168,16 +168,28 @@ export async function zohoFetch<T = unknown>(
       body: serialisedBody as BodyInit | undefined,
     }, { timeoutMs: JSON_TIMEOUT_MS });
 
-  let res = await doRequest(await getAccessToken());
-  if (res.status === 401) {
-    cachedToken = null;
+  // Bounded retry loop: refresh the token once on 401, and back off + retry on
+  // 429. The previous two sequential one-shot `if`s couldn't survive a
+  // double-429 (or a 401 followed by repeated 429s) — those threw mid-pipeline,
+  // leaving an unpaid Zoho invoice after Stripe had captured.
+  const MAX_ATTEMPTS = 3;
+  let res!: Response;
+  let refreshedOn401 = false;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     res = await doRequest(await getAccessToken());
-  }
-  if (res.status === 429) {
-    const retryAfter = Number(res.headers.get('retry-after') || '5')
-    const delayMs = Math.min(retryAfter * 1000, 30_000)
-    await new Promise(resolve => setTimeout(resolve, delayMs))
-    res = await doRequest(await getAccessToken());
+
+    if (res.status === 401 && !refreshedOn401) {
+      cachedToken = null;
+      refreshedOn401 = true;
+      continue; // retry immediately with a fresh token
+    }
+    if (res.status === 429 && attempt < MAX_ATTEMPTS - 1) {
+      const retryAfter = Number(res.headers.get('retry-after') || '5');
+      const delayMs = Math.min(retryAfter * 1000, 30_000);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      continue;
+    }
+    break;
   }
 
   const text = await res.text();

@@ -123,7 +123,7 @@ export async function provisionStaffFreeRenewal(userId: string): Promise<Renewal
         : state.renewStartDate
     const isReligious = /religious/i.test(customer?.meal_preference_type ?? '')
 
-    const { error } = await sb.from('subscriptions').insert({
+    const { data: created, error } = await sb.from('subscriptions').insert({
         customer_id: userId,
         plan_name: STAFF_PLAN_NAME,
         status: SUBSCRIPTION_STATUS.SCHEDULED,
@@ -137,11 +137,34 @@ export async function provisionStaffFreeRenewal(userId: string): Promise<Renewal
         has_paused_before: false,
         skipped_meals_count: 0,
         veg_days: isReligious && (customer?.veg_days?.length ?? 0) > 0 ? customer?.veg_days : null,
-    })
+    }).select('id, created_at').single()
 
-    if (error) {
+    if (error || !created) {
         console.error('provisionStaffFreeRenewal insert failed:', error)
         return { error: 'Could not queue your renewal. Try again or message us on WhatsApp.' }
     }
+
+    // Race guard — getStaffPlanState only reports 'queued' once a Scheduled row
+    // exists, so two concurrent renewals can both pass the check above and
+    // double-queue the next cycle. Keep exactly one queued staff sub via a
+    // deterministic tiebreaker and roll back only our own row.
+    const { data: rivals } = await sb
+        .from('subscriptions')
+        .select('id, created_at')
+        .eq('customer_id', userId)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        .eq('status', SUBSCRIPTION_STATUS.SCHEDULED)
+        .neq('id', created.id)
+
+    const weLose = (rivals ?? []).some(
+        (r) =>
+            (r.created_at as string) < (created.created_at as string) ||
+            (r.created_at === created.created_at && (r.id as string) < (created.id as string)),
+    )
+    if (weLose) {
+        await sb.from('subscriptions').delete().eq('id', created.id)
+        return { error: 'Your next cycle is already queued.' }
+    }
+
     return { ok: true }
 }

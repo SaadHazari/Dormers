@@ -177,9 +177,21 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
           (s) => new Date(s.created_at).getTime() >= handoffAt - 1000,
         )
       : (activeSubscription ?? allSubscriptions[0])
+    // Only trust the order if it's the one from THIS checkout. The webhook
+    // writes the sub before the order, so on a renewal mostRecentOrder can
+    // briefly be the PREVIOUS order (wrong total) and for a first purchase it's
+    // still null. Gate by the handoff timestamp; the 2s poll fills it in.
+    const newOrder =
+      mostRecentOrder == null
+        ? null
+        : handoffAt
+          ? new Date(mostRecentOrder.created_at).getTime() >= handoffAt - 1000
+            ? mostRecentOrder
+            : null
+          : mostRecentOrder // legacy session: no handoff stamp to gate on
     const orderTotal =
-      mostRecentOrder?.price_per_meal != null && mostRecentOrder.meals_count != null
-        ? Number(mostRecentOrder.price_per_meal) * mostRecentOrder.meals_count
+      newOrder?.price_per_meal != null && newOrder.meals_count != null
+        ? Number(newOrder.price_per_meal) * newOrder.meals_count
         : 0
     const firstName =
       (customer?.name ?? '').trim().split(/\s+/)[0] || 'there'

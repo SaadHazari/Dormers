@@ -34,10 +34,16 @@ export async function adminCompMeal(
 
     const { data: sub } = await sb
         .from('subscriptions')
-        .select('id, plan_name')
+        .select('id, plan_name, customer_id')
         .eq('id', subscriptionId)
         .maybeSingle()
     if (!sub) return { ok: false, message: 'Subscription not found' }
+    // Guard against a mismatched (customer, sub) pair mis-attributing the COGS
+    // ledger row — adminGiftMeals derives customer_id from the sub, but here
+    // both are passed in independently.
+    if (sub.customer_id !== customerId) {
+        return { ok: false, message: 'That subscription does not belong to this customer.' }
+    }
 
     // Columns match the LIVE schema: plan_name + expense_category are
     // NOT NULL; the date lives in delivered_at (there is no meal_date or

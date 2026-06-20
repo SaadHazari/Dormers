@@ -243,11 +243,18 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   if (!/^\d{4}-\d{2}-\d{2}$/.test(newStartDate)) {
     return { error: 'Invalid date format' };
   }
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const minStart = new Date(today); minStart.setDate(minStart.getDate() + 1);
-  const maxStart = new Date(today); maxStart.setDate(maxStart.getDate() + 31);
-  const requested = new Date(newStartDate + 'T00:00:00');
-  if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
+  // AE wall-clock (UTC+4) date math in ISO strings — mirrors /api/checkout.
+  // The previous server-local Date math drifted a day during the 00:00–04:00
+  // AE window (the server runs UTC), letting a date checkout would reject slip
+  // through. ISO date strings compare chronologically.
+  const AE_OFFSET_MS = 4 * 60 * 60 * 1000;
+  const addDaysIso = (iso: string, n: number): string => {
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const todayAeIso = new Date(Date.now() + AE_OFFSET_MS).toISOString().slice(0, 10);
+  if (newStartDate < addDaysIso(todayAeIso, 1) || newStartDate > addDaysIso(todayAeIso, 31)) {
     return { error: 'Pick a date within the next 30 days.' };
   }
 
@@ -256,7 +263,7 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // start-shifts internally to Mon for the math, but start_date is stored
   // as Sat, and the dashboard would show "starts Sat" with no Sat delivery.
   // ISO dow: 1=Mon … 7=Sun.
-  const reqIsoDow = ((requested.getUTCDay() + 6) % 7) + 1;
+  const reqIsoDow = ((new Date(newStartDate + 'T00:00:00Z').getUTCDay() + 6) % 7) + 1;
   const wtChange = subscription.week_type ?? '6DAYS';
   // Subscriptions table CHECK enforces week_type ∈ {5DAYS, 6DAYS}.
   const reqIsDelivery =
@@ -297,6 +304,9 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.SCHEDULED)
+    // CAS the once-per-sub allowance: only a row whose marker is still null can
+    // win, so two concurrent submits can't both change the date.
+    .is('start_date_changed_at', null)
     .select('id');
 
   if (updateError) return { error: 'Failed to update start date.' };

@@ -12,7 +12,7 @@
 
 import { zohoFetch, zohoFetchBinary } from './client';
 
-type ZohoContact = { contact_id: string; contact_name: string };
+type ZohoContact = { contact_id: string; contact_name: string; email?: string };
 type ZohoInvoice = {
   invoice_id: string;
   invoice_number: string;
@@ -21,10 +21,16 @@ type ZohoInvoice = {
 };
 
 async function findContactByEmail(email: string): Promise<ZohoContact | null> {
+  // email_contains is a SUBSTRING filter, so "ali@x.com" also matches
+  // "natalie@x.com". Narrow with it, then require an exact email match so a
+  // payment/invoice can't attach to the wrong customer's Zoho contact.
   const res = await zohoFetch<{ contacts?: ZohoContact[] }>(
     `/contacts?email_contains=${encodeURIComponent(email)}`,
   );
-  return res.contacts?.[0] ?? null;
+  const target = email.trim().toLowerCase();
+  return (
+    (res.contacts ?? []).find((c) => (c.email ?? '').trim().toLowerCase() === target) ?? null
+  );
 }
 
 /**

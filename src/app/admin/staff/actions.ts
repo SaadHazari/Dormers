@@ -362,12 +362,21 @@ export async function offboardStaffMember(staffId: string): Promise<Result> {
 
     for (const sub of subsRaw ?? []) {
         const wasQueued = sub.status === 'Scheduled'
-        const { error: endErr } = await sb
+        const { data: endedRows, error: endErr } = await sb
             .from('subscriptions')
             .update(wasQueued ? { status: 'Ended' } : { status: 'Ended', end_date: today })
             .eq('id', sub.id)
+            // CAS: only the call that actually flips a still-live sub to Ended
+            // proceeds to refund. A concurrent offboard finds it already Ended
+            // and skips, so the Stripe refund (no idempotency key) can't double-fire.
+            .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+            .select('id')
         if (endErr) {
             notes.push(`could not end sub ${sub.id}: ${endErr.message}`)
+            continue
+        }
+        if (!endedRows || endedRows.length === 0) {
+            // Already ended by a concurrent offboard — don't refund twice.
             continue
         }
 

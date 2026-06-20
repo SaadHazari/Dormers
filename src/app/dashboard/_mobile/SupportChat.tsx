@@ -111,6 +111,7 @@ export function SupportChat({ open, onClose, customerContext }: { open: boolean;
   const submit = (text: string) => {
     const t = text.trim()
     if (!t || isLoading) return
+    setChatError(false) // clear any prior error so the banner doesn't persist
     sendMessage({ text: t })
     setInput('')
   }
