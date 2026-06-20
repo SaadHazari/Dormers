@@ -90,6 +90,31 @@ const sentryLevelMap = {
 
 type SentryLevelKey = keyof typeof sentryLevelMap
 
+// pino's `redact` only scrubs pino's own serialized output — the raw object we
+// hand to Sentry below is untouched by it. Deep-clone + censor credential-named
+// keys here so secrets don't reach Sentry in cleartext. Mirrors (and slightly
+// widens) the pino redact paths above.
+const SENSITIVE_KEYS = new Set([
+  'password', 'token', 'api_key', 'apikey', 'secret', 'authorization', 'cookie',
+])
+
+function redactSensitive(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
+  if (depth > 6 || value === null || typeof value !== 'object') return value
+  if (seen.has(value as object)) return '[Circular]'
+  seen.add(value as object)
+
+  if (Array.isArray(value)) {
+    return value.map((v) => redactSensitive(v, seen, depth + 1))
+  }
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = SENSITIVE_KEYS.has(k.toLowerCase())
+      ? '[REDACTED]'
+      : redactSensitive(v, seen, depth + 1)
+  }
+  return out
+}
+
 function forwardToSentry(
   level: SentryLevelKey,
   arg1: unknown,
@@ -111,7 +136,9 @@ function forwardToSentry(
   }
 
   try {
-    Sentry.logger[sentryLevelMap[level]](msg, attributes)
+    const safeAttributes =
+      attributes && (redactSensitive(attributes) as Record<string, unknown>)
+    Sentry.logger[sentryLevelMap[level]](msg, safeAttributes || undefined)
   } catch {
     // Never let log forwarding break the request.
   }

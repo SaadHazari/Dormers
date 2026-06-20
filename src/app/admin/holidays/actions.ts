@@ -85,6 +85,47 @@ export async function addClosureRange(
     return { ok: true, count: dates.length }
 }
 
+/**
+ * Insert exactly the given closure dates. Unlike addClosureRange, this does NOT
+ * re-expand a start..end span — so days the admin deselected inside a range stay
+ * open. The client sends the explicit selected set.
+ */
+export async function addClosures(
+    dates: string[],
+    reason: string,
+): Promise<{ ok: true; count: number } | { error: string }> {
+    const user = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const clean = Array.from(
+        new Set(dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))),
+    ).sort()
+    if (clean.length === 0) return { error: 'No valid dates selected.' }
+
+    const rows = clean.map((closure_date) => ({
+        closure_date,
+        reason,
+        created_by: user.email,
+    }))
+
+    const { error } = await sb
+        .from('company_closures')
+        .upsert(rows, { onConflict: 'closure_date', ignoreDuplicates: true })
+
+    if (error) return { error: error.message }
+
+    await logAdminAction(
+        user.email,
+        'add_company_closure_range',
+        'company_closures',
+        `${clean[0]}..${clean[clean.length - 1]}`,
+        { reason, days: clean.length },
+    )
+
+    revalidatePath('/admin/holidays')
+    return { ok: true, count: clean.length }
+}
+
 export async function removeClosure(
     id: string,
     closureDate: string,

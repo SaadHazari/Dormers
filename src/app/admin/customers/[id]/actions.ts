@@ -221,6 +221,17 @@ export async function adminIssueCredit(
     reason: string,
 ): Promise<Result> {
     const admin = await requireAdmin()
+
+    // Server-side guard — the Server Action is directly invocable, so the
+    // client-side amount check is not a real boundary. credits has no DB
+    // constraint to catch a negative/NaN/huge value, so validate here.
+    if (!Number.isFinite(amountAed) || amountAed <= 0 || amountAed > 10000) {
+        return { ok: false, message: 'Credit amount must be greater than AED 0 and at most AED 10,000.' }
+    }
+    if (!reason.trim()) {
+        return { ok: false, message: 'A reason is required to issue credit.' }
+    }
+
     const sb = createAdminSupabaseClient()
 
     const { error } = await sb.from('credits').insert({

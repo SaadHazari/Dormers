@@ -16,6 +16,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { mysteryDropValue } from '../domain/rng'
 import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from '../domain/constants'
 import { getCycleRecruits, getCycleChainSubIds } from '@/infra/supabase/dorm-wars-repo'
+import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { resolveMealPriceContext, freeWeekValue, freeMonthValue, tier4MealsValue } from '../domain/meal-pricing'
 import { isDoublerActive, applyDoubler } from '../domain/doubler'
 import { sendOpsAlertEmail } from '@/infra/zeptomail/client'
@@ -130,7 +131,11 @@ export async function awardCycleAndTierRewards(
   // instead of using hardcoded AED 132 / 528 / 5500. Computed once here
   // and reused for both Layer 2 and Layer 3 so any Veg customer who hits
   // multiple milestones in the same call gets consistent valuations.
-  const priceCtx = await resolveMealPriceContext(sb, customerId, subscriptionId)
+  // Thread live plan_pricing admin overrides so reward valuations match the
+  // prices checkout uses (fails open to [] = code defaults). Drift here =
+  // trust break (see meal-pricing.ts header).
+  const priceOverrides = await fetchActivePriceOverrides()
+  const priceCtx = await resolveMealPriceContext(sb, customerId, subscriptionId, priceOverrides)
 
   // Phase 8F — week-long doubler. Active if the customer has an unexpired
   // doubler chest outcome. Doubles Layer 2 milestone payouts (mystery,
@@ -200,12 +205,24 @@ export async function awardCycleAndTierRewards(
         if (m.kind === 'cash_and_skips') {
           const { value: paid, source } = applyDoubler(500, 'cycle_milestone_15', doublerActive)
           await depositCredit(sb, customerId, paid, source)
+          // The AED credit is now committed. The skips increment must NOT be
+          // able to trip the self-heal rollback below — otherwise a failed RPC
+          // here would delete the marker and re-deposit another 500 on the next
+          // conversion (credits has no idempotency constraint). Isolate it: log
+          // a failure for manual reconcile, never rethrow past this point.
           // Bonus skips are NOT doubled — operational kitchen impact would
           // double too, which we don't want. Only the AED component scales.
-          await sb.rpc('increment_bonus_skips', {
-            p_sub_id: subscriptionId,
-            p_amount: MILESTONE_15_BONUS_SKIPS,
-          })
+          try {
+            await sb.rpc('increment_bonus_skips', {
+              p_sub_id: subscriptionId,
+              p_amount: MILESTONE_15_BONUS_SKIPS,
+            })
+          } catch (skipErr) {
+            console.error(
+              `[awarder] milestone-15 increment_bonus_skips failed for ${customerId} after credit committed — reconcile skips manually:`,
+              skipErr,
+            )
+          }
         }
         if (m.kind === 'dorm_weekend') {
           // Decision #8: no credit — manual fulfilment. notifyOpsDormWeekend

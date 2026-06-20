@@ -17,7 +17,7 @@
 // the displayed "this is what you'll get" exactly matches what eventually
 // lands in the wallet. Drift here = trust break.
 
-import { pricePerMeal, mealsForPlan, type Pref, type PlanId } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, mealsForPlan, type Pref, type PlanId, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = { from: (t: string) => any }
 
@@ -73,10 +73,11 @@ function buildContext(
   weekType: '5DAYS' | '6DAYS',
   vegDayCount: number,
   source: MealPriceContext['source'],
+  overrides: readonly PriceOverride[] | undefined,
 ): MealPriceContext {
   const W = weekType === '5DAYS' ? 5 : 6
   return {
-    pricePerMeal:     pricePerMeal(planId, pref, vegDayCount, weekType),
+    pricePerMeal:     pricePerMeal(planId, pref, vegDayCount, weekType, overrides),
     mealsPerWeek:     planId === 'Monthly Max' ? 2 * W : W,
     totalMealsInPlan: mealsForPlan(planId, weekType),
     planId,
@@ -98,6 +99,7 @@ export async function resolveMealPriceContext(
   sb: Sb,
   customerId: string,
   subscriptionId: string | null,
+  overrides?: readonly PriceOverride[],
 ): Promise<MealPriceContext> {
   // Fetch the customer's preference (one round-trip regardless of sub state).
   const { data: customer } = await sb
@@ -120,7 +122,7 @@ export async function resolveMealPriceContext(
       const planId = resolvePlanId(sub.plan_name as string | null) ?? 'Monthly Premium'
       const weekType: '5DAYS' | '6DAYS' = (sub.week_type as '5DAYS' | '6DAYS' | null) ?? '6DAYS'
       const vegDayCount = ((sub.veg_days as string[] | null) ?? []).length
-      return buildContext(planId, pref, weekType, vegDayCount, 'active-sub')
+      return buildContext(planId, pref, weekType, vegDayCount, 'active-sub', overrides)
     }
   }
 
@@ -140,7 +142,7 @@ export async function resolveMealPriceContext(
     const planId = resolvePlanId(lastSub.plan_name as string | null) ?? 'Monthly Premium'
     const weekType: '5DAYS' | '6DAYS' = (lastSub.week_type as '5DAYS' | '6DAYS' | null) ?? '6DAYS'
     const vegDayCount = ((lastSub.veg_days as string[] | null) ?? []).length
-    return buildContext(planId, pref, weekType, vegDayCount, 'last-premium-sub')
+    return buildContext(planId, pref, weekType, vegDayCount, 'last-premium-sub', overrides)
   }
 
   // Path 3: no sub history at all → safe fallback.

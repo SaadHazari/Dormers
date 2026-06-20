@@ -79,7 +79,7 @@ export async function provisionStaffFreePlan(userId: string): Promise<ProvisionR
     // end_date is computed by the BEFORE INSERT trigger from the canonical
     // formula (plan kind 'monthly' × 5DAYS) — the placeholder below is
     // overwritten before the row lands.
-    const { error: subErr } = await sb.from('subscriptions').insert({
+    const { data: created, error: subErr } = await sb.from('subscriptions').insert({
         customer_id: userId,
         plan_name: STAFF_PLAN_NAME,
         status: startDate > todayAE ? SUBSCRIPTION_STATUS.SCHEDULED : SUBSCRIPTION_STATUS.ACTIVE,
@@ -93,11 +93,33 @@ export async function provisionStaffFreePlan(userId: string): Promise<ProvisionR
         has_paused_before: false,
         skipped_meals_count: 0,
         veg_days: isReligious && (customer?.veg_days?.length ?? 0) > 0 ? customer?.veg_days : null,
-    })
+    }).select('id, created_at').single()
 
-    if (subErr) {
+    if (subErr || !created) {
         console.error('provisionStaffFreePlan subscription insert failed:', subErr)
         return { error: 'Could not create your plan. Try again or message us on WhatsApp.' }
+    }
+
+    // Race guard — the live-sub check above and this insert are not atomic and
+    // there's no DB unique constraint on active-sub-per-customer. If a
+    // concurrent provision created another live sub, keep exactly one via a
+    // deterministic tiebreaker (earliest created_at, then smallest id) and roll
+    // back ONLY our own row — never another request's sub.
+    const { data: rivals } = await sb
+        .from('subscriptions')
+        .select('id, created_at')
+        .eq('customer_id', userId)
+        .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+        .neq('id', created.id)
+
+    const weLose = (rivals ?? []).some(
+        (r) =>
+            (r.created_at as string) < (created.created_at as string) ||
+            (r.created_at === created.created_at && (r.id as string) < (created.id as string)),
+    )
+    if (weLose) {
+        await sb.from('subscriptions').delete().eq('id', created.id)
+        return { error: 'You already have a plan — message us if something looks wrong.' }
     }
 
     return { ok: true }

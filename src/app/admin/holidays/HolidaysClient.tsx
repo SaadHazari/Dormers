@@ -9,7 +9,7 @@ import {
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
-import { addClosure, addClosureRange, removeClosure } from './actions'
+import { addClosure, addClosures, removeClosure } from './actions'
 import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 
 interface Closure {
@@ -268,7 +268,7 @@ function AddClosureModal({ existingClosures, onClose, onDone, t, isLight }: {
             if (count === 1) {
                 res = await addClosure(sortedDates[0], reason.trim())
             } else {
-                res = await addClosureRange(sortedDates[0], sortedDates[sortedDates.length - 1], reason.trim())
+                res = await addClosures(sortedDates, reason.trim())
             }
             if ('error' in res) { setError(res.error); return }
             onDone()

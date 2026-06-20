@@ -208,7 +208,9 @@ export async function POST(req: Request) {
 
     // Fire-and-log: queue customer notifications for this dorm (NOT-01)
     if (!alreadyVerified) {
-      const isSaturday = new Date(deliveryDateIso + 'T00:00:00+04:00').getDay() === 6
+      // deliveryDateIso is already the AE calendar date — read its weekday in
+      // UTC so a UTC server doesn't roll back to Friday (getDay() bug).
+      const isSaturday = new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
       try {
         const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
         log(`fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)

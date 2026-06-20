@@ -323,19 +323,38 @@ export async function autoApproveLayer4Reward(
   source: string,                // e.g. 'layer4_google_review'
   notes: string,
 ): Promise<void> {
-  // Re-read with row-level interpretation: skip if already finalized.
-  const { data: row } = await sb
+  // Atomically claim the row: flip pending → auto_approved in a single
+  // compare-and-swap. Only the caller whose UPDATE actually matches a still
+  // 'pending' row proceeds to deposit. Concurrent callers (and replays) match
+  // zero rows and no-op — this is what prevents the double-credit race, since
+  // `credits` has no idempotency constraint of its own.
+  const { data: claimed } = await sb
     .from('layer4_rewards')
-    .select('id, status, credit_id')
+    .update({
+      status:      'auto_approved',
+      awarded_at:  new Date().toISOString(),
+      reviewed_at: new Date().toISOString(),
+      notes,
+    })
     .eq('id', rowId)
+    .eq('status', 'pending')
+    .select('id')
     .maybeSingle()
-  if (!row) throw new Error(`autoApprove: row ${rowId} not found`)
-  if (row.status === 'auto_approved' || row.status === 'approved') {
-    return // already credited
+
+  if (!claimed) {
+    // Either the row is missing, or it was already finalized / won by a
+    // concurrent caller. Distinguish so a genuinely missing row still surfaces.
+    const { data: row } = await sb
+      .from('layer4_rewards')
+      .select('status')
+      .eq('id', rowId)
+      .maybeSingle()
+    if (!row) throw new Error(`autoApprove: row ${rowId} not found`)
+    return // already credited or won by a concurrent call
   }
 
-  // Deposit credit first; on failure the layer4 row stays 'pending' so the
-  // user / ops can retry without double-crediting.
+  // We hold the claim. Deposit the credit; if it fails, release the row back to
+  // 'pending' so the reward can be retried without an approved-but-uncredited row.
   const { data: credit, error: creditErr } = await sb
     .from('credits')
     .insert({
@@ -347,18 +366,16 @@ export async function autoApproveLayer4Reward(
     .select('id')
     .maybeSingle()
   if (creditErr || !credit) {
+    await sb
+      .from('layer4_rewards')
+      .update({ status: 'pending', awarded_at: null, reviewed_at: null })
+      .eq('id', rowId)
     throw new Error(`autoApprove: credit insert failed: ${creditErr?.message ?? 'unknown'}`)
   }
 
   await sb
     .from('layer4_rewards')
-    .update({
-      status:      'auto_approved',
-      credit_id:   credit.id,
-      awarded_at:  new Date().toISOString(),
-      reviewed_at: new Date().toISOString(),
-      notes,
-    })
+    .update({ credit_id: credit.id })
     .eq('id', rowId)
 }
 

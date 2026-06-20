@@ -13,6 +13,7 @@ import { redirect } from 'next/navigation'
 import HubClient from './hub/HubClient'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { resolveMealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
+import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { maybeFireAnniversary, getLayer4Rewards } from '@/contexts/dorm-wars/domain/layer4'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
@@ -105,6 +106,7 @@ export default async function DormWarsPage() {
     supabase,
     user.id,
     activeSubscription?.id ?? null,
+    await fetchActivePriceOverrides(),
   )
 
   // Phase 8G — Layer 4 side rewards. Anniversary auto-fires on hub load
