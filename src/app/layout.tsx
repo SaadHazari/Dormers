@@ -27,7 +27,11 @@ export const metadata: Metadata = {
   title: "Dormers' - Student Meals in Dubai",
   description: "Meals that don't Suck, delivered to your dorm",
   icons: {
-    icon: "/icon.png",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: "/icon-180.png",
   },
 };
 
