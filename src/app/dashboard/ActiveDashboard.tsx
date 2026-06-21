@@ -1139,6 +1139,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       && new Date(effectiveSub.start_date + 'T00:00:00').toDateString() === new Date().toDateString(),
     heroStatus: mHeroStatus,
     heroClosure: mHeroClosure,
+    // Weekly off-day (Sun for 6-day, Sat+Sun for 5-day) or no menu yet → nothing
+    // to view; drop the "View dish" button rather than round-trip to the menu's
+    // own "no delivery" card. Delivered/skipped keep it — the dish still exists.
+    noDishToday: skipNoDelivery || todayMeal == null,
     skip: mSkip,
     pause: mPause,
     planSkip: mPlanSkip,

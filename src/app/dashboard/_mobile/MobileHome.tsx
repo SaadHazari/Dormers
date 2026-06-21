@@ -90,6 +90,11 @@ export interface MobileHomeData {
    *  mirroring desktop HeroToday's inactive-state teardown so the card never
    *  frames a delivered/skipped meal as "Tonight's dish". */
   heroClosure?: { heading: string; subtitle: string } | null
+  /** No dish exists for today (weekly off-day like Sunday, or menu not set yet)
+   *  → the "View dish" button is dropped: tapping it would just round-trip to the
+   *  menu page's own "no delivery" rest card. Distinct from closure states that
+   *  DO have a dish (delivered / skipped), where viewing it still makes sense. */
+  noDishToday?: boolean
   /** Hero Skip gate — disabled + the reason (the no-hover equivalent of the desktop tooltip). */
   skip: { disabled: boolean; caption: string | null; done?: boolean }
   /** Pause/Resume button state machine: pause · resume · planned-cancel · disabled. */
@@ -467,6 +472,10 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
         </div>
         )}
 
+        {/* Footer actions — collapse entirely on a no-dish off-day so the card
+            ends on its closure copy instead of a lone, dead "View dish" button
+            (and an empty 18px gap). Whenever a dish exists the row stays. */}
+        {(!data.heroClosure || !data.noDishToday) && (
         <div style={{ marginTop: 18 }}>
           <div style={{ display: 'flex', gap: 10 }}>
             {/* Skip is only an action on a LIVE night. Once the night is closed
@@ -486,9 +495,13 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
                 : <><SkipForward size={16} strokeWidth={2.4} /> Skip</>}
             </button>
             )}
+            {/* View dish is dropped on a no-dish day — tapping it would just
+                round-trip to the menu page's own "no delivery" rest card. */}
+            {!data.noDishToday && (
             <button type="button" onClick={() => navClick('dish', onViewDish)} disabled={isNavPending} style={{ ...heroBtn('ghost', false, heroLight), opacity: isNavPending && clickedNav === 'dish' ? 0.7 : 1, transition: 'opacity 150ms' }}>
               {isNavPending && clickedNav === 'dish' ? <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : <Eye size={16} strokeWidth={2.2} />} View dish
             </button>
+            )}
           </div>
           {/* Inline reason — the touch substitute for desktop's hover tooltip.
               When enabled it shows the remaining-skips count; when blocked it
@@ -505,6 +518,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
             </div>
           )}
         </div>
+        )}
       </section>
 
       {renewBanner}
