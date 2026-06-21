@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js'
+import { type SupabaseClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { createHash } from 'node:crypto'
 import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
@@ -231,10 +232,7 @@ export async function detectExistingSubscriberByEmail(): Promise<DetectExistingR
   const { data: { user } } = await ssr.auth.getUser()
   if (!user) return { existing: false }
 
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = createAdminSupabaseClient()
   const { data: liveSubs } = await supabaseAdmin
     .from('subscriptions')
     .select('id')
@@ -258,10 +256,7 @@ export async function claimGift(payload: {
    *  invalid we fall back to the soonest eligible day. */
   startDate?:  string
 }): Promise<ClaimResult> {
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = createAdminSupabaseClient()
 
   const phoneE164    = normalisePhone(payload.phone)
   // Two flavors of email:
@@ -766,10 +761,7 @@ export async function claimGift(payload: {
 // Awards the inviter credit when their invitee makes their first paid order.
 // Idempotent: safe to call more than once (referral status gate prevents dup credits).
 export async function creditInviterOnConversion(inviteeUserId: string): Promise<void> {
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = createAdminSupabaseClient()
 
   // Find a gift_claimed referral for this invitee that hasn't converted yet.
   const { data: referral } = await supabaseAdmin
@@ -898,9 +890,9 @@ export async function creditInviterOnConversion(inviteeUserId: string): Promise<
 // Statuses chosen: Active | Paused | Skipped — these are the live cycle-bearing states.
 // Scheduled is intentionally excluded — a not-yet-started sub has no cycle window.
 //
-// Param typed with explicit generics matching what bare createAdminClient(url,key)
-// actually returns (`SupabaseClient<any, "public", "public", any, any>`). A bare
-// `ReturnType<typeof createAdminClient>` would narrow schema to `never` and
+// Param typed with explicit generics matching what the service-role admin
+// client returns (`SupabaseClient<any, "public", "public", any, any>`). A bare
+// `ReturnType<typeof createAdminSupabaseClient>` would narrow schema to `never` and
 // reject the call site's wider client (TS overload-resolution oddity).
 async function fetchActiveSubForAwarder(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

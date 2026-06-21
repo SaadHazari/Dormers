@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { randomInt } from 'crypto'
 import { sendOtpTemplate } from '@/infra/meta-whatsapp/client'
 import { hashOtpCode } from '@/shared/otp-hash'
@@ -10,10 +10,7 @@ const RESEND_COOLDOWN_SEC  = 30
 const MAX_SENDS_PER_HOUR   = 5
 
 const admin = () =>
-    createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    createAdminSupabaseClient()
 
 export async function POST(req: NextRequest) {
     let body: { phone?: string }

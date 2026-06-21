@@ -12,17 +12,14 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauth' }, { status: 401 })
 
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const admin = createAdminSupabaseClient()
 
   // Atomic increment/reset/no-op. The RPC returns the new count.
   const { data, error } = await admin.rpc('tick_streak', { p_customer_id: user.id })

@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { sendStartDayEmail } from '@/infra/zeptomail/client'
 import { timingSafeCompare } from '@/shared/crypto'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
@@ -34,10 +34,7 @@ export async function POST(req: Request) {
   const subId = body.subscription_id
   if (!subId) return NextResponse.json({ error: 'missing_subscription_id' }, { status: 400 })
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabase = createAdminSupabaseClient()
 
   const { data: sub } = await supabase
     .from('subscriptions')

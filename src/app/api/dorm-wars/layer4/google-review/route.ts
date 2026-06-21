@@ -21,7 +21,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import {
   claimGoogleReview,
   autoApproveLayer4Reward,
@@ -56,10 +56,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'unauth' }, { status: 401 })
   log(`auth ok customer=${user.id}`)
 
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const admin = createAdminSupabaseClient()
 
   // ── Parse the multipart body ─────────────────────────────────────────
   let formData: FormData

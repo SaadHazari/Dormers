@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { isAlphaName, isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
@@ -75,10 +75,7 @@ function validateOnboardingPayload(p: OnboardingPayload): string | null {
 // UX hint only; this is the actual gate. `consumed_at IS NULL` ensures a single
 // verification can't be replayed once an earlier signup/claim already used it.
 async function findVerifiedOtpId(phone: string): Promise<string | null> {
-    const supabaseAdmin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    const supabaseAdmin = createAdminSupabaseClient()
     const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     const { data } = await supabaseAdmin
         .from('whatsapp_otps')
@@ -110,10 +107,7 @@ export async function createAccount(
     const supabase = await createClient()
 
     // Instantiated here (not at module level) so env vars are guaranteed to be available
-    const supabaseAdmin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const supabaseAdmin = createAdminSupabaseClient()
 
     const { data: authData, error } = await supabase.auth.signUp({
         email: payload.email,

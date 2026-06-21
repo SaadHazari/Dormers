@@ -1,4 +1,4 @@
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
@@ -38,11 +38,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (user) {
     // Fire-and-forget background cleanup — never blocks page render.
-    const reviewCleanupAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    )
+    const reviewCleanupAdmin = createAdminSupabaseClient()
     rejectExpiredWeeklyReviewPending(reviewCleanupAdmin, user.id).catch((err) => {
       console.error('layout: rejectExpiredWeeklyReviewPending failed:', err)
     })

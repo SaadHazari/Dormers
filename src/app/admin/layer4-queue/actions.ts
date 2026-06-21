@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
@@ -16,10 +16,7 @@ import { LAYER4_VALUE_AED } from '@/contexts/dorm-wars/domain/layer4'
 // (Page guards block UI access; action guards block direct POST attacks.)
 
 function admin() {
-  return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  return createAdminSupabaseClient()
 }
 
 // Map kind → credit source. Mirrors what the auto-fire / claim helpers

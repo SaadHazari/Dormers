@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
@@ -18,11 +18,7 @@ import type { WeeklyReviewPayload, WeeklyReviewSubmitResult } from '../../_share
  * scoped to that validated user.id.
  */
 function reviewCreditsAdmin() {
-    return createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } },
-    )
+    return createAdminSupabaseClient()
 }
 
 /**

@@ -1,15 +1,12 @@
 'use server'
 
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 
 function admin() {
-    return createAdmin(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    return createAdminSupabaseClient()
 }
 
 /**

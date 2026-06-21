@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { hashOtpCode } from '@/shared/otp-hash'
 
 const MAX_ATTEMPTS = 5
 
 const admin = () =>
-    createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    createAdminSupabaseClient()
 
 export async function POST(req: NextRequest) {
     let body: { phone?: string; code?: string }

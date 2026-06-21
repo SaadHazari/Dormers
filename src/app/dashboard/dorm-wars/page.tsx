@@ -8,7 +8,7 @@ import {
   getRecentRewardEvents,
 } from '@/infra/supabase/dorm-wars-repo'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { redirect } from 'next/navigation'
 import HubClient from './hub/HubClient'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
@@ -114,10 +114,7 @@ export default async function DormWarsPage() {
   // (insert + credit happen inside the helper, idempotent via UNIQUE).
   // Then we fetch the full layer4 ledger to drive per-kind status in the
   // Side Rewards column.
-  const adminClient = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const adminClient = createAdminSupabaseClient()
   await maybeFireAnniversary(adminClient, user.id).catch((err) => {
     // Anniversary fire-and-forget — never block hub load on it. The next
     // hub visit retries idempotently if this one failed.

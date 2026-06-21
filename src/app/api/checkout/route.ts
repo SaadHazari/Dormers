@@ -303,11 +303,8 @@ export async function POST(req: Request) {
     // rows and apply both discounts within the 24h coupon window. With it,
     // the second tab's reservation CAS fails on the already-reserved rows
     // and its coupon has nothing to apply.
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const { createAdminSupabaseClient } = await import('@/infra/supabase/admin-client');
+    const supabaseAdmin = createAdminSupabaseClient();
 
     // Lazy release: free any prior reservations for this customer whose 24h
     // hold has elapsed (e.g. user opened checkout earlier but never paid).

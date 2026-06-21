@@ -12,7 +12,8 @@
 // This plan (07-03) implements ONLY the Layer 2 cycle half. The Layer 3
 // tier loop is appended in 07-04 at the marked placeholder below.
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { type SupabaseClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { mysteryDropValue } from '../domain/rng'
 import { CYCLE_MILESTONES, LIFETIME_TIERS, MILESTONE_15_BONUS_SKIPS } from '../domain/constants'
 import { getCycleRecruits, getCycleChainSubIds } from '@/infra/supabase/dorm-wars-repo'
@@ -30,10 +31,7 @@ import { sendOpsAlertEmail } from '@/infra/zeptomail/client'
 type AdminClient = SupabaseClient<any, any, any>
 
 function admin(): AdminClient {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  return createAdminSupabaseClient()
 }
 
 /**

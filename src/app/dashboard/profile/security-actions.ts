@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 
 // Action result shapes are defined inline at call sites. Next.js 15 +
@@ -127,10 +127,7 @@ export async function markWhatsappVerified(phone: string) {
   const { data: userData } = await supabase.auth.getUser()
   if (!userData?.user) return { error: 'Not signed in.' }
 
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = createAdminSupabaseClient()
   const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const { data: otp } = await supabaseAdmin
     .from('whatsapp_otps')
