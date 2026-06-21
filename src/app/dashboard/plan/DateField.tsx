@@ -19,6 +19,18 @@ interface Props {
    *  unavailable-today is about overlap with the current sub, not the
    *  kitchen prep window. */
   cutoffActive?: boolean
+  /** Renewal-only: the current plan's end date (ISO). Every blocked cell from
+   *  today through this date is unavailable because the active plan still
+   *  occupies it — a FUTURE-overlap reason, not "in the past". When set, those
+   *  cells explain the overlap instead of the misleading past-date message. */
+  activeUntil?: string
+}
+
+// Format an ISO date (date-only or timestamp) as "9 July" in AE locale.
+// Slice to the date part + local midnight so a positive tz offset can't
+// shift the label back a day (mirrors how cells are built from ISO above).
+function fmtDayLong(iso: string): string {
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-AE', { day: 'numeric', month: 'long' })
 }
 
 // ISO dow for a JS Date — 1=Mon..7=Sun. AE day-of-week math elsewhere uses
@@ -29,7 +41,7 @@ function isoDow(d: Date): number {
   return js === 0 ? 7 : js
 }
 
-export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffActive }: Props) {
+export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil }: Props) {
   const [open, setOpen] = useState(false)
   // 'down' = popover sits below the trigger (default); 'up' = flips above when
   // there isn't enough viewport space below. Sticky checkout panels at the bottom
@@ -135,6 +147,13 @@ export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffA
       return `${label} aren’t a delivery day on your ${week} plan — pick a working day instead.`
     }
     if (d < minD) {
+      // Renewal overlap: today through the current plan's end date is blocked
+      // because the active plan still runs then — these are FUTURE dates, so
+      // the generic "in the past" line was plainly wrong. (`d >= today` keeps
+      // genuinely-past cells, e.g. last month, on the past-date message.)
+      if (activeUntil && d >= today) {
+        return `Your current plan runs until ${fmtDayLong(activeUntil)} — your new plan can start the day after.`
+      }
       // Past 14:00 AE, today's cell is unavailable because the kitchen has
       // already started prepping tonight's run — give the customer the
       // precise reason rather than the generic "in the past" message.

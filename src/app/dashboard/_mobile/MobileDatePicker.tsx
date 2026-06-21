@@ -24,17 +24,27 @@ interface Props {
   maxDate: string
   weekType?: '5DAYS' | '6DAYS'
   cutoffActive?: boolean
+  /** Renewal-only: the current plan's end date (ISO). Cells from today through
+   *  this date are blocked by the active plan's overlap — a future reason, not
+   *  "in the past". When set, those cells explain the overlap. */
+  activeUntil?: string
 }
 
 function isoDow(d: Date): number {
   const js = d.getDay()
   return js === 0 ? 7 : js
 }
+// Format an ISO date (date-only or timestamp) as "9 July" in AE locale —
+// sliced to the date part at local midnight so a positive tz offset can't
+// shift the label back a day.
+function fmtDayLong(iso: string): string {
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-AE', { day: 'numeric', month: 'long' })
+}
 function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, cutoffActive }: Props) {
+export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil }: Props) {
   const minD = new Date(minDate + 'T00:00:00')
   const maxD = new Date(maxDate + 'T00:00:00')
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -85,6 +95,13 @@ export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, 
       return `${label} aren’t a delivery day on your ${week} plan — pick a working day instead.`
     }
     if (d < minD) {
+      // Renewal overlap: today through the current plan's end date is blocked
+      // because the active plan still runs then — these are FUTURE dates, so
+      // the generic "in the past" line was plainly wrong. (`d >= today` keeps
+      // genuinely-past cells, e.g. last month, on the past-date message.)
+      if (activeUntil && d >= today) {
+        return `Your current plan runs until ${fmtDayLong(activeUntil)} — your new plan can start the day after.`
+      }
       if (cutoffActive && d.getTime() === today.getTime()) {
         return 'The 2 PM kitchen cutoff has passed — tonight’s run is already prepping. Pick tomorrow or later.'
       }

@@ -544,6 +544,7 @@ export function CheckoutPanel({
                 maxDate={dateBounds.max}
                 weekType={weekType}
                 cutoffActive={dateBounds.cutoffActive}
+                activeUntil={activeSubscription?.end_date}
               />
             </div>
 

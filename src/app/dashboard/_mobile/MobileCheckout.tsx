@@ -316,7 +316,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
             <h2 style={{ margin: '6px 0 0', fontSize: 19, fontWeight: 800, color: S.fg, letterSpacing: '-0.01em', lineHeight: 1.2 }}>Choose your start date</h2>
 
             <div style={{ marginTop: 14 }}>
-              <MobileDatePicker value={startDate} onChange={setStartDate} minDate={dateBounds.min} maxDate={dateBounds.max} weekType={weekType} cutoffActive={dateBounds.cutoffActive} />
+              <MobileDatePicker value={startDate} onChange={setStartDate} minDate={dateBounds.min} maxDate={dateBounds.max} weekType={weekType} cutoffActive={dateBounds.cutoffActive} activeUntil={activeSubscription?.end_date} />
               <p style={{ margin: '12px 0 0', fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
                 {startDate ? <>Starts <strong style={{ color: S.fg, fontWeight: 700 }}>{startLabel}</strong>. No charge for days before.</> : 'Pick any working day in the next 30 days.'}
               </p>
