@@ -17,6 +17,36 @@ import * as Sentry from '@sentry/nextjs'
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config')
+
+    // Release It! hardening (Phase 0): boot-time env validation in WARN-ONLY mode.
+    // Surfaces missing/invalid config in the boot log so a misconfigured deploy is
+    // visible immediately instead of failing customer-facing hours later. It does
+    // NOT throw yet — Phase 8 flips this to fail-fast once every environment is
+    // confirmed clean. Wrapped so the validator can never break startup. Zero
+    // request-path / customer impact.
+    try {
+      const { validateEnv } = await import('@/infra/config/env-schema')
+      const { logger } = await import('@/infra/logging/logger')
+      const result = validateEnv()
+      if (result.ok) {
+        logger.info(
+          { context: result.context, checked: result.checked },
+          'env validation passed (warn-only)',
+        )
+      } else {
+        logger.warn(
+          {
+            context: result.context,
+            missing: result.missing.map((r) => r.key),
+            invalid: result.invalid.map((r) => r.key),
+          },
+          'env validation found issues (warn-only — not blocking boot)',
+        )
+      }
+    } catch (err) {
+      // Never let env validation break boot.
+      console.error('[env-validation] skipped due to error', err)
+    }
   }
   if (process.env.NEXT_RUNTIME === 'edge') {
     await import('./sentry.edge.config')
