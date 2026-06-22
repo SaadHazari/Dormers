@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export default async function CreditsPage() {
     const sb = createAdminSupabaseClient()
 
-    const [creditsRes, compedRes, customersRes] = await Promise.all([
+    const [creditsRes, compedRes] = await Promise.all([
         sb.from('credits')
             .select('id, customer_id, amount_aed, source, status, created_at, applied_at')
             .order('created_at', { ascending: false })
@@ -16,8 +16,16 @@ export default async function CreditsPage() {
             .select('id, customer_id, plan_name, cogs_aed, expense_category, delivered_at, created_at')
             .order('created_at', { ascending: false })
             .limit(100),
-        sb.from('customers').select('id, name, email'),
     ])
+
+    // Capacity (Phase 7b / L6): scope customers to those referenced by either list.
+    const customerIds = [...new Set([
+        ...((creditsRes.data ?? []) as Array<{ customer_id: string }>).map(c => c.customer_id),
+        ...((compedRes.data ?? []) as Array<{ customer_id: string }>).map(c => c.customer_id),
+    ].filter(Boolean))]
+    const customersRes = customerIds.length
+        ? await sb.from('customers').select('id, name, email').in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string | null; email: string | null }> }
 
     const customerMap = new Map<string, { name: string | null; email: string | null }>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null; email: string | null }>) {

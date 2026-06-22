@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export default async function ReferralsPage() {
     const sb = createAdminSupabaseClient()
 
-    const [referralsRes, queueRes, customersRes] = await Promise.all([
+    const [referralsRes, queueRes] = await Promise.all([
         sb.from('referrals')
             .select('id, inviter_cid, inviter_user_id, invitee_first_name, invitee_email, invitee_phone, status, created_at, gift_claimed_at, converted_at')
             .order('created_at', { ascending: false })
@@ -15,8 +15,17 @@ export default async function ReferralsPage() {
         sb.from('referral_review_queue')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'pending'),
-        sb.from('customers').select('id, name, cid'),
     ])
+
+    // Capacity (Phase 7b / L6): scope customers to the inviters referenced by these rows.
+    const customerIds = [...new Set(
+        (((referralsRes.data ?? []) as Array<{ inviter_user_id: string | null }>)
+            .map(r => r.inviter_user_id)
+            .filter(Boolean)) as string[],
+    )]
+    const customersRes = customerIds.length
+        ? await sb.from('customers').select('id, name, cid').in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string | null; cid: string | null }> }
 
     const customerMap = new Map<string, { name: string | null; cid: string | null }>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null; cid: string | null }>) {

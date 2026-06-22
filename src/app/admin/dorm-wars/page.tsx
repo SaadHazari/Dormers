@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export default async function DormWarsPage() {
     const sb = createAdminSupabaseClient()
 
-    const [streaksRes, cycleRes, lifetimeRes, layer4Res, layer4PendingRes, customersRes] = await Promise.all([
+    const [streaksRes, cycleRes, lifetimeRes, layer4Res, layer4PendingRes] = await Promise.all([
         sb.from('streaks')
             .select('customer_id, count, last_visit_date_utc, last_chest_day')
             .order('count', { ascending: false })
@@ -18,7 +18,8 @@ export default async function DormWarsPage() {
             .limit(100),
         sb.from('lifetime_rewards')
             .select('id, customer_id, tier, perk, awarded_at')
-            .order('awarded_at', { ascending: false }),
+            .order('awarded_at', { ascending: false })
+            .limit(100),
         sb.from('layer4_rewards')
             .select('id, customer_id, kind, value_aed, status, claimed_at')
             .order('claimed_at', { ascending: false })
@@ -26,8 +27,19 @@ export default async function DormWarsPage() {
         sb.from('layer4_rewards')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'pending'),
-        sb.from('customers').select('id, name'),
     ])
+
+    // Capacity (Phase 7b / L6): bound lifetime_rewards (was unbounded) + scope
+    // customers to those referenced by the reward rows above.
+    const rewardCustomerIds = [...new Set([
+        ...((streaksRes.data ?? []) as Array<{ customer_id: string }>).map(r => r.customer_id),
+        ...((cycleRes.data ?? []) as Array<{ customer_id: string }>).map(r => r.customer_id),
+        ...((lifetimeRes.data ?? []) as Array<{ customer_id: string }>).map(r => r.customer_id),
+        ...((layer4Res.data ?? []) as Array<{ customer_id: string }>).map(r => r.customer_id),
+    ].filter(Boolean))]
+    const customersRes = rewardCustomerIds.length
+        ? await sb.from('customers').select('id, name').in('id', rewardCustomerIds)
+        : { data: [] as Array<{ id: string; name: string | null }> }
 
     const customerMap = new Map<string, string>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null }>) {

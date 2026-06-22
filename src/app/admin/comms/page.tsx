@@ -7,13 +7,16 @@ export const dynamic = 'force-dynamic'
 export default async function CommsPage() {
     const sb = createAdminSupabaseClient()
 
-    const [notifsRes, customersRes] = await Promise.all([
-        sb.from('customer_notifications')
-            .select('id, customer_id, kind, scheduled_for, sent_at, wamid, meta_status_code, created_at')
-            .order('created_at', { ascending: false })
-            .limit(200),
-        sb.from('customers').select('id, name'),
-    ])
+    const notifsRes = await sb.from('customer_notifications')
+        .select('id, customer_id, kind, scheduled_for, sent_at, wamid, meta_status_code, created_at')
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+    // Capacity (Phase 7b / L6): scope customers to those referenced by these rows.
+    const customerIds = [...new Set(((notifsRes.data ?? []) as Array<{ customer_id: string }>).map(n => n.customer_id).filter(Boolean))]
+    const customersRes = customerIds.length
+        ? await sb.from('customers').select('id, name').in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string | null }> }
 
     const customerMap = new Map<string, string>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null }>) {

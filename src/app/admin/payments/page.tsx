@@ -7,15 +7,18 @@ export const dynamic = 'force-dynamic'
 export default async function PaymentsPage() {
     const sb = createAdminSupabaseClient()
 
-    const [ordersRes, customersRes] = await Promise.all([
-        sb.from('orders')
-            .select('id, order_number, customer_id, plan, meal_preference, meals_count, price_per_meal, invoice_status, stripe_session_id, payment_date, payment_method, email_sent_at, whatsapp_sent_at, zoho_synced_at, post_payment_errors, created_at')
-            .order('created_at', { ascending: false })
-            .limit(100),
-        sb.from('customers').select('id, name, email'),
-    ])
+    const ordersRes = await sb.from('orders')
+        .select('id, order_number, customer_id, plan, meal_preference, meals_count, price_per_meal, invoice_status, stripe_session_id, payment_date, payment_method, email_sent_at, whatsapp_sent_at, zoho_synced_at, post_payment_errors, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100)
 
     const orders = (ordersRes.data ?? []) as Array<Record<string, unknown>>
+    // Capacity (Phase 7b / L6): fetch only the customers referenced by these
+    // orders, not the entire (ever-growing) customers table.
+    const customerIds = [...new Set(orders.map(o => o.customer_id as string).filter(Boolean))]
+    const customersRes = customerIds.length
+        ? await sb.from('customers').select('id, name, email').in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string | null; email: string | null }> }
     const customerMap = new Map<string, { name: string | null; email: string | null }>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null; email: string | null }>) {
         customerMap.set(c.id, { name: c.name, email: c.email })

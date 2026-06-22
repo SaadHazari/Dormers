@@ -17,13 +17,16 @@ function deliveryDayName(): string {
 export default async function DeliveriesPage() {
     const sb = createAdminSupabaseClient()
 
-    const [activeSubsRes, customersRes] = await Promise.all([
-        sb.from('subscriptions')
-            .select('id, customer_id, plan_name, status, meals_per_day, total_meals, delivered_meals, week_type, start_date, end_date, skipped_dates, paused_dates')
-            .in('status', ['Active', 'Paused', 'Skipped'])
-            .order('start_date', { ascending: false }),
-        sb.from('customers').select('id, name, dorm_name, meal_preference_type, veg_days, whatsapp_number'),
-    ])
+    const activeSubsRes = await sb.from('subscriptions')
+        .select('id, customer_id, plan_name, status, meals_per_day, total_meals, delivered_meals, week_type, start_date, end_date, skipped_dates, paused_dates')
+        .in('status', ['Active', 'Paused', 'Skipped'])
+        .order('start_date', { ascending: false })
+
+    // Capacity (Phase 7b / L6): scope customers to active-sub customers only.
+    const customerIds = [...new Set(((activeSubsRes.data ?? []) as Array<{ customer_id: string }>).map(s => s.customer_id).filter(Boolean))]
+    const customersRes = customerIds.length
+        ? await sb.from('customers').select('id, name, dorm_name, meal_preference_type, veg_days, whatsapp_number').in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string | null; dorm_name: string | null; meal_preference_type: string | null; veg_days: string[] | null; whatsapp_number: string | null }> }
 
     const customerMap = new Map<string, { name: string | null; dorm: string | null; pref: string | null; vegDays: string[] | null; phone: string | null }>()
     for (const c of (customersRes.data ?? []) as Array<{ id: string; name: string | null; dorm_name: string | null; meal_preference_type: string | null; veg_days: string[] | null; whatsapp_number: string | null }>) {
