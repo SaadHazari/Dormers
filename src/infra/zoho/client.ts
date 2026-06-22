@@ -49,6 +49,13 @@
  */
 
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
+import { getCircuitBreaker } from '@/infra/http/circuit-breaker';
+
+// Release It! L4 (Arc 1): a sustained Zoho outage trips this so the retry-cron
+// fast-fails instead of running the full 3-attempt × backoff loop against a dead
+// endpoint every tick. Needs 5 CONSECUTIVE failures, so interleaved 4xx business
+// errors among successes won't trip it.
+const ZOHO_BREAKER = { failureThreshold: 5, recoveryTimeMs: 60_000 };
 
 // Zoho's official regional data centres. Anything outside this set is
 // almost certainly a misconfiguration — and worse, pasting an arbitrary
@@ -168,46 +175,50 @@ export async function zohoFetch<T = unknown>(
       body: serialisedBody as BodyInit | undefined,
     }, { timeoutMs: JSON_TIMEOUT_MS });
 
-  // Bounded retry loop: refresh the token once on 401, and back off + retry on
-  // 429. The previous two sequential one-shot `if`s couldn't survive a
-  // double-429 (or a 401 followed by repeated 429s) — those threw mid-pipeline,
-  // leaving an unpaid Zoho invoice after Stripe had captured.
-  const MAX_ATTEMPTS = 3;
-  let res!: Response;
-  let refreshedOn401 = false;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    res = await doRequest(await getAccessToken());
+  // Wrapped in a circuit breaker (see ZOHO_BREAKER) — the 401/429 retry logic
+  // is preserved inside; the breaker only sheds load during a sustained outage.
+  return getCircuitBreaker('zoho', ZOHO_BREAKER).run(async () => {
+    // Bounded retry loop: refresh the token once on 401, and back off + retry on
+    // 429. The previous two sequential one-shot `if`s couldn't survive a
+    // double-429 (or a 401 followed by repeated 429s) — those threw mid-pipeline,
+    // leaving an unpaid Zoho invoice after Stripe had captured.
+    const MAX_ATTEMPTS = 3;
+    let res!: Response;
+    let refreshedOn401 = false;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      res = await doRequest(await getAccessToken());
 
-    if (res.status === 401 && !refreshedOn401) {
-      cachedToken = null;
-      refreshedOn401 = true;
-      continue; // retry immediately with a fresh token
+      if (res.status === 401 && !refreshedOn401) {
+        cachedToken = null;
+        refreshedOn401 = true;
+        continue; // retry immediately with a fresh token
+      }
+      if (res.status === 429 && attempt < MAX_ATTEMPTS - 1) {
+        const retryAfter = Number(res.headers.get('retry-after') || '5');
+        const delayMs = Math.min(retryAfter * 1000, 30_000);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      break;
     }
-    if (res.status === 429 && attempt < MAX_ATTEMPTS - 1) {
-      const retryAfter = Number(res.headers.get('retry-after') || '5');
-      const delayMs = Math.min(retryAfter * 1000, 30_000);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      continue;
+
+    const text = await res.text();
+    let json: unknown = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      json = { _raw: text };
     }
-    break;
-  }
 
-  const text = await res.text();
-  let json: unknown = {};
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch {
-    json = { _raw: text };
-  }
-
-  if (!res.ok) {
-    const msg =
-      (json as { message?: string; _raw?: string }).message ??
-      (json as { _raw?: string })._raw ??
-      res.statusText;
-    throw new Error(`Zoho ${init.method ?? 'GET'} ${path} → ${res.status}: ${msg}`);
-  }
-  return json as T;
+    if (!res.ok) {
+      const msg =
+        (json as { message?: string; _raw?: string }).message ??
+        (json as { _raw?: string })._raw ??
+        res.statusText;
+      throw new Error(`Zoho ${init.method ?? 'GET'} ${path} → ${res.status}: ${msg}`);
+    }
+    return json as T;
+  });
 }
 
 /**

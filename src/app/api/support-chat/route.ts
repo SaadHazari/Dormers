@@ -89,6 +89,11 @@ export async function POST(req: Request) {
             model: google('gemini-3.1-flash-lite'),
             system,
             messages: await convertToModelMessages(normalized),
+            // Release It! L4: bound the call so a stalled Gemini fails fast instead
+            // of hanging; retry transient blips. Failure surfaces to the chat
+            // widget's onError → WhatsApp fallback.
+            abortSignal: AbortSignal.timeout(25_000),
+            maxRetries: 2,
         });
         return result.toUIMessageStreamResponse();
     } catch (err) {

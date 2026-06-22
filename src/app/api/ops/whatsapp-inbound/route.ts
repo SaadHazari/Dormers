@@ -21,6 +21,7 @@ import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames, dormAliasMap } from '@/shared/dorm-registry'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
+import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout'
 
 export const runtime = 'nodejs'
 
@@ -124,11 +125,13 @@ async function relayChatwoot(
     if (signatureHeader) {
       headers['X-Hub-Signature-256'] = signatureHeader
     }
-    await fetch(CHATWOOT_WEBHOOK_URL, {
+    // Release It! L4: timeout so a stalled Chatwoot can't hang the webhook to
+    // the function wall (which would make Meta re-deliver).
+    await fetchWithTimeout(CHATWOOT_WEBHOOK_URL, {
       method: 'POST',
       headers,
       body: rawBody,
-    })
+    }, { timeoutMs: 5_000 })
   } catch (err) {
     console.error('[whatsapp-inbound] Chatwoot relay failed (non-fatal):', err)
   }
@@ -171,7 +174,8 @@ async function replyToRider(
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
 
-  await fetch(
+  // Release It! L4: timeout so a stalled Meta Graph reply can't hang the webhook.
+  await fetchWithTimeout(
     `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
     {
       method: 'POST',
@@ -187,6 +191,7 @@ async function replyToRider(
         text: { body: text },
       }),
     },
+    { timeoutMs: 8_000 },
   )
 }
 
