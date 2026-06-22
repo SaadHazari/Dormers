@@ -19,6 +19,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { captureError } from '@/infra/logging/capture-error'
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 
 // Netlify default function timeout is 10s; Gemini Vision on a photo
@@ -215,7 +216,14 @@ export async function POST(req: Request) {
         const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
         log(`fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)
       } catch (err) {
-        console.error('[verify-box-count] queueDeliveryConfirmedNotifications failed (non-fatal):', err)
+        // Release It! L5: the delivery is already committed as VERIFIED, so the
+        // 8PM failsafe will NOT flag it — yet customers were never told their
+        // food arrived. Surface it loudly so ops can notify them manually.
+        captureError(err, { area: 'ops', op: 'verify-box-count.fanout', dorm: dormName })
+        void notifyAdmin(
+          `Delivery VERIFIED for ${dormName} but customer notifications failed to queue — customers were not told their food arrived. Please notify them manually.`,
+          dormName,
+        )
       }
     } else {
       log(`fanout: skipped (already verified) for ${dormName}`)

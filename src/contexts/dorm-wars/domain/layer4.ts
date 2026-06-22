@@ -155,19 +155,21 @@ export async function maybeFireAnniversary(
     .maybeSingle()
 
   if (creditErr || !credit) {
-    console.error(
-      `❌ anniversary credit insert failed — customer=${customerId} year=${anniversaryYear}:`,
-      creditErr,
-    )
     // Self-heal: delete the just-inserted marker so its UNIQUE doesn't
     // permanently block a retry. The next hub load re-fires cleanly and
     // deposits the credit — there is no reconciliation job to back-fill an
     // orphan. Mirrors the delete-to-allow-retry pattern in
     // autoRejectLayer4Reward. (Worst case, a spurious error after the credit
     // actually committed yields a rare double AED 50 — strictly better than a
-    // silent permanent loss.) Returning null = "not fired this load".
+    // silent permanent loss.)
     await sb.from('layer4_rewards').delete().eq('id', inserted.id)
-    return null
+    // Release It! L5: throw instead of silently returning null. The marker is
+    // already deleted above (so the next hub load retries cleanly), and the
+    // caller — an app-layer file allowed to use infra — surfaces this to Sentry
+    // + admin. Domain stays infra-free per the dependency rule.
+    throw new Error(
+      `anniversary credit deposit failed — customer=${customerId} year=${anniversaryYear} value=${value}: ${creditErr?.message ?? 'no row returned'}`,
+    )
   }
 
   // Link the credit row back + stamp awarded_at.

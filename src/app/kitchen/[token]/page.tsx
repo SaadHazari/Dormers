@@ -4,6 +4,7 @@ import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
+import { captureError } from '@/infra/logging/capture-error'
 import type { RecipeJson } from './KitchenClient'
 import { KitchenClient } from './KitchenClient'
 
@@ -63,6 +64,7 @@ export default async function KitchenPage({
         dishes={[]}
         vegCount={0}
         nonVegCount={0}
+        countsUnavailable={false}
         isPast2pm={false}
         lastUpdated={lastUpdated}
         noDeliveryReason="Sunday — no deliveries"
@@ -76,14 +78,24 @@ export default async function KitchenPage({
     getKitchenCounts(todayIso, dayName, isSaturday),
   ])
 
-  // Fetch recipes separately — recipe column is not in menu-catalog's DishRow
+  // Fetch recipes separately — recipe column is not in menu-catalog's DishRow.
+  // Best-effort (Release It! L5): a DB blip here must degrade to "dish cards
+  // without tap-for-recipe", never throw the whole kitchen screen into the
+  // error boundary. The dish + count data above has already loaded.
   const sb = createAdminSupabaseClient()
   const dishNames = [vegDish?.name, nonVegDish?.name].filter(Boolean) as string[]
-  const { data: recipeRows } = dishNames.length > 0
-    ? await sb.from('dishes').select('name, recipe').in('name', dishNames)
-    : { data: [] as Array<{ name: string; recipe: RecipeJson | null }> }
+  let recipeRows: Array<{ name: string; recipe: RecipeJson | null }> = []
+  if (dishNames.length > 0) {
+    try {
+      const { data, error } = await sb.from('dishes').select('name, recipe').in('name', dishNames)
+      if (error) throw error
+      recipeRows = (data ?? []) as Array<{ name: string; recipe: RecipeJson | null }>
+    } catch (err) {
+      captureError(err, { area: 'kitchen', op: 'fetchRecipes', dishNames: dishNames.join(',') })
+    }
+  }
   const recipeMap = new Map(
-    (recipeRows ?? []).map(r => [r.name, r.recipe as RecipeJson | null]),
+    recipeRows.map(r => [r.name, r.recipe as RecipeJson | null]),
   )
 
   const dishes = [
@@ -112,6 +124,7 @@ export default async function KitchenPage({
       dishes={dishes}
       vegCount={counts.vegCount}
       nonVegCount={counts.nonVegCount}
+      countsUnavailable={counts.unavailable}
       isPast2pm={isPast2pm}
       lastUpdated={lastUpdated}
       noDeliveryReason={null}

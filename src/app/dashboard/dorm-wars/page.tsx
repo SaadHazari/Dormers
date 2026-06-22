@@ -15,6 +15,8 @@ import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { resolveMealPriceContext } from '@/contexts/dorm-wars/domain/meal-pricing'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { maybeFireAnniversary, getLayer4Rewards } from '@/contexts/dorm-wars/domain/layer4'
+import { captureError } from '@/infra/logging/capture-error'
+import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 
@@ -116,9 +118,14 @@ export default async function DormWarsPage() {
   // Side Rewards column.
   const adminClient = createAdminSupabaseClient()
   await maybeFireAnniversary(adminClient, user.id).catch((err) => {
-    // Anniversary fire-and-forget — never block hub load on it. The next
-    // hub visit retries idempotently if this one failed.
-    console.error('maybeFireAnniversary failed:', err)
+    // Anniversary fire-and-forget — never block hub load. Surface the failure
+    // (Release It! L5) so a missed once-a-year payout isn't silent; the marker
+    // was already cleared in the helper, so the next hub visit retries idempotently.
+    captureError(err, { area: 'dorm-wars', op: 'maybeFireAnniversary', customerId: user.id })
+    void notifyAdmin(
+      `Anniversary credit failed to deposit for customer ${user.id} — will retry on next hub load; verify if it recurs.`,
+      user.id,
+    )
   })
 
   // Phase 8K Model C — review-credit cleanup moved up to the dashboard

@@ -37,6 +37,8 @@ interface KitchenClientProps {
   dishes: KitchenDish[]
   vegCount: number
   nonVegCount: number
+  /** True when the count read failed — show an explicit warning, never a fake 0/0. */
+  countsUnavailable?: boolean
   isPast2pm: boolean
   lastUpdated: string
   noDeliveryReason: string | null
@@ -441,6 +443,7 @@ export function KitchenClient({
   dishes,
   vegCount,
   nonVegCount,
+  countsUnavailable = false,
   isPast2pm,
   lastUpdated,
   noDeliveryReason,
@@ -499,7 +502,26 @@ export function KitchenClient({
         </div>
       </div>
 
-      {/* Count cards */}
+      {/* Count cards — or an explicit warning when the count read failed (never a fake 0/0) */}
+      {countsUnavailable ? (
+        <div
+          style={{
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '24px',
+            backgroundColor: '#fef9c3',
+            border: '1px solid #fde047',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#92400e' }}>
+            Counts unavailable
+          </div>
+          <div style={{ fontSize: '14px', color: '#78350f', marginTop: '8px', lineHeight: 1.5 }}>
+            Couldn’t load today’s veg / non-veg totals. Check with admin before cooking — do not assume zero.
+          </div>
+        </div>
+      ) : (
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
         <div
           style={{
@@ -561,6 +583,7 @@ export function KitchenClient({
           </div>
         </div>
       </div>
+      )}
 
       {/* Dish cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

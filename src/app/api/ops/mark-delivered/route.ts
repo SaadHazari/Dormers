@@ -9,6 +9,8 @@ import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-eve
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames } from '@/shared/dorm-registry'
+import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { captureError } from '@/infra/logging/capture-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,9 +89,12 @@ export async function POST(req: NextRequest) {
       `[mark-delivered] fanout: queued=${fanout.queued} skipped=${fanout.skipped} for ${dorm_name}`,
     )
   } catch (err) {
-    console.error(
-      '[mark-delivered] queueDeliveryConfirmedNotifications failed (non-fatal):',
-      err,
+    // Release It! L5: delivery recorded, but the customer fanout failed — they
+    // were not told their food arrived. Surface it so ops can act manually.
+    captureError(err, { area: 'ops', op: 'mark-delivered.fanout', dorm: dorm_name })
+    void notifyAdmin(
+      `Delivery marked for ${dorm_name} but customer notifications failed to queue — please notify customers manually.`,
+      dorm_name,
     )
   }
 

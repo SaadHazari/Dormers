@@ -19,6 +19,8 @@ import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/que
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames, dormAliasMap } from '@/shared/dorm-registry'
+import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { captureError } from '@/infra/logging/capture-error'
 
 export const runtime = 'nodejs'
 
@@ -339,9 +341,12 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
         `[whatsapp-inbound] fanout for ${dormName}: queued=${fanout.queued} skipped=${fanout.skipped}`,
       )
     } catch (err) {
-      console.error(
-        '[whatsapp-inbound] queueDeliveryConfirmedNotifications failed (non-fatal):',
-        err,
+      // Release It! L5: dorm matched + delivery recorded, but customer fanout
+      // failed — surface it so ops can notify customers manually.
+      captureError(err, { area: 'ops', op: 'whatsapp-inbound.fanout', dorm: dormName })
+      void notifyAdmin(
+        `Delivery confirmed via WhatsApp for ${dormName} but customer notifications failed to queue — please notify customers manually.`,
+        dormName,
       )
     }
 
