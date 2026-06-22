@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { randomInt } from 'crypto'
 import { sendOtpTemplate } from '@/infra/meta-whatsapp/client'
 import { hashOtpCode } from '@/shared/otp-hash'
+import { otpIpLimiter, ipKey } from '@/infra/rate-limit/limiters'
 
 // Tunables. Conservative for an MVP — every send costs WhatsApp credits.
 const OTP_TTL_MIN          = 10
@@ -21,6 +22,10 @@ export async function POST(req: NextRequest) {
     if (!/^\+\d{8,15}$/.test(phone)) {
         return NextResponse.json({ error: 'invalid_phone' }, { status: 400 })
     }
+
+    // Shadow per-IP rate-limit (Phase 4 / L3) on top of the per-phone cap below.
+    // Observe-only for now; when enforced, stops phone-rotation credit drain.
+    await otpIpLimiter.check(await ipKey('otp'))
 
     const supabase = admin()
     const now      = Date.now()

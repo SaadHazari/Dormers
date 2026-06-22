@@ -3,6 +3,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { hashClaimCode } from '@/contexts/staff/domain/claim-code'
 import { timingSafeCompare } from '@/shared/crypto'
+import { staffClaimLimiter, identifierKey } from '@/infra/rate-limit/limiters'
 
 export type ClaimCheckResult =
     | { ok: true; firstName: string }
@@ -24,6 +25,10 @@ export async function verifyStaffClaim(email: string, code: string): Promise<Cla
     const cleanEmail = (email ?? '').trim().toLowerCase()
     const cleanCode = (code ?? '').trim()
     if (!cleanEmail || !cleanCode) return { error: 'Enter both your email and the code we sent you.' }
+
+    // Shadow rate-limit (Phase 4 / L3): keyed per (hashed) email to catch code
+    // brute-forcing of a specific invite. Observe-only for now; fails open.
+    await staffClaimLimiter.check(identifierKey('staff', cleanEmail))
 
     const sb = createAdminSupabaseClient()
     const { data: row } = await sb

@@ -3,6 +3,7 @@ import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
 import { getDormersKnowledge } from '@/contexts/chatbot/domain/knowledge';
 import { getDormLocations } from '@/infra/supabase/dorm-locations';
+import { chatLimiter, ipKey } from '@/infra/rate-limit/limiters';
 
 export const maxDuration = 30;
 
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
         console.error('[chat] GOOGLE_GENERATIVE_AI_API_KEY is not set');
         return NextResponse.json({ error: 'Chat service not configured' }, { status: 503 });
     }
+
+    // Shadow rate-limit (Phase 4 / L3): observe-only, never blocks yet, fails open.
+    await chatLimiter.check(await ipKey('chat'));
 
     try {
         const normalized = normalizeMessages(messages as Record<string, unknown>[])
