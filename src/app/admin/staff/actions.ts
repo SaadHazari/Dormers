@@ -297,7 +297,7 @@ export async function declineStaffRenewal(subscriptionId: string): Promise<Resul
     const intent = await paidIntentForSub(sb, subscriptionId)
     if (intent) {
         try {
-            const refundId = await refundPaymentFils(intent) // full refund
+            const refundId = await refundPaymentFils(intent, undefined, `refund:decline:${subscriptionId}`) // full refund
             refundNote = `AED ${STAFF_SATURDAY_MEAL_AED * 4} refunded (${refundId})`
         } catch (err) {
             console.error('declineStaffRenewal refund failed:', err)
@@ -388,7 +388,7 @@ export async function offboardStaffMember(staffId: string): Promise<Result> {
                 const saturdays = wasQueued ? 4 : unusedSaturdays(today, sub.end_date as string)
                 if (saturdays > 0) {
                     try {
-                        const refundId = await refundPaymentFils(intent, saturdays * STAFF_SATURDAY_MEAL_AED * 100)
+                        const refundId = await refundPaymentFils(intent, saturdays * STAFF_SATURDAY_MEAL_AED * 100, `refund:offboard:${sub.id}`)
                         notes.push(`refunded ${saturdays} Saturday${saturdays === 1 ? '' : 's'} (AED ${saturdays * STAFF_SATURDAY_MEAL_AED}, ${refundId})`)
                     } catch (err) {
                         console.error('offboardStaffMember refund failed:', err)

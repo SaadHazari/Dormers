@@ -12,6 +12,12 @@ import { getRedeemableCredit } from '@/infra/supabase/subscriptions-repo';
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo';
 import { notifyAdmin } from '@/infra/admin-alerts/notify';
 
+// Release It! L2: cap this route's wall-clock so a slow Stripe/Supabase chain
+// fails fast inside our control instead of dying at the opaque platform limit
+// mid-flight (which could orphan a coupon + reserved credit). The Stripe client
+// is bounded to 8s/2 retries and the DB calls to 15s (Phase 1).
+export const maxDuration = 26;
+
 export async function POST(req: Request) {
   let stripe;
   try {

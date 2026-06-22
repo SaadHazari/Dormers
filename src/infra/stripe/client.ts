@@ -23,7 +23,16 @@ const STRIPE_API_VERSION = '2025-06-30.basil' as Stripe.LatestApiVersion
 export function stripeClient(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) throw new Error('STRIPE_SECRET_KEY is not set')
-  return new Stripe(key, { apiVersion: STRIPE_API_VERSION })
+  return new Stripe(key, {
+    apiVersion: STRIPE_API_VERSION,
+    // Release It! L2: the SDK default is an 80s request timeout with 0 retries.
+    // An 80s hang ties up a serverless function while a customer stares at a
+    // spinner. Bound each request to 8s and let the SDK retry transient network
+    // failures twice with its built-in backoff (it auto-attaches a per-request
+    // idempotency key so create-retries are safe).
+    timeout: 8000,
+    maxNetworkRetries: 2,
+  })
 }
 
 /**

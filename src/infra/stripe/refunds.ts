@@ -13,11 +13,24 @@ import { stripeClient } from './client'
  * refund is retried manually; a declined renewal does NOT flip to Ended
  * until the refund succeeds).
  */
-export async function refundPaymentFils(paymentIntentId: string, amountFils?: number): Promise<string> {
+export async function refundPaymentFils(
+  paymentIntentId: string,
+  amountFils?: number,
+  idempotencyKey?: string,
+): Promise<string> {
   const stripe = stripeClient()
-  const refund = await stripe.refunds.create({
-    payment_intent: paymentIntentId,
-    ...(amountFils != null ? { amount: amountFils } : {}),
-  })
+  // Release It! L2: a DETERMINISTIC idempotency key makes a retried refund
+  // (network blip, double-tap, re-run after a "failed" that actually succeeded)
+  // return the SAME refund instead of paying real money twice. Callers pass an
+  // operation-scoped key (refund:<kind>:<subId>); we fall back to a key derived
+  // from the intent + amount so even un-keyed callers are protected.
+  const key = idempotencyKey ?? `refund:${paymentIntentId}:${amountFils ?? 'full'}`
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      ...(amountFils != null ? { amount: amountFils } : {}),
+    },
+    { idempotencyKey: key },
+  )
   return refund.id
 }
