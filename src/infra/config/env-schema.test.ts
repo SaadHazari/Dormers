@@ -43,6 +43,22 @@ describe('validateEnv', () => {
     const result = validateEnv(coreEnv, 'development')
     expect(result.ok).toBe(true)
     expect(result.missing).toHaveLength(0)
+    expect(result.missingCritical).toHaveLength(0)
+  })
+
+  it('reports missingCritical when a Supabase key is absent (boot would fail fast)', () => {
+    const env: Record<string, string | undefined> = { ...coreEnv }
+    delete env.SUPABASE_SERVICE_ROLE_KEY
+    const result = validateEnv(env, 'development')
+    expect(result.missingCritical.map((r) => r.key)).toContain('SUPABASE_SERVICE_ROLE_KEY')
+  })
+
+  it('does NOT treat fallback-having keys (OTP_PEPPER) as critical', () => {
+    const env: Record<string, string | undefined> = { ...coreEnv }
+    delete env.OTP_PEPPER
+    const result = validateEnv(env, 'development')
+    expect(result.missing.map((r) => r.key)).toContain('OTP_PEPPER') // still warned
+    expect(result.missingCritical.map((r) => r.key)).not.toContain('OTP_PEPPER') // but won't crash boot
   })
 
   it('flags a missing core key in every context', () => {

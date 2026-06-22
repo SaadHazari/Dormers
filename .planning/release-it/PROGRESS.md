@@ -12,7 +12,7 @@ Status key: ⬜ not started · 🟡 in progress · ✅ done & verified
 | 5 | Circuit breakers + graceful degradation (L4) | ◑ | branch `release-it/phase-5-circuit-breakers`; Meta WhatsApp breaker (sheds load on outage) + non-WhatsApp admin-alert backup (email→Sentry) + desktop chatbot onError fallback; +2 tests (323 total); tsc/lint/build green. Deferred: Zoho/Zepto/Stripe/Gemini breakers, webhook fast-ACK, streamText abort |
 | 6 | Acquisition fallback / email-OTP (L8) | ✅ | branch `release-it/phase-6-email-otp-fallback`; owner chose "email fallback, verify phone later"; reuses existing Supabase email verify + checkout profile gate (no new email table/endpoints/dashboard prompt); send_failed_at signal LIVE on Ohio; whatsapp_verified=false → checkout re-verify; locked UI untouched; tsc/lint/330 tests/build/smoke green |
 | 7 | Capacity discipline (L6) | ◑ | branch `release-it/phase-7-capacity`; HOT paths scoped (getDormCounts + fanout dorm-scoped + getKitchenCounts active-sub-scoped + kitchen visibility-aware refresh); behavior-preserving; 330 tests/tsc/lint/build green. Deferred (Phase 7b): admin list pages `.in(ids)` (low-frequency), dashboard history load-more (per-user) |
-| 8 | Deployment hardening (L7) | ⬜ | |
+| 8 | Deployment hardening (L7) | ◑ | branch `release-it/phase-8-deploy-hardening`; fail-fast env (critical-only: Supabase trio) + maxDuration on 7 cron/ops routes + instant DB-backed kill-switches (feature_flags LIVE on Ohio; chat + staff_program wired, fail-open); +14 tests (337 total); tsc/lint/build green. Deferred → 8b: cron reconciler, migration-drift reconcile, DB advisor hardening |
 | 9 | Prove it → 10/10 (load/soak, SLOs, chaos, DB hardening, tests) | ⬜ | |
 
 ## Per-phase Definition of Done
@@ -29,17 +29,17 @@ System: 6.1 → … → target 10
 
 | Area | Start | Now | Target |
 |---|---|---|---|
-| AI Chatbot & Support | 4.5 | 6.0 | 10 |
+| AI Chatbot & Support | 4.5 | 6.5 | 10 |
 | Admin Panel | 5.5 | 6.0 | 10 |
 | Kitchen Panel | 5.5 | 8.0 | 10 |
 | Delivery Rider / Ops | 5.5 | 7.5 | 10 |
-| Staff / Intern | 5.5 | 6.5 | 10 |
+| Staff / Intern | 5.5 | 7.0 | 10 |
 | Marketing + Auth | 5.8 | 8.5 | 10 |
 | Payments / Checkout | 6.4 | 7.5 | 10 |
 | User Dashboard | 6.5 | 7.5 | 10 |
 | WhatsApp Messaging | 6.8 | 8.5 | 10 |
 | Dorm Wars | 7.0 | 7.7 | 10 |
-| Cron / Internal | 7.0 | 7.4 | 10 |
-| Platform / Infra | 7.0 | 7.5 | 10 |
+| Cron / Internal | 7.0 | 8.0 | 10 |
+| Platform / Infra | 7.0 | 8.5 | 10 |
 
-_Phases 0 + 1 + 3 + 2 + 5 + 4 + 6 + 7 landed. System ~6.1 → ~7.7. Phase 7 (hot-path capacity) lifted Kitchen + Ops. Partial phases: 5 (vendor breakers/webhook fast-ACK), 4 (shadow→enforce flip), 7 (admin-page scoping + dashboard load-more = Phase 7b). Remaining: 8 deploy hardening, 9 prove-it; plus the L5 admin/staff/AI Sentry sweep._
+_Phases 0 + 1 + 3 + 2 + 5 + 4 + 6 + 7 + 8 landed. System ~6.1 → ~7.9. Phase 8 (fail-fast env + maxDuration + kill-switches) lifted Platform, Cron, Staff, AI. Partial phases: 5 (vendor breakers/webhook fast-ACK), 4 (shadow→enforce flip), 7b (admin-page scoping + dashboard load-more), 8b (cron reconciler + migration-drift + DB advisor hardening). Remaining: 9 prove-it (load/soak, SLOs+alerting, chaos tests); plus the L5 admin/staff/AI Sentry sweep._

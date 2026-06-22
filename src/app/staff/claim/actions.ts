@@ -4,6 +4,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { hashClaimCode } from '@/contexts/staff/domain/claim-code'
 import { timingSafeCompare } from '@/shared/crypto'
 import { staffClaimLimiter, identifierKey } from '@/infra/rate-limit/limiters'
+import { isFeatureEnabled } from '@/infra/config/feature-flags'
 
 export type ClaimCheckResult =
     | { ok: true; firstName: string }
@@ -25,6 +26,12 @@ export async function verifyStaffClaim(email: string, code: string): Promise<Cla
     const cleanEmail = (email ?? '').trim().toLowerCase()
     const cleanCode = (code ?? '').trim()
     if (!cleanEmail || !cleanCode) return { error: 'Enter both your email and the code we sent you.' }
+
+    // Phase 8 (L7): instant kill-switch — pause new staff claims without a
+    // redeploy (e.g. if the program is being abused). Fails open.
+    if (!(await isFeatureEnabled('staff_program'))) {
+        return { error: 'The staff program is paused right now — please check back soon or message us on WhatsApp.' }
+    }
 
     // Shadow rate-limit (Phase 4 / L3): keyed per (hashed) email to catch code
     // brute-forcing of a specific invite. Observe-only for now; fails open.

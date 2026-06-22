@@ -26,6 +26,13 @@ export interface EnvRule {
   group: string
   /** Expected in EVERY context (the app can't run correctly without it). */
   required?: boolean
+  /**
+   * No fallback anywhere — its absence means TOTAL app breakage. Boot fails
+   * fast (throws) when a critical key is missing (Phase 8). Reserve this for
+   * keys that are provably present (the app already runs) so fail-fast can
+   * never be a false positive that crashes a working deploy.
+   */
+  critical?: boolean
   /** Expected only in production-like contexts (vendor keys, secrets). */
   prodOnly?: boolean
   /** NEXT_PUBLIC_* — bundled to the browser. */
@@ -39,9 +46,11 @@ const isUrl = (v: string) => /^https?:\/\//i.test(v)
 
 export const ENV_RULES: EnvRule[] = [
   // ── Supabase (core — required everywhere) ──────────────────────────────
-  { key: 'NEXT_PUBLIC_SUPABASE_URL', group: 'supabase', required: true, public: true, validate: isUrl },
-  { key: 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', group: 'supabase', required: true, public: true },
-  { key: 'SUPABASE_SERVICE_ROLE_KEY', group: 'supabase', required: true },
+  // The Supabase trio is CRITICAL — no fallback anywhere; the entire app is dead
+  // without them, so boot fails fast (and they are provably present in prod).
+  { key: 'NEXT_PUBLIC_SUPABASE_URL', group: 'supabase', required: true, critical: true, public: true, validate: isUrl },
+  { key: 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', group: 'supabase', required: true, critical: true, public: true },
+  { key: 'SUPABASE_SERVICE_ROLE_KEY', group: 'supabase', required: true, critical: true },
 
   // ── Base URL + security secrets (core) ─────────────────────────────────
   { key: 'NEXT_PUBLIC_BASE_URL', group: 'core', required: true, public: true, validate: isUrl },
@@ -106,6 +115,8 @@ export interface EnvValidationResult {
   issues: EnvIssue[]
   missing: EnvRule[]
   invalid: EnvRule[]
+  /** Missing CRITICAL keys — boot should fail fast on these (Phase 8). */
+  missingCritical: EnvRule[]
 }
 
 export function resolveEnvContext(
@@ -142,12 +153,14 @@ export function validateEnv(
     }
   }
 
+  const missing = issues.filter((i) => i.kind === 'missing').map((i) => i.rule)
   return {
     ok: issues.length === 0,
     context,
     checked,
     issues,
-    missing: issues.filter((i) => i.kind === 'missing').map((i) => i.rule),
+    missing,
     invalid: issues.filter((i) => i.kind === 'invalid').map((i) => i.rule),
+    missingCritical: missing.filter((r) => r.critical === true),
   }
 }

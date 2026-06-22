@@ -24,6 +24,10 @@ import { captureError } from '@/infra/logging/capture-error'
 
 export const runtime = 'nodejs'
 
+// Phase 8 (L7): give the inbound webhook's dorm-match + notification fanout
+// headroom above the ~10s platform default so it isn't truncated mid-loop.
+export const maxDuration = 26
+
 // ---------------------------------------------------------------------------
 // Types — Meta webhook payload (authoritative shape from 08-RESEARCH.md)
 // ---------------------------------------------------------------------------

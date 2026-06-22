@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getDormersKnowledge } from '@/contexts/chatbot/domain/knowledge';
 import { getDormLocations } from '@/infra/supabase/dorm-locations';
 import { chatLimiter, ipKey } from '@/infra/rate-limit/limiters';
+import { isFeatureEnabled } from '@/infra/config/feature-flags';
 
 export const maxDuration = 30;
 
@@ -54,6 +55,13 @@ export async function POST(req: Request) {
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
         console.error('[chat] GOOGLE_GENERATIVE_AI_API_KEY is not set');
         return NextResponse.json({ error: 'Chat service not configured' }, { status: 503 });
+    }
+
+    // Phase 8 (L7): instant kill-switch — pause chat (e.g. runaway Gemini spend)
+    // without a redeploy. 503 → the widget's onError shows the WhatsApp fallback.
+    // Fails open (stays on) if the flag read fails.
+    if (!(await isFeatureEnabled('chat'))) {
+        return NextResponse.json({ error: 'chat_paused' }, { status: 503 });
     }
 
     // Shadow rate-limit (Phase 4 / L3): observe-only, never blocks yet, fails open.

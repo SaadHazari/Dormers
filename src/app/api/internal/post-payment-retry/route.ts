@@ -15,6 +15,11 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
 import { timingSafeCompare } from '@/shared/crypto'
 
+// Phase 8 (L7): the Zoho sync path can run long (sequential calls + backoff),
+// so give it generous headroom above the ~10s platform default rather than let
+// it get truncated mid-sync. (Reducing the sync time itself is a later item.)
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET
   if (!expected) {

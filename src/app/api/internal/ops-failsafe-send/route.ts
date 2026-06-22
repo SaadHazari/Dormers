@@ -16,6 +16,10 @@ import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { timingSafeCompare } from '@/shared/crypto'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 
+// Phase 8 (L7): bound wall-clock so the failsafe fails fast in our control
+// instead of being truncated at the platform's ~10s default.
+export const maxDuration = 15
+
 export async function POST(req: Request) {
   // ── Auth guard ──────────────────────────────────────────────────────
   const expected = process.env.INTERNAL_RETRY_SECRET

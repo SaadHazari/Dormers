@@ -14,6 +14,10 @@ import { captureError } from '@/infra/logging/capture-error'
 
 export const dynamic = 'force-dynamic'
 
+// Phase 8 (L7): give the per-dorm notification fanout headroom above the ~10s
+// platform default so it isn't truncated mid-loop.
+export const maxDuration = 26
+
 export async function POST(req: NextRequest) {
   let body: { dorm_name?: string; token?: string }
   try {

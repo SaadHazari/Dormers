@@ -31,6 +31,10 @@ const REWARD_SOURCES = [
   'referral_conversion',
 ]
 
+// Phase 8 (L7): bound wall-clock so a slow send fails fast in our control
+// instead of being truncated at the platform's ~10s default.
+export const maxDuration = 15
+
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RETRY_SECRET
   if (!expected) {

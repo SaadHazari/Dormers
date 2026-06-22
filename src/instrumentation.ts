@@ -18,34 +18,43 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config')
 
-    // Release It! hardening (Phase 0): boot-time env validation in WARN-ONLY mode.
-    // Surfaces missing/invalid config in the boot log so a misconfigured deploy is
-    // visible immediately instead of failing customer-facing hours later. It does
-    // NOT throw yet — Phase 8 flips this to fail-fast once every environment is
-    // confirmed clean. Wrapped so the validator can never break startup. Zero
-    // request-path / customer impact.
-    try {
+    // Release It! hardening: boot-time env validation.
+    // Phase 8 — FAIL FAST on missing CRITICAL keys (the Supabase trio; no
+    // fallback, app is dead without them), so a catastrophically misconfigured
+    // deploy crashes loudly at boot instead of serving broken for hours. These
+    // are provably present in prod, so this can't be a false positive. All other
+    // (vendor / fallback-having) keys stay WARN-ONLY — a missing Zoho/ZeptoMail
+    // key degrades one feature and must NOT take down the whole app.
+    {
       const { validateEnv } = await import('@/infra/config/env-schema')
       const { logger } = await import('@/infra/logging/logger')
       const result = validateEnv()
-      if (result.ok) {
-        logger.info(
-          { context: result.context, checked: result.checked },
-          'env validation passed (warn-only)',
-        )
-      } else {
-        logger.warn(
-          {
-            context: result.context,
-            missing: result.missing.map((r) => r.key),
-            invalid: result.invalid.map((r) => r.key),
-          },
-          'env validation found issues (warn-only — not blocking boot)',
-        )
+      if (result.missingCritical.length > 0) {
+        const keys = result.missingCritical.map((r) => r.key).join(', ')
+        try {
+          logger.fatal(
+            { context: result.context, missingCritical: result.missingCritical.map((r) => r.key) },
+            'FATAL: missing critical environment config — refusing to boot',
+          )
+        } catch { /* logging must not mask the throw */ }
+        throw new Error(`Missing critical environment config: ${keys}`)
       }
-    } catch (err) {
-      // Never let env validation break boot.
-      console.error('[env-validation] skipped due to error', err)
+      try {
+        if (result.ok) {
+          logger.info({ context: result.context, checked: result.checked }, 'env validation passed')
+        } else {
+          logger.warn(
+            {
+              context: result.context,
+              missing: result.missing.map((r) => r.key),
+              invalid: result.invalid.map((r) => r.key),
+            },
+            'env validation found non-critical issues (warn-only — not blocking boot)',
+          )
+        }
+      } catch {
+        // Warn-path logging must never break boot; the critical check above already ran.
+      }
     }
   }
   if (process.env.NEXT_RUNTIME === 'edge') {
