@@ -29,17 +29,19 @@ System: 6.1 → … → target 10
 
 | Area | Start | Now | Target |
 |---|---|---|---|
-| AI Chatbot & Support | 4.5 | 6.5 | 10 |
-| Admin Panel | 5.5 | 6.0 | 10 |
+| AI Chatbot & Support | 4.5 | 7.0 | 10 |
+| Admin Panel | 5.5 | 7.5 | 10 |
 | Kitchen Panel | 5.5 | 8.0 | 10 |
 | Delivery Rider / Ops | 5.5 | 7.5 | 10 |
-| Staff / Intern | 5.5 | 7.0 | 10 |
+| Staff / Intern | 5.5 | 7.5 | 10 |
 | Marketing + Auth | 5.8 | 8.5 | 10 |
 | Payments / Checkout | 6.4 | 7.5 | 10 |
 | User Dashboard | 6.5 | 7.5 | 10 |
-| WhatsApp Messaging | 6.8 | 8.5 | 10 |
-| Dorm Wars | 7.0 | 7.7 | 10 |
-| Cron / Internal | 7.0 | 8.0 | 10 |
+| WhatsApp Messaging | 6.8 | 8.7 | 10 |
+| Dorm Wars | 7.0 | 8.0 | 10 |
+| Cron / Internal | 7.0 | 8.3 | 10 |
 | Platform / Infra | 7.0 | 8.5 | 10 |
 
-_Phases 0 + 1 + 3 + 2 + 5 + 4 + 6 + 7 + 8 landed. System ~6.1 → ~7.9. Phase 8 (fail-fast env + maxDuration + kill-switches) lifted Platform, Cron, Staff, AI. Partial phases: 5 (vendor breakers/webhook fast-ACK), 4 (shadow→enforce flip), 7b (admin-page scoping + dashboard load-more), 8b (cron reconciler + migration-drift + DB advisor hardening). Remaining: 9 prove-it (load/soak, SLOs+alerting, chaos tests); plus the L5 admin/staff/AI Sentry sweep._
+_Phases 0–8 + Arc 1 (items 1–3) landed. System ~6.1 → ~8.2. Arc 1 finished most partials: item 1 (Zoho breaker + Gemini bound + webhook timeouts = L4/5b), item 2 (admin capacity = 7b), item 3 (observability sweep = L5). Branch `release-it/arc1-finish-partials`._
+
+_Remaining: Arc 1 item 4 (cron reconciler + migration-drift — DEFERRED, live cron surgery, see ARC1.md), rate-limit shadow→enforce flip (after data review), and Phase 9 prove-it (load/soak, SLOs+alerting, chaos tests, DB advisor hardening). Minor leftovers: ZeptoMail breaker, webhook fast-ACK, dashboard history load-more, lower-stakes console.errors._
