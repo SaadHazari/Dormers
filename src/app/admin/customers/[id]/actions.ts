@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
+import { captureError } from '@/infra/logging/capture-error'
 import { eventBus } from '@/shared/events/event-bus'
 // Side-effect import — registers the notifications subscriber so the
 // notification-due/-cancel emits below actually queue WhatsApp messages.
@@ -58,7 +59,7 @@ export async function adminCompMeal(
     })
 
     if (error) {
-        console.error('adminCompMeal failed:', error)
+        captureError(error, { area: 'admin', op: 'adminCompMeal' })
         // Unique (subscription_id, day, category) — a same-day double comp is
         // blocked by design, not a bug.
         if (error.code === '23505') {
@@ -132,7 +133,7 @@ export async function adminGiftMeals(
         if (ledgerError.code === '23505') {
             return { ok: false, message: 'Meals were already gifted to this plan today.' }
         }
-        console.error('adminGiftMeals ledger insert failed:', ledgerError)
+        captureError(ledgerError, { area: 'admin', op: 'adminGiftMeals.ledger' })
         return { ok: false, message: ledgerError.message }
     }
 
@@ -154,7 +155,7 @@ export async function adminGiftMeals(
     if (subError || !updated) {
         // Roll back the expense row — the grant never happened.
         await sb.from('comped_meal_ledger').delete().eq('id', ledgerRow.id)
-        console.error('adminGiftMeals subscription update failed:', subError)
+        captureError(subError, { area: 'admin', op: 'adminGiftMeals.subscription' })
         return { ok: false, message: subError?.message ?? 'Subscription update failed' }
     }
 
@@ -248,7 +249,7 @@ export async function adminIssueCredit(
     })
 
     if (error) {
-        console.error('adminIssueCredit failed:', error)
+        captureError(error, { area: 'admin', op: 'adminIssueCredit' })
         return { ok: false, message: error.message }
     }
 

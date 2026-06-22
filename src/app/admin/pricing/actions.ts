@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
+import { captureError } from '@/infra/logging/capture-error'
 
 type Result = { ok: boolean; message: string }
 
@@ -49,7 +50,7 @@ export async function createPricingRow(
     })
 
     if (error) {
-        console.error('createPricingRow failed:', error)
+        captureError(error, { area: 'admin', op: 'createPricingRow' })
         return { ok: false, message: error.message }
     }
 
@@ -82,7 +83,7 @@ export async function endPricingRow(id: string): Promise<Result> {
         .maybeSingle()
 
     if (error) {
-        console.error('endPricingRow failed:', error)
+        captureError(error, { area: 'admin', op: 'endPricingRow' })
         return { ok: false, message: error.message }
     }
     if (!row) return { ok: false, message: 'Override not found' }

@@ -8,6 +8,7 @@ import { normalisePhone } from '@/shared/phone'
 import { generateClaimCode, hashClaimCode, CODE_TTL_DAYS } from '@/contexts/staff/domain/claim-code'
 import { STAFF_PLAN_NAME, STAFF_SATURDAY_MEAL_AED, unusedSaturdays } from '@/contexts/staff/domain/staff-plan'
 import { refundPaymentFils } from '@/infra/stripe/refunds'
+import { captureError } from '@/infra/logging/capture-error'
 
 type Result = { ok: boolean; message: string }
 type CodeResult = Result & { code?: string }
@@ -300,7 +301,7 @@ export async function declineStaffRenewal(subscriptionId: string): Promise<Resul
             const refundId = await refundPaymentFils(intent, undefined, `refund:decline:${subscriptionId}`) // full refund
             refundNote = `AED ${STAFF_SATURDAY_MEAL_AED * 4} refunded (${refundId})`
         } catch (err) {
-            console.error('declineStaffRenewal refund failed:', err)
+            captureError(err, { area: 'staff', op: 'declineStaffRenewal.refund' })
             return { ok: false, message: 'Stripe refund failed — renewal left pending. Check Stripe and retry.' }
         }
     }
@@ -391,7 +392,7 @@ export async function offboardStaffMember(staffId: string): Promise<Result> {
                         const refundId = await refundPaymentFils(intent, saturdays * STAFF_SATURDAY_MEAL_AED * 100, `refund:offboard:${sub.id}`)
                         notes.push(`refunded ${saturdays} Saturday${saturdays === 1 ? '' : 's'} (AED ${saturdays * STAFF_SATURDAY_MEAL_AED}, ${refundId})`)
                     } catch (err) {
-                        console.error('offboardStaffMember refund failed:', err)
+                        captureError(err, { area: 'staff', op: 'offboardStaffMember.refund' })
                         notes.push(`REFUND FAILED for ${saturdays} Saturdays — settle manually in Stripe (intent ${intent})`)
                     }
                 }

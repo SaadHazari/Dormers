@@ -5,6 +5,7 @@ import { getDormersKnowledge } from '@/contexts/chatbot/domain/knowledge';
 import { getDormLocations } from '@/infra/supabase/dorm-locations';
 import { chatLimiter, ipKey } from '@/infra/rate-limit/limiters';
 import { isFeatureEnabled } from '@/infra/config/feature-flags';
+import { captureError } from '@/infra/logging/capture-error';
 
 export const maxDuration = 30;
 
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
         });
         return result.toUIMessageStreamResponse();
     } catch (err) {
-        console.error('[chat] stream error:', err instanceof Error ? err.message : err);
+        captureError(err, { area: 'ai', op: 'chat.stream' });
         return NextResponse.json({ error: 'Chat service unavailable' }, { status: 502 });
     }
 }

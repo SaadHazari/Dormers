@@ -1,4 +1,5 @@
 import { streamText, convertToModelMessages, type UIMessage } from 'ai';
+import { captureError } from '@/infra/logging/capture-error';
 import { google } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
 import { getDormersSupportKnowledge } from '@/contexts/chatbot/domain/support-knowledge';
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
         });
         return result.toUIMessageStreamResponse();
     } catch (err) {
-        console.error('[support-chat] stream error:', err instanceof Error ? err.message : err);
+        captureError(err, { area: 'ai', op: 'support-chat.stream' });
         return NextResponse.json({ error: 'Chat service unavailable' }, { status: 502 });
     }
 }
