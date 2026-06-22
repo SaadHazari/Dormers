@@ -23,6 +23,16 @@ export interface OnboardingPayload {
     password: string
     /** '5DAYS' (Mon–Fri) or '6DAYS' (Mon–Sat). Optional in payload; defaults to 6DAYS. */
     weekType?: '' | '5DAYS' | '6DAYS'
+    /**
+     * Release It! L8 (Phase 6): set by the onboarding client only after a
+     * WhatsApp OTP send FAILED for this phone. Lets signup proceed via the
+     * email channel during a Meta outage instead of dead-ending the funnel.
+     * Honoured ONLY when the server independently confirms a recent send
+     * failure for this phone (findRecentSendFailure); the resulting account is
+     * marked whatsapp_verified=false so checkout's profile gate forces phone
+     * re-verification before any subscription/delivery.
+     */
+    emailFallback?: boolean
 }
 
 export type CreateAccountResult =
@@ -89,6 +99,25 @@ async function findVerifiedOtpId(phone: string): Promise<string | null> {
     return data?.id ?? null
 }
 
+// Release It! L8 (Phase 6): evidence that WhatsApp genuinely failed to send for
+// this phone (DB-backed, cross-instance — not the per-process circuit breaker).
+// The email fallback is honoured ONLY when this is true, so a fallback can't be
+// forged on a healthy system to skip phone verification. The /api/whatsapp/start
+// route stamps send_failed_at when the Meta send throws.
+async function findRecentSendFailure(phone: string): Promise<boolean> {
+    const supabaseAdmin = createAdminSupabaseClient()
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    const { data } = await supabaseAdmin
+        .from('whatsapp_otps')
+        .select('id')
+        .eq('phone', phone)
+        .gte('send_failed_at', cutoff)
+        .order('send_failed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    return !!data
+}
+
 export async function createAccount(
     payload: OnboardingPayload
 ): Promise<CreateAccountResult> {
@@ -100,8 +129,19 @@ export async function createAccount(
     // delivery channel. The OTP is consumed only after the account succeeds
     // (below), so a retry after a partial failure still finds it usable.
     const verifiedOtpId = await findVerifiedOtpId(payload.phone)
+    let usedEmailFallback = false
     if (!verifiedOtpId) {
-        return { error: 'WhatsApp number not verified. Please complete verification first.' }
+        // Release It! L8 (Phase 6): if WhatsApp genuinely failed to send for this
+        // phone (server-confirmed via send_failed_at), let signup proceed via the
+        // email channel — Supabase still verifies the email below — but mark the
+        // phone UNVERIFIED so checkout's profile-completion gate forces phone
+        // re-verification before any subscription/delivery. WhatsApp stays primary;
+        // this only fires when it actually failed.
+        if (payload.emailFallback && (await findRecentSendFailure(payload.phone))) {
+            usedEmailFallback = true
+        } else {
+            return { error: 'WhatsApp number not verified. Please complete verification first.' }
+        }
     }
 
     const supabase = await createClient()
@@ -184,8 +224,10 @@ export async function createAccount(
         email: payload.email,
         name: payload.name,
         whatsapp_number: payload.phone,
-        whatsapp_verified: true,
-        whatsapp_verified_at: new Date().toISOString(),
+        // Email-fallback signups have a verified EMAIL but an UNVERIFIED phone —
+        // checkout's profile gate then forces phone re-verification before delivery.
+        whatsapp_verified: usedEmailFallback ? false : true,
+        whatsapp_verified_at: usedEmailFallback ? null : new Date().toISOString(),
         dorm_name: payload.dorm,
         meal_preference_type: payload.preference,
         allergens: payload.allergens.length ? payload.allergens.join(', ') : 'None',
@@ -208,11 +250,14 @@ export async function createAccount(
     // Consume the OTP now that the verified number is persisted on the customer
     // row. Single-use: the same verification can't be replayed for another
     // signup or to change a profile number elsewhere within the 30-min window.
-    await supabaseAdmin
-        .from('whatsapp_otps')
-        .update({ consumed_at: new Date().toISOString() })
-        .eq('id', verifiedOtpId)
-        .is('consumed_at', null)
+    // (No-op for the email-fallback path — there is no verified WhatsApp OTP.)
+    if (verifiedOtpId) {
+        await supabaseAdmin
+            .from('whatsapp_otps')
+            .update({ consumed_at: new Date().toISOString() })
+            .eq('id', verifiedOtpId)
+            .is('consumed_at', null)
+    }
 
     // Staff claim linkage — if this signup matches a pending intern claim
     // (email + OTP-verified phone + a code verified on /staff/claim within

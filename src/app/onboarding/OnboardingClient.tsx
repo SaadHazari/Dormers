@@ -21,7 +21,7 @@ export default function OnboardingClient({ dorms }: { dorms: string[] }) {
         preference: '', vegDays: [], allergens: [], spiceLevel: '',
         dorm: '', customDorm: '', university: '', customUniversity: '',
         weekType: '',
-        name: '', phone: '', phoneVerified: false, email: '', password: '',
+        name: '', phone: '', phoneVerified: false, emailFallback: false, email: '', password: '',
     })
 
     // Keeps `advance` reading the latest form values when called from a
@@ -41,7 +41,7 @@ export default function OnboardingClient({ dorms }: { dorms: string[] }) {
                 // real gate is a 30-min server-side OTP check, so a rehydrated draft
                 // older than that would show "verified" but be rejected at submit
                 // with no clean way back. Make the user re-verify instead.
-                setForm(prev => ({ ...prev, ...saved.form, password: '', phoneVerified: false }))
+                setForm(prev => ({ ...prev, ...saved.form, password: '', phoneVerified: false, emailFallback: false }))
                 if (typeof saved.step !== 'undefined') setStep(saved.step)
             }
         } catch { /* corrupt draft — ignore */ }
@@ -50,7 +50,7 @@ export default function OnboardingClient({ dorms }: { dorms: string[] }) {
     // Persist draft on every change.
     useEffect(() => {
         try {
-            const safe = { ...form, password: '', phoneVerified: false }
+            const safe = { ...form, password: '', phoneVerified: false, emailFallback: false }
             sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form: safe, step }))
         } catch { /* quota — ignore */ }
     }, [form, step])

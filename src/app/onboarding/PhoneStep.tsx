@@ -33,6 +33,9 @@ export function PhoneStep({
     const [error,    setError]    = useState('')
     const [busy,     setBusy]     = useState(false)
     const [resendIn, setResendIn] = useState(0)
+    // Phase 6 (L8): set when a WhatsApp send fails and the server signals the
+    // email fallback is available — lets the user continue via email during an outage.
+    const [fallbackOffer, setFallbackOffer] = useState(false)
     const otpRef = useRef<HTMLInputElement>(null)
 
     const isLight = useIsLight()
@@ -58,6 +61,7 @@ export function PhoneStep({
             if (!res.ok) {
                 setError(messageForError(data?.error))
                 if (data?.error === 'cooldown' && data.retryAfter) setResendIn(Number(data.retryAfter) || 30)
+                if (data?.fallbackAvailable) setFallbackOffer(true)
                 return
             }
             setStage('sent')
@@ -109,6 +113,15 @@ export function PhoneStep({
         setOtp('')
         setError('')
         setResendIn(0)
+        setFallbackOffer(false) // a new number must fail on its own to re-offer
+    }
+
+    // Phase 6 (L8): WhatsApp send failed — continue via email. The phone is left
+    // unverified; createAccount re-confirms the failure server-side and the
+    // checkout profile gate forces phone re-verification before delivery.
+    const continueWithEmail = () => {
+        set('emailFallback', true)
+        advance()
     }
 
     // Form-level submit — fires for Enter in any input AND CTA click.
@@ -211,6 +224,16 @@ export function PhoneStep({
 
                 {error && (
                     <p className={`text-[12px] font-medium ${tokens.errorText}`}>{error}</p>
+                )}
+
+                {fallbackOffer && stage === 'enter' && !form.phoneVerified && (
+                    <button
+                        type="button"
+                        onClick={continueWithEmail}
+                        className="block text-left text-[#f57f20] hover:text-[#ff8f36] text-[12px] font-semibold transition-colors"
+                    >
+                        Can&apos;t get the WhatsApp code? Continue with email — you&apos;ll confirm WhatsApp later →
+                    </button>
                 )}
             </div>
 

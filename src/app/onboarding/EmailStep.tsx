@@ -75,6 +75,7 @@ export function EmailStep({ form, set }: {
                 email:      form.email.trim(),
                 password:   form.password,
                 vegDays:    form.vegDays,
+                emailFallback: form.emailFallback,
             })
             if (!result) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} ; return }
             if ('error' in result) { setError(result.error); return }

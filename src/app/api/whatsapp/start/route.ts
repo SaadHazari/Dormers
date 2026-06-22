@@ -58,11 +58,11 @@ export async function POST(req: NextRequest) {
 
     // Persist BEFORE sending. If the WhatsApp send fails, we'd rather have a
     // ghost record (cleaned up by TTL anyway) than miss it.
-    const { error: insertErr } = await supabase.from('whatsapp_otps').insert({
+    const { data: inserted, error: insertErr } = await supabase.from('whatsapp_otps').insert({
         phone,
         code_hash:  hashOtpCode(phone, code),
         expires_at: expiresAt,
-    })
+    }).select('id').single()
     if (insertErr) {
         console.error('OTP insert error:', insertErr)
         return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -72,7 +72,17 @@ export async function POST(req: NextRequest) {
         await sendOtpTemplate(phone, code)
     } catch (e) {
         console.error('WhatsApp send error:', e)
-        return NextResponse.json({ error: 'send_failed' }, { status: 502 })
+        // Release It! L8 (Phase 6): record the send failure so onboarding's email
+        // fallback can confirm WhatsApp was genuinely unavailable for this phone
+        // before relaxing the phone gate. `fallbackAvailable` tells the client it
+        // may offer the email path. Both are best-effort — never block on them.
+        if (inserted?.id) {
+            await supabase
+                .from('whatsapp_otps')
+                .update({ send_failed_at: new Date().toISOString() })
+                .eq('id', inserted.id)
+        }
+        return NextResponse.json({ error: 'send_failed', fallbackAvailable: true }, { status: 502 })
     }
 
     return NextResponse.json({ ok: true, expiresAt })

@@ -77,6 +77,12 @@ export interface FormState {
     name: string
     phone: string
     phoneVerified: boolean
+    /**
+     * Release It! L8 (Phase 6): set only after a WhatsApp OTP send FAILED, when
+     * the user opts to continue via email. The server re-confirms a real send
+     * failure before honouring it and marks the phone unverified.
+     */
+    emailFallback: boolean
     email: string
     password: string
 }
