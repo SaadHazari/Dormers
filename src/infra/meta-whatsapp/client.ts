@@ -3,6 +3,7 @@
 // useful message rather than at module import.
 
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout'
+import { getCircuitBreaker } from '@/infra/http/circuit-breaker'
 
 const GRAPH_VERSION = 'v22.0' // matches the version used in the Make scenario
 
@@ -17,20 +18,51 @@ function env(key: string): string {
     return v
 }
 
+// Release It! L4: a process-shared circuit breaker for the Meta Graph API.
+// Meta is the most outage-prone dependency here (rate limits + the documented
+// template-rejection regressions) and OTP send is on the acquisition hot path.
+// After 5 consecutive failures the breaker opens and subsequent sends fail FAST
+// (CircuitOpenError) for 30s instead of each blocking for the full 8s timeout —
+// shedding load during an outage instead of amplifying it. Callers already
+// treat a throw as "send failed" (OTP /start returns 502), so the customer gets
+// a fast, retryable result rather than a hung request. NOT retried: a WhatsApp
+// send is not idempotent (each call costs money + delivers a message).
+const META_BREAKER = { failureThreshold: 5, recoveryTimeMs: 30_000 }
+
+async function graphPost(payload: Record<string, unknown>): Promise<void> {
+    const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID')
+    const token         = env('WHATSAPP_ACCESS_TOKEN')
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`
+
+    await getCircuitBreaker('meta-whatsapp', META_BREAKER).run(async () => {
+        const res = await fetchWithTimeout(url, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        }, { timeoutMs: SEND_TIMEOUT_MS })
+
+        if (!res.ok) {
+            // Surface the Meta error so we can debug template/permission issues
+            // without digging through Netlify logs. Counts as a breaker failure.
+            const errBody = await res.text()
+            throw new Error(`WhatsApp send failed (${res.status}): ${errBody}`)
+        }
+    })
+}
+
 // Send the approved authentication template with a 6-digit code.
 // `phoneE164` is the canonical "+971504619384" form we store in the DB; the
 // Cloud API requires the leading "+" stripped, so do it here.
 export async function sendOtpTemplate(phoneE164: string, code: string): Promise<void> {
-    const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID')
-    const token         = env('WHATSAPP_ACCESS_TOKEN')
-    const templateName  = env('WHATSAPP_OTP_TEMPLATE_NAME')
-
-    const to  = phoneE164.replace(/^\+/, '')
-    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`
+    const templateName = env('WHATSAPP_OTP_TEMPLATE_NAME')
+    const to = phoneE164.replace(/^\+/, '')
 
     // Authentication template structure: body parameter for the message text,
     // button parameter for the COPY_CODE button. Both receive the same code.
-    const payload = {
+    await graphPost({
         messaging_product: 'whatsapp',
         to,
         type: 'template',
@@ -50,23 +82,7 @@ export async function sendOtpTemplate(phoneE164: string, code: string): Promise<
                 },
             ],
         },
-    }
-
-    const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    }, { timeoutMs: SEND_TIMEOUT_MS })
-
-    if (!res.ok) {
-        // Surface the Meta error so we can debug template/permission issues
-        // without digging through Netlify logs.
-        const errBody = await res.text()
-        throw new Error(`WhatsApp send failed (${res.status}): ${errBody}`)
-    }
+    })
 }
 
 // ── Staff invite — TWO messages, fired on command from /admin/staff ─────────
@@ -87,23 +103,7 @@ export async function sendOtpTemplate(phoneE164: string, code: string): Promise<
 // code DID land.
 
 async function postTemplate(to: string, template: unknown): Promise<void> {
-    const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID')
-    const token         = env('WHATSAPP_ACCESS_TOKEN')
-    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`
-
-    const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'template', template }),
-    }, { timeoutMs: SEND_TIMEOUT_MS })
-
-    if (!res.ok) {
-        const errBody = await res.text()
-        throw new Error(`WhatsApp send failed (${res.status}): ${errBody}`)
-    }
+    await graphPost({ messaging_product: 'whatsapp', to, type: 'template', template })
 }
 
 export async function sendStaffInviteWhatsApp(

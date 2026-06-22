@@ -19,6 +19,8 @@
  */
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { sendOpsAlertEmail } from '@/infra/zeptomail/client'
+import { captureError } from '@/infra/logging/capture-error'
 
 const MAX_MESSAGE_CHARS = 950 // Meta body limit is 1024; leave headroom
 
@@ -38,9 +40,32 @@ export async function notifyAdmin(
       p_button_text: buttonText ?? 'unknown',
     })
     if (error) {
-      console.error('⚠️  notifyAdmin RPC error:', error.message)
+      await alertBackup(trimmed, `RPC error: ${error.message}`)
     }
   } catch (err) {
-    console.error('⚠️  notifyAdmin threw:', err)
+    await alertBackup(trimmed, err instanceof Error ? err.message : String(err))
+  }
+}
+
+// Release It! L4: the WhatsApp alert RPC rides Meta — so when Meta is the
+// outage, the very alert that would warn us about it is silenced too
+// (self-blinding). Fall back to a NON-WhatsApp channel: email (ZeptoMail, a
+// different vendor), and if that also fails, Sentry. The alert is never fully
+// lost. Both backups are wrapped so alerting can never throw into the caller.
+async function alertBackup(message: string, whatsappFailure: string): Promise<void> {
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  try {
+    await sendOpsAlertEmail({
+      subject: 'Dormers admin alert (WhatsApp channel down)',
+      html: `<p>${esc(message)}</p><p style="color:#757575;font-size:13px">WhatsApp alert failed: ${esc(whatsappFailure)}</p>`,
+    })
+  } catch (emailErr) {
+    captureError(emailErr, {
+      area: 'admin-alerts',
+      op: 'alertBackup',
+      alert: message,
+      whatsappFailure,
+    })
   }
 }

@@ -69,7 +69,13 @@ function TypingLoader() {
 
 export default function AIChatbot() {
     const [input, setInput] = useState('');
-    const { messages, status, sendMessage } = useChat();
+    const [chatError, setChatError] = useState(false);
+    // Release It! L4: graceful degradation — if Gemini errors/times out, surface
+    // a friendly fallback with a WhatsApp escape instead of silently hanging on
+    // the typing loader (the mobile SupportChat already does this).
+    const { messages, status, sendMessage } = useChat({
+        onError: () => setChatError(true),
+    });
     const [isOpen, setIsOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +99,7 @@ export default function AIChatbot() {
     const onSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || isLoading) return;
+        setChatError(false); // clear any prior error banner before retrying
         sendMessage({ text: input }); // Send to the AI
         setInput(''); // Clear the box
     };
@@ -210,6 +217,22 @@ export default function AIChatbot() {
                                     <div className="flex justify-start">
                                         <div className="bg-white/[0.08] backdrop-blur-md border border-white/10 text-[#ede8da] rounded-2xl rounded-bl-sm px-4 py-3 min-w-[110px]">
                                             <TypingLoader />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {chatError && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-[#ede8da]/15 backdrop-blur-md border border-[#ede8da]/20 text-[#ede8da] rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] text-[14px]">
+                                            <p className="mb-2">Sorry — I’m having trouble right now. Please try again, or message us directly.</p>
+                                            <a
+                                                href={whatsAppHref()}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="bg-[#25D366] text-white py-2 px-4 rounded-xl inline-flex items-center justify-center font-semibold text-[13px] hover:bg-[#20bd5a] transition-all w-fit"
+                                            >
+                                                Chat on WhatsApp
+                                            </a>
                                         </div>
                                     </div>
                                 )}

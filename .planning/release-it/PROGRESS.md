@@ -9,7 +9,7 @@ Status key: ⬜ not started · 🟡 in progress · ✅ done & verified
 | 2 | Stripe money path (L2) | ✅ | branch `release-it/phase-2-stripe`; client timeout 8s + 2 retries; refund idempotency keys (decline/offboard scoped); checkout maxDuration 26; +3 tests (321 total); tsc/lint/build green |
 | 3 | Kill silent failures + observability (L5) — CX win | ✅ | branch `release-it/phase-3-silent-failures`; kitchen fail-loud (no fake 0/0) + recipe try/catch + error.tsx; ops fanout-fail alerts (3 routes); dorm-wars anniversary credit-fail surfaces (domain throws → app alerts); +5 tests (318 total); tsc/lint/build green. Broad admin/staff/AI console.error→captureError sweep deferred (later slice of L5) |
 | 4 | Rate limiting (L3) shadow→enforce | ⬜ | |
-| 5 | Circuit breakers + graceful degradation (L4) | ⬜ | |
+| 5 | Circuit breakers + graceful degradation (L4) | ◑ | branch `release-it/phase-5-circuit-breakers`; Meta WhatsApp breaker (sheds load on outage) + non-WhatsApp admin-alert backup (email→Sentry) + desktop chatbot onError fallback; +2 tests (323 total); tsc/lint/build green. Deferred: Zoho/Zepto/Stripe/Gemini breakers, webhook fast-ACK, streamText abort |
 | 6 | Acquisition fallback / email-OTP (L8) | ⬜ | |
 | 7 | Capacity discipline (L6) | ⬜ | |
 | 8 | Deployment hardening (L7) | ⬜ | |
@@ -29,17 +29,17 @@ System: 6.1 → … → target 10
 
 | Area | Start | Now | Target |
 |---|---|---|---|
-| AI Chatbot & Support | 4.5 | 4.5 | 10 |
+| AI Chatbot & Support | 4.5 | 5.5 | 10 |
 | Admin Panel | 5.5 | 6.0 | 10 |
 | Kitchen Panel | 5.5 | 7.0 | 10 |
 | Delivery Rider / Ops | 5.5 | 6.5 | 10 |
 | Staff / Intern | 5.5 | 6.2 | 10 |
-| Marketing + Auth | 5.8 | 7.0 | 10 |
+| Marketing + Auth | 5.8 | 7.3 | 10 |
 | Payments / Checkout | 6.4 | 7.5 | 10 |
 | User Dashboard | 6.5 | 7.5 | 10 |
-| WhatsApp Messaging | 6.8 | 7.2 | 10 |
+| WhatsApp Messaging | 6.8 | 8.0 | 10 |
 | Dorm Wars | 7.0 | 7.7 | 10 |
 | Cron / Internal | 7.0 | 7.4 | 10 |
-| Platform / Infra | 7.0 | 7.0 | 10 |
+| Platform / Infra | 7.0 | 7.5 | 10 |
 
-_Phases 0 + 1 + 3 + 2 landed. System ~6.1 → ~7.0. Phase 2 lifted Payments (Stripe timeout/retries + checkout maxDuration), Staff + Admin (refund idempotency + timeout). Remaining L5 (admin/staff/AI Sentry sweep) deferred to a later slice._
+_Phases 0 + 1 + 3 + 2 + 5 landed. System ~6.1 → ~7.2. Phase 5 lifted WhatsApp (Meta breaker + alert backup), AI (chatbot graceful degradation), Platform (breaker wired + non-WhatsApp alert). Phase 5 partial — remaining vendor breakers + webhook fast-ACK deferred. Remaining L5 (admin/staff/AI Sentry sweep) also deferred._
