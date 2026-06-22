@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but DO track the example template — it holds no secrets and CI's
+# tier3-audit-fixes.test.ts reads it (CI was failing on ENOENT because the file
+# was gitignored and therefore absent in the checkout).
+!.env.example
 
 # vercel
 .vercel

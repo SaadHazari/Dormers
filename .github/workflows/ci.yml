@@ -49,5 +49,7 @@ jobs:
           # actually hitting Supabase from CI. Dummy values keep the build
           # from failing on top-level env reads in adapter modules.
           NEXT_PUBLIC_SUPABASE_URL: https://ci-dummy.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+          # The app reads PUBLISHABLE_KEY (not the old ANON_KEY name); also keeps
+          # the Phase 8 boot env-validation's critical-key check satisfied.
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-dummy-publishable-key
           SUPABASE_SERVICE_ROLE_KEY: ci-dummy-service-role-key
