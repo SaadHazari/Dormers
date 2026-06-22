@@ -34,23 +34,22 @@ export async function queueDeliveryConfirmedNotifications(
 ): Promise<{ queued: number; skipped: number }> {
   const sb = createAdminSupabaseClient()
 
-  const [subsRes, customersRes] = await Promise.all([
-    sb
-      .from('subscriptions')
-      .select('id, customer_id, week_type, skipped_dates, paused_dates')
-      .in('status', ['Active', 'Paused', 'Skipped']),
-    sb
-      .from('customers')
-      .select('id, dorm_name'),
-  ])
+  // Capacity (Phase 7 / L6): we already know the target dorm, so fetch only THIS
+  // dorm's customers + their active subscriptions instead of scanning the entire
+  // customers and subscriptions tables and filtering in memory. The dorm-match
+  // is now enforced by the query (customerDorm !== dormName check is redundant).
+  const { data: dormCustomers } = await sb
+    .from('customers')
+    .select('id')
+    .eq('dorm_name', dormName)
+  const dormCustomerIds = (dormCustomers ?? []).map((c) => (c as { id: string }).id)
+  if (dormCustomerIds.length === 0) return { queued: 0, skipped: 0 }
 
-  const customerMap = new Map<string, string | null>()
-  for (const c of (customersRes.data ?? []) as Array<{
-    id: string
-    dorm_name: string | null
-  }>) {
-    customerMap.set(c.id, c.dorm_name)
-  }
+  const subsRes = await sb
+    .from('subscriptions')
+    .select('id, customer_id, week_type, skipped_dates, paused_dates')
+    .in('status', ['Active', 'Paused', 'Skipped'])
+    .in('customer_id', dormCustomerIds)
 
   // Use a Set to deduplicate — one customer can theoretically have more than
   // one subscription in these statuses but should only receive one WhatsApp
@@ -76,13 +75,6 @@ export async function queueDeliveryConfirmedNotifications(
     }
     // Skip if today is in paused_dates
     if ((sub.paused_dates ?? []).includes(deliveryDateIso)) {
-      skipped++
-      continue
-    }
-
-    const customerDorm = customerMap.get(sub.customer_id)
-    // Customers without a known dorm or in a different dorm are excluded
-    if (customerDorm !== dormName) {
       skipped++
       continue
     }

@@ -452,7 +452,13 @@ export function KitchenClient({
   const [activeRecipe, setActiveRecipe] = useState<{ dish: KitchenDish } | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), 60_000)
+    const id = setInterval(() => {
+      // Capacity (Phase 7 / L6): skip the refresh while the tab is hidden so a
+      // forgotten kitchen tab doesn't keep hitting the DB every 60s in the
+      // background. The next visible tick (within 60s) catches up.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      router.refresh()
+    }, 60_000)
     return () => clearInterval(id)
   }, [router])
 

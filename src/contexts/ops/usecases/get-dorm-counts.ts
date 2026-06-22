@@ -30,15 +30,25 @@ export async function getDormCounts(
 
   const sb = createAdminSupabaseClient()
 
-  const [subsRes, customersRes] = await Promise.all([
-    sb
-      .from('subscriptions')
-      .select('id, customer_id, week_type, skipped_dates, paused_dates')
-      .in('status', ['Active', 'Paused', 'Skipped']),
-    sb
-      .from('customers')
-      .select('id, dorm_name'),
-  ])
+  const subsRes = await sb
+    .from('subscriptions')
+    .select('id, customer_id, week_type, skipped_dates, paused_dates')
+    .in('status', ['Active', 'Paused', 'Skipped'])
+
+  const subs = (subsRes.data ?? []) as Array<{
+    id: string
+    customer_id: string
+    week_type: string | null
+    skipped_dates: string[] | null
+    paused_dates: string[] | null
+  }>
+
+  // Capacity (Phase 7 / L6): fetch only the customers who actually have an
+  // active subscription, not the entire (ever-growing) customers table.
+  const customerIds = [...new Set(subs.map((s) => s.customer_id))]
+  const customersRes = customerIds.length
+    ? await sb.from('customers').select('id, dorm_name').in('id', customerIds)
+    : { data: [] as Array<{ id: string; dorm_name: string | null }> }
 
   const customerMap = new Map<string, string | null>()
   for (const c of (customersRes.data ?? []) as Array<{
@@ -50,13 +60,7 @@ export async function getDormCounts(
 
   const counts: DormCountsRecord = {}
 
-  for (const sub of (subsRes.data ?? []) as Array<{
-    id: string
-    customer_id: string
-    week_type: string | null
-    skipped_dates: string[] | null
-    paused_dates: string[] | null
-  }>) {
+  for (const sub of subs) {
     // 5DAYS plans do not deliver on Saturday
     if (sub.week_type === '5DAYS' && isSaturday) continue
     // Skip if today is in skipped_dates

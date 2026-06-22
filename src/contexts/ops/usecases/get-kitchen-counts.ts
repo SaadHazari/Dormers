@@ -20,27 +20,33 @@ export async function getKitchenCounts(
 ): Promise<{ vegCount: number; nonVegCount: number; unavailable: boolean }> {
   const sb = createAdminSupabaseClient()
 
-  const [subsRes, customersRes] = await Promise.all([
-    sb
-      .from('subscriptions')
-      .select('id, customer_id, week_type, skipped_dates, paused_dates')
-      .in('status', ['Active', 'Paused', 'Skipped']),
-    sb
-      .from('customers')
-      .select('id, meal_preference_type, veg_days'),
-  ])
+  // Release It! L5 (Phase 3): fail LOUD, not silent — a read error must surface
+  // (Sentry) and flag unavailable, never coalesce to a believable 0/0.
+  const subsRes = await sb
+    .from('subscriptions')
+    .select('id, customer_id, week_type, skipped_dates, paused_dates')
+    .in('status', ['Active', 'Paused', 'Skipped'])
+  if (subsRes.error) {
+    captureError(subsRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
+    return { vegCount: 0, nonVegCount: 0, unavailable: true }
+  }
 
-  // Release It! L5 (Phase 3): fail LOUD, not silent. Previously a read error
-  // coalesced to empty arrays and returned 0/0 — a believable-but-wrong count
-  // that could make the kitchen under-cook (or skip) an entire service with no
-  // warning. Now a DB error is surfaced to Sentry and flagged so the display
-  // renders "counts unavailable" instead of a fake zero.
-  if (subsRes.error || customersRes.error) {
-    captureError(subsRes.error ?? customersRes.error, {
-      area: 'kitchen',
-      op: 'getKitchenCounts',
-      todayIso,
-    })
+  const subs = (subsRes.data ?? []) as Array<{
+    id: string
+    customer_id: string
+    week_type: string | null
+    skipped_dates: string[] | null
+    paused_dates: string[] | null
+  }>
+
+  // Capacity (Phase 7 / L6): fetch only the customers who actually have an
+  // active subscription, not the entire (ever-growing) customers table.
+  const customerIds = [...new Set(subs.map((s) => s.customer_id))]
+  const customersRes = customerIds.length
+    ? await sb.from('customers').select('id, meal_preference_type, veg_days').in('id', customerIds)
+    : { data: [] as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null }>, error: null }
+  if (customersRes.error) {
+    captureError(customersRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
     return { vegCount: 0, nonVegCount: 0, unavailable: true }
   }
 
@@ -59,13 +65,7 @@ export async function getKitchenCounts(
   let vegCount = 0
   let nonVegCount = 0
 
-  for (const sub of (subsRes.data ?? []) as Array<{
-    id: string
-    customer_id: string
-    week_type: string | null
-    skipped_dates: string[] | null
-    paused_dates: string[] | null
-  }>) {
+  for (const sub of subs) {
     // 5DAYS plans do not deliver on Saturday
     if (sub.week_type === '5DAYS' && isSaturday) continue
     // Skip if today is in skipped_dates

@@ -26,12 +26,11 @@ import { getKitchenCounts } from './get-kitchen-counts'
 type Res = { data: unknown; error: unknown }
 
 function setup(subsRes: Res, customersRes: Res) {
-  fromMock.mockImplementation((table: string) => {
-    if (table === 'subscriptions') {
-      return { select: () => ({ in: () => Promise.resolve(subsRes) }) }
-    }
-    return { select: () => Promise.resolve(customersRes) }
-  })
+  // Both queries are now .select(...).in(...) — subscriptions filters by status,
+  // customers is scoped by id (Phase 7 capacity change).
+  fromMock.mockImplementation(() => ({
+    select: () => ({ in: (col: string) => Promise.resolve(col === 'status' ? subsRes : customersRes) }),
+  }))
 }
 
 beforeEach(() => {
@@ -47,7 +46,12 @@ describe('getKitchenCounts — fail loud', () => {
   })
 
   it('returns unavailable:true when the customers read errors', async () => {
-    setup({ data: [], error: null }, { data: null, error: { message: 'pg down' } })
+    // Non-empty subs so the scoped customers query actually runs (it is skipped
+    // when there are no active subscriptions).
+    setup(
+      { data: [{ id: 's1', customer_id: 'c1', week_type: '6DAYS', skipped_dates: [], paused_dates: [] }], error: null },
+      { data: null, error: { message: 'pg down' } },
+    )
     const r = await getKitchenCounts('2026-06-22', 'Monday', false)
     expect(r.unavailable).toBe(true)
   })
