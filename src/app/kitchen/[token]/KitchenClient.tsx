@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { scaleQuantity } from '@/contexts/ops/domain/recipe-scaling'
 
 const BG       = '#faf8f4'
 const BG_CARD  = '#ffffff'
@@ -42,18 +43,6 @@ interface KitchenClientProps {
   isPast2pm: boolean
   lastUpdated: string
   noDeliveryReason: string | null
-}
-
-function scaleQuantity(text: string, multiplier: number): string {
-  if (multiplier === 1) return text
-  return text.replace(
-    /^(\d+(?:\.\d+)?)\s*/,
-    (_, num) => {
-      const scaled = parseFloat(num) * multiplier
-      const display = scaled % 1 === 0 ? String(scaled) : scaled.toFixed(1)
-      return display + ' '
-    },
-  )
 }
 
 // ─── Method step → section assignment ────────────────────────────────────────
