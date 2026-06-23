@@ -13,7 +13,7 @@ Status key: ⬜ not started · 🟡 in progress · ✅ done & verified
 | 6 | Acquisition fallback / email-OTP (L8) | ✅ | branch `release-it/phase-6-email-otp-fallback`; owner chose "email fallback, verify phone later"; reuses existing Supabase email verify + checkout profile gate (no new email table/endpoints/dashboard prompt); send_failed_at signal LIVE on Ohio; whatsapp_verified=false → checkout re-verify; locked UI untouched; tsc/lint/330 tests/build/smoke green |
 | 7 | Capacity discipline (L6) | ◑ | branch `release-it/phase-7-capacity`; HOT paths scoped (getDormCounts + fanout dorm-scoped + getKitchenCounts active-sub-scoped + kitchen visibility-aware refresh); behavior-preserving; 330 tests/tsc/lint/build green. Deferred (Phase 7b): admin list pages `.in(ids)` (low-frequency), dashboard history load-more (per-user) |
 | 8 | Deployment hardening (L7) | ◑ | branch `release-it/phase-8-deploy-hardening`; fail-fast env (critical-only: Supabase trio) + maxDuration on 7 cron/ops routes + instant DB-backed kill-switches (feature_flags LIVE on Ohio; chat + staff_program wired, fail-open); +14 tests (337 total); tsc/lint/build green. Deferred → 8b: cron reconciler, migration-drift reconcile, DB advisor hardening |
-| 9 | Prove it → 10/10 (load/soak, SLOs, chaos, DB hardening, tests) | ⬜ | |
+| 9 | Prove it → 10/10 (load/soak, SLOs, chaos, DB hardening, tests) | ◑ | branch `release-it/arc2-prove-it`; DB over-exposed-fn revokes APPLIED+verified live; recipe-scaling tests; /api/health confirmed deep; load harness (scripts/loadtest.mjs) + SLO targets + chaos runbook authored (PHASE-9.md). Remaining: run load/chaos vs safe env, wire SLO alerts, delicate search_path+bucket, cron reconciler (item 4) |
 
 ## Per-phase Definition of Done
 - [ ] code merged on a branch (never commit straight to main)
@@ -31,7 +31,7 @@ System: 6.1 → … → target 10
 |---|---|---|---|
 | AI Chatbot & Support | 4.5 | 7.0 | 10 |
 | Admin Panel | 5.5 | 7.5 | 10 |
-| Kitchen Panel | 5.5 | 8.0 | 10 |
+| Kitchen Panel | 5.5 | 8.2 | 10 |
 | Delivery Rider / Ops | 5.5 | 7.5 | 10 |
 | Staff / Intern | 5.5 | 7.5 | 10 |
 | Marketing + Auth | 5.8 | 8.5 | 10 |
@@ -40,7 +40,7 @@ System: 6.1 → … → target 10
 | WhatsApp Messaging | 6.8 | 8.7 | 10 |
 | Dorm Wars | 7.0 | 8.0 | 10 |
 | Cron / Internal | 7.0 | 8.3 | 10 |
-| Platform / Infra | 7.0 | 8.5 | 10 |
+| Platform / Infra | 7.0 | 9.0 | 10 |
 
 _Phases 0–8 + Arc 1 (items 1–3) landed. System ~6.1 → ~8.2. Arc 1 finished most partials: item 1 (Zoho breaker + Gemini bound + webhook timeouts = L4/5b), item 2 (admin capacity = 7b), item 3 (observability sweep = L5). Branch `release-it/arc1-finish-partials`._
 
