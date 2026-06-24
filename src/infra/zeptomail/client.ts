@@ -76,6 +76,15 @@
  */
 
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout';
+import { getCircuitBreaker } from '@/infra/http/circuit-breaker';
+
+// Release It! L4: a sustained ZeptoMail outage trips this breaker so the
+// post-payment fanout + retry-cron fast-fail instead of repeatedly paying the
+// full send timeout against a dead mail API. Wraps the timeout-bounded send.
+const ZEPTO_BREAKER = { failureThreshold: 5, recoveryTimeMs: 60_000 };
+function zeptoFetch(url: string, init: RequestInit, opts: { timeoutMs: number }) {
+  return getCircuitBreaker('zeptomail', ZEPTO_BREAKER).run(() => fetchWithTimeout(url, init, opts));
+}
 import { SUPPORT_EMAIL } from '@/shared/contacts';
 
 const VALID_ZEPTO_REGIONS = new Set(['com', 'eu', 'in', 'com.au', 'com.cn', 'sa'])
@@ -109,7 +118,7 @@ async function sendTemplate(params: {
   if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
   if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
 
-  const res = await fetchWithTimeout(API_URL, {
+  const res = await zeptoFetch(API_URL, {
     method: 'POST',
     headers: {
       Authorization: token,
@@ -158,7 +167,7 @@ export async function sendOpsAlertEmail(input: {
   if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
   if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
 
-  const res = await fetchWithTimeout(RAW_API_URL, {
+  const res = await zeptoFetch(RAW_API_URL, {
     method: 'POST',
     headers: {
       Authorization: token,
@@ -265,7 +274,7 @@ export async function sendStaffInviteEmail(input: {
     </p>
   </div>`;
 
-  const res = await fetchWithTimeout(RAW_API_URL, {
+  const res = await zeptoFetch(RAW_API_URL, {
     method: 'POST',
     headers: {
       Authorization: token,

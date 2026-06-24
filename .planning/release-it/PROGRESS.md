@@ -39,8 +39,8 @@ System: 6.1 → … → target 10
 | User Dashboard | 6.5 | 7.5 | 10 |
 | WhatsApp Messaging | 6.8 | 8.7 | 10 |
 | Dorm Wars | 7.0 | 8.0 | 10 |
-| Cron / Internal | 7.0 | 8.3 | 10 |
-| Platform / Infra | 7.0 | 9.0 | 10 |
+| Cron / Internal | 7.0 | 8.5 | 10 |
+| Platform / Infra | 7.0 | 9.5 | 10 |
 
 _Phases 0–8 + Arc 1 (items 1–3) landed. System ~6.1 → ~8.2. Arc 1 finished most partials: item 1 (Zoho breaker + Gemini bound + webhook timeouts = L4/5b), item 2 (admin capacity = 7b), item 3 (observability sweep = L5). Branch `release-it/arc1-finish-partials`._
 
