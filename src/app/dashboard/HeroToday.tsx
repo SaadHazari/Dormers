@@ -461,6 +461,11 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
         <HeroStatusBadge status={badgeStatus} onDark={isActive} label={isResumedAfterCutoff ? `Back ${nextDelivery.replace(' evening', '')}` : undefined} />
         <span style={{ color: isActive ? 'rgba(245,240,232,0.30)' : 'var(--ds-fg-tint)' }} aria-hidden>·</span>
         <span
+          // When active this is the live delivery countdown (phase.label),
+          // which is intentionally time-dependent — the ~1s gap between SSR and
+          // hydration can land on a different minute/phase. suppressHydration-
+          // Warning is React's sanctioned escape hatch for live values.
+          suppressHydrationWarning
           className={isActive && phase.urgent ? 'countdown-urgent' : ''}
           style={{
             fontFamily: BODY, fontSize: 12, fontWeight: 600,

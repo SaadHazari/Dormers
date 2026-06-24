@@ -191,15 +191,19 @@ function computeCountdown(now: Date, subStatus: string | null): { label: string;
     return { label: 'No active plan', urgent: false }
   }
 
-  const day = now.getDay(); const hour = now.getHours()
+  // Asia/Dubai is UTC+4 year-round. Derive the AE wall day/hour/minute from
+  // the epoch via getUTC* — never now.getHours()/getDay(), which read the
+  // runtime's local zone. The local read both misreported the Dubai delivery
+  // clock for customers in other timezones AND diverged between the server
+  // (UTC) and the browser, breaking SSR hydration on this countdown text.
+  const ae = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+  const day = ae.getUTCDay(); const hour = ae.getUTCHours(); const minute = ae.getUTCMinutes()
   if (day === 0) return { label: 'No delivery today', urgent: false }
   if (hour === 19) return { label: 'Arriving now', urgent: true }
   if (hour < 19) {
-    const target = new Date(now); target.setHours(19, 0, 0, 0)
-    const diff = target.getTime() - now.getTime()
-    const totalMinutes = Math.floor(diff / 60_000)
-    if (totalMinutes <= 30) return { label: 'Arriving soon', urgent: true }
-    const hours = Math.max(1, Math.round(diff / 3_600_000))
+    const minutesToTarget = (19 - hour) * 60 - minute
+    if (minutesToTarget <= 30) return { label: 'Arriving soon', urgent: true }
+    const hours = Math.max(1, Math.round(minutesToTarget / 60))
     return { label: `Arriving in ~${hours} ${hours === 1 ? 'hour' : 'hours'}`, urgent: false }
   }
   return { label: 'Delivered today', urgent: false }
@@ -378,7 +382,11 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Truck size={14} strokeWidth={1.9} color={ct.urgent ? OG : TIER_POP_TEXT.muted} />
-            <span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: ct.urgent ? OG : TIER_POP_TEXT.muted }}>
+            {/* Live countdown — value is intentionally time-dependent, so the
+                ~1s gap between SSR and hydration can legitimately produce a
+                different minute/hour label. suppressHydrationWarning is React's
+                sanctioned escape hatch for exactly this. */}
+            <span suppressHydrationWarning style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: ct.urgent ? OG : TIER_POP_TEXT.muted }}>
               {ct.label}
             </span>
           </div>

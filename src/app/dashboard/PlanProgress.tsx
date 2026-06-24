@@ -743,7 +743,7 @@ export function PlanProgress({
                                     <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub, lineHeight: 1.2 }}>
                                         Days left
                                     </div>
-                                    <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 900, color: S.fg, marginTop: 4, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
+                                    <div suppressHydrationWarning style={{ fontFamily: BODY, fontSize: 20, fontWeight: 900, color: S.fg, marginTop: 4, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
                                         {daysLeft}
                                     </div>
                                 </>

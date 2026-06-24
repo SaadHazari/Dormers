@@ -11,7 +11,11 @@ export default function Menu({ menuData }: { menuData?: Dish[] }) {
   const { theme } = useTheme();
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(() => {
-    const day = new Date().getDay();
+    // AE wall day-of-week from the shared epoch — a plain new Date().getDay()
+    // reads the runtime's local zone, so the server (UTC) and the browser
+    // (Asia/Dubai) pick a different day near midnight and hydration mismatches.
+    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    const day = ae.getUTCDay();
     return day === 0 ? 0 : day - 1;
   });
 

@@ -47,7 +47,13 @@ function isoOf(d: Date): string {
 export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil }: Props) {
   const minD = new Date(minDate + 'T00:00:00')
   const maxD = new Date(maxDate + 'T00:00:00')
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+  // AE wall "today" pegged to the shared epoch so the server (UTC) and the
+  // browser (Asia/Dubai) agree on which calendar day is "today". A plain
+  // new Date().setHours(0,0,0,0) reads the runtime's local midnight, so near
+  // UTC midnight (≈4 AM Dubai) the server highlighted/disabled a different
+  // day than the client → hydration mismatch on the calendar cells.
+  const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000)
+  const today = new Date(aeNow.getUTCFullYear(), aeNow.getUTCMonth(), aeNow.getUTCDate())
 
   const initialView = useMemo(() => {
     const ref = value || minDate

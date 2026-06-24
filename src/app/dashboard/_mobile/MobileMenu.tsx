@@ -36,15 +36,19 @@ function computeCountdown(now: Date, subStatus: string | null): { label: string;
     if (subStatus === SUBSCRIPTION_STATUS.SCHEDULED) return { label: 'Plan starts soon', urgent: false }
     return { label: 'No active plan', urgent: false }
   }
-  const day = now.getDay(); const hour = now.getHours()
+  // Asia/Dubai is UTC+4 year-round. Derive the AE wall day/hour/minute from
+  // the epoch via getUTC* — never now.getHours()/getDay(), which read the
+  // runtime's local zone. The local read both misreported the Dubai delivery
+  // clock for customers in other timezones AND diverged between the server
+  // (UTC) and the browser, breaking SSR hydration on this countdown text.
+  const ae = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+  const day = ae.getUTCDay(); const hour = ae.getUTCHours(); const minute = ae.getUTCMinutes()
   if (day === 0) return { label: 'No delivery today', urgent: false }
   if (hour === 19) return { label: 'Arriving now', urgent: true }
   if (hour < 19) {
-    const target = new Date(now); target.setHours(19, 0, 0, 0)
-    const diff = target.getTime() - now.getTime()
-    const totalMinutes = Math.floor(diff / 60_000)
-    if (totalMinutes <= 30) return { label: 'Arriving soon', urgent: true }
-    const hours = Math.max(1, Math.round(diff / 3_600_000))
+    const minutesToTarget = (19 - hour) * 60 - minute
+    if (minutesToTarget <= 30) return { label: 'Arriving soon', urgent: true }
+    const hours = Math.max(1, Math.round(minutesToTarget / 60))
     return { label: `Arriving in ~${hours} ${hours === 1 ? 'hour' : 'hours'}`, urgent: false }
   }
   return { label: 'Delivered today', urgent: false }
@@ -219,7 +223,9 @@ function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliver
         <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 12, background: ct.urgent ? 'rgba(245,127,32,0.14)' : 'rgba(245,240,232,0.07)', border: `1px solid ${ct.urgent ? 'rgba(245,127,32,0.35)' : 'rgba(245,240,232,0.14)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <Truck size={14} strokeWidth={2} color={ct.urgent ? OG : CREAM_MUTED} />
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: ct.urgent ? OG : CREAM_MUTED }}>{ct.label}</span>
+            {/* Live countdown — intentionally time-dependent; suppress the
+                hydration warning for the rare SSR↔hydration minute-boundary flip. */}
+            <span suppressHydrationWarning style={{ fontSize: 12.5, fontWeight: 700, color: ct.urgent ? OG : CREAM_MUTED }}>{ct.label}</span>
           </span>
           {dorm && <span style={{ fontSize: 11, fontWeight: 600, color: CREAM_MUTED, background: 'rgba(245,240,232,0.10)', padding: '2px 8px', borderRadius: 999 }}>{dorm}</span>}
         </div>
