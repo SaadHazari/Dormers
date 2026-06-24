@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useId } from 'react'
 import type { ComponentType } from 'react'
 import {
   Gift, Users, Send, Flame, Lock, Check, CheckCircle2, X, ArrowRight,
@@ -3947,7 +3947,11 @@ function Modal({
   // screen readers announce it as a modal. Without this, the modal looked
   // like a div to assistive tech and trapped keyboard users.
   const dialogRef = useRef<HTMLDivElement>(null)
-  const titleId = useRef(`hub-modal-title-${Math.random().toString(36).slice(2, 8)}`).current
+  // useId() is SSR-stable (server and client produce the same value), unlike
+  // Math.random(), which differs on every render and rendered a mismatched
+  // id/aria-labelledby into the DOM on each load → React hydration error
+  // ("server rendered text didn't match the client") on /dashboard/dorm-wars.
+  const titleId = useId()
   useEffect(() => {
     if (!open) return
     const previouslyFocused = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null
@@ -4074,7 +4078,9 @@ function MilestoneInfoRow({
 }) {
   const [expanded, setExpanded] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const contentId = useRef(`mir-${Math.random().toString(36).slice(2, 8)}`).current
+  // SSR-stable id (see titleId above) — Math.random() here diverged between
+  // server and client and broke hydration.
+  const contentId = useId()
 
   // Auto-expand on focus so the user sees the explainer for the milestone
   // they clicked. Leaves expanded=true after the 5s focus window closes so

@@ -10,9 +10,36 @@ export default function GlobalError({
 }) {
   const [refreshing, setRefreshing] = useState(false)
 
+  // A stale Server Action — the user is running a JS bundle from a previous
+  // deploy, so the action id baked into their page no longer exists on the
+  // server (Sentry JAVASCRIPT-NEXTJS-A on /login). The fix is a hard reload to
+  // pull the fresh bundle; the action id will then match. We auto-reload once
+  // (loop-guarded via sessionStorage) instead of showing an error screen for
+  // what is really just "your tab is out of date".
+  const isStaleServerAction =
+    /Server Action .* was not found on the server|Failed to find Server Action/i.test(
+      error?.message ?? '',
+    )
+
   useEffect(() => {
+    if (isStaleServerAction) {
+      try {
+        const KEY = 'dormers:stale-action-reloaded-at'
+        const last = Number(sessionStorage.getItem(KEY) || 0)
+        // Only auto-reload if we haven't just done so — a persistent mismatch
+        // (e.g. CDN serving an old bundle) must not trap the user in a reload
+        // loop; fall through to the manual error screen instead.
+        if (Date.now() - last > 10_000) {
+          sessionStorage.setItem(KEY, String(Date.now()))
+          window.location.reload()
+          return
+        }
+      } catch {
+        /* sessionStorage blocked — fall through to the error screen */
+      }
+    }
     Sentry.captureException(error)
-  }, [error])
+  }, [error, isStaleServerAction])
 
   const handleRefresh = () => {
     setRefreshing(true)

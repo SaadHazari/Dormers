@@ -58,6 +58,37 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={`${montserrat.variable} ${poppins.variable} ${jetbrains.variable}`} style={{ fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif' }}>
+        {/* Harden React's DOM teardown against third-party node mutation.
+            Browser translation extensions (Chrome / Google Translate is the
+            big one for our UAE/Saudi users, who browse English pages in an
+            Arabic locale) wrap text nodes in injected <font> tags. When React
+            later unmounts those nodes, the parent it recorded is no longer the
+            real parent, so removeChild()/insertBefore() throw
+            "Cannot read properties of null (reading 'removeChild')" deep in
+            the commit phase — an UNHANDLED crash that error boundaries can't
+            catch and that white-screens the whole app (Sentry
+            JAVASCRIPT-NEXTJS-16/17 on /dashboard/explore-plans).
+            Guarding the two prototype methods turns that pathological case
+            (operating on a node whose parent isn't `this`) into a no-op
+            instead of a throw — React recovers, the user keeps their session.
+            Must run inline + sync so it wins the race against hydration. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+  if (typeof Node !== 'function' || !Node.prototype) return;
+  var rm = Node.prototype.removeChild;
+  Node.prototype.removeChild = function(child){
+    if (child && child.parentNode !== this) { return child; }
+    return rm.apply(this, arguments);
+  };
+  var ib = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function(newNode, refNode){
+    if (refNode && refNode.parentNode !== this) { return newNode; }
+    return ib.apply(this, arguments);
+  };
+}catch(e){}})();`,
+          }}
+        />
         {/* Defeat the browser's auto scroll-restoration on hard refresh.
             Marketing /home shows a fixed preloader splash on mount — if the
             browser restores scroll to a deep section before React hydrates,
