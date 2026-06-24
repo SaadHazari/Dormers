@@ -835,19 +835,41 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, onSkip
       {cellInfo && (() => {
         const d = new Date(cellInfo.iso + 'T00:00:00')
         const dateStr = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+        // A scheduled pause suspends every delivery day from its start onward
+        // (the skip action is already blocked for these — see inPlannedPause).
+        // Without this the sheet fell through to the "Upcoming" default and
+        // promised a 7–8 PM delivery on a day the user has paused. Mirrors
+        // desktop PlanProgress's "Pause begins" tooltip override.
+        const inPlannedPause = cellInfo.state === 'upcoming' && !!data.plannedPauseStart && cellInfo.iso >= data.plannedPauseStart
+        const isPlannedPauseStart = inPlannedPause && cellInfo.iso === data.plannedPauseStart
+        const plannedPauseLabel = data.plannedPauseStart
+          ? new Date(data.plannedPauseStart + 'T00:00:00').toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })
+          : ''
+        // Today always reads "Today" — even once it's been skipped or delivered
+        // — matching desktop PlanProgress's today-pre / today-delivered /
+        // today-skipped grouping (mobile previously mislabelled a skipped-today
+        // cell as plain "Skipped"). Excludes a frozen paused-today cell, which
+        // keeps its paused copy rather than promising a delivery tonight.
+        const isToday = cellInfo.iso === data.todayIso && cellInfo.state !== 'paused'
         const stateLabel =
-          cellInfo.state === 'delivered' ? 'Delivered'
+          isToday ? 'Today'
+          : cellInfo.state === 'delivered' ? 'Delivered'
           : cellInfo.state === 'skipped' ? 'Skipped'
           : cellInfo.state === 'paused' ? 'Paused'
-          : cellInfo.state === 'today' ? 'Today'
           : cellInfo.state === 'makeup' ? 'Make-up day'
+          : isPlannedPauseStart ? 'Pause begins'
+          : inPlannedPause ? 'Pause planned'
           : 'Upcoming'
         const stateDetail =
-          cellInfo.state === 'skipped' ? 'This meal was skipped — your end date extended by 1 day.'
+          isToday && cellInfo.state === 'skipped' ? 'Tonight’s dinner is skipped — 1 day added to your cycle.'
+          : isToday && cellInfo.state === 'delivered' ? 'Tonight’s dinner was delivered by 7–8 PM.'
+          : isToday ? 'Dinner arrives tonight between 7–8 PM.'
+          : cellInfo.state === 'skipped' ? 'This meal was skipped — your end date extended by 1 day.'
           : cellInfo.state === 'paused' ? 'No delivery — plan was paused on this day.'
           : cellInfo.state === 'delivered' ? 'Dinner was delivered by 7–8 PM.'
-          : cellInfo.state === 'today' ? 'Dinner arrives tonight between 7–8 PM.'
           : cellInfo.state === 'makeup' ? 'A bonus day earned from an earlier skip. Cannot be skipped.'
+          : isPlannedPauseStart ? 'Your planned pause starts here — no deliveries from this day until you resume.'
+          : inPlannedPause ? `Covered by your planned pause from ${plannedPauseLabel} — no delivery until you resume.`
           : 'Dinner will be delivered between 7–8 PM.'
         return (
           <div
