@@ -23,9 +23,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'invalid_phone' }, { status: 400 })
     }
 
-    // Shadow per-IP rate-limit (Phase 4 / L3) on top of the per-phone cap below.
-    // Observe-only for now; when enforced, stops phone-rotation credit drain.
-    await otpIpLimiter.check(await ipKey('otp'))
+    // Per-IP rate-limit (L3, enforcing): 40/hr/IP (dorm-NAT-safe) on top of the
+    // per-phone cap below — stops phone-rotation credit drain. Fails open. Reuses
+    // the existing 'too_many_requests' copy in PhoneStep. Checked before the OTP
+    // insert/send so a blocked request costs nothing.
+    const otpRl = await otpIpLimiter.check(await ipKey('otp'))
+    if (!otpRl.allowed) {
+        return NextResponse.json({ error: 'too_many_requests' }, { status: 429 })
+    }
 
     const supabase = admin()
     const now      = Date.now()

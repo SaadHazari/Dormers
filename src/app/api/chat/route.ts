@@ -65,8 +65,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'chat_paused' }, { status: 503 });
     }
 
-    // Shadow rate-limit (Phase 4 / L3): observe-only, never blocks yet, fails open.
-    await chatLimiter.check(await ipKey('chat'));
+    // Rate-limit (L3, enforcing): 60/min/IP (dorm-NAT-safe), fails open. On block
+    // return 503 → the widget's onError shows the WhatsApp fallback, not a dead end.
+    const chatRl = await chatLimiter.check(await ipKey('chat'));
+    if (!chatRl.allowed) {
+        return NextResponse.json({ error: 'rate_limited' }, { status: 503 });
+    }
 
     try {
         const normalized = normalizeMessages(messages as Record<string, unknown>[])

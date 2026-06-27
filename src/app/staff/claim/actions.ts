@@ -33,9 +33,12 @@ export async function verifyStaffClaim(email: string, code: string): Promise<Cla
         return { error: 'The staff program is paused right now — please check back soon or message us on WhatsApp.' }
     }
 
-    // Shadow rate-limit (Phase 4 / L3): keyed per (hashed) email to catch code
-    // brute-forcing of a specific invite. Observe-only for now; fails open.
-    await staffClaimLimiter.check(identifierKey('staff', cleanEmail))
+    // Rate-limit (L3, enforcing): keyed per (hashed) email to catch code
+    // brute-forcing of a specific invite — immune to shared dorm NAT. Fails open.
+    const claimRl = await staffClaimLimiter.check(identifierKey('staff', cleanEmail))
+    if (!claimRl.allowed) {
+        return { error: 'Too many attempts — please wait a few minutes, or message us on WhatsApp.' }
+    }
 
     const sb = createAdminSupabaseClient()
     const { data: row } = await sb

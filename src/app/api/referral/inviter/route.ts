@@ -10,9 +10,14 @@ export async function GET(req: Request) {
 
   if (!cid) return NextResponse.json({ firstName: null })
 
-  // Shadow rate-limit (Phase 4 / L3): per-IP, observe-only, fails open. When
-  // enforced, throttles CID enumeration / customer-name harvesting.
-  await inviterLimiter.check(await ipKey('inviter'))
+  // Rate-limit (L3, enforcing): per-IP, 120/min (dorm-NAT-safe), fails open.
+  // On block, degrade gracefully — return firstName:null (same as not-found) so
+  // the landing page still works, just without the personalized name. Throttles
+  // CID enumeration / customer-name harvesting.
+  const invRl = await inviterLimiter.check(await ipKey('inviter'))
+  if (!invRl.allowed) {
+    return NextResponse.json({ firstName: null })
+  }
 
   const supabaseAdmin = createAdminSupabaseClient()
 
