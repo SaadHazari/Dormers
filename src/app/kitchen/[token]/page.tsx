@@ -22,6 +22,14 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
   },
   icons: {
+    // Re-declare the tab favicon (not just the apple touch icon) — a page-level
+    // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
+    // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
+    // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+    ],
     apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
   },
 }
