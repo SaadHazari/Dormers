@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dormers — Onboarding Flow · Company Reference</title>
+<style>
+/* ─── FONTS — Montserrat (brand primary). Render script inlines as base64. ── */
+@font-face { font-family:'Montserrat'; font-weight:400; font-style:normal; font-display:swap; src:url('assets/Montserrat-Regular.ttf') format('truetype'); }
+@font-face { font-family:'Montserrat'; font-weight:600; font-style:normal; font-display:swap; src:url('assets/Montserrat-SemiBold.ttf') format('truetype'); }
+@font-face { font-family:'Montserrat'; font-weight:700; font-style:normal; font-display:swap; src:url('assets/Montserrat-Bold.ttf') format('truetype'); }
+@font-face { font-family:'Montserrat'; font-weight:800; font-style:normal; font-display:swap; src:url('assets/Montserrat-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family:'Montserrat'; font-weight:900; font-style:normal; font-display:swap; src:url('assets/Montserrat-Black.woff2') format('woff2'); }
+
+:root{
+  --orange:#f57f20; --orange-soft:#f88e38; --orange-warm:#fcab63; --orange-hover:#e06f00;
+  --navy:#091825; --navy-2:#1E3A4F;
+  --navy-grad-a:#061520; --navy-grad-b:#0a1d2c; --navy-grad-c:#06121b;
+  --cream:#ede8da; --cream-lite:#f5f0e8; --cream-deep:#e4dfd6;
+  --paper:#f6f1e7; --card:#ffffff; --card-tier:#fcf8ee; --card-warm:#f8f3e6;
+  --ink:#091825; --ink-70:rgba(9,24,37,.72); --ink-55:rgba(9,24,37,.56);
+  --ink-40:rgba(9,24,37,.40); --line:rgba(9,24,37,.12); --line-2:rgba(9,24,37,.08);
+  --green:#1d8a30; --green-d:#0f5e20; --red:#c0392b; --gold:#b8860b;
+  /* Shadows intentionally OFF: blurred box-shadows rasterize and render
+     differently across PDF engines (PDF.js vs Apple Quartz). Depth comes from
+     borders + white-on-cream tonal steps, which are vector and identical everywhere. */
+  --shadow-sm:none;
+  --shadow-md:none;
+  --radius:16px; --radius-sm:12px;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+@page { size:A4; margin:0; }
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:'Montserrat',system-ui,-apple-system,sans-serif;
+  color:var(--ink); background:var(--paper);
+  font-size:10.4pt; line-height:1.58; font-weight:400;
+  -webkit-font-smoothing:antialiased; text-rendering:geometricPrecision;
+  counter-reset:sheet;
+}
+
+.sheet{ position:relative; width:210mm; min-height:297mm; padding:17mm 17mm 20mm; background:var(--paper); page-break-after:always; break-after:page; overflow:hidden; counter-increment:sheet; }
+.sheet:last-child{ page-break-after:auto; break-after:auto; }
+
+.foot{ position:absolute; left:17mm; right:17mm; bottom:8mm; display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:7.2pt; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-40); border-top:1px solid var(--line-2); padding-top:6px; }
+.foot .mark{ display:flex; align-items:center; gap:7px; }
+.foot .mark .hmk{ width:13px; height:13px; flex:0 0 auto; }
+.foot::after{ content:counter(sheet,decimal-leading-zero); font-variant-numeric:tabular-nums; letter-spacing:.12em; color:var(--ink-55); white-space:nowrap; }
+
+h1,h2,h3,h4{ margin:0; font-weight:800; letter-spacing:-.02em; color:var(--navy); }
+.eyebrow{ font-size:8pt; font-weight:700; letter-spacing:.20em; text-transform:uppercase; color:var(--orange); margin-bottom:9px; display:flex; align-items:center; gap:8px; }
+.eyebrow .num{ font-weight:800; color:var(--navy); background:rgba(245,127,32,.14); border:1px solid rgba(245,127,32,.30); border-radius:999px; padding:1px 9px; font-size:8pt; letter-spacing:.04em; }
+.h-section{ font-size:23pt; line-height:1.08; font-weight:900; margin-bottom:6px; }
+.h-sub{ font-size:13pt; font-weight:800; margin:17px 0 7px; color:var(--navy); }
+.lede{ font-size:11pt; color:var(--ink-70); max-width:168mm; margin:0 0 13px; line-height:1.6; }
+p{ margin:0 0 9px; }
+strong{ font-weight:700; color:var(--navy); }
+.muted{ color:var(--ink-55); }
+.small{ font-size:9pt; } .tiny{ font-size:8pt; }
+code,.mono{ font-family:var(--mono); font-size:8.6pt; }
+code{ background:rgba(9,24,37,.05); border:1px solid var(--line-2); border-radius:5px; padding:.5px 5px; color:var(--navy-2); }
+a{ color:var(--orange-hover); text-decoration:none; }
+em{ font-style:italic; color:var(--ink-70); }
+
+ul.clean{ list-style:none; margin:0 0 10px; padding:0; }
+ul.clean li{ position:relative; padding-left:18px; margin-bottom:6px; color:var(--ink-70); }
+ul.clean li::before{ content:""; position:absolute; left:2px; top:7px; width:6px; height:6px; border-radius:2px; background:var(--orange); }
+
+/* ─── MILESTONE BREADCRUMB (runs through every Part 1 page) ───────────────── */
+.track{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:0 0 15px; }
+.track .m{ font-size:6.4pt; font-weight:800; letter-spacing:.02em; text-transform:uppercase; padding:2.5px 6.5px; border-radius:999px; color:var(--ink-40); background:rgba(9,24,37,.04); border:1px solid var(--line-2); white-space:nowrap; }
+.track .m.done{ color:var(--orange-hover); background:rgba(245,127,32,.10); border-color:rgba(245,127,32,.24); }
+.track .m.now{ color:#fff; background:linear-gradient(135deg,var(--orange),var(--orange-hover)); border-color:transparent; }
+.track i{ color:var(--ink-40); font-style:normal; font-weight:800; padding:0; font-size:6pt; }
+
+/* ─── CARDS / CALLOUTS ────────────────────────────────────────────────────── */
+.card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:13px 15px; box-shadow:var(--shadow-sm); break-inside:avoid; }
+.grid{ display:grid; gap:11px; } .g2{ grid-template-columns:1fr 1fr; } .g3{ grid-template-columns:1fr 1fr 1fr; }
+.two{ display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+
+.callout{ border-radius:var(--radius-sm); padding:11px 14px 11px 16px; margin:11px 0; break-inside:avoid; border:1px solid var(--line); font-size:9.6pt; }
+.callout .ct{ font-weight:800; font-size:8pt; letter-spacing:.14em; text-transform:uppercase; margin-bottom:4px; display:block; }
+.callout.rule{ background:rgba(245,127,32,.07); border-color:rgba(245,127,32,.30); } .callout.rule .ct{ color:var(--orange-hover); }
+.callout.design{ background:rgba(30,58,79,.06); border-color:rgba(30,58,79,.22); } .callout.design .ct{ color:var(--navy-2); }
+.callout.guard{ background:rgba(9,24,37,.04); border-color:var(--line); } .callout.guard .ct{ color:var(--navy); }
+.callout.heads{ background:rgba(184,134,11,.09); border-color:rgba(184,134,11,.32); } .callout.heads .ct{ color:var(--gold); }
+
+/* ─── VERTICAL STEP RAIL ──────────────────────────────────────────────────── */
+.rail{ position:relative; margin:6px 0 4px; padding-left:6px; }
+.rail .step{ position:relative; padding:0 0 13px 40px; break-inside:avoid; }
+.rail .step:last-child{ padding-bottom:0; }
+.rail .step::before{ content:""; position:absolute; left:13px; top:24px; bottom:-4px; width:2px; background:linear-gradient(var(--orange),rgba(245,127,32,.25)); }
+.rail .step:last-child::before{ display:none; }
+.rail .node{ position:absolute; left:0; top:0; width:27px; height:27px; border-radius:50%; background:var(--navy); color:#fff; font-weight:800; font-size:9.5pt; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 4px var(--paper); }
+.rail .step.accent .node{ background:linear-gradient(135deg,var(--orange),var(--orange-hover)); }
+.rail .st-title{ font-weight:800; font-size:10.6pt; color:var(--navy); margin-bottom:1px; }
+.rail .st-body{ font-size:9.4pt; color:var(--ink-70); }
+.rail .st-meta{ font-size:8.2pt; color:var(--ink-40); margin-top:2px; letter-spacing:.02em; }
+
+/* ─── JOURNEY RIBBON ──────────────────────────────────────────────────────── */
+.ribbon{ display:flex; flex-wrap:wrap; gap:7px 0; align-items:stretch; margin:8px 0 6px; }
+.ribbon .seg{ display:flex; align-items:center; }
+.ribbon .pill{ background:var(--card); border:1px solid var(--line); border-radius:11px; padding:8px 11px; min-width:30mm; box-shadow:var(--shadow-sm); }
+.ribbon .pill .n{ font-size:7pt; font-weight:800; letter-spacing:.12em; color:var(--orange); text-transform:uppercase; }
+.ribbon .pill .t{ font-size:9.6pt; font-weight:800; color:var(--navy); margin-top:1px; }
+.ribbon .pill .d{ font-size:7.8pt; color:var(--ink-55); margin-top:1px; }
+.ribbon .arr{ color:var(--orange); font-weight:800; padding:0 5px; font-size:12pt; align-self:center; }
+
+/* ─── SWIMLANE (3 paths × 8 milestones) ───────────────────────────────────── */
+.swim{ border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm); margin:10px 0 11px; background:var(--card); }
+.swim .row{ display:grid; grid-template-columns:36mm repeat(8,1fr); align-items:stretch; }
+.swim .row.head{ background:var(--navy); }
+.swim .head .lab{ display:flex; align-items:center; padding:10px 12px; font-size:7pt; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--orange-warm); }
+.swim .head .cell{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:9px 2px; }
+.swim .head .cell .mn{ width:16px; height:16px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--orange); color:#fff; font-size:7pt; font-weight:800; }
+.swim .head .cell .ml{ font-size:6.6pt; font-weight:700; letter-spacing:.03em; color:var(--cream-lite); }
+.swim .lane{ border-top:1px solid var(--line-2); background:var(--card); }
+.swim .lane .lab{ padding:13px 12px; border-right:1px solid var(--line-2); display:flex; flex-direction:column; justify-content:center; }
+.swim .lane .lab .nm{ font-weight:800; font-size:9pt; color:var(--navy); }
+.swim .lane .lab .ds{ font-size:7pt; color:var(--ink-55); margin-top:2px; }
+/* Rail = one continuous track per lane; node halo masks it cleanly at each stop. */
+.swim .lane .cell{ position:relative; min-height:44px; display:flex; align-items:center; justify-content:center; }
+.swim .lane .cell::before{ content:""; position:absolute; top:50%; left:0; right:0; height:3px; transform:translateY(-50%); border-radius:2px; background:var(--orange); z-index:0; }
+.swim .lane .cell.skip::before{ height:0; background:none; border-top:2px dotted rgba(9,24,37,.30); border-radius:0; }
+.swim .lane .cell.start::before{ left:50%; }
+.swim .lane .cell.end::before{ right:50%; }
+.swim .lane .node{ position:relative; z-index:1; width:19px; height:19px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8.5pt; font-weight:800; color:#fff; background:var(--orange); box-shadow:0 0 0 3.5px var(--card); }
+.swim .lane .cell.cond .node{ background:#fff; border:2px solid var(--orange); color:var(--orange-hover); }
+.swim .lane .cell.skip .node{ width:12px; height:12px; background:var(--card); border:1.5px dashed var(--ink-40); }
+.swim .lane .cell.fin .node{ background:var(--green); }
+.swim-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:8pt; color:var(--ink-55); margin-top:7px; align-items:center; }
+.swim-legend span{ display:flex; align-items:center; gap:6px; }
+.swim-legend i{ width:14px; height:14px; border-radius:50%; display:inline-block; background:var(--orange); }
+.swim-legend i.cond{ background:#fff; border:2px solid var(--orange); }
+.swim-legend i.skip{ width:11px; height:11px; background:var(--paper); border:1.5px dashed var(--ink-40); }
+.swim-legend i.fin{ background:var(--green); }
+.swim-legend em{ font-style:normal; color:var(--ink-40); }
+
+/* ─── DECISION BRANCHES ───────────────────────────────────────────────────── */
+.decision{ background:var(--card-tier); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin:11px 0; break-inside:avoid; }
+.decision .q{ display:flex; align-items:center; gap:10px; font-weight:800; color:var(--navy); font-size:10.4pt; margin-bottom:11px; }
+.decision .q svg.qb{ flex:0 0 auto; width:25px; height:25px; }
+.branches{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.branches.three{ grid-template-columns:1fr 1fr 1fr; }
+.branch{ border:1px solid var(--line); border-radius:11px; padding:9px 11px; background:#fff; position:relative; }
+.branch .lbl{ font-size:6.8pt; font-weight:800; letter-spacing:.1em; text-transform:uppercase; padding:2px 9px; border-radius:999px; display:inline-block; margin-bottom:5px; }
+.branch.yes .lbl{ background:rgba(29,138,48,.14); color:var(--green-d); border:1px solid rgba(29,138,48,.3); }
+.branch.no .lbl{ background:rgba(9,24,37,.06); color:var(--ink-55); border:1px solid var(--line); }
+.branch.alt .lbl{ background:rgba(245,127,32,.12); color:var(--orange-hover); border:1px solid rgba(245,127,32,.3); }
+.branch .out{ font-size:9pt; color:var(--ink-70); }
+.branch .out b{ color:var(--navy); }
+
+/* ─── TABLES ──────────────────────────────────────────────────────────────── */
+table{ width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:8.8pt; }
+thead th{ background:var(--navy); color:var(--cream-lite); text-align:left; font-weight:700; font-size:7.8pt; letter-spacing:.06em; text-transform:uppercase; padding:7px 9px; }
+thead th:first-child{ border-top-left-radius:8px; } thead th:last-child{ border-top-right-radius:8px; }
+tbody td{ padding:6px 9px; border-bottom:1px solid var(--line-2); vertical-align:top; color:var(--ink-70); }
+tbody tr:nth-child(even){ background:rgba(9,24,37,.025); } tbody tr{ break-inside:avoid; }
+td .k{ font-family:var(--mono); font-size:8pt; color:var(--navy); font-weight:600; }
+.tbl-note{ font-size:8pt; color:var(--ink-40); margin-top:-5px; }
+
+/* ─── PLANS ───────────────────────────────────────────────────────────────── */
+.plans{ display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin:10px 0; }
+.plan{ border:1px solid var(--line); border-radius:13px; padding:11px 12px; background:var(--card); break-inside:avoid; }
+.plan.feat{ border-color:rgba(245,127,32,.5); box-shadow:0 0 0 1px rgba(245,127,32,.2); }
+.plan .pb{ font-size:6.8pt; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--orange-hover); }
+.plan .pn{ font-size:11pt; font-weight:900; color:var(--navy); margin:2px 0; }
+.plan .pp{ font-size:8.4pt; color:var(--ink-55); }
+.plan .pr{ font-size:8.6pt; color:var(--navy); margin-top:6px; border-top:1px dashed var(--line); padding-top:6px; }
+.plan .pr b{ color:var(--orange-hover); }
+
+/* ─── REWARD LADDER ───────────────────────────────────────────────────────── */
+.ladder{ display:grid; grid-template-columns:repeat(4,1fr); gap:9px; align-items:end; margin:10px 0; }
+.rung{ border:1px solid var(--line); border-radius:12px; background:var(--card); box-shadow:var(--shadow-sm); padding:11px 12px; break-inside:avoid; }
+.rung .lv{ font-size:6.8pt; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:linear-gradient(135deg,var(--orange),var(--orange-hover)); border-radius:999px; padding:2px 9px; display:inline-block; }
+.rung .rt{ font-size:10pt; font-weight:800; color:var(--navy); margin:6px 0 2px; }
+.rung .rd{ font-size:8.4pt; color:var(--ink-70); }
+.rung.l1{ margin-bottom:18px; } .rung.l2{ margin-bottom:12px; } .rung.l3{ margin-bottom:6px; }
+
+/* ─── DIAGRAM WRAP ────────────────────────────────────────────────────────── */
+.diagram{ background:var(--card-tier); border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; break-inside:avoid; }
+.diagram .dcap{ font-size:8pt; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--ink-40); margin-bottom:6px; }
+.diagram svg{ width:100%; height:auto; display:block; }
+
+/* ─── TOC ─────────────────────────────────────────────────────────────────── */
+.toc .row{ display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-2); break-inside:avoid; }
+.toc .row .tn{ font-weight:800; color:var(--orange); width:24px; font-size:10pt; }
+.toc .row .tt{ font-weight:700; color:var(--navy); font-size:10.4pt; }
+.toc .row .td{ color:var(--ink-55); font-size:9pt; margin-left:auto; max-width:92mm; text-align:right; }
+.toc .grp{ font-size:8pt; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-40); font-weight:800; margin:13px 0 2px; }
+.legend{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.legend .lg{ font-size:8pt; border:1px solid var(--line); border-radius:8px; padding:5px 9px; display:flex; align-items:center; gap:6px; }
+.legend .dot{ width:9px; height:9px; border-radius:3px; }
+
+/* ─── COVER ───────────────────────────────────────────────────────────────── */
+.cover{ background:radial-gradient(120% 78% at 84% -10%, rgba(245,127,32,.24) 0%, rgba(245,127,32,0) 46%), linear-gradient(160deg,var(--navy-grad-a) 0%,var(--navy-grad-b) 55%,var(--navy-grad-c) 100%); color:var(--cream-lite); display:flex; flex-direction:column; padding:26mm 24mm 24mm; }
+.cover .ctop{ display:flex; align-items:flex-start; justify-content:space-between; position:relative; z-index:2; }
+.cover .logo-wrap img{ height:14mm; width:auto; }
+.cover .ctop .meta{ text-align:right; font-size:8pt; letter-spacing:.18em; text-transform:uppercase; color:rgba(245,240,232,.6); line-height:1.7; }
+.cover .sun{ position:absolute; right:-26mm; top:-26mm; width:110mm; height:110mm; border-radius:50%; background:linear-gradient(180deg,var(--orange) 0%,var(--orange-soft) 50%,var(--orange-warm) 100%); opacity:.15; }
+.cover-mid{ position:relative; z-index:2; margin-top:auto; margin-bottom:auto; }
+.cover .kicker{ font-size:9pt; font-weight:700; letter-spacing:.30em; text-transform:uppercase; color:var(--orange-warm); margin-bottom:15px; }
+.cover h1{ font-size:41pt; line-height:1.03; font-weight:900; letter-spacing:-.025em; max-width:155mm; background:linear-gradient(180deg,#fbf7ef 0%,#f5e9d8 58%,#f4c98f 128%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.cover .sub{ font-size:12.5pt; color:rgba(245,240,232,.82); margin-top:16px; max-width:140mm; font-weight:500; line-height:1.55; }
+.cover .rule{ width:52mm; height:3px; background:var(--orange); border-radius:2px; margin:22px 0 22px; }
+.cover .chips{ display:flex; gap:9px; flex-wrap:wrap; }
+.cover .chips .chip{ border:1px solid rgba(245,240,232,.22); border-radius:999px; padding:5px 13px; font-size:8.4pt; letter-spacing:.04em; color:rgba(245,240,232,.85); }
+.cover-foot{ position:relative; z-index:2; display:flex; justify-content:space-between; align-items:center; font-size:8.6pt; color:rgba(245,240,232,.6); border-top:1px solid rgba(245,240,232,.16); padding-top:12px; }
+
+.divider-sheet{ background:radial-gradient(120% 70% at 12% 110%, rgba(245,127,32,.18) 0%, rgba(245,127,32,0) 50%), linear-gradient(160deg,var(--navy-grad-a),var(--navy-grad-b)); color:var(--cream-lite); display:flex; flex-direction:column; justify-content:center; padding:0 28mm; }
+.divider-sheet .eyebrow{ color:var(--orange-warm); }
+.divider-sheet h1{ color:var(--cream-lite); font-size:32pt; font-weight:900; letter-spacing:-.025em; }
+.divider-sheet p{ color:rgba(245,240,232,.78); max-width:138mm; font-size:11pt; margin-top:10px; }
+.divider-sheet .lst{ margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; }
+.divider-sheet .lst span{ border:1px solid rgba(245,240,232,.22); border-radius:8px; padding:6px 11px; font-size:8.6pt; color:rgba(245,240,232,.82); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ COVER ═══════════════════════════════════ -->
+<section class="sheet cover">
+  <div class="sun"></div>
+  <div class="ctop">
+    <div class="logo-wrap"><img src="assets/logo-dark.svg" alt="Dormers" /></div>
+    <div class="meta">Internal reference<br/>Version 1.1 · June 2026</div>
+  </div>
+
+  <div class="cover-mid">
+    <div class="kicker">The Onboarding Playbook</div>
+    <h1>How a stranger becomes a Dormers regular</h1>
+    <div class="sub">The whole story — from the first tap on the website to a hot meal at the door, and every screen, decision, and bit of behind-the-scenes magic in between.</div>
+    <div class="rule"></div>
+    <div class="chips">
+      <span class="chip">Written for the whole team</span>
+      <span class="chip">Plain-English story + technical appendix</span>
+      <span class="chip">3 customer journeys, mapped</span>
+    </div>
+  </div>
+
+  <div class="cover-foot">
+    <span>Dormers · Dubai, UAE</span>
+    <span>Read it once — you'll understand onboarding cold.</span>
+  </div>
+</section>
+
+<!-- ══════════════════════════════ CONTENTS ═════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">00</span> How to read this</div>
+  <h2 class="h-section">What's inside</h2>
+  <p class="lede">This is meant to be read like a story, not a manual. <strong>Part 1</strong> walks through onboarding the way a customer actually lives it — in plain English, with maps and diagrams at every turn. <strong>Part 2</strong> is for engineers: the exact files, tables, and schedules underneath it all.</p>
+
+  <p class="small muted" style="margin-bottom:4px"><strong>Two things to look out for as you read:</strong></p>
+  <ul class="clean small">
+    <li>A <strong>numbered milestone strip</strong> sits at the top of every page so you always know where you are in the journey (the orange one is "you are here").</li>
+    <li><strong>Decision diagrams</strong> show the forks — the moments where the path splits depending on who the person is or what they choose.</li>
+  </ul>
+
+  <div class="legend">
+    <span class="lg"><span class="dot" style="background:var(--orange)"></span> Rule — how it must behave</span>
+    <span class="lg"><span class="dot" style="background:var(--navy-2)"></span> By design — a deliberate choice</span>
+    <span class="lg"><span class="dot" style="background:var(--gold)"></span> Heads-up — a gotcha to know</span>
+    <span class="lg"><span class="dot" style="background:var(--ink-40)"></span> Safeguard — what protects us</span>
+  </div>
+
+  <div class="toc" style="margin-top:8px">
+    <div class="grp">Part 1 — The Story (for everyone)</div>
+    <div class="row"><span class="tn">★</span><span class="tt">The journey at a glance</span><span class="td">All three customer types on one map</span></div>
+    <div class="row"><span class="tn">1</span><span class="tt">The big picture</span><span class="td">What onboarding is, and why it's tricky</span></div>
+    <div class="row"><span class="tn">2</span><span class="tt">Three front doors</span><span class="td">Sign-up · staff claim · referral gift</span></div>
+    <div class="row"><span class="tn">3</span><span class="tt">The sign-up wizard, step by step</span><span class="td">The 7–8 screens, and the religious fork</span></div>
+    <div class="row"><span class="tn">4</span><span class="tt">Proving it's really you</span><span class="td">WhatsApp code, then email code</span></div>
+    <div class="row"><span class="tn">5</span><span class="tt">The account that gets created</span><span class="td">What we keep, and the staff link</span></div>
+    <div class="row"><span class="tn">6</span><span class="tt">Choosing a plan &amp; what it costs</span><span class="td">Four plans, the veg-mix, staff pricing</span></div>
+    <div class="row"><span class="tn">7</span><span class="tt">Checkout &amp; payment</span><span class="td">Credits, the kitchen cut-off, the guards</span></div>
+    <div class="row"><span class="tn">8</span><span class="tt">Right after they pay</span><span class="td">WhatsApp · email · invoice</span></div>
+    <div class="row"><span class="tn">9</span><span class="tt">Going live: first meal</span><span class="td">The daily clockwork that activates them</span></div>
+    <div class="row"><span class="tn">10</span><span class="tt">The staff &amp; intern path</span><span class="td">Claim → plan → renewal → offboarding</span></div>
+    <div class="row"><span class="tn">11</span><span class="tt">The referral path &amp; rewards</span><span class="td">The gift and the four reward layers</span></div>
+    <div class="row"><span class="tn">12</span><span class="tt">What keeps it safe</span><span class="td">Fraud, races, and double-charges</span></div>
+    <div class="grp">Part 2 — Technical Appendix (for engineers)</div>
+    <div class="row"><span class="tn">A–F</span><span class="tt">Routes · data · integrations · cron · engines · glossary</span><span class="td">The exact wiring</span></div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Contents</span></div>
+</section>
+
+<!-- ═════════════════════════ ★ JOURNEY AT A GLANCE ═════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">★</span> Part 1 · The Story</div>
+  <h2 class="h-section">The journey at a glance</h2>
+  <p class="lede">Here's the whole thing on one page. Everyone passes through the same eight milestones — but <strong>how</strong> they pass through depends on which of the three doors they came in. This map shows where the three journeys overlap, where they split apart, and where they come back together.</p>
+
+  <div class="swim">
+    <div class="row head">
+      <div class="lab">The 3 journeys ↓</div>
+      <div class="cell"><span class="mn">1</span><span class="ml">Discover</span></div>
+      <div class="cell"><span class="mn">2</span><span class="ml">Enter</span></div>
+      <div class="cell"><span class="mn">3</span><span class="ml">Profile</span></div>
+      <div class="cell"><span class="mn">4</span><span class="ml">Verify</span></div>
+      <div class="cell"><span class="mn">5</span><span class="ml">Choose</span></div>
+      <div class="cell"><span class="mn">6</span><span class="ml">Pay</span></div>
+      <div class="cell"><span class="mn">7</span><span class="ml">Confirm</span></div>
+      <div class="cell"><span class="mn">8</span><span class="ml">Activate</span></div>
+    </div>
+    <div class="row lane">
+      <div class="lab"><span class="nm">Public sign-up</span><span class="ds">The main road</span></div>
+      <div class="cell on start"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on end fin"><span class="node">✓</span></div>
+    </div>
+    <div class="row lane">
+      <div class="lab"><span class="nm">Staff / intern</span><span class="ds">Invited with a code</span></div>
+      <div class="cell skip start"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell cond"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on end fin"><span class="node">✓</span></div>
+    </div>
+    <div class="row lane">
+      <div class="lab"><span class="nm">Referral gift</span><span class="ds">A friend's link</span></div>
+      <div class="cell skip start"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell skip"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell skip"><span class="node"></span></div>
+      <div class="cell skip"><span class="node"></span></div>
+      <div class="cell on"><span class="node"></span></div>
+      <div class="cell on end fin"><span class="node">✓</span></div>
+    </div>
+  </div>
+  <div class="swim-legend">
+    <span><i></i> On the path</span>
+    <span><i class="cond"></i> Conditional <em>— staff only pay for the 6-day week</em></span>
+    <span><i class="skip"></i> Skipped on this journey</span>
+    <span><i class="fin"></i> First meal — journey complete</span>
+  </div>
+
+  <div class="grid g3" style="margin-top:13px">
+    <div class="card"><strong>They all meet at "Verify".</strong><div class="small muted" style="margin-top:3px">No matter the door, everyone proves their phone and email. That's the one universal checkpoint.</div></div>
+    <div class="card"><strong>The referral friend takes a shortcut.</strong><div class="small muted" style="margin-top:3px">No wizard, no plan, no payment — they get a free Welcome Meal and go straight to the table. (They can convert to a paid plan later, rejoining the main road.)</div></div>
+    <div class="card"><strong>Staff get a private plan.</strong><div class="small muted" style="margin-top:3px">A hidden Staff Monthly: the 5-day week is free, the 6-day week is a flat AED 80. Only the 6-day option actually pays.</div></div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>★ · The journey at a glance</span></div>
+</section>
+
+<!-- ════════════════════════════ §1 BIG PICTURE ═════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">01</span> Part 1 · The Story</div>
+  <div class="track"><span class="m now">1 · Discover</span><i>›</i><span class="m">2 · Enter</span><i>›</i><span class="m">3 · Profile</span><i>›</i><span class="m">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">The big picture</h2>
+  <p class="lede">Onboarding is the most important stretch of a customer's life with us: the journey from <em>"who's Dormers?"</em> to a warm meal landing at their door — and them wanting the next one. It runs across the marketing site, a friendly sign-up, two quick identity checks, picking a plan, paying, and a quiet chain of systems that schedule the meal and tell the kitchen to cook it.</p>
+
+  <div class="ribbon">
+    <div class="seg"><div class="pill"><div class="n">1 · Discover</div><div class="t">The website</div><div class="d">Home, plans, FAQ</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">2 · Enter</div><div class="t">One of 3 doors</div><div class="d">Sign-up · staff · referral</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">3 · Profile</div><div class="t">Tell us about you</div><div class="d">Diet, dorm, spice…</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">4 · Verify</div><div class="t">Two quick codes</div><div class="d">WhatsApp + email</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">5 · Choose</div><div class="t">Pick a plan</div><div class="d">Trial → Monthly Max</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">6 · Pay</div><div class="t">Checkout</div><div class="d">Card or 100% credit</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill"><div class="n">7 · Confirm</div><div class="t">3 messages</div><div class="d">WhatsApp · email · invoice</div></div><div class="arr">→</div></div>
+    <div class="seg"><div class="pill feat" style="border-color:rgba(245,127,32,.5)"><div class="n">8 · Activate</div><div class="t">First meal</div><div class="d">Cooked &amp; delivered</div></div></div>
+  </div>
+
+  <h3 class="h-sub">Why onboarding is worth understanding properly</h3>
+  <div class="grid g3">
+    <div class="card"><strong>It has three doors.</strong><div class="small muted" style="margin-top:4px">A normal sign-up, a staff/intern claim, and a referral gift. They share one engine but start very differently — and the referral door skips the wizard entirely.</div></div>
+    <div class="card"><strong>Real money shows up early.</strong><div class="small muted" style="margin-top:4px">Actual cards, coupons, and credits. A handful of guards make sure nobody's double-charged and no price can be fiddled with.</div></div>
+    <div class="card"><strong>It's half human, half clockwork.</strong><div class="small muted" style="margin-top:4px">Some steps happen the instant you tap; others wait for a scheduled "tick" — like activating a plan at midnight or counting a delivery at 8 PM, all on Dubai time.</div></div>
+  </div>
+
+  <div class="callout design"><span class="ct">By design</span> The customer's app (the dashboard) is intentionally <strong>light and calm</strong>; the marketing site is intentionally <strong>dark and bold</strong> — an interface and a brochure are two different jobs. The sign-up wizard is locked light; the referral page is locked dark. That's a choice, not a bug to "fix".</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§1 · The big picture</span></div>
+</section>
+
+<!-- ════════════════════════════ §2 THREE DOORS ═════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">02</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m now">2 · Enter</span><i>›</i><span class="m">3 · Profile</span><i>›</i><span class="m">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">Three front doors</h2>
+  <p class="lede">Everyone ends up in the same place — a verified account with a plan — but they walk in through one of three entrances. Knowing which door someone used tells you most of what you need to know about their experience.</p>
+
+  <div class="decision">
+    <div class="q"><svg class="qb" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="3.5" transform="rotate(45 14 14)" fill="#f57f20"/><text x="14" y="19" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="900" font-size="15" fill="#ffffff">?</text></svg> Which door did this person come through?</div>
+    <div class="branches three">
+      <div class="branch alt"><span class="lbl">Public</span><div class="out"><b>They found us.</b> Tapped <em>Get&nbsp;Started</em> on the site → the full sign-up wizard → pick a plan on the dashboard.</div></div>
+      <div class="branch alt"><span class="lbl">Staff</span><div class="out"><b>We invited them.</b> A WhatsApp code → claim it → the same wizard → a staff-only plan page.</div></div>
+      <div class="branch alt"><span class="lbl">Referral</span><div class="out"><b>A friend invited them.</b> A <code>/r/</code> link → verify on the spot → a free Welcome Meal, no wizard.</div></div>
+    </div>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><div class="tiny" style="font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--orange-hover)">Door 1 · Public</div><div class="small" style="margin-top:5px"><strong>Path:</strong> <code>/home → /login → /onboarding</code></div><div class="small muted" style="margin-top:4px">The main road. A student finds the site, signs up, completes the wizard, and chooses a plan.</div></div>
+    <div class="card"><div class="tiny" style="font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--orange-hover)">Door 2 · Staff</div><div class="small" style="margin-top:5px"><strong>Path:</strong> <code>code → /staff/claim → /onboarding → /staff/plan</code></div><div class="small muted" style="margin-top:4px">An intern, invited by an admin, claims a one-time code, then onboards and lands on the staff plan.</div></div>
+    <div class="card"><div class="tiny" style="font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--orange-hover)">Door 3 · Referral</div><div class="small" style="margin-top:5px"><strong>Path:</strong> <code>/r/[code] → verify → dashboard</code></div><div class="small muted" style="margin-top:4px">A friend's link. Verify phone + email, claim the gift, and you're at the table — wizard skipped.</div></div>
+  </div>
+
+  <div class="callout heads"><span class="ct">Heads-up · current state</span> On the live site today, the navbar's <strong>Log In</strong> and <strong>Get Started</strong> buttons point to a <code>/maintenance</code> holding page, not to <code>/login</code>. The whole funnel is built and working — but the <em>public</em> door is currently closed, so people are arriving via direct links, staff claims, and referrals for now. <span class="muted">(Worth confirming with the owner — see Appendix F.)</span></div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§2 · Three front doors</span></div>
+</section>
+
+<!-- ════════════════════════════ §3 WIZARD (A) ══════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">03</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m now">3 · Profile</span><i>›</i><span class="m">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">The sign-up wizard, step by step</h2>
+  <p class="lede">The wizard asks one thing at a time and feels more like a friendly chat than a form — it's the only place in the product where we lean into emoji. Most choices move you along on their own; a couple have a <em>Continue</em> button. And because we save your progress as you go, a refresh never costs you anything. There are 7 steps — or 8 for "Religious Preference" folks, who get one extra screen.</p>
+
+  <div class="decision">
+    <div class="q"><svg class="qb" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="3.5" transform="rotate(45 14 14)" fill="#f57f20"/><text x="14" y="19" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="900" font-size="15" fill="#ffffff">?</text></svg> Did they pick "Religious Preference"?</div>
+    <div class="branches">
+      <div class="branch yes"><span class="lbl">Yes</span><div class="out">An <b>extra screen</b> appears: pick which days are vegetarian (the rest are non-veg). That's the 8th step.</div></div>
+      <div class="branch no"><span class="lbl">No</span><div class="out">Skip straight past it — 7 steps total, no veg-days screen.</div></div>
+    </div>
+  </div>
+
+  <div class="callout design"><span class="ct">By design · why the order looks odd</span> We ask "5 or 6 days?" <strong>before</strong> the veg-days screen on purpose. The veg-days picker only lets you choose up to one less than your week length — so settling the week first avoids an annoying "oops, too many days" correction later.</div>
+
+  <div class="rail">
+    <div class="step accent"><div class="node">1</div><div class="st-title">What do you eat? 🍗 🥗 ☪️</div><div class="st-body">Non-Vegetarian, Veg, or "Religious Preference" (a mix of veg and non-veg days). This one pick shapes their price and what the kitchen makes for them.</div><div class="st-meta">Saved as: meal_preference_type · moves on automatically</div></div>
+    <div class="step"><div class="node">2</div><div class="st-title">How many days a week? 📅</div><div class="st-body"><strong>Mon–Sat (6 days)</strong> is the standard rhythm — one day off (Sunday). <strong>Mon–Fri (5 days)</strong> is lighter and cheaper.</div><div class="st-meta">Saved as: week_type · moves on automatically</div></div>
+    <div class="step"><div class="node">+</div><div class="st-title">Which days are veg? — only if "Religious"</div><div class="st-body">Pick the vegetarian days. The count caps at one less than the week (so a 6-day customer picks 1–5 veg days). This is the bonus 8th screen.</div><div class="st-meta">Saved as: veg_days · only shown for "Religious Preference"</div></div>
+    <div class="step"><div class="node">3</div><div class="st-title">Anything you can't eat?</div><div class="st-body">Any of Nuts, Dairy, Gluten, Shellfish, Eggs, Soy — or "None". Pick as many as apply.</div><div class="st-meta">Saved as: allergens · Continue</div></div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§3 · The wizard (1 of 2)</span></div>
+</section>
+
+<!-- ════════════════════════════ §3 WIZARD (B) ══════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">03</span> Part 1 · The Story · continued</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m now">3 · Profile</span><i>›</i><span class="m">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">…and the rest of the wizard</h2>
+
+  <div class="rail">
+    <div class="step"><div class="node">4</div><div class="st-title">How spicy? 🌱 🌶️ 🔥 💀</div><div class="st-body">Mild, Medium, Hot, or Extra Hot. A taste preference the kitchen honours.</div><div class="st-meta">Saved as: spice_level_preference · moves on automatically</div></div>
+    <div class="step"><div class="node">5</div><div class="st-title">Where do you live?</div><div class="st-body">Pick from a live list of known dorms (The Myriad, KSK Homes, Yugo, DSOA Residence, Study World…) or "Other" and type it in.</div><div class="st-meta">Saved as: dorm_name · "Other" quietly flags out-of-zone</div></div>
+    <div class="step"><div class="node">6</div><div class="st-title">Which university?</div><div class="st-body">From a curated list (AUD, Murdoch, Middlesex, Heriot-Watt, Manipal, and more) or "Other".</div><div class="st-meta">Stored with the account · Continue</div></div>
+    <div class="step accent"><div class="node">7</div><div class="st-title">Your name &amp; WhatsApp → a code arrives</div><div class="st-body">They enter their name and number, tap <em>Send code</em>, and a 6-digit code lands on WhatsApp. Type all six and it verifies itself. If WhatsApp won't deliver, we quietly offer email instead.</div><div class="st-meta">Verifies the phone · see §4</div></div>
+    <div class="step accent"><div class="node">8</div><div class="st-title">Email + password → code → you're in</div><div class="st-body">They set an email and password, get a 6-digit email code, and entering it <strong>creates the account</strong> and signs them in. Then it's off to the dashboard (or, for staff, the plan page).</div><div class="st-meta">Creates the customer record + sign-in · see §4–5</div></div>
+  </div>
+
+  <div class="callout rule"><span class="ct">Rule · we save as you go</span> Everything except the password is kept in a browser draft, so a refresh or accidental back-button never loses progress. The password is deliberately left out, and a restored draft never <em>pretends</em> the phone is already verified — the real check always happens on our side.</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§3 · The wizard (2 of 2)</span></div>
+</section>
+
+<!-- ════════════════════════════ §4 VERIFICATION ════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">04</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m now">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">Proving it's really you</h2>
+  <p class="lede">We check identity twice — the WhatsApp number first, then the email. Both use a 6-digit code that works only once and expires fast. It's not red tape: it stops fake sign-ups and protects our delivery promise, because we only ever message a number we know is real.</p>
+
+  <div class="diagram">
+    <div class="dcap">The WhatsApp code, start to finish</div>
+    <svg viewBox="0 0 760 196" xmlns="http://www.w3.org/2000/svg" font-family="Montserrat, sans-serif">
+      <g font-size="11" font-weight="700" fill="#091825">
+        <text x="70" y="22" text-anchor="middle">Customer</text>
+        <text x="300" y="22" text-anchor="middle">Dormers app</text>
+        <text x="540" y="22" text-anchor="middle">Our server</text>
+        <text x="700" y="22" text-anchor="middle">WhatsApp</text>
+      </g>
+      <g stroke="#cfc8b8" stroke-width="1.5" stroke-dasharray="3 4">
+        <line x1="70" y1="30" x2="70" y2="186"/><line x1="300" y1="30" x2="300" y2="186"/>
+        <line x1="540" y1="30" x2="540" y2="186"/><line x1="700" y1="30" x2="700" y2="186"/>
+      </g>
+      <g font-size="9.5" fill="#091825">
+        <line x1="70" y1="52" x2="296" y2="52" stroke="#f57f20" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="80" y="47">Enter number, tap “Send code”</text>
+        <line x1="300" y1="78" x2="536" y2="78" stroke="#f57f20" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="310" y="73">Ask the server to send a code</text>
+        <line x1="540" y1="104" x2="696" y2="104" stroke="#1E3A4F" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="548" y="99">Send 6-digit code (stored only as a hash)</text>
+        <line x1="700" y1="130" x2="74" y2="130" stroke="#1d8a30" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="360" y="125" text-anchor="middle">The code lands on the customer's phone</text>
+        <line x1="70" y1="158" x2="536" y2="158" stroke="#f57f20" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="80" y="153">Type the 6 digits → the server checks them</text>
+        <text x="548" y="178" font-weight="700" fill="#1d8a30">✓ Phone verified — on to email</text>
+      </g>
+      <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#091825"/></marker></defs>
+    </svg>
+  </div>
+
+  <div class="decision">
+    <div class="q"><svg class="qb" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="3.5" transform="rotate(45 14 14)" fill="#f57f20"/><text x="14" y="19" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="900" font-size="15" fill="#ffffff">?</text></svg> What if WhatsApp can't deliver the code?</div>
+    <div class="branches">
+      <div class="branch yes"><span class="lbl">It worked</span><div class="out">Phone is <b>verified</b>. Straight on to the email step.</div></div>
+      <div class="branch no"><span class="lbl">It failed</span><div class="out">We offer to <b>continue by email</b>. The account is created, but the phone is flagged <em>unverified</em> until they confirm it before their first meal.</div></div>
+    </div>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><strong>Used once, then dead.</strong><div class="small muted" style="margin-top:3px">A code can't be reused to sign up someone else once it's been spent.</div></div>
+    <div class="card"><strong>Short-lived.</strong><div class="small muted" style="margin-top:3px">Codes expire quickly, with a cooldown and an hourly limit to deter abuse.</div></div>
+    <div class="card"><strong>Never delivered blind.</strong><div class="small muted" style="margin-top:3px">We never schedule a meal to an unverified number — the fallback just defers the phone check, it doesn't skip it.</div></div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§4 · Proving it's really you</span></div>
+</section>
+
+<!-- ════════════════════════════ §5 ACCOUNT ═════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">05</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m now">4 · Verify</span><i>›</i><span class="m">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">The account that gets created</h2>
+  <p class="lede">The moment that email code checks out, two things happen at once: they get a login, and we save a <strong>customer profile</strong> with everything the wizard collected. We also mint a short, dorm-based <strong>customer ID (the "CID")</strong> that follows them everywhere — on labels, orders, and referrals.</p>
+
+  <h3 class="h-sub">What we keep about a new customer</h3>
+  <table>
+    <thead><tr><th style="width:34%">What we keep</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">name, email, whatsapp_number</span></td><td>Who they are and how we reach them. The phone carries a "verified" flag and timestamp.</td></tr>
+      <tr><td><span class="k">cid</span></td><td>Their short ID, built from their dorm — used on meal labels, orders, and referral links.</td></tr>
+      <tr><td><span class="k">meal_preference_type</span></td><td>Non-Veg / Veg / Religious — drives both price and what the kitchen cooks.</td></tr>
+      <tr><td><span class="k">week_type, veg_days</span></td><td>5 or 6 days a week; and, for a mix, which days are vegetarian.</td></tr>
+      <tr><td><span class="k">allergens, spice_level_preference</span></td><td>Kitchen safety and taste.</td></tr>
+      <tr><td><span class="k">dorm_name, out_of_zone</span></td><td>Where to deliver. An "Other" dorm sets an out-of-zone flag that pauses checkout until we confirm we cover it.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="two">
+    <div class="callout design" style="margin-top:2px"><span class="ct">By design · out of zone</span> Picking an unlisted dorm marks the account <strong>out of zone</strong>. They can finish signing up, but checkout waits until ops confirms we deliver there — a deliberate guardrail, not a glitch.</div>
+    <div class="callout guard" style="margin-top:2px"><span class="ct">Safeguard · already a member?</span> Try to sign up with an email that already exists and you're quietly sent to the login page — we never reveal whether an email is registered.</div>
+  </div>
+
+  <div class="callout rule"><span class="ct">Rule · staff get linked automatically</span> If this person came through the staff door, we link their new account to their staff record the instant it's created — but only if the email matches, the verified phone matches, and they finished inside the <strong>60-minute</strong> claim window. When it matches, they're sent to the staff plan page instead of the normal dashboard.</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§5 · The account</span></div>
+</section>
+
+<!-- ════════════════════════════ §6 PLANS ═══════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">06</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m done">4 · Verify</span><i>›</i><span class="m now">5 · Choose</span><i>›</i><span class="m">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">Choosing a plan &amp; what it costs</h2>
+  <p class="lede">From their dashboard, the customer picks a plan. There are four public plans, priced per meal. The prices below are our <strong>built-in defaults</strong> — but the admin panel can override any of them, and whatever ops sets there is exactly what customers see and pay.</p>
+
+  <div class="plans">
+    <div class="plan"><div class="pb">One-time</div><div class="pn">Trial</div><div class="pp">1 meal · single delivery</div><div class="pr">Non-Veg <b>AED 25</b><br/>Veg AED 20</div></div>
+    <div class="plan"><div class="pb">Low commitment</div><div class="pn">Weekly Flex</div><div class="pp">6 meals / week</div><div class="pr">Non-Veg <b>AED 23</b>/meal<br/>Veg AED 19/meal</div></div>
+    <div class="plan feat"><div class="pb">★ Best value</div><div class="pn">Monthly Premium</div><div class="pp">24 meals / month</div><div class="pr">Non-Veg <b>AED 22</b>/meal<br/>Veg AED 18/meal</div></div>
+    <div class="plan"><div class="pb">For the hungry</div><div class="pn">Monthly Max</div><div class="pp">48 meals · 2/day</div><div class="pr">Non-Veg <b>AED 21.5</b>/meal<br/>Veg AED 17.5/meal</div></div>
+  </div>
+  <div class="tbl-note">Per-meal price is the same whether 5 or 6 days — a 5-day cycle simply has fewer meals, so the total is lower. Monthly Max delivers both meals together (same dish), 7–8 PM.</div>
+
+  <h3 class="h-sub">The "Religious Preference" mix, in one line</h3>
+  <p class="small">For a mixed week, the per-meal price is a blend of veg and non-veg days — more veg days, lower price. As a feel for it, Monthly Premium runs from about <strong>AED 22/meal</strong> (mostly non-veg) down to <strong>AED 17/meal</strong> (mostly veg), set by how many veg days they choose.</p>
+
+  <div class="two">
+    <div class="callout design"><span class="ct">By design · the hidden staff plan</span> Interns get a private <strong>Staff Monthly</strong> plan: the <strong>5-day week is free</strong> (it's their pay), and the <strong>6-day week is a flat AED 80</strong> — the 4 Saturdays prepaid at AED 20 each. It never shows on the public grid and only works for active staff. <span class="muted">(Full story in §10.)</span></div>
+    <div class="callout rule"><span class="ct">Rule · prices can't drift</span> The price the customer sees, the amount sent to the card, and the server's "is this amount legit?" check all read from the <strong>same</strong> source. Change a price in the admin panel and all three move together — there's no second price list to fall out of sync.</div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§6 · Plans &amp; pricing</span></div>
+</section>
+
+<!-- ════════════════════════════ §7 CHECKOUT ════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">07</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m done">4 · Verify</span><i>›</i><span class="m done">5 · Choose</span><i>›</i><span class="m now">6 · Pay</span><i>›</i><span class="m">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">Checkout &amp; payment</h2>
+  <p class="lede">They pick a start date and pay. Out of sight, we roll any credits and loyalty discounts into a single coupon, double-check the price against the official rate, and — if credit covers the whole thing — skip the card payment entirely.</p>
+
+  <div class="decision">
+    <div class="q"><svg class="qb" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="3.5" transform="rotate(45 14 14)" fill="#f57f20"/><text x="14" y="19" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="900" font-size="15" fill="#ffffff">?</text></svg> Does their credit cover the whole order?</div>
+    <div class="branches">
+      <div class="branch yes"><span class="lbl">Covers 100%</span><div class="out"><b>Free checkout.</b> No card needed — we create the subscription straightaway. They still get every confirmation.</div></div>
+      <div class="branch no"><span class="lbl">Some left to pay</span><div class="out"><b>Card payment.</b> Off to the secure card page; the coupon brings the total down to what's owed.</div></div>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <div class="dcap">From “Pay” to a live subscription</div>
+    <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg" font-family="Montserrat, sans-serif">
+      <g font-size="9.5" fill="#091825">
+        <rect x="14" y="14" width="150" height="50" rx="9" fill="#ffffff" stroke="#cfc8b8"/>
+        <text x="89" y="34" text-anchor="middle" font-weight="700">Checkout panel</text>
+        <text x="89" y="50" text-anchor="middle" fill="#56514a">Plan + start date</text>
+        <rect x="200" y="14" width="172" height="50" rx="9" fill="#ffffff" stroke="#cfc8b8"/>
+        <text x="286" y="30" text-anchor="middle" font-weight="700">Validate &amp; build coupon</text>
+        <text x="286" y="45" text-anchor="middle" fill="#56514a">price check · guards · reserve credit</text>
+        <rect x="408" y="6" width="150" height="30" rx="9" fill="#fff3e6" stroke="#f3b377"/>
+        <text x="483" y="25" text-anchor="middle" font-weight="700" fill="#b15e10">Card payment</text>
+        <rect x="408" y="46" width="150" height="30" rx="9" fill="#eef6ef" stroke="#9ccfa6"/>
+        <text x="483" y="65" text-anchor="middle" font-weight="700" fill="#1d8a30">Free (100% credit)</text>
+        <rect x="592" y="14" width="154" height="50" rx="9" fill="#091825"/>
+        <text x="669" y="34" text-anchor="middle" font-weight="700" fill="#f5f0e8">Payment confirmed</text>
+        <text x="669" y="50" text-anchor="middle" fill="#cdb79a">the webhook takes over</text>
+        <line x1="164" y1="39" x2="196" y2="39" stroke="#f57f20" stroke-width="2" marker-end="url(#a2)"/>
+        <line x1="372" y1="32" x2="404" y2="21" stroke="#b15e10" stroke-width="2" marker-end="url(#a2)"/>
+        <line x1="372" y1="46" x2="404" y2="61" stroke="#1d8a30" stroke-width="2" marker-end="url(#a2)"/>
+        <line x1="558" y1="21" x2="588" y2="34" stroke="#b15e10" stroke-width="2" marker-end="url(#a2)"/>
+        <line x1="558" y1="61" x2="588" y2="48" stroke="#1d8a30" stroke-width="2" marker-end="url(#a2)"/>
+        <rect x="14" y="92" width="732" height="48" rx="10" fill="#fcf8ee" stroke="#e7dcc3"/>
+        <text x="28" y="111" font-weight="800" fill="#091825">Once paid, the system quietly does it all (and never twice):</text>
+        <text x="28" y="129" fill="#56514a">create the subscription + order · settle credits · update preferences · reward any referrer · send the 3 confirmations (§8)</text>
+      </g>
+      <defs><marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#091825"/></marker></defs>
+    </svg>
+  </div>
+
+  <div class="two">
+    <div class="callout rule"><span class="ct">Rule · they only ever see the net</span> The customer sees the price <strong>after</strong> credit. Behind the scenes we keep the full price and apply credit and loyalty as a coupon — credit is never quietly pre-subtracted on the way in.</div>
+    <div class="callout heads"><span class="ct">Heads-up · the 2 PM kitchen cut-off</span> Start dates respect a <strong>2 PM Dubai</strong> kitchen cut-off (no same-day starts after it for new customers) and a 30-day window; non-delivery days are skipped automatically.</div>
+  </div>
+
+  <div class="callout guard"><span class="ct">Safeguard · checkout will stop you for a reason</span> Before any charge, checkout blocks if the profile's incomplete, the dorm is out of zone, a plan is paused, or a future plan is already queued (only one waiting at a time). Each one prevents a charge we couldn't cleanly honour.</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§7 · Checkout &amp; payment</span></div>
+</section>
+
+<!-- ════════════════════════════ §8 AFTER PAY ═══════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">08</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m done">4 · Verify</span><i>›</i><span class="m done">5 · Choose</span><i>›</i><span class="m done">6 · Pay</span><i>›</i><span class="m now">7 · Confirm</span><i>›</i><span class="m">8 · Activate</span></div>
+  <h2 class="h-section">Right after they pay</h2>
+  <p class="lede">The second a payment clears, we want the customer to feel looked after. Three messages go out almost at once — each on its own track, so if one stumbles it never holds up the others, and none is ever sent twice.</p>
+
+  <div class="grid g3">
+    <div class="card"><div class="eyebrow" style="margin-bottom:6px"><span class="num" style="background:rgba(29,138,48,.14);border-color:rgba(29,138,48,.3);color:#0f5e20">1</span> WhatsApp</div><strong>"You're all set"</strong><div class="small muted" style="margin-top:4px">A WhatsApp with their plan, total, and first delivery date — within seconds.</div></div>
+    <div class="card"><div class="eyebrow" style="margin-bottom:6px"><span class="num" style="background:rgba(245,127,32,.14);border-color:rgba(245,127,32,.3)">2</span> Email</div><strong>A branded confirmation</strong><div class="small muted" style="margin-top:4px">A proper Dormers email with the order number, meals, and start date.</div></div>
+    <div class="card"><div class="eyebrow" style="margin-bottom:6px"><span class="num" style="background:rgba(30,58,79,.14);border-color:rgba(30,58,79,.3);color:#1E3A4F">3</span> Invoice</div><strong>A tax invoice</strong><div class="small muted" style="margin-top:4px">A compliant invoice, created and emailed — held back about 2 minutes so it doesn't pile on top of the other two.</div></div>
+  </div>
+
+  <div class="callout rule"><span class="ct">Rule · exactly once, no matter what</span> We drop a checkpoint after the important work, and each message has its own "sent" mark. If the card processor re-sends the same event (it happens), nothing doubles up — no second subscription, no repeat texts.</div>
+
+  <div class="callout design"><span class="ct">By design · the invoice waits its turn</span> The tax invoice is scheduled a couple of minutes out and picked up by a regular job, rather than fired off instantly. It spaces out the customer's inbox and keeps the payment moment snappy.</div>
+
+  <p class="small muted">Meanwhile, the customer is back on the dashboard looking at a cheerful "Checkout successful" summary. The WhatsApp and email arrive within seconds; the invoice PDF follows shortly after.</p>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§8 · Right after they pay</span></div>
+</section>
+
+<!-- ════════════════════════════ §9 ACTIVATION ══════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">09</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m done">4 · Verify</span><i>›</i><span class="m done">5 · Choose</span><i>›</i><span class="m done">6 · Pay</span><i>›</i><span class="m done">7 · Confirm</span><i>›</i><span class="m now">8 · Activate</span></div>
+  <h2 class="h-section">Going live: from "scheduled" to first meal</h2>
+  <p class="lede">A new plan often starts as <strong>Scheduled</strong> — set to begin on a future date. It becomes a real, cooking-and-delivering subscription through a few small jobs that run on a clock every day, all on Dubai time.</p>
+
+  <div class="rail">
+    <div class="step accent"><div class="node">▸</div><div class="st-title">Start day, just after midnight — it wakes up</div><div class="st-body">A nightly job flips the plan from Scheduled to <strong>Active</strong> the moment its start date arrives. (The same job also handles skips, pauses, and finished cycles.)</div><div class="st-meta">status tick · 00:05 Dubai time</div></div>
+    <div class="step"><div class="node">✉</div><div class="st-title">Start day, 9 AM — "Today's the day"</div><div class="st-body">A warm welcome email goes to everyone whose plan starts today — sent once.</div><div class="st-meta">start-day emails · 09:00 Dubai time</div></div>
+    <div class="step"><div class="node">🍱</div><div class="st-title">Every delivery day, 8 PM — the meal counts</div><div class="st-body">An evening job marks one meal delivered for each active subscriber on a delivery day, and logs the cost for the books.</div><div class="st-meta">delivery tick · 20:00 Dubai time</div></div>
+    <div class="step"><div class="node">👨‍🍳</div><div class="st-title">The kitchen sees them coming</div><div class="st-body">The kitchen view tallies active subscribers by veg vs non-veg (respecting the mix, plus any skips or pauses) so exactly the right number of each meal gets cooked.</div><div class="st-meta">An estimate before the 2 PM cut-off, confirmed after</div></div>
+  </div>
+
+  <div class="two">
+    <div class="callout design"><span class="ct">By design · Dubai time, all year</span> Dubai never changes its clocks, so the schedule is rock-steady. (For the technically minded: midnight Dubai is 8 PM UTC.)</div>
+    <div class="callout heads"><span class="ct">Heads-up · the welcome email won't back-fill</span> The "Today's the day" email goes out for plans starting <em>today</em> only. If a scheduled job ever skips a day, it won't go back and send late.</div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§9 · Going live</span></div>
+</section>
+
+<!-- ════════════════════════════ §10 STAFF ══════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">10</span> Part 1 · The Story · the staff journey</div>
+  <div class="track"><span class="m done">Invite</span><i>›</i><span class="m done">Claim</span><i>›</i><span class="m now">Onboard</span><i>›</i><span class="m now">Pick plan</span><i>›</i><span class="m">Renew</span><i>›</i><span class="m">Offboard</span></div>
+  <h2 class="h-section">The staff &amp; intern path</h2>
+  <p class="lede">Interns are paid partly in meals. They onboard like everyone else, but with a claim code at the front and a private staff plan at the end — plus admin-approved renewals and a fair refund if they leave early.</p>
+
+  <div class="rail">
+    <div class="step accent"><div class="node">1</div><div class="st-title">Invite</div><div class="st-body">An admin adds the intern in the admin panel, which mints a one-time claim code (good for 7 days) and sends it over WhatsApp.</div></div>
+    <div class="step"><div class="node">2</div><div class="st-title">Claim</div><div class="st-body">The intern enters their email + code, which opens a <strong>60-minute</strong> window to finish onboarding.</div></div>
+    <div class="step"><div class="node">3</div><div class="st-title">Onboard</div><div class="st-body">They go through the normal wizard. As the account is created, their staff record links up automatically — email and verified phone have to match.</div></div>
+    <div class="step accent"><div class="node">4</div><div class="st-title">Pick the staff plan</div><div class="st-body">Two choices, below.</div></div>
+  </div>
+
+  <div class="decision">
+    <div class="q"><svg class="qb" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="16" height="16" rx="3.5" transform="rotate(45 14 14)" fill="#f57f20"/><text x="14" y="19" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="900" font-size="15" fill="#ffffff">?</text></svg> Which staff week do they want?</div>
+    <div class="branches">
+      <div class="branch yes"><span class="lbl">5-day</span><div class="out"><b>Free.</b> Set up instantly, no payment — this is their pay.</div></div>
+      <div class="branch alt"><span class="lbl">6-day</span><div class="out"><b>AED 80</b> for the 4 prepaid Saturdays, paid by card like anyone else.</div></div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="callout design"><span class="ct">By design · prepay, don't deduct</span> The 6-day Saturdays are <strong>prepaid</strong> on purpose — taking it off a stipend at payday stings more than paying AED 80 up front. Renewals queue up and wait for an admin's approval; offboarding refunds any unused Saturdays at AED 20 each.</div>
+    <div class="callout guard"><span class="ct">Safeguard · clean books</span> Staff meals are logged to their own expense category, so intern pay never gets muddled with customer-goodwill comps.</div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§10 · The staff path</span></div>
+</section>
+
+<!-- ════════════════════════════ §11 REFERRALS ══════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">11</span> Part 1 · The Story · the referral journey</div>
+  <div class="track"><span class="m done">Tap link</span><i>›</i><span class="m done">Verify</span><i>›</i><span class="m now">Claim gift</span><i>›</i><span class="m now">First meal</span><i>›</i><span class="m">Convert</span><i>›</i><span class="m">Inviter rewarded</span></div>
+  <h2 class="h-section">The referral path &amp; rewards</h2>
+  <p class="lede">A referred friend lands on <code>/r/[code]</code>, verifies phone + email right there, and instantly claims a free <strong>Welcome Meal</strong> — no wizard, no card. When that friend later becomes a paying customer, the person who invited them starts earning across four layers of rewards.</p>
+
+  <div class="ladder">
+    <div class="rung l1"><span class="lv">Layer 1</span><div class="rt">Conversion cash</div><div class="rd">When the friend first pays, the inviter gets a credit that grows with their track record (~AED 20 → 35). A limited "doubler" can apply.</div></div>
+    <div class="rung l2"><span class="lv">Layer 2</span><div class="rt">Cycle milestones</div><div class="rd">Hitting 3 / 6 / 10 / 15 / 20 recruits in a cycle unlocks mystery cash, free weeks, and cash-plus-skips.</div></div>
+    <div class="rung l3"><span class="lv">Layer 3</span><div class="rt">Lifetime tiers</div><div class="rd">At 10 / 25 / 50 / 100 lifetime recruits: a standing 5% then 10% off, a big meal credit, and a jacket.</div></div>
+    <div class="rung"><span class="lv">Layer 4</span><div class="rt">Anniversary &amp; extras</div><div class="rd">An <b>AED 50</b> credit once a customer passes a year, plus rewards for reviews and surveys.</div></div>
+  </div>
+
+  <p class="small"><strong>How credits get spent:</strong> they're just AED in a wallet. At checkout they're combined with any loyalty discount into one coupon (loyalty % first, then credit fills the rest). If a credit is bigger than the order, the leftover stays in the wallet for next time.</p>
+
+  <div class="two">
+    <div class="callout design"><span class="ct">By design · anniversary is current-year-only</span> The AED 50 anniversary reward is <strong>not</strong> back-filled for returning dormant customers who missed past years — an owner's call, not a bug.</div>
+    <div class="callout guard"><span class="ct">Safeguard · fraud signals</span> Repeat device/IP patterns and lifetime phone/email checks flag suspicious claims for review; flagged credits stay pending until ops approves them.</div>
+  </div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§11 · The referral path</span></div>
+</section>
+
+<!-- ════════════════════════════ §12 SAFEGUARDS ═════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">12</span> Part 1 · The Story</div>
+  <div class="track"><span class="m done">1 · Discover</span><i>›</i><span class="m done">2 · Enter</span><i>›</i><span class="m done">3 · Profile</span><i>›</i><span class="m done">4 · Verify</span><i>›</i><span class="m done">5 · Choose</span><i>›</i><span class="m done">6 · Pay</span><i>›</i><span class="m done">7 · Confirm</span><i>›</i><span class="m done">8 · Activate</span></div>
+  <h2 class="h-section">What keeps it all safe</h2>
+  <p class="lede">Onboarding touches identity and money, so it's wrapped in quiet protections. Here's the plain-English version of what keeps it honest and steady — every one of these is already in place.</p>
+
+  <table>
+    <thead><tr><th style="width:32%">The worry</th><th>How we handle it</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Reused or replayed codes</strong></td><td>Every verification code is single-use and short-lived; once spent, it can't sign up anyone else.</td></tr>
+      <tr><td><strong>"Is this email registered?" probing</strong></td><td>We never reveal it — existing users are quietly sent to login instead.</td></tr>
+      <tr><td><strong>Someone fiddling with the price</strong></td><td>The server re-checks the amount against the official price band; a tampered amount is rejected before any charge.</td></tr>
+      <tr><td><strong>Double-charges / double-clicks</strong></td><td>Only one scheduled plan at a time; paused plans can't check out; credits are reserved so two tabs can't spend the same balance.</td></tr>
+      <tr><td><strong>The processor re-sending an event</strong></td><td>The payment handler is idempotent — a repeated event won't create a second subscription or re-send messages.</td></tr>
+      <tr><td><strong>WhatsApp going down</strong></td><td>The email fallback keeps sign-up moving; the phone is flagged for verification before delivery.</td></tr>
+      <tr><td><strong>Referral gaming</strong></td><td>Lifetime phone/email de-dup, per-IP limits, and device/IP signals route shady claims to a review queue.</td></tr>
+      <tr><td><strong>Delivering somewhere we don't cover</strong></td><td>Unlisted dorms are blocked at checkout until ops confirms coverage.</td></tr>
+      <tr><td><strong>A payment that half-finishes</strong></td><td>A checkpoint lets the handler resume only the unfinished steps on retry, never repeating what's done.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout rule"><span class="ct">Rule · the prime directive</span> The customer in front of us comes first. Where timeouts or limits exist, they fail <em>gracefully</em> — a hiccup quietly degrades (email fallback, a deferred invoice) rather than blocking the person trying to eat.</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>§12 · What keeps it safe</span></div>
+</section>
+
+<!-- ════════════════════════════ APPENDIX DIVIDER ═══════════════════════════ -->
+<section class="sheet divider-sheet">
+  <div class="eyebrow">Part 2</div>
+  <h1>Technical Appendix</h1>
+  <p>For engineers. The exact routes, files, tables, integrations, schedules, and the verification, pricing, and credit engines behind everything in Part 1. All paths are relative to the repo root.</p>
+  <div class="lst">
+    <span>A · Route &amp; file map</span>
+    <span>B · Data model</span>
+    <span>C · Integrations</span>
+    <span>D · Cron schedule</span>
+    <span>E · The engines</span>
+    <span>F · Glossary &amp; facts to confirm</span>
+  </div>
+</section>
+
+<!-- ════════════════════════════ APP A — ROUTES ═════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">A</span> Appendix · Part 2</div>
+  <h2 class="h-section">Route &amp; file map</h2>
+  <p class="lede">The path a sign-up takes through the code, in order.</p>
+  <table>
+    <thead><tr><th style="width:42%">File</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">src/app/components/Navbar.tsx</span></td><td>Marketing CTAs (currently → <code>/maintenance</code>).</td></tr>
+      <tr><td><span class="k">src/app/login/LoginForm.tsx</span></td><td>Sign-In / Sign-Up / Forgot tabs; Sign-Up routes to <code>/onboarding</code>; forces light theme.</td></tr>
+      <tr><td><span class="k">src/app/onboarding/OnboardingClient.tsx</span></td><td>The wizard state machine: steps, draft persistence, navigation.</td></tr>
+      <tr><td><span class="k">src/app/onboarding/Steps.tsx · data.ts</span></td><td>Step renderers; preference/allergen/spice/dorm/university constants + the step type.</td></tr>
+      <tr><td><span class="k">src/app/onboarding/PhoneStep.tsx · EmailStep.tsx</span></td><td>Step 6 (WhatsApp OTP) and step 7 (email OTP → account).</td></tr>
+      <tr><td><span class="k">src/app/onboarding/actions.ts</span></td><td><code>createAccount</code>, <code>verifyEmailOtp</code>, <code>resendEmailOtp</code> — validate, upsert customer, consume OTP, link staff.</td></tr>
+      <tr><td><span class="k">src/app/api/whatsapp/start · check/route.ts</span></td><td>Send + verify the WhatsApp 6-digit code.</td></tr>
+      <tr><td><span class="k">src/app/staff/claim/* · r/[cid]/*</span></td><td>Door 2 (staff claim) and Door 3 (referral gift, incl. <code>claimGift</code>).</td></tr>
+      <tr><td><span class="k">src/app/dashboard/plan/* · _mobile/MobileExplore.tsx</span></td><td>Plan grid + <code>CheckoutPanel</code> (desktop) / bottom sheet (mobile).</td></tr>
+      <tr><td><span class="k">src/app/api/checkout/route.ts</span></td><td>Validate price/guards, synthesize coupon, reserve credit, Stripe or free-checkout.</td></tr>
+      <tr><td><span class="k">src/app/api/webhook/route.ts</span></td><td>Verifies Stripe signature → <code>handle-stripe-event.ts</code>.</td></tr>
+      <tr><td><span class="k">contexts/payments/usecases/handle-stripe-event.ts</span></td><td>Creates subscription + order, settles credits, links referral, fans out.</td></tr>
+      <tr><td><span class="k">contexts/payments/usecases/post-payment-fanout.ts · free-checkout.ts</span></td><td>3-channel confirmations; the 100%-credit provisioning path.</td></tr>
+    </tbody>
+  </table>
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Appendix A · Routes</span></div>
+</section>
+
+<!-- ════════════════════════════ APP B — DATA MODEL ═════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">B</span> Appendix · Part 2</div>
+  <h2 class="h-section">Data model</h2>
+  <p class="lede">The tables onboarding writes or reads, with the columns that matter most.</p>
+  <table>
+    <thead><tr><th style="width:26%">Table</th><th>Key columns / purpose</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">customers</span></td><td><span class="k">id, cid, email, name, whatsapp_number, whatsapp_verified(+_at), meal_preference_type, week_type, veg_days, allergens, spice_level_preference, dorm_name, out_of_zone</span> + <span class="k">pending_*</span> staging.</td></tr>
+      <tr><td><span class="k">subscriptions</span></td><td><span class="k">customer_id, plan_name, status (Scheduled/Active/Paused/Skipped/Ended), start_date, end_date, week_type, meals_per_day, total_meals, delivered_meals, veg_days, bonus_meals, staff_approval</span>.</td></tr>
+      <tr><td><span class="k">orders</span></td><td><span class="k">stripe_session_id, order_number, plan, meals_count, price_per_meal, invoice_status, webhook_completed_at, whatsapp_sent_at, email_sent_at, zoho_invoice_id</span>.</td></tr>
+      <tr><td><span class="k">whatsapp_otps</span></td><td><span class="k">phone, code_hash (HMAC), expires_at, verified_at, consumed_at, send_failed_at</span>. Single-use, hashed.</td></tr>
+      <tr><td><span class="k">plan_pricing</span></td><td>Admin price overrides: <span class="k">plan_id, preference, week_type, veg_day_count, price_per_meal, effective_from, effective_to</span> (exclusive).</td></tr>
+      <tr><td><span class="k">credits</span></td><td><span class="k">customer_id, amount_aed, source, status (pending/approved/reserved/applied/rejected), referral_id, applied_to</span>.</td></tr>
+      <tr><td><span class="k">referrals · referral_gifts_claimed · referral_review_queue</span></td><td>Attribution (<span class="k">inviter_cid, invitee_user_id, status</span>), lifetime de-dup (<span class="k">phone_e164, email_norm</span>), and fraud-review rows.</td></tr>
+      <tr><td><span class="k">cycle_rewards · lifetime_rewards · layer4_rewards</span></td><td>The four reward layers, each with uniqueness keys so they fire once.</td></tr>
+      <tr><td><span class="k">staff_members</span></td><td><span class="k">email, whatsapp_number, claim_code_hash, code_expires_at, code_verified_at, status (invited/active/ended), customer_id</span>.</td></tr>
+      <tr><td><span class="k">customer_notifications</span></td><td>Outbound WhatsApp queue: <span class="k">kind, payload, scheduled_for, sent_at, wamid</span>.</td></tr>
+      <tr><td><span class="k">comped_meal_ledger · dorm_locations</span></td><td>Per-meal cost ledger (incl. <span class="k">staff_comped_meals</span>); the live dorm list + zone.</td></tr>
+    </tbody>
+  </table>
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Appendix B · Data model</span></div>
+</section>
+
+<!-- ════════════════════════════ APP C+D ════════════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">C</span> Appendix · Part 2</div>
+  <h2 class="h-section">Integrations</h2>
+  <table>
+    <thead><tr><th style="width:24%">System</th><th>Role in onboarding</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Stripe</strong></td><td>Checkout sessions; coupons for credit/loyalty; webhook on success; refunds (staff offboarding). API version pinned, 8s timeout, retries.</td></tr>
+      <tr><td><strong>Meta WhatsApp Cloud API</strong></td><td>OTP template (locale <code>en</code>); order/welcome notifications (locales <code>en_US</code> / <code>en_AE</code> per template). Sent via the DB dispatcher using <code>pg_net</code>.</td></tr>
+      <tr><td><strong>ZeptoMail</strong></td><td>Branded transactional emails (order confirmation, start-day, refund). Circuit-breaker protected.</td></tr>
+      <tr><td><strong>Zoho Books</strong></td><td>Tax-compliant invoice created + emailed, deferred ~2 min and dispatched by an hourly job.</td></tr>
+      <tr><td><strong>Supabase</strong></td><td>Auth (email/password + email OTP), Postgres + RLS, vault secrets, <code>pg_net</code>, <code>pg_cron</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="eyebrow" style="margin-top:14px"><span class="num">D</span> Appendix · Part 2</div>
+  <h2 class="h-section" style="font-size:18pt">Cron schedule (Asia/Dubai)</h2>
+  <table>
+    <thead><tr><th style="width:30%">Job</th><th style="width:22%">When</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">subscription_status_tick</span></td><td>00:05 AE (20:05 UTC)</td><td>Scheduled→Active, skip/pause transitions, end completed cycles.</td></tr>
+      <tr><td><span class="k">subscription_pause_tick</span></td><td>00:10 AE (20:10 UTC)</td><td>Increments paused days; pushes end date out.</td></tr>
+      <tr><td><span class="k">subscription_delivery_tick</span></td><td>20:00 AE (16:00 UTC)</td><td>Records a delivered meal per active sub on a delivery day; logs cost.</td></tr>
+      <tr><td><span class="k">dispatch_start_day_emails</span></td><td>09:00 AE (05:00 UTC)</td><td>Sends the "Today's the day" email for plans starting today.</td></tr>
+      <tr><td><span class="k">dispatch_customer_notifications</span></td><td>every 5 min</td><td>Drains the WhatsApp queue (verified numbers only).</td></tr>
+      <tr><td><span class="k">Zoho-due dispatch</span></td><td>hourly</td><td>Creates + emails the deferred tax invoice.</td></tr>
+      <tr><td><span class="k">post-payment retry · credit cleanup</span></td><td>periodic</td><td>Retries failed fan-out channels; releases stale credit reservations.</td></tr>
+    </tbody>
+  </table>
+  <div class="tbl-note">Delivery days: 6DAYS = Mon–Sat (not Sun); 5DAYS = Mon–Fri; 7DAYS = every day.</div>
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Appendix C–D · Integrations &amp; cron</span></div>
+</section>
+
+<!-- ════════════════════════════ APP E — ENGINES ════════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">E</span> Appendix · Part 2</div>
+  <h2 class="h-section">Verification, pricing &amp; credit engines</h2>
+
+  <h3 class="h-sub">Verification</h3>
+  <ul class="clean small">
+    <li>WhatsApp codes are <strong>HMAC-SHA256</strong> hashed (<code>src/shared/otp-hash.ts</code>), bound to the phone; never stored in plaintext.</li>
+    <li><strong>Single-use</strong> via <code>consumed_at</code>; short TTL; resend cooldown + hourly send cap; the verify-attempt counter is atomic against brute force.</li>
+    <li>Email OTP is Supabase Auth (6-digit). The email fallback is honoured only when a real <code>send_failed_at</code> exists; the account is marked <code>whatsapp_verified=false</code>.</li>
+  </ul>
+
+  <h3 class="h-sub">Pricing</h3>
+  <ul class="clean small">
+    <li>Pure engine <code>contexts/subscriptions/domain/pricing.ts</code> (defaults) + DB overrides via <code>infra/supabase/pricing-repo.ts</code> (<code>plan_pricing</code>).</li>
+    <li>Override priority (Religious): <code>(week,count) → (6DAYS,count) → (week,flat) → (6DAYS,flat)</code>; Veg/NonVeg: <code>(week) → (6DAYS)</code>.</li>
+    <li>Per-meal is week-type-invariant for Veg/NonVeg; the Religious mix is a weighted average of veg/non-veg days.</li>
+    <li><code>priceBoundsFils()</code> derives the checkout floor/ceiling from the same engine — the server's tamper check moves in lockstep with admin price changes.</li>
+  </ul>
+
+  <h3 class="h-sub">Credits &amp; coupons</h3>
+  <ul class="clean small">
+    <li><code>contexts/dorm-wars/domain/coupon-synth.ts</code> builds <strong>one</strong> Stripe coupon: loyalty % first, then credit caps the remainder.</li>
+    <li>Credits are <strong>reserved</strong> (24h) before checkout so two tabs can't double-spend; FIFO consumption with a split-remainder row for leftovers.</li>
+    <li>The webhook is idempotent via <code>orders.webhook_completed_at</code> + per-channel sent markers; a full refund returns credits to the wallet.</li>
+  </ul>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Appendix E · The engines</span></div>
+</section>
+
+<!-- ════════════════════════════ APP F — GLOSSARY ═══════════════════════════ -->
+<section class="sheet">
+  <div class="eyebrow"><span class="num">F</span> Appendix · Part 2</div>
+  <h2 class="h-section">Glossary &amp; facts to confirm</h2>
+
+  <h3 class="h-sub">Glossary</h3>
+  <table>
+    <thead><tr><th style="width:26%">Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><strong>CID</strong></td><td>Customer ID — a short, dorm-based identifier used across labels, orders, and referrals.</td></tr>
+      <tr><td><strong>week_type</strong></td><td>5DAYS (Mon–Fri) or 6DAYS (Mon–Sat). Drives meal count and delivery days.</td></tr>
+      <tr><td><strong>veg_days</strong></td><td>For "Religious Preference": which weekdays are vegetarian.</td></tr>
+      <tr><td><strong>fils</strong></td><td>1/100 of an AED. Card amounts are handled in fils (AED × 100).</td></tr>
+      <tr><td><strong>AE time</strong></td><td>Asia/Dubai, UTC+4 year-round (no daylight saving).</td></tr>
+      <tr><td><strong>tick</strong></td><td>A scheduled job (cron) that advances state on a clock instead of on a user action.</td></tr>
+      <tr><td><strong>fan-out</strong></td><td>Sending several independent confirmations (WhatsApp/email/invoice) after one event.</td></tr>
+      <tr><td><strong>out_of_zone</strong></td><td>An account in an unlisted dorm; checkout blocked until coverage is confirmed.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h-sub">Facts to confirm with the owner before publishing</h3>
+  <ul class="clean small">
+    <li><strong>Public funnel gate:</strong> the marketing navbar currently points <em>Log In</em> / <em>Get Started</em> at <code>/maintenance</code>. Confirm whether the public sign-up door is intentionally closed or should point to <code>/login</code>.</li>
+    <li><strong>WhatsApp templates:</strong> confirm the live template names + locales are approved in Meta Business Manager (<code>en</code> / <code>en_US</code> / <code>en_AE</code>).</li>
+    <li><strong>OTP secret:</strong> confirm <code>OTP_PEPPER</code> is set in production (otherwise it falls back to the service-role key).</li>
+    <li><strong>Reward figures:</strong> exact Layer 1–4 amounts evolve; treat the numbers here as indicative and check current config before quoting externally.</li>
+  </ul>
+
+  <div class="callout design" style="margin-top:13px"><span class="ct">Maintaining this document</span> Source HTML: <code>docs/onboarding/onboarding-flow.html</code>. Regenerate the PDF with <code>node scripts/render-onboarding-pdf.mjs</code>. Brand values come from <code>src/app/globals.css</code> and <code>src/ui-system/tokens/*</code>.</div>
+
+  <div class="foot"><span class="mark"><svg class="hmk" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#1A3E4F" d="M13.7012 0.686523C15.1429-.0599994 16.8571-.0599995 18.2988.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012.686523Z"/><circle cx="25" cy="5" r="5" fill="#F57F20"/></svg> Dormers · Onboarding Reference</span><span>Appendix F · Glossary</span></div>
+</section>
+
+</body>
+</html>
