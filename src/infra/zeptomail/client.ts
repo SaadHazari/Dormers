@@ -85,7 +85,7 @@ const ZEPTO_BREAKER = { failureThreshold: 5, recoveryTimeMs: 60_000 };
 function zeptoFetch(url: string, init: RequestInit, opts: { timeoutMs: number }) {
   return getCircuitBreaker('zeptomail', ZEPTO_BREAKER).run(() => fetchWithTimeout(url, init, opts));
 }
-import { SUPPORT_EMAIL } from '@/shared/contacts';
+import { SUPPORT_EMAIL, whatsAppHref } from '@/shared/contacts';
 
 const VALID_ZEPTO_REGIONS = new Set(['com', 'eu', 'in', 'com.au', 'com.cn', 'sa'])
 const REGION = (() => {
@@ -468,4 +468,116 @@ export async function sendSubscriptionEndedEmail(input: {
       renew_link: input.renewLink,
     },
   });
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Wrap an admin-authored plain-text message in the approved Dormers email
+ * shell. Mirrors docs/email-templates/_brand-reference-start-day.html exactly:
+ * the #FF8C00 2px-bordered white card, Helvetica Neue, #757575 body, the
+ * dark-mode @media block, an optional green Care-Team box, the "Team Dormers"
+ * sign-off, and the "Made with ♥️ in Dubai" footer mantra.
+ *
+ * Plain-text → HTML: blank lines split paragraphs, single newlines become
+ * <br>, and the text is HTML-escaped so admin input can't inject markup.
+ */
+function buildAdminCustomerEmailHtml(firstName: string, bodyText: string, includeSupportBox: boolean): string {
+  const paragraphs = bodyText.trim().split(/\n{2,}/).map(p =>
+    `<p style="margin:0 0 18px;line-height:26px;"><span style="font-size:16px;">${escHtml(p).replace(/\n/g, '<br>')}</span></p>`,
+  ).join('');
+
+  const supportBox = includeSupportBox ? `
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-green" style="background-color:#f2faf3;border:1.2px solid #2e7d32;border-radius:8px;margin:30px 0 0;">
+                <tbody><tr><td style="padding:26px;">
+                  <p style="margin:0 0 8px;text-transform:uppercase;"><span style="color:rgb(46,125,50);"><b><span style="font-size:14px;">💬 Dormers Care Team</span></b></span></p>
+                  <p style="margin:0 0 16px;line-height:24px;"><span style="color:rgb(117,117,117);"><span style="font-size:15px;">Questions, or need a hand with anything? We're a tap away on WhatsApp, usually replying within an hour.</span></span></p>
+                  <a href="${whatsAppHref()}" style="background-color:#2e7d32;color:#ffffff;padding:12px 20px;text-decoration:none;font-size:14px;font-weight:700;border-radius:6px;display:inline-block;">Chat with Support</a>
+                </td></tr></tbody>
+              </table>` : '';
+
+  return `
+  <div>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .main-card { border: 2px solid #FF8C00 !important; background-color: #1a1a1a !important; }
+        .text-content { color: #fcfcfc !important; }
+        .sub-container-green { background-color: #0d1a10 !important; border: 1.2px solid #2e7d32 !important; }
+        .footer-text { color: #555555 !important; }
+      }
+    </style>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 10px;">
+      <tbody>
+        <tr>
+          <td align="center">
+            <table class="main-card" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border: 2px solid #FF8C00; border-radius: 13px; overflow: hidden;">
+              <tbody>
+                <tr>
+                  <td class="text-content" style="padding: 42px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #757575; font-weight: 500;">
+                    <p style="margin:0 0 10px;text-transform:uppercase;"><span style="color:rgb(255,140,0);"><b><span style="font-size:13px;letter-spacing:1px;">A note from Dormers</span></b></span></p>
+                    <h1 style="margin: 0 0 22px 0; font-size: 24px; line-height: 1.25; font-weight: 700; color: #757575;">Hi ${escHtml(firstName)},</h1>
+                    ${paragraphs}${supportBox}
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-top: 1px solid #eeeeee; padding-top: 26px; margin-top: 30px;">
+                      <tbody>
+                        <tr><td style="font-size: 14px; line-height: 22px; color: #757575;">Warmly,<br><span style="color:rgb(117,117,117);"><b><span style="font-size:16px;">Team Dormers</span></b></span></td></tr>
+                        <tr><td class="footer-text" align="center" style="padding-top: 42px; font-size: 12px; color: #b0b0b0; letter-spacing: 1px; text-transform: uppercase;">Made with ♥️ in Dubai</td></tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/**
+ * Admin-composed, on-brand message sent to a single customer from the admin
+ * panel. The admin writes the subject + body; the body is wrapped in the
+ * approved Dormers shell (buildAdminCustomerEmailHtml). Raw-HTML send through
+ * the same breaker-wrapped path as the other transactional emails.
+ *
+ * Throws on send failure — the caller (sendCustomerEmail action) records the
+ * failure and surfaces a friendly error, so the circuit-breaker open state
+ * degrades gracefully instead of crashing.
+ */
+export async function sendAdminCustomerEmail(input: {
+  toEmail: string;
+  firstName: string;
+  subject: string;
+  bodyText: string;
+  includeSupportBox?: boolean;
+}): Promise<void> {
+  const token = process.env.ZEPTOMAIL_API_TOKEN;
+  const fromAddress = process.env.ZEPTOMAIL_FROM_ADDRESS;
+  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers';
+  if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
+  if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
+
+  const html = buildAdminCustomerEmailHtml(input.firstName, input.bodyText, input.includeSupportBox ?? true);
+
+  const res = await zeptoFetch(RAW_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      from: { address: fromAddress, name: fromName },
+      to: [{ email_address: { address: input.toEmail, name: input.firstName } }],
+      subject: input.subject,
+      htmlbody: html,
+    }),
+  }, { timeoutMs: SEND_TIMEOUT_MS });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`ZeptoMail admin message ${res.status}: ${text || res.statusText}`);
+  }
 }

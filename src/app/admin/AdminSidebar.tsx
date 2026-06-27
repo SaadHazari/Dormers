@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
     LayoutDashboard, Truck, Activity, CalendarOff,
     Users, CreditCard, Coins,
-    Share2, Swords,
+    Share2, Swords, Star,
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
     Search, X, Tag, LogOut, UserCog, KeyRound, Building2,
@@ -57,6 +57,7 @@ const NAV_GROUPS = [
         items: [
             { label: 'Referrals',        href: '/admin/referrals',         icon: <Share2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, badgeKey: 'referrals' as const },
             { label: 'Dorm Wars',        href: '/admin/dorm-wars',         icon: <Swords size={ICON_SIZE} strokeWidth={ICON_STROKE} />, badgeKey: 'layer4' as const },
+            { label: 'Reviews & Feedback', href: '/admin/reviews',         icon: <Star size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {

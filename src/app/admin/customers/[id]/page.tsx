@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { getReviewsForCustomer, getAdminEmailsForCustomer } from '@/infra/supabase/reviews-repo'
 import { CustomerDetail } from './CustomerDetail'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     const { id } = await params
     const sb = createAdminSupabaseClient()
 
-    const [customerRes, subsRes, ordersRes, creditsRes, notifsRes, referralsAsInviterRes, referralsAsInviteeRes] = await Promise.all([
+    const [customerRes, subsRes, ordersRes, creditsRes, notifsRes, referralsAsInviterRes, referralsAsInviteeRes, reviews, adminEmails] = await Promise.all([
         sb.from('customers').select('*').eq('id', id).maybeSingle(),
         sb.from('subscriptions').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
         sb.from('orders').select('*').eq('customer_id', id).order('created_at', { ascending: false }).limit(50),
@@ -23,6 +24,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         sb.from('customer_notifications').select('*').eq('customer_id', id).order('created_at', { ascending: false }).limit(50),
         sb.from('referrals').select('*').eq('inviter_user_id', id).order('created_at', { ascending: false }),
         sb.from('referrals').select('*').eq('invitee_email', (await sb.from('customers').select('email').eq('id', id).maybeSingle()).data?.email ?? '___none___').order('created_at', { ascending: false }),
+        getReviewsForCustomer(id),
+        getAdminEmailsForCustomer(id),
     ])
 
     if (!customerRes.data) notFound()
@@ -54,6 +57,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             referralsAsInvitee={referralsAsInvitee}
             creditBalance={creditBalance}
             creditPending={creditPending}
+            reviews={reviews}
+            adminEmails={adminEmails}
         />
     )
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
     ArrowLeft, User, Mail, Phone, MapPin,
-    UtensilsCrossed, Calendar, Coins, Bell,
+    UtensilsCrossed, Calendar, Coins, Bell, Star,
 } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
 import { AdminBadge } from '../../_components/AdminBadge'
@@ -12,6 +12,9 @@ import { DayBadge } from '../../_components/DayBadge'
 import { AdminCard } from '../../_components/AdminCard'
 import { CustomerTimeline } from './CustomerTimeline'
 import { InterventionPanel } from './InterventionPanel'
+import { ReviewsTab } from './ReviewsTab'
+import { SendMessageButton } from './SendMessageModal'
+import type { CustomerReviews, AdminEmailLogEntry } from '@/infra/supabase/reviews-repo'
 
 interface Props {
     customer: Record<string, unknown>
@@ -23,14 +26,17 @@ interface Props {
     referralsAsInvitee: Array<Record<string, unknown>>
     creditBalance: number
     creditPending: number
+    reviews: CustomerReviews
+    adminEmails: AdminEmailLogEntry[]
 }
 
-type Tab = 'overview' | 'timeline' | 'subscriptions' | 'credits' | 'notifications'
+type Tab = 'overview' | 'timeline' | 'subscriptions' | 'credits' | 'notifications' | 'reviews'
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview',      label: 'Overview',       icon: <User size={14} /> },
     { key: 'timeline',      label: 'Timeline',       icon: <Calendar size={14} /> },
     { key: 'subscriptions', label: 'Subscriptions',  icon: <UtensilsCrossed size={14} /> },
+    { key: 'reviews',       label: 'Reviews',        icon: <Star size={14} /> },
     { key: 'credits',       label: 'Credits',        icon: <Coins size={14} /> },
     { key: 'notifications', label: 'Notifications',  icon: <Bell size={14} /> },
 ]
@@ -42,7 +48,7 @@ const SUB_STATUS_VARIANT: Record<string, 'active' | 'pending' | 'ended' | 'warni
 export function CustomerDetail({
     customer, subscriptions, orders, credits, notifications,
     referralsAsInviter, referralsAsInvitee,
-    creditBalance, creditPending,
+    creditBalance, creditPending, reviews, adminEmails,
 }: Props) {
     const { t } = useAdminTheme()
     const [tab, setTab] = useState<Tab>('overview')
@@ -91,11 +97,18 @@ export function CustomerDetail({
                     </div>
                 </div>
 
-                {/* Quick stats */}
-                <div className="flex gap-3">
-                    <MiniStat label="Balance" value={`AED ${creditBalance}`} accent={creditBalance > 0} />
-                    <MiniStat label="Pending" value={`AED ${creditPending}`} />
-                    <MiniStat label="Referrals" value={String(referralsAsInviter.length)} />
+                {/* Quick stats + send-message */}
+                <div className="flex flex-col items-stretch sm:items-end gap-3">
+                    <SendMessageButton
+                        customerId={customer.id as string}
+                        toEmail={(customer.email as string) || null}
+                        recentEmails={adminEmails}
+                    />
+                    <div className="flex gap-3">
+                        <MiniStat label="Balance" value={`AED ${creditBalance}`} accent={creditBalance > 0} />
+                        <MiniStat label="Pending" value={`AED ${creditPending}`} />
+                        <MiniStat label="Referrals" value={String(referralsAsInviter.length)} />
+                    </div>
                 </div>
             </div>
 
@@ -219,6 +232,8 @@ export function CustomerDetail({
                     ))}
                 </div>
             )}
+
+            {tab === 'reviews' && <ReviewsTab reviews={reviews} />}
 
             {tab === 'credits' && (
                 <div className="flex flex-col gap-2">
