@@ -9,6 +9,7 @@
 // our logs (digest) for ops triage.
 
 import { useEffect } from 'react'
+import { useSilentRetry } from '../_shared/useSilentRetry'
 
 export default function HubError({
   error,
@@ -17,11 +18,49 @@ export default function HubError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const retrying = useSilentRetry(reset)
+
   useEffect(() => {
     // Surface to whatever observability we have. console.error is the
     // current MVP; swap to a real logger when one ships.
     console.error('Dorm Wars hub error:', error)
   }, [error])
+
+  // Silent retry in progress (see useSilentRetry) — hold a quiet dark
+  // loading state instead of the dialog.
+  if (retrying) {
+    return (
+      <div
+        style={{
+          backgroundColor: '#091825',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          padding: '40px 24px',
+          fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif',
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: '3px solid rgba(245,127,32,0.20)',
+            borderTopColor: '#f57f20',
+            animation: 'dash-retry-spin 0.8s linear infinite',
+          }}
+        />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(237,232,218,0.65)' }}>
+          Taking a moment longer than usual
+        </div>
+        <style>{'@keyframes dash-retry-spin { to { transform: rotate(360deg) } }'}</style>
+      </div>
+    )
+  }
 
   return (
     <div

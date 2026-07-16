@@ -10,7 +10,8 @@
     "serve": "serve out",
     "export": "next export",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:cold-start": "node scripts/check-cold-start.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",
@@ -21,7 +22,6 @@
     "@mui/material": "^7.2.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@sentry/nextjs": "^10.54.0",
-    "@sentry/profiling-node": "^10.54.0",
     "@stripe/stripe-js": "^7.4.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",

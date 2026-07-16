@@ -2,6 +2,14 @@
   command = "npm run build"
   publish = ".next"
 
+# Keep one Next server instance warm — see netlify/functions/keep-warm.mjs.
+# Cold instances pay the full module-init cost before streaming; in July
+# 2026 that cost (inflated by Sentry profiling options, since removed)
+# crossed the streaming cutoff and truncated dashboard navigations into the
+# "Try again" error dialog.
+[functions."keep-warm"]
+  schedule = "*/5 * * * *"
+
 [build.environment]
   NODE_VERSION = "20"
   # Netlify's secret scanner flags any env-var value found anywhere in the

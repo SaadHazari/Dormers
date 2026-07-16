@@ -15,7 +15,18 @@
  */
 
 import * as Sentry from '@sentry/nextjs'
-import { nodeProfilingIntegration } from '@sentry/profiling-node'
+
+// ── COLD-START BUDGET — read before adding anything here ────────────────
+// This module runs during Lambda INIT on every cold start, on a fraction
+// of a vCPU. In July 2026 the combination of nodeProfilingIntegration()
+// (native V8 profiler) + includeLocalVariables (Node inspector session)
+// pushed cold init to ~20s; with render on top, requests crossed Netlify's
+// streaming cutoff and every customer landing on a cold instance got a
+// truncated RSC stream → the dashboard "Try again" dialog. Those two
+// options are banned from this file. Anything added here must be measured
+// against production first:
+//   npm run check:cold-start   (see scripts/check-cold-start.mjs)
+// ─────────────────────────────────────────────────────────────────────────
 
 if (process.env.SENTRY_DSN) {
   const isDev = process.env.NODE_ENV !== 'production'
@@ -25,22 +36,11 @@ if (process.env.SENTRY_DSN) {
     environment: process.env.CONTEXT ?? process.env.NODE_ENV ?? 'unknown',
 
     // Drop error events in development — HMR / Turbopack produces transient
-    // ReferenceErrors that aren't real bugs. Traces + profiles stay on.
+    // ReferenceErrors that aren't real bugs. Traces stay on.
     beforeSend: isDev ? () => null : undefined,
 
     // 100% in dev, 10% in prod for cost control.
     tracesSampleRate: isDev ? 1.0 : 0.1,
-
-    // Continuous profiling — captures CPU samples for traced transactions.
-    // profileLifecycle 'trace' ties profile collection to active transactions
-    // so we don't profile idle time. Sample rate matches tracing rate.
-    profileSessionSampleRate: isDev ? 1.0 : 0.1,
-    profileLifecycle: 'trace',
-
-    // Attach local variable values to every stack frame in errors. Makes
-    // "why was orderId undefined here?" answerable from the Sentry UI
-    // without needing to reproduce locally.
-    includeLocalVariables: true,
 
     // Sentry Logs product — server-side logger.* calls show up in the
     // Logs tab in addition to Netlify's log stream.
@@ -52,8 +52,6 @@ if (process.env.SENTRY_DSN) {
     sendDefaultPii: true,
 
     integrations: [
-      // Node V8 CPU profiler — uploads sampled profiles for slow requests.
-      nodeProfilingIntegration(),
       // Vercel AI SDK tracing — the chatbot uses `ai` + `@ai-sdk/google`,
       // so every streamText / generateText call becomes a trace span with
       // model name, prompt tokens, completion tokens, and latency.

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { whatsAppHref } from '@/shared/contacts'
+import { useSilentRetry } from './_shared/useSilentRetry'
 
 export default function DashboardError({
   error,
@@ -10,6 +11,8 @@ export default function DashboardError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const retrying = useSilentRetry(reset)
+
   useEffect(() => {
     console.error('Dashboard error:', error)
     // DEV: write error to a file so CLI can read it
@@ -27,6 +30,42 @@ export default function DashboardError({
       }).catch(() => {})
     }
   }, [error])
+
+  // Silent retry in progress — hold a quiet loading state instead of the
+  // dialog. If the retry fails, the boundary remounts, shouldAutoRetry()
+  // is false (timestamp is fresh), and the dialog below renders.
+  if (retrying) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          minHeight: '60vh',
+          padding: '40px 24px',
+          fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif',
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: '3px solid rgba(245,127,32,0.20)',
+            borderTopColor: '#f57f20',
+            animation: 'dash-retry-spin 0.8s linear infinite',
+          }}
+        />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(26,26,26,0.55)' }}>
+          Taking a moment longer than usual
+        </div>
+        <style>{'@keyframes dash-retry-spin { to { transform: rotate(360deg) } }'}</style>
+      </div>
+    )
+  }
 
   return (
     <div
