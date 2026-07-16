@@ -35,15 +35,54 @@ export async function notifyAdmin(
     : sanitised
   try {
     const supabase = createAdminSupabaseClient()
-    const { error } = await supabase.rpc('send_admin_whatsapp_alert', {
+    const { data: requestId, error } = await supabase.rpc('send_admin_whatsapp_alert', {
       p_message: trimmed,
       p_button_text: buttonText ?? 'unknown',
     })
     if (error) {
       await alertBackup(trimmed, `RPC error: ${error.message}`)
+      return
     }
+    await verifyMetaAccepted(supabase, requestId, trimmed)
   } catch (err) {
     await alertBackup(trimmed, err instanceof Error ? err.message : String(err))
+  }
+}
+
+// The RPC queues the Meta call through pg_net and returns before Meta answers,
+// so a rejection (e.g. 132018 template-contract break, 2026-07-16) would never
+// surface on any channel. Poll the response row and fall back to email when
+// Meta says no. A missing row after the last poll is left alone — the request
+// may still be in flight, and a false alarm here is worse than a late one.
+async function verifyMetaAccepted(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  requestId: unknown,
+  message: string,
+): Promise<void> {
+  if (typeof requestId !== 'number') return
+  for (const delayMs of [3000, 4000]) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    const { data, error } = await supabase.rpc('get_admin_alert_result', {
+      p_request_id: requestId,
+    })
+    if (error) return // checker failing is not evidence the alert failed
+    const result = data as {
+      found: boolean
+      status_code?: number | null
+      error_msg?: string | null
+      body?: string | null
+    } | null
+    if (!result?.found) continue
+    const rejected =
+      Boolean(result.error_msg) ||
+      (typeof result.status_code === 'number' && result.status_code >= 400)
+    if (rejected) {
+      await alertBackup(
+        message,
+        `Meta rejected the WhatsApp alert: ${result.error_msg ?? `HTTP ${result.status_code}`} · ${(result.body ?? '').slice(0, 300)}`,
+      )
+    }
+    return
   }
 }
 

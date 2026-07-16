@@ -17,8 +17,9 @@ import { timingSafeCompare } from '@/shared/crypto'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 
 // Phase 8 (L7): bound wall-clock so the failsafe fails fast in our control
-// instead of being truncated at the platform's ~10s default.
-export const maxDuration = 15
+// instead of being truncated at the platform's ~10s default. 26 covers the
+// awaited alert send + Meta-acceptance poll on top of the dorm-count query.
+export const maxDuration = 26
 
 export async function POST(req: Request) {
   // ── Auth guard ──────────────────────────────────────────────────────
@@ -102,7 +103,10 @@ export async function POST(req: Request) {
   // ── Send the alert ──────────────────────────────────────────────────
   const pendingList = pendingDorms.join(', ')
   const quickLink = 'https://dormers.ae/admin/deliveries'
-  void notifyAdmin(
+  // Awaited, not fire-and-forget: this is a cron route with no caller to
+  // protect, and a voided promise gets frozen with the lambda after the
+  // response returns (the 2026-07-13 phantom 15s RPC timeout).
+  await notifyAdmin(
     `8PM FAILSAFE: Unverified deliveries for ${todayIso}. ` +
       `Pending dorms: ${pendingList}. ` +
       `Verify manually: ${quickLink}`,
