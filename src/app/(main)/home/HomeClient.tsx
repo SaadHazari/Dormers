@@ -417,11 +417,15 @@ export default function Home({ menuData }: { menuData?: Dish[] }) {
             </div>
           </div>
 
-          {/* ── Gap — rounded bottom corners closing the FAQ card ── */}
+          {/* ── Gap below the FAQ card. Light stays cream here — the beige
+              close now eases in via the gradient tail around the comparison
+              section, not a hard band. Dark keeps its navy-on-navy close.
+              Collapsed on lg: at desktop width the compare trigger otherwise
+              floats in a dead band between "View All" and the seam. ── */}
           <div
+            className="h-11 lg:h-0"
             style={{
-              height: "44px",
-              backgroundColor: theme === "light" ? "#D5CFBF" : "#22394A",
+              backgroundColor: theme === "light" ? "#EEE9DA" : "#22394A",
               borderBottomLeftRadius: "60px",
               borderBottomRightRadius: "60px",
             }}
@@ -430,8 +434,21 @@ export default function Home({ menuData }: { menuData?: Dish[] }) {
       </section>
 
       {/* Meal-sourcing comparison — placed after FAQ to re-engage at the
-          lowest-attention point. Renders its own <section id="compare">. */}
-      <MealSourcingComparison />
+          lowest-attention point. Renders its own <section id="compare">.
+          Light mode: this is the tail of .main_content, so ease the cream
+          into #D5CFBF (last 15px solid) — the layout's 46px bottom clip then
+          rounds beige against the same-cream grid section instead of showing
+          a hard divide. Dark mode inherits the navy root untouched. */}
+      <div
+        style={{
+          backgroundImage:
+            theme === "light"
+              ? "linear-gradient(to bottom, rgba(213,207,191,0) 0%, #D5CFBF calc(100% - 15px), #D5CFBF 100%)"
+              : undefined,
+        }}
+      >
+        <MealSourcingComparison />
+      </div>
 
       <style jsx global>{`
         @keyframes marquee {
