@@ -2,10 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Truck, Pause, SkipForward, Leaf, Drumstick, Building2, UtensilsCrossed } from 'lucide-react'
+import { Truck, Pause, SkipForward, Leaf, Drumstick, Building2, UtensilsCrossed, Send, X, CheckCircle2 } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
+import { AdminButton } from '../_components/AdminButton'
+import { AdminModal } from '../_components/AdminModal'
 import { DayBadge } from '../_components/DayBadge'
+import { sendDeliveryMessageFailsafe, type DeliveryFailsafeResult } from './actions'
 
 interface Sub {
     id: string
@@ -63,6 +66,7 @@ export function DeliveriesClient({ subscriptions }: Props) {
     const router = useRouter()
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
     const [groupBy, setGroupBy] = useState<GroupBy>('dorm')
+    const [showSendModal, setShowSendModal] = useState(false)
 
     const filtered = statusFilter === 'all' ? subscriptions : subscriptions.filter(s => s.status === statusFilter)
 
@@ -83,10 +87,23 @@ export function DeliveriesClient({ subscriptions }: Props) {
 
     return (
         <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Delivery Queue</h1>
-            <p className={`text-[13px] font-medium mb-4 ${t.muted}`}>
-                {subscriptions.length} active subscriptions across {new Set(subscriptions.map(s => s.dorm_name).filter(Boolean)).size} dorms
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div>
+                    <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Delivery Queue</h1>
+                    <p className={`text-[13px] font-medium ${t.muted}`}>
+                        {subscriptions.length} active subscriptions across {new Set(subscriptions.map(s => s.dorm_name).filter(Boolean)).size} dorms
+                    </p>
+                </div>
+                <AdminButton
+                    variant="ghost"
+                    icon={<Send size={13} strokeWidth={2.2} />}
+                    onClick={() => setShowSendModal(true)}
+                >
+                    Send Delivery Message
+                </AdminButton>
+            </div>
+
+            {showSendModal && <SendDeliveryModal onClose={() => setShowSendModal(false)} />}
 
             {/* Summary strip */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
@@ -147,6 +164,112 @@ export function DeliveriesClient({ subscriptions }: Props) {
                 <div className={`text-center py-12 text-sm font-semibold ${t.faint}`}>No subscriptions match this filter</div>
             )}
         </div>
+    )
+}
+
+// Failsafe confirm + result dialog. The dedup lives server-side, so the
+// button is safe to press even when some dorms already got their message —
+// only customers who never received today's delivery WhatsApp are queued.
+function SendDeliveryModal({ onClose }: { onClose: () => void }) {
+    const { t } = useAdminTheme()
+    const [pending, setPending] = useState(false)
+    const [result, setResult] = useState<DeliveryFailsafeResult | null>(null)
+
+    const close = () => { if (!pending) onClose() }
+
+    const handleSend = async () => {
+        setPending(true)
+        try {
+            setResult(await sendDeliveryMessageFailsafe())
+        } catch {
+            setResult({ ok: false, message: 'Something went wrong, nothing was sent. Try again in a minute.' })
+        } finally {
+            setPending(false)
+        }
+    }
+
+    return (
+        <AdminModal label="Send delivery message" maxW="max-w-[440px]" onBackdrop={close}>
+            {/* Header */}
+            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${t.border}`}>
+                <div>
+                    <div className={`text-[15px] font-black ${t.heading}`}>Send Delivery Message</div>
+                    <div className={`text-[11px] font-medium mt-0.5 ${t.muted}`}>
+                        Manual backup for the delivery WhatsApp
+                    </div>
+                </div>
+                <button type="button" onClick={close} className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center ${t.muted} cursor-pointer`}>
+                    <X size={16} strokeWidth={2.2} />
+                </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4">
+                {result === null ? (
+                    <>
+                        <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
+                            Use this if the rider flow failed and customers were never told their food arrived.
+                            It sends today&rsquo;s delivery message to every active customer.
+                        </p>
+                        <ul className={`mt-3 flex flex-col gap-1.5 text-[12px] font-medium ${t.muted}`}>
+                            <li className="flex gap-2">
+                                <span className="text-[#f57f20] shrink-0">•</span>
+                                Anyone who already got today&rsquo;s message is left out, so nobody gets it twice.
+                            </li>
+                            <li className="flex gap-2">
+                                <span className="text-[#f57f20] shrink-0">•</span>
+                                Customers who are paused or have skipped today are left out.
+                            </li>
+                        </ul>
+                    </>
+                ) : result.ok ? (
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={18} strokeWidth={2.2} className="text-emerald-500 shrink-0" />
+                            <span className={`text-[14px] font-black ${t.heading}`}>
+                                {result.queued === 0
+                                    ? 'Nothing to send'
+                                    : `Message queued for ${result.queued} customer${result.queued === 1 ? '' : 's'}`}
+                            </span>
+                        </div>
+                        <div className={`mt-2 flex flex-col gap-1 text-[12px] font-medium ${t.muted}`}>
+                            {result.queued === 0 && (
+                                <span>Everyone eligible already got today&rsquo;s message.</span>
+                            )}
+                            {result.queued > 0 && (
+                                <span>WhatsApp delivery starts within a few seconds.</span>
+                            )}
+                            {result.alreadyNotified > 0 && (
+                                <span>{result.alreadyNotified} already got today&rsquo;s message.</span>
+                            )}
+                            {result.skipped > 0 && (
+                                <span>{result.skipped} paused or skipped today.</span>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <p className={`text-[13px] font-bold ${t.danger}`}>{result.message}</p>
+                )}
+            </div>
+
+            {/* Footer */}
+            <div className={`flex justify-end gap-3 px-5 py-4 border-t ${t.border}`}>
+                {result === null ? (
+                    <>
+                        <AdminButton variant="ghost" type="button" onClick={close} disabled={pending}>Cancel</AdminButton>
+                        <AdminButton
+                            onClick={handleSend}
+                            loading={pending}
+                            icon={<Send size={14} strokeWidth={2.2} />}
+                        >
+                            Send Now
+                        </AdminButton>
+                    </>
+                ) : (
+                    <AdminButton variant="ghost" type="button" onClick={onClose}>Done</AdminButton>
+                )}
+            </div>
+        </AdminModal>
     )
 }
 

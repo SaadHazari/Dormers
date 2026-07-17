@@ -18,6 +18,29 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 
+type EligibilitySub = {
+  customer_id: string
+  week_type: string | null
+  skipped_dates: string[] | null
+  paused_dates: string[] | null
+}
+
+/**
+ * Shared eligibility filter for delivery notifications — mirrors getDormCounts:
+ * 5DAYS plans skip Saturday; skipped_dates / paused_dates exclude the date.
+ * Both the per-dorm rider fanout and the admin failsafe MUST agree on this.
+ */
+function isEligibleForDelivery(
+  sub: EligibilitySub,
+  deliveryDateIso: string,
+  isSaturday: boolean,
+): boolean {
+  if (sub.week_type === '5DAYS' && isSaturday) return false
+  if ((sub.skipped_dates ?? []).includes(deliveryDateIso)) return false
+  if ((sub.paused_dates ?? []).includes(deliveryDateIso)) return false
+  return true
+}
+
 /**
  * Queue a delivery_confirmed WhatsApp for every active, non-skipped,
  * non-paused subscriber in the given dorm.
@@ -56,29 +79,11 @@ export async function queueDeliveryConfirmedNotifications(
   const eligibleCustomerIds = new Set<string>()
   let skipped = 0
 
-  for (const sub of (subsRes.data ?? []) as Array<{
-    id: string
-    customer_id: string
-    week_type: string | null
-    skipped_dates: string[] | null
-    paused_dates: string[] | null
-  }>) {
-    // 5DAYS plans do not deliver on Saturday
-    if (sub.week_type === '5DAYS' && isSaturday) {
+  for (const sub of (subsRes.data ?? []) as Array<EligibilitySub & { id: string }>) {
+    if (!isEligibleForDelivery(sub, deliveryDateIso, isSaturday)) {
       skipped++
       continue
     }
-    // Skip if today is in skipped_dates
-    if ((sub.skipped_dates ?? []).includes(deliveryDateIso)) {
-      skipped++
-      continue
-    }
-    // Skip if today is in paused_dates
-    if ((sub.paused_dates ?? []).includes(deliveryDateIso)) {
-      skipped++
-      continue
-    }
-
     eligibleCustomerIds.add(sub.customer_id)
   }
 
@@ -103,4 +108,116 @@ export async function queueDeliveryConfirmedNotifications(
   }
 
   return { queued, skipped }
+}
+
+/**
+ * Universal admin failsafe — queue delivery_confirmed for EVERY eligible
+ * subscriber across ALL dorms, skipping anyone who already has a
+ * delivery_confirmed row for today. The last resort when the rider flow,
+ * the owner shortcut, and the per-dorm fanout all failed.
+ *
+ * Differences from the per-dorm fanout above:
+ *   • Not scoped to one dorm — sweeps every active subscriber.
+ *   • Dedupes per customer against today's queued/sent rows, so pressing
+ *     the button after a partial fanout only fills the gap (one delivery
+ *     per dorm per day is the system invariant — trip_number is always 1).
+ *   • Bulk INSERT + a single dispatcher kick instead of N round-trips, so
+ *     the admin action stays well inside the platform timeout.
+ *
+ * The live delivery_confirmed template takes no variables (verified against
+ * the prod dispatcher), so the payload is audit-only: `source` marks these
+ * rows as failsafe sends, dorm_name is recorded when known.
+ *
+ * Throws on any query/insert failure — the admin is watching and needs the
+ * real error, not a silent zero.
+ */
+export async function queueDeliveryConfirmedFailsafe(
+  deliveryDateIso: string,
+  isSaturday: boolean,
+): Promise<{ queued: number; alreadyNotified: number; skipped: number }> {
+  const sb = createAdminSupabaseClient()
+
+  const subsRes = await sb
+    .from('subscriptions')
+    .select('customer_id, week_type, skipped_dates, paused_dates')
+    .in('status', ['Active', 'Paused', 'Skipped'])
+  if (subsRes.error) {
+    throw new Error(`failsafe: subscriptions query failed: ${subsRes.error.message}`)
+  }
+
+  const eligibleCustomerIds = new Set<string>()
+  let skipped = 0
+  for (const sub of (subsRes.data ?? []) as EligibilitySub[]) {
+    if (!isEligibleForDelivery(sub, deliveryDateIso, isSaturday)) {
+      skipped++
+      continue
+    }
+    eligibleCustomerIds.add(sub.customer_id)
+  }
+  if (eligibleCustomerIds.size === 0) return { queued: 0, alreadyNotified: 0, skipped }
+
+  const customerIds = [...eligibleCustomerIds]
+
+  // Dedup window: everything queued since AE midnight of the delivery date.
+  // scheduled_for is stored in UTC; AE midnight = 20:00 UTC the day before.
+  // Pending rows count too — the cron will send them within 5 minutes, so
+  // re-queuing would double-message.
+  const aeMidnightUtcIso = new Date(`${deliveryDateIso}T00:00:00+04:00`).toISOString()
+  const notifiedRes = await sb
+    .from('customer_notifications')
+    .select('customer_id')
+    .eq('kind', 'delivery_confirmed')
+    .gte('scheduled_for', aeMidnightUtcIso)
+    .in('customer_id', customerIds)
+  if (notifiedRes.error) {
+    throw new Error(`failsafe: dedup query failed: ${notifiedRes.error.message}`)
+  }
+  const alreadyNotifiedIds = new Set(
+    (notifiedRes.data ?? []).map((r) => (r as { customer_id: string }).customer_id),
+  )
+
+  const customersRes = await sb
+    .from('customers')
+    .select('id, dorm_name')
+    .in('id', customerIds)
+  if (customersRes.error) {
+    throw new Error(`failsafe: customers query failed: ${customersRes.error.message}`)
+  }
+  const dormByCustomer = new Map(
+    ((customersRes.data ?? []) as Array<{ id: string; dorm_name: string | null }>).map(
+      (c) => [c.id, c.dorm_name],
+    ),
+  )
+
+  const nowIso = new Date().toISOString()
+  const rows = customerIds
+    .filter((id) => !alreadyNotifiedIds.has(id))
+    .map((id) => {
+      const dorm = dormByCustomer.get(id)
+      return {
+        customer_id: id,
+        kind: 'delivery_confirmed',
+        scheduled_for: nowIso,
+        payload: { source: 'admin_failsafe', ...(dorm ? { dorm_name: dorm } : {}) },
+      }
+    })
+
+  if (rows.length === 0) {
+    return { queued: 0, alreadyNotified: alreadyNotifiedIds.size, skipped }
+  }
+
+  const { error: insertErr } = await sb.from('customer_notifications').insert(rows)
+  if (insertErr) {
+    throw new Error(`failsafe: insert failed (nothing queued): ${insertErr.message}`)
+  }
+
+  // One kick for the whole batch. Failure is fine — rows are durably queued
+  // and the */5 min cron sweeps them.
+  try {
+    await sb.rpc('dispatch_customer_notifications_tick')
+  } catch (err) {
+    console.error('[delivery-failsafe] on-demand dispatch failed (cron will retry):', err)
+  }
+
+  return { queued: rows.length, alreadyNotified: alreadyNotifiedIds.size, skipped }
 }
