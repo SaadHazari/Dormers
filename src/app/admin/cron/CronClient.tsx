@@ -1,21 +1,17 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
+import {
+    DOT_COLORS, HEALTH_WORDS, formatAge, getJobHealth, getJobInfo, groupJobs,
+    healthTextClass, isUnhealthy,
+    type CronJob, type JobHealth,
+} from '../_components/cron-registry'
 
 import { fetchJobHistory } from './actions'
-
-interface CronJob {
-    jobname: string
-    schedule: string
-    active: boolean
-    last_run: string | null
-    last_end: string | null
-    last_status: string | null
-    last_duration_ms: number | null
-    last_message: string | null
-}
 
 interface RunDetail {
     runid: number
@@ -26,65 +22,72 @@ interface RunDetail {
     message: string | null
 }
 
-const FRIENDLY: Record<string, string> = {
-    subscription_status_tick:                    'Subscription Status Tick',
-    subscription_delivery_tick:                  'Delivery Tick',
-    subscription_pause_tick:                     'Pause Tick',
-    dispatch_customer_notifications_tick:        'Notification Dispatch',
-    dispatch_start_day_emails_9am_ae:            'Start-Day Emails (9 AM)',
-    retry_post_payment_fanout_hourly:            'Payment Retry (Hourly)',
-    dispatch_renew_nudges_18_ae:                 'Renew Nudge (6 PM)',
-    dispatch_zoho_due_every_minute:              'Zoho Invoice Dispatch',
-    notify_stale_fraud_queue_tick:               'Stale Fraud Alert',
-    alert_failed_notifications_30min:            'Failed Notification Alert',
-    detect_orphan_subscriptions_30min:           'Orphan Sub Detection',
-    reconcile_notification_meta_responses_5min:  'Meta Status Reconcile',
-    review_credit_cleanup_tick:                  'Credit Cleanup',
-    cleanup_cron_history:                        'Cron History Cleanup',
-    cleanup_expired_otps:                        'OTP Cleanup',
-    cleanup_old_notifications:                   'Notification Cleanup',
-}
-
-function healthColor(job: CronJob): 'green' | 'amber' | 'red' | 'gray' {
-    if (!job.active) return 'gray'
-    if (!job.last_run) return 'gray'
-    if (job.last_status === 'failed') return 'red'
-    return 'green'
-}
-
-const DOT_CLS = {
-    green: 'bg-emerald-500',
-    amber: 'bg-amber-400',
-    red:   'bg-red-500 animate-pulse',
-    gray:  'bg-gray-500/40',
-}
-
 export function CronClient({ jobs }: { jobs: Array<Record<string, unknown>> }) {
     const { t } = useAdminTheme()
     const typedJobs = jobs as unknown as CronJob[]
+    const focusJob = useSearchParams().get('job')
+
+    const counts: Partial<Record<JobHealth, number>> = {}
+    for (const job of typedJobs) {
+        const health = getJobHealth(job)
+        counts[health] = (counts[health] ?? 0) + 1
+    }
 
     return (
         <div>
             <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Cron Health</h1>
             <p className={`text-[13px] font-medium mb-5 ${t.muted}`}>
-                {typedJobs.length} jobs · {typedJobs.filter(j => j.last_status === 'succeeded').length} healthy · {typedJobs.filter(j => j.last_status === 'failed').length} failed
+                {typedJobs.length} jobs
+                {(['ok', 'overdue', 'failed', 'stopped', 'off', 'never'] as JobHealth[]).map(health => (
+                    counts[health] ? (
+                        <span key={health}>
+                            {' · '}
+                            <span className={healthTextClass(t, health)}>
+                                {counts[health]} {HEALTH_WORDS[health].toLowerCase()}
+                            </span>
+                        </span>
+                    ) : null
+                ))}
             </p>
 
-            <div className="flex flex-col gap-3">
-                {typedJobs.map(job => (
-                    <JobCard key={job.jobname} job={job} />
+            <div className="flex flex-col gap-5">
+                {groupJobs(typedJobs).map(section => (
+                    <div key={section.group}>
+                        <div className={`text-[10px] font-black tracking-[0.12em] uppercase mb-2 ${t.faint}`}>
+                            {section.label}
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {section.jobs.map(job => (
+                                <JobCard key={job.jobname} job={job} focus={job.jobname === focusJob} />
+                            ))}
+                        </div>
+                    </div>
                 ))}
             </div>
         </div>
     )
 }
 
-function JobCard({ job }: { job: CronJob }) {
+function JobCard({ job, focus }: { job: CronJob; focus: boolean }) {
     const { t } = useAdminTheme()
-    const health = healthColor(job)
-    const [expanded, setExpanded] = useState(false)
+    const health = getJobHealth(job)
+    const info = getJobInfo(job.jobname)
+    const [expanded, setExpanded] = useState(focus)
     const [history, setHistory] = useState<RunDetail[] | null>(null)
     const [loading, startTransition] = useTransition()
+    const cardRef = useRef<HTMLDivElement>(null)
+    const didFocus = useRef(false)
+
+    useEffect(() => {
+        if (focus && !didFocus.current) {
+            didFocus.current = true
+            cardRef.current?.scrollIntoView({ block: 'center' })
+            startTransition(async () => {
+                const runs = await fetchJobHistory(job.jobname)
+                setHistory(runs)
+            })
+        }
+    }, [focus, job.jobname, startTransition])
 
     function toggleHistory() {
         if (expanded) {
@@ -101,15 +104,15 @@ function JobCard({ job }: { job: CronJob }) {
     }
 
     return (
-        <div className={`${t.card} rounded-xl overflow-hidden`}>
+        <div ref={cardRef} className={`${t.card} rounded-xl overflow-hidden`}>
             <div
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer"
                 onClick={toggleHistory}
             >
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT_CLS[health]}`} />
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT_COLORS[health]}`} />
                 <div className="flex-1 min-w-0">
                     <div className={`text-[13px] font-bold ${t.heading}`}>
-                        {FRIENDLY[job.jobname] ?? job.jobname}
+                        {info.label}
                     </div>
                     <div className={`text-[10px] font-semibold tabular-nums ${t.faint}`}>
                         {job.schedule}
@@ -117,6 +120,11 @@ function JobCard({ job }: { job: CronJob }) {
                         {job.last_duration_ms != null && ` · ${Math.round(job.last_duration_ms)}ms`}
                     </div>
                 </div>
+                {health !== 'ok' && (
+                    <span className={`text-[10px] font-bold shrink-0 ${healthTextClass(t, health)}`}>
+                        {HEALTH_WORDS[health]}
+                    </span>
+                )}
                 <span className={t.faint}>
                     {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </span>
@@ -124,6 +132,31 @@ function JobCard({ job }: { job: CronJob }) {
 
             {expanded && (
                 <div className={`px-4 pb-3 border-t ${t.border}`}>
+                    {/* What this job does, in customer terms */}
+                    <div className={`mt-2 text-[11px] font-medium ${t.muted}`}>
+                        {info.does}
+                    </div>
+
+                    {/* Who is affected right now + where to act */}
+                    {isUnhealthy(health) && (
+                        <div className={`mt-2 px-3 py-2 rounded-lg border text-[11px] font-semibold ${
+                            health === 'overdue'
+                                ? `${t.warningBg} ${t.warning}`
+                                : `${t.dangerBg} ${t.danger}`
+                        }`}>
+                            {info.impact}.
+                            {info.actionHref && (
+                                <Link
+                                    href={info.actionHref}
+                                    className="underline font-bold ml-2"
+                                    onClick={e => e.stopPropagation()}
+                                >
+                                    {info.actionLabel ?? 'Open'}
+                                </Link>
+                            )}
+                        </div>
+                    )}
+
                     {/* Last message */}
                     {job.last_message && (
                         <div className={`mt-2 px-3 py-2 rounded-lg text-[11px] font-medium whitespace-pre-wrap ${
@@ -165,16 +198,6 @@ function JobCard({ job }: { job: CronJob }) {
             )}
         </div>
     )
-}
-
-function formatAge(iso: string): string {
-    const ms = Date.now() - new Date(iso).getTime()
-    const mins = Math.round(ms / 60_000)
-    if (mins < 1) return 'just now'
-    if (mins < 60) return `${mins}m ago`
-    const hours = Math.round(mins / 60)
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.round(hours / 24)}d ago`
 }
 
 function formatTimestamp(iso: string): string {
