@@ -38,16 +38,17 @@ const pretty = new Date(END_DATE_ISO + 'T00:00:00Z').toLocaleDateString(
   { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' },
 )
 
-// Mustache treats any non-empty string as truthy in section blocks, so empty
-// strings (not "0") hide the recap bullets. Mirror the helper's coercion.
+// ZeptoMail's Mustache engine treats empty strings as TRUTHY (Mustache
+// spec), so hiding a recap bullet requires OMITTING the merge key entirely.
+// Mirror the helper's coercion in src/infra/zeptomail/client.ts.
 const mergeInfo = {
   first_name:      FIRST_NAME,
   plan_name:       PLAN_NAME,
   end_date:        pretty,
   meals_delivered: MEALS_DELIVERED,
   evenings:        EVENINGS,
-  aed_saved:       AED_SAVED == null ? '' : String(AED_SAVED),
-  aed_earned:      AED_EARNED > 0 ? String(AED_EARNED) : '',
+  ...(AED_SAVED == null ? {} : { aed_saved: String(AED_SAVED) }),
+  ...(AED_EARNED > 0 ? { aed_earned: String(AED_EARNED) } : {}),
   renew_link:      RENEW_LINK,
 }
 

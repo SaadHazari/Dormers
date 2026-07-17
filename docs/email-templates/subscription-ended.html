@@ -1,19 +1,18 @@
 <!--
-  ZeptoMail template — renew-nudge
+  ZeptoMail template — subscription-ended
 
-  Paste this HTML into ZeptoMail → Email Templates → New Template → name
-  it `renew-nudge`. Save → copy the Template Key into the
-  ZEPTOMAIL_TPL_RENEW_NUDGE env var.
+  Paste this HTML into ZeptoMail → Email Templates → open the existing
+  `subscription-ended` template (or create it) and replace the body with
+  this. The Template Key goes in the ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED
+  env var.
 
-  Structure mirrors _brand-reference-start-day.html (the source of truth
-  for Dormers email brand language). When in doubt, open that reference
-  and copy the pattern exactly.
+  Structure mirrors renew-nudge.html / _brand-reference-start-day.html
+  (the source of truth for Dormers email brand language).
 
-  Merge variables (must match sendRenewNudgeEmail in
+  Merge variables (must match sendSubscriptionEndedEmail in
   src/infra/zeptomail/client.ts):
     {{first_name}}
     {{plan_name}}
-    {{end_date}}             — pre-formatted "Fri 5 Jun"
     {{meals_delivered}}      — integer string "21"
     {{evenings}}             — integer string "21" or "11"
     {{aed_saved}}            — integer string "184"; key OMITTED when no benchmark
@@ -28,11 +27,11 @@
                                        italic "earn rewards next cycle"
                                        tip box below the recap).
   ZeptoMail's Mustache engine treats EMPTY STRINGS AS TRUTHY (per the
-  Mustache spec), so the sendRenewNudgeEmail helper OMITS the aed_saved /
-  aed_earned merge keys entirely when there is nothing to show — that is
-  the only way the sections collapse. NEVER remove these wrappers when
-  editing the live template in ZeptoMail, or the sentence renders with a
-  blank where the number should be.
+  Mustache spec), so the sendSubscriptionEndedEmail helper OMITS the
+  aed_saved / aed_earned merge keys entirely when there is nothing to
+  show — that is the only way the sections collapse. NEVER remove these
+  wrappers when editing the live template in ZeptoMail, or the sentence
+  renders with a blank where the number should be.
 -->
 <html>
 
@@ -87,9 +86,9 @@
                     style="padding: 42px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #757575; font-weight: 500;">
                     <h1
                       style="margin: 0 0 26px 0; font-size: 26px; line-height: 1.2; font-weight: 700; color: #757575;">
-                      3 days to go, {{first_name}}. 🍽️<br></h1>
+                      That&rsquo;s a wrap, {{first_name}}. 🍽️<br></h1>
                     <p style="margin: 0px 0px 32px; line-height: 26px;">
-                      <span class="size" style="font-size: 16px; margin: 0px 0px 32px; line-height: 26px;">Your <b>{{plan_name}}</b> wraps up on <b>{{end_date}}</b>. Renewing takes 30 seconds — same plan, same dorm, same delivery slot. No setup to redo.</span><br>
+                      <span class="size" style="font-size: 16px; margin: 0px 0px 32px; line-height: 26px;">Your <b>{{plan_name}}</b> just finished. Before you go, here&rsquo;s what it added up to.</span><br>
                     </p>
                     <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-orange"
                       style="background-color: #fffaf5; border: 1.2px solid #FF8C00; border-radius: 8px; margin-bottom: 26px;">
@@ -139,12 +138,12 @@
                         <tr>
                           <td style="padding: 26px;">
                             <p style="margin: 0px 0px 8px; text-transform: uppercase;">
-                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">🔁 Keep it going</span></b></span><br>
+                              <span class="colour" style="color:rgb(255, 140, 0)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">🔁 Ready for another round?</span></b></span><br>
                             </p>
                             <p style="margin: 0px 0px 16px; line-height: 24px;">
-                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">You&rsquo;ve already done the hard part. One tap renews your <b>{{plan_name}}</b> — no decisions, no re-entering anything.</span></span><br>
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">Your setup is saved. One tap starts a fresh <b>{{plan_name}}</b>, same dorm, same delivery slot, nothing to re-enter.</span></span><br>
                             </p><a href="{{renew_link}}"
-                              style="background-color: #FF8C00; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Renew in 30 seconds</a>
+                              style="background-color: #FF8C00; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Start a new plan</a>
                           </td>
                         </tr>
                       </tbody>
@@ -155,10 +154,10 @@
                         <tr>
                           <td style="padding: 26px;">
                             <p style="margin: 0px 0px 8px; text-transform: uppercase;">
-                              <span class="colour" style="color:rgb(46, 125, 50)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">💬 Not sure yet?</span></b></span><br>
+                              <span class="colour" style="color:rgb(46, 125, 50)"><b><span class="size" style="font-size: 14px; margin: 0px 0px 8px; text-transform: uppercase;">💬 Anything we could do better?</span></b></span><br>
                             </p>
                             <p style="margin: 0px 0px 16px; line-height: 24px;">
-                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">Want to switch plans, take a break, or just have a question? We&rsquo;re a tap away on WhatsApp, usually replying within an hour.</span></span><br>
+                              <span class="colour" style="color:rgb(117, 117, 117)"><span class="size" style="font-size: 15px; margin: 0px 0px 16px; line-height: 24px;">Taking a break, switching plans, or just have feedback? We&rsquo;re a tap away on WhatsApp, usually replying within an hour.</span></span><br>
                             </p><a href="https://wa.me/971504619384"
                               style="background-color: #2e7d32; color: #ffffff; padding: 12px 20px; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 6px; display: inline-block;">Chat
                               with Support</a>
@@ -170,7 +169,7 @@
                       style="border-top: 1px solid #eeeeee; padding-top: 26px;">
                       <tbody>
                         <tr>
-                          <td style="font-size: 14px; line-height: 22px; color: #757575;">See you next cycle,<br><span class="colour" style="color:rgb(117, 117, 117)"><b><span class="size" style="font-size:16px">Team Dormers</span></b></span>
+                          <td style="font-size: 14px; line-height: 22px; color: #757575;">Hope to see you again soon,<br><span class="colour" style="color:rgb(117, 117, 117)"><b><span class="size" style="font-size:16px">Team Dormers</span></b></span>
                           </td>
                         </tr>
                         <tr>

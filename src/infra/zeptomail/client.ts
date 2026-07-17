@@ -48,13 +48,14 @@
  *        {{end_date}}                       ("Fri 5 Jun")
  *        {{meals_delivered}}                ("21")
  *        {{evenings}}                       ("21" or for Monthly Max, "11")
- *        {{aed_saved}}                      ("184" — EMPTY when no benchmark)
- *        {{aed_earned}}                     ("12" — "0" when no rewards earned)
+ *        {{aed_saved}}                      ("184" — key OMITTED when no benchmark)
+ *        {{aed_earned}}                     ("12" — key OMITTED when no rewards)
  *        {{renew_link}}                     full HTTPS URL to /dashboard/plan?renew=1
- *     Set conditional rendering: hide the "AED N below takeout" bullet when
- *     `aed_saved` is empty; hide the "AED N earned in rewards" bullet when
- *     `aed_earned` is "0". Save → copy this Template Key into
- *     ZEPTOMAIL_TPL_RENEW_NUDGE.
+ *     Conditional rendering: the template wraps the savings/rewards bullets
+ *     in {{#aed_saved}}/{{#aed_earned}} Mustache sections. ZeptoMail treats
+ *     empty strings as TRUTHY (Mustache spec), so the send helpers omit the
+ *     merge key entirely to hide a bullet — never send "" or "0". Save →
+ *     copy this Template Key into ZEPTOMAIL_TPL_RENEW_NUDGE.
  *
  *  4d. ALSO create a `staff-invite` template (the on-command intern claim
  *     code email fired from /admin/staff). Merge variables it uses:
@@ -389,11 +390,13 @@ export async function sendRenewNudgeEmail(input: {
     { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' },
   );
 
-  // Mustache treats any non-empty string as truthy in section blocks, so
-  // we must send EMPTY strings (not "0") to hide a recap bullet. The
-  // template uses {{#aed_saved}}...{{/aed_saved}} and
-  // {{#aed_earned}}...{{/aed_earned}} sections that render only when these
-  // values are non-empty.
+  // ZeptoMail's Mustache engine follows the Mustache spec: empty strings
+  // are TRUTHY in section blocks (only absent/false/empty-list are falsy).
+  // Sending '' rendered the recap bullet with a blank where the number
+  // should be (live bug, July 2026). To hide a bullet the key must be
+  // OMITTED from merge_info entirely. The template uses
+  // {{#aed_saved}}/{{#aed_earned}} sections plus a {{^aed_earned}}
+  // inverted "earn rewards next cycle" nudge.
   await sendTemplate({
     templateKey,
     to: { email: input.toEmail, name: input.firstName },
@@ -403,8 +406,8 @@ export async function sendRenewNudgeEmail(input: {
       end_date: pretty,
       meals_delivered: input.mealsDelivered,
       evenings: input.evenings,
-      aed_saved: input.aedSaved == null ? '' : String(input.aedSaved),
-      aed_earned: input.aedEarned > 0 ? String(input.aedEarned) : '',
+      ...(input.aedSaved == null ? {} : { aed_saved: String(input.aedSaved) }),
+      ...(input.aedEarned > 0 ? { aed_earned: String(input.aedEarned) } : {}),
       renew_link: input.renewLink,
     },
   });
@@ -425,6 +428,8 @@ export async function sendRefundProcessedEmail(input: {
   const templateKey = process.env.ZEPTOMAIL_TPL_REFUND_PROCESSED;
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_REFUND_PROCESSED is not set');
 
+  // Omit the key (never '') to hide the section — ZeptoMail's Mustache
+  // treats empty strings as truthy, so '' would render it anyway.
   await sendTemplate({
     templateKey,
     to: { email: input.toEmail, name: input.firstName },
@@ -432,7 +437,7 @@ export async function sendRefundProcessedEmail(input: {
       first_name: input.firstName,
       refund_aed: input.refundAed,
       order_number: input.orderNumber,
-      credits_restored: input.creditsRestored ? 'yes' : '',
+      ...(input.creditsRestored ? { credits_restored: 'yes' } : {}),
     },
   });
 }
@@ -455,6 +460,8 @@ export async function sendSubscriptionEndedEmail(input: {
   const templateKey = process.env.ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED;
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED is not set');
 
+  // Same merge-key convention as sendRenewNudgeEmail: omit (never '') to
+  // hide a conditional recap bullet — ZeptoMail treats '' as truthy.
   await sendTemplate({
     templateKey,
     to: { email: input.toEmail, name: input.firstName },
@@ -463,8 +470,8 @@ export async function sendSubscriptionEndedEmail(input: {
       plan_name: input.planName,
       meals_delivered: input.mealsDelivered,
       evenings: input.evenings,
-      aed_saved: input.aedSaved == null ? '' : String(input.aedSaved),
-      aed_earned: input.aedEarned > 0 ? String(input.aedEarned) : '',
+      ...(input.aedSaved == null ? {} : { aed_saved: String(input.aedSaved) }),
+      ...(input.aedEarned > 0 ? { aed_earned: String(input.aedEarned) } : {}),
       renew_link: input.renewLink,
     },
   });
