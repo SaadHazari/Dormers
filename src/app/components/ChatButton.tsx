@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 import { openChat, subscribeChatBus } from '@/contexts/chatbot/ui/chat-bus';
 
-export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: number }) {
+export default function ChatButton({ bottomOffset = 32, hidden = false }: { bottomOffset?: number; hidden?: boolean }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => subscribeChatBus(setIsChatOpen), []);
@@ -12,7 +12,12 @@ export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: numbe
   if (isChatOpen) return null;
 
   return (
-    <div className="fixed right-8 z-[49]" style={{ width: 60, height: 60, bottom: bottomOffset }}>
+    <motion.div
+      className="fixed right-8 z-[49]"
+      style={{ width: 60, height: 60, bottom: bottomOffset, pointerEvents: hidden ? "none" : "auto" }}
+      animate={{ opacity: hidden ? 0 : 1, scale: hidden ? 0.8 : 1 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+    >
       {/* Breathing pulse ring — subtle, single layer */}
       <motion.div
         aria-hidden
@@ -55,6 +60,6 @@ export default function ChatButton({ bottomOffset = 32 }: { bottomOffset?: numbe
           fill="rgba(238,233,218,0.08)"
         />
       </motion.button>
-    </div>
+    </motion.div>
   );
 }

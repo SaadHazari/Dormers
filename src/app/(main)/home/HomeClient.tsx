@@ -12,6 +12,7 @@ import MarqueeBanner from "@/app/components/MarqueeBanner";
 
 import USPBento from "@/app/components/USPBento";
 import HowItWorks from "@/app/components/HowItWorks";
+import MealSourcingComparison from "@/app/components/MealSourcingComparison";
 
 interface FAQ {
   id: number;
@@ -416,10 +417,10 @@ export default function Home({ menuData }: { menuData?: Dish[] }) {
             </div>
           </div>
 
-          {/* ── Gap — same height as a marquee band, rounded bottom corners ── */}
+          {/* ── Gap — rounded bottom corners closing the FAQ card ── */}
           <div
             style={{
-              height: "72px",
+              height: "44px",
               backgroundColor: theme === "light" ? "#D5CFBF" : "#22394A",
               borderBottomLeftRadius: "60px",
               borderBottomRightRadius: "60px",
@@ -428,7 +429,9 @@ export default function Home({ menuData }: { menuData?: Dish[] }) {
         </div>
       </section>
 
-
+      {/* Meal-sourcing comparison — placed after FAQ to re-engage at the
+          lowest-attention point. Renders its own <section id="compare">. */}
+      <MealSourcingComparison />
 
       <style jsx global>{`
         @keyframes marquee {

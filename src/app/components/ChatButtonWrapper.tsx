@@ -10,7 +10,7 @@ export default function ChatButtonWrapper() {
   const isHome    = pathname === "/home";
 
   const [heroReady, setHeroReady] = useState(false);
-  const [bottomOffset, setBottomOffset] = useState(32);
+  const [hidden, setHidden] = useState(false);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -23,18 +23,21 @@ export default function ChatButtonWrapper() {
     };
   }, [isHome]);
 
-  // Track foreground bottom edge on /home
+  // On /home, fade the button out once the footer starts to take over the
+  // viewport. Previously it rode UP with the foreground's bottom edge, which
+  // dumped it on top of the last section (and into the footer grid). Fading it
+  // out near the end is cleaner and never overlaps content.
   useEffect(() => {
-    if (!isHome) return;
+    if (!isHome) {
+      setHidden(false);
+      return;
+    }
 
     const update = () => {
       const fg = document.querySelector(".main_content");
       if (!fg) return;
       const fgBottom = fg.getBoundingClientRect().bottom;
-      const vh = window.innerHeight;
-      // When foreground's bottom is within the viewport, push the button upward with it
-      const offset = fgBottom >= vh ? 32 : vh - fgBottom + 32;
-      setBottomOffset(offset);
+      setHidden(fgBottom < window.innerHeight);
     };
 
     const onScroll = () => {
@@ -56,5 +59,5 @@ export default function ChatButtonWrapper() {
   // On /home: only after hero sequence
   if (isHome && !heroReady) return null;
 
-  return <ChatButton bottomOffset={bottomOffset} />;
+  return <ChatButton hidden={hidden} />;
 }
