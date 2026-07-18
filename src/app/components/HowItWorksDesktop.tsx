@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { motion, Variants } from "framer-motion";
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 import { EASE_STANDARD as E } from "@/ui-system/tokens/motion";
 import { CARDS } from "./HowItWorks.data";
 
@@ -172,8 +172,9 @@ const underlineVariants: Variants = {
 };
 
 export function HowItWorksDesktop() {
-  const { theme } = useTheme();
-  const isLight = theme === "light";
+  // useIsLight (not raw useTheme) — avoids the SSR/first-render hydration
+  // mismatch that leaves the server's dark classes stuck in the DOM.
+  const isLight = useIsLight();
 
   return (
     <>

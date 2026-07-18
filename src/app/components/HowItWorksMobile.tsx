@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 import { CARDS } from "./HowItWorks.data";
 
 /**
@@ -13,8 +13,9 @@ import { CARDS } from "./HowItWorks.data";
  * Was inlined in HowItWorks.tsx alongside the desktop variant.
  */
 export function HowItWorksMobile() {
-  const { theme } = useTheme();
-  const isLight = theme === "light";
+  // useIsLight (not raw useTheme) — avoids the SSR/first-render hydration
+  // mismatch that leaves the server's dark classes stuck in the DOM.
+  const isLight = useIsLight();
   const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);

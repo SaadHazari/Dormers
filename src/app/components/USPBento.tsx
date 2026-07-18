@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 import { useInView } from "react-intersection-observer";
 import { EASE_STANDARD as cardEase } from "@/ui-system/tokens/motion";
 import { BentoCard } from "./BentoCard";
@@ -100,8 +100,10 @@ const containerVariants = {
 };
 
 export default function USPBento() {
-  const { theme } = useTheme();
-  const isLight = theme === "light";
+  // useIsLight (not raw useTheme) — SSR renders dark, so reading the resolved
+  // theme on the first client render is a hydration mismatch that leaves the
+  // server's dark classes stuck in the DOM on dev/light.
+  const isLight = useIsLight();
   const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.05 });
   const [flippedId, setFlippedId] = useState<number | null>(null);
 

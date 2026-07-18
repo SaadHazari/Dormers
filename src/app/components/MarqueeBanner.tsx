@@ -1,6 +1,6 @@
 "use client";
 
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 
 const WORDS = [...Array(12)].map(() => "DORMERS’");
 const ROW_WORDS = [...WORDS, ...WORDS];
@@ -45,9 +45,11 @@ interface MarqueeBannerProps {
 }
 
 export default function MarqueeBanner({ className = "" }: MarqueeBannerProps) {
-  const { theme } = useTheme();
-  const bg = theme === "light" ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]";
-  const textClass = theme === "light" ? "text-[#EEE9DA]" : "text-[#1E3A4F]";
+  // useIsLight (not raw useTheme) — avoids the SSR/first-render hydration
+  // mismatch that leaves the server's dark classes stuck in the DOM.
+  const isLight = useIsLight();
+  const bg = isLight ? "bg-[#1E3A4F]" : "bg-[#EEE9DA]";
+  const textClass = isLight ? "text-[#EEE9DA]" : "text-[#1E3A4F]";
 
   return (
     <div className={`relative w-full overflow-hidden ${bg} ${className}`}>

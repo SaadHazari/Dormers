@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
+import { useIsLight } from "@/ui-system/hooks/useIsLight";
 import MobileMenuCard from "@/app/components/MobileMenuCard";
 import DesktopMenuCarousel from "@/app/components/DesktopMenuCarousel";
 import { MENU_DATA, getMenuWeek, type Dish } from "@/contexts/menu/domain/catalog-data";
 
 export default function Menu({ menuData }: { menuData?: Dish[] }) {
-  const { theme } = useTheme();
+  // useIsLight (not raw useTheme) — avoids the SSR/first-render hydration
+  // mismatch that leaves the server's dark classes stuck in the DOM.
+  const isLight = useIsLight();
+  const theme = isLight ? "light" : "dark";
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(() => {
     // AE wall day-of-week from the shared epoch — a plain new Date().getDay()

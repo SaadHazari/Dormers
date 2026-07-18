@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from 'next-themes';
+import { useIsLight } from '@/ui-system/hooks/useIsLight';
 import { DishDetailPanel } from '@/app/components/DishDetailPanel';
 import { glassTokens } from '@/ui-system/tokens/glass';
 import type { Dish } from '@/contexts/menu/domain/catalog-data';
@@ -23,8 +23,9 @@ export default function DesktopMenuCarousel({
 }: DesktopMenuCarouselProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
+  // useIsLight (not raw useTheme) — avoids the SSR/first-render hydration
+  // mismatch that leaves the server's dark classes stuck in the DOM.
+  const isLight = useIsLight();
 
   useEffect(() => {
     setIsExpanded(false);
