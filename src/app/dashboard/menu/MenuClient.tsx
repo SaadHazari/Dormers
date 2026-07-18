@@ -252,6 +252,30 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
     )
   }
 
+  // Non-Sunday rest day (e.g. Saturday on a 5-day plan). The meal slot is
+  // off, so there's no dish, no macros, and nothing en route — render the
+  // same rest-day treatment Sunday gets rather than the dish layout, which
+  // would otherwise show a phantom "Arriving in ~Nh" countdown (computeCountdown
+  // only short-circuits on Sunday) alongside a 0 kcal / 0 g strip and an empty
+  // photo panel.
+  if (meal.tag === 'Off') {
+    const nextDelivery = nextDeliveryLabel(weekType)
+    return (
+      <div style={{
+        ...TIER1,
+        background: '#faf2dd',
+        borderRadius: 'var(--radius-md)', padding: '56px 24px',
+        textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+      }}>
+        <Moon size={28} strokeWidth={1.6} color={S.fgMuted} />
+        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2 }}>No delivery — rest day</div>
+        <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>
+          Rest up. Next delivery {nextDelivery}, 7–8 PM.
+        </div>
+      </div>
+    )
+  }
+
   // Resumed after kitchen cutoff (2 PM AE) — no meal was prepped tonight.
   // Step back to TIER1 with orange edge-wash so the card still anchors the
   // section without falsely implying something is on its way.
