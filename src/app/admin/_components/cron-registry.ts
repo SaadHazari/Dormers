@@ -147,6 +147,14 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: 'Old message records are piling up',
         group: 'housekeeping',
     },
+    archive_ops_photos_daily: {
+        label: 'Ops photo archival (nightly)',
+        does: 'Moves kitchen, pickup and delivery photos older than a month into the archive.',
+        impact: 'Old ops photos are staying in the Photos page working set',
+        group: 'housekeeping',
+        actionHref: '/admin/photos',
+        actionLabel: 'Open Photos',
+    },
 }
 
 export function getJobInfo(jobname: string): JobInfo {

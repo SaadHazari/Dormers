@@ -44,6 +44,15 @@ export default async function PhotosPage({
     const { date } = await searchParams
     const dateIso = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayAeIso()
 
+    // Photos older than 31 days are archived out of the working set — the
+    // page only serves the last month (see /api/internal/archive-ops-photos).
+    const cutoffIso = new Date(Date.now() + 4 * 60 * 60 * 1000 - 31 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+    if (dateIso < cutoffIso) {
+        return <PhotosClient day={{ dateIso, packing: null, pickup: null, deliveries: [] }} archived cutoffIso={cutoffIso} />
+    }
+
     const sb = createAdminSupabaseClient()
 
     const [dayEventsRes, deliveriesRes] = await Promise.all([
@@ -123,5 +132,5 @@ export default async function PhotosPage({
         })),
     }
 
-    return <PhotosClient day={day} />
+    return <PhotosClient day={day} cutoffIso={cutoffIso} />
 }

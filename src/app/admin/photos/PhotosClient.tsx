@@ -113,7 +113,7 @@ function CountRow({ label, value, expected }: { label: string; value: number | n
     )
 }
 
-export function PhotosClient({ day }: { day: ChainDay }) {
+export function PhotosClient({ day, archived = false, cutoffIso }: { day: ChainDay; archived?: boolean; cutoffIso?: string }) {
     const { t } = useAdminTheme()
     const router = useRouter()
     const { packing, pickup, deliveries } = day
@@ -151,6 +151,7 @@ export function PhotosClient({ day }: { day: ChainDay }) {
                     <input
                         type="date"
                         value={day.dateIso}
+                        min={cutoffIso}
                         onChange={e => e.target.value && go(e.target.value)}
                         className={`rounded-lg border px-3 py-2 text-[13px] font-semibold ${t.border} ${t.heading} bg-transparent`}
                     />
@@ -162,6 +163,17 @@ export function PhotosClient({ day }: { day: ChainDay }) {
 
             <p className={`mb-4 text-[13px] font-semibold ${t.muted}`}>{dateLabel}</p>
 
+            {archived && (
+                <AdminCard>
+                    <p className={`text-[14px] font-semibold ${t.heading}`}>This day is archived.</p>
+                    <p className={`mt-1 text-[13px] ${t.muted}`}>
+                        Photos older than a month move out of this page automatically. They are kept in storage under the archive folder, not deleted.
+                        {cutoffIso && ` The oldest day you can view here is ${cutoffIso}.`}
+                    </p>
+                </AdminCard>
+            )}
+
+            {!archived && (<>
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* ── 1. Kitchen packing ───────────────────────────────────── */}
                 <AdminCard>
@@ -245,6 +257,7 @@ export function PhotosClient({ day }: { day: ChainDay }) {
                     </div>
                 )}
             </div>
+            </>)}
         </div>
     )
 }
