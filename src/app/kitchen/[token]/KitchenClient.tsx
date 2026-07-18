@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { scaleQuantity } from '@/contexts/ops/domain/recipe-scaling'
+import { PackingCheck, type PackingDorm, type ExistingPacking } from './PackingCheck'
 
 const BG       = '#faf8f4'
 const BG_CARD  = '#ffffff'
@@ -34,6 +35,13 @@ export interface KitchenDish {
   mealCount: number
 }
 
+export interface PackingProps {
+  dorms: PackingDorm[]
+  opsTokenId: string
+  dateIso: string
+  existing: ExistingPacking | null
+}
+
 interface KitchenClientProps {
   dishes: KitchenDish[]
   vegCount: number
@@ -43,6 +51,8 @@ interface KitchenClientProps {
   isPast2pm: boolean
   lastUpdated: string
   noDeliveryReason: string | null
+  /** Packing-check context — null when it failed to load (card simply hidden). */
+  packing?: PackingProps | null
 }
 
 // ─── Method step → section assignment ────────────────────────────────────────
@@ -436,6 +446,7 @@ export function KitchenClient({
   isPast2pm,
   lastUpdated,
   noDeliveryReason,
+  packing = null,
 }: KitchenClientProps) {
   const router = useRouter()
   const [activeRecipe, setActiveRecipe] = useState<{ dish: KitchenDish } | null>(null)
@@ -651,6 +662,15 @@ export function KitchenClient({
           )
         })}
       </div>
+
+      {packing && (
+        <PackingCheck
+          dorms={packing.dorms}
+          opsTokenId={packing.opsTokenId}
+          dateIso={packing.dateIso}
+          existing={packing.existing}
+        />
+      )}
 
       {activeRecipe !== null && (
         <RecipePage dish={activeRecipe.dish} onClose={() => setActiveRecipe(null)} />

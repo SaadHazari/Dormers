@@ -9,7 +9,7 @@ import {
     Share2, Swords, Star,
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
-    Search, X, Tag, LogOut, UserCog, KeyRound, Building2,
+    Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -32,6 +32,7 @@ const NAV_GROUPS = [
         items: [
             { label: 'Overview',        href: '/admin',            icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Delivery Queue',  href: '/admin/deliveries', icon: <Truck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Photos',          href: '/admin/photos',     icon: <Camera size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Labels',          href: '/admin/labels',     icon: <Tag size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Cron Health',     href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Holidays',        href: '/admin/holidays',   icon: <CalendarOff size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },

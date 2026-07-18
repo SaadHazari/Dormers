@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { dormShapeSvg } from '@/shared/dorm-shapes'
 import type { DormMapping } from '@/shared/dorm-shapes'
 import type { DormCountsRecord } from '@/contexts/ops/usecases/get-dorm-counts'
-import { confirmPickup, confirmDropoff } from './actions'
+import { resizeToJpeg } from '@/shared/image-resize'
+import { confirmDropoff } from './actions'
 
 const BG      = '#faf8f4'
 const BG_CARD = '#ffffff'
@@ -36,19 +37,6 @@ interface RiderClientProps {
   noDeliveryReason: string | null
 }
 
-// ─── Utility: resize blob to max 1600px JPEG 85 (VER-03) ───────────────────
-async function resizeToJpeg(file: Blob, maxPx = 1600, quality = 0.85): Promise<Blob> {
-  const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height))
-  const w = Math.round(bitmap.width * scale)
-  const h = Math.round(bitmap.height * scale)
-  const canvas = new OffscreenCanvas(w, h)
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(bitmap, 0, 0, w, h)
-  bitmap.close()
-  return canvas.convertToBlob({ type: 'image/jpeg', quality })
-}
-
 // ─── Utility: non-blocking geolocation (Pitfall 6 — trigger from user gesture) ─
 function captureGeo(): Promise<{ lat: number; lng: number } | null> {
   return new Promise(resolve => {
@@ -73,10 +61,14 @@ export function RiderClient({
   const RIDER_DORMS = Object.entries(dormShapeMap).filter(
     ([key]) => key !== 'Other',
   )
-  // ── Existing pickup state ────────────────────────────────────────────────
+  // ── Pickup state — the photo is the gate that unlocks the dorm list ─────
   const [pickedUp, setPickedUp] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [pickupError, setPickupError] = useState<string | null>(null)
+  const [pickupPhoto, setPickupPhoto] = useState<Blob | null>(null)
+  const [pickupPreviewUrl, setPickupPreviewUrl] = useState<string | null>(null)
+  const [pickupFlagged, setPickupFlagged] = useState(false)
+  const pickupInputRef = useRef<HTMLInputElement>(null)
 
   // ── Per-dorm drop-off status ─────────────────────────────────────────────
   const [dormStatuses, setDormStatuses] = useState<Record<string, DormDropoffStatus>>({})
@@ -297,35 +289,48 @@ export function RiderClient({
 
   const totalBoxes = Object.values(dormCounts).reduce((a, b) => a + b, 0)
 
+  // ── Pickup photo capture — file input opens the camera directly ─────────
+  async function handlePickupPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const resized = await resizeToJpeg(file)
+    if (pickupPreviewUrl) URL.revokeObjectURL(pickupPreviewUrl)
+    setPickupPhoto(resized)
+    setPickupPreviewUrl(URL.createObjectURL(resized))
+    setPickupError(null)
+    e.target.value = ''
+  }
+
+  // ── Submit pickup — the server writes the per-dorm expected counts and
+  //    runs the advisory AI count. A count discrepancy flags the owner but
+  //    NEVER blocks the rider; only auth/network failures stop the day. ─────
   async function handleConfirmPickup() {
+    if (!pickupPhoto) return
     setConfirming(true)
     setPickupError(null)
     try {
-      const dormsToConfirm = RIDER_DORMS.filter(
-        ([dormKey]) => (dormCounts[dormKey] ?? 0) > 0,
-      )
-      // confirmPickup returns { ok: false } on failure instead of throwing, so
-      // inspect every result — without this a revoked token or DB error would
-      // resolve "successfully" and the UI would flip to drop-off against dorms
-      // whose pickup was never recorded.
-      const results = await Promise.all(
-        dormsToConfirm.map(([dormKey]) =>
-          confirmPickup(
-            dormKey,
-            dormCounts[dormKey],
-            opsTokenId,
-            deliveryDateIso,
-          ),
-        ),
-      )
-      const failed = results.filter(r => !r.ok).length
-      if (failed > 0) {
-        setPickupError(`Couldn't confirm ${failed} dorm${failed > 1 ? 's' : ''}. Tap to retry.`)
+      const form = new FormData()
+      form.append('photo', pickupPhoto, 'pickup.jpg')
+      form.append('opsToken', opsTokenId)
+      form.append('dateIso', deliveryDateIso)
+
+      const res = await fetch('/api/ops/confirm-pickup', { method: 'POST', body: form })
+      if (!res.ok) {
+        setPickupError(`Couldn't confirm pickup (${res.status}). Tap Confirm to retry.`)
         return
       }
+      const data: { ok: boolean; flagged?: boolean } = await res.json()
+      if (!data.ok) {
+        setPickupError('Couldn’t confirm pickup. Tap Confirm to retry.')
+        return
+      }
+      setPickupFlagged(data.flagged === true)
       setPickedUp(true)
+      setPickupPhoto(null)
+      if (pickupPreviewUrl) URL.revokeObjectURL(pickupPreviewUrl)
+      setPickupPreviewUrl(null)
     } catch {
-      setPickupError('Network error — tap to retry.')
+      setPickupError('Network error — tap Confirm to retry.')
     } finally {
       setConfirming(false)
     }
@@ -494,9 +499,12 @@ export function RiderClient({
         })}
       </div>
 
-      {/* ── Confirm Pickup button ────────────────────────────────────────── */}
+      {/* ── Pickup button — photo-gated: taking the photo unlocks the day ── */}
       <button
-        onClick={handleConfirmPickup}
+        onClick={() => {
+          if (confirmDisabled) return
+          pickupInputRef.current?.click()
+        }}
         disabled={confirmDisabled}
         style={{
           width: '100%',
@@ -516,16 +524,102 @@ export function RiderClient({
           transition: 'background-color 0.2s',
         }}
       >
-        {pickedUp
-          ? '✓ Pickup Confirmed'
-          : confirming
-          ? 'Confirming…'
-          : 'Confirm Pickup'}
+        {pickedUp ? '✓ Pickup Confirmed' : 'Photo of all boxes to start'}
       </button>
+
+      {pickedUp && pickupFlagged && (
+        <div style={{ fontSize: '13px', color: MUTED, textAlign: 'center', fontFamily: FONT }}>
+          Box count flagged for review — carry on with deliveries.
+        </div>
+      )}
 
       {pickupError && (
         <div style={{ fontSize: '13px', color: '#ef4444', textAlign: 'center', fontFamily: FONT }}>
           {pickupError}
+        </div>
+      )}
+
+      {/* ── Hidden pickup camera input ───────────────────────────────────── */}
+      <input
+        ref={pickupInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePickupPhoto}
+        style={{ display: 'none' }}
+      />
+
+      {/* ── Pickup photo review overlay ──────────────────────────────────── */}
+      {pickupPreviewUrl && !pickedUp && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            backgroundColor: '#000000ee',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '20px 16px',
+            gap: '16px',
+            fontFamily: FONT,
+          }}
+        >
+          <div style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', textAlign: 'center' }}>
+            All {totalBoxes} boxes in the shot?
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pickupPreviewUrl}
+            alt="Pickup"
+            style={{ width: '100%', maxHeight: '55vh', objectFit: 'contain', borderRadius: '12px' }}
+          />
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => {
+                if (confirming) return
+                pickupInputRef.current?.click()
+              }}
+              disabled={confirming}
+              style={{
+                flex: 1,
+                height: '56px',
+                borderRadius: '12px',
+                border: '1px solid #ffffff55',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                fontSize: '16px',
+                fontWeight: 600,
+                fontFamily: FONT,
+                cursor: 'pointer',
+              }}
+            >
+              Retake
+            </button>
+            <button
+              onClick={handleConfirmPickup}
+              disabled={confirming}
+              style={{
+                flex: 2,
+                height: '56px',
+                borderRadius: '12px',
+                border: 'none',
+                backgroundColor: confirming ? BORDER : EMERALD,
+                color: '#ffffff',
+                fontSize: '16px',
+                fontWeight: 700,
+                fontFamily: FONT,
+                cursor: confirming ? 'default' : 'pointer',
+              }}
+            >
+              {confirming ? 'Confirming…' : 'Confirm pickup'}
+            </button>
+          </div>
+          {pickupError && (
+            <div style={{ fontSize: '13px', color: '#fca5a5', textAlign: 'center' }}>
+              {pickupError}
+            </div>
+          )}
         </div>
       )}
 

@@ -4,7 +4,10 @@ import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
+import { getDormLocations } from '@/infra/supabase/dorm-locations'
+import { dormShapeMap } from '@/shared/dorm-registry'
 import { captureError } from '@/infra/logging/capture-error'
+import type { PackingProps } from './KitchenClient'
 import type { RecipeJson } from './KitchenClient'
 import { KitchenClient } from './KitchenClient'
 
@@ -95,6 +98,50 @@ export default async function KitchenPage({
     getKitchenCounts(todayIso, dayName, isSaturday),
   ])
 
+  // Packing-check context: dorm shapes for the blind per-shape count entry,
+  // plus today's saved check (if any) so the state survives a reload.
+  // Best-effort — a failure here degrades to "no packing card", never a crash.
+  let packing: PackingProps | null = null
+  try {
+    const locs = await getDormLocations()
+    const shapeMap = dormShapeMap(locs)
+    const sbPacking = createAdminSupabaseClient()
+    const { data: packingRow } = await sbPacking
+      .from('ops_day_events')
+      .select('matched, mismatch_details, confirmed_at')
+      .eq('event_date', todayIso)
+      .eq('event_type', 'kitchen_packing')
+      .maybeSingle()
+
+    let confirmedAtLabel = ''
+    if (packingRow?.confirmed_at) {
+      const ae = new Date(new Date(packingRow.confirmed_at).getTime() + AE_OFFSET_MS)
+      confirmedAtLabel = `${String(ae.getUTCHours()).padStart(2, '0')}:${String(ae.getUTCMinutes()).padStart(2, '0')}`
+    }
+
+    packing = {
+      dorms: Object.entries(shapeMap)
+        .filter(([key]) => key !== 'Other')
+        .map(([key, info]) => ({
+          key,
+          displayName: info.displayName,
+          shape: info.shape,
+          number: info.number,
+        })),
+      opsTokenId: opsToken.id,
+      dateIso: todayIso,
+      existing: packingRow
+        ? {
+            confirmedAtLabel,
+            matched: packingRow.matched as boolean | null,
+            mismatchDetails: packingRow.mismatch_details as string | null,
+          }
+        : null,
+    }
+  } catch (err) {
+    captureError(err, { area: 'kitchen', op: 'loadPackingContext', todayIso })
+  }
+
   // Fetch recipes separately — recipe column is not in menu-catalog's DishRow.
   // Best-effort (Release It! L5): a DB blip here must degrade to "dish cards
   // without tap-for-recipe", never throw the whole kitchen screen into the
@@ -157,6 +204,7 @@ export default async function KitchenPage({
       isPast2pm={isPast2pm}
       lastUpdated={lastUpdated}
       noDeliveryReason={null}
+      packing={packing}
     />
   )
 }
