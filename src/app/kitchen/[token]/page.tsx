@@ -10,28 +10,37 @@ import { KitchenClient } from './KitchenClient'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Kitchen — Dormers',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Dormers Kitchen',
-  },
-  other: {
-    referrer: 'no-referrer',
-    'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
-  },
-  icons: {
-    // Re-declare the tab favicon (not just the apple touch icon) — a page-level
-    // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
-    // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
-    // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
-    ],
-    apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
-  },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+  return {
+    title: 'Kitchen — Dormers',
+    // Per-token manifest so home-screen installs open THIS page, not '/'
+    manifest: `/kitchen/${token}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'Dormers Kitchen',
+    },
+    other: {
+      referrer: 'no-referrer',
+      'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
+    },
+    icons: {
+      // Re-declare the tab favicon (not just the apple touch icon) — a page-level
+      // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
+      // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
+      // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
+      icon: [
+        { url: '/favicon.svg', type: 'image/svg+xml' },
+        { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+      ],
+      apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
+    },
+  }
 }
 
 const DAYS_OF_WEEK = [
@@ -91,19 +100,31 @@ export default async function KitchenPage({
   // without tap-for-recipe", never throw the whole kitchen screen into the
   // error boundary. The dish + count data above has already loaded.
   const sb = createAdminSupabaseClient()
-  const dishNames = [vegDish?.name, nonVegDish?.name].filter(Boolean) as string[]
+  const dishNames = [vegDish?.name, nonVegDish?.name].filter(
+    Boolean,
+  ) as string[]
   let recipeRows: Array<{ name: string; recipe: RecipeJson | null }> = []
   if (dishNames.length > 0) {
     try {
-      const { data, error } = await sb.from('dishes').select('name, recipe').in('name', dishNames)
+      const { data, error } = await sb
+        .from('dishes')
+        .select('name, recipe')
+        .in('name', dishNames)
       if (error) throw error
-      recipeRows = (data ?? []) as Array<{ name: string; recipe: RecipeJson | null }>
+      recipeRows = (data ?? []) as Array<{
+        name: string
+        recipe: RecipeJson | null
+      }>
     } catch (err) {
-      captureError(err, { area: 'kitchen', op: 'fetchRecipes', dishNames: dishNames.join(',') })
+      captureError(err, {
+        area: 'kitchen',
+        op: 'fetchRecipes',
+        dishNames: dishNames.join(','),
+      })
     }
   }
   const recipeMap = new Map(
-    recipeRows.map(r => [r.name, r.recipe as RecipeJson | null]),
+    recipeRows.map((r) => [r.name, r.recipe as RecipeJson | null]),
   )
 
   const dishes = [

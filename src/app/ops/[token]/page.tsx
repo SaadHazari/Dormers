@@ -8,28 +8,37 @@ import { RiderClient } from './RiderClient'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Rider — Dormers',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Dormers Rider',
-  },
-  other: {
-    referrer: 'no-referrer',
-    'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
-  },
-  icons: {
-    // Re-declare the tab favicon (not just the apple touch icon) — a page-level
-    // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
-    // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
-    // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
-    ],
-    apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
-  },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+  return {
+    title: 'Rider — Dormers',
+    // Per-token manifest so home-screen installs open THIS page, not '/'
+    manifest: `/ops/${token}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'Dormers Rider',
+    },
+    other: {
+      referrer: 'no-referrer',
+      'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
+    },
+    icons: {
+      // Re-declare the tab favicon (not just the apple touch icon) — a page-level
+      // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
+      // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
+      // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
+      icon: [
+        { url: '/favicon.svg', type: 'image/svg+xml' },
+        { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+      ],
+      apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
+    },
+  }
 }
 
 const DAYS_OF_WEEK = [
