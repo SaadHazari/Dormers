@@ -2,6 +2,7 @@
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
+import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
 
 // NOTE: pickup confirmation moved to /api/ops/confirm-pickup — the pickup
 // photo is now the gate, and the per-dorm delivery_events upserts happen
@@ -39,5 +40,14 @@ export async function confirmDropoff(
 
   if (error) return { ok: false, error: error.message }
   if (!data || data.length === 0) return { ok: false, error: 'No delivery event found for this dorm today' }
+
+  // Owner run update — manual confirms currently surface nowhere until the
+  // 8PM failsafe; tell the owner now. Fire and forget.
+  void notifyRunUpdate(
+    `Delivered to ${dormName}`,
+    `Rider confirmed ${riderCount} boxes by hand, the photo could not be checked`,
+    'Worth a glance in Photos.',
+  )
+
   return { ok: true }
 }

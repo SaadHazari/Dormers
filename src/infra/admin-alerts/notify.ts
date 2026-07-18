@@ -49,6 +49,45 @@ export async function notifyAdmin(
   }
 }
 
+/**
+ * Owner "run update" — the approved ops_run_update template (named params
+ * stage/detail/action, static Open Photos button). One message per chain
+ * event: kitchen packed, rider picked up, dorm delivered.
+ *
+ * Same contract as notifyAdmin: fire-and-forget, never throws into the
+ * caller, falls back to email when Meta rejects or the RPC fails.
+ */
+export async function notifyRunUpdate(
+  stage: string,
+  detail: string,
+  action: string,
+): Promise<void> {
+  // Meta template params reject \n, \t, and 4+ consecutive spaces
+  const clean = (s: string, max: number) => {
+    const flat = s.replace(/[\n\t]/g, ' · ').replace(/ {4,}/g, '   ')
+    return flat.length > max ? flat.slice(0, max) + '…' : flat
+  }
+  const pStage = clean(stage, 120)
+  const pDetail = clean(detail, 400)
+  const pAction = clean(action, 200)
+  const combined = `${pStage} · ${pDetail} · ${pAction}`
+  try {
+    const supabase = createAdminSupabaseClient()
+    const { data: requestId, error } = await supabase.rpc('send_ops_run_update', {
+      p_stage: pStage,
+      p_detail: pDetail,
+      p_action: pAction,
+    })
+    if (error) {
+      await alertBackup(combined, `RPC error: ${error.message}`)
+      return
+    }
+    await verifyMetaAccepted(supabase, requestId, combined)
+  } catch (err) {
+    await alertBackup(combined, err instanceof Error ? err.message : String(err))
+  }
+}
+
 // The RPC queues the Meta call through pg_net and returns before Meta answers,
 // so a rejection (e.g. 132018 template-contract break, 2026-07-16) would never
 // surface on any channel. Poll the response row and fall back to email when

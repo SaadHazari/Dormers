@@ -16,7 +16,7 @@ import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
-import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
 
 export const maxDuration = 60
@@ -162,17 +162,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'save_failed' }, { status: 500 })
   }
 
-  // ── Owner alert on mismatch — fire and forget, kitchen is never blocked ──
-  if (!matched && mismatchDetails) {
-    void notifyAdmin(
-      `PACKING MISMATCH — kitchen counts differ from system. ${mismatchDetails}. Date: ${dateIso}`,
-      'Packing',
-    )
-  }
+  // ── Owner run update — one message per event, fire and forget ────────────
   if (expected.unavailable) {
-    void notifyAdmin(
-      `PACKING CHECK saved but system counts were unavailable — could not tally. Date: ${dateIso}`,
-      'Packing',
+    void notifyRunUpdate(
+      'Kitchen packed',
+      `Kitchen counted ${vegCount} veg and ${nonvegCount} non-veg boxes, photo on file`,
+      'Could not check the counts, system totals were unavailable. Open Photos to review.',
+    )
+  } else if (matched) {
+    void notifyRunUpdate(
+      'Kitchen packed',
+      `${vegCount} veg and ${nonvegCount} non-veg boxes are packed, photo on file`,
+      'All counts match. Nothing to do.',
+    )
+  } else {
+    const worst = mismatches
+      .slice(0, 3)
+      .map(m => `${m.label}: kitchen ${m.entered}, system ${m.expected}`)
+      .join(', ')
+    void notifyRunUpdate(
+      'Kitchen packed',
+      `${worst}${mismatches.length > 3 ? ` and ${mismatches.length - 3} more` : ''}`,
+      'Counts do not match. Open Photos to see where.',
     )
   }
 

@@ -18,7 +18,7 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
-import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 
@@ -227,6 +227,32 @@ export async function POST(req: Request) {
       }
     } else {
       log(`fanout: skipped (already verified) for ${dormName}`)
+    }
+
+    // Owner run update with route progress — fire and forget, inside the
+    // dedup guard so a re-verified dorm never double-pings.
+    if (!alreadyVerified) {
+      void (async () => {
+        try {
+          const { data: dayRows } = await sb
+            .from('delivery_events')
+            .select('verified')
+            .eq('delivery_date', deliveryDateIso)
+            .eq('trip_number', 1)
+            .gt('expected_count', 0)
+          const totalDorms = dayRows?.length ?? 0
+          const doneDorms = dayRows?.filter(r => r.verified).length ?? 0
+          const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+          const hhmm = `${String(ae.getUTCHours()).padStart(2, '0')}:${String(ae.getUTCMinutes()).padStart(2, '0')}`
+          await notifyRunUpdate(
+            `Delivered to ${dormName}`,
+            `${riderCount} boxes verified by photo at ${hhmm}. ${doneDorms} of ${totalDorms} dorms done`,
+            'Nothing to do.',
+          )
+        } catch (err) {
+          captureError(err, { area: 'ops', op: 'verify-box-count.run-update', dorm: dormName })
+        }
+      })()
     }
 
     return NextResponse.json({

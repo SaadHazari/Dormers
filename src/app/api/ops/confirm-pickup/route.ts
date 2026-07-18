@@ -24,7 +24,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
-import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
 
 export const maxDuration = 60
@@ -164,12 +164,18 @@ export async function POST(req: Request) {
     captureError(upsertErr, { area: 'ops', op: 'confirm-pickup.upsert', dateIso })
   }
 
-  if (flagged) {
-    void notifyAdmin(
-      `PICKUP COUNT FLAG — AI counted ${geminiCount} boxes, system expects ${expectedTotal}${kitchenTotal !== null ? `, kitchen packed ${kitchenTotal}` : ''}. Rider was NOT blocked. Check the Photos page. Date: ${dateIso}`,
-      'Pickup',
-    )
-  }
+  // ── Owner run update — one message per event, fire and forget ────────────
+  const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+  const hhmm = `${String(ae.getUTCHours()).padStart(2, '0')}:${String(ae.getUTCMinutes()).padStart(2, '0')}`
+  void notifyRunUpdate(
+    'Rider picked up',
+    `${expectedTotal} boxes left the kitchen at ${hhmm}`,
+    flagged
+      ? `Photo shows about ${geminiCount} boxes but ${expectedTotal} were expected${kitchenTotal !== null ? `, kitchen packed ${kitchenTotal}` : ''}. Open Photos to compare.`
+      : geminiCount === null
+        ? 'Photo saved but the count could not be read from it. Nothing to do.'
+        : 'Photo count agrees. Nothing to do.',
+  )
 
   return NextResponse.json({
     ok: true,
