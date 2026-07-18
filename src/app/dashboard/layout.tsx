@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
@@ -19,6 +20,20 @@ const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
 import { rejectExpiredWeeklyReviewPending } from '@/contexts/dorm-wars/domain/review-cleanup'
+
+export const metadata: Metadata = {
+  // Installable dashboard PWA. The manifest URL is exempted from the auth
+  // middleware (manifest fetches carry no cookies — see src/middleware.ts).
+  manifest: '/dashboard/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Dormers',
+  },
+  other: {
+    'apple-mobile-web-app-capable': 'yes', // belt-and-suspenders — iOS Safari still needs this
+  },
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUserFromHeaders()

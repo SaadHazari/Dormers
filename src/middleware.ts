@@ -1,7 +1,13 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
+    // Browsers fetch web-app manifests WITHOUT cookies, so the auth gate
+    // would redirect this to /login and serve HTML as the manifest —
+    // silently breaking home-screen installs. Skip the session check.
+    if (request.nextUrl.pathname === '/dashboard/manifest.webmanifest') {
+        return NextResponse.next()
+    }
     return await updateSession(request)
 }
 
