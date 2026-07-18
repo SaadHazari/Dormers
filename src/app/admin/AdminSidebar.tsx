@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
     LayoutDashboard, Truck, Activity, CalendarOff,
     Users, CreditCard, Coins,
@@ -89,6 +90,22 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
         layer4: pendingLayer4,
     }
 
+    const logoLockup = (
+        <div className="flex items-center gap-2">
+            <Image
+                src={isLight ? '/favicon.svg' : '/favicon-dark.svg'}
+                alt=""
+                width={28}
+                height={28}
+                className="w-7 h-7"
+            />
+            <div className="flex flex-col justify-center">
+                <span className={`text-[13px] leading-none font-extrabold tracking-tight ${t.heading}`}>Dormers</span>
+                <span className={`mt-[3px] text-[10px] leading-none font-bold tracking-[0.10em] uppercase ${t.muted}`}>Admin</span>
+            </div>
+        </div>
+    )
+
     function isActive(href: string) {
         if (href === '/admin') return pathname === '/admin'
         return pathname.startsWith(href)
@@ -165,9 +182,8 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
                     backgroundColor: t.sidebar,
                 }}
             >
-                <div className={`flex items-center gap-2 px-4 py-4 ${t.sidebarBorder.replace('border-r', 'border-b')}`}>
-                    <div className="w-7 h-7 rounded-lg bg-[#f57f20] flex items-center justify-center text-white text-[11px] font-black">D</div>
-                    <span className={`text-[14px] font-extrabold tracking-tight ${t.heading}`}>Admin</span>
+                <div className={`flex items-center px-4 py-4 ${t.sidebarBorder.replace('border-r', 'border-b')}`}>
+                    {logoLockup}
                 </div>
                 <div className={`flex-1 overflow-y-auto ${t.sidebarBorder}`}>
                     {navContent}
@@ -189,10 +205,7 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
                         }}
                     >
                         <div className="flex items-center justify-between px-4 py-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-[#f57f20] flex items-center justify-center text-white text-[11px] font-black">D</div>
-                                <span className={`text-[14px] font-extrabold tracking-tight ${t.heading}`}>Admin</span>
-                            </div>
+                            {logoLockup}
                             <button
                                 type="button"
                                 onClick={onMobileClose}
