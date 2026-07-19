@@ -7,6 +7,7 @@ import { AdminButton } from '../_components/AdminButton'
 import { AdminModal } from '../_components/AdminModal'
 import { createDish, updateDish, uploadDishImage } from './actions'
 import { DishThumb } from './DishThumb'
+import { RecipeStudio } from './RecipeStudio'
 
 type Row = Record<string, unknown>
 type Result = { ok: boolean; message: string }
@@ -199,6 +200,8 @@ export function DishEditorModal({ dish, onClose, onResult, onCreated }: {
                             </div>
                         </div>
                     </div>
+
+                    {!isNew && <RecipeStudio dish={dish} onResult={onResult} />}
                 </div>
 
                 {/* Footer */}

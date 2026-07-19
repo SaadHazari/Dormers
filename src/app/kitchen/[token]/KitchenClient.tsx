@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { scaleQuantity } from '@/contexts/ops/domain/recipe-scaling'
+import {
+  isRecipeV2,
+  scaleIngredient,
+  type AnyRecipe,
+  type StructuredIngredient,
+} from '@/contexts/ops/domain/recipe-format'
 import { PackingCheck, type PackingDorm, type ExistingPacking } from './PackingCheck'
 
 const BG       = '#faf8f4'
@@ -16,16 +22,14 @@ const FONT     = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 
 const RECIPE_BASE_SERVINGS = 4
 
-export interface RecipeSection {
-  heading: string
-  items: string[]
-}
-
-export interface RecipeJson {
-  sections: RecipeSection[]
-  method: string[]
-  notes: string
-}
+/**
+ * Recipes come in two shapes: legacy v1 (ingredient lines are free text,
+ * scaled by scaleQuantity's leading-number regex) and structured v2
+ * (ingredients are { item, qty, unit } data, scaled with real math and
+ * rendered in cook-friendly units via scaleIngredient). Both render here
+ * until every recipe is converted.
+ */
+export type RecipeJson = AnyRecipe
 
 export interface KitchenDish {
   name: string
@@ -72,7 +76,7 @@ function extractKeywords(heading: string): string[] {
 }
 
 function assignMethodSteps(
-  sections: RecipeSection[],
+  sections: Array<{ heading: string }>,
   method: string[],
 ): string[][] {
   if (sections.length <= 1) return [method]
@@ -123,6 +127,7 @@ function RecipePage({
 }) {
   const color = dish.isVeg ? EMERALD : ORANGE
   const recipe = dish.recipe!
+  const structured = isRecipeV2(recipe)
   const multiplier = dish.mealCount / RECIPE_BASE_SERVINGS
   const hasTabs = recipe.sections.length > 1
 
@@ -335,7 +340,11 @@ function RecipePage({
                 }}
               >
                 <span style={{ color: MUTED, flexShrink: 0, fontSize: '8px', marginTop: '5px' }}>●</span>
-                <span>{scaleQuantity(item, multiplier)}</span>
+                {structured ? (
+                  <IngredientLine ing={item as StructuredIngredient} multiplier={multiplier} />
+                ) : (
+                  <span>{scaleQuantity(item as string, multiplier)}</span>
+                )}
               </div>
             ))
           )}
@@ -433,6 +442,25 @@ function RecipePage({
         <div style={{ height: '40px' }} />
       </div>
     </div>
+  )
+}
+
+/**
+ * Structured (v2) ingredient row: exact math on { qty, unit } data, displayed
+ * in cook-friendly units — "800 g", "1.5 kg", "2 tbsp + 1 tsp" — never the
+ * "0.1 kg salt" the old regex scaling produced.
+ */
+function IngredientLine({ ing, multiplier }: {
+  ing: StructuredIngredient
+  multiplier: number
+}) {
+  const d = scaleIngredient(ing, multiplier)
+  return (
+    <span>
+      {d.amount && <strong style={{ fontWeight: 800 }}>{d.amount} </strong>}
+      {d.label}
+      {d.note && <span style={{ color: MUTED }}>, {d.note}</span>}
+    </span>
   )
 }
 

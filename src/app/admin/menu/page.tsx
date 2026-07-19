@@ -10,7 +10,7 @@ export default async function MenuCmsPage() {
 
     const [dishesRes, weeksRes, slotsRes] = await Promise.all([
         sb.from('dishes')
-            .select('id, legacy_id, name, description, is_veg, spice_level, allergens, calories, protein, carbs, fat, micro_nutrients, image_path, is_active, created_at')
+            .select('id, legacy_id, name, description, is_veg, spice_level, allergens, calories, protein, carbs, fat, micro_nutrients, image_path, is_active, created_at, recipe, recipe_draft, recipe_locked')
             .order('legacy_id', { ascending: true }),
         sb.from('menu_weeks')
             .select('id, week_key, label, anchor_date, is_active')

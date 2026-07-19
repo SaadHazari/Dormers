@@ -375,6 +375,66 @@ export async function createDish(input: {
     return { ok: true, message: `"${name}" added — now upload a photo and assign it to a day`, dishId: created.id as string }
 }
 
+/**
+ * Promote an AI recipe draft to the live recipe the kitchen reads.
+ * The draft was produced by /api/admin/recipes/generate and reviewed in the
+ * dish editor — this is the only path that writes dishes.recipe from a draft.
+ */
+export async function approveRecipeDraft(dishId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: dish, error: readErr } = await sb
+        .from('dishes')
+        .select('id, name, recipe_draft')
+        .eq('id', dishId)
+        .maybeSingle()
+    if (readErr) return { ok: false, message: readErr.message }
+    if (!dish?.recipe_draft) return { ok: false, message: 'No draft to approve — generate one first.' }
+
+    const { error } = await sb
+        .from('dishes')
+        .update({ recipe: dish.recipe_draft, recipe_draft: null, updated_at: new Date().toISOString() })
+        .eq('id', dishId)
+    if (error) return { ok: false, message: error.message }
+
+    await logAdminAction(admin.email, 'approve_recipe_draft', 'dish', dishId, { dishName: dish.name })
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Recipe approved — the kitchen sees it from today.' }
+}
+
+/** Throw away an AI recipe draft. The live recipe is untouched. */
+export async function discardRecipeDraft(dishId: string): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb
+        .from('dishes')
+        .update({ recipe_draft: null, updated_at: new Date().toISOString() })
+        .eq('id', dishId)
+    if (error) return { ok: false, message: error.message }
+
+    await logAdminAction(admin.email, 'discard_recipe_draft', 'dish', dishId)
+    revalidateMenuSurfaces()
+    return { ok: true, message: 'Draft discarded' }
+}
+
+/** Toggle the proprietary lock — locked recipes cannot be AI-regenerated. */
+export async function setRecipeLocked(dishId: string, locked: boolean): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb
+        .from('dishes')
+        .update({ recipe_locked: locked, updated_at: new Date().toISOString() })
+        .eq('id', dishId)
+    if (error) return { ok: false, message: error.message }
+
+    await logAdminAction(admin.email, locked ? 'lock_recipe' : 'unlock_recipe', 'dish', dishId)
+    revalidateMenuSurfaces()
+    return { ok: true, message: locked ? 'Recipe locked as proprietary' : 'Recipe unlocked' }
+}
+
 /** Permanently delete a dish. Blocked by FK while it's still slotted anywhere. */
 export async function deleteDish(dishId: string): Promise<Result> {
     const admin = await requireAdmin()
