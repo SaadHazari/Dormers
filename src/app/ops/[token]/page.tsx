@@ -4,7 +4,8 @@ import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { dormShapeMap } from '@/shared/dorm-registry'
-import { RiderClient } from './RiderClient'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { RiderClient, type DormDropoffStatus } from './RiderClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +91,36 @@ export default async function OpsPage({
 
   const dormCounts = await getDormCounts(todayIso, dayName, isSaturday)
 
+  // ── Rehydrate the day in progress ─────────────────────────────────────────
+  // The rider PWA reloads mid-run all the time (iOS evicts background pages).
+  // Without this, a reload re-locks the day behind a pickup photo the rider
+  // can no longer take and wipes the delivered-dorm checklist. The server
+  // already holds both facts — pass them down as initial state.
+  const sbAdmin = createAdminSupabaseClient()
+  const [{ data: pickupRow }, { data: eventRows }] = await Promise.all([
+    sbAdmin
+      .from('ops_day_events')
+      .select('matched')
+      .eq('event_date', todayIso)
+      .eq('event_type', 'rider_pickup')
+      .maybeSingle(),
+    sbAdmin
+      .from('delivery_events')
+      .select('dorm_name, verified, rider_count')
+      .eq('delivery_date', todayIso)
+      .eq('trip_number', 1),
+  ])
+
+  const initialDormStatuses: Record<string, DormDropoffStatus> = {}
+  for (const row of eventRows ?? []) {
+    // verified → the photo check passed. rider_count without verified covers
+    // manual confirms and escalated photo attempts alike — 'manual' renders
+    // as done-but-unverified, which is honest for all of them and keeps the
+    // dorm from being re-done. Rows with neither are pickup placeholders.
+    if (row.verified) initialDormStatuses[row.dorm_name] = 'verified'
+    else if (row.rider_count !== null) initialDormStatuses[row.dorm_name] = 'manual'
+  }
+
   return (
     <RiderClient
       dormCounts={dormCounts}
@@ -98,6 +129,9 @@ export default async function OpsPage({
       deliveryDateIso={todayIso}
       lastUpdated={lastUpdated}
       noDeliveryReason={null}
+      initialPickedUp={!!pickupRow}
+      initialPickupFlagged={pickupRow?.matched === false}
+      initialDormStatuses={initialDormStatuses}
     />
   )
 }

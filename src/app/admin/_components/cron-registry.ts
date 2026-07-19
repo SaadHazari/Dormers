@@ -63,6 +63,12 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: 'Expiring customers aren’t being reminded to renew',
         group: 'customer',
     },
+    dispatch_subscription_ended_0045_ae: {
+        label: '"Plan ended" message (12:45 AM)',
+        does: 'Messages customers the night their plan finishes, right after the nightly switch-off.',
+        impact: 'Finished customers aren’t getting their plan-ended message',
+        group: 'customer',
+    },
     dispatch_zoho_due_every_minute: {
         label: 'Invoice sender (after payment)',
         does: 'Creates and sends the Zoho invoice for every paid order.',
@@ -88,6 +94,14 @@ export const JOB_INFO: Record<string, JobInfo> = {
         does: 'Extends a paused plan’s end date so the customer keeps their missed days.',
         impact: 'Paused customers are losing the days they paused to keep',
         group: 'engine',
+    },
+    subscription_closure_tick: {
+        label: 'Closure day extender (nightly)',
+        does: 'Extends every live plan by a day when the company was closed on a delivery day.',
+        impact: 'Customers are losing the meals a closure day owes them',
+        group: 'engine',
+        actionHref: '/admin/holidays',
+        actionLabel: 'Open Holidays',
     },
 
     // ── Watchdogs ───────────────────────────────────────────────────────────
@@ -121,6 +135,14 @@ export const JOB_INFO: Record<string, JobInfo> = {
         actionHref: '/admin/comms',
         actionLabel: 'Open Communications',
     },
+    ops_failsafe_20_ae: {
+        label: 'Unconfirmed delivery failsafe (8 PM)',
+        does: 'Pings you at 8 PM about dorms whose delivery was never confirmed today.',
+        impact: 'Unconfirmed deliveries are going unnoticed',
+        group: 'watchdog',
+        actionHref: '/admin/photos',
+        actionLabel: 'Open Photos',
+    },
 
     // ── Housekeeping ────────────────────────────────────────────────────────
     review_credit_cleanup_tick: {
@@ -145,6 +167,12 @@ export const JOB_INFO: Record<string, JobInfo> = {
         label: 'Old messages cleanup',
         does: 'Deletes old message records.',
         impact: 'Old message records are piling up',
+        group: 'housekeeping',
+    },
+    'rate-limit-gc': {
+        label: 'Rate limit counter cleanup',
+        does: 'Deletes stale rate-limit counters every half hour.',
+        impact: 'Stale rate-limit counters are piling up',
         group: 'housekeeping',
     },
     archive_ops_photos_daily: {

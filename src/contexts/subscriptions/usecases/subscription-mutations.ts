@@ -75,7 +75,7 @@ export async function pauseSubscription(subscriptionId: string) {
   if (!check.ok) return { error: check.error };
 
   // Apply Pause. Note: paused_days is NOT touched here — the daily
-  // subscription_pause_tick cron at 00:10 AE increments it by 1 for every
+  // subscription_pause_tick cron at 00:35 AE increments it by 1 for every
   // day the sub stays Paused, and the trigger pushes end_date out via the
   // canonical formula on each increment. has_paused_before stays true even
   // after resume so the 1-pause-per-cycle rule sticks.

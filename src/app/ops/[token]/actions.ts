@@ -26,20 +26,37 @@ export async function confirmDropoff(
 
   const sb = createAdminSupabaseClient()
 
+  // Only touch UNVERIFIED rows. A dorm that already passed the photo check
+  // must not be downgraded by a manual re-confirm (happens after a PWA
+  // reload if the rider re-taps a dorm they already delivered) — that would
+  // erase the count of record and fire the 8PM failsafe for nothing.
   const { data, error } = await sb
     .from('delivery_events')
     .update({
       rider_count: riderCount,
-      verified: false,
       confirmed_at: new Date().toISOString(),
     })
     .eq('delivery_date', deliveryDateIso)
     .eq('dorm_name', dormName)
     .eq('trip_number', 1)
+    .eq('verified', false)
     .select('id')
 
   if (error) return { ok: false, error: error.message }
-  if (!data || data.length === 0) return { ok: false, error: 'No delivery event found for this dorm today' }
+  if (!data || data.length === 0) {
+    // Zero rows: either the dorm is already photo-verified (idempotent
+    // no-op — success, and skip the owner ping) or pickup never created
+    // the row (real error the rider must see).
+    const { data: existing } = await sb
+      .from('delivery_events')
+      .select('verified')
+      .eq('delivery_date', deliveryDateIso)
+      .eq('dorm_name', dormName)
+      .eq('trip_number', 1)
+      .maybeSingle()
+    if (existing?.verified) return { ok: true }
+    return { ok: false, error: 'No delivery event found for this dorm today' }
+  }
 
   // Owner run update — manual confirms currently surface nowhere until the
   // 8PM failsafe; tell the owner now. Fire and forget.

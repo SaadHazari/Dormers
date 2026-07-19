@@ -17,7 +17,7 @@ const EMERALD = '#10b981'
 const FONT    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 
 
-type DormDropoffStatus = 'ready' | 'verified' | 'mismatch' | 'escalated' | 'manual'
+export type DormDropoffStatus = 'ready' | 'verified' | 'mismatch' | 'escalated' | 'manual'
 
 interface VerifyResponse {
   verified: boolean
@@ -35,6 +35,13 @@ interface RiderClientProps {
   deliveryDateIso: string
   lastUpdated: string
   noDeliveryReason: string | null
+  // Server-rehydrated day state — a PWA reload mid-run must NOT re-lock the
+  // day behind a pickup photo the rider can no longer take (boxes are already
+  // in the van) or wipe the delivered-dorm checklist. The RSC reads
+  // ops_day_events + delivery_events and passes what already happened.
+  initialPickedUp?: boolean
+  initialPickupFlagged?: boolean
+  initialDormStatuses?: Record<string, DormDropoffStatus>
 }
 
 // ─── Utility: non-blocking geolocation (Pitfall 6 — trigger from user gesture) ─
@@ -57,21 +64,25 @@ export function RiderClient({
   deliveryDateIso,
   lastUpdated,
   noDeliveryReason,
+  initialPickedUp = false,
+  initialPickupFlagged = false,
+  initialDormStatuses = {},
 }: RiderClientProps) {
   const RIDER_DORMS = Object.entries(dormShapeMap).filter(
     ([key]) => key !== 'Other',
   )
-  // ── Pickup state — the photo is the gate that unlocks the dorm list ─────
-  const [pickedUp, setPickedUp] = useState(false)
+  // ── Pickup state — the photo is the gate that unlocks the dorm list.
+  //    Seeded from the server so a reload rejoins the day in progress. ─────
+  const [pickedUp, setPickedUp] = useState(initialPickedUp)
   const [confirming, setConfirming] = useState(false)
   const [pickupError, setPickupError] = useState<string | null>(null)
   const [pickupPhoto, setPickupPhoto] = useState<Blob | null>(null)
   const [pickupPreviewUrl, setPickupPreviewUrl] = useState<string | null>(null)
-  const [pickupFlagged, setPickupFlagged] = useState(false)
+  const [pickupFlagged, setPickupFlagged] = useState(initialPickupFlagged)
   const pickupInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Per-dorm drop-off status ─────────────────────────────────────────────
-  const [dormStatuses, setDormStatuses] = useState<Record<string, DormDropoffStatus>>({})
+  // ── Per-dorm drop-off status — seeded from delivery_events on load ───────
+  const [dormStatuses, setDormStatuses] = useState<Record<string, DormDropoffStatus>>(initialDormStatuses)
 
   // ── Active modal state ───────────────────────────────────────────────────
   const [activeDorm, setActiveDorm] = useState<string | null>(null)

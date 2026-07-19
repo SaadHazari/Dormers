@@ -2,8 +2,11 @@
  * Notifications context — event subscribers.
  *
  * Wires the notifications use-case into the in-process event bus. Importing
- * this module has a side effect: handler registration. wireEvents() in
- * src/shared/events/wire-events.ts imports this once per process.
+ * this module has a side effect: handler registration. There is no central
+ * wiring file — every module that calls eventBus.emit() must ALSO import
+ * this module (side-effect import) or its events silently no-op. Current
+ * importers: subscription-mutations.ts and admin/customers/[id]/actions.ts.
+ * If you add a new emit site, add the import there too.
  *
  * Per L1: notifications doesn't get directly called by other contexts; they
  * publish events, this module consumes them. Subscriptions/payments no
