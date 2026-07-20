@@ -6,6 +6,7 @@ import { scaleQuantity } from '@/contexts/ops/domain/recipe-scaling'
 import {
   isRecipeV2,
   scaleIngredient,
+  recipeBaseServings,
   type AnyRecipe,
   type StructuredIngredient,
 } from '@/contexts/ops/domain/recipe-format'
@@ -19,8 +20,6 @@ const BORDER   = '#e5e2dc'
 const EMERALD  = '#10b981'
 const ORANGE   = '#f57f20'
 const FONT     = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
-
-const RECIPE_BASE_SERVINGS = 4
 
 /**
  * Recipes come in two shapes: legacy v1 (ingredient lines are free text,
@@ -128,11 +127,12 @@ function RecipePage({
   const color = dish.isVeg ? EMERALD : ORANGE
   const recipe = dish.recipe!
   const structured = isRecipeV2(recipe)
+  const baseServings = recipeBaseServings(recipe)
   // A 0 meal count (no confirmed orders yet, or the count read failed)
   // must NEVER multiply the recipe to a page of zeros — fall back to the
-  // base 4-serving quantities and say so in the badge.
+  // base quantities and say so in the badge.
   const hasCount = dish.mealCount > 0
-  const multiplier = hasCount ? dish.mealCount / RECIPE_BASE_SERVINGS : 1
+  const multiplier = hasCount ? dish.mealCount / baseServings : 1
   const hasTabs = recipe.sections.length > 1
 
   const methodBySections = assignMethodSteps(recipe.sections, recipe.method)
@@ -297,9 +297,9 @@ function RecipePage({
               color: color,
             }}
           >
-            {hasCount ? `Scaled for ${dish.mealCount} meals` : `Base recipe (${RECIPE_BASE_SERVINGS} servings)`}
+            {hasCount ? `Scaled for ${dish.mealCount} meals` : `Base recipe (${baseServings} servings)`}
             {hasCount ? (
-              <span style={{ color: MUTED, fontWeight: 400 }}>(base: {RECIPE_BASE_SERVINGS})</span>
+              <span style={{ color: MUTED, fontWeight: 400 }}>(base: {baseServings})</span>
             ) : (
               <span style={{ color: MUTED, fontWeight: 400 }}>no count yet, scale when it lands</span>
             )}

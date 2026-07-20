@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
     AlertCircle, ArrowLeftRight, CheckCircle2, ChevronRight, Database,
     Eye, EyeOff, Flame, Plus, Trash2, UtensilsCrossed,
@@ -8,7 +9,7 @@ import {
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminBadge } from '../_components/AdminBadge'
-import { deleteDish, seedMenuFromStatic, toggleDishActive } from './actions'
+import { approveAllRecipeDrafts, deleteDish, seedMenuFromStatic, toggleDishActive } from './actions'
 import { DishThumb } from './DishThumb'
 import { SlotEditorModal, type SlotTarget } from './SlotEditorModal'
 import { DishEditorModal } from './DishEditorModal'
@@ -510,6 +511,7 @@ function DishList({ dishes, slots, weeks, onResult }: {
         : dishes.filter(d => d.is_veg === false)
 
     const editingDish = editId ? dishes.find(d => d.id === editId) ?? null : null
+    const draftCount = dishes.filter(d => d.recipe_draft != null).length
 
     const pill = (key: typeof filter, label: string) => {
         const active = filter === key
@@ -536,10 +538,22 @@ function DishList({ dishes, slots, weeks, onResult }: {
                 {pill('nonveg', `Non-Veg · ${dishes.filter(d => !d.is_veg).length}`)}
                 {pill('veg', `Veg · ${dishes.filter(d => d.is_veg).length}`)}
                 <div className="flex-1" />
+                <a
+                    href="/api/admin/recipes/pdf?all=1&disposition=inline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 sm:py-1.5 text-[11px] font-bold tracking-[0.04em] uppercase border transition-colors duration-150 ${t.border} ${t.muted} ${t.cardHover}`}
+                >
+                    Cookbook PDF
+                </a>
                 <AdminButton onClick={() => setShowNew(true)} icon={<Plus size={13} />}>
                     New Dish
                 </AdminButton>
             </div>
+
+            {draftCount > 0 && (
+                <RecipeDraftsBar count={draftCount} onResult={onResult} />
+            )}
 
             <div className="flex flex-col gap-2">
                 {filtered.map(dish => (
@@ -571,6 +585,44 @@ function DishList({ dishes, slots, weeks, onResult }: {
                     onClose={() => setEditId(null)}
                     onResult={onResult}
                 />
+            )}
+        </div>
+    )
+}
+
+/** Batch bar shown when recipe drafts are pending — approve every draft at once. */
+function RecipeDraftsBar({ count, onResult }: { count: number; onResult: (r: Result) => void }) {
+    const { t } = useAdminTheme()
+    const router = useRouter()
+    const [isPending, startTransition] = useTransition()
+    const [armed, setArmed] = useState(false)
+
+    function handleApproveAll() {
+        startTransition(async () => {
+            const res = await approveAllRecipeDrafts()
+            onResult(res)
+            setArmed(false)
+            if (res.ok) router.refresh()
+        })
+    }
+
+    return (
+        <div className={`mb-4 px-4 py-3 rounded-xl border flex items-center gap-3 flex-wrap ${t.accentBg}`}>
+            <span className={`text-[13px] font-bold ${t.accent}`}>
+                {count} recipe draft{count === 1 ? '' : 's'} waiting for review
+            </span>
+            <span className={`text-[12px] font-medium ${t.muted}`}>
+                Open a dish to review it, or approve them all at once.
+            </span>
+            <div className="flex-1" />
+            {armed ? (
+                <div className="flex items-center gap-2">
+                    <span className={`text-[12px] font-bold ${t.body}`}>Push all {count} live?</span>
+                    <AdminButton variant="ghost" onClick={() => setArmed(false)} disabled={isPending}>Cancel</AdminButton>
+                    <AdminButton onClick={handleApproveAll} loading={isPending}>Yes, approve all</AdminButton>
+                </div>
+            ) : (
+                <AdminButton onClick={() => setArmed(true)}>Approve all drafts</AdminButton>
             )}
         </div>
     )

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronUp, Lock, LockOpen, Sparkles, Wand2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Download, Lock, LockOpen, Sparkles, Wand2 } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import {
@@ -145,6 +145,17 @@ export function RecipeStudio({ dish, onResult }: {
                             Convert to structured
                         </AdminButton>
                     )}
+                    {recipe && (
+                        <a
+                            href={`/api/admin/recipes/pdf?dishId=${dish.id as string}&disposition=inline`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold tracking-[0.04em] uppercase border transition-colors duration-150 ${t.border} ${t.body} ${t.cardHover}`}
+                        >
+                            <Download size={13} strokeWidth={2.2} />
+                            PDF
+                        </a>
+                    )}
                 </div>
             )}
             {generating !== null && (
@@ -161,6 +172,15 @@ export function RecipeStudio({ dish, onResult }: {
                             {draft.meta?.source === 'converted' ? 'Converted from the old format, nothing rewritten' : 'AI generated from your pantry'}
                         </span>
                         <div className="flex items-center gap-2">
+                            <a
+                                href={`/api/admin/recipes/pdf?dishId=${dish.id as string}&draft=1&disposition=inline`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Preview this draft as a PDF"
+                                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors duration-150 ${t.border} ${t.muted} ${t.cardHover}`}
+                            >
+                                <Download size={13} strokeWidth={2.2} />
+                            </a>
                             <AdminButton type="button" variant="ghost" onClick={handleDiscard} loading={isPending}>
                                 Discard
                             </AdminButton>

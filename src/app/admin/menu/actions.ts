@@ -403,6 +403,36 @@ export async function approveRecipeDraft(dishId: string): Promise<Result> {
     return { ok: true, message: 'Recipe approved — the kitchen sees it from today.' }
 }
 
+/**
+ * Approve EVERY pending recipe draft in one go — promotes each dish's
+ * recipe_draft into its live recipe. Used after a batch regeneration + review,
+ * so the owner doesn't tap Approve 48 times. Returns how many went live.
+ */
+export async function approveAllRecipeDrafts(): Promise<Result & { count?: number }> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { data: drafts, error: readErr } = await sb
+        .from('dishes')
+        .select('id, recipe_draft')
+        .not('recipe_draft', 'is', null)
+    if (readErr) return { ok: false, message: readErr.message }
+    if (!drafts || drafts.length === 0) return { ok: false, message: 'No drafts to approve.' }
+
+    let approved = 0
+    for (const d of drafts) {
+        const { error } = await sb
+            .from('dishes')
+            .update({ recipe: d.recipe_draft, recipe_draft: null, updated_at: new Date().toISOString() })
+            .eq('id', d.id)
+        if (!error) approved++
+    }
+
+    await logAdminAction(admin.email, 'approve_all_recipe_drafts', 'menu', undefined, { approved })
+    revalidateMenuSurfaces()
+    return { ok: true, message: `Approved ${approved} recipe${approved === 1 ? '' : 's'} — live in the kitchen now.`, count: approved }
+}
+
 /** Throw away an AI recipe draft. The live recipe is untouched. */
 export async function discardRecipeDraft(dishId: string): Promise<Result> {
     const admin = await requireAdmin()
