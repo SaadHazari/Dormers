@@ -13,6 +13,7 @@ import {
   formatAmount,
   scaleIngredient,
   alternativeAmounts,
+  splitRecipeComponents,
   isRecipeV2,
   recipeBaseServings,
   type RecipeV2,
@@ -134,6 +135,55 @@ describe('alternativeAmounts — chef-chosen view conversions', () => {
   it('returns just the original for count/pinch units', () => {
     expect(alternativeAmounts(10, 'pcs')).toEqual([{ qty: 10, unit: 'pcs', approx: false }])
     expect(alternativeAmounts(2, 'pinch')).toEqual([{ qty: 2, unit: 'pinch', approx: false }])
+  })
+})
+
+describe('splitRecipeComponents — sub-dish separation', () => {
+  const sec = (heading: string, item: string): RecipeV2['sections'][number] => ({
+    heading, items: [{ item, qty: 1, unit: 'g' }],
+  })
+
+  it('splits a curry + rice recipe at the "For the rice:" marker, main dish first', () => {
+    const recipe: RecipeV2 = {
+      v: 2, baseServings: 4, notes: '',
+      sections: [sec('For the chicken marinade', 'Chicken'), sec('For the gravy', 'Tomato'), sec('For the peas & carrot rice', 'Basmati rice')],
+      method: [
+        'Marinate the chicken.',
+        'Fry the onion and make the gravy.',
+        'Add the chicken back to the gravy.',
+        'For the rice: wash the basmati rice.',
+        'Cook the rice until soft.',
+      ],
+    }
+    const comps = splitRecipeComponents(recipe, 'Butter Chicken w/ Peas & Carrot Rice')
+    expect(comps).toHaveLength(2)
+    expect(comps[0].title).toBe('Butter Chicken')
+    expect(comps[0].method).toHaveLength(3)                       // renumbering happens at render
+    expect(comps[0].sections.map(s => s.heading)).toEqual(['For the chicken marinade', 'For the gravy'])
+    expect(comps[1].title).toBe('Rice')
+    expect(comps[1].method[0]).toBe('wash the basmati rice.')      // marker prefix stripped
+    expect(comps[1].sections.map(s => s.heading)).toEqual(['For the peas & carrot rice'])
+  })
+
+  it('returns a single component for a one-flow recipe (no markers)', () => {
+    const recipe: RecipeV2 = {
+      v: 2, baseServings: 4, notes: '',
+      sections: [sec('For the Aloo Kheema', 'Lamb mince'), sec('For serving', 'Arabic Bread')],
+      method: ['Fry the onion.', 'Add the mince and cook.', 'Serve with bread.'],
+    }
+    const comps = splitRecipeComponents(recipe, 'Aloo Kheema w/ Arabic Bread')
+    expect(comps).toHaveLength(1)
+    expect(comps[0].method).toHaveLength(3)
+  })
+
+  it('ignores a stray "For X:" that matches no section heading', () => {
+    const recipe: RecipeV2 = {
+      v: 2, baseServings: 4, notes: '',
+      sections: [sec('Ingredients', 'Chicken')],
+      method: ['Cook the chicken.', 'For best results: rest it 5 minutes.'],
+    }
+    const comps = splitRecipeComponents(recipe, 'Roast Chicken')
+    expect(comps).toHaveLength(1)
   })
 })
 

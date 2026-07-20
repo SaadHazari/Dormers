@@ -214,6 +214,81 @@ export function scaleIngredient(
   return { amount, label: ing.item, note }
 }
 
+// ─── Component splitting (for multi-dish recipe pages) ───────────────────────
+// A recipe like "Chicken Afghani w/ Yellow Rice" is really two sub-dishes on
+// one page. The generated method marks the second one with a "For the <side>:"
+// prefix (e.g. "For the rice: wash..."). We split on those markers so each
+// sub-dish can be numbered from 1 and coloured separately in the PDF, instead
+// of one confusing 1-to-17 list. Ingredient sections are mapped to whichever
+// component their heading matches; everything else stays with the main dish.
+
+export interface RecipeComponent {
+  /** e.g. "Butter Chicken" or "Yellow Rice" */
+  title: string
+  sections: RecipeSectionV2[]
+  /** steps for this component, marker prefix stripped, to be numbered from 1 */
+  method: string[]
+}
+
+function componentKeywords(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/^for\s+(?:the\s+|serving\b)?/, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Split a v2 recipe into its sub-dish components. Returns a single component
+ * when there are no "For the <side>:" markers (an ordinary one-flow recipe).
+ * A marker only counts if its words match one of the ingredient section
+ * headings, so a stray "For best results:" never invents a component.
+ */
+export function splitRecipeComponents(recipe: RecipeV2, dishName: string): RecipeComponent[] {
+  const sectionKw = recipe.sections.map((s) => componentKeywords(s.heading))
+  const markerRe = /^for\s+(?:the\s+)?(.+?):\s+/i
+
+  const mainTitle = (dishName.split(/\s+w\/\s+|\s+with\s+/i)[0] || dishName).trim()
+  const groups: { title: string; method: string[] }[] = [{ title: mainTitle, method: [] }]
+
+  for (const raw of recipe.method) {
+    const m = raw.match(markerRe)
+    const markerKw = m ? componentKeywords(m[1]) : []
+    const matchesSection =
+      markerKw.length > 0 && sectionKw.some((kw) => kw.some((k) => markerKw.includes(k)))
+    if (m && matchesSection) {
+      groups.push({ title: titleCase(m[1].trim()), method: [raw.replace(markerRe, '').trim()] })
+    } else {
+      groups[groups.length - 1].method.push(raw)
+    }
+  }
+
+  // Map each ingredient section to the best-matching non-main component, else main.
+  const groupKw = groups.map((g) => componentKeywords(g.title))
+  const buckets: RecipeSectionV2[][] = groups.map(() => [])
+  recipe.sections.forEach((section, si) => {
+    let best = 0
+    let bestScore = 0
+    for (let gi = 1; gi < groups.length; gi++) {
+      const score = groupKw[gi].filter((k) => sectionKw[si].includes(k)).length
+      if (score > bestScore) {
+        bestScore = score
+        best = gi
+      }
+    }
+    buckets[best].push(section)
+  })
+
+  return groups
+    .map((g, i) => ({ title: g.title, sections: buckets[i], method: g.method }))
+    .filter((c) => c.sections.length > 0 || c.method.length > 0)
+}
+
 // ─── Optional unit conversion (chef-chosen, view only) ───────────────────────
 // The recipe stays stored in its authored unit; a cook can tap an amount to
 // SEE it in the unit they prefer. Same-system conversions (g↔kg, ml↔l↔tsp↔tbsp
