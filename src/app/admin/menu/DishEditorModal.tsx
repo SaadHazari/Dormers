@@ -136,6 +136,15 @@ export function DishEditorModal({ dish, onClose, onResult, onCreated }: {
                         </div>
                     )}
 
+                    {/* Recipe workflow sits above the detail fields — it's the
+                        day-to-day admin job now, and on a phone the fields
+                        would otherwise bury it below the fold. */}
+                    {!isNew && (
+                        <div className="mb-5">
+                            <RecipeStudio dish={dish} onResult={onResult} />
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-4">
                         <div className="sm:col-span-2">
                             <label className={labelCls}>Name</label>
@@ -200,8 +209,6 @@ export function DishEditorModal({ dish, onClose, onResult, onCreated }: {
                             </div>
                         </div>
                     </div>
-
-                    {!isNew && <RecipeStudio dish={dish} onResult={onResult} />}
                 </div>
 
                 {/* Footer */}

@@ -128,7 +128,11 @@ function RecipePage({
   const color = dish.isVeg ? EMERALD : ORANGE
   const recipe = dish.recipe!
   const structured = isRecipeV2(recipe)
-  const multiplier = dish.mealCount / RECIPE_BASE_SERVINGS
+  // A 0 meal count (no confirmed orders yet, or the count read failed)
+  // must NEVER multiply the recipe to a page of zeros — fall back to the
+  // base 4-serving quantities and say so in the badge.
+  const hasCount = dish.mealCount > 0
+  const multiplier = hasCount ? dish.mealCount / RECIPE_BASE_SERVINGS : 1
   const hasTabs = recipe.sections.length > 1
 
   const methodBySections = assignMethodSteps(recipe.sections, recipe.method)
@@ -293,8 +297,12 @@ function RecipePage({
               color: color,
             }}
           >
-            Scaled for {dish.mealCount} meals
-            <span style={{ color: MUTED, fontWeight: 400 }}>(base: {RECIPE_BASE_SERVINGS})</span>
+            {hasCount ? `Scaled for ${dish.mealCount} meals` : `Base recipe (${RECIPE_BASE_SERVINGS} servings)`}
+            {hasCount ? (
+              <span style={{ color: MUTED, fontWeight: 400 }}>(base: {RECIPE_BASE_SERVINGS})</span>
+            ) : (
+              <span style={{ color: MUTED, fontWeight: 400 }}>no count yet, scale when it lands</span>
+            )}
           </div>
         </div>
 
