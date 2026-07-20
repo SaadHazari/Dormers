@@ -8,8 +8,11 @@ import { AdminButton } from '../_components/AdminButton'
 import {
     isRecipeV2,
     scaleIngredient,
+    alternativeAmounts,
+    formatAmount,
     type AnyRecipe,
     type RecipeV2,
+    type IngredientUnit,
 } from '@/contexts/ops/domain/recipe-format'
 import { approveRecipeDraft, discardRecipeDraft, setRecipeLocked } from './actions'
 
@@ -227,6 +230,25 @@ export function RecipeStudio({ dish, onResult }: {
     )
 }
 
+/** Tappable amount — cycles through unit alternatives (view only). */
+function AdminAmountChip({ qty, unit }: { qty: number; unit: IngredientUnit }) {
+    const options = alternativeAmounts(qty, unit)
+    const [idx, setIdx] = useState(0)
+    if (options.length === 0) return null
+    const opt = options[Math.min(idx, options.length - 1)]
+    const canCycle = options.length > 1
+    return (
+        <button
+            type="button"
+            onClick={() => canCycle && setIdx((idx + 1) % options.length)}
+            title={canCycle ? 'Tap to change unit' : undefined}
+            className={`font-bold ${canCycle ? 'border-b border-dotted border-current cursor-pointer' : 'cursor-default'}`}
+        >
+            {opt.approx ? '≈' : ''}{formatAmount(opt.qty, opt.unit)}{' '}
+        </button>
+    )
+}
+
 /** Read-only recipe body — handles both legacy string lines and structured v2. */
 function RecipePreview({ recipe }: { recipe: AnyRecipe }) {
     const { t } = useAdminTheme()
@@ -245,7 +267,9 @@ function RecipePreview({ recipe }: { recipe: AnyRecipe }) {
                                 const d = scaleIngredient(ing, 1)
                                 return (
                                     <li key={ii} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>
-                                        {d.amount && <span className="font-bold">{d.amount} </span>}
+                                        {d.amount && ing.qty !== null && ing.unit !== null
+                                            ? <AdminAmountChip qty={ing.qty} unit={ing.unit} />
+                                            : null}
                                         {d.label}
                                         {d.note && <span className={t.muted}> — {d.note}</span>}
                                         {ing.pantry === false && (

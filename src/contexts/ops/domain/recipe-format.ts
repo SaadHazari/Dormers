@@ -213,3 +213,70 @@ export function scaleIngredient(
   }
   return { amount, label: ing.item, note }
 }
+
+// ─── Optional unit conversion (chef-chosen, view only) ───────────────────────
+// The recipe stays stored in its authored unit; a cook can tap an amount to
+// SEE it in the unit they prefer. Same-system conversions (g↔kg, ml↔l↔tsp↔tbsp
+// ↔cup) are exact; cross-system (weight↔volume/spoons) assume a water-like
+// density of 1 g/ml and are flagged approximate. Never mutates the recipe.
+
+const UNIT_BASE: Record<IngredientUnit, number | null> = {
+  g: 1, kg: 1000, ml: 1, l: 1000, tsp: 5, tbsp: 15, cup: 240, pcs: null, pinch: null,
+}
+const CONVERTIBLE: IngredientUnit[] = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup']
+
+function unitSystem(u: IngredientUnit): 'weight' | 'volume' | 'other' {
+  if (u === 'g' || u === 'kg') return 'weight'
+  if (u === 'ml' || u === 'l' || u === 'tsp' || u === 'tbsp' || u === 'cup') return 'volume'
+  return 'other'
+}
+
+export interface AmountOption {
+  qty: number
+  unit: IngredientUnit
+  /** true when the conversion crossed weight↔volume (assumed density 1) */
+  approx: boolean
+}
+
+/**
+ * The unit alternatives a cook can cycle an amount through, original first.
+ * Returns just the original for count/pinch units or missing amounts. Filters
+ * out silly magnitudes (no "160 tsp of chicken") and caps the list.
+ */
+export function alternativeAmounts(
+  qty: number | null,
+  unit: IngredientUnit | null,
+): AmountOption[] {
+  if (qty === null || unit === null || UNIT_BASE[unit] === null) {
+    return qty !== null && unit !== null ? [{ qty, unit, approx: false }] : []
+  }
+  const base = qty * (UNIT_BASE[unit] as number)
+  const oSys = unitSystem(unit)
+  const opts: AmountOption[] = []
+
+  for (const u of CONVERTIBLE) {
+    if (u === unit) continue
+    const factor = UNIT_BASE[u] as number
+    const q = base / factor
+    const cross = unitSystem(u) !== oSys
+
+    // Magnitude sensibility per unit.
+    if (u === 'kg' && base < 1000) continue
+    if (u === 'l' && base < 1000) continue
+    if (u === 'ml' && base >= 1000) continue   // prefer litres over 1000+ ml
+    if (u === 'g' && base >= 100000) continue
+    if ((u === 'g' || u === 'ml') && q < 1) continue
+    if (u === 'tsp' && (q < 0.25 || q > 24)) continue
+    if (u === 'tbsp' && (q < 0.5 || q > 16)) continue
+    if (u === 'cup' && (q < 0.25 || q > 8)) continue
+    // Cross-system gates: spoons/cups only make sense for small amounts.
+    if (cross && (u === 'tsp' || u === 'tbsp' || u === 'cup') && base > 400) continue
+    if (cross && (u === 'ml' || u === 'g') && base > 2000) continue
+
+    opts.push({ qty: q, unit: u, approx: cross })
+  }
+
+  // Exact (same-system) conversions before approximate ones.
+  opts.sort((a, b) => Number(a.approx) - Number(b.approx))
+  return [{ qty, unit, approx: false }, ...opts].slice(0, 5)
+}

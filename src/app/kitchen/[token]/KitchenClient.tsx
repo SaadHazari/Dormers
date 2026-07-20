@@ -7,6 +7,8 @@ import {
   isRecipeV2,
   scaleIngredient,
   recipeBaseServings,
+  alternativeAmounts,
+  formatAmount,
   type AnyRecipe,
   type StructuredIngredient,
 } from '@/contexts/ops/domain/recipe-format'
@@ -328,6 +330,11 @@ function RecipePage({
           >
             Ingredients
           </div>
+          {structured && (
+            <div style={{ fontSize: '12px', color: MUTED, marginBottom: '12px', marginTop: '-4px' }}>
+              Tap any amount to switch its unit (g, ml, tsp…).
+            </div>
+          )}
           {currentSection.items.length === 0 ? (
             <p style={{ fontSize: '15px', color: MUTED, fontStyle: 'italic' }}>
               No ingredients listed
@@ -454,18 +461,55 @@ function RecipePage({
 }
 
 /**
- * Structured (v2) ingredient row: exact math on { qty, unit } data, displayed
- * in cook-friendly units — "800 g", "1.5 kg", "2 tbsp + 1 tsp" — never the
- * "0.1 kg salt" the old regex scaling produced.
+ * A tappable amount chip. Tapping cycles the amount through its sensible unit
+ * alternatives (g → ml → tsp …) so a cook can read it in the unit they prefer.
+ * View-only — the stored recipe never changes. "≈" marks a cross-system
+ * (weight↔volume) conversion, which assumes a water-like density.
+ */
+function AmountChip({ scaledQty, unit }: {
+  scaledQty: number
+  unit: StructuredIngredient['unit']
+}) {
+  const options = alternativeAmounts(scaledQty, unit)
+  const [idx, setIdx] = useState(0)
+  if (options.length === 0) return null
+
+  const opt = options[Math.min(idx, options.length - 1)]
+  const text = formatAmount(opt.qty, opt.unit)
+  const canCycle = options.length > 1
+
+  return (
+    <strong
+      onClick={canCycle ? (e) => { e.stopPropagation(); setIdx((idx + 1) % options.length) } : undefined}
+      title={canCycle ? 'Tap to change unit' : undefined}
+      style={{
+        fontWeight: 800,
+        cursor: canCycle ? 'pointer' : 'default',
+        borderBottom: canCycle ? `1.5px dotted ${MUTED}` : 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+      }}
+    >
+      {opt.approx ? '≈' : ''}{text}{' '}
+    </strong>
+  )
+}
+
+/**
+ * Structured (v2) ingredient row: exact math on { qty, unit } data. The amount
+ * is a tappable chip (unit conversion); the stored recipe never changes.
  */
 function IngredientLine({ ing, multiplier }: {
   ing: StructuredIngredient
   multiplier: number
 }) {
   const d = scaleIngredient(ing, multiplier)
+  const scaledQty = ing.qty === null ? null : ing.qty * multiplier
   return (
     <span>
-      {d.amount && <strong style={{ fontWeight: 800 }}>{d.amount} </strong>}
+      {scaledQty !== null && ing.unit !== null
+        ? <AmountChip scaledQty={scaledQty} unit={ing.unit} />
+        : null}
       {d.label}
       {d.note && <span style={{ color: MUTED }}>, {d.note}</span>}
     </span>

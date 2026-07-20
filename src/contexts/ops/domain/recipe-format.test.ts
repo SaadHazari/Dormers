@@ -12,6 +12,7 @@ import {
   normalizeQtyUnit,
   formatAmount,
   scaleIngredient,
+  alternativeAmounts,
   isRecipeV2,
   recipeBaseServings,
   type RecipeV2,
@@ -97,6 +98,42 @@ describe('scaleIngredient — exact math, unit preserved', () => {
   it('"to taste" ingredients never grow a fake number', () => {
     const salt = { item: 'Salt', qty: null, unit: null }
     expect(scaleIngredient(salt, 12)).toEqual({ amount: null, label: 'Salt', note: 'to taste' })
+  })
+})
+
+describe('alternativeAmounts — chef-chosen view conversions', () => {
+  const units = (qty: number, unit: Parameters<typeof alternativeAmounts>[1]) =>
+    alternativeAmounts(qty, unit).map(o => `${o.approx ? '~' : ''}${o.unit}`)
+
+  it('keeps the original unit first', () => {
+    expect(alternativeAmounts(150, 'ml')[0]).toEqual({ qty: 150, unit: 'ml', approx: false })
+  })
+
+  it('offers spoons and a cross-system weight for a small liquid amount', () => {
+    // 150 ml → tbsp/cup (exact), and ≈g (cross-system)
+    expect(units(150, 'ml')).toContain('tbsp')
+    expect(units(150, 'ml')).toContain('~g')
+  })
+
+  it('offers ml and a cross-system gram for a small spoon amount', () => {
+    // 1 tsp → 5 ml (exact) and ≈5 g (cross-system)
+    const opts = alternativeAmounts(1, 'tsp')
+    expect(opts.find(o => o.unit === 'ml')).toMatchObject({ qty: 5, approx: false })
+    expect(opts.find(o => o.unit === 'g')).toMatchObject({ qty: 5, approx: true })
+  })
+
+  it('does NOT offer spoons/cups for a bulk solid (no "160 tsp of chicken")', () => {
+    const opts = units(800, 'g')
+    expect(opts).not.toContain('tsp')
+    expect(opts).not.toContain('tbsp')
+    expect(opts).not.toContain('cup')
+    // a millilitre equivalent is fine though
+    expect(opts).toContain('~ml')
+  })
+
+  it('returns just the original for count/pinch units', () => {
+    expect(alternativeAmounts(10, 'pcs')).toEqual([{ qty: 10, unit: 'pcs', approx: false }])
+    expect(alternativeAmounts(2, 'pinch')).toEqual([{ qty: 2, unit: 'pinch', approx: false }])
   })
 })
 
