@@ -22,7 +22,7 @@ import {
   isRecipeV2,
   scaleIngredient,
   recipeBaseServings,
-  splitRecipeComponents,
+  getRecipeComponents,
   type AnyRecipe,
 } from '@/contexts/ops/domain/recipe-format'
 
@@ -87,7 +87,7 @@ function layout(entry: RecipeForPdf): { comps: Comp[]; servings: number; notes: 
   const mult = servings / base
 
   if (isRecipeV2(entry.recipe)) {
-    const parts = splitRecipeComponents(entry.recipe, entry.name)
+    const parts = getRecipeComponents(entry.recipe, entry.name)
     const comps: Comp[] = parts.map((p) => ({
       title: p.title,
       sections: p.sections.map((s) => ({ heading: s.heading, items: s.items.map((i) => scaleIngredient(i, mult)) })),

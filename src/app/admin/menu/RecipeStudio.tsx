@@ -10,9 +10,11 @@ import {
     scaleIngredient,
     alternativeAmounts,
     formatAmount,
+    getRecipeComponents,
     type AnyRecipe,
     type RecipeV2,
     type IngredientUnit,
+    type StructuredIngredient,
 } from '@/contexts/ops/domain/recipe-format'
 import { approveRecipeDraft, discardRecipeDraft, setRecipeLocked } from './actions'
 
@@ -203,7 +205,7 @@ export function RecipeStudio({ dish, onResult }: {
                     )}
 
                     <div className="max-h-[320px] overflow-y-auto px-4 py-3">
-                        <RecipePreview recipe={draft} />
+                        <RecipePreview recipe={draft} dishName={dish.name as string} />
                     </div>
                 </div>
             )}
@@ -221,7 +223,7 @@ export function RecipeStudio({ dish, onResult }: {
                     </button>
                     {showCurrent && (
                         <div className={`mt-2 rounded-xl border ${t.border} max-h-[320px] overflow-y-auto px-4 py-3`}>
-                            <RecipePreview recipe={recipe} />
+                            <RecipePreview recipe={recipe} dishName={dish.name as string} />
                         </div>
                     )}
                 </div>
@@ -249,53 +251,65 @@ function AdminAmountChip({ qty, unit }: { qty: number; unit: IngredientUnit }) {
     )
 }
 
-/** Read-only recipe body — handles both legacy string lines and structured v2. */
-function RecipePreview({ recipe }: { recipe: AnyRecipe }) {
+type PreviewComponent = { title: string; sections: { heading: string; items: unknown[] }[]; method: string[] }
+
+/** Read-only recipe body — renders explicit components (structured v2) or a
+ *  single legacy block (v1 string lines). */
+function RecipePreview({ recipe, dishName }: { recipe: AnyRecipe; dishName: string }) {
     const { t } = useAdminTheme()
     const structured = isRecipeV2(recipe)
+    const components: PreviewComponent[] = structured
+        ? (getRecipeComponents(recipe as RecipeV2, dishName) as PreviewComponent[])
+        : [{ title: '', sections: ((recipe.sections ?? []) as PreviewComponent['sections']), method: recipe.method ?? [] }]
 
     return (
-        <div className="space-y-4">
-            {recipe.sections.map((section, si) => (
-                <div key={si}>
-                    <div className={`text-[11px] font-bold tracking-[0.06em] uppercase mb-1.5 ${t.faint}`}>
-                        {section.heading}
-                    </div>
-                    <ul className="space-y-1">
-                        {structured
-                            ? (section.items as RecipeV2['sections'][number]['items']).map((ing, ii) => {
-                                const d = scaleIngredient(ing, 1)
-                                return (
-                                    <li key={ii} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>
-                                        {d.amount && ing.qty !== null && ing.unit !== null
-                                            ? <AdminAmountChip qty={ing.qty} unit={ing.unit} />
-                                            : null}
-                                        {d.label}
-                                        {d.note && <span className={t.muted}> — {d.note}</span>}
-                                        {ing.pantry === false && (
-                                            <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-black tracking-[0.06em] uppercase border ${t.warningBg} ${t.warning}`}>
-                                                new
-                                            </span>
-                                        )}
-                                    </li>
-                                )
-                            })
-                            : (section.items as string[]).map((line, ii) => (
-                                <li key={ii} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>{line}</li>
+        <div className="space-y-5">
+            {components.map((comp, ci) => (
+                <div key={ci}>
+                    {comp.title && (
+                        <div className={`text-[12px] font-black tracking-[0.04em] uppercase mb-2 pb-1 border-b ${t.border} ${t.accent}`}>
+                            {comp.title}
+                        </div>
+                    )}
+                    {comp.sections.map((section, si) => (
+                        <div key={si} className="mb-2">
+                            {comp.sections.length > 1 && (
+                                <div className={`text-[11px] font-bold tracking-[0.06em] uppercase mb-1 ${t.faint}`}>{section.heading}</div>
+                            )}
+                            <ul className="space-y-1">
+                                {structured
+                                    ? (section.items as StructuredIngredient[]).map((ing, ii) => {
+                                        const d = scaleIngredient(ing, 1)
+                                        return (
+                                            <li key={ii} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>
+                                                {d.amount && ing.qty !== null && ing.unit !== null
+                                                    ? <AdminAmountChip qty={ing.qty} unit={ing.unit} />
+                                                    : null}
+                                                {d.label}
+                                                {d.note && <span className={t.muted}> — {d.note}</span>}
+                                                {ing.pantry === false && (
+                                                    <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-black tracking-[0.06em] uppercase border ${t.warningBg} ${t.warning}`}>
+                                                        new
+                                                    </span>
+                                                )}
+                                            </li>
+                                        )
+                                    })
+                                    : (section.items as string[]).map((line, ii) => (
+                                        <li key={ii} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>{line}</li>
+                                    ))}
+                            </ul>
+                        </div>
+                    ))}
+                    {comp.method.length > 0 && (
+                        <ol className="space-y-1 list-decimal pl-5 mt-1">
+                            {comp.method.map((step, i) => (
+                                <li key={i} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>{step}</li>
                             ))}
-                    </ul>
+                        </ol>
+                    )}
                 </div>
             ))}
-            {recipe.method.length > 0 && (
-                <div>
-                    <div className={`text-[11px] font-bold tracking-[0.06em] uppercase mb-1.5 ${t.faint}`}>Method</div>
-                    <ol className="space-y-1.5 list-decimal pl-5">
-                        {recipe.method.map((step, i) => (
-                            <li key={i} className={`text-[13px] font-medium leading-[1.5] ${t.body}`}>{step}</li>
-                        ))}
-                    </ol>
-                </div>
-            )}
             {recipe.notes && (
                 <p className={`text-[12px] font-medium leading-[1.5] ${t.muted}`}>{recipe.notes}</p>
             )}

@@ -9,7 +9,9 @@ import {
   recipeBaseServings,
   alternativeAmounts,
   formatAmount,
+  getRecipeComponents,
   type AnyRecipe,
+  type RecipeV2,
   type StructuredIngredient,
 } from '@/contexts/ops/domain/recipe-format'
 import { PackingCheck, type PackingDorm, type ExistingPacking } from './PackingCheck'
@@ -60,64 +62,12 @@ interface KitchenClientProps {
   packing?: PackingProps | null
 }
 
-// ─── Method step → section assignment ────────────────────────────────────────
-// Extracts keywords from section headings and matches method steps to sections.
-// "For the salad: toss..." matches "For the salad" section.
-// Unmatched steps attach to the previous section (cooking flows are sequential).
-
-function extractKeywords(heading: string): string[] {
-  const cleaned = heading
-    .toLowerCase()
-    .replace(/^for (the )?/, '')
-    .replace(/ingredients?|assembly|serving|garnish/g, '')
-    .trim()
-  return cleaned
-    .split(/[\s,]+/)
-    .filter(w => w.length > 2)
-}
-
-function assignMethodSteps(
-  sections: Array<{ heading: string }>,
-  method: string[],
-): string[][] {
-  if (sections.length <= 1) return [method]
-
-  const sectionKeywords = sections.map(s => extractKeywords(s.heading))
-  const result: string[][] = sections.map(() => [])
-
-  let currentSection = 0
-  for (const step of method) {
-    const lower = step.toLowerCase()
-    let bestMatch = -1
-    let bestScore = 0
-
-    for (let si = 0; si < sectionKeywords.length; si++) {
-      let score = 0
-      for (const kw of sectionKeywords[si]) {
-        if (lower.includes(kw)) score++
-      }
-      if (score > bestScore) {
-        bestScore = score
-        bestMatch = si
-      }
-    }
-
-    if (bestScore > 0) {
-      currentSection = bestMatch
-    }
-    result[currentSection].push(step)
-  }
-
-  return result
-}
-
-function cleanTabLabel(heading: string): string {
-  return heading
-    .replace(/^for (the )?/i, '')
-    .replace(/^\w/, c => c.toUpperCase())
-}
-
 // ─── Recipe Page (full-screen, tabbed by component) ─────────────────────────
+// A meal's recipe is a list of components (sub-dishes). Each component is a tab
+// showing its own ingredients and its own method, numbered from 1. Components
+// come straight from the stored recipe (getRecipeComponents) — no guessing.
+
+type DisplayComponent = { title: string; sections: { heading: string; items: unknown[] }[]; method: string[] }
 
 function RecipePage({
   dish,
@@ -135,9 +85,11 @@ function RecipePage({
   // base quantities and say so in the badge.
   const hasCount = dish.mealCount > 0
   const multiplier = hasCount ? dish.mealCount / baseServings : 1
-  const hasTabs = recipe.sections.length > 1
 
-  const methodBySections = assignMethodSteps(recipe.sections, recipe.method)
+  const components: DisplayComponent[] = structured
+    ? (getRecipeComponents(recipe as RecipeV2, dish.name) as DisplayComponent[])
+    : [{ title: '', sections: (recipe.sections ?? []) as DisplayComponent['sections'], method: recipe.method ?? [] }]
+  const hasTabs = components.length > 1
 
   const [activeTab, setActiveTab] = useState(0)
 
@@ -153,8 +105,7 @@ function RecipePage({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const currentSection = recipe.sections[activeTab]
-  const currentMethod = methodBySections[activeTab] ?? []
+  const comp = components[Math.min(activeTab, components.length - 1)] ?? { title: '', sections: [], method: [] }
 
   return (
     <div
@@ -244,7 +195,7 @@ function RecipePage({
               WebkitOverflowScrolling: 'touch',
             }}
           >
-            {recipe.sections.map((section, si) => {
+            {components.map((c, si) => {
               const isActive = activeTab === si
               return (
                 <button
@@ -266,7 +217,7 @@ function RecipePage({
                     transition: 'color 0.15s, border-color 0.15s',
                   }}
                 >
-                  {cleanTabLabel(section.heading)}
+                  {c.title || 'Recipe'}
                 </button>
               )
             })}
@@ -335,38 +286,56 @@ function RecipePage({
               Tap any amount to switch its unit (g, ml, tsp…).
             </div>
           )}
-          {currentSection.items.length === 0 ? (
+          {comp.sections.every(s => s.items.length === 0) ? (
             <p style={{ fontSize: '15px', color: MUTED, fontStyle: 'italic' }}>
               No ingredients listed
             </p>
           ) : (
-            currentSection.items.map((item, ii) => (
-              <div
-                key={ii}
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: '8px',
-                  padding: '7px 0',
-                  borderBottom: ii < currentSection.items.length - 1 ? `1px solid ${BORDER}` : 'none',
-                  fontSize: '15px',
-                  lineHeight: 1.5,
-                  color: NAVY,
-                }}
-              >
-                <span style={{ color: MUTED, flexShrink: 0, fontSize: '8px', marginTop: '5px' }}>●</span>
-                {structured ? (
-                  <IngredientLine ing={item as StructuredIngredient} multiplier={multiplier} />
-                ) : (
-                  <span>{scaleQuantity(item as string, multiplier)}</span>
+            comp.sections.map((section, si) => (
+              <div key={si} style={{ marginBottom: si < comp.sections.length - 1 ? '16px' : 0 }}>
+                {comp.sections.length > 1 && (
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: MUTED,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    {section.heading}
+                  </div>
                 )}
+                {section.items.map((item, ii) => (
+                  <div
+                    key={ii}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: '8px',
+                      padding: '7px 0',
+                      borderBottom: ii < section.items.length - 1 ? `1px solid ${BORDER}` : 'none',
+                      fontSize: '15px',
+                      lineHeight: 1.5,
+                      color: NAVY,
+                    }}
+                  >
+                    <span style={{ color: MUTED, flexShrink: 0, fontSize: '8px', marginTop: '5px' }}>●</span>
+                    {structured ? (
+                      <IngredientLine ing={item as StructuredIngredient} multiplier={multiplier} />
+                    ) : (
+                      <span>{scaleQuantity(item as string, multiplier)}</span>
+                    )}
+                  </div>
+                ))}
               </div>
             ))
           )}
         </div>
 
         {/* ── Method ── */}
-        {currentMethod.length > 0 && (
+        {comp.method.length > 0 && (
           <div
             style={{
               backgroundColor: BG_CARD,
@@ -388,15 +357,15 @@ function RecipePage({
             >
               Method
             </div>
-            {currentMethod.map((step, i) => (
+            {comp.method.map((step, i) => (
               <div
                 key={i}
                 style={{
                   display: 'flex',
                   gap: '12px',
-                  marginBottom: i < currentMethod.length - 1 ? '16px' : 0,
-                  paddingBottom: i < currentMethod.length - 1 ? '16px' : 0,
-                  borderBottom: i < currentMethod.length - 1 ? `1px solid ${BORDER}` : 'none',
+                  marginBottom: i < comp.method.length - 1 ? '16px' : 0,
+                  paddingBottom: i < comp.method.length - 1 ? '16px' : 0,
+                  borderBottom: i < comp.method.length - 1 ? `1px solid ${BORDER}` : 'none',
                 }}
               >
                 <div

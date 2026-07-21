@@ -26,6 +26,18 @@ describe('cleanMethodStep', () => {
     expect(cleanMethodStep('Pour in 200 ml of the coconut milk.')).toBe('Pour in the coconut milk.')
   })
 
+  it('strips full-word measurements too', () => {
+    expect(cleanMethodStep('Add 2 tablespoons of ginger-garlic paste.')).toBe('Add ginger-garlic paste.')
+    expect(cleanMethodStep('Mix in 150 grams of onion.')).toBe('Mix in onion.')
+  })
+
+  it('swaps chef jargon for plain words', () => {
+    expect(cleanMethodStep('Let the cumin seeds splutter.')).toBe('Let the cumin seeds crackle.')
+    expect(cleanMethodStep('Dredge each piece in the flour.')).toBe('coat each piece in the flour.')
+    expect(cleanMethodStep('Add the julienned carrots.')).toBe('Add the cut thin carrots.')
+    expect(cleanMethodStep('Layer the par-cooked rice.')).toBe('Layer the partly cooked rice.')
+  })
+
   it('leaves times, sizes, and temperatures alone', () => {
     expect(cleanMethodStep('Cook for 8-10 minutes until oil separates.')).toBe('Cook for 8-10 minutes until oil separates.')
     expect(cleanMethodStep('Cut the paneer into 1-inch cubes.')).toBe('Cut the paneer into 1-inch cubes.')

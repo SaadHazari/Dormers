@@ -53,6 +53,19 @@ export interface RecipeSectionV2 {
   items: StructuredIngredient[]
 }
 
+/**
+ * A servable sub-dish of a meal — e.g. "Butter Paneer" and "Carrot & Peas Rice"
+ * are the two components of that meal. Each carries its OWN ingredient sections
+ * and its OWN method, numbered from 1. This is stored explicitly (the generator
+ * decides the components) instead of being guessed from the method text.
+ */
+export interface RecipeComponentV2 {
+  /** the food itself, short: "Rajma", "Zeera Rice" — never the full menu name */
+  title: string
+  sections: RecipeSectionV2[]
+  method: string[]
+}
+
 export interface RecipeMeta {
   source: 'generated' | 'converted'
   model: string
@@ -64,8 +77,11 @@ export interface RecipeV2 {
   v: 2
   /** Servings the quantities are written for. Kitchen scales by mealCount/this. */
   baseServings: number
-  sections: RecipeSectionV2[]
-  method: string[]
+  /** Canonical structure: the meal's servable components. */
+  components?: RecipeComponentV2[]
+  /** Legacy pre-components shape — still readable, converted on the fly. */
+  sections?: RecipeSectionV2[]
+  method?: string[]
   notes: string
   meta?: RecipeMeta
 }
@@ -214,21 +230,11 @@ export function scaleIngredient(
   return { amount, label: ing.item, note }
 }
 
-// ─── Component splitting (for multi-dish recipe pages) ───────────────────────
-// A recipe like "Chicken Afghani w/ Yellow Rice" is really two sub-dishes on
-// one page. The generated method marks the second one with a "For the <side>:"
-// prefix (e.g. "For the rice: wash..."). We split on those markers so each
-// sub-dish can be numbered from 1 and coloured separately in the PDF, instead
-// of one confusing 1-to-17 list. Ingredient sections are mapped to whichever
-// component their heading matches; everything else stays with the main dish.
-
-export interface RecipeComponent {
-  /** e.g. "Butter Chicken" or "Yellow Rice" */
-  title: string
-  sections: RecipeSectionV2[]
-  /** steps for this component, marker prefix stripped, to be numbered from 1 */
-  method: string[]
-}
+// ─── Reading components (the single render entry point) ──────────────────────
+// New recipes store `components` explicitly. Legacy recipes (pre-components,
+// with top-level sections + flat method) are converted on the fly by splitting
+// the flat method at its "For the <side>:" markers. Kitchen, PDF, and admin all
+// render through getRecipeComponents so they never diverge.
 
 function componentKeywords(s: string): string[] {
   return s
@@ -244,19 +250,24 @@ function titleCase(s: string): string {
 }
 
 /**
- * Split a v2 recipe into its sub-dish components. Returns a single component
- * when there are no "For the <side>:" markers (an ordinary one-flow recipe).
- * A marker only counts if its words match one of the ingredient section
- * headings, so a stray "For best results:" never invents a component.
+ * Return a v2 recipe's components. Uses the explicit `components` array when
+ * present; otherwise derives them from the legacy sections + flat method by
+ * splitting on "For the <side>:" markers (validated against section headings so
+ * a stray "For best results:" never invents a component).
  */
-export function splitRecipeComponents(recipe: RecipeV2, dishName: string): RecipeComponent[] {
-  const sectionKw = recipe.sections.map((s) => componentKeywords(s.heading))
-  const markerRe = /^for\s+(?:the\s+)?(.+?):\s+/i
+export function getRecipeComponents(recipe: RecipeV2, dishName: string): RecipeComponentV2[] {
+  if (recipe.components && recipe.components.length > 0) return recipe.components
 
+  const sections = recipe.sections ?? []
+  const method = recipe.method ?? []
+  if (sections.length === 0 && method.length === 0) return []
+
+  const sectionKw = sections.map((s) => componentKeywords(s.heading))
+  const markerRe = /^for\s+(?:the\s+)?(.+?):\s+/i
   const mainTitle = (dishName.split(/\s+w\/\s+|\s+with\s+/i)[0] || dishName).trim()
   const groups: { title: string; method: string[] }[] = [{ title: mainTitle, method: [] }]
 
-  for (const raw of recipe.method) {
+  for (const raw of method) {
     const m = raw.match(markerRe)
     const markerKw = m ? componentKeywords(m[1]) : []
     const matchesSection =
@@ -268,10 +279,9 @@ export function splitRecipeComponents(recipe: RecipeV2, dishName: string): Recip
     }
   }
 
-  // Map each ingredient section to the best-matching non-main component, else main.
   const groupKw = groups.map((g) => componentKeywords(g.title))
   const buckets: RecipeSectionV2[][] = groups.map(() => [])
-  recipe.sections.forEach((section, si) => {
+  sections.forEach((section, si) => {
     let best = 0
     let bestScore = 0
     for (let gi = 1; gi < groups.length; gi++) {

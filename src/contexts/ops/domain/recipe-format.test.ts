@@ -13,11 +13,12 @@ import {
   formatAmount,
   scaleIngredient,
   alternativeAmounts,
-  splitRecipeComponents,
+  getRecipeComponents,
   isRecipeV2,
   recipeBaseServings,
   type RecipeV2,
   type RecipeV1,
+  type RecipeSectionV2,
 } from './recipe-format'
 
 describe('normalizeQtyUnit — ingest canonicalises spelling, never converts', () => {
@@ -138,12 +139,24 @@ describe('alternativeAmounts — chef-chosen view conversions', () => {
   })
 })
 
-describe('splitRecipeComponents — sub-dish separation', () => {
-  const sec = (heading: string, item: string): RecipeV2['sections'][number] => ({
+describe('getRecipeComponents — explicit components + legacy fallback', () => {
+  const sec = (heading: string, item: string): RecipeSectionV2 => ({
     heading, items: [{ item, qty: 1, unit: 'g' }],
   })
 
-  it('splits a curry + rice recipe at the "For the rice:" marker, main dish first', () => {
+  it('returns explicit components verbatim when present', () => {
+    const recipe: RecipeV2 = {
+      v: 2, baseServings: 4, notes: '',
+      components: [
+        { title: 'Rajma', sections: [sec('Ingredients', 'Rajma')], method: ['Cook the rajma.'] },
+        { title: 'Rice', sections: [sec('Ingredients', 'Basmati rice')], method: ['Boil the rice.'] },
+      ],
+    }
+    const comps = getRecipeComponents(recipe, 'Rajma Chawal')
+    expect(comps.map(c => c.title)).toEqual(['Rajma', 'Rice'])
+  })
+
+  it('LEGACY: splits a curry + rice recipe at the "For the rice:" marker', () => {
     const recipe: RecipeV2 = {
       v: 2, baseServings: 4, notes: '',
       sections: [sec('For the chicken marinade', 'Chicken'), sec('For the gravy', 'Tomato'), sec('For the peas & carrot rice', 'Basmati rice')],
@@ -155,34 +168,34 @@ describe('splitRecipeComponents — sub-dish separation', () => {
         'Cook the rice until soft.',
       ],
     }
-    const comps = splitRecipeComponents(recipe, 'Butter Chicken w/ Peas & Carrot Rice')
+    const comps = getRecipeComponents(recipe, 'Butter Chicken w/ Peas & Carrot Rice')
     expect(comps).toHaveLength(2)
     expect(comps[0].title).toBe('Butter Chicken')
-    expect(comps[0].method).toHaveLength(3)                       // renumbering happens at render
+    expect(comps[0].method).toHaveLength(3)
     expect(comps[0].sections.map(s => s.heading)).toEqual(['For the chicken marinade', 'For the gravy'])
     expect(comps[1].title).toBe('Rice')
-    expect(comps[1].method[0]).toBe('wash the basmati rice.')      // marker prefix stripped
+    expect(comps[1].method[0]).toBe('wash the basmati rice.')
     expect(comps[1].sections.map(s => s.heading)).toEqual(['For the peas & carrot rice'])
   })
 
-  it('returns a single component for a one-flow recipe (no markers)', () => {
+  it('LEGACY: returns a single component for a one-flow recipe (no markers)', () => {
     const recipe: RecipeV2 = {
       v: 2, baseServings: 4, notes: '',
       sections: [sec('For the Aloo Kheema', 'Lamb mince'), sec('For serving', 'Arabic Bread')],
       method: ['Fry the onion.', 'Add the mince and cook.', 'Serve with bread.'],
     }
-    const comps = splitRecipeComponents(recipe, 'Aloo Kheema w/ Arabic Bread')
+    const comps = getRecipeComponents(recipe, 'Aloo Kheema w/ Arabic Bread')
     expect(comps).toHaveLength(1)
     expect(comps[0].method).toHaveLength(3)
   })
 
-  it('ignores a stray "For X:" that matches no section heading', () => {
+  it('LEGACY: ignores a stray "For X:" that matches no section heading', () => {
     const recipe: RecipeV2 = {
       v: 2, baseServings: 4, notes: '',
       sections: [sec('Ingredients', 'Chicken')],
       method: ['Cook the chicken.', 'For best results: rest it 5 minutes.'],
     }
-    const comps = splitRecipeComponents(recipe, 'Roast Chicken')
+    const comps = getRecipeComponents(recipe, 'Roast Chicken')
     expect(comps).toHaveLength(1)
   })
 })

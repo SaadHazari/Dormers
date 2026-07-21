@@ -27,6 +27,7 @@ import {
   DEFAULT_BASE_SERVINGS,
   type RecipeV1,
   type RecipeV2,
+  type RecipeComponentV2,
   type RecipeSectionV2,
   type StructuredIngredient,
 } from './recipe-format'
@@ -70,19 +71,21 @@ function normName(s: string): string {
     .join(' ')
 }
 
-/** Mark each ingredient pantry:true/false against the master list. */
-function matchPantry(sections: RecipeSectionV2[], pantry: PantryEntry[]): string[] {
+/** Mark each ingredient pantry:true/false across all component sections. */
+function matchPantry(components: RecipeComponentV2[], pantry: PantryEntry[]): string[] {
   const pantryNorms = pantry.map(p => normName(p.name)).filter(Boolean)
   const newOnes = new Set<string>()
 
-  for (const section of sections) {
-    for (const ing of section.items) {
-      const n = normName(ing.item)
-      const hit =
-        n === 'water' ||
-        pantryNorms.some(p => p === n || p.includes(n) || n.includes(p))
-      ing.pantry = hit
-      if (!hit) newOnes.add(ing.item)
+  for (const comp of components) {
+    for (const section of comp.sections) {
+      for (const ing of section.items) {
+        const n = normName(ing.item)
+        const hit =
+          n === 'water' ||
+          pantryNorms.some(p => p === n || p.includes(n) || n.includes(p))
+        ing.pantry = hit
+        if (!hit) newOnes.add(ing.item)
+      }
     }
   }
   return [...newOnes]
@@ -138,63 +141,85 @@ Our cooks do not speak English well. Write the way you would explain to someone 
 - For meat, say "cook until fully done, no pink inside" instead of giving a temperature.
 - Do NOT write any amount or unit inside a method step (no "add 30 ml oil", no "1 tsp salt"). The kitchen scales the ingredient list every day, so a number written in a step would be wrong. Point to things by name: "the marinade", "the rice water", "the gravy spices".
 
-SECTIONS:
-Split the recipe into its real parts, like the cookbook does — "For the marinade", "For the gravy", "For the rice", "For the salad". If the dish is one simple thing, use a single section called "Ingredients".
-
 UNITS (do not convert between them):
 Give each ingredient the unit a cook naturally uses for it at this small 4-serving size. Spices and seasonings in "tsp" or "tbsp". Main solids (rice, meat, paneer, vegetables) in "g". Liquids (water, milk, cream, oil) in "ml". Whole countable things (eggs, buns, lemons, whole green chillies, curry leaves, bay leaves) in "pcs". Only use "kg" or "l" if an amount is genuinely large at 4 servings (rare). Never use cups, cans, packets, or handfuls.`
 
+const COMPONENTS_RULE = `COMPONENTS — break the meal into the parts that are cooked as separate dishes and placed in the box together:
+- A curry/gravy is one component; its rice is a separate component. A grilled or roasted protein plus rice = the protein is one component, the rice is another.
+- A dish cooked in a single pot/flow (a biryani, a fried rice, a pasta, pav bhaji) is ONE component.
+- Name each component after the FOOD itself — short and clean, NEVER the full menu name:
+    "Rajma Chawal"                         -> "Rajma" and "Rice"
+    "Dal Nawabi w/ Zeera Rice"             -> "Dal Nawabi" and "Zeera Rice"
+    "Butter Paneer w/ Carrot & Peas Rice"  -> "Butter Paneer" and "Carrot & Peas Rice"
+    "Mashed Potatoes w/ Tangy Beans"       -> "Mashed Potatoes" and "Tangy Beans"
+    "Paneer Afghani w/ Yellow Rice"        -> "Paneer Afghani" and "Yellow Rice"
+    "Chicken Biryani"                      -> ONE component "Chicken Biryani"
+    "Pav Bhaji"                            -> ONE component "Pav Bhaji"
+- Bread (roti, naan, arabic bread), plain raita, chutney, or a plain salad that is just assembled or bought is NOT a component — put it as a section inside the main component, or mention it in "notes". Make it a component only if it needs real cooking or mixing.
+- NEVER create two components with the same or nearly-same name. NEVER split one dish's ingredients across two components.
+- Inside a component you MAY use sub-sections ("Marinade", "Gravy"); otherwise use one section called "Ingredients".
+- Each component has its OWN short method (its own steps). Do NOT write "For the rice:" prefixes and do NOT number the steps yourself — the component title already names the dish.`
+
 const OUTPUT_SHAPE = `Output ONLY a JSON object — no commentary, no code fences:
 {
-  "sections": [
+  "components": [
     {
-      "heading": "For the marinade",
-      "items": [
-        { "item": "Chicken thighs", "qty": 400, "unit": "g", "note": "cut into chunks" },
-        { "item": "Red chilli powder", "qty": 1, "unit": "tsp" }
-      ]
+      "title": "<short food name, not the menu name>",
+      "sections": [
+        { "heading": "Marinade", "items": [ { "item": "Chicken thighs", "qty": 700, "unit": "g", "note": "cut into chunks" } ] },
+        { "heading": "Gravy", "items": [ { "item": "Tomato", "qty": 500, "unit": "g" } ] }
+      ],
+      "method": ["Mix the chicken with the marinade. Keep aside.", "Fry the onion until soft."]
     }
   ],
-  "method": ["Mix the chicken with all the marinade items. Keep in the fridge for 1 hour.", "Cook the chicken in a hot pan until brown. Take it out."],
   "notes": "Allergen and serving notes as one short plain-text string."
 }
 
 Rules for the JSON:
+- A one-dish meal has exactly ONE component. A dish-plus-rice has TWO.
 - "item": the clean ingredient name only. Prep words ("chopped", "soaked") go in "note".
 - "unit": one of "g", "kg", "ml", "l", "tsp", "tbsp", "pcs", "pinch". No other unit.
-- Every real ingredient gets a qty. Use qty null + unit null ONLY for "salt to taste" style items.
+- Every real ingredient gets a qty. Use qty null + unit null ONLY for "to taste" items.
 - List each ingredient once per section.`
 
 const EXAMPLE = `EXAMPLE of the tone and shape we want (a different dish — do not copy its ingredients):
 {
-  "sections": [
-    { "heading": "For the chicken marinade", "items": [
-      { "item": "Chicken thighs", "qty": 700, "unit": "g", "note": "cut into chunks" },
-      { "item": "Plain yogurt", "qty": 100, "unit": "g" },
-      { "item": "Ginger-garlic paste", "qty": 2, "unit": "tbsp" },
-      { "item": "Red chilli powder", "qty": 2, "unit": "tsp" },
-      { "item": "Salt", "qty": 2, "unit": "tsp" }
-    ]},
-    { "heading": "For the gravy", "items": [
-      { "item": "Tomato", "qty": 500, "unit": "g", "note": "made into puree" },
-      { "item": "Onion", "qty": 150, "unit": "g", "note": "chopped small" },
-      { "item": "Butter", "qty": 80, "unit": "g" },
-      { "item": "Cooking cream", "qty": 150, "unit": "ml" }
-    ]},
-    { "heading": "For the rice", "items": [
-      { "item": "Basmati rice", "qty": 450, "unit": "g", "note": "washed" },
-      { "item": "Water", "qty": 900, "unit": "ml" },
-      { "item": "Salt", "qty": null, "unit": null, "note": "to taste" }
-    ]}
-  ],
-  "method": [
-    "Mix the chicken with all the marinade items. Keep in the fridge for 1 hour.",
-    "Cook the chicken in a hot pan until brown on all sides. Take it out and keep aside.",
-    "In the same pan, melt the butter. Fry the onion until soft.",
-    "Add the tomato and cook until the oil comes on top.",
-    "Pour in the cream and mix well. Put the chicken back and cook for 10 minutes.",
-    "For the rice: boil the water with salt. Add the washed rice, cover, and cook on low heat until soft.",
-    "Serve the chicken with the rice."
+  "components": [
+    { "title": "Butter Chicken",
+      "sections": [
+        { "heading": "Marinade", "items": [
+          { "item": "Chicken thighs", "qty": 700, "unit": "g", "note": "cut into chunks" },
+          { "item": "Plain yogurt", "qty": 100, "unit": "g" },
+          { "item": "Ginger-garlic paste", "qty": 2, "unit": "tbsp" },
+          { "item": "Salt", "qty": 2, "unit": "tsp" }
+        ]},
+        { "heading": "Gravy", "items": [
+          { "item": "Tomato", "qty": 500, "unit": "g", "note": "made into puree" },
+          { "item": "Onion", "qty": 150, "unit": "g", "note": "chopped small" },
+          { "item": "Butter", "qty": 80, "unit": "g" },
+          { "item": "Cooking cream", "qty": 150, "unit": "ml" }
+        ]}
+      ],
+      "method": [
+        "Mix the chicken with all the marinade items. Keep in the fridge for 1 hour.",
+        "Cook the chicken in a hot pan until brown on all sides. Take it out and keep aside.",
+        "In the same pan, melt the butter. Fry the onion until soft.",
+        "Add the tomato and cook until the oil comes on top.",
+        "Pour in the cream and mix well. Put the chicken back and cook for 10 minutes."
+      ]
+    },
+    { "title": "Rice",
+      "sections": [ { "heading": "Ingredients", "items": [
+        { "item": "Basmati rice", "qty": 450, "unit": "g", "note": "washed" },
+        { "item": "Water", "qty": 900, "unit": "ml" },
+        { "item": "Salt", "qty": null, "unit": null, "note": "to taste" }
+      ]}],
+      "method": [
+        "Boil the water with the salt.",
+        "Add the washed rice. Cover and cook on low heat until soft.",
+        "Loosen the rice with a fork before serving."
+      ]
+    }
   ],
   "notes": "Contains dairy (yogurt, butter, cream). Rich dish."
 }`
@@ -230,6 +255,8 @@ ${COMPLETENESS_RULE}
 
 ${ALLERGEN_RULE}
 
+${COMPONENTS_RULE}
+
 ${HOUSE_STYLE}
 
 ${EXAMPLE}
@@ -244,18 +271,20 @@ RECIPE: ${input.dishName}
 CURRENT RECIPE (written for a big batch, about 100 servings; ingredient lines are free text):
 ${JSON.stringify(input.existing, null, 2)}
 
-WHAT TO CHANGE — only these two things:
+WHAT TO CHANGE:
 1. RESCALE to exactly 4 servings (4 boxes), hitting the Dormers portion sizes below. The current amounts feed a big batch; bring every quantity down proportionally so the MAIN items match the base-4 raw targets (for example about 700-800 g chicken, about 450 g dry rice). Give each ingredient the natural unit at this size (batch "10 kg chicken" becomes about "800 g", not "0.8 kg").
 2. SIMPLIFY the wording of the method into very simple English.
+3. STRUCTURE it into components (the main dish and the rice/side are separate components), following the COMPONENTS rules below.
 
 WHAT TO KEEP THE SAME:
 - The same ingredients (do not add, remove, or swap any — this is the kitchen's own recipe).
-- The same cooking steps in the same order (only make the words simpler).
-- The same section split (keep the marinade/gravy/rice structure).
+- The same cooking steps in the same order (only make the words simpler and split them into the right component).
 
 ${SERVING_SPEC}
 
 ${ALLERGEN_RULE}
+
+${COMPONENTS_RULE}
 
 ${HOUSE_STYLE}
 
@@ -276,13 +305,32 @@ function asString(v: unknown): string {
  *    fixed amount inside a step would be wrong on cooking day. Times, sizes,
  *    and temperatures (minutes, inch, cm, °C) are deliberately left untouched.
  */
+const JARGON_SWAPS: [RegExp, string][] = [
+  [/\bspluttering\b/gi, 'crackling'],
+  [/\bsplutters?\b/gi, 'crackle'],
+  [/\bdredge\b/gi, 'coat'],
+  [/\bdredged\b/gi, 'coated'],
+  [/\bjulienn?ed\b/gi, 'cut thin'],
+  [/\bjulienne\b/gi, 'cut thin'],
+  [/\bpar-?cooked\b/gi, 'partly cooked'],
+  [/\bfor tempering\b/gi, 'for the spice mix'],
+  [/\btempering\b/gi, 'spice frying'],
+]
+
 export function cleanMethodStep(s: string): string {
-  return s
+  let out = s
     .replace(/^\d+[.)]\s*/, '')
-    // Remove a leaked measured amount, INCLUDING a following "of" so we don't
-    // leave a dangling "Add of the soy sauce". "Add 2 tbsp of the soy sauce"
-    // → "Add the soy sauce"; "add 100 ml water" → "add water".
-    .replace(/\b\d+(?:[.,]\d+)?\s?(?:ml|g|kg|l|tsp|tbsp|cups?)\b(?:\s+of)?\.?/gi, '')
+    // Remove a leaked measured amount (abbreviated OR full-word unit), INCLUDING
+    // a following "of" so we don't leave a dangling "Add of the soy sauce".
+    // "Add 2 tbsp of the soy sauce" / "2 tablespoons of ..." → "Add the soy sauce";
+    // "add 100 ml water" → "add water". Times/sizes (minutes, inch, cm) untouched.
+    .replace(
+      /\b\d+(?:[.,/]\d+)?\s?(?:ml|g|kg|l|tsp|tbsp|cups?|tablespoons?|teaspoons?|grams?|grammes?|kilograms?|milli?litres?|milliliters?|litres?|liters?|pinch(?:es)?)\b(?:\s+of)?\.?/gi,
+      '',
+    )
+  // Plain-English swaps for words a low-English cook will not know.
+  for (const [re, repl] of JARGON_SWAPS) out = out.replace(re, repl)
+  return out
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([.,])/g, '$1')
     .replace(/\(\s*\)/g, '')
@@ -314,50 +362,102 @@ export function mergeHeaderSteps(steps: string[]): string[] {
   return out
 }
 
-function normalizeRecipe(raw: unknown): Omit<RecipeV2, 'meta'> {
-  const o = (raw ?? {}) as Record<string, unknown>
-
+function parseSections(raw: unknown): RecipeSectionV2[] {
   const sections: RecipeSectionV2[] = []
-  if (Array.isArray(o.sections)) {
-    for (const s of o.sections) {
-      const so = (s ?? {}) as Record<string, unknown>
-      const heading = asString(so.heading) || 'Ingredients'
-      const items: StructuredIngredient[] = []
-      if (Array.isArray(so.items)) {
-        for (const i of so.items) {
-          const io = (i ?? {}) as Record<string, unknown>
-          const item = asString(io.item)
-          if (!item) continue
-          let qtyRaw: number | null = null
-          if (typeof io.qty === 'number') qtyRaw = io.qty
-          else if (typeof io.qty === 'string') qtyRaw = parseFloat(io.qty)
-          const { qty, unit } = normalizeQtyUnit(
-            qtyRaw !== null && Number.isFinite(qtyRaw) ? qtyRaw : null,
-            typeof io.unit === 'string' ? io.unit : null,
-          )
-          const note = asString(io.note)
-          items.push({ item: item.slice(0, 80), qty, unit, ...(note ? { note: note.slice(0, 120) } : {}) })
-        }
+  if (!Array.isArray(raw)) return sections
+  for (const s of raw) {
+    const so = (s ?? {}) as Record<string, unknown>
+    const heading = asString(so.heading) || 'Ingredients'
+    const items: StructuredIngredient[] = []
+    if (Array.isArray(so.items)) {
+      for (const i of so.items) {
+        const io = (i ?? {}) as Record<string, unknown>
+        const item = asString(io.item)
+        if (!item) continue
+        let qtyRaw: number | null = null
+        if (typeof io.qty === 'number') qtyRaw = io.qty
+        else if (typeof io.qty === 'string') qtyRaw = parseFloat(io.qty)
+        const { qty, unit } = normalizeQtyUnit(
+          qtyRaw !== null && Number.isFinite(qtyRaw) ? qtyRaw : null,
+          typeof io.unit === 'string' ? io.unit : null,
+        )
+        const note = asString(io.note)
+        items.push({ item: item.slice(0, 80), qty, unit, ...(note ? { note: note.slice(0, 120) } : {}) })
       }
-      if (items.length > 0) sections.push({ heading: heading.slice(0, 60), items })
     }
+    if (items.length > 0) sections.push({ heading: heading.slice(0, 60), items })
   }
+  return sections
+}
 
-  // Clean each step (drop leading numbers, strip leaked amounts) then fold
-  // header-only steps into the next real step.
-  const method = mergeHeaderSteps(
-    (Array.isArray(o.method) ? o.method.map(asString) : [])
+function parseMethod(raw: unknown): string[] {
+  return mergeHeaderSteps(
+    (Array.isArray(raw) ? raw.map(asString) : [])
       .filter(Boolean)
       .map(cleanMethodStep)
       .filter(Boolean),
   )
+}
+
+/** Merge components whose titles are effectively the same (safety net against
+ *  the model emitting "Mashed Potatoes" twice) — concatenate their content. */
+function dedupeComponents(comps: RecipeComponentV2[]): RecipeComponentV2[] {
+  const byKey = new Map<string, RecipeComponentV2>()
+  const order: string[] = []
+  for (const c of comps) {
+    const key = c.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const existing = byKey.get(key)
+    if (existing) {
+      existing.sections.push(...c.sections)
+      existing.method.push(...c.method)
+    } else {
+      byKey.set(key, { ...c, sections: [...c.sections], method: [...c.method] })
+      order.push(key)
+    }
+  }
+  return order.map((k) => byKey.get(k)!)
+}
+
+/** Strip a purely-decorative leading adjective from a component title
+ *  ("Flavorful Lentils" → "Lentils") — keeps plain-English titles. Functional
+ *  words (Hot, White, Tangy, Fresh, Green, Yellow…) are left alone. */
+function cleanComponentTitle(title: string): string {
+  const fluff = /^(flavou?rful|refreshing|delicious|tasty|hearty|zesty|scrumptious|savou?ry|aromatic|wholesome|classic|perfect|simple|easy)\s+/i
+  const stripped = title.replace(fluff, '').trim()
+  return stripped.length >= 3 ? stripped : title
+}
+
+function normalizeRecipe(raw: unknown): Omit<RecipeV2, 'meta'> {
+  const o = (raw ?? {}) as Record<string, unknown>
+
+  let components: RecipeComponentV2[] = []
+  if (Array.isArray(o.components)) {
+    for (const c of o.components) {
+      const co = (c ?? {}) as Record<string, unknown>
+      const title = cleanComponentTitle((asString(co.title) || 'Ingredients').slice(0, 60))
+      const sections = parseSections(co.sections)
+      const method = parseMethod(co.method)
+      if (sections.length > 0 || method.length > 0) components.push({ title, sections, method })
+    }
+  }
+
+  // Defensive fallback: model returned the old flat shape → wrap as one component.
+  if (components.length === 0 && Array.isArray(o.sections)) {
+    const sections = parseSections(o.sections)
+    const method = parseMethod(o.method)
+    if (sections.length > 0) components.push({ title: '', sections, method })
+  }
+
+  components = dedupeComponents(components)
+
+  const totalItems = components.reduce((n, c) => n + c.sections.reduce((m, s) => m + s.items.length, 0), 0)
+  const totalMethod = components.reduce((n, c) => n + c.method.length, 0)
+  if (totalItems === 0) throw new RecipeGenError('The AI returned no usable ingredients. Try again.')
+  if (totalMethod < 3) throw new RecipeGenError('The AI returned an incomplete method. Try again.')
+
   const notes = asString(o.notes).slice(0, 1000)
-
-  if (sections.length === 0) throw new RecipeGenError('The AI returned no usable ingredients. Try again.')
-  if (method.length < 3) throw new RecipeGenError('The AI returned an incomplete method. Try again.')
-
-  // baseServings is always 4 in both modes — never trust the model to set it.
-  return { v: 2, baseServings: DEFAULT_BASE_SERVINGS, sections, method, notes }
+  // baseServings is always 4 — never trust the model to set it.
+  return { v: 2, baseServings: DEFAULT_BASE_SERVINGS, components, notes }
 }
 
 async function callGemini(prompt: string): Promise<unknown> {
@@ -403,18 +503,51 @@ function stamp(
 export async function generateRecipe(input: GenerateRecipeInput): Promise<RecipeV2> {
   const raw = await callGemini(buildGeneratePrompt(input))
   const recipe = normalizeRecipe(raw)
-  const newIngredients = matchPantry(recipe.sections, input.pantry)
+  const newIngredients = matchPantry(recipe.components ?? [], input.pantry)
   return stamp(recipe, 'generated', newIngredients)
 }
 
 /**
- * Restructure an existing batch-size cookbook recipe into the base-4 structured
+ * Restructure an existing batch-size cookbook recipe into the base-4 component
  * format — faithful ingredients + method, rescaled to 4 servings, simple English.
  * Used for the proprietary/locked dishes where nothing may be invented.
  */
 export async function convertRecipe(input: ConvertRecipeInput): Promise<RecipeV2> {
   const raw = await callGemini(buildConvertPrompt(input))
   const recipe = normalizeRecipe(raw)
-  const newIngredients = matchPantry(recipe.sections, input.pantry)
+  const newIngredients = matchPantry(recipe.components ?? [], input.pantry)
+  return stamp(recipe, 'converted', newIngredients)
+}
+
+/**
+ * Produce a variant of an existing v2 recipe (e.g. the paneer version of a
+ * proprietary chicken dish) by applying a plain-English instruction. Keeps
+ * everything not covered by the instruction identical. Used for the paired
+ * proprietary biryanis where the paneer meal must mirror the chicken one.
+ */
+export async function adaptRecipe(input: {
+  dishName: string
+  source: RecipeV2
+  instruction: string
+  pantry: PantryEntry[]
+}): Promise<RecipeV2> {
+  const prompt = `You are adapting an existing Dormers recipe into a variant. Keep everything faithful except what the instruction changes.
+
+TARGET DISH: ${input.dishName}
+SOURCE RECIPE (JSON, base 4 servings, already in the component format):
+${JSON.stringify({ components: input.source.components, notes: input.source.notes }, null, 2)}
+
+INSTRUCTION: ${input.instruction}
+
+Keep every other component, ingredient, quantity, and step exactly the same. Only change what the instruction says. Update the "notes" allergens if the swap changes them.
+
+${ALLERGEN_RULE}
+
+${HOUSE_STYLE}
+
+${OUTPUT_SHAPE}`
+  const raw = await callGemini(prompt)
+  const recipe = normalizeRecipe(raw)
+  const newIngredients = matchPantry(recipe.components ?? [], input.pantry)
   return stamp(recipe, 'converted', newIngredients)
 }
