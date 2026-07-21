@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-    AlertCircle, ArrowLeftRight, CheckCircle2, ChevronRight, Database,
+    AlertCircle, Archive, ArrowLeftRight, CheckCircle2, ChevronDown, ChevronRight, Database,
     Eye, EyeOff, Flame, Plus, Trash2, UtensilsCrossed,
 } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
@@ -506,9 +506,15 @@ function DishList({ dishes, slots, weeks, onResult }: {
         return m
     }, [slots])
 
-    const filtered = filter === 'all' ? dishes : filter === 'veg'
-        ? dishes.filter(d => d.is_veg === true)
-        : dishes.filter(d => d.is_veg === false)
+    // "Removed" = taken off the rotation and hidden (inactive + not slotted).
+    // They live in their own archive section, out of the working dish list.
+    const isSlotted = (d: Row) => (slotsByDish.get(d.id as string) ?? []).length > 0
+    const removedDishes = dishes.filter(d => d.is_active === false && !isSlotted(d))
+    const activeDishes = dishes.filter(d => !(d.is_active === false && !isSlotted(d)))
+
+    const filtered = filter === 'all' ? activeDishes : filter === 'veg'
+        ? activeDishes.filter(d => d.is_veg === true)
+        : activeDishes.filter(d => d.is_veg === false)
 
     const editingDish = editId ? dishes.find(d => d.id === editId) ?? null : null
     const draftCount = dishes.filter(d => d.recipe_draft != null).length
@@ -534,9 +540,9 @@ function DishList({ dishes, slots, weeks, onResult }: {
     return (
         <div>
             <div className="flex items-center gap-2 mb-4 flex-wrap">
-                {pill('all', `All · ${dishes.length}`)}
-                {pill('nonveg', `Non-Veg · ${dishes.filter(d => !d.is_veg).length}`)}
-                {pill('veg', `Veg · ${dishes.filter(d => d.is_veg).length}`)}
+                {pill('all', `All · ${activeDishes.length}`)}
+                {pill('nonveg', `Non-Veg · ${activeDishes.filter(d => !d.is_veg).length}`)}
+                {pill('veg', `Veg · ${activeDishes.filter(d => d.is_veg).length}`)}
                 <div className="flex-1" />
                 <a
                     href="/api/admin/recipes/pdf?all=1&disposition=inline"
@@ -567,6 +573,15 @@ function DishList({ dishes, slots, weeks, onResult }: {
                     />
                 ))}
             </div>
+
+            {removedDishes.length > 0 && (
+                <RemovedSection
+                    dishes={removedDishes}
+                    weekLabelById={weekLabelById}
+                    onEdit={id => setEditId(id)}
+                    onResult={onResult}
+                />
+            )}
 
             {showNew && (
                 <DishEditorModal
@@ -623,6 +638,58 @@ function RecipeDraftsBar({ count, onResult }: { count: number; onResult: (r: Res
                 </div>
             ) : (
                 <AdminButton onClick={() => setArmed(true)}>Approve all drafts</AdminButton>
+            )}
+        </div>
+    )
+}
+
+/** Archive of dishes taken off the menu — hidden + unslotted. Collapsible so it
+ *  stays out of the way, with each row keeping its Restore (eye) and Delete actions. */
+function RemovedSection({ dishes, weekLabelById, onEdit, onResult }: {
+    dishes: Row[]
+    weekLabelById: Map<string, string>
+    onEdit: (id: string) => void
+    onResult: (r: Result) => void
+}) {
+    const { t, isLight } = useAdminTheme()
+    const [open, setOpen] = useState(false)
+
+    return (
+        <div className="mt-8">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={`w-full flex items-center gap-2.5 px-1 py-2 text-left group`}
+            >
+                <Archive size={15} className={t.faint} strokeWidth={2} />
+                <span className={`text-[13px] font-black tracking-tight ${t.muted}`}>Removed</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black tabular-nums ${isLight ? 'bg-[#091825]/[0.06] text-[#091825]/60' : 'bg-white/[0.08] text-[#ede8da]/60'}`}>
+                    {dishes.length}
+                </span>
+                <span className={`text-[11px] font-medium ${t.faint} hidden sm:inline`}>
+                    Off the menu. Restore with the eye, or delete permanently.
+                </span>
+                <span className="flex-1" />
+                <ChevronDown
+                    size={16}
+                    strokeWidth={2.2}
+                    className={`shrink-0 transition-transform duration-200 ${t.faint} ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+
+            {open && (
+                <div className="flex flex-col gap-2 mt-2">
+                    {dishes.map(dish => (
+                        <DishRow
+                            key={dish.id as string}
+                            dish={dish}
+                            assignments={[]}
+                            weekLabelById={weekLabelById}
+                            onEdit={() => onEdit(dish.id as string)}
+                            onResult={onResult}
+                        />
+                    ))}
+                </div>
             )}
         </div>
     )

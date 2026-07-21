@@ -56,1203 +56,2205 @@ export interface Dish {
 
 export const MENU_DATA: Dish[] = [
   {
-    id: 1,
-    name: "Chicken Afghani w/ Yellow Rice",
-    week: "week1",
-    description:
-      "Smoky cream-and-cashew marinated chicken grilled golden, paired with fragrant turmeric basmati",
-    image: "/images/Week1/NonVeg/Chicken_Afghani_w__Yellow_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['dairy', 'nuts'],
-    nutrients: {
-      calories: "655 kcal",
-      protein: "35g",
-      carbs: "98g",
-      fat: "11.5g",
-      microNutrients: [
-        { name: "Iron", amount: "2.8mg", percentage: "16%" },
-        { name: "Vitamin B6", amount: "0.7mg", percentage: "41%" },
-        { name: "Selenium", amount: "27mcg", percentage: "49%" },
-        { name: "Niacin (B3)", amount: "9.5mg", percentage: "59%" },
-        { name: "Phosphorus", amount: "280mg", percentage: "22%" },
-      ],
-    },
+    "id": 1,
+    "name": "Chicken Afghani w/ Yellow Rice",
+    "week": "week1",
+    "description": "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
+    "image": "/images/Week1/nonveg1/ChickenAfghan.jpg",
+    "isVeg": false,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "280mcg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "10mg",
+          "percentage": "11%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "3g",
+          "percentage": "12%"
+        }
+      ]
+    }
   },
   {
-    id: 2,
-    name: "Dormer's Chicken w/ Zeera Rice",
-    week: "week1",
-    description:
-      "House-recipe spiced chicken in a rich tomato-onion masala, served over toasted cumin basmati",
-    image: "/images/Week1/NonVeg/Dormers_Chicken_w__Zeera_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 2,
-    allergens: [],
-    nutrients: {
-      calories: "610 kcal",
-      protein: "27g",
-      carbs: "82g",
-      fat: "14g",
-      microNutrients: [
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Vitamin B6", amount: "0.6mg", percentage: "35%" },
-        { name: "Selenium", amount: "24mcg", percentage: "44%" },
-        { name: "Niacin (B3)", amount: "8.5mg", percentage: "53%" },
-        { name: "Phosphorus", amount: "260mg", percentage: "21%" },
-      ],
-    },
+    "id": 7,
+    "name": "Paneer Afghani w/ Middle Eastern Rice",
+    "week": "week1",
+    "description": "Tender, creamy grilled cottage cheese marinated in rich spices, served with tangy Middle Eastern basmati rice.",
+    "image": "/images/Week1/Veg/Paneer_Afghani_w__Yellow_rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "280mg",
+          "percentage": "28%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "380mcg",
+          "percentage": "42%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "12mg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 3,
-    name: "Chicken Wanazi w/ Oven Baked Naan",
-    week: "week1",
-    description:
-      "East African coconut milk chicken stew simmered with warm spices, scooped up with pillowy naan",
-    image: "/images/Week1/NonVeg/Chicken_Wanazi_w__Oven_Baked_Naan.jpg",
-    isVeg: false,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 1,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "600 kcal",
-      protein: "31g",
-      carbs: "75g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Iron", amount: "3.5mg", percentage: "19%" },
-        { name: "Potassium", amount: "580mg", percentage: "12%" },
-        { name: "Vitamin B6", amount: "0.5mg", percentage: "29%" },
-        { name: "Manganese", amount: "1.4mg", percentage: "61%" },
-        { name: "Selenium", amount: "22mcg", percentage: "40%" },
-      ],
-    },
+    "id": 2,
+    "name": "Dormers' Chicken w/ Zeera Rice",
+    "week": "week1",
+    "description": "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
+    "image": "/images/Week1/nonveg1/DormersChicken.jpg",
+    "isVeg": false,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "mustard"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.2mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "28mg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Folate",
+          "amount": "165mcg",
+          "percentage": "41%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "420mg",
+          "percentage": "9%"
+        }
+      ]
+    }
   },
   {
-    id: 4,
-    name: "Meatballs w/ Mashed Potatoes & Mushroom Sauce",
-    week: "week1",
-    description:
-      "Juicy seasoned beef meatballs over buttery mash, drenched in earthy mushroom gravy",
-    image: "/images/Week1/NonVeg/Meatballs_w__Mashed_Potatoes_and_Mushroom_Sauce.jpg",
-    isVeg: false,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['gluten', 'dairy', 'eggs'],
-    nutrients: {
-      calories: "575 kcal",
-      protein: "36g",
-      carbs: "44g",
-      fat: "29g",
-      microNutrients: [
-        { name: "Iron", amount: "4.2mg", percentage: "23%" },
-        { name: "Vitamin B12", amount: "3.1mcg", percentage: "129%" },
-        { name: "Zinc", amount: "5.8mg", percentage: "53%" },
-        { name: "Selenium", amount: "22mcg", percentage: "40%" },
-        { name: "Niacin (B3)", amount: "6.5mg", percentage: "41%" },
-      ],
-    },
+    "id": 8,
+    "name": "Dormers' Paneer w/ Zeera Rice",
+    "week": "week1",
+    "description": "Juicy, spiced cottage cheese with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
+    "image": "/images/Week1/Veg/Dormers_Paneer_Zeera_Rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.2mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "300mg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "28mg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Folate",
+          "amount": "165mcg",
+          "percentage": "41%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 5,
-    name: "Chicken Biryani",
-    week: "week1",
-    description:
-      "Layered basmati and spiced chicken slow-cooked dum-style with saffron, fried onions, and whole spices",
-    image: "/images/Week1/NonVeg/Chicken_Biryani.jpg",
-    isVeg: false,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 2,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "565 kcal",
-      protein: "26g",
-      carbs: "60g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Iron", amount: "2.5mg", percentage: "14%" },
-        { name: "Vitamin B6", amount: "0.6mg", percentage: "35%" },
-        { name: "Selenium", amount: "25mcg", percentage: "45%" },
-        { name: "Niacin (B3)", amount: "8.2mg", percentage: "51%" },
-        { name: "Phosphorus", amount: "245mg", percentage: "20%" },
-      ],
-    },
+    "id": 50,
+    "name": "Chicken Wanazi w/ Oven Baked Naan",
+    "week": "week1",
+    "description": "Mild coconut chicken stew, gently spiced and fragrant, served with warm naan for dipping.",
+    "image": "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg",
+    "isVeg": false,
+    "dayOfWeek": 2,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "640 kcal",
+      "protein": "36g",
+      "carbs": "58g",
+      "fat": "26g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "120mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "90mg",
+          "percentage": "9%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 6,
-    name: "Chicken Seekh Kebab w/ Mint Dip & Naan",
-    week: "week1",
-    description:
-      "Chargrilled minced-chicken kebabs seasoned with ginger and green chili, with cool mint chutney",
-    image: "/images/Week1/NonVeg/Chicken_Seekh_Kebab_w__Mint_Dip_and_Naan.jpg",
-    isVeg: false,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "640 kcal",
-      protein: "36g",
-      carbs: "74g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Iron", amount: "3.8mg", percentage: "21%" },
-        { name: "Vitamin B6", amount: "0.7mg", percentage: "41%" },
-        { name: "Selenium", amount: "26mcg", percentage: "47%" },
-        { name: "Niacin (B3)", amount: "8.8mg", percentage: "55%" },
-        { name: "Phosphorus", amount: "290mg", percentage: "23%" },
-      ],
-    },
+    "id": 53,
+    "name": "Aaloo Gobi w/ Tandoor Bread",
+    "week": "week1",
+    "description": "Spiced cauliflower and potato, slow-simmered with tomatoes and spices, served with warm tandoor bread.",
+    "image": "/images/Week2/Veg/Dum_aaloo_2.jpg",
+    "isVeg": true,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "520 kcal",
+      "protein": "12g",
+      "carbs": "66g",
+      "fat": "20g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "48mg",
+          "percentage": "53%"
+        },
+        {
+          "name": "Iron",
+          "amount": "2.4mg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "620mg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "7g",
+          "percentage": "28%"
+        }
+      ]
+    }
   },
   {
-    id: 7,
-    name: "Paneer Afghani w/ Middle Eastern Rice",
-    week: "week1",
-    description:
-      "Silky paneer in cashew-cream white gravy paired with cardamom-saffron spiced rice",
-    image: "/images/Week1/Veg/Paneer_Afghani_w__Middle_Eastern_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['dairy', 'nuts', 'sesame'],
-    nutrients: {
-      calories: "665 kcal",
-      protein: "19g",
-      carbs: "88g",
-      fat: "25g",
-      microNutrients: [
-        { name: "Calcium", amount: "320mg", percentage: "25%" },
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Vitamin A", amount: "180mcg", percentage: "20%" },
-        { name: "Phosphorus", amount: "280mg", percentage: "22%" },
-        { name: "Vitamin B12", amount: "0.6mcg", percentage: "25%" },
-      ],
-    },
+    "id": 4,
+    "name": "Meatballs w/ Mashed Potatoes & Mushroom Sauce",
+    "week": "week1",
+    "description": "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
+    "image": "/images/Week1/nonveg1/MeatballsMashe.jpg",
+    "isVeg": false,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "601.5 kcal",
+      "protein": "52.2g",
+      "carbs": "60g",
+      "fat": "15.7g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.5mg",
+          "percentage": "25%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "12g",
+          "percentage": "48%"
+        },
+        {
+          "name": "Folate",
+          "amount": "180mcg",
+          "percentage": "45%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "35mg",
+          "percentage": "39%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "180mg",
+          "percentage": "18%"
+        }
+      ]
+    }
   },
   {
-    id: 8,
-    name: "Dormers' Paneer w/ Zeera Rice",
-    week: "week1",
-    description:
-      "House-recipe spiced paneer in a bold tomato-onion masala over cumin-tempered basmati rice",
-    image: "/images/Week1/Veg/Dormers_Paneer_w__Zeera_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 2,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "620 kcal",
-      protein: "18g",
-      carbs: "84.5g",
-      fat: "22.5g",
-      microNutrients: [
-        { name: "Calcium", amount: "290mg", percentage: "22%" },
-        { name: "Iron", amount: "4.8mg", percentage: "27%" },
-        { name: "Vitamin E", amount: "3.2mg", percentage: "21%" },
-        { name: "Phosphorus", amount: "260mg", percentage: "21%" },
-        { name: "Vitamin C", amount: "8mg", percentage: "9%" },
-      ],
-    },
+    "id": 10,
+    "name": "Plantballs w/ Mashed Potatoes & Mushroom Sauce",
+    "week": "week1",
+    "description": "Tender plantballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
+    "image": "/images/Week1/Veg/Veg_Kofta_Mashed_Potato_Mushroom_sauce.jpg",
+    "isVeg": true,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "429 kcal",
+      "protein": "8.7g",
+      "carbs": "75g",
+      "fat": "10.6g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.5mg",
+          "percentage": "25%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "12g",
+          "percentage": "48%"
+        },
+        {
+          "name": "Folate",
+          "amount": "180mcg",
+          "percentage": "45%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "35mg",
+          "percentage": "39%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "180mg",
+          "percentage": "18%"
+        }
+      ]
+    }
   },
   {
-    id: 9,
-    name: "Aaloo Gobi w/ Tandoor Bread",
-    week: "week1",
-    description:
-      "Turmeric-kissed cauliflower and potato dry curry scooped up with charred tandoor flatbreads",
-    image: "/images/Week1/Veg/Aaloo_Gobi_w__Tandoor_Bread.jpg",
-    isVeg: true,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "455 kcal",
-      protein: "13g",
-      carbs: "70g",
-      fat: "13g",
-      microNutrients: [
-        { name: "Vitamin C", amount: "45mg", percentage: "50%" },
-        { name: "Vitamin K", amount: "22mcg", percentage: "18%" },
-        { name: "Potassium", amount: "620mg", percentage: "13%" },
-        { name: "Fiber", amount: "7.5g", percentage: "27%" },
-        { name: "Iron", amount: "3.6mg", percentage: "20%" },
-      ],
-    },
+    "id": 6,
+    "name": "Chicken Biryani",
+    "week": "week1",
+    "description": "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
+    "image": "/images/Week1/nonveg1/ChickenBiryani.jpg",
+    "isVeg": false,
+    "dayOfWeek": 4,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "10g",
+          "percentage": "40%"
+        },
+        {
+          "name": "Vitamin E",
+          "amount": "8mg",
+          "percentage": "53%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "140mg",
+          "percentage": "33%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3mg",
+          "percentage": "27%"
+        }
+      ]
+    }
   },
   {
-    id: 10,
-    name: "Plantballs w/ Mashed Potatoes & Mushroom Sauce",
-    week: "week1",
-    description:
-      "Herb-seasoned plant-protein balls over buttery mash, draped in earthy mushroom gravy",
-    image: "/images/Week1/Veg/Plantballs_w__Mashed_Potatoes_and_Mushroom_Sauce.jpg",
-    isVeg: true,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['gluten', 'soy', 'dairy'],
-    nutrients: {
-      calories: "555 kcal",
-      protein: "20.5g",
-      carbs: "52g",
-      fat: "28g",
-      microNutrients: [
-        { name: "Iron", amount: "4.2mg", percentage: "23%" },
-        { name: "Fiber", amount: "6.5g", percentage: "23%" },
-        { name: "Potassium", amount: "840mg", percentage: "18%" },
-        { name: "Selenium", amount: "12mcg", percentage: "22%" },
-        { name: "Vitamin B6", amount: "0.4mg", percentage: "24%" },
-      ],
-    },
+    "id": 54,
+    "name": "Chickpea Veg Biryani",
+    "week": "week1",
+    "description": "A fragrant and flavorful rice dish layered with spiced vegetables, chickpeas, aromatic basmati rice, and a blend of traditional spices.",
+    "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "isVeg": true,
+    "dayOfWeek": 4,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "600 kcal",
+      "protein": "16g",
+      "carbs": "92g",
+      "fat": "16g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.0mg",
+          "percentage": "22%"
+        },
+        {
+          "name": "Folate",
+          "amount": "180mcg",
+          "percentage": "45%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "110mg",
+          "percentage": "26%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "11g",
+          "percentage": "44%"
+        }
+      ]
+    }
   },
   {
-    id: 11,
-    name: "Chickpea Veg Biryani",
-    week: "week1",
-    description:
-      "Fragrant basmati layered with spiced chickpeas, mixed vegetables, and caramelised onions",
-    image: "/images/Week1/Veg/Chickpea_Veg_Biryani.jpg",
-    isVeg: true,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 2,
-    allergens: [],
-    nutrients: {
-      calories: "585 kcal",
-      protein: "16g",
-      carbs: "90g",
-      fat: "16.5g",
-      microNutrients: [
-        { name: "Fiber", amount: "9.5g", percentage: "34%" },
-        { name: "Iron", amount: "4.6mg", percentage: "26%" },
-        { name: "Folate", amount: "110mcg", percentage: "28%" },
-        { name: "Manganese", amount: "1.8mg", percentage: "78%" },
-        { name: "Potassium", amount: "480mg", percentage: "10%" },
-      ],
-    },
+    "id": 51,
+    "name": "Chicken Seekh Kebab w/ Mint Dip & Naan",
+    "week": "week1",
+    "description": "Grilled spiced chicken skewers, smoky and juicy, served with cooling mint dip and naan.",
+    "image": "/images/Week2/NonVeg/Dormer's_Kebab.jpg",
+    "isVeg": false,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "620 kcal",
+      "protein": "40g",
+      "carbs": "46g",
+      "fat": "30g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.8mg",
+          "percentage": "21%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3.2mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "110mg",
+          "percentage": "11%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "3g",
+          "percentage": "12%"
+        }
+      ]
+    }
   },
   {
-    id: 12,
-    name: "Methi Matar Paneer w/ Tandoor Bread",
-    week: "week1",
-    description:
-      "Fenugreek-laced peas and paneer in a velvety curry, served with smoky tandoor bread",
-    image: "/images/Week1/Veg/Methi_Matar_Paneer_w__Tandoor_Bread.jpg",
-    isVeg: true,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['dairy', 'gluten'],
-    nutrients: {
-      calories: "520 kcal",
-      protein: "17.5g",
-      carbs: "63g",
-      fat: "20g",
-      microNutrients: [
-        { name: "Calcium", amount: "275mg", percentage: "21%" },
-        { name: "Iron", amount: "5.4mg", percentage: "30%" },
-        { name: "Vitamin K", amount: "48mcg", percentage: "40%" },
-        { name: "Fiber", amount: "6.5g", percentage: "23%" },
-        { name: "Folate", amount: "85mcg", percentage: "21%" },
-      ],
-    },
+    "id": 24,
+    "name": "Methi Matar Paneer w/ Tandoor Bread",
+    "week": "week1",
+    "description": "A flavorful curry of tender paneer, fresh green peas, and aromatic fenugreek leaves in a spiced, creamy gravy, served with warm tandoor bread.",
+    "image": "/images/Week2/Veg/Methi_Matar_paneer.jpg",
+    "isVeg": true,
+    "dayOfWeek": 5,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "gluten",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "637.5 kcal",
+      "protein": "33g",
+      "carbs": "31.8g",
+      "fat": "42.1g",
+      "microNutrients": [
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin K",
+          "amount": "60mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "350mg",
+          "percentage": "35%"
+        },
+        {
+          "name": "Iron",
+          "amount": "4.5mg",
+          "percentage": "25%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 13,
-    name: "Lamb Stroganoff w/ Riz Pilaf",
-    week: "week2",
-    description:
-      "Tender lamb strips in velvety sour cream-mushroom sauce over herb-scented buttery rice pilaf",
-    image: "/images/Week2/NonVeg/Lamb_Stroganoff_w__Riz_Pilaf.jpg",
-    isVeg: false,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['dairy', 'gluten'],
-    nutrients: {
-      calories: "685 kcal",
-      protein: "30g",
-      carbs: "72g",
-      fat: "28.5g",
-      microNutrients: [
-        { name: "Vitamin B12", amount: "2.8mcg", percentage: "117%" },
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Zinc", amount: "5.1mg", percentage: "46%" },
-        { name: "Selenium", amount: "18mcg", percentage: "33%" },
-        { name: "Niacin (B3)", amount: "7.5mg", percentage: "47%" },
-      ],
-    },
+    "id": 13,
+    "name": "Lamb Stroganoff w/ Riz Pilaf",
+    "week": "week2",
+    "description": "Tender beef strips in a rich, creamy mushroom sauce, served alongside fragrant, buttery rice pilaf.",
+    "image": "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
+    "isVeg": false,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "855 kcal",
+      "protein": "47.1g",
+      "carbs": "84g",
+      "fat": "36.4g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "6.2mg",
+          "percentage": "56%"
+        },
+        {
+          "name": "Vitamin B12",
+          "amount": "3.2mcg",
+          "percentage": "133%"
+        },
+        {
+          "name": "Vitamin D",
+          "amount": "2.5mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        }
+      ]
+    }
   },
   {
-    id: 14,
-    name: "African Coconut Rice w/ Fried Chicken",
-    week: "week2",
-    description:
-      "Crispy golden fried chicken paired with coconut milk-infused West African jollof-style rice",
-    image: "/images/Week2/NonVeg/African_Coconut_Rice_w__Fried_Chicken.jpg",
-    isVeg: false,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 2,
-    allergens: ['gluten', 'eggs'],
-    nutrients: {
-      calories: "690 kcal",
-      protein: "33g",
-      carbs: "76g",
-      fat: "27g",
-      microNutrients: [
-        { name: "Selenium", amount: "28mcg", percentage: "51%" },
-        { name: "Phosphorus", amount: "295mg", percentage: "24%" },
-        { name: "Vitamin B6", amount: "0.5mg", percentage: "29%" },
-        { name: "Iron", amount: "2.4mg", percentage: "13%" },
-        { name: "Manganese", amount: "1.6mg", percentage: "70%" },
-      ],
-    },
+    "id": 56,
+    "name": "Dal Makhni w/ Zeera Rice",
+    "week": "week2",
+    "description": "Rich and creamy lentils cooked in aromatic spices, served with fragrant cumin-flavored basmati rice.",
+    "image": "/images/Week2/Veg/Dal_Nawabi_w__zeera_rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "590 kcal",
+      "protein": "20g",
+      "carbs": "76g",
+      "fat": "20g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.5mg",
+          "percentage": "25%"
+        },
+        {
+          "name": "Folate",
+          "amount": "160mcg",
+          "percentage": "40%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "140mg",
+          "percentage": "14%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "12g",
+          "percentage": "48%"
+        }
+      ]
+    }
   },
   {
-    id: 15,
-    name: "African Peanut Chicken Stew w/ Indian Bread",
-    week: "week2",
-    description:
-      "Rich West African groundnut stew with tender chicken, scooped up with warm pillowy naan",
-    image: "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_w__Indian_Bread.jpg",
-    isVeg: false,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['peanuts', 'gluten', 'dairy'],
-    nutrients: {
-      calories: "650 kcal",
-      protein: "36g",
-      carbs: "62g",
-      fat: "28g",
-      microNutrients: [
-        { name: "Vitamin E", amount: "3.8mg", percentage: "25%" },
-        { name: "Magnesium", amount: "112mg", percentage: "27%" },
-        { name: "Potassium", amount: "540mg", percentage: "11%" },
-        { name: "Niacin (B3)", amount: "10.5mg", percentage: "66%" },
-        { name: "Phosphorus", amount: "310mg", percentage: "25%" },
-      ],
-    },
+    "id": 17,
+    "name": "African Coconut Rice w/ Fried Chicken",
+    "week": "week2",
+    "description": "Creamy, coconut-infused rice paired with crispy, golden fried chicken for a perfect blend of flavors.",
+    "image": "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
+    "isVeg": false,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "eggs",
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Manganese",
+          "amount": "1.8mg",
+          "percentage": "78%"
+        },
+        {
+          "name": "Copper",
+          "amount": "0.4mg",
+          "percentage": "44%"
+        },
+        {
+          "name": "Selenium",
+          "amount": "28mcg",
+          "percentage": "51%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 16,
-    name: "Butter Chicken w/ Peas & Carrot Rice",
-    week: "week2",
-    description:
-      "Creamy tomato-butter gravy with succulent chicken over colourful peas-and-carrot basmati",
-    image: "/images/Week2/NonVeg/Butter_Chicken_w__Peas_and_Carrot_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['dairy', 'nuts'],
-    nutrients: {
-      calories: "665 kcal",
-      protein: "36.5g",
-      carbs: "80g",
-      fat: "19.5g",
-      microNutrients: [
-        { name: "Vitamin A", amount: "285mcg", percentage: "32%" },
-        { name: "Calcium", amount: "95mg", percentage: "7%" },
-        { name: "Iron", amount: "2.8mg", percentage: "16%" },
-        { name: "Vitamin B6", amount: "0.6mg", percentage: "35%" },
-        { name: "Niacin (B3)", amount: "9.8mg", percentage: "61%" },
-      ],
-    },
+    "id": 23,
+    "name": "Penne Pasta Pomodoro",
+    "week": "week2",
+    "description": "Al dente penne in a fresh tomato-basil pomodoro, finished with olive oil and parmesan.",
+    "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "isVeg": true,
+    "dayOfWeek": 1,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "315 kcal",
+      "protein": "9g",
+      "carbs": "45g",
+      "fat": "10.9g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "42mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Lycopene",
+          "amount": "12mg",
+          "percentage": "N/A"
+        },
+        {
+          "name": "Vitamin K",
+          "amount": "15mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Folate",
+          "amount": "80mcg",
+          "percentage": "20%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 17,
-    name: "Chicken Penne Pasta in White Sauce",
-    week: "week2",
-    description:
-      "Al dente penne tossed with chicken strips in a luscious Parmesan-cream alfredo sauce",
-    image: "/images/Week2/NonVeg/Chicken_Penne_Pasta_in_White_Sauce.jpg",
-    isVeg: false,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 1,
-    allergens: ['gluten', 'dairy', 'eggs'],
-    nutrients: {
-      calories: "540 kcal",
-      protein: "30g",
-      carbs: "52g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Calcium", amount: "245mg", percentage: "19%" },
-        { name: "Selenium", amount: "32mcg", percentage: "58%" },
-        { name: "Phosphorus", amount: "320mg", percentage: "26%" },
-        { name: "Vitamin B12", amount: "0.6mcg", percentage: "25%" },
-        { name: "Sodium", amount: "880mg", percentage: "38%" },
-      ],
-    },
+    "id": 16,
+    "name": "African Peanut Chicken Stew w/ Indian Bread",
+    "week": "week2",
+    "description": "Hearty, slow-cooked chicken stew in a rich Peanut sauce, served with indian flatbread.",
+    "image": "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg",
+    "isVeg": false,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "gluten",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Niacin",
+          "amount": "12mg",
+          "percentage": "75%"
+        },
+        {
+          "name": "Vitamin E",
+          "amount": "6mg",
+          "percentage": "40%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "120mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Phosphorus",
+          "amount": "400mg",
+          "percentage": "57%"
+        }
+      ]
+    }
   },
   {
-    id: 18,
-    name: "Lamb Pilaf w/ Salad",
-    week: "week2",
-    description:
-      "Spiced lamb rice pilaf with toasted almonds and warm cinnamon, served with a crisp fresh salad",
-    image: "/images/Week2/NonVeg/Lamb_Pilaf_w__Salad.jpg",
-    isVeg: false,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['nuts'],
-    nutrients: {
-      calories: "580 kcal",
-      protein: "29.5g",
-      carbs: "69g",
-      fat: "18g",
-      microNutrients: [
-        { name: "Vitamin B12", amount: "2.5mcg", percentage: "104%" },
-        { name: "Iron", amount: "3.8mg", percentage: "21%" },
-        { name: "Zinc", amount: "4.8mg", percentage: "44%" },
-        { name: "Vitamin A", amount: "95mcg", percentage: "11%" },
-        { name: "Fiber", amount: "3g", percentage: "11%" },
-      ],
-    },
+    "id": 22,
+    "name": "Dum Aloo & Dal w/ Indian Bread",
+    "week": "week2",
+    "description": "Slow-cooked baby potatoes in a spiced yogurt gravy, paired with flavorful lentils and soft Indian flatbread.",
+    "image": "/images/Week2/Veg/Dum_aaloo_2.jpg",
+    "isVeg": true,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "414 kcal",
+      "protein": "19.5g",
+      "carbs": "60g",
+      "fat": "12.1g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "35mg",
+          "percentage": "39%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "900mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Vitamin B6",
+          "amount": "0.6mg",
+          "percentage": "35%"
+        },
+        {
+          "name": "Manganese",
+          "amount": "1.2mg",
+          "percentage": "52%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "12g",
+          "percentage": "48%"
+        }
+      ]
+    }
   },
   {
-    id: 19,
-    name: "Dal Makhni w/ Zeera Rice",
-    week: "week2",
-    description:
-      "Velvety slow-cooked black lentils and kidney beans finished with cream, over cumin-tempered rice",
-    image: "/images/Week2/Veg/Dal_Makhni_w__Zeera_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "600 kcal",
-      protein: "17.5g",
-      carbs: "94g",
-      fat: "15.5g",
-      microNutrients: [
-        { name: "Iron", amount: "4.8mg", percentage: "27%" },
-        { name: "Fiber", amount: "8.5g", percentage: "30%" },
-        { name: "Folate", amount: "125mcg", percentage: "31%" },
-        { name: "Calcium", amount: "78mg", percentage: "6%" },
-        { name: "Potassium", amount: "480mg", percentage: "10%" },
-      ],
-    },
+    "id": 14,
+    "name": "Butter Chicken w/ Peas & Carrot Rice",
+    "week": "week2",
+    "description": "Juicy, marinated chicken simmered in a creamy, spiced tomato gravy, served with fluffy peas & carrots rice.",
+    "image": "/images/Week2/NonVeg/Butter_chicken_peas_carrot_rice.jpg",
+    "isVeg": false,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "380mcg",
+          "percentage": "42%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "12mg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 20,
-    name: "Penne Pasta Pomodoro",
-    week: "week2",
-    description:
-      "Al dente penne tossed in a bright San Marzano tomato-basil sauce with a drizzle of olive oil",
-    image: "/images/Week2/Veg/Penne_Pasta_Pomodoro.jpg",
-    isVeg: true,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 1,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "490 kcal",
-      protein: "16g",
-      carbs: "82g",
-      fat: "9g",
-      microNutrients: [
-        { name: "Vitamin C", amount: "18mg", percentage: "20%" },
-        { name: "Iron", amount: "3.5mg", percentage: "19%" },
-        { name: "Fiber", amount: "6g", percentage: "21%" },
-        { name: "Vitamin K", amount: "22mcg", percentage: "18%" },
-        { name: "Potassium", amount: "520mg", percentage: "11%" },
-      ],
-    },
+    "id": 20,
+    "name": "Butter Paneer w/ Carrot & Peas Rice",
+    "week": "week2",
+    "description": "Soft paneer cubes simmered in a rich, buttery tomato gravy, served with fragrant cumin-infused basmati rice.",
+    "image": "/images/Week2/Veg/Butter_paneer.jpg",
+    "isVeg": true,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "300mg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin K",
+          "amount": "45mcg",
+          "percentage": "38%"
+        },
+        {
+          "name": "Phosphorus",
+          "amount": "350mg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3.2mg",
+          "percentage": "29%"
+        }
+      ]
+    }
   },
   {
-    id: 21,
-    name: "Dum Aaloo & Dal w/ Indian Bread",
-    week: "week2",
-    description:
-      "Spiced baby potatoes in rich gravy alongside homestyle lentil dal, scooped up with warm flatbreads",
-    image: "/images/Week2/Veg/Dum_Aaloo_and_Dal_w__Indian_Bread.jpg",
-    isVeg: true,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "590 kcal",
-      protein: "17.5g",
-      carbs: "79g",
-      fat: "20.5g",
-      microNutrients: [
-        { name: "Fiber", amount: "9.5g", percentage: "34%" },
-        { name: "Iron", amount: "4.2mg", percentage: "23%" },
-        { name: "Potassium", amount: "680mg", percentage: "14%" },
-        { name: "Vitamin C", amount: "15mg", percentage: "17%" },
-        { name: "Folate", amount: "95mcg", percentage: "24%" },
-      ],
-    },
+    "id": 52,
+    "name": "Chicken Penne Pasta in White Sauce",
+    "week": "week2",
+    "description": "Creamy white-sauce penne tossed with tender chicken, finished with parmesan and cracked pepper.",
+    "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "isVeg": false,
+    "dayOfWeek": 4,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "720 kcal",
+      "protein": "35g",
+      "carbs": "72g",
+      "fat": "32g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "210mg",
+          "percentage": "21%"
+        },
+        {
+          "name": "Iron",
+          "amount": "2.6mg",
+          "percentage": "14%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "150mcg",
+          "percentage": "17%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 22,
-    name: "Butter Paneer w/ Carrot & Peas Rice",
-    week: "week2",
-    description:
-      "Creamy tomato-butter paneer curry served over colourful carrot-and-peas pulao",
-    image: "/images/Week2/Veg/Butter_Paneer_w__Carrot_and_Peas_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "695 kcal",
-      protein: "25g",
-      carbs: "84g",
-      fat: "27g",
-      microNutrients: [
-        { name: "Calcium", amount: "350mg", percentage: "27%" },
-        { name: "Vitamin A", amount: "485mcg", percentage: "54%" },
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Fiber", amount: "4.5g", percentage: "16%" },
-        { name: "Potassium", amount: "410mg", percentage: "9%" },
-      ],
-    },
+    "id": 55,
+    "name": "Penne Veggie w/ White Sauce",
+    "week": "week2",
+    "description": "Classic Italian pasta tossed in a fresh, tangy white sauce with garlic, basil and olive oil.",
+    "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "isVeg": true,
+    "dayOfWeek": 4,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "18g",
+      "carbs": "80g",
+      "fat": "26g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "200mg",
+          "percentage": "20%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "160mcg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Iron",
+          "amount": "2.5mg",
+          "percentage": "14%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "5g",
+          "percentage": "20%"
+        }
+      ]
+    }
   },
   {
-    id: 23,
-    name: "Penne Veggie w/ White Sauce",
-    week: "week2",
-    description:
-      "Penne and seasonal vegetables enveloped in a silky, buttery bechamel with a hint of nutmeg",
-    image: "/images/Week2/Veg/Penne_Veggie_w__White_Sauce.jpg",
-    isVeg: true,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 1,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "530 kcal",
-      protein: "15g",
-      carbs: "66g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Calcium", amount: "285mg", percentage: "22%" },
-        { name: "Fiber", amount: "5g", percentage: "18%" },
-        { name: "Iron", amount: "2.8mg", percentage: "16%" },
-        { name: "Vitamin A", amount: "165mcg", percentage: "18%" },
-        { name: "Sodium", amount: "620mg", percentage: "27%" },
-      ],
-    },
+    "id": 15,
+    "name": "Lamb Pilaf w/ Salad",
+    "week": "week2",
+    "description": "Aromatic rice cooked with tender, spiced lamb, served with a refreshing side salad for a balanced meal.",
+    "image": "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
+    "isVeg": false,
+    "dayOfWeek": 5,
+    "spiceLevel": 1,
+    "allergens": [
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "921 kcal",
+      "protein": "45.6g",
+      "carbs": "84g",
+      "fat": "42.4g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "5.2mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "7.5mg",
+          "percentage": "68%"
+        },
+        {
+          "name": "Vitamin B12",
+          "amount": "4.2mcg",
+          "percentage": "175%"
+        },
+        {
+          "name": "Selenium",
+          "amount": "45mcg",
+          "percentage": "82%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "850mg",
+          "percentage": "18%"
+        }
+      ]
+    }
   },
   {
-    id: 24,
-    name: "Rajma Chawal",
-    week: "week2",
-    description:
-      "Slow-simmered Punjabi kidney bean curry spooned over steamed rice — the ultimate North Indian comfort plate",
-    image: "/images/Week2/Veg/Rajma_Chawal.jpg",
-    isVeg: true,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: [],
-    nutrients: {
-      calories: "560 kcal",
-      protein: "20.5g",
-      carbs: "101g",
-      fat: "7.5g",
-      microNutrients: [
-        { name: "Fiber", amount: "11g", percentage: "39%" },
-        { name: "Iron", amount: "5.2mg", percentage: "29%" },
-        { name: "Folate", amount: "155mcg", percentage: "39%" },
-        { name: "Potassium", amount: "620mg", percentage: "13%" },
-        { name: "Magnesium", amount: "72mg", percentage: "17%" },
-      ],
-    },
+    "id": 21,
+    "name": "Rajma Chawal",
+    "week": "week2",
+    "description": "Hearty red kidney beans cooked in a spiced tomato gravy, served over a bed of steamed basmati rice.",
+    "image": "/images/Week2/Veg/Rajma_chawal.jpg",
+    "isVeg": true,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [],
+    "nutrients": {
+      "calories": "430.5 kcal",
+      "protein": "19.5g",
+      "carbs": "64.5g",
+      "fat": "11.35g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.8mg",
+          "percentage": "27%"
+        },
+        {
+          "name": "Folate",
+          "amount": "230mcg",
+          "percentage": "58%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "140mg",
+          "percentage": "33%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "850mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "16g",
+          "percentage": "64%"
+        }
+      ]
+    }
   },
   {
-    id: 25,
-    name: "Chicken Khorma w/ Bagara Rice",
-    week: "week3",
-    description:
-      "Velvety Mughlai korma with cashew-cream sauce paired with Hyderabadi spice-tempered bagara rice",
-    image: "/images/Week3/NonVeg/Chicken_Khorma_w__Bagara_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['dairy', 'nuts'],
-    nutrients: {
-      calories: "635 kcal",
-      protein: "32g",
-      carbs: "78g",
-      fat: "21g",
-      microNutrients: [
-        { name: "Iron", amount: "2.8mg", percentage: "16%" },
-        { name: "Calcium", amount: "85mg", percentage: "7%" },
-        { name: "Vitamin B12", amount: "0.5mcg", percentage: "21%" },
-        { name: "Zinc", amount: "2.4mg", percentage: "22%" },
-        { name: "Sodium", amount: "680mg", percentage: "30%" },
-      ],
-    },
+    "id": 39,
+    "name": "Chicken Khorma w/ Bagara Rice",
+    "week": "week3",
+    "description": "Fragrant, spiced chicken cooked in a rich, creamy gravy, served with flavorful bagara rice.",
+    "image": "/images/Week4/NonVeg/chicken_Korma_bagara_rice.jpg",
+    "isVeg": false,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "6.2mg",
+          "percentage": "56%"
+        },
+        {
+          "name": "Vitamin B12",
+          "amount": "3.2mcg",
+          "percentage": "133%"
+        },
+        {
+          "name": "Vitamin D",
+          "amount": "2.5mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        }
+      ]
+    }
   },
   {
-    id: 26,
-    name: "Chicken Fried Rice",
-    week: "week3",
-    description:
-      "Smoky wok-tossed rice with chicken, scrambled egg, crunchy veg, and a hit of soy",
-    image: "/images/Week3/NonVeg/Chicken_Fried_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 1,
-    allergens: ['eggs', 'soy', 'gluten'],
-    nutrients: {
-      calories: "680 kcal",
-      protein: "31g",
-      carbs: "88g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Iron", amount: "3.6mg", percentage: "20%" },
-        { name: "Sodium", amount: "1120mg", percentage: "49%" },
-        { name: "Vitamin A", amount: "180mcg", percentage: "20%" },
-        { name: "Potassium", amount: "385mg", percentage: "8%" },
-        { name: "Calcium", amount: "62mg", percentage: "5%" },
-      ],
-    },
+    "id": 45,
+    "name": "Veg Aaloo Khorma w/ Bagara Rice",
+    "week": "week3",
+    "description": "A rich, spiced curry of potatoes and vegetables, served with flavorful bagara rice.",
+    "image": "/images/Week4/Veg/Veg_aaloo_korma_bagara_Rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 0,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "555 kcal",
+      "protein": "11.1g",
+      "carbs": "99g",
+      "fat": "11.2g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "45mg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "900mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Vitamin B6",
+          "amount": "0.6mg",
+          "percentage": "35%"
+        },
+        {
+          "name": "Manganese",
+          "amount": "1.2mg",
+          "percentage": "52%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "12g",
+          "percentage": "48%"
+        }
+      ]
+    }
   },
   {
-    id: 27,
-    name: "Aaloo Kheema w/ Naan",
-    week: "week3",
-    description:
-      "Rustic spiced lamb mince studded with golden potato chunks, scooped up with warm tandoori naan",
-    image: "/images/Week3/NonVeg/Aaloo_Kheema_w__Naan.jpg",
-    isVeg: false,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "645 kcal",
-      protein: "28g",
-      carbs: "74g",
-      fat: "26g",
-      microNutrients: [
-        { name: "Iron", amount: "4.2mg", percentage: "23%" },
-        { name: "Zinc", amount: "4.8mg", percentage: "44%" },
-        { name: "Vitamin B12", amount: "2.1mcg", percentage: "88%" },
-        { name: "Potassium", amount: "520mg", percentage: "11%" },
-        { name: "Sodium", amount: "790mg", percentage: "34%" },
-      ],
-    },
+    "id": 5,
+    "name": "Chicken Fried Rice",
+    "week": "week3",
+    "description": "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
+    "image": "/images/Week1/nonveg1/ChickenFried.jpg",
+    "isVeg": false,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [
+      "eggs",
+      "gluten",
+      "sesame",
+      "soy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Vitamin K",
+          "amount": "75mcg",
+          "percentage": "63%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "42mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Iron",
+          "amount": "3.8mg",
+          "percentage": "21%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "200mg",
+          "percentage": "20%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 28,
-    name: "Malai Tikka w/ Lemon Rice",
-    week: "week3",
-    description:
-      "Silky cream-marinated chicken tikka grilled smoky, served over tangy turmeric lemon rice",
-    image: "/images/Week3/NonVeg/Malai_Tikka_w__Lemon_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "595 kcal",
-      protein: "31g",
-      carbs: "72.5g",
-      fat: "19.5g",
-      microNutrients: [
-        { name: "Vitamin B6", amount: "0.7mg", percentage: "41%" },
-        { name: "Calcium", amount: "110mg", percentage: "8%" },
-        { name: "Iron", amount: "2.2mg", percentage: "12%" },
-        { name: "Selenium", amount: "24mcg", percentage: "44%" },
-        { name: "Sodium", amount: "540mg", percentage: "23%" },
-      ],
-    },
+    "id": 11,
+    "name": "Veg Fried Rice",
+    "week": "week3",
+    "description": "Stir-fried rice with tender, fresh vegetables and savory soy sauce, perfectly seasoned for a flavorful bite.",
+    "image": "/images/Week1/Veg/Veg_Fried_Rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "sesame",
+      "soy"
+    ],
+    "nutrients": {
+      "calories": "555 kcal",
+      "protein": "11.1g",
+      "carbs": "99g",
+      "fat": "11.2g",
+      "microNutrients": [
+        {
+          "name": "Vitamin K",
+          "amount": "75mcg",
+          "percentage": "63%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "42mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Iron",
+          "amount": "3.8mg",
+          "percentage": "21%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "200mg",
+          "percentage": "20%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 29,
-    name: "Spaghetti Bolognese w/ Marinara Sauce",
-    week: "week3",
-    description:
-      "Al dente spaghetti tossed in slow-simmered beef ragu with rich tomato marinara",
-    image: "/images/Week3/NonVeg/Spaghetti_Bolognese_w__Marinara_Sauce.jpg",
-    isVeg: false,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 1,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "545 kcal",
-      protein: "25.5g",
-      carbs: "65g",
-      fat: "18.5g",
-      microNutrients: [
-        { name: "Iron", amount: "4.5mg", percentage: "25%" },
-        { name: "Vitamin B12", amount: "1.8mcg", percentage: "75%" },
-        { name: "Zinc", amount: "4.2mg", percentage: "38%" },
-        { name: "Lycopene", amount: "8.5mg", percentage: "—" },
-        { name: "Sodium", amount: "720mg", percentage: "31%" },
-      ],
-    },
+    "id": 26,
+    "name": "Aaloo Kheema w/ Naan",
+    "week": "week3",
+    "description": "Spiced minced meat cooked with potatoes, served with soft, tandoor naan.",
+    "image": "/images/Week3/NonVeg/Aaloo_keema.jpg",
+    "isVeg": false,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "5.2mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "7.5mg",
+          "percentage": "68%"
+        },
+        {
+          "name": "Vitamin B6",
+          "amount": "0.8mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "850mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 30,
-    name: "Chicken Biryani",
-    week: "week3",
-    description:
-      "Fragrant layered biryani with saffron-kissed basmati, fried onions, and tender spiced chicken",
-    image: "/images/Week3/NonVeg/Chicken_Biryani.jpg",
-    isVeg: false,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "650 kcal",
-      protein: "30.5g",
-      carbs: "80g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Vitamin B12", amount: "0.6mcg", percentage: "25%" },
-        { name: "Zinc", amount: "2.8mg", percentage: "25%" },
-        { name: "Sodium", amount: "850mg", percentage: "37%" },
-        { name: "Potassium", amount: "380mg", percentage: "8%" },
-      ],
-    },
+    "id": 32,
+    "name": "Paneer Tikka & Dal w/ Roti",
+    "week": "week3",
+    "description": "Grilled paneer tikka marinated in spices, served with flavorful lentils and soft, whole wheat roti.",
+    "image": "/images/Week3/Veg/Paneer_tikka_W_Lemon_rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "637.5 kcal",
+      "protein": "33g",
+      "carbs": "31.8g",
+      "fat": "42.1g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "350mg",
+          "percentage": "35%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "280mcg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Vitamin B12",
+          "amount": "1.2mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 31,
-    name: "Veg Aaloo Khorma w/ Bagara Rice",
-    week: "week3",
-    description:
-      "Creamy potato korma in coconut-cashew gravy with clove-and-cumin tempered Hyderabadi rice",
-    image: "/images/Week3/Veg/Veg_Aaloo_Khorma_w__Bagara_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 1,
-    allergens: ['nuts', 'dairy'],
-    nutrients: {
-      calories: "585 kcal",
-      protein: "12.5g",
-      carbs: "88g",
-      fat: "20g",
-      microNutrients: [
-        { name: "Fiber", amount: "5.5g", percentage: "20%" },
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Calcium", amount: "85mg", percentage: "7%" },
-        { name: "Potassium", amount: "480mg", percentage: "10%" },
-        { name: "Vitamin C", amount: "8mg", percentage: "9%" },
-      ],
-    },
+    "id": 25,
+    "name": "Malai Tikka w/ Lemon Rice",
+    "week": "week3",
+    "description": "Creamy, tender chicken marinated in rich spices, paired with fragrant lemon-infused rice.",
+    "image": "/images/Week3/NonVeg/Malai_tikka_Lemon_Rice.jpg",
+    "isVeg": false,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "180mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Vitamin D",
+          "amount": "2.5mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Vitamin B12",
+          "amount": "3.2mcg",
+          "percentage": "133%"
+        },
+        {
+          "name": "Phosphorus",
+          "amount": "400mg",
+          "percentage": "57%"
+        },
+        {
+          "name": "Selenium",
+          "amount": "35mcg",
+          "percentage": "64%"
+        }
+      ]
+    }
   },
   {
-    id: 32,
-    name: "Veg Fried Rice",
-    week: "week3",
-    description:
-      "Wok-tossed basmati rice loaded with crunchy vegetables, soy sauce, and a hint of sesame",
-    image: "/images/Week3/Veg/Veg_Fried_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 1,
-    allergens: ['soy', 'sesame', 'eggs'],
-    nutrients: {
-      calories: "680 kcal",
-      protein: "15g",
-      carbs: "118g",
-      fat: "13.5g",
-      microNutrients: [
-        { name: "Fiber", amount: "4.5g", percentage: "16%" },
-        { name: "Iron", amount: "3mg", percentage: "17%" },
-        { name: "Vitamin A", amount: "300IU", percentage: "10%" },
-        { name: "Sodium", amount: "1050mg", percentage: "46%" },
-        { name: "Potassium", amount: "320mg", percentage: "7%" },
-      ],
-    },
+    "id": 31,
+    "name": "Paneer Lababdar w/ Lemon Rice",
+    "week": "week3",
+    "description": "Rich, creamy paneer curry simmered in a spiced tomato gravy, paired with fragrant lemon-infused rice.",
+    "image": "/images/Week3/Veg/Paneer_lababdaar_W_Lemon_rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 3,
+    "spiceLevel": 1,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Calcium",
+          "amount": "300mg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin K",
+          "amount": "45mcg",
+          "percentage": "38%"
+        },
+        {
+          "name": "Phosphorus",
+          "amount": "350mg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3.2mg",
+          "percentage": "29%"
+        }
+      ]
+    }
   },
   {
-    id: 33,
-    name: "Paneer Tikka & Dal w/ Roti",
-    week: "week3",
-    description:
-      "Smoky char-grilled paneer tikka with hearty lentil dal and two soft whole-wheat rotis",
-    image: "/images/Week3/Veg/Paneer_Tikka_and_Dal_w__Roti.jpg",
-    isVeg: true,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['dairy', 'gluten'],
-    nutrients: {
-      calories: "640 kcal",
-      protein: "27g",
-      carbs: "70g",
-      fat: "27g",
-      microNutrients: [
-        { name: "Fiber", amount: "8.5g", percentage: "30%" },
-        { name: "Calcium", amount: "420mg", percentage: "32%" },
-        { name: "Iron", amount: "5.2mg", percentage: "29%" },
-        { name: "Folate", amount: "95mcg", percentage: "24%" },
-        { name: "Potassium", amount: "510mg", percentage: "11%" },
-      ],
-    },
+    "id": 42,
+    "name": "Spaghetti Bolognese w/ Marinara Sauce",
+    "week": "week3",
+    "description": "Classic spaghetti tossed in a rich, savory marinara sauce, topped with hearty Bolognese meat sauce.",
+    "image": "/images/Week4/NonVeg/spaghetti_bolognese_2.jpg",
+    "isVeg": false,
+    "dayOfWeek": 4,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Lycopene",
+          "amount": "15mg",
+          "percentage": "N/A"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "28mg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Iron",
+          "amount": "4.8mg",
+          "percentage": "27%"
+        },
+        {
+          "name": "Folate",
+          "amount": "120mcg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 34,
-    name: "Paneer Lababdar w/ Lemon Rice",
-    week: "week3",
-    description:
-      "Velvety paneer in rich tomato-cashew-cream gravy with tangy turmeric lemon rice",
-    image: "/images/Week3/Veg/Paneer_Lababdar_w__Lemon_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 1,
-    allergens: ['dairy', 'nuts'],
-    nutrients: {
-      calories: "600 kcal",
-      protein: "17g",
-      carbs: "75g",
-      fat: "25g",
-      microNutrients: [
-        { name: "Fiber", amount: "3.5g", percentage: "13%" },
-        { name: "Calcium", amount: "350mg", percentage: "27%" },
-        { name: "Iron", amount: "2.8mg", percentage: "16%" },
-        { name: "Vitamin C", amount: "12mg", percentage: "13%" },
-        { name: "Potassium", amount: "390mg", percentage: "8%" },
-      ],
-    },
+    "id": 48,
+    "name": "Spaghetti Pomodoro",
+    "week": "week3",
+    "description": "Classic Italian spaghetti tossed in a fresh tomato sauce, topped with tender grilled paneer.",
+    "image": "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
+    "isVeg": true,
+    "dayOfWeek": 4,
+    "spiceLevel": 1,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "315 kcal",
+      "protein": "9g",
+      "carbs": "45g",
+      "fat": "10.9g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "42mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Lycopene",
+          "amount": "12mg",
+          "percentage": "N/A"
+        },
+        {
+          "name": "Vitamin K",
+          "amount": "15mcg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Folate",
+          "amount": "80mcg",
+          "percentage": "20%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 35,
-    name: "Spaghetti Pomodoro",
-    week: "week3",
-    description:
-      "Al dente spaghetti tossed in San Marzano tomato sauce with fresh basil and olive oil",
-    image: "/images/Week3/Veg/Spaghetti_Pomodoro.jpg",
-    isVeg: true,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 1,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "420 kcal",
-      protein: "15.5g",
-      carbs: "71g",
-      fat: "7.5g",
-      microNutrients: [
-        { name: "Fiber", amount: "6.5g", percentage: "23%" },
-        { name: "Iron", amount: "4mg", percentage: "22%" },
-        { name: "Vitamin C", amount: "18mg", percentage: "20%" },
-        { name: "Potassium", amount: "560mg", percentage: "12%" },
-        { name: "Calcium", amount: "60mg", percentage: "5%" },
-      ],
-    },
+    "id": 6,
+    "name": "Chicken Biryani",
+    "week": "week3",
+    "description": "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
+    "image": "/images/Week1/nonveg1/ChickenBiryani.jpg",
+    "isVeg": false,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "10g",
+          "percentage": "40%"
+        },
+        {
+          "name": "Vitamin E",
+          "amount": "8mg",
+          "percentage": "53%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "140mg",
+          "percentage": "33%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3mg",
+          "percentage": "27%"
+        }
+      ]
+    }
   },
   {
-    id: 36,
-    name: "Chickpea Veg Biryani w/ Raita",
-    week: "week3",
-    description:
-      "Fragrant saffron-spiced biryani layered with tender chickpeas and a cool yogurt raita",
-    image: "/images/Week3/Veg/Chickpea_Veg_Biryani_w__Raita.jpg",
-    isVeg: true,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "535 kcal",
-      protein: "16g",
-      carbs: "84g",
-      fat: "14g",
-      microNutrients: [
-        { name: "Fiber", amount: "9.5g", percentage: "34%" },
-        { name: "Iron", amount: "4.5mg", percentage: "25%" },
-        { name: "Folate", amount: "145mcg", percentage: "36%" },
-        { name: "Calcium", amount: "120mg", percentage: "9%" },
-        { name: "Potassium", amount: "440mg", percentage: "9%" },
-      ],
-    },
+    "id": 54,
+    "name": "Chickpea Veg Biryani",
+    "week": "week3",
+    "description": "A fragrant and flavorful rice dish layered with spiced vegetables, chickpeas, aromatic basmati rice, and a blend of traditional spices.",
+    "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "isVeg": true,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "600 kcal",
+      "protein": "16g",
+      "carbs": "92g",
+      "fat": "16g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.0mg",
+          "percentage": "22%"
+        },
+        {
+          "name": "Folate",
+          "amount": "180mcg",
+          "percentage": "45%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "110mg",
+          "percentage": "26%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "11g",
+          "percentage": "44%"
+        }
+      ]
+    }
   },
   {
-    id: 37,
-    name: "Dormers' Green Kabab w/ Chutney & Flat Bread",
-    week: "week4",
-    description:
-      "Herb-loaded chicken kebab with coriander, mint and green chilli, tangy chutney and rumali roti",
-    image: "/images/Week4/NonVeg/Dormers_Green_Kabab_w__Chutney_and_Flat_Bread.jpg",
-    isVeg: false,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 2,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "545 kcal",
-      protein: "38.5g",
-      carbs: "55g",
-      fat: "17.5g",
-      microNutrients: [
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Vitamin C", amount: "12mg", percentage: "13%" },
-        { name: "Vitamin B6", amount: "0.7mg", percentage: "41%" },
-        { name: "Niacin (B3)", amount: "10.5mg", percentage: "66%" },
-        { name: "Phosphorus", amount: "280mg", percentage: "22%" },
-      ],
-    },
+    "id": 18,
+    "name": "Dormers' Green Kabab w/ Chutney & Flat Bread",
+    "week": "week4",
+    "description": "Herb-forward green kebab, pan-seared, paired with tangy chutney and delicate rumali roti.",
+    "image": "/images/Week2/NonVeg/Dormer's_Kebab.jpg",
+    "isVeg": false,
+    "dayOfWeek": 0,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Vitamin B6",
+          "amount": "0.8mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Niacin",
+          "amount": "10mg",
+          "percentage": "63%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "6.2mg",
+          "percentage": "56%"
+        },
+        {
+          "name": "Selenium",
+          "amount": "35mcg",
+          "percentage": "64%"
+        }
+      ]
+    }
   },
   {
-    id: 38,
-    name: "Peri-Peri Chicken w/ Jolof Rice",
-    week: "week4",
-    description:
-      "Fiery African bird's-eye chilli chicken over smoky tomato-stewed jollof rice — bold heat meets deep umami",
-    image: "/images/Week4/NonVeg/Peri-Peri_Chicken_w__Jolof_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 3,
-    allergens: [],
-    nutrients: {
-      calories: "650 kcal",
-      protein: "34g",
-      carbs: "84g",
-      fat: "19g",
-      microNutrients: [
-        { name: "Vitamin C", amount: "25mg", percentage: "28%" },
-        { name: "Vitamin A", amount: "180mcg", percentage: "20%" },
-        { name: "Iron", amount: "3.0mg", percentage: "17%" },
-        { name: "Niacin (B3)", amount: "11mg", percentage: "69%" },
-        { name: "Vitamin B6", amount: "0.65mg", percentage: "38%" },
-      ],
-    },
+    "id": 57,
+    "name": "Classic Tangy Cholay w/ Naan",
+    "week": "week4",
+    "description": "Tangy spiced chickpeas simmered with tamarind and spices, served with warm buttered naan.",
+    "image": "/images/Week3/Veg/Rajma_aaloo.jpg",
+    "isVeg": true,
+    "dayOfWeek": 0,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "560 kcal",
+      "protein": "18g",
+      "carbs": "84g",
+      "fat": "15g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.6mg",
+          "percentage": "26%"
+        },
+        {
+          "name": "Folate",
+          "amount": "200mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "120mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "13g",
+          "percentage": "52%"
+        }
+      ]
+    }
   },
   {
-    id: 39,
-    name: "Moroccan Chicken Tagine w/ Indian Bread",
-    week: "week4",
-    description:
-      "Slow-cooked chicken in warm cinnamon-saffron sauce with apricots and olives, scooped with pillowy naan",
-    image: "/images/Week4/NonVeg/Moroccan_Chicken_Tagine_w__Indian_Bread.jpg",
-    isVeg: false,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 1,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "575 kcal",
-      protein: "29g",
-      carbs: "76g",
-      fat: "16g",
-      microNutrients: [
-        { name: "Iron", amount: "3.8mg", percentage: "21%" },
-        { name: "Vitamin A", amount: "145mcg", percentage: "16%" },
-        { name: "Niacin (B3)", amount: "8.5mg", percentage: "53%" },
-        { name: "Vitamin B6", amount: "0.55mg", percentage: "32%" },
-        { name: "Fiber", amount: "4.5g", percentage: "16%" },
-      ],
-    },
+    "id": 3,
+    "name": "Peri-Peri Chicken w/ Jolof Rice",
+    "week": "week4",
+    "description": "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
+    "image": "/images/Week1/nonveg1/PeriPeri.jpg",
+    "isVeg": false,
+    "dayOfWeek": 1,
+    "spiceLevel": 3,
+    "allergens": [],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Vitamin D",
+          "amount": "8mcg",
+          "percentage": "40%"
+        },
+        {
+          "name": "Iron",
+          "amount": "2.8mg",
+          "percentage": "16%"
+        },
+        {
+          "name": "Zinc",
+          "amount": "3.2mg",
+          "percentage": "29%"
+        },
+        {
+          "name": "Selenium",
+          "amount": "28mcg",
+          "percentage": "51%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "4g",
+          "percentage": "16%"
+        }
+      ]
+    }
   },
   {
-    id: 40,
-    name: "Veg Biryani w/ Dormer's Chicken",
-    week: "week4",
-    description:
-      "Saffron-layered vegetable biryani paired with juicy house-spiced grilled chicken on the side",
-    image: "/images/Week4/NonVeg/Veg_Biryani_w__Dormers_Chicken.jpg",
-    isVeg: false,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 2,
-    allergens: ['nuts', 'dairy'],
-    nutrients: {
-      calories: "595 kcal",
-      protein: "48g",
-      carbs: "62g",
-      fat: "15.5g",
-      microNutrients: [
-        { name: "Niacin (B3)", amount: "13mg", percentage: "81%" },
-        { name: "Vitamin B6", amount: "0.8mg", percentage: "47%" },
-        { name: "Phosphorus", amount: "340mg", percentage: "27%" },
-        { name: "Iron", amount: "3.5mg", percentage: "19%" },
-        { name: "Selenium", amount: "32mcg", percentage: "58%" },
-      ],
-    },
+    "id": 9,
+    "name": "Jolof Rice w/ Grilled Veggies",
+    "week": "week4",
+    "description": "Perfectly char grilled Veggies served alongside flavorful, spicy West African tomato-infused rice.",
+    "image": "/images/Week1/Veg/Jolof_rice_grill_veggies_2.jpg",
+    "isVeg": true,
+    "dayOfWeek": 1,
+    "spiceLevel": 2,
+    "allergens": [],
+    "nutrients": {
+      "calories": "555 kcal",
+      "protein": "11.1g",
+      "carbs": "99g",
+      "fat": "11.2g",
+      "microNutrients": [
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "45mg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Iron",
+          "amount": "2.8mg",
+          "percentage": "16%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "150mg",
+          "percentage": "15%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 41,
-    name: "Dormer's Style Halal Guys Bowl",
-    week: "week4",
-    description:
-      "NYC halal-cart grilled mutton over turmeric rice, drizzled with creamy white sauce and smoky hot sauce",
-    image: "/images/Week4/NonVeg/Dormers_Style_Halal_Guys_Bowl.jpg",
-    isVeg: false,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 2,
-    allergens: ['dairy', 'eggs', 'mustard'],
-    nutrients: {
-      calories: "695 kcal",
-      protein: "35g",
-      carbs: "77g",
-      fat: "24.5g",
-      microNutrients: [
-        { name: "Iron", amount: "4.2mg", percentage: "23%" },
-        { name: "Vitamin B12", amount: "2.8mcg", percentage: "117%" },
-        { name: "Zinc", amount: "5.5mg", percentage: "50%" },
-        { name: "Niacin (B3)", amount: "7.5mg", percentage: "47%" },
-        { name: "Phosphorus", amount: "310mg", percentage: "25%" },
-      ],
-    },
+    "id": 29,
+    "name": "Moroccan Chicken Tagine w/ Indian Bread",
+    "week": "week4",
+    "description": "Aromatic chicken slow cooked with spices and vegetables, served with fluffy Indian bread.",
+    "image": "/images/Week3/NonVeg/Moroccan_chicken.jpg",
+    "isVeg": false,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "673.5 kcal",
+      "protein": "57.9g",
+      "carbs": "69g",
+      "fat": "16g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.8mg",
+          "percentage": "27%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin E",
+          "amount": "6mg",
+          "percentage": "40%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "140mg",
+          "percentage": "33%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 42,
-    name: "Thai Chicken Curry w/ Coconut Rice",
-    week: "week4",
-    description:
-      "Creamy Thai curry chicken with basil, lemongrass and kaffir lime ladled over coconut-infused rice",
-    image: "/images/Week4/NonVeg/Thai_Chicken_Curry_w__Coconut_Rice.jpg",
-    isVeg: false,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: [],
-    nutrients: {
-      calories: "695 kcal",
-      protein: "31g",
-      carbs: "82g",
-      fat: "26g",
-      microNutrients: [
-        { name: "Iron", amount: "3.8mg", percentage: "21%" },
-        { name: "Niacin (B3)", amount: "9.5mg", percentage: "59%" },
-        { name: "Vitamin B6", amount: "0.6mg", percentage: "35%" },
-        { name: "Manganese", amount: "1.8mg", percentage: "78%" },
-        { name: "Phosphorus", amount: "295mg", percentage: "24%" },
-      ],
-    },
+    "id": 43,
+    "name": "Pav Bhaji",
+    "week": "week4",
+    "description": "A spicy, mashed vegetable curry served with buttered, soft buns for a comforting street food experience.",
+    "image": "/images/Week4/Veg/Pav_Bhaji.jpg",
+    "isVeg": true,
+    "dayOfWeek": 2,
+    "spiceLevel": 2,
+    "allergens": [
+      "gluten",
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "315 kcal",
+      "protein": "9g",
+      "carbs": "45g",
+      "fat": "10.9g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "42mg",
+          "percentage": "47%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 43,
-    name: "Classic Tangy Cholay w/ Naan",
-    week: "week4",
-    description:
-      "Punjabi-spiced chickpeas simmered in a tangy tomato-amchur gravy, scooped with pillowy buttered naan",
-    image: "/images/Week4/Veg/Classic_Tangy_Cholay_w__Naan.jpg",
-    isVeg: true,
-    dayOfWeek: 0, // Monday
-    spiceLevel: 2,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "620 kcal",
-      protein: "21g",
-      carbs: "92g",
-      fat: "21.5g",
-      microNutrients: [
-        { name: "Iron", amount: "4.8mg", percentage: "27%" },
-        { name: "Folate", amount: "172mcg", percentage: "43%" },
-        { name: "Dietary Fiber", amount: "9.5g", percentage: "34%" },
-        { name: "Potassium", amount: "380mg", percentage: "8%" },
-        { name: "Manganese", amount: "1.2mg", percentage: "52%" },
-      ],
-    },
+    "id": 41,
+    "name": "Veg Biryani w/ Dormers' Chicken",
+    "week": "week4",
+    "description": "Aromatic vegetable biryani paired with Dormers' tender, spiced grilled chicken.",
+    "image": "/images/Week4/NonVeg/Dormer_Chicken_Veg_Biryani.jpg",
+    "isVeg": false,
+    "dayOfWeek": 3,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "380mcg",
+          "percentage": "42%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "12mg",
+          "percentage": "13%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 44,
-    name: "Jolof Rice w/ Grilled Veggies",
-    week: "week4",
-    description:
-      "Smoky West African tomato-stewed rice layered with charred seasonal vegetables and warm spices",
-    image: "/images/Week4/Veg/Jolof_Rice_w__Grilled_Veggies.jpg",
-    isVeg: true,
-    dayOfWeek: 1, // Tuesday
-    spiceLevel: 2,
-    allergens: [],
-    nutrients: {
-      calories: "555 kcal",
-      protein: "11g",
-      carbs: "84g",
-      fat: "15g",
-      microNutrients: [
-        { name: "Vitamin C", amount: "22mg", percentage: "24%" },
-        { name: "Vitamin A", amount: "185mcg", percentage: "21%" },
-        { name: "Lycopene", amount: "6.5mg", percentage: "—" },
-        { name: "Iron", amount: "2.4mg", percentage: "13%" },
-        { name: "Potassium", amount: "340mg", percentage: "7%" },
-      ],
-    },
+    "id": 47,
+    "name": "Veg Biryani w/ Dormers' Paneer",
+    "week": "week4",
+    "description": "Aromatic basmati rice cooked with mixed vegetables, served with tangy, Dormers' paneer curry.",
+    "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "isVeg": true,
+    "dayOfWeek": 3,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "300mg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        },
+        {
+          "name": "Folate",
+          "amount": "220mcg",
+          "percentage": "55%"
+        }
+      ]
+    }
   },
   {
-    id: 45,
-    name: "Pav Bhaji",
-    week: "week4",
-    description:
-      "Mumbai street-style butter-mashed vegetable curry loaded with spices, served with crisp-toasted pav buns",
-    image: "/images/Week4/Veg/Pav_Bhaji.jpg",
-    isVeg: true,
-    dayOfWeek: 2, // Wednesday
-    spiceLevel: 2,
-    allergens: ['gluten', 'dairy'],
-    nutrients: {
-      calories: "590 kcal",
-      protein: "15.5g",
-      carbs: "82g",
-      fat: "22g",
-      microNutrients: [
-        { name: "Vitamin A", amount: "320mcg", percentage: "36%" },
-        { name: "Vitamin C", amount: "35mg", percentage: "39%" },
-        { name: "Potassium", amount: "813mg", percentage: "17%" },
-        { name: "Iron", amount: "3.2mg", percentage: "18%" },
-        { name: "Dietary Fiber", amount: "7.5g", percentage: "27%" },
-      ],
-    },
+    "id": 38,
+    "name": "Dormers' Style Halal Guys Bowl",
+    "week": "week4",
+    "description": "Juicy grilled chicken served with rice, lettuce, and Dormers' signature white sauce and hot sauce.",
+    "image": "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl_correct3.jpg",
+    "isVeg": false,
+    "dayOfWeek": 4,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "eggs",
+      "sesame"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Vitamin K",
+          "amount": "75mcg",
+          "percentage": "63%"
+        },
+        {
+          "name": "Vitamin C",
+          "amount": "28mg",
+          "percentage": "31%"
+        },
+        {
+          "name": "Folate",
+          "amount": "165mcg",
+          "percentage": "41%"
+        },
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
   },
   {
-    id: 46,
-    name: "Veg Biryani w/ Dormers' Paneer",
-    week: "week4",
-    description:
-      "Fragrant basmati layered with saffron, whole spices, and golden-seared paneer cubes",
-    image: "/images/Week4/Veg/Veg_Biryani_w__Dormers_Paneer.jpg",
-    isVeg: true,
-    dayOfWeek: 3, // Thursday
-    spiceLevel: 2,
-    allergens: ['dairy', 'nuts'],
-    nutrients: {
-      calories: "575 kcal",
-      protein: "17g",
-      carbs: "88g",
-      fat: "15g",
-      microNutrients: [
-        { name: "Calcium", amount: "285mg", percentage: "22%" },
-        { name: "Phosphorus", amount: "210mg", percentage: "17%" },
-        { name: "Vitamin B12", amount: "0.6mcg", percentage: "25%" },
-        { name: "Iron", amount: "2.1mg", percentage: "12%" },
-        { name: "Dietary Fiber", amount: "3.5g", percentage: "13%" },
-      ],
-    },
+    "id": 35,
+    "name": "Rajma Aaloo w/ Roti",
+    "week": "week4",
+    "description": "Hearty red kidney beans and potatoes cooked in a spiced tomato gravy, served with soft roti.",
+    "image": "/images/Week3/Veg/Rajma_aaloo.jpg",
+    "isVeg": true,
+    "dayOfWeek": 4,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "gluten"
+    ],
+    "nutrients": {
+      "calories": "430.5 kcal",
+      "protein": "19.5g",
+      "carbs": "64.5g",
+      "fat": "11.35g",
+      "microNutrients": [
+        {
+          "name": "Iron",
+          "amount": "4.8mg",
+          "percentage": "27%"
+        },
+        {
+          "name": "Folate",
+          "amount": "230mcg",
+          "percentage": "58%"
+        },
+        {
+          "name": "Magnesium",
+          "amount": "140mg",
+          "percentage": "33%"
+        },
+        {
+          "name": "Potassium",
+          "amount": "850mg",
+          "percentage": "18%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "16g",
+          "percentage": "64%"
+        }
+      ]
+    }
   },
   {
-    id: 47,
-    name: "Rajma Aaloo w/ Roti",
-    week: "week4",
-    description:
-      "Slow-cooked kidney beans and soft potatoes in a thick masala gravy with whole-wheat tandoori rotis",
-    image: "/images/Week4/Veg/Rajma_Aaloo_w__Roti.jpg",
-    isVeg: true,
-    dayOfWeek: 4, // Friday
-    spiceLevel: 2,
-    allergens: ['gluten'],
-    nutrients: {
-      calories: "485 kcal",
-      protein: "16g",
-      carbs: "80g",
-      fat: "10g",
-      microNutrients: [
-        { name: "Iron", amount: "4.5mg", percentage: "25%" },
-        { name: "Folate", amount: "145mcg", percentage: "36%" },
-        { name: "Potassium", amount: "520mg", percentage: "11%" },
-        { name: "Dietary Fiber", amount: "10.5g", percentage: "38%" },
-        { name: "Molybdenum", amount: "65mcg", percentage: "144%" },
-      ],
-    },
+    "id": 37,
+    "name": "Thai Chicken Curry w/ Coconut Rice",
+    "week": "week4",
+    "description": "Tangy asian curry slow-cooked with tender chicken, served with flaky coconut rice for a rich and hearty food bowl.",
+    "image": "/images/Week4/NonVeg/Thai_chicken_curry_w_cocnut_rice.jpg",
+    "isVeg": false,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "fish",
+      "gluten",
+      "soy"
+    ],
+    "nutrients": {
+      "calories": "727.5 kcal",
+      "protein": "54.6g",
+      "carbs": "84g",
+      "fat": "16.3g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "45mg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Iron",
+          "amount": "3.5mg",
+          "percentage": "19%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "120mg",
+          "percentage": "12%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "6g",
+          "percentage": "24%"
+        }
+      ]
+    }
   },
   {
-    id: 48,
-    name: "Kadhai Paneer w/ Cumin Rice",
-    week: "week4",
-    description:
-      "Wok-tossed paneer and crunchy bell peppers in roasted kadhai spice, served over cumin-tempered rice",
-    image: "/images/Week4/Veg/Kadhai_Paneer_w__Cumin_Rice.jpg",
-    isVeg: true,
-    dayOfWeek: 5, // Saturday
-    spiceLevel: 2,
-    allergens: ['dairy'],
-    nutrients: {
-      calories: "575 kcal",
-      protein: "15g",
-      carbs: "89g",
-      fat: "17.5g",
-      microNutrients: [
-        { name: "Calcium", amount: "310mg", percentage: "24%" },
-        { name: "Vitamin C", amount: "28mg", percentage: "31%" },
-        { name: "Phosphorus", amount: "195mg", percentage: "16%" },
-        { name: "Iron", amount: "2.3mg", percentage: "13%" },
-        { name: "Vitamin A", amount: "145mcg", percentage: "16%" },
-      ],
-    },
-  },
+    "id": 34,
+    "name": "Kadhai Paneer w/ Cumin Rice",
+    "week": "week4",
+    "description": "Stir-fried paneer and bell peppers cooked in a flavorful, spiced gravy, served with cumin-infused rice.",
+    "image": "/images/Week3/Veg/Kadhai_Paneer_w_Rice.jpg",
+    "isVeg": true,
+    "dayOfWeek": 5,
+    "spiceLevel": 2,
+    "allergens": [
+      "dairy",
+      "nuts"
+    ],
+    "nutrients": {
+      "calories": "650 kcal",
+      "protein": "26g",
+      "carbs": "63.56g",
+      "fat": "31.41g",
+      "microNutrients": [
+        {
+          "name": "Vitamin C",
+          "amount": "120mg",
+          "percentage": "133%"
+        },
+        {
+          "name": "Vitamin A",
+          "amount": "450mcg",
+          "percentage": "50%"
+        },
+        {
+          "name": "Calcium",
+          "amount": "300mg",
+          "percentage": "30%"
+        },
+        {
+          "name": "Iron",
+          "amount": "4.2mg",
+          "percentage": "23%"
+        },
+        {
+          "name": "Fiber",
+          "amount": "8g",
+          "percentage": "32%"
+        }
+      ]
+    }
+  }
 ]

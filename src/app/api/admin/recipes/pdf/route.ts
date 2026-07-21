@@ -43,6 +43,8 @@ export async function GET(request: Request) {
   const sb = createAdminSupabaseClient()
   let query = sb.from('dishes').select('id, name, is_veg, recipe, recipe_draft').order('name')
   if (dishId) query = query.eq('id', dishId)
+  // The cookbook is the LIVE menu — skip dishes moved to the Removed archive.
+  else if (all) query = query.eq('is_active', true)
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
