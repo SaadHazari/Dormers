@@ -9,7 +9,7 @@ import {
     Share2, Swords, Star,
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
-    Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera,
+    Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera, Carrot,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -66,6 +66,7 @@ const NAV_GROUPS = [
         label: 'Content',
         items: [
             { label: 'Menu CMS',         href: '/admin/menu',     icon: <UtensilsCrossed size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Pantry',           href: '/admin/pantry',   icon: <Carrot size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'QR Codes',         href: '/admin/qr-codes', icon: <QrCode size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Pricing',           href: '/admin/pricing',  icon: <DollarSign size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],

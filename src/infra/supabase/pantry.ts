@@ -17,6 +17,16 @@ interface PantryRow {
 let _cache: { data: PantryEntry[]; ts: number } | null = null
 const TTL = 5 * 60 * 1000
 
+/**
+ * Drop the in-process pantry cache so the next generator read is fresh.
+ * Called from the admin pantry actions after any add/edit/toggle/delete.
+ * Best-effort: only clears the cache on the instance that ran the mutation;
+ * other warm Lambdas still expire naturally within TTL (pantry rarely changes).
+ */
+export function invalidatePantryCache(): void {
+  _cache = null
+}
+
 /** Cost per kitchen-relevant base unit: "AED 2/kg", "AED 6.2/L", "AED 0.32/pc". */
 function costHint(row: PantryRow): string | null {
   if (!row.pack_cost || !row.pack_qty || row.pack_qty <= 0) return null

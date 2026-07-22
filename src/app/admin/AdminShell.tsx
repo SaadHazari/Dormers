@@ -28,6 +28,7 @@ const NAV_COMMANDS: PaletteCommand[] = [
     { id: 'nav-dormwars',    label: 'Dorm Wars',        group: 'Navigation', href: '/admin/dorm-wars',  keywords: ['gamification', 'streaks', 'rewards', 'layer4'] },
     { id: 'nav-reviews',     label: 'Reviews & Feedback', group: 'Navigation', href: '/admin/reviews',  keywords: ['review', 'feedback', 'rating', 'wrap', 'survey', 'kitchen', 'nps', 'sentiment', 'renewal'] },
     { id: 'nav-menu',        label: 'Menu CMS',         group: 'Navigation', href: '/admin/menu',       keywords: ['dishes', 'food', 'rotation', 'catalog'] },
+    { id: 'nav-pantry',      label: 'Pantry',           group: 'Navigation', href: '/admin/pantry',     keywords: ['pantry', 'ingredient', 'stock', 'kitchen', 'recipe', 'supplier', 'cost'] },
     { id: 'nav-qr',          label: 'QR Codes',         group: 'Navigation', href: '/admin/qr-codes',   keywords: ['qr', 'code', 'scan', 'print', 'dish'] },
     { id: 'nav-pricing',     label: 'Pricing',          group: 'Navigation', href: '/admin/pricing',    keywords: ['price', 'plans', 'aed'] },
     { id: 'nav-audit',       label: 'Audit Log',        group: 'Navigation', href: '/admin/audit',      keywords: ['log', 'history', 'who'] },
