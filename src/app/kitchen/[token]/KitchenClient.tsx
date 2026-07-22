@@ -71,20 +71,34 @@ type DisplayComponent = { title: string; sections: { heading: string; items: unk
 
 function RecipePage({
   dish,
+  isPast2pm,
+  countsUnavailable,
+  prepCount,
+  onPrepCountChange,
   onClose,
 }: {
   dish: KitchenDish
+  isPast2pm: boolean
+  countsUnavailable: boolean
+  /** Chef's chosen prep count for this dish (before 2 PM). undefined = untouched, use the estimate. */
+  prepCount: number | undefined
+  onPrepCountChange: (n: number) => void
   onClose: () => void
 }) {
   const color = dish.isVeg ? EMERALD : ORANGE
   const recipe = dish.recipe!
   const structured = isRecipeV2(recipe)
   const baseServings = recipeBaseServings(recipe)
-  // A 0 meal count (no confirmed orders yet, or the count read failed)
-  // must NEVER multiply the recipe to a page of zeros — fall back to the
-  // base quantities and say so in the badge.
-  const hasCount = dish.mealCount > 0
-  const multiplier = hasCount ? dish.mealCount / baseServings : 1
+  // dish.mealCount is today's live ESTIMATE before the 2 PM skip cutoff, and the
+  // locked CONFIRMED count after it. Before 2 PM the kitchen sets how many meals
+  // to prep (raw prep — defrosting, soaking — is staged in the morning off this
+  // number, usually the estimate plus a box or two of buffer). After 2 PM the
+  // count is locked and the recipe scales to it exactly, no manual input.
+  // A 0 effective count must NEVER multiply the recipe to a page of zeros —
+  // fall back to the base quantities and say so.
+  const estimate = dish.mealCount
+  const effectiveCount = isPast2pm ? estimate : prepCount ?? estimate
+  const multiplier = effectiveCount > 0 ? effectiveCount / baseServings : 1
 
   const components: DisplayComponent[] = structured
     ? (getRecipeComponents(recipe as RecipeV2, dish.name) as DisplayComponent[])
@@ -234,29 +248,17 @@ function RecipePage({
           padding: '20px',
         }}
       >
-        {/* Serving badge */}
+        {/* Prep-count control (before 2 PM) / locked confirmed badge (after 2 PM) */}
         <div style={{ marginBottom: '20px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              backgroundColor: color + '12',
-              border: `1px solid ${color}30`,
-              fontSize: '13px',
-              fontWeight: 600,
-              color: color,
-            }}
-          >
-            {hasCount ? `Scaled for ${dish.mealCount} meals` : `Base recipe (${baseServings} servings)`}
-            {hasCount ? (
-              <span style={{ color: MUTED, fontWeight: 400 }}>(base: {baseServings})</span>
-            ) : (
-              <span style={{ color: MUTED, fontWeight: 400 }}>no count yet, scale when it lands</span>
-            )}
-          </div>
+          <PrepControl
+            value={effectiveCount}
+            estimate={estimate}
+            baseServings={baseServings}
+            isPast2pm={isPast2pm}
+            countsUnavailable={countsUnavailable}
+            color={color}
+            onChange={onPrepCountChange}
+          />
         </div>
 
         {/* ── Ingredients ── */}
@@ -485,6 +487,166 @@ function IngredientLine({ ing, multiplier }: {
   )
 }
 
+// ─── Prep-count control ─────────────────────────────────────────────────────
+// Before the 2 PM skip cutoff the kitchen decides how many meals to prep so raw
+// prep (defrosting meat, soaking dal) can be staged in the morning — delivery
+// is 5 PM, cooking starts ~2 PM, but the mise en place has to be ready first.
+// The field is pre-filled with today's estimate; the chef nudges it up for the
+// odd box or two of buffer. After 2 PM the count is locked: the control becomes
+// a read-only badge and the recipe scales to the confirmed number exactly.
+
+function PrepControl({
+  value,
+  estimate,
+  baseServings,
+  isPast2pm,
+  countsUnavailable,
+  color,
+  onChange,
+}: {
+  value: number
+  estimate: number
+  baseServings: number
+  isPast2pm: boolean
+  countsUnavailable: boolean
+  color: string
+  onChange: (n: number) => void
+}) {
+  const clamp = (n: number) => Math.max(0, Math.min(999, Math.round(Number.isFinite(n) ? n : 0)))
+  const meals = (n: number) => (n === 1 ? 'meal' : 'meals')
+
+  // After 2 PM: locked, read-only. The recipe scales to the confirmed count.
+  if (isPast2pm) {
+    return (
+      <div
+        style={{
+          backgroundColor: color + '12',
+          border: `1px solid ${color}30`,
+          borderRadius: '12px',
+          padding: '14px 16px',
+        }}
+      >
+        <div style={{ fontSize: '12px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Confirmed for today
+        </div>
+        <div style={{ fontSize: '18px', fontWeight: 800, color: NAVY, marginTop: '4px' }}>
+          {value > 0 ? `Scaled for ${value} ${meals(value)}` : 'No meals confirmed today'}
+        </div>
+        <div style={{ fontSize: '13px', color: MUTED, marginTop: '4px', lineHeight: 1.4 }}>
+          {value > 0
+            ? `Locked at 2 PM. Base recipe is ${baseServings} servings.`
+            : `Showing the ${baseServings}-serving base recipe.`}
+        </div>
+      </div>
+    )
+  }
+
+  // Before 2 PM: editable. Chef sets meals to prep, defaulting to the estimate.
+  const btn = {
+    width: '44px',
+    height: '44px',
+    borderRadius: '10px',
+    border: `1px solid ${color}55`,
+    backgroundColor: BG_CARD,
+    color,
+    fontSize: '24px',
+    fontWeight: 700,
+    lineHeight: 1,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    fontFamily: FONT,
+  } as const
+
+  return (
+    <div
+      style={{
+        backgroundColor: color + '12',
+        border: `1px solid ${color}30`,
+        borderRadius: '12px',
+        padding: '14px 16px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Meals to prep
+          </div>
+          <div style={{ fontSize: '13px', color: MUTED, marginTop: '4px', lineHeight: 1.4 }}>
+            {countsUnavailable ? (
+              `Estimate didn't load.`
+            ) : (
+              <>
+                Today&apos;s estimate:{' '}
+                <strong style={{ color: NAVY, fontWeight: 800 }}>{estimate}</strong>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <button type="button" aria-label="One fewer meal" onClick={() => onChange(clamp(value - 1))} style={btn}>
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            aria-label="Meals to prep"
+            value={value}
+            onChange={(e) => onChange(clamp(parseInt(e.target.value, 10)))}
+            style={{
+              width: '64px',
+              height: '44px',
+              textAlign: 'center',
+              fontSize: '22px',
+              fontWeight: 800,
+              color: NAVY,
+              fontFamily: FONT,
+              border: `1px solid ${BORDER}`,
+              borderRadius: '10px',
+              backgroundColor: BG_CARD,
+              MozAppearance: 'textfield',
+            }}
+          />
+          <button type="button" aria-label="One more meal" onClick={() => onChange(clamp(value + 1))} style={btn}>
+            +
+          </button>
+        </div>
+      </div>
+      {(value === 0 || value !== estimate) && (
+        <div style={{ fontSize: '13px', color: MUTED, marginTop: '10px', lineHeight: 1.4 }}>
+          {value > 0
+            ? `Scaled to ${value} ${meals(value)}.`
+            : `Enter a count to scale. Showing the ${baseServings}-serving base.`}
+          {!countsUnavailable && value !== estimate && (
+            <>
+              {' '}
+              <button
+                type="button"
+                onClick={() => onChange(clamp(estimate))}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  padding: 0,
+                  color,
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Reset to {estimate}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main KitchenClient ─────────────────────────────────────────────────────
 
 export function KitchenClient({
@@ -499,6 +661,10 @@ export function KitchenClient({
 }: KitchenClientProps) {
   const router = useRouter()
   const [activeRecipe, setActiveRecipe] = useState<{ dish: KitchenDish } | null>(null)
+  // Chef-chosen prep counts, keyed by dish name. Kept in the parent so the
+  // number survives closing and reopening a recipe within the session. Untouched
+  // dishes fall back to today's estimate (dish.mealCount).
+  const [prepCounts, setPrepCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -722,7 +888,16 @@ export function KitchenClient({
       )}
 
       {activeRecipe !== null && (
-        <RecipePage dish={activeRecipe.dish} onClose={() => setActiveRecipe(null)} />
+        <RecipePage
+          dish={activeRecipe.dish}
+          isPast2pm={isPast2pm}
+          countsUnavailable={countsUnavailable}
+          prepCount={prepCounts[activeRecipe.dish.name]}
+          onPrepCountChange={(n) =>
+            setPrepCounts((prev) => ({ ...prev, [activeRecipe.dish.name]: n }))
+          }
+          onClose={() => setActiveRecipe(null)}
+        />
       )}
     </div>
   )
