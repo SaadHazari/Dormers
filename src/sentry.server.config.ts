@@ -39,6 +39,19 @@ if (process.env.SENTRY_DSN) {
     // ReferenceErrors that aren't real bugs. Traces stay on.
     beforeSend: isDev ? () => null : undefined,
 
+    // Automated vulnerability scanners POST to routes that don't exist (e.g.
+    // `/index.php?option=com_sppagebuilder&task=asset.uploadCustomIcon`, a
+    // Joomla exploit probe). App Router has no such route, so the request falls
+    // through to _not-found; because it's a POST, Next tries to resolve it as a
+    // Server Action, finds none, and throws "Failed to find Server Action."
+    // The same message can also fire for a real user whose tab runs a stale
+    // bundle mid-deploy — but that case is unactionable server-side: the client
+    // auto-reloads to the fresh bundle (src/app/global-error.tsx), and a
+    // *persistent* skew still surfaces via the client SDK. So dropping the
+    // server-side twin loses nothing real while silencing scanner noise.
+    // See Sentry JAVASCRIPT-NEXTJS-19.
+    ignoreErrors: [/Failed to find Server Action/],
+
     // 100% in dev, 10% in prod for cost control.
     tracesSampleRate: isDev ? 1.0 : 0.1,
 

@@ -42,6 +42,21 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       /safari-web-extension/,
       // Chrome extensions that throw inside the page context.
       /chrome-extension/,
+      // Meta in-app browsers (Instagram, Facebook, Threads) inject a native
+      // bridge script into every page that calls `window.webkit.messageHandlers`
+      // (iOS) to talk to the host app. On iOS builds where that bridge isn't
+      // present it throws `undefined is not an object (evaluating
+      // 'window.webkit.messageHandlers')`, and our global onerror handler
+      // attributes it to our page. Not our code — see Sentry JAVASCRIPT-NEXTJS-1A.
+      /webkit\.messageHandlers/,
+      // RSC / Server Action streaming aborts. When a mobile browser backgrounds
+      // the tab or drops the network mid-request, React's Flight reader rejects
+      // with the exact string "Connection closed." It's already caught (handled,
+      // not a crash) and self-resolves on the next interaction — pure transient
+      // network noise. Anchored so it can't swallow a message that merely
+      // contains the words (e.g. "Database connection closed while writing…").
+      // See Sentry JAVASCRIPT-NEXTJS-15.
+      /^(Error: )?Connection closed\.?$/,
     ],
 
     // Trace sampling: 100% in dev so every nav is visible; 10% in prod for cost.
