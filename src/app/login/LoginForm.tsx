@@ -45,11 +45,22 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     // unmount so the marketing-site choice survives a login round-trip.
     // The hanging-bulb toggle stays available — if the user explicitly
     // picks dark mid-session, they get dark for the rest of that session.
+    // Set when the user is heading FORWARD into the app (onboarding or the
+    // dashboard) rather than back out to the marketing site. See the cleanup.
+    const proceedingRef = useRef(false)
     const { theme: persistedTheme, setTheme } = useTheme()
     useEffect(() => {
         const prev = persistedTheme
         setTheme('light')
         return () => {
+            // Only hand the theme back when the user is leaving auth BACKWARDS.
+            // This restore used to run on every unmount, including the
+            // /onboarding push — and since defaultTheme is "dark", a fresh
+            // visitor saw a light login page hard-flip to a dark onboarding
+            // flow the moment they hit Create Account. Going forward keeps
+            // whatever surface they were just looking at, so an explicit
+            // bulb-toggle to dark on the login card carries through too.
+            if (proceedingRef.current) return
             if (prev && prev !== 'light') setTheme(prev)
         }
         // Run once on mount; we deliberately don't react to persistedTheme
@@ -83,6 +94,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         if (tab === 'signup') {
+            proceedingRef.current = true
             startTransition(() => { router.push('/onboarding') })
             return
         }
@@ -90,6 +102,7 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
         // own form, so we never receive its submit events here. Sign-in only.
         const formData = new FormData(e.currentTarget)
         formData.set('next_url', nextUrl)
+        proceedingRef.current = true
         startTransition(async () => { await login(formData) })
     }
 
@@ -331,7 +344,10 @@ export default function LoginForm({ error, message, nextUrl, prefillEmail, step 
 
                                     <button
                                         type="button"
-                                        onClick={() => startTransition(() => { router.push('/onboarding') })}
+                                        onClick={() => {
+                                            proceedingRef.current = true
+                                            startTransition(() => { router.push('/onboarding') })
+                                        }}
                                         disabled={isPending}
                                         className="relative w-full flex items-center justify-center gap-2.5 bg-[#f57f20] hover:bg-[#ff8f36] active:scale-[0.98] active:bg-[#e06d1b] disabled:opacity-55 disabled:pointer-events-none text-white font-bold text-[14px] py-3.5 rounded-xl transition-all duration-200 shadow-[0_0_24px_rgba(245,127,32,0.22)] hover:shadow-[0_0_36px_rgba(245,127,32,0.38)] overflow-hidden"
                                     >
