@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
 import { CtaButton, FieldInput, PhoneField } from './primitives'
+import { OtpInput } from '@/components/auth/OtpInput'
 import type { FormState } from './data'
 import { useIsLight } from '@/ui-system/hooks/useIsLight'
 import { authTokens } from '@/ui-system/tokens/auth-theme'
@@ -32,6 +32,11 @@ export function PhoneStep({
     const [otp,      setOtp]      = useState('')
     const [error,    setError]    = useState('')
     const [busy,     setBusy]     = useState(false)
+    // Resend tracks its own in-flight state. When it shared `busy` with the
+    // primary action, pressing "Resend code" flipped the submit button to
+    // "Verifying…" and disabled it — the user sees a button they didn't press
+    // react to their click. See ForgotPasswordFlow for the same fix.
+    const [resending, setResending] = useState(false)
     const [resendIn, setResendIn] = useState(0)
     // Phase 6 (L8): set when a WhatsApp send fails and the server signals the
     // email fallback is available — lets the user continue via email during an outage.
@@ -48,9 +53,10 @@ export function PhoneStep({
         return () => clearTimeout(t)
     }, [resendIn])
 
-    const sendCode = async () => {
-        if (busy || !isAlphaName(form.name) || !form.phone.trim()) return
-        setBusy(true); setError('')
+    const sendCode = async ({ isResend = false }: { isResend?: boolean } = {}) => {
+        if (busy || resending || !isAlphaName(form.name) || !form.phone.trim()) return
+        const setInFlight = isResend ? setResending : setBusy
+        setInFlight(true); setError('')
         try {
             const res  = await fetch('/api/whatsapp/start', {
                 method:  'POST',
@@ -72,7 +78,7 @@ export function PhoneStep({
         } catch {
             setError('Network error. Try again.')
         } finally {
-            setBusy(false)
+            setInFlight(false)
         }
     }
 
@@ -162,46 +168,40 @@ export function PhoneStep({
                         onChange={v => set('phone', v)}
                         disabled={phoneLocked}
                     />
+                    {/* Name the channel here, not just in the field label above.
+                        This is the line the user reads immediately before
+                        pressing send, and it's where they decide which app to
+                        go watch. Replaces the old wording rather than adding a
+                        line, so the step's height is unchanged. */}
                     {stage === 'enter' && (
                         <p className={`text-[11px] mt-1.5 ${tokens.subline}`}>
-                            We&apos;ll send a 6-digit code to verify this is your number.
+                            We&apos;ll send a 6-digit code to this number on WhatsApp.
                         </p>
                     )}
                 </div>
 
                 {stage === 'sent' && (
                     <div>
-                        <label className={`block text-[11px] font-bold uppercase tracking-widest mb-1.5 ${tokens.label}`}>
-                            Verification Code
-                        </label>
-                        <div className="relative">
-                            <input
-                                ref={otpRef}
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={OTP_LENGTH}
-                                value={otp}
-                                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                                placeholder={'•'.repeat(OTP_LENGTH)}
-                                disabled={busy || form.phoneVerified}
-                                className={`w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.4em] outline-none transition-all disabled:opacity-60 border ${tokens.field} ${
-                                    form.phoneVerified
-                                        ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.08)]'
-                                        : tokens.fieldFocus
-                                }`}
-                            />
-                            {form.phoneVerified && (
-                                <CheckCircle2
-                                    size={20}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#22c55e]"
-                                    strokeWidth={2.2}
-                                />
-                            )}
-                        </div>
+                        <OtpInput
+                            label="Verification Code"
+                            value={otp}
+                            onChange={setOtp}
+                            length={OTP_LENGTH}
+                            disabled={busy || form.phoneVerified}
+                            verified={form.phoneVerified}
+                            autoFocus
+                            inputRef={otpRef}
+                            ariaLabel="WhatsApp verification code"
+                        />
                         <div className="flex items-center justify-between mt-1.5 gap-3 flex-wrap">
+                            {/* Names the channel instead of echoing the number:
+                                the number is already visible in the locked
+                                field directly above, so repeating it cost a
+                                line wrap at 375px while adding nothing. This
+                                reads shorter than the old "Sent to +9715…"
+                                and still fits on one line. */}
                             <p className={`text-[11px] flex-1 min-w-0 ${tokens.subline}`}>
-                                Sent to <span className={`font-medium font-mono ${isLight ? 'text-[#091825]/85' : 'text-white/85'}`}>{form.phone}</span>.{' '}
+                                Sent on <span className={`font-medium ${isLight ? 'text-[#091825]/85' : 'text-white/85'}`}>WhatsApp</span>.{' '}
                                 <button
                                     type="button"
                                     onClick={editPhone}
@@ -212,11 +212,13 @@ export function PhoneStep({
                             </p>
                             <button
                                 type="button"
-                                onClick={sendCode}
-                                disabled={resendIn > 0 || busy}
+                                onClick={() => sendCode({ isResend: true })}
+                                disabled={resendIn > 0 || busy || resending}
                                 className={`text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none whitespace-nowrap ${isLight ? 'disabled:text-[#091825]/55' : 'disabled:text-white/55'}`}
                             >
-                                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
+                                {resending      ? 'Sending…'
+                                : resendIn > 0  ? `Resend in ${resendIn}s`
+                                :                 'Resend code'}
                             </button>
                         </div>
                     </div>

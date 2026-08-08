@@ -14,6 +14,7 @@ import {
   resendSignupConfirmation,
 } from './security-actions'
 import { checkPassword, isPasswordStrong } from '@/shared/validation'
+import { OtpInput } from '@/components/auth/OtpInput'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -804,14 +805,13 @@ function WhatsappVerifyModal({
         </div>
         {stage === 'sent' && (
           <div>
-            <label style={labelStyle}>6-digit code</label>
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
+            <OtpInput
+              label="6-digit code"
               value={code}
-              onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="123456"
-              style={{ ...fieldStyle, fontFamily: 'var(--font-jetbrains, ui-monospace, monospace)', fontSize: 16, letterSpacing: '0.30em', textAlign: 'center' }}
+              onChange={setCode}
+              variant="dashboard"
+              autoFocus
+              ariaLabel="WhatsApp verification code"
             />
           </div>
         )}

@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { CtaButton, FieldInput } from './primitives'
 import { createAccount, resendEmailOtp, verifyEmailOtp } from './actions'
+import { OtpInput } from '@/components/auth/OtpInput'
 import { DRAFT_KEY, type FormState } from './data'
 import { useIsLight } from '@/ui-system/hooks/useIsLight'
 import { authTokens } from '@/ui-system/tokens/auth-theme'
@@ -38,6 +39,10 @@ export function EmailStep({ form, set }: {
     const [error,    setError]    = useState('')
     const [resendIn, setResendIn] = useState(0)
     const [isPending, startTransition] = useTransition()
+    // Resend gets its OWN transition — see ForgotPasswordFlow for the
+    // reasoning. Sharing `isPending` made the primary button flip to
+    // "Verifying…" and disable during a resend the user didn't trigger.
+    const [isResending, startResend] = useTransition()
     const codeRef = useRef<HTMLInputElement>(null)
     // Staff claims land on the plan chooser after the email OTP, not the
     // (empty) dashboard. Set by createAccount's result; a ref because the
@@ -107,9 +112,9 @@ export function EmailStep({ form, set }: {
     }, [code])
 
     const resend = () => {
-        if (resendIn > 0 || isPending) return
+        if (resendIn > 0 || isPending || isResending) return
         setError('')
-        startTransition(async () => {
+        startResend(async () => {
             const res = await resendEmailOtp(form.email.trim())
             if ('error' in res) { setError(prettifyError(res.error)); return }
             setResendIn(45)
@@ -195,28 +200,17 @@ export function EmailStep({ form, set }: {
 
                 {stage === 'sent' && (
                     <div>
-                        <label className={labelCls}>Verification Code</label>
-                        <div className="relative">
-                            <input
-                                ref={codeRef}
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={OTP_LENGTH}
-                                value={code}
-                                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                                placeholder={'•'.repeat(OTP_LENGTH)}
-                                disabled={isPending || verified}
-                                className={`w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.35em] outline-none transition-all disabled:opacity-60 border ${tokens.field} ${
-                                    verified
-                                        ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.08)]'
-                                        : tokens.fieldFocus
-                                }`}
-                            />
-                            {verified && (
-                                <CheckCircle2 size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#22c55e]" strokeWidth={2.2} />
-                            )}
-                        </div>
+                        <OtpInput
+                            label="Verification Code"
+                            value={code}
+                            onChange={setCode}
+                            length={OTP_LENGTH}
+                            disabled={isPending || verified}
+                            verified={verified}
+                            autoFocus
+                            inputRef={codeRef}
+                            ariaLabel="Email verification code"
+                        />
                         <div className="flex items-center justify-between mt-1.5 gap-3 flex-wrap">
                             <p className={sentToCls}>
                                 Sent to <span className={sentToValueCls}>{form.email}</span>.{' '}
@@ -231,10 +225,12 @@ export function EmailStep({ form, set }: {
                             <button
                                 type="button"
                                 onClick={resend}
-                                disabled={resendIn > 0 || isPending}
+                                disabled={resendIn > 0 || isPending || isResending}
                                 className={`text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none whitespace-nowrap ${isLight ? 'disabled:text-[#091825]/55' : 'disabled:text-white/55'}`}
                             >
-                                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
+                                {isResending    ? 'Sending…'
+                                : resendIn > 0  ? `Resend in ${resendIn}s`
+                                :                 'Resend code'}
                             </button>
                         </div>
                     </div>

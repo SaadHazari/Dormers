@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { requestPasswordReset, updatePassword, verifyResetOtp } from './actions'
 import { useIsLight } from '@/ui-system/hooks/useIsLight'
 import { useCapsLock } from '@/ui-system/hooks/useCapsLock'
 import { authTokens } from '@/ui-system/tokens/auth-theme'
 import { isPasswordStrong, PASSWORD_RULES_TEXT } from '@/shared/validation'
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist'
+import { OtpInput } from '@/components/auth/OtpInput'
 
 // Supabase email OTPs in this project are 6 digits (Auth → Settings).
 // Set in Supabase Auth → Settings → "Email OTP length" on 2026-05-17.
@@ -56,6 +57,12 @@ export function ForgotPasswordFlow({
     // whose email is mistyped — the most common cause of a missing code.
     const [showInboxHint, setShowInboxHint] = useState(false)
     const [isPending, startTransition] = useTransition()
+    // Resend gets its OWN transition. Sharing `isPending` with the submit
+    // action made the primary button flip to "Verifying…" and disable itself
+    // while a resend was in flight — the user sees the verify button react to
+    // a button they didn't press. It also silently no-op'd the
+    // otpRef.focus() below, because the input was disabled at focus time.
+    const [isResending, startResend] = useTransition()
     const otpRef  = useRef<HTMLInputElement>(null)
     const passRef = useRef<HTMLInputElement>(null)
 
@@ -123,9 +130,9 @@ export function ForgotPasswordFlow({
     }, [otp])
 
     const resend = () => {
-        if (resendIn > 0 || isPending) return
+        if (resendIn > 0 || isPending || isResending) return
         setError('')
-        startTransition(async () => {
+        startResend(async () => {
             const res = await requestPasswordReset(email.trim())
             if ('error' in res) { setError(res.error); return }
             setResendIn(45)
@@ -231,26 +238,17 @@ export function ForgotPasswordFlow({
                         />
                     </div>
                     <div>
-                        <label className={labelClass}>Verification Code</label>
-                        <div className="relative">
-                            <input
-                                ref={otpRef}
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={OTP_LENGTH}
-                                value={otp}
-                                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-                                placeholder={'•'.repeat(OTP_LENGTH)}
-                                disabled={isPending || verified}
-                                className={`${fieldClass} pr-11 !text-[18px] font-mono tracking-[0.35em] ${
-                                    verified ? 'border-[#22c55e]/60 shadow-[0_0_0_3px_rgba(34,197,94,0.10)]' : ''
-                                }`}
-                            />
-                            {verified && (
-                                <CheckCircle2 size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#22c55e]" strokeWidth={2.2} />
-                            )}
-                        </div>
+                        <OtpInput
+                            label="Verification Code"
+                            value={otp}
+                            onChange={setOtp}
+                            length={OTP_LENGTH}
+                            disabled={isPending || verified}
+                            verified={verified}
+                            autoFocus
+                            inputRef={otpRef}
+                            ariaLabel="Password reset code"
+                        />
                         <div className="flex items-center justify-between mt-2 gap-3 flex-wrap">
                             <button type="button" onClick={editEmail}
                                 className="text-[#f57f20] hover:text-[#ff8f36] text-[11px] font-semibold transition-colors">
@@ -259,10 +257,12 @@ export function ForgotPasswordFlow({
                             <button
                                 type="button"
                                 onClick={resend}
-                                disabled={resendIn > 0 || isPending}
+                                disabled={resendIn > 0 || isPending || isResending}
                                 className={`text-[#f57f20] text-[11px] font-semibold disabled:pointer-events-none whitespace-nowrap ${isLight ? 'disabled:text-[#091825]/30' : 'disabled:text-white/30'}`}
                             >
-                                {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
+                                {isResending    ? 'Sending…'
+                                : resendIn > 0  ? `Resend in ${resendIn}s`
+                                :                 'Resend code'}
                             </button>
                         </div>
                         {/* Soft inbox-check nudge after 60s of no code typed.

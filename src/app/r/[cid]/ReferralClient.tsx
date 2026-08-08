@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { OtpInput } from '@/components/auth/OtpInput'
 import { useTheme } from 'next-themes'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -389,7 +390,6 @@ export default function ReferralLandingPage({ menuData, dorms = [] }: { menuData
 
   const labelCls    = 'block text-[11px] font-bold uppercase tracking-widest mb-1.5 text-[#f5f0e8]/65'
   const selectCls   = 'w-full rounded-xl px-4 py-3 text-[14px] outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] hover:border-[#2a4a68] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-[#f5f0e8] placeholder-[#f5f0e8]/55'
-  const otpBoxCls   = 'w-full rounded-xl px-4 py-3 pr-11 text-[18px] font-mono tracking-[0.35em] text-center outline-none transition-all border bg-[#0d2035]/80 border-[#1e3448] focus:border-[#f57f20]/70 focus:shadow-[0_0_0_3px_rgba(245,127,32,0.09)] text-[#f5f0e8] placeholder-[#f5f0e8]/30 disabled:opacity-60'
   const otpVerifyCls= 'w-full rounded-xl px-4 py-3 text-[13px] font-bold uppercase tracking-widest bg-[#f57f20] text-white hover:bg-[#ff8f36] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   const otpSendCls  = 'w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#f57f20]/40 text-[#f57f20] hover:bg-[#f57f20]/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   const verifiedCls = 'flex items-center justify-center gap-2 w-full rounded-xl px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest border border-[#22c55e]/40 text-[#22c55e] bg-[#22c55e]/[0.06]'
@@ -873,21 +873,17 @@ export default function ReferralLandingPage({ menuData, dorms = [] }: { menuData
 
                   {phoneStage === 'sent' && (
                     <>
-                      <label className={labelCls}>WhatsApp Code</label>
-                      <div className="relative">
-                        <input
-                          ref={phoneOtpRef}
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={PHONE_OTP_LENGTH}
-                          value={phoneOtp}
-                          onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, PHONE_OTP_LENGTH))}
-                          placeholder={'•'.repeat(PHONE_OTP_LENGTH)}
-                          disabled={phoneBusy}
-                          className={otpBoxCls}
-                        />
-                      </div>
+                      <OtpInput
+                        label="WhatsApp Code"
+                        value={phoneOtp}
+                        onChange={setPhoneOtp}
+                        length={PHONE_OTP_LENGTH}
+                        disabled={phoneBusy}
+                        autoFocus
+                        inputRef={phoneOtpRef}
+                        ariaLabel="WhatsApp verification code"
+                        tone="dark"
+                      />
                       <button
                         type="button"
                         onClick={verifyPhoneCode}
@@ -956,21 +952,17 @@ export default function ReferralLandingPage({ menuData, dorms = [] }: { menuData
 
                   {emailStage === 'sent' && (
                     <>
-                      <label className={labelCls}>Email Code</label>
-                      <div className="relative">
-                        <input
-                          ref={emailOtpRef}
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={EMAIL_OTP_LENGTH}
-                          value={emailOtp}
-                          onChange={e => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, EMAIL_OTP_LENGTH))}
-                          placeholder={'•'.repeat(EMAIL_OTP_LENGTH)}
-                          disabled={emailBusy}
-                          className={otpBoxCls}
-                        />
-                      </div>
+                      <OtpInput
+                        label="Email Code"
+                        value={emailOtp}
+                        onChange={setEmailOtp}
+                        length={EMAIL_OTP_LENGTH}
+                        disabled={emailBusy}
+                        autoFocus
+                        inputRef={emailOtpRef}
+                        ariaLabel="Email verification code"
+                        tone="dark"
+                      />
                       <button
                         type="button"
                         onClick={verifyEmailCode}
