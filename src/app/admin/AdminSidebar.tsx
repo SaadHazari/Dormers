@@ -26,61 +26,95 @@ interface SidebarProps {
 const ICON_SIZE = 16
 const ICON_STROKE = 2
 
-const NAV_GROUPS = [
+type BadgeKey = 'referrals' | 'layer4'
+
+interface NavItem {
+    label: string
+    href: string
+    icon: React.ReactNode
+    /** Extra path prefixes that keep this row lit — the sub-queues that hang off it. */
+    matchHrefs?: string[]
+    badgeKey?: BadgeKey
+    /** Where the row goes while its badge is live: straight to the waiting work. */
+    badgeHref?: string
+}
+
+// Overview is the root of the panel, not a member of any group — it sits above
+// the headings so the one page you always come back to is never buried in a list.
+const OVERVIEW: NavItem = {
+    label: 'Overview',
+    href: '/admin',
+    icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
+}
+
+// Grouped by when you come here, not by what kind of data it is: the daily loop
+// at the top, quarterly setup at the bottom, alarm-time pages last.
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     {
-        label: 'Operations',
+        label: 'Today',
         items: [
-            { label: 'Overview',        href: '/admin',            icon: <LayoutDashboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Delivery Queue',  href: '/admin/deliveries', icon: <Truck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Photos',          href: '/admin/photos',     icon: <Camera size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Labels',          href: '/admin/labels',     icon: <Tag size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Cron Health',     href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Holidays',        href: '/admin/holidays',   icon: <CalendarOff size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Ops Tokens',      href: '/admin/ops-tokens', icon: <KeyRound size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Dorm Locations', href: '/admin/dorms',      icon: <Building2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Delivery Queue',   href: '/admin/deliveries', icon: <Truck size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Delivery Photos',  href: '/admin/photos',     icon: <Camera size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Labels',           href: '/admin/labels',     icon: <Tag size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
         label: 'Customers',
         items: [
-            { label: 'All Customers',   href: '/admin/customers',      icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Staff',           href: '/admin/staff',          icon: <UserCog size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Customers',        href: '/admin/customers',  icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            {
+                label: 'Referrals',
+                href: '/admin/referrals',
+                icon: <Share2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
+                matchHrefs: ['/admin/referral-review-queue'],
+                badgeKey: 'referrals',
+                badgeHref: '/admin/referral-review-queue',
+            },
+            { label: 'Reviews & Feedback', href: '/admin/reviews',  icon: <Star size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            {
+                label: 'Dorm Wars',
+                href: '/admin/dorm-wars',
+                icon: <Swords size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
+                matchHrefs: ['/admin/layer4-queue'],
+                badgeKey: 'layer4',
+                badgeHref: '/admin/layer4-queue',
+            },
+            { label: 'Messages',         href: '/admin/comms',      icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
-        label: 'Revenue',
+        label: 'Money',
         items: [
-            { label: 'Payments',         href: '/admin/payments',  icon: <CreditCard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Credits & Comps',  href: '/admin/credits',   icon: <Coins size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Payments',         href: '/admin/payments',   icon: <CreditCard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Credits',          href: '/admin/credits',    icon: <Coins size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Pricing',          href: '/admin/pricing',    icon: <DollarSign size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
-        label: 'Engagement',
+        label: 'Kitchen',
         items: [
-            { label: 'Referrals',        href: '/admin/referrals',         icon: <Share2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, badgeKey: 'referrals' as const },
-            { label: 'Dorm Wars',        href: '/admin/dorm-wars',         icon: <Swords size={ICON_SIZE} strokeWidth={ICON_STROKE} />, badgeKey: 'layer4' as const },
-            { label: 'Reviews & Feedback', href: '/admin/reviews',         icon: <Star size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Menu',             href: '/admin/menu',       icon: <UtensilsCrossed size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Pantry',           href: '/admin/pantry',     icon: <Carrot size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'QR Codes',         href: '/admin/qr-codes',   icon: <QrCode size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
-        label: 'Content',
+        label: 'Setup',
         items: [
-            { label: 'Menu CMS',         href: '/admin/menu',     icon: <UtensilsCrossed size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Pantry',           href: '/admin/pantry',   icon: <Carrot size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'QR Codes',         href: '/admin/qr-codes', icon: <QrCode size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Pricing',           href: '/admin/pricing',  icon: <DollarSign size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Dorms',            href: '/admin/dorms',      icon: <Building2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Holidays',         href: '/admin/holidays',   icon: <CalendarOff size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Staff',            href: '/admin/staff',      icon: <UserCog size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Access Links',     href: '/admin/ops-tokens', icon: <KeyRound size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
         label: 'System',
         items: [
-            { label: 'Audit Log',        href: '/admin/audit',    icon: <ScrollText size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-            { label: 'Communications',    href: '/admin/comms',    icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Scheduled Jobs',   href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Audit Log',        href: '/admin/audit',      icon: <ScrollText size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
-] as const
-
-type BadgeKey = 'referrals' | 'layer4'
+]
 
 export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOpen, onMobileClose }: SidebarProps) {
     const pathname = usePathname()
@@ -108,9 +142,32 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
         </div>
     )
 
-    function isActive(href: string) {
-        if (href === '/admin') return pathname === '/admin'
-        return pathname.startsWith(href)
+    function isActive(item: NavItem) {
+        if (item.href === '/admin') return pathname === '/admin'
+        if (pathname.startsWith(item.href)) return true
+        return (item.matchHrefs ?? []).some(h => pathname.startsWith(h))
+    }
+
+    function renderItem(item: NavItem) {
+        const badgeCount = item.badgeKey ? badges[item.badgeKey] : 0
+        // A live badge means work is waiting, so the row takes you to the work
+        // itself rather than to the summary page that links on to it.
+        const href = badgeCount > 0 && item.badgeHref ? item.badgeHref : item.href
+        const active = isActive(item)
+        return (
+            <Link
+                key={item.href}
+                href={href}
+                onClick={onMobileClose}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors duration-100 ${
+                    active ? t.sidebarItemActive : t.sidebarItem
+                }`}
+            >
+                {item.icon}
+                <span className="flex-1 truncate">{item.label}</span>
+                {badgeCount > 0 && <AdminBadgeCount count={badgeCount} />}
+            </Link>
+        )
     }
 
     const navContent = (
@@ -119,37 +176,23 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
             <button
                 type="button"
                 onClick={() => { openPalette(true); onMobileClose() }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold mb-2 transition-colors duration-100 ${t.sidebarItem}`}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors duration-100 ${t.sidebarItem}`}
             >
                 <Search size={ICON_SIZE} strokeWidth={ICON_STROKE} />
                 <span className="flex-1 text-left">Search</span>
                 <kbd className={`hidden lg:inline text-[9px] font-bold px-1 py-0.5 rounded border ${t.border} ${t.faint}`}>⌘K</kbd>
             </button>
 
+            {renderItem(OVERVIEW)}
+
             {NAV_GROUPS.map(group => (
-                <div key={group.label} className="mb-1">
-                    <div className={`px-3 pt-3 pb-1 text-[9px] font-black tracking-[0.16em] uppercase ${t.sidebarGroupLabel}`}>
+                <div key={group.label}>
+                    {/* pt-4 (not pt-3) so the heading reads as a break between
+                        groups rather than as a caption on the row below it. */}
+                    <div className={`px-3 pt-4 pb-1.5 text-[9px] font-black tracking-[0.16em] uppercase ${t.sidebarGroupLabel}`}>
                         {group.label}
                     </div>
-                    {group.items.map(item => {
-                        const active = isActive(item.href)
-                        const badgeKey = 'badgeKey' in item ? item.badgeKey : null
-                        const badgeCount = badgeKey ? badges[badgeKey] : 0
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onMobileClose}
-                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors duration-100 ${
-                                    active ? t.sidebarItemActive : t.sidebarItem
-                                }`}
-                            >
-                                {item.icon}
-                                <span className="flex-1 truncate">{item.label}</span>
-                                {badgeCount > 0 && <AdminBadgeCount count={badgeCount} />}
-                            </Link>
-                        )
-                    })}
+                    {group.items.map(renderItem)}
                 </div>
             ))}
         </nav>

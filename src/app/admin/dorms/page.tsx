@@ -2,7 +2,7 @@ import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { DormsClient } from './DormsClient'
 
-export const metadata = { title: 'Dorm Locations — Dormers Admin' }
+export const metadata = { title: 'Dorms — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export interface DormRow {

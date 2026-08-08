@@ -38,13 +38,15 @@ export function CommandPalette() {
     }, [open])
 
     const filtered = useMemo(() => {
-        if (!query.trim()) return commands
-        const q = query.toLowerCase()
-        return commands.filter(c =>
-            c.label.toLowerCase().includes(q) ||
-            c.group.toLowerCase().includes(q) ||
-            c.keywords?.some(k => k.toLowerCase().includes(q))
-        )
+        const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+        if (words.length === 0) return commands
+        // Every word must land somewhere on the command, but they don't have to
+        // land on the same field — so "ops token" still finds Access Links, whose
+        // keywords carry "ops" and "token" separately.
+        return commands.filter(c => {
+            const haystack = [c.label, c.group, ...(c.keywords ?? [])].join(' ').toLowerCase()
+            return words.every(w => haystack.includes(w))
+        })
     }, [commands, query])
 
     const grouped = useMemo(() => {

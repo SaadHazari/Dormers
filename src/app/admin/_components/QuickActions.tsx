@@ -31,7 +31,7 @@ export function QuickActions({ pendingReferrals, pendingLayer4 }: Props) {
             href: '/admin/layer4-queue',
         }] : []),
         {
-            label: 'All Customers',
+            label: 'Customers',
             icon: <Users size={14} strokeWidth={2.2} />,
             href: '/admin/customers',
         },

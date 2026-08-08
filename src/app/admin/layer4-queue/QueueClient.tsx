@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Check, X, ExternalLink, Image as ImageIcon, ShieldAlert } from 'lucide-react'
+import Link from 'next/link'
+import { Check, X, ExternalLink, Image as ImageIcon, ShieldAlert, ArrowLeft } from 'lucide-react'
 import { approveLayer4Row, rejectLayer4Row } from './actions'
 import type { PendingRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
@@ -36,6 +37,18 @@ export default function QueueClient({ rows }: { rows: PendingRow[] }) {
   const c = useColors()
   return (
     <div style={{ fontFamily: BODY, color: c.TEXT }}>
+      {/* The sidebar sends you straight here while claims are pending, so this
+          is the only way back up to Dorm Wars. */}
+      <Link
+        href="/admin/dorm-wars"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: BODY, fontSize: 12, fontWeight: 700,
+          color: c.MIST, textDecoration: 'none', marginBottom: 16,
+        }}
+      >
+        <ArrowLeft size={14} strokeWidth={2} /> Dorm Wars
+      </Link>
       <header style={{ marginBottom: 28 }}>
         <h1 style={{
           fontFamily: BODY, fontSize: 20, fontWeight: 900,

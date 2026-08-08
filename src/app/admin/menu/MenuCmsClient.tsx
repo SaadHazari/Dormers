@@ -49,7 +49,7 @@ export function MenuCmsClient({ dishes, weeks, slots, currentWeekKey, todayDow }
             {/* ── Page header ────────────────────────────────────────── */}
             <div className="flex items-end justify-between gap-x-6 gap-y-4 flex-wrap mb-6">
                 <div>
-                    <h1 className={`text-[20px] font-black tracking-tight ${t.heading}`}>Menu CMS</h1>
+                    <h1 className={`text-[20px] font-black tracking-tight ${t.heading}`}>Menu</h1>
                     <p className={`text-[13px] font-medium mt-1 ${t.muted}`}>
                         {isEmpty
                             ? 'No dishes in the database yet.'

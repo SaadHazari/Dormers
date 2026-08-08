@@ -64,7 +64,7 @@ export function CustomerDetail({
                 href="/admin/customers"
                 className={`inline-flex items-center gap-1.5 text-[12px] font-bold ${t.muted} hover:${t.heading} mb-4 transition-colors`}
             >
-                <ArrowLeft size={14} strokeWidth={2} /> All Customers
+                <ArrowLeft size={14} strokeWidth={2} /> Customers
             </Link>
 
             {/* Customer header */}

@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CronClient } from './CronClient'
 
-export const metadata = { title: 'Cron Health — Dormers Admin' }
+export const metadata = { title: 'Scheduled Jobs — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export default async function CronPage() {

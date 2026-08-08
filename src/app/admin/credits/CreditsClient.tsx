@@ -40,7 +40,7 @@ export function CreditsClient({ credits, comped, summary }: Props) {
 
     return (
         <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Credits & Comps</h1>
+            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Credits</h1>
             <p className={`text-[13px] font-medium mb-4 ${t.muted}`}>
                 Reward credits, manual credits, and comped meals
             </p>

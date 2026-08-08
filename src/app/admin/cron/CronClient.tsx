@@ -35,7 +35,7 @@ export function CronClient({ jobs }: { jobs: Array<Record<string, unknown>> }) {
 
     return (
         <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Cron Health</h1>
+            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Scheduled Jobs</h1>
             <p className={`text-[13px] font-medium mb-5 ${t.muted}`}>
                 {typedJobs.length} jobs
                 {(['ok', 'overdue', 'failed', 'stopped', 'off', 'never'] as JobHealth[]).map(health => (

@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { PhotosClient, type ChainDay } from './PhotosClient'
 
-export const metadata = { title: 'Photos — Dormers Admin' }
+export const metadata = { title: 'Delivery Photos — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 const SIGNED_URL_TTL_S = 60 * 60 // 1h — page is short-lived, links shouldn't be shareable for a week

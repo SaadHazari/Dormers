@@ -141,7 +141,7 @@ export function PhotosClient({ day, archived = false, cutoffIso }: { day: ChainD
             {/* ── Header + day nav ─────────────────────────────────────────── */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className={`text-[22px] font-extrabold tracking-tight ${t.heading}`}>Photos</h1>
+                    <h1 className={`text-[22px] font-extrabold tracking-tight ${t.heading}`}>Delivery Photos</h1>
                     <p className={`text-[13px] ${t.muted}`}>Kitchen to pickup to every dorm, one day at a time.</p>
                 </div>
                 <div className="flex items-center gap-2">

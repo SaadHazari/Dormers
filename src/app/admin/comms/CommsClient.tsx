@@ -41,7 +41,7 @@ export function CommsClient({ notifications, failedCount }: Props) {
 
     return (
         <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Communications</h1>
+            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Messages</h1>
             <p className={`text-[13px] font-medium mb-4 ${t.muted}`}>
                 WhatsApp notifications · {notifications.length} total
                 {failedCount > 0 && <span className={t.danger}> · {failedCount} failed</span>}

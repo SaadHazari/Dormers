@@ -14,26 +14,38 @@ interface Props {
     children: React.ReactNode
 }
 
+// Mirrors the sidebar groups and order, so the palette and the rail teach the
+// same map. Renamed pages keep their old wording in `keywords`, so searching
+// "cron" or "CMS" still lands on the right page.
 const NAV_COMMANDS: PaletteCommand[] = [
-    { id: 'nav-overview',    label: 'Overview',         group: 'Navigation', href: '/admin',            keywords: ['home', 'dashboard', 'kpi'] },
-    { id: 'nav-deliveries',  label: 'Delivery Queue',   group: 'Navigation', href: '/admin/deliveries', keywords: ['orders', 'today', 'meals'] },
-    { id: 'nav-labels',      label: 'Labels',           group: 'Navigation', href: '/admin/labels',     keywords: ['print', 'thermal', 'sticker', 'kitchen', 'label'] },
-    { id: 'nav-cron',        label: 'Cron Health',      group: 'Navigation', href: '/admin/cron',       keywords: ['jobs', 'tick', 'health', 'status'] },
-    { id: 'nav-holidays',    label: 'Holidays',         group: 'Navigation', href: '/admin/holidays',   keywords: ['holiday', 'closure', 'eid', 'shutdown', 'pause', 'national'] },
-    { id: 'nav-customers',   label: 'All Customers',    group: 'Navigation', href: '/admin/customers',  keywords: ['users', 'search', 'lookup'] },
-    { id: 'nav-staff',       label: 'Staff',            group: 'Navigation', href: '/admin/staff',      keywords: ['intern', 'staff', 'employee', 'claim', 'code', 'remuneration'] },
-    { id: 'nav-payments',    label: 'Payments',         group: 'Navigation', href: '/admin/payments',   keywords: ['stripe', 'billing', 'charges'] },
-    { id: 'nav-credits',     label: 'Credits & Comps',  group: 'Navigation', href: '/admin/credits',    keywords: ['credit', 'comped', 'wallet', 'refund'] },
-    { id: 'nav-referrals',   label: 'Referrals',        group: 'Navigation', href: '/admin/referrals',  keywords: ['invite', 'fraud', 'queue'] },
-    { id: 'nav-dormwars',    label: 'Dorm Wars',        group: 'Navigation', href: '/admin/dorm-wars',  keywords: ['gamification', 'streaks', 'rewards', 'layer4'] },
-    { id: 'nav-reviews',     label: 'Reviews & Feedback', group: 'Navigation', href: '/admin/reviews',  keywords: ['review', 'feedback', 'rating', 'wrap', 'survey', 'kitchen', 'nps', 'sentiment', 'renewal'] },
-    { id: 'nav-menu',        label: 'Menu CMS',         group: 'Navigation', href: '/admin/menu',       keywords: ['dishes', 'food', 'rotation', 'catalog'] },
-    { id: 'nav-pantry',      label: 'Pantry',           group: 'Navigation', href: '/admin/pantry',     keywords: ['pantry', 'ingredient', 'stock', 'kitchen', 'recipe', 'supplier', 'cost'] },
-    { id: 'nav-qr',          label: 'QR Codes',         group: 'Navigation', href: '/admin/qr-codes',   keywords: ['qr', 'code', 'scan', 'print', 'dish'] },
-    { id: 'nav-pricing',     label: 'Pricing',          group: 'Navigation', href: '/admin/pricing',    keywords: ['price', 'plans', 'aed'] },
-    { id: 'nav-audit',       label: 'Audit Log',        group: 'Navigation', href: '/admin/audit',      keywords: ['log', 'history', 'who'] },
-    { id: 'nav-comms',       label: 'Communications',   group: 'Navigation', href: '/admin/comms',      keywords: ['email', 'whatsapp', 'notifications', 'messages'] },
-    { id: 'nav-ops-tokens',  label: 'Ops Tokens',       group: 'Navigation', href: '/admin/ops-tokens', keywords: ['token', 'rotate', 'kitchen', 'rider', 'ops', 'key', 'revoke'] },
+    // Overview sits ungrouped in the rail, but a one-item "Overview" heading
+    // above an "Overview" row reads as noise here, so it leads the daily group.
+    { id: 'nav-overview',    label: 'Overview',           group: 'Today',     href: '/admin',            keywords: ['home', 'dashboard', 'kpi'] },
+    { id: 'nav-deliveries',  label: 'Delivery Queue',     group: 'Today',     href: '/admin/deliveries', keywords: ['orders', 'today', 'meals'] },
+    { id: 'nav-photos',      label: 'Delivery Photos',    group: 'Today',     href: '/admin/photos',     keywords: ['photo', 'proof', 'pickup', 'custody', 'rider', 'box', 'count'] },
+    { id: 'nav-labels',      label: 'Labels',             group: 'Today',     href: '/admin/labels',     keywords: ['print', 'thermal', 'sticker', 'kitchen', 'label'] },
+
+    { id: 'nav-customers',   label: 'Customers',          group: 'Customers', href: '/admin/customers',  keywords: ['users', 'search', 'lookup', 'all'] },
+    { id: 'nav-referrals',   label: 'Referrals',          group: 'Customers', href: '/admin/referrals',  keywords: ['invite', 'fraud', 'queue'] },
+    { id: 'nav-reviews',     label: 'Reviews & Feedback', group: 'Customers', href: '/admin/reviews',    keywords: ['review', 'feedback', 'rating', 'wrap', 'survey', 'kitchen', 'nps', 'sentiment', 'renewal'] },
+    { id: 'nav-dormwars',    label: 'Dorm Wars',          group: 'Customers', href: '/admin/dorm-wars',  keywords: ['gamification', 'streaks', 'rewards', 'layer4'] },
+    { id: 'nav-comms',       label: 'Messages',           group: 'Customers', href: '/admin/comms',      keywords: ['email', 'whatsapp', 'notifications', 'messages', 'communications', 'comms'] },
+
+    { id: 'nav-payments',    label: 'Payments',           group: 'Money',     href: '/admin/payments',   keywords: ['stripe', 'billing', 'charges'] },
+    { id: 'nav-credits',     label: 'Credits',            group: 'Money',     href: '/admin/credits',    keywords: ['credit', 'comp', 'comps', 'comped', 'wallet', 'refund'] },
+    { id: 'nav-pricing',     label: 'Pricing',            group: 'Money',     href: '/admin/pricing',    keywords: ['price', 'plans', 'aed'] },
+
+    { id: 'nav-menu',        label: 'Menu',               group: 'Kitchen',   href: '/admin/menu',       keywords: ['dishes', 'food', 'rotation', 'catalog', 'cms', 'recipe'] },
+    { id: 'nav-pantry',      label: 'Pantry',             group: 'Kitchen',   href: '/admin/pantry',     keywords: ['pantry', 'ingredient', 'stock', 'kitchen', 'recipe', 'supplier', 'cost'] },
+    { id: 'nav-qr',          label: 'QR Codes',           group: 'Kitchen',   href: '/admin/qr-codes',   keywords: ['qr', 'code', 'scan', 'print', 'dish'] },
+
+    { id: 'nav-dorms',       label: 'Dorms',              group: 'Setup',     href: '/admin/dorms',      keywords: ['dorm', 'location', 'locations', 'building', 'shape', 'cid', 'alias'] },
+    { id: 'nav-holidays',    label: 'Holidays',           group: 'Setup',     href: '/admin/holidays',   keywords: ['holiday', 'closure', 'eid', 'shutdown', 'pause', 'national'] },
+    { id: 'nav-staff',       label: 'Staff',              group: 'Setup',     href: '/admin/staff',      keywords: ['intern', 'staff', 'employee', 'claim', 'code', 'remuneration'] },
+    { id: 'nav-ops-tokens',  label: 'Access Links',       group: 'Setup',     href: '/admin/ops-tokens', keywords: ['token', 'tokens', 'ops', 'rotate', 'kitchen', 'rider', 'key', 'revoke', 'link'] },
+
+    { id: 'nav-cron',        label: 'Scheduled Jobs',     group: 'System',    href: '/admin/cron',       keywords: ['jobs', 'cron', 'tick', 'health', 'status', 'schedule'] },
+    { id: 'nav-audit',       label: 'Audit Log',          group: 'System',    href: '/admin/audit',      keywords: ['log', 'history', 'who'] },
 ]
 
 export default function AdminShell({ pendingReferrals, pendingLayer4, children }: Props) {

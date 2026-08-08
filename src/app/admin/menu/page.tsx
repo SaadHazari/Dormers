@@ -2,7 +2,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getMenuWeek } from '@/contexts/menu/domain/catalog-data'
 import { MenuCmsClient } from './MenuCmsClient'
 
-export const metadata = { title: 'Menu CMS — Dormers Admin' }
+export const metadata = { title: 'Menu — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export default async function MenuCmsPage() {

@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CommsClient } from './CommsClient'
 
-export const metadata = { title: 'Communications — Dormers Admin' }
+export const metadata = { title: 'Messages — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export default async function CommsPage() {

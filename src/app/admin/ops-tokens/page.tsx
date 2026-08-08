@@ -2,7 +2,7 @@ import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { OpsTokensClient } from './OpsTokensClient'
 
-export const metadata = { title: 'Ops Tokens — Dormers Admin' }
+export const metadata = { title: 'Access Links — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export interface OpsToken {

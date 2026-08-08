@@ -120,10 +120,10 @@ export function OpsTokensClient({ tokens, allowlist }: { tokens: OpsToken[]; all
 
   return (
     <div>
-      {/* ── Ops Tokens ─────────────────────────────────────── */}
+      {/* ── Access Links ─────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className={`text-[20px] font-extrabold tracking-tight ${t.heading}`}>Ops Tokens</h1>
+          <h1 className={`text-[20px] font-extrabold tracking-tight ${t.heading}`}>Access Links</h1>
           <p className={`text-[13px] mt-1 ${t.muted}`}>Rotate a token to revoke the old URL and generate a new one. No deploy required.</p>
         </div>
       </div>

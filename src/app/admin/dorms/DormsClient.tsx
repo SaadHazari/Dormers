@@ -236,7 +236,7 @@ export function DormsClient({ dorms }: { dorms: DormRow[] }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className={`text-[20px] font-extrabold tracking-tight ${t.heading}`}>
-            Dorm Locations
+            Dorms
           </h1>
           <p className={`text-[13px] mt-1 ${t.muted}`}>
             Manage delivery dorms across the entire platform — onboarding, rider

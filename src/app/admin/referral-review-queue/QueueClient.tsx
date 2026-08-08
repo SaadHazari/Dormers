@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { Check, X, AlertTriangle, Phone, Mail, Coins } from 'lucide-react'
+import Link from 'next/link'
+import { Check, X, AlertTriangle, Phone, Mail, Coins, ArrowLeft } from 'lucide-react'
 import { approveReferralReview, rejectReferralReview } from './actions'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 
@@ -58,6 +59,18 @@ export default function QueueClient({
     const c = useColors()
     return (
         <div style={{ fontFamily: BODY, color: c.TEXT }}>
+            {/* The sidebar sends you straight here while claims are pending, so
+                this is the only way back up to the referrals page. */}
+            <Link
+                href="/admin/referrals"
+                style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                    color: c.MIST, textDecoration: 'none', marginBottom: 16,
+                }}
+            >
+                <ArrowLeft size={14} strokeWidth={2} /> Referrals
+            </Link>
             <header style={{ marginBottom: 28 }}>
                 <h1 style={{
                     fontFamily: BODY, fontSize: 20, fontWeight: 900,

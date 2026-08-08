@@ -11,8 +11,8 @@ const SHORTCUTS: Array<{ keys: string; label: string; href?: string; action?: st
     { keys: 'g p', label: 'Go to Payments',       href: '/admin/payments' },
     { keys: 'g r', label: 'Go to Referrals',      href: '/admin/referrals' },
     { keys: 'g w', label: 'Go to Dorm Wars',      href: '/admin/dorm-wars' },
-    { keys: 'g m', label: 'Go to Menu CMS',       href: '/admin/menu' },
-    { keys: 'g h', label: 'Go to Cron Health',    href: '/admin/cron' },
+    { keys: 'g m', label: 'Go to Menu',       href: '/admin/menu' },
+    { keys: 'g h', label: 'Go to Scheduled Jobs',    href: '/admin/cron' },
     { keys: '⌘ k', label: 'Command Palette',      action: 'palette' },
     { keys: '?',   label: 'Show Shortcuts',        action: 'help' },
 ]

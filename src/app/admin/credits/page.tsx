@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CreditsClient } from './CreditsClient'
 
-export const metadata = { title: 'Credits & Comps — Dormers Admin' }
+export const metadata = { title: 'Credits — Dormers Admin' }
 export const dynamic = 'force-dynamic'
 
 export default async function CreditsPage() {

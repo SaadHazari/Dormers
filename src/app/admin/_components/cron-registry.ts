@@ -1,4 +1,4 @@
-// Shared registry for the System Pulse strip and the Cron Health page.
+// Shared registry for the System Pulse strip and the Scheduled Jobs page.
 //
 // Naming rule: a label names the exact thing the customer sees, or the exact
 // bad state a watchdog hunts, plus a plain role word (sender, checker,
@@ -23,7 +23,7 @@ export type JobGroup = 'customer' | 'engine' | 'watchdog' | 'other' | 'housekeep
 
 export interface JobInfo {
     label: string
-    /** One line: what this job does, in customer terms. Shown on Cron Health. */
+    /** One line: what this job does, in customer terms. Shown on Scheduled Jobs. */
     does: string
     /** Who is affected while the job is down. Shown when overdue/failed. */
     impact: string
@@ -41,7 +41,7 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: 'Customers are not getting WhatsApp messages',
         group: 'customer',
         actionHref: '/admin/comms',
-        actionLabel: 'Open Communications',
+        actionLabel: 'Open Messages',
     },
     dispatch_start_day_emails_9am_ae: {
         label: '"Starts today" email (9 AM)',
@@ -119,7 +119,7 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: 'Failed customer messages are going unnoticed',
         group: 'watchdog',
         actionHref: '/admin/comms',
-        actionLabel: 'Open Communications',
+        actionLabel: 'Open Messages',
     },
     detect_orphan_subscriptions_30min: {
         label: 'Paid but no plan watchdog',
@@ -133,7 +133,7 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: '"Sent" messages may never have arrived',
         group: 'watchdog',
         actionHref: '/admin/comms',
-        actionLabel: 'Open Communications',
+        actionLabel: 'Open Messages',
     },
     ops_failsafe_20_ae: {
         label: 'Unconfirmed delivery failsafe (8 PM)',
