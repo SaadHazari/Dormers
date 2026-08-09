@@ -1,0 +1,52 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- The tab favicon. Every browser we care about uses THIS file: Safari
+       prefers SVG over the PNG when both are declared (verified directly, see
+       below), and so do Chromium and Firefox. favicon-32.png is only a
+       fallback for clients that can't do SVG at all.
+
+       Measured behaviour, not assumption:
+         Chromium / Firefox  evaluate the media queries and track the OS.
+         Safari              PARSES the media queries but always resolves them
+                             as LIGHT, even with macOS set to Dark.
+
+       That last one drives the whole structure. Safari will never match
+       `prefers-color-scheme: dark`, so the LIGHT branch is the only thing
+       Safari will ever paint, and it therefore has to survive both a white
+       plate (Safari's compact tab layout draws one) and a bare dark tab
+       (the separated layout draws nothing). Hence the cream halo tracing the
+       house: invisible against the plate, and the only thing separating navy
+       from a dark tab. A square tile was the earlier attempt and it failed —
+       Safari's plate is already a rounded square, so a second one nests inside
+       it and leaves the mark double-inset and small.
+
+       The DARK branch is consequently reachable only in Chromium/Firefox,
+       where the mark can safely go cream and full-bleed with no halo at all.
+
+       Do NOT restructure this so the halo is removed by a rule that Safari can
+       match. That was the previous bug: the gate matched and dropped the halo
+       while the dark rule did not match and left the mark navy, which is
+       exactly the dark-on-dark case this file exists to prevent.
+
+       Do NOT use this file in the app UI: an <img> pointed at it follows the
+       OS appearance, not our in-app theme. Use favicon.svg / favicon-dark.svg
+       for that (see AdminSidebar).
+
+       The default state must stay pixel-identical to scripts/favicon-tile.svg,
+       which build-favicon-png.mjs rasterises into favicon-32.png. -->
+  <style>
+    /* Chromium/Firefox in dark only. Safari never gets here. */
+    @media (prefers-color-scheme: dark) {
+      .halo { display: none; }
+      .art { transform: none; }
+      .shell { fill: #EDE8DA; }
+    }
+  </style>
+  <g class="art" transform="translate(1.6 1.6) scale(0.9)">
+    <g class="halo" stroke="#EDE8DA" stroke-width="3.4" stroke-linejoin="round">
+      <path fill="#EDE8DA" d="M13.7012 0.686523C15.1429 -0.0599993 16.8571 -0.0599995 18.2988 0.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012 0.686523Z"/>
+      <circle cx="25" cy="5" r="5" fill="#EDE8DA"/>
+    </g>
+    <path class="shell" fill="#1A3E4F" d="M13.7012 0.686523C15.1429 -0.0599993 16.8571 -0.0599995 18.2988 0.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012 0.686523Z"/>
+    <circle cx="25" cy="5" r="5" fill="#F57F20"/>
+  </g>
+</svg>

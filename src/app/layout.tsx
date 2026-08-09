@@ -27,13 +27,18 @@ export const metadata: Metadata = {
   title: "Dormers' - Student Meals in Dubai",
   description: "Meals that don't Suck, delivered to your dorm",
   icons: {
-    // Default = static navy SVG (+ PNG fallback for no-JS / non-SVG browsers).
-    // Safari keeps this navy icon in both modes (and adds its own light plate
-    // in dark) — see the script in <body>, which only runs the live navy↔cream
-    // swap on Chromium/Firefox, where re-rendering a JS-swapped favicon works.
+    // Every current browser uses the SVG — Safari included, verified by
+    // serving a deliberately mismatched pair and seeing which one it painted.
+    // The PNG is a fallback for clients that can't render SVG icons at all.
+    // All the light/dark handling lives inside favicon-auto.svg; read the
+    // comment in that file before changing either entry, because Safari
+    // resolves its media queries as light no matter the OS appearance and the
+    // artwork is built around that.
+    // ORDER MATTERS — PNG first, SVG last. Browsers take the last usable
+    // candidate, so flipping these hands them the un-themed PNG instead.
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-auto.svg", type: "image/svg+xml" },
     ],
     apple: "/icon-180.png",
   },
@@ -99,30 +104,6 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: "if('scrollRestoration' in history){history.scrollRestoration='manual';}",
-          }}
-        />
-        {/* Live navy↔cream favicon swap — Chromium/Firefox only. Safari/WebKit
-            can't re-render a JS-swapped favicon after load (it only re-reads on
-            navigation), so we skip it there and let Safari keep the static navy
-            icon from the metadata above. On Chromium/Firefox, swapping the
-            <link> on a matchMedia 'change' flips the icon live the instant the
-            OS appearance toggles. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{
-  if (navigator.vendor === 'Apple Computer, Inc.') return;
-  var m = window.matchMedia('(prefers-color-scheme: dark)');
-  function apply(){
-    document.querySelectorAll("link[rel~='icon'][type='image/svg+xml']").forEach(function(n){ n.remove(); });
-    var l = document.createElement('link');
-    l.rel = 'icon'; l.type = 'image/svg+xml';
-    l.href = m.matches ? '/favicon-dark.svg' : '/favicon.svg';
-    document.head.appendChild(l);
-  }
-  apply();
-  if (m.addEventListener) m.addEventListener('change', apply);
-  else if (m.addListener) m.addListener(apply);
-}catch(e){}})();`,
           }}
         />
         {/* --- START OF GOOGLE ADS CODE --- */}

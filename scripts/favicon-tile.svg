@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Source artwork for public/favicon-32.png (build input, not served).
+       The PNG is only for clients that can't render SVG icons — every current
+       browser, Safari included, takes public/favicon-auto.svg instead.
+
+       This must stay pixel-identical to that file's DEFAULT (light) state,
+       because that is the state Safari always paints. One image therefore has
+       to cover two opposite backgrounds: Safari's compact tab layout draws a
+       white plate behind the icon, the separated layout draws nothing.
+
+       A square tile fails here. Safari's plate is already a rounded square, so
+       a second one nests inside it and the mark ends up double-inset and tiny.
+       Instead the contrast comes from a cream halo that follows the outline of
+       the house itself: invisible against Safari's white plate (so compact
+       tabs look untouched), but on a bare dark tab it separates the navy mark
+       from the background. The mark stays near full size either way.
+
+       The halo is a stroke on a copy of the path underneath the real one. The
+       mark is scaled to 0.9 so the outward half of that stroke has room to sit
+       inside the 32x32 box instead of being clipped at the edges.
+
+       Regenerate the PNG with scripts/build-favicon-png.mjs after editing, and
+       mirror any change into the default state of public/favicon-auto.svg. -->
+  <g transform="translate(1.6 1.6) scale(0.9)">
+    <g stroke="#EDE8DA" stroke-width="3.4" stroke-linejoin="round">
+      <path stroke="#EDE8DA" fill="#EDE8DA" d="M13.7012 0.686523C15.1429 -0.0599993 16.8571 -0.0599995 18.2988 0.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012 0.686523Z"/>
+      <circle cx="25" cy="5" r="5" fill="#EDE8DA"/>
+    </g>
+    <path fill="#1A3E4F" d="M13.7012 0.686523C15.1429 -0.0599993 16.8571 -0.0599995 18.2988 0.686523L29.2988 6.38184C30.958 7.24096 32 8.95385 32 10.8223V26.9443C32 29.7058 29.7614 31.9443 27 31.9443H21.333V25.9697C21.333 24.3129 19.9899 22.9697 18.333 22.9697H13.667C12.0101 22.9697 10.667 24.3129 10.667 25.9697V31.9443H5C2.23858 31.9443 0 29.7058 0 26.9443V10.8223C0 8.95385 1.04199 7.24096 2.70117 6.38184L13.7012 0.686523Z"/>
+    <circle cx="25" cy="5" r="5" fill="#F57F20"/>
+  </g>
+</svg>

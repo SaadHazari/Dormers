@@ -34,12 +34,12 @@ export async function generateMetadata({
     },
     icons: {
       // Re-declare the tab favicon (not just the apple touch icon) — a page-level
-      // `icons` REPLACES the root's entirely, so without this Safari/no-JS would
-      // fall back to a blank icon here. Mirrors src/app/layout.tsx; the live
-      // navy↔cream swap on Chromium/Firefox still comes from the root <body> script.
+      // `icons` REPLACES the root's entirely, so without this Safari would fall
+      // back to a blank icon here. Must mirror src/app/layout.tsx exactly,
+      // including the PNG-then-SVG order (see the comment there).
       icon: [
-        { url: '/favicon.svg', type: 'image/svg+xml' },
         { url: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+        { url: '/favicon-auto.svg', type: 'image/svg+xml' },
       ],
       apple: [{ url: '/icon-180.png', sizes: '180x180', type: 'image/png' }],
     },
