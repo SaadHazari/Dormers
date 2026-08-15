@@ -27,6 +27,12 @@ interface Props {
   weeklyReviewState?: WeeklyReviewState
   monthlyWindow?: MonthlyReviewWindow
   queuedPlanSummary?: { planName: string; startDate: string } | null
+  /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
+  intakePaused?: boolean
+  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
+   *  Now-tray entry. Persists past intake reopening (see subscriptions-repo
+   *  getWaitlistStatus): only the paused entry disappears when intake reopens. */
+  waitlistCreditAed?: number
   children: React.ReactNode
 }
 
@@ -40,6 +46,8 @@ export default function DashboardShell({
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = DEFAULT_MONTHLY_WINDOW,
   queuedPlanSummary = null,
+  intakePaused = false,
+  waitlistCreditAed = 0,
   children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -109,6 +117,8 @@ export default function DashboardShell({
         referralData={referralData}
         weeklyReviewState={weeklyReviewState}
         monthlyWindow={monthlyWindow}
+        intakePaused={intakePaused}
+        waitlistCreditAed={waitlistCreditAed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />

@@ -11,7 +11,7 @@ import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { creditAppliesToPlan, MONTHLY_PLAN_IDS } from '@/contexts/subscriptions/domain/credit-eligibility'
+import { creditAppliesToPlan, MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE } from '@/contexts/subscriptions/domain/credit-eligibility'
 import type { PlanId } from '@/contexts/subscriptions/domain/plans'
 
 // React `cache()` deduplicates these calls inside a single render. When the
@@ -241,4 +241,52 @@ export async function getCreditSplitByPlan(
     result[planId] = { balanceFils, lockedFils }
   }
   return result
+}
+
+// ── Seasonal intake pause — waitlist status (Phase: seasonal-intake-pause) ──
+// Both the Now-tray entries and the plan-ending-during-a-pause banner need
+// the exact same fact: is this customer on the waitlist, and do they hold an
+// unspent waitlist credit. Centralising the two-table read here keeps that
+// fact from drifting between the two call sites — neither should query
+// intake_waitlist or credits directly.
+
+export interface WaitlistStatus {
+  /** Has this customer ever submitted the join-waitlist action? */
+  joined: boolean
+  /** Sum of `credits.amount_aed` rows with source='intake_waitlist' and
+   *  status='approved' (approved = unspent; the redemption flow flips it to
+   *  'applied' on checkout). Persists past intake reopening — the credit
+   *  stays unspent until the customer actually redeems it on a monthly plan. */
+  unspentCreditAed: number
+}
+
+/**
+ * Reads the customer's seasonal-intake-waitlist standing: whether they've
+ * joined, and how much unspent credit (status='approved') that join earned
+ * them. Two independent reads (a point lookup + a small aggregate), run in
+ * parallel — not a join, since intake_waitlist and credits are separate
+ * tables with no FK the query layer relies on.
+ *
+ * Fails safe on a read error: logs and defaults that piece to
+ * not-joined/zero rather than throwing, so a transient DB hiccup can't take
+ * down the sidebar or the dashboard home.
+ */
+export async function getWaitlistStatus(
+  sb: SupabaseClient,
+  userId: string,
+): Promise<WaitlistStatus> {
+  const [waitlistResult, creditsResult] = await Promise.all([
+    sb.from('intake_waitlist').select('id').eq('customer_id', userId).maybeSingle(),
+    sb.from('credits').select('amount_aed').eq('customer_id', userId).eq('source', INTAKE_WAITLIST_SOURCE).eq('status', 'approved'),
+  ])
+  if (waitlistResult.error) console.error('getWaitlistStatus: intake_waitlist read failed:', waitlistResult.error.message)
+  if (creditsResult.error) console.error('getWaitlistStatus: credits read failed:', creditsResult.error.message)
+
+  const joined = !!waitlistResult.data
+  const rows = (creditsResult.data ?? []) as Array<{ amount_aed: number | string }>
+  // Supabase returns numeric columns as strings through PostgREST — coerce
+  // before summing or this silently string-concatenates.
+  const unspentCreditAed = rows.reduce((sum, r) => sum + Number(r.amount_aed), 0)
+
+  return { joined, unspentCreditAed }
 }

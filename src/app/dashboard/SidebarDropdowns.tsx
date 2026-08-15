@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import * as Sentry from '@sentry/nextjs'
 import { signout } from '@/app/login/actions'
-import { OG, OG3, NV2, BODY } from './_shared/tokens'
+import { OG, OG3, OG_DEEP, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { totalCashForConversions } from '@/contexts/dorm-wars/domain/constants'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
@@ -104,6 +104,11 @@ interface Props {
   weeklyReviewState?: WeeklyReviewState
   /** Monthly wrap window — drives the wrap card in the Now tray. */
   monthlyWindow?: MonthlyReviewWindow
+  /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
+  intakePaused?: boolean
+  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
+   *  Now-tray entry. Persists past intake reopening. */
+  waitlistCreditAed?: number
 }
 
 export function SidebarDropdowns({
@@ -111,6 +116,8 @@ export function SidebarDropdowns({
   customerCid, referralData, dormWarsEligible = false, displayName, userEmail, initials,
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
+  intakePaused = false,
+  waitlistCreditAed = 0,
 }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [referralCopied, setReferralCopied] = useState(false)
@@ -303,6 +310,8 @@ export function SidebarDropdowns({
           <NowTray
             weeklyReviewState={weeklyReviewState}
             monthlyWindow={monthlyWindow}
+            intakePaused={intakePaused}
+            waitlistCreditAed={waitlistCreditAed}
             onItemClick={() => { setOpenDropdown(null); onMobileClose?.() }}
           />
         )}
@@ -469,19 +478,30 @@ export function SidebarDropdowns({
 function NowTray({
   weeklyReviewState,
   monthlyWindow,
+  intakePaused,
+  waitlistCreditAed,
   onItemClick,
 }: {
   weeklyReviewState: WeeklyReviewState
   monthlyWindow: MonthlyReviewWindow
+  intakePaused: boolean
+  waitlistCreditAed: number
   onItemClick: () => void
 }) {
   const { current, late, justSubmitted, rewards } = weeklyReviewState
   const monthlyLive = monthlyWindow.eligible
-  const hasContent = !!current || late.length > 0 || !!justSubmitted || monthlyLive
+  // The waitlist-credit entry is deliberately NOT gated on intakePaused — the
+  // brief is explicit that it must survive intake reopening, becoming the
+  // reason to come back. Only the paused entry disappears when intake lifts.
+  const showWaitlistCredit = waitlistCreditAed > 0
+  const hasContent = !!current || late.length > 0 || !!justSubmitted || monthlyLive || intakePaused || showWaitlistCredit
   // Monthly plans (Premium/Max) have multiple weekly reviews in a cycle; the
   // all-or-nothing rule only applies to them. Weekly Flex collapses to a
   // single review per cycle — no rule banner.
   const showAllOrNothing = rewards.total > 1 && (current || late.length > 0)
+  // Intake-pause entries are quiet/persistent state, not decisive to-dos with
+  // a deadline — they deliberately don't count toward the "N live" chip or
+  // the sidebar rail's numeric badge (see Sidebar.tsx nowPendingCount).
   const liveCount = (current ? 1 : 0) + late.length + (monthlyLive ? 1 : 0)
 
   return (
@@ -522,9 +542,83 @@ function NowTray({
           {justSubmitted && !current && late.length === 0 && !monthlyLive && (
             <JustSubmittedRow week={justSubmitted.week} rewardPct={justSubmitted.rewardPct} />
           )}
+          {/* Seasonal intake pause — quiet residue rows, last in the stack so
+              the decisive review/wrap actions above keep the primary spot.
+              See project_now_tray_architecture: time-bound state lives here,
+              not on content pages. */}
+          {intakePaused && <IntakePausedRow onClick={onItemClick} />}
+          {showWaitlistCredit && <WaitlistCreditRow creditAed={waitlistCreditAed} onClick={onItemClick} />}
         </div>
       )}
     </>
+  )
+}
+
+// Quiet, factual residue of the seasonal-pause takeover (Task 15) — no date,
+// no countdown, no reopening estimate. Links to the plan page rather than
+// carrying its own action; the one-tap join lives on IntakePausedGate /
+// PlanEndingPausedBanner, not duplicated here.
+function IntakePausedRow({ onClick }: { onClick: () => void }) {
+  return (
+    <Link
+      href="/dashboard/plan"
+      onClick={onClick}
+      className="now-tray-row"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'transparent',
+        border: '1px solid var(--ds-border-soft)',
+        textDecoration: 'none', color: 'var(--ds-fg)',
+        fontFamily: BODY,
+        transition: 'background 150ms',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2 }}>
+          New plans paused
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
+          We are between semesters.
+        </div>
+      </div>
+      <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
+    </Link>
+  )
+}
+
+// The ownership mechanic for the seasonal-pause credit: if the balance isn't
+// on screen it isn't doing its job, so this stays for as long as the credit
+// is unspent — including after intake reopens, when it becomes the reason to
+// come back (see getWaitlistStatus / project ruling on this phase).
+function WaitlistCreditRow({ creditAed, onClick }: { creditAed: number; onClick: () => void }) {
+  return (
+    <Link
+      href="/dashboard/plan"
+      onClick={onClick}
+      className="now-tray-row"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--ds-og-wash)',
+        border: '1px solid var(--ds-og-border)',
+        textDecoration: 'none', color: 'var(--ds-fg)',
+        fontFamily: BODY,
+        transition: 'background 150ms',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: OG_DEEP, lineHeight: 1.2, fontFeatureSettings: '"tnum"' }}>
+          AED {creditAed} waiting
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
+          Unlocks on a monthly plan.
+        </div>
+      </div>
+      <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
+    </Link>
   )
 }
 

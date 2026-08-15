@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
+import { createClient } from '@/utils/supabase/server'
+import { getCustomer, getActiveSubscription, getQueuedSubscription, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
 import { isAdminEmail } from '@/contexts/admin/usecases/require-admin'
+import { getIntakeState } from '@/infra/config/intake'
 import DashboardShell from './DashboardShell'
 import { BugReportTrigger } from './_shared/BugReportTrigger'
 import { IdleRefreshToast } from './_shared/IdleRefreshToast'
@@ -49,6 +51,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // queued plan exists the overlay reframes the wrap as "close out before
   // your new plan starts". Null when no queued plan.
   let queuedPlanSummary: { planName: string; startDate: string } | null = null
+  // Seasonal intake pause — drives the two Now-tray entries. Paused=false and
+  // credit=0 are the safe defaults for signed-out renders; getIntakeState
+  // itself fails open (never blocks) and getWaitlistStatus fails closed to
+  // not-joined/zero on a read error.
+  let intakePaused = false
+  let waitlistCreditAed = 0
   const userEmail = user?.email ?? ''
 
   if (user) {
@@ -61,13 +69,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
       console.error('layout: promotePendingPreferencesIfStale failed:', err)
     })
 
-    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin] = await Promise.all([
+    const supabase = await createClient()
+    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, intakeState, waitlistStatus] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
       getQueuedSubscription(user.id),
       getReferralData(user.id),
       getWeeklyReviewState(user.id),
       getMonthlyReviewWindow(user.id),
+      getIntakeState(),
+      getWaitlistStatus(supabase, user.id),
     ])
     customerName = customer?.name ?? ''
     customerCid = customer?.cid ?? ''
@@ -76,6 +87,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     referralData = referrals
     weeklyReviewState = reviewState
     monthlyWindow = monthlyWin
+    intakePaused = intakeState.paused
+    waitlistCreditAed = waitlistStatus.unspentCreditAed
     if (queuedSub) {
       queuedPlanSummary = {
         planName: (queuedSub.plan_name as string) ?? 'Plan',
@@ -104,6 +117,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         weeklyReviewState={weeklyReviewState}
         monthlyWindow={monthlyWindow}
         queuedPlanSummary={queuedPlanSummary}
+        intakePaused={intakePaused}
+        waitlistCreditAed={waitlistCreditAed}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div className="dash-main-row" style={{ display: 'flex', paddingTop: 16 }}>

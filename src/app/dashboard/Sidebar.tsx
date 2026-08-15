@@ -56,6 +56,11 @@ interface Props {
   weeklyReviewState?: WeeklyReviewState
   /** Monthly wrap window state — drives the wrap tray card + combined badge. */
   monthlyWindow?: MonthlyReviewWindow
+  /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
+  intakePaused?: boolean
+  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
+   *  Now-tray entry. Persists past intake reopening. */
+  waitlistCreditAed?: number
 }
 
 export default function Sidebar({
@@ -64,6 +69,8 @@ export default function Sidebar({
   referralData = DEFAULT_REFERRAL, dormWarsEligible = false, mobileOpen = false, onMobileClose,
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
+  intakePaused = false,
+  waitlistCreditAed = 0,
 }: Props) {
   // Combined badge state for the Now tray icon — escalates by precedence:
   //   'active' (orange dot) > 'late' (muted dot) > 'none' (no dot)
@@ -497,6 +504,8 @@ export default function Sidebar({
           initials={initials}
           weeklyReviewState={weeklyReviewState}
           monthlyWindow={monthlyWindow}
+          intakePaused={intakePaused}
+          waitlistCreditAed={waitlistCreditAed}
         />
       </aside>
 
