@@ -10,6 +10,7 @@ import {
     UtensilsCrossed, DollarSign, QrCode,
     ScrollText, MessageSquare,
     Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera, Carrot,
+    CalendarClock,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -103,6 +104,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         items: [
             { label: 'Dorms',            href: '/admin/dorms',      icon: <Building2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Holidays',         href: '/admin/holidays',   icon: <CalendarOff size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Season',           href: '/admin/season',     icon: <CalendarClock size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Staff',            href: '/admin/staff',      icon: <UserCog size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Access Links',     href: '/admin/ops-tokens', icon: <KeyRound size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
