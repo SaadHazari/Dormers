@@ -111,16 +111,19 @@ describe('joinIntakeWaitlist', () => {
   })
 
   it('reports the existing credit amount without minting a second one', async () => {
+    // Veg customer means creditAedFor would compute 15. The stored row uses
+    // 999, a value creditAedFor could never produce, so this only passes if
+    // the action actually reads the row instead of recomputing the amount.
     customerMock.mockResolvedValue({ data: { meal_preference_type: 'Veg' }, error: null })
     insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
     // amount_aed comes back from PostgREST as a string
-    existingCreditMock.mockResolvedValue({ data: { id: 'credit-9', amount_aed: '15' }, error: null })
+    existingCreditMock.mockResolvedValue({ data: { id: 'credit-9', amount_aed: '999' }, error: null })
 
     const res = await joinIntakeWaitlist()
 
     expect(res.ok).toBe(true)
     expect(res.alreadyJoined).toBe(true)
-    expect(res.creditAed).toBe(15)
+    expect(res.creditAed).toBe(999)
     expect(insertCreditMock).not.toHaveBeenCalled()
   })
 })
