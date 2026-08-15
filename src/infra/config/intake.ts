@@ -1,0 +1,86 @@
+import 'server-only'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+
+/**
+ * Seasonal intake pause — the operator switch that stops all new plan
+ * purchases between semesters.
+ *
+ * Sibling of feature-flags.ts and deliberately the same shape: a short
+ * in-memory cache over a service-role read, so flipping the switch in the
+ * admin panel takes effect within CACHE_TTL_MS with no redeploy.
+ *
+ * FAIL OPEN: if the read errors or the row is missing, intake stays OPEN.
+ * A settings-table outage must never block a sale — the switch exists for
+ * deliberate pausing, not as a hard dependency of checkout.
+ */
+
+const CACHE_TTL_MS = 30_000
+
+export interface IntakeState {
+  paused: boolean
+  headline: string
+  body: string
+  creditNonvegAed: number
+  creditVegAed: number
+  creditReligiousAed: number
+}
+
+/** Used when the row is missing or unreadable. Intake stays open. */
+const FAIL_OPEN: IntakeState = {
+  paused: false,
+  headline: '',
+  body: '',
+  creditNonvegAed: 20,
+  creditVegAed: 15,
+  creditReligiousAed: 20,
+}
+
+let cache: { state: IntakeState; at: number } | null = null
+
+export async function getIntakeState(): Promise<IntakeState> {
+  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.state
+
+  try {
+    const sb = createAdminSupabaseClient()
+    const { data, error } = await sb
+      .from('intake_settings')
+      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed')
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return FAIL_OPEN
+
+    const row = data as Record<string, unknown>
+    const state: IntakeState = {
+      paused: row.paused === true,
+      headline: String(row.headline ?? ''),
+      body: String(row.body ?? ''),
+      creditNonvegAed: Number(row.credit_nonveg_aed ?? FAIL_OPEN.creditNonvegAed),
+      creditVegAed: Number(row.credit_veg_aed ?? FAIL_OPEN.creditVegAed),
+      creditReligiousAed: Number(row.credit_religious_aed ?? FAIL_OPEN.creditReligiousAed),
+    }
+    cache = { state, at: Date.now() }
+    return state
+  } catch {
+    return FAIL_OPEN // never let a settings-read failure close the shop
+  }
+}
+
+/**
+ * The waitlist credit this customer is owed, by meal preference.
+ * Religious Preference takes the non-veg figure (owner decision) because
+ * the plan includes non-veg days and is priced closer to non-veg than veg.
+ * Unknown or missing preference errs generous rather than stingy.
+ */
+export function creditAedFor(
+  state: IntakeState,
+  mealPreferenceType: string | null | undefined,
+): number {
+  if (mealPreferenceType === 'Veg') return state.creditVegAed
+  if (mealPreferenceType === 'Religious Preference') return state.creditReligiousAed
+  return state.creditNonvegAed
+}
+
+/** Test seam — clear the in-memory cache between tests. */
+export function __resetIntakeCache(): void {
+  cache = null
+}
