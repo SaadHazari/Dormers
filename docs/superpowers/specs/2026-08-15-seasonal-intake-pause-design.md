@@ -47,6 +47,41 @@ operator tell the customer base what is happening.
 demand justifies it, which is a judgement call, not a date. The switch stays on until a
 human turns it off.
 
+### 2.1 Governing principle — a flow break must be unmissable
+
+Anything that interrupts the normal rhythm of a customer and their plan has to announce
+itself loudly. A season break, a paused intake, a credit sitting unspent, a reopening —
+none of these may be discovered. They arrive with motion and presence.
+
+The counterweight is equally binding: **loud must not mean ugly, and must not damage the
+interface that already exists.** The escalation below is built entirely from patterns
+this dashboard already ships, so a flow break feels like the product raising its voice,
+not a foreign object dropped into it.
+
+**Three levels, used deliberately:**
+
+| Level | Existing pattern | When to use it |
+|---|---|---|
+| **Persistent** | Sidebar **Now tray** | State that is true for a while and the customer should keep seeing. "Your AED 20 is waiting." "New plans are paused." |
+| **Present** | Inline banner / card on the affected surface | Explaining something at the exact point it bites. The locked-credit note at checkout. The plan-ends-soon warning during a pause. |
+| **Unavoidable** | **Takeover** (`CheckoutSuccessTakeover`, `WeeklyReviewTakeover`, `MonthlyWrapForceOverlay`) | A genuine state change the customer must not miss. Intake pausing. Intake reopening. |
+
+**Rules for the loud moments:**
+
+- A takeover fires **once per state change**, is dismissible, and does not return. The
+  Now tray carries the state afterwards. Repeat takeovers are nagging, and nagging is how
+  a good interface becomes one people resent.
+- Motion is used for arrival and emphasis, never decoration. `framer-motion` is already
+  the dashboard's motion library.
+- **`useReducedMotion` is honoured everywhere**, as the dashboard already does. A customer
+  who has asked their device for less motion still gets the full message, just without the
+  movement.
+- Every loud surface stays inside the existing token system — brand orange `#f57f20` as
+  the ceiling, navy `#091825`, cream, Montserrat, `TIER_POP` for dark panels with warm
+  cream `#f5f0e8` text rather than sharp white.
+- Mobile is not a shrunken desktop. These surfaces get the same care as the rest of the
+  mobile-first work, verified at 375px on a real device.
+
 ---
 
 ## 3. Scope
@@ -209,6 +244,22 @@ Recorded so future changes do not erode it by accident.
   additive, not load-bearing — so it can be tuned or removed without breaking the
   feature.
 
+### 6.4 Every moment and its treatment
+
+Applying §2.1 to each point where this feature breaks the normal flow. Nothing in this
+table is allowed to be a quiet detail the customer has to notice on their own.
+
+| Moment | Who sees it | Level | Treatment |
+|---|---|---|---|
+| Intake pauses | Every customer with a live plan | **Takeover**, once | Full-surface moment on next dashboard visit. What is happening, that their own plan is completely unaffected, and when they will hear from us. The "your plan is safe" reassurance is the whole job here — a pause announcement that reads as "we are closing" would cause churn we do not need |
+| Intake is paused, ongoing | Everyone | **Persistent** | Now tray entry, quiet and factual |
+| Blocked at plan selection | Anyone trying to buy | **Present** | The frosted gate over the plan grid (§6.1), entering with motion so it reads as deliberate rather than as a failed load |
+| Credit granted on opt-in | The person who just tapped | **Present**, celebratory | The card transforms in place into a confirmation. This is a small win and should feel like one — it is the payoff for the tap, and a flat state change wastes the moment |
+| Credit waiting, ongoing | Anyone on the list | **Persistent** | Now tray: "AED 20 waiting." The visible balance is the ownership mechanic; if it is not on screen it is not doing its job |
+| Credit held but not applicable | Anyone on a trial or weekly checkout | **Present** | Inline at the price, before payment. Never a footnote, never silent (§8.1) |
+| Plan ending during a pause | Customers whose `end_date` is near | **Present** | Banner with the honest position and the opt-in path, so nobody discovers it by finding checkout closed |
+| Intake reopens | The early-access list | **Takeover**, once | The payoff. "We're back, and your AED 20 is ready." Arrives with the broadcast, not instead of it |
+
 ---
 
 ## 7. Part B (cont.) — the early-access list and credit
@@ -267,10 +318,17 @@ All three editable in `/admin/season` with no redeploy.
 
 ### 8.1 The requirement
 
-The waitlist credit is redeemable **only against a monthly plan**. On a weekly checkout
-the credit is *displayed but not applied*, with a plain explanation that it unlocks on a
-monthly plan. This is a deliberate, honest upsell: the customer can see the thing they
-own sitting just out of reach, with a clear action to unlock it.
+The waitlist credit is redeemable **only against a monthly plan**. On **every** plan
+where it cannot be used — `weekly-flex` and `trial` alike — the credit is *displayed but
+not applied*, with a plain explanation of what unlocks it. This is a deliberate, honest
+upsell: the customer can see the thing they own sitting just out of reach, with a clear
+action to unlock it.
+
+**The explanation is never conditional on which plan they picked.** A customer must never
+reach a checkout, see a credit they hold, and be given no reason why it did not come off
+the price. Silence there reads as a bug or a bait-and-switch. The rule is: if the
+customer holds a credit and it is not being applied, say why, on that screen, before they
+pay.
 
 "Monthly" means `monthly-max` and `monthly-premium` only. `staff-monthly` is excluded
 (intern remuneration, not a customer purchase). `trial` and `weekly-flex` are excluded.
@@ -353,18 +411,46 @@ New admin page. Free-form, email only.
 
 ### 9.2 Email design
 
-The requirement is that this looks **better than the existing transactional emails**.
+The requirement is that this looks **better than anything currently going out** — better
+than the ZeptoMail transactional templates and better than the admin one-to-one composer.
 
-Constraints that must be honoured:
+**This is a deliberate break from the existing email brand language.** The current
+templates use `#FF8C00` orange, `#757575` grey and Helvetica Neue. The new broadcast
+email does **not** follow them. It uses the dashboard and website brand instead:
 
-- The email brand language differs from the dashboard tokens. Orange is `#FF8C00`, not
-  the dashboard `#f57f20`; body grey is `#757575`, not navy; the typeface is Helvetica
-  Neue, not the system stack.
-- `docs/email-templates/_brand-reference-start-day.html` is the reference and must be
-  read before any markup is written.
-- ZeptoMail renders Mustache and **treats an empty string as truthy.** To hide a section,
+| Token | Value | Use |
+|---|---|---|
+| Brand orange | `#f57f20` | Buttons, rules, graphic fills, large headings |
+| Deep orange | `#8c4214` | Small orange text on cream (the lighter orange fails contrast there) |
+| Navy | `#091825` | Body text, dark feature panels |
+| Navy mid | `#1e3a4f` | Dark panel gradient partner |
+| Cream | `#ede8da` / `#f5f0e8` | Page ground, and text on navy |
+| Typeface | Montserrat, falling back to Arial / Helvetica | Everything |
+
+Rules carried over from the dashboard that also apply here:
+
+- **Never sharp `#fff` on navy.** Text on a dark panel is warm cream `#f5f0e8`. White is
+  reserved for text sitting on orange fills.
+- **`#f57f20` is the ceiling.** Gradients may fade lighter; they never go darker into
+  amber, burnt orange or red.
+
+Email-specific constraints that must be designed around, not discovered late:
+
+- **Webfonts are unreliable in email.** Outlook's desktop client and several Android
+  clients will not load Montserrat regardless of what the markup says. Load it via
+  `@font-face` from a public URL for the clients that honour it, and make sure the layout
+  still looks deliberate in Arial. The design must not depend on the webfont landing.
+- **Client dark mode can force-invert colours.** Outlook.com and the Gmail app both do
+  this. A navy-and-cream palette survives inversion far better than white-and-black, which
+  is a point in this palette's favour, but it still needs checking in a real client before
+  the first send.
+- **ZeptoMail renders Mustache and treats an empty string as truthy.** To hide a section,
   omit the merge key entirely — never send `''` or `'0'`.
-- Copy carries no emoji and no em/en dashes.
+- Copy carries no emoji and no em or en dashes.
+
+`docs/email-templates/_brand-reference-start-day.html` should be read for *structure and
+mechanics* (table layout, inlined styles, what survives the clients) but explicitly
+**not** for palette or typography.
 
 ### 9.3 Why email only
 
@@ -412,7 +498,7 @@ reopening notification is queued.
 | Incentive | Early access plus a welcome credit |
 | Existing customers | Same card, same button, same amount. Opt-in, not auto-enrolled |
 | Credit amounts | Non Veg 20, Veg 15, Religious Preference 20 (AED) |
-| Credit scope | Monthly plans only. Shown but locked on weekly |
+| Credit scope | Monthly plans only. Shown, locked, and explained on weekly and trial alike |
 | Credit expiry | None |
 | Credit reuse | Single use — does not carry to subsequent plans |
 | End date on the switch | None, ever. Manual off only |
@@ -427,8 +513,8 @@ Stated explicitly so they can be overridden rather than discovered later.
 
 1. **Trial does not unlock the credit.** `trial` is neither monthly nor weekly. A
    waitlisted lead who buys the AED 25 trial keeps their credit for a later monthly
-   purchase. This is consistent with "monthly plans only" but means the credit does not
-   assist the cheapest first purchase.
+   purchase, and is told so at trial checkout (§8.1). This is consistent with "monthly
+   plans only" but means the credit does not assist the cheapest first purchase.
 2. **Referral gift claims are blocked during a pause**, because a claimed gift is a real
    delivery.
 3. **Staff and intern provisioning is not blocked**, because it is admin-assigned rather
