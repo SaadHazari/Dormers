@@ -340,9 +340,14 @@ export async function POST(req: Request) {
     // lifetime tiers, and the welcome rate. The amount is already the
     // at-cost Saturday price, and clean refunds on offboarding need the
     // charge to be exactly AED 20 × 4 with no coupon math underneath.
+    //
+    // Plan-scoped so a plan-restricted credit (the seasonal-pause waitlist
+    // credit is monthly-only) never reaches the coupon synth for a plan it
+    // cannot be spent on. Filtering here rather than after synthesis keeps the
+    // coupon and the reserved row set in agreement.
     const { rows: creditRows } = isStaffPlan
       ? { rows: [] as Awaited<ReturnType<typeof getRedeemableCredit>>['rows'] }
-      : await getRedeemableCredit(supabase, user.id);
+      : await getRedeemableCredit(supabase, user.id, planDef.id);
     const tierPercent = isStaffPlan ? 0 : await getActiveLifetimeTierPercent(supabase, user.id);
 
     // ── Trial-convert welcome rate (5% off the first monthly+ plan) ───────
