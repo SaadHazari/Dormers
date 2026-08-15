@@ -38,20 +38,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
     }
 
-    // ── Seasonal intake pause ──────────────────────────────────────────────
-    // Placed before ANY Stripe, pricing or profile work so a paused shop
-    // rejects cheaply. The UI gates the plan surfaces, but a stale tab or a
-    // hand-crafted POST reaches here — this is the authoritative stop.
-    // getIntakeState fails open, so a settings-read blip lets the sale through
-    // rather than closing the shop by accident.
-    const intake = await getIntakeState();
-    if (intake.paused) {
-      return NextResponse.json({
-        error: 'INTAKE_PAUSED',
-        message: intake.body || 'We have paused new plans for now. Save your spot and we will message you the day we reopen.',
-      }, { status: 409 });
-    }
-
     const body = await req.json();
 
     const {
@@ -115,6 +101,30 @@ export async function POST(req: Request) {
     // price is the flat Saturday surcharge, validated exactly below — the
     // generic preference band doesn't apply to this plan.
     const isStaffPlan = planDef.id === 'staff-monthly';
+
+    // ── Seasonal intake pause ──────────────────────────────────────────────
+    // Placed as early as it can be while still knowing WHICH plan is being
+    // bought — right after plan resolution, before any Stripe, pricing or
+    // profile work, so a paused shop rejects cheaply. The UI gates the plan
+    // surfaces, but a stale tab or a hand-crafted POST reaches here — this
+    // is the authoritative stop.
+    //
+    // staff-monthly is EXEMPT: intern/staff provisioning is admin-assigned
+    // remuneration, not a customer purchase, and the spec is explicit that
+    // it must never be blocked by the seasonal pause.
+    //
+    // getIntakeState fails open, so a settings-read blip lets the sale
+    // through rather than closing the shop by accident.
+    if (!isStaffPlan) {
+      const intake = await getIntakeState();
+      if (intake.paused) {
+        return NextResponse.json({
+          error: 'INTAKE_PAUSED',
+          message: intake.body || 'We have paused new plans for now. Save your spot and we will message you the day we reopen.',
+        }, { status: 409 });
+      }
+    }
+
     if (isStaffPlan) {
       const { createAdminSupabaseClient } = await import('@/infra/supabase/admin-client');
       const { data: staffRow } = await createAdminSupabaseClient()

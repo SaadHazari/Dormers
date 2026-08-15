@@ -6,12 +6,21 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Gift, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
 
 interface IntakePausedGateProps {
   headline: string
   body: string
+  /** Prospective per-preference amount from the CURRENT intake_settings row.
+   *  Correct ONLY for the pre-tap offer below — nothing has been minted yet,
+   *  so this is a promise, not a balance. Never used once `joined` is true. */
   creditAed: number
   alreadyJoined: boolean
+  /** Actual minted credit already sitting in this customer's ledger
+   *  (IntakeGateState.waitlistCreditAed) — the real number for the
+   *  already-joined confirmed state. Can differ from `creditAed` if an
+   *  admin changed the credit amounts after this customer joined. */
+  waitlistCreditAed: number
 }
 
 /**
@@ -27,15 +36,36 @@ interface IntakePausedGateProps {
  * you." No queue position or count is ever shown either: a low number reads
  * as unwanted, a high one as hopeless.
  */
-export function IntakePausedGate({ headline, body, creditAed, alreadyJoined }: IntakePausedGateProps) {
+export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, waitlistCreditAed }: IntakePausedGateProps) {
   const [joined, setJoined] = useState(alreadyJoined)
+  // The number shown once joined is always an ACTUAL minted amount, never
+  // the prospective `creditAed` prop — starts from the server-computed
+  // ledger value (waitlistCreditAed) for a customer who was already on the
+  // list before this render, then gets overwritten with the action's own
+  // result the moment a fresh tap resolves. Same rule for the message: a
+  // fresh tap can come back with "we will sort your credit" when the mint
+  // failed, and that message must win over any credit-amount line.
+  const [confirmedCreditAed, setConfirmedCreditAed] = useState(waitlistCreditAed)
+  const [confirmedMessage, setConfirmedMessage] = useState<string | null>(null)
+  const [joinError, setJoinError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const prefersReducedMotion = useReducedMotion()
 
   const handleJoin = () => {
+    setJoinError(null)
     startTransition(async () => {
       const result = await joinIntakeWaitlist()
-      if (result.ok) setJoined(true)
+      const outcome = deriveJoinOutcome(result)
+      if (outcome.joined) {
+        setJoined(true)
+        setConfirmedCreditAed(outcome.creditAed ?? 0)
+        setConfirmedMessage(outcome.message)
+      } else {
+        // Silence is never acceptable on the most important tap in this
+        // flow — surface the real reason and leave the button enabled so
+        // the customer can retry.
+        setJoinError(outcome.error)
+      }
     })
   }
 
@@ -90,9 +120,18 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined }: I
               <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
                 You are on the list.
               </div>
-              <div style={{ fontFamily: BODY, fontSize: 19, fontWeight: 800, color: OG_DEEP, lineHeight: 1.3, letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"' }}>
-                AED {creditAed} is waiting in your account
-              </div>
+              {(() => {
+                const display = intakeCreditDisplay(confirmedCreditAed, confirmedMessage)
+                return display.hasCredit ? (
+                  <div style={{ fontFamily: BODY, fontSize: 19, fontWeight: 800, color: OG_DEEP, lineHeight: 1.3, letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"' }}>
+                    {display.text}
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.55 }}>
+                    {display.text}
+                  </div>
+                )
+              })()}
               <Link
                 href="/dashboard/menu"
                 style={{
@@ -143,6 +182,11 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined }: I
               >
                 {isPending ? 'Saving your spot…' : 'Save my spot'}
               </button>
+              {joinError && (
+                <div style={{ fontFamily: BODY, fontSize: 12, color: 'var(--ds-danger-fg)', lineHeight: 1.5 }}>
+                  {joinError}
+                </div>
+              )}
             </>
           )}
         </div>

@@ -445,6 +445,7 @@ function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () 
           body={intake.body}
           creditAed={intake.creditAed}
           alreadyJoined={intake.alreadyJoined}
+          waitlistCreditAed={intake.waitlistCreditAed}
         />
       )}
       <section style={{ ...CARD, padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>

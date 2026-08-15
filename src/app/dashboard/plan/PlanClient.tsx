@@ -1731,7 +1731,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   can't intercept — it must repeat the same precedence. */}
               <div style={{ position: 'relative', marginBottom: 24 }}>
                 {intake.paused
-                  ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} />
+                  ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
                   : profileGated && <ProfileGateOverlay missing={missingFields} />}
                 <div id="plans-grid" className="plans-grid">
                   {PLANS.map(p => (

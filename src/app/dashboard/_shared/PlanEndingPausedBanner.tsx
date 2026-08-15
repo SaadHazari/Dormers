@@ -5,11 +5,20 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CalendarClock, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
 
 interface PlanEndingPausedBannerProps {
   daysRemaining: number
+  /** Prospective per-preference amount from the CURRENT intake_settings row.
+   *  Correct ONLY for the pre-tap offer below — nothing has been minted yet,
+   *  so this is a promise, not a balance. Never used once `joined` is true. */
   creditAed: number
   alreadyJoined: boolean
+  /** Actual minted credit already sitting in this customer's ledger
+   *  (IntakeGateState.waitlistCreditAed) — the real number for the
+   *  already-joined confirmed state. Can differ from `creditAed` if an
+   *  admin changed the credit amounts after this customer joined. */
+  waitlistCreditAed: number
 }
 
 /**
@@ -32,15 +41,35 @@ interface PlanEndingPausedBannerProps {
  * is a defensive belt-and-suspenders check on daysRemaining alone, since the
  * copy is written specifically for that window.
  */
-export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined }: PlanEndingPausedBannerProps): ReactElement | null {
+export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined, waitlistCreditAed }: PlanEndingPausedBannerProps): ReactElement | null {
   const [joined, setJoined] = useState(alreadyJoined)
+  // Always the ACTUAL minted amount once joined — never the prospective
+  // `creditAed` prop. Starts from the server-computed ledger value for a
+  // customer who was already on the list, then gets overwritten with the
+  // action's own result the moment a fresh tap resolves. Same rule for the
+  // message: a failed mint reports "we will sort your credit," which must
+  // win over any credit-amount line.
+  const [confirmedCreditAed, setConfirmedCreditAed] = useState(waitlistCreditAed)
+  const [confirmedMessage, setConfirmedMessage] = useState<string | null>(null)
+  const [joinError, setJoinError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const prefersReducedMotion = useReducedMotion()
 
   const handleJoin = () => {
+    setJoinError(null)
     startTransition(async () => {
       const result = await joinIntakeWaitlist()
-      if (result.ok) setJoined(true)
+      const outcome = deriveJoinOutcome(result)
+      if (outcome.joined) {
+        setJoined(true)
+        setConfirmedCreditAed(outcome.creditAed ?? 0)
+        setConfirmedMessage(outcome.message)
+      } else {
+        // Silence is never acceptable on the most important tap in this
+        // flow — surface the real reason and leave the button enabled so
+        // the customer can retry.
+        setJoinError(outcome.error)
+      }
     })
   }
 
@@ -77,9 +106,18 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
             <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
               You are on the list.
             </div>
-            <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: OG_DEEP, fontWeight: 700, lineHeight: 1.5, fontFeatureSettings: '"tnum"' }}>
-              AED {creditAed} is waiting in your account.
-            </div>
+            {(() => {
+              const display = intakeCreditDisplay(confirmedCreditAed, confirmedMessage)
+              return display.hasCredit ? (
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: OG_DEEP, fontWeight: 700, lineHeight: 1.5, fontFeatureSettings: '"tnum"' }}>
+                  {display.text}.
+                </div>
+              ) : (
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+                  {display.text}
+                </div>
+              )
+            })()}
           </motion.div>
         ) : (
           <motion.div
@@ -123,6 +161,11 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
         >
           {isPending ? 'Saving…' : 'Save my spot'}
         </button>
+      )}
+      {joinError && (
+        <div style={{ flexBasis: '100%', fontFamily: BODY, fontSize: 12, color: 'var(--ds-danger-fg)', lineHeight: 1.5 }}>
+          {joinError}
+        </div>
       )}
     </div>
   )

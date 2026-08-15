@@ -1468,6 +1468,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             daysRemaining={planEndDaysRemaining}
             creditAed={intakePause.creditAed}
             alreadyJoined={intakePause.alreadyJoined}
+            waitlistCreditAed={intakePause.waitlistCreditAed}
           />
         )}
 
@@ -1780,6 +1781,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 daysRemaining={planEndDaysRemaining}
                 creditAed={intakePause.creditAed}
                 alreadyJoined={intakePause.alreadyJoined}
+                waitlistCreditAed={intakePause.waitlistCreditAed}
               />
             ) : null}
             errorBanner={actionError ? (

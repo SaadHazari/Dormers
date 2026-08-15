@@ -113,7 +113,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
           same precedence. */}
       <div style={{ position: 'relative' }}>
         {intake.paused
-          ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} />
+          ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
           : profileGated && <ProfileGateOverlay missing={missingFields} />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {ordered.map(plan => (

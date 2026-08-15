@@ -330,7 +330,12 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // delivery radius). Same blocking behaviour as missingFields; cleared by
   // customer-service via Supabase admin once delivery is confirmed.
   const outOfZone = !!customer?.out_of_zone
-  const purchaseGated = missingFields.length > 0 || outOfZone
+  // Intake pause folds into the same gate — a paused intake blocks purchase
+  // exactly like an incomplete profile or an out-of-zone dorm. Without this,
+  // a customer with no plan lands on /dashboard and sees a live "Browse
+  // plans" CTA while /dashboard/plan (PlanClient) correctly shows the gate —
+  // two surfaces disagreeing about whether the shop is open.
+  const purchaseGated = missingFields.length > 0 || outOfZone || intakePause.paused
 
   // No active plan (with optional cancel banner) → confident plan-picker.
   // Renewal cancels (active sub + canceled param) fall through to ActiveDashboard
@@ -355,6 +360,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
             userEmail={userEmail}
             purchaseGated={purchaseGated}
             outOfZone={outOfZone}
+            intake={intakePause}
             banners={
               <>
                 <OutOfZoneBanner show={outOfZone} />

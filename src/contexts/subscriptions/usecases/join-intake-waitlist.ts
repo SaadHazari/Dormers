@@ -3,7 +3,7 @@
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE } from '../domain/credit-eligibility'
+import { MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE, SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
 
 export interface JoinWaitlistResult {
   ok: boolean
@@ -14,13 +14,18 @@ export interface JoinWaitlistResult {
 
 type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>
 
-const SPOT_SAVED_NO_CREDIT_YET_MESSAGE =
-  'Your spot is saved. We will sort your credit before we reopen.'
-
 /**
- * Look up an already-minted waitlist credit for this customer, if one
- * exists. Numeric columns come back from PostgREST as strings, so the
- * amount is coerced with Number() before it is handed back to the caller.
+ * Look up an already-minted, still-SPENDABLE waitlist credit for this
+ * customer, if one exists. Filtered to status='approved' deliberately: a
+ * customer who joined in an earlier pause, spent the credit (status flips to
+ * 'applied'), then taps "Save my spot" again in a LATER pause must not have
+ * that spent row reported back as money still waiting. The unique partial
+ * index `credits_one_intake_waitlist_per_customer` blocks minting a second
+ * credit for them regardless of this filter, so the honest answer for that
+ * customer is zero (see mintWaitlistCredit's 23505 handling below).
+ *
+ * Numeric columns come back from PostgREST as strings, so the amount is
+ * coerced with Number() before it is handed back to the caller.
  */
 async function findWaitlistCredit(
   sb: AdminSupabaseClient,
@@ -31,6 +36,7 @@ async function findWaitlistCredit(
     .select('id, amount_aed')
     .eq('customer_id', customerId)
     .eq('source', INTAKE_WAITLIST_SOURCE)
+    .eq('status', 'approved')
     .maybeSingle()
 
   if (!data) return null

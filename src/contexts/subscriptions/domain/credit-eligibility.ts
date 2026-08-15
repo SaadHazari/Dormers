@@ -13,6 +13,18 @@ export const MONTHLY_PLAN_IDS: readonly PlanId[] = ['monthly-max', 'monthly-prem
 export const INTAKE_WAITLIST_SOURCE = 'intake_waitlist'
 
 /**
+ * Shown to the customer instead of a credit amount when they are on the
+ * waitlist but no credit has actually been minted for them yet (a failed
+ * insert, or an earlier pause's credit already spent). Lives here rather
+ * than in join-intake-waitlist.ts because that file is a 'use server'
+ * action module — Next.js only allows async function exports from those,
+ * so a plain string constant can't live there even though it is that
+ * use case's own copy.
+ */
+export const SPOT_SAVED_NO_CREDIT_YET_MESSAGE =
+  'Your spot is saved. We will sort your credit before we reopen.'
+
+/**
  * May this credit be applied to this plan?
  *
  * NULL / undefined means unrestricted, which is what every credit issued

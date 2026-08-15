@@ -156,6 +156,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             body={intake.body}
             creditAed={intake.creditAed}
             alreadyJoined={intake.alreadyJoined}
+            waitlistCreditAed={intake.waitlistCreditAed}
           />
         )}
         <motion.div

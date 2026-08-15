@@ -34,8 +34,8 @@ vi.mock('@/infra/supabase/admin-client', () => ({
       if (table === 'credits') {
         return {
           insert: () => ({ select: () => ({ single: insertCreditMock }) }),
-          // findWaitlistCredit: select('id, amount_aed').eq(customer_id).eq(source).maybeSingle()
-          select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: existingCreditMock }) }) }),
+          // findWaitlistCredit: select('id, amount_aed').eq(customer_id).eq(source).eq(status='approved').maybeSingle()
+          select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: existingCreditMock }) }) }) }),
         }
       }
       // intake_waitlist. insert for the opt-in, update to stamp credit_id
@@ -45,6 +45,7 @@ vi.mock('@/infra/supabase/admin-client', () => ({
 }))
 
 import { joinIntakeWaitlist } from './join-intake-waitlist'
+import { SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
 
 const STATE = {
   paused: true, headline: '', body: '',
@@ -125,5 +126,29 @@ describe('joinIntakeWaitlist', () => {
     expect(res.alreadyJoined).toBe(true)
     expect(res.creditAed).toBe(999)
     expect(insertCreditMock).not.toHaveBeenCalled()
+  })
+
+  it('reports zero, not the spent amount, when the customer already used their credit in an earlier pause', async () => {
+    // Scenario: joined pause 1, spent the credit (status flipped to
+    // 'applied'), then taps "Save my spot" again in pause 2. The
+    // intake_waitlist row still exists (unique per customer), so the insert
+    // 23505s just like a normal repeat-join. findWaitlistCredit is now
+    // filtered to status='approved', so the spent row never matches — both
+    // the initial lookup and mintWaitlistCredit's retry come back empty even
+    // though a credit row genuinely exists for this customer.
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
+    insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
+    existingCreditMock.mockResolvedValue({ data: null, error: null })
+    // credits_one_intake_waitlist_per_customer blocks a second credit row
+    // for this customer regardless of the existing row's status, so the
+    // mint attempt also 23505s.
+    insertCreditMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
+
+    const res = await joinIntakeWaitlist()
+
+    expect(res.ok).toBe(true)
+    expect(res.alreadyJoined).toBe(true)
+    expect(res.creditAed).toBe(0)
+    expect(res.message).toBe(SPOT_SAVED_NO_CREDIT_YET_MESSAGE)
   })
 })

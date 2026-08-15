@@ -75,7 +75,7 @@ export async function updateIntakeCopy(
     const sb = createAdminSupabaseClient()
     const { error } = await sb
         .from('intake_settings')
-        .update({ headline: cleanHeadline, body: cleanBody })
+        .update({ headline: cleanHeadline, body: cleanBody, updated_at: new Date().toISOString() })
         .eq('id', SETTINGS_ID)
 
     if (error) return { error: error.message }
@@ -114,6 +114,7 @@ export async function updateIntakeCredits(
             credit_nonveg_aed: nonveg,
             credit_veg_aed: veg,
             credit_religious_aed: religious,
+            updated_at: new Date().toISOString(),
         })
         .eq('id', SETTINGS_ID)
 
