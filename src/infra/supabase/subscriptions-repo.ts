@@ -11,6 +11,8 @@ import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { creditAppliesToPlan } from '@/contexts/subscriptions/domain/credit-eligibility'
+import type { PlanId } from '@/contexts/subscriptions/domain/plans'
 
 // React `cache()` deduplicates these calls inside a single render. When the
 // layout and a page both ask for the same user's customer row, only one
@@ -132,33 +134,64 @@ export interface RedeemableCreditRow {
 
 export interface RedeemableCredit {
   rows:        RedeemableCreditRow[]
-  /** Sum of `amount_aed × 100`, rounded — the redeemable balance in fils. */
+  /** Sum of `amount_aed × 100`, rounded — the balance redeemable on THIS plan. */
   balanceFils: number
+  /** Held, approved, but not redeemable against this plan. Display only. */
+  lockedFils:  number
+  /** True when the locked balance would unlock on a monthly plan. */
+  lockedRequiresMonthly: boolean
 }
 
 /**
  * Returns approved credit rows + their summed balance in fils for redemption.
- * Accepts a caller-supplied Supabase client so it can run from API routes
- * (server client) or RSC pages (server client) without instantiating its own.
+ *
+ * When `planId` is supplied the rows are filtered by `eligible_plan_ids`, and
+ * anything excluded is reported separately as `lockedFils` so the customer can
+ * be told WHY a credit they hold is not coming off the price. Omitting
+ * `planId` applies no filter, preserving the pre-restriction behaviour for
+ * callers that are not plan-specific.
+ *
+ * Both the checkout route and the plan page MUST call this with the same
+ * planId — that lockstep is what keeps the displayed discount and the charged
+ * discount identical.
  */
 export async function getRedeemableCredit(
   sb: SupabaseClient,
   userId: string,
+  planId?: PlanId,
 ): Promise<RedeemableCredit> {
   const { data } = await sb
     .from('credits')
-    .select('id, amount_aed')
+    .select('id, amount_aed, eligible_plan_ids')
     .eq('customer_id', userId)
     .eq('status', 'approved')
     .order('created_at', { ascending: true })
 
-  const rows: RedeemableCreditRow[] = (data ?? []).map(r => ({
-    id:         r.id as string,
-    amount_aed: Number(r.amount_aed),
-  }))
+  const all = (data ?? []) as Array<{
+    id: string
+    amount_aed: number
+    eligible_plan_ids: string[] | null
+  }>
+
+  const rows: RedeemableCreditRow[] = []
+  let lockedFils = 0
+  let lockedRequiresMonthly = false
+
+  for (const r of all) {
+    const usable = planId == null || creditAppliesToPlan(r.eligible_plan_ids, planId)
+    if (usable) {
+      rows.push({ id: r.id, amount_aed: Number(r.amount_aed) })
+    } else {
+      lockedFils += Math.round(Number(r.amount_aed) * 100)
+      if ((r.eligible_plan_ids ?? []).some(p => p.startsWith('monthly-'))) {
+        lockedRequiresMonthly = true
+      }
+    }
+  }
+
   const balanceFils = rows.reduce(
     (sum, r) => sum + Math.round(r.amount_aed * 100),
     0,
   )
-  return { rows, balanceFils }
+  return { rows, balanceFils, lockedFils, lockedRequiresMonthly }
 }
