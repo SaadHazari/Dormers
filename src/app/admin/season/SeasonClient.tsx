@@ -116,7 +116,7 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                 <div className={`mt-4 flex items-center gap-2.5 px-4 py-3 rounded-xl border ${t.dangerBg}`}>
                     <AlertTriangle size={16} strokeWidth={2.2} className={t.danger} />
                     <span className={`text-[13px] font-bold ${t.danger}`}>
-                        New intake is PAUSED — no new plan purchases or renewals are going through.
+                        New intake is PAUSED. No new plan purchases or renewals are going through.
                         {settings.pausedBy ? ` Paused by ${settings.pausedBy.split('@')[0]}.` : ''}
                     </span>
                 </div>
@@ -125,7 +125,7 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
                 <KPI label="Status" value={settings.paused ? 'Paused' : 'Open'} t={t} tone={settings.paused ? 'danger' : 'success'} />
                 <KPI label="Early access list" value={waitlistCount} t={t} />
-                <KPI label="Credit range (AED)" value={`${Math.min(settings.creditVegAed, settings.creditNonvegAed, settings.creditReligiousAed)}–${Math.max(settings.creditVegAed, settings.creditNonvegAed, settings.creditReligiousAed)}`} t={t} />
+                <KPI label="Credit range (AED)" value={`${Math.min(settings.creditVegAed, settings.creditNonvegAed, settings.creditReligiousAed)} to ${Math.max(settings.creditVegAed, settings.creditNonvegAed, settings.creditReligiousAed)}`} t={t} />
             </div>
 
             {/* Pause / resume */}
@@ -228,7 +228,7 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                 {/* Live preview */}
                 <div className="lg:sticky lg:top-5 self-start min-w-0">
                     <div className={`text-[10px] font-black tracking-[0.12em] uppercase mb-2 ${t.faint}`}>
-                        Live preview — what a customer sees
+                        Live preview. What a customer sees
                     </div>
                     <PreviewCard headline={headlineDraft} body={bodyDraft} creditAed={Number.isFinite(previewCreditAed) ? previewCreditAed : 0} />
                 </div>
