@@ -12,7 +12,8 @@ import { MonthlyWrapEmptyBanner } from './_shared/MonthlyWrapEmptyBanner'
 import { CheckoutSuccessTakeover } from './_shared/CheckoutSuccessTakeover'
 import { whatsAppHref } from '@/shared/contacts'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
-import type { Customer, Subscription } from './_shared/types'
+import type { Customer, Subscription, IntakeGateState } from './_shared/types'
+import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
@@ -54,6 +55,8 @@ interface Props {
    *  time/session-driven hero state. Never set by production callers. */
   previewState?: string
   menuData?: Dish[]
+  /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
+  intakePause?: IntakeGateState
 }
 
 /**
@@ -65,7 +68,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, intakePause = INTAKE_NOT_PAUSED }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -287,6 +290,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       monthlyWindow={monthlyWindow}
       previewState={previewState}
       menuData={menuData}
+      intakePause={intakePause}
     />
   )
 }

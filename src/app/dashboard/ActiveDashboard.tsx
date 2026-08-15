@@ -16,6 +16,7 @@ import { cleanPlanName, OG, OG_DEEP, BODY, S, NV2 } from './_shared/tokens'
 import { fmtWithDay } from './_shared/format'
 import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
+import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { HeroToday } from './HeroToday'
@@ -26,7 +27,8 @@ import { MonthlyWrapStrip } from './_shared/MonthlyWrapStrip'
 import { MobileHome, type MobileHomeData } from './_mobile/MobileHome'
 import { computeArrivalLabel, type DeliveryWeekType } from './_shared/delivery-phase'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED } from '@/contexts/subscriptions/domain/monthly-review'
-import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState } from './_shared/types'
+import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState, IntakeGateState } from './_shared/types'
+import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { cycleSavings as computeCycleSavings, lifetimeSavings as computeLifetimeSavings, perMealCost as computePerMealCost, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 
@@ -345,7 +347,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, intakePause = INTAKE_NOT_PAUSED }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -354,6 +356,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   monthlyWindow?: MonthlyReviewWindow
   previewState?: string
   menuData?: Dish[]
+  /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
+  intakePause?: IntakeGateState
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -476,6 +480,17 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // QuickActions so the slot doesn't vanish silently after resume — the
   // user reads what happened and when the affordance returns.
   const pauseCreditUsed = isPausableTier && !!sub.has_paused_before && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
+
+  // Seasonal intake pause — plan-ending-during-a-pause banner (spec §6.4).
+  // The 7-day window and "not starting in the future" gate deliberately
+  // mirror PlanClient's renewEligible (PlanClient.tsx, ~line 235) computed
+  // independently here from the raw sub, exactly as renewEligible reads it —
+  // so the banner appears precisely when the renew affordance would
+  // otherwise have been offered.
+  const planEndDaysRemaining = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
+  const planStartsInFuture = new Date(sub.start_date).getTime() > Date.now()
+  const showPlanEndingPausedBanner = intakePause.paused && !planStartsInFuture && planEndDaysRemaining <= 7
+
   const endedPlans      = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
   const totalDelivered  = allSubscriptions.reduce((acc, x) => acc + (x.delivered_meals ?? 0), 0)
   const memberSinceText = customer?.created_at
@@ -1445,6 +1460,17 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         {/* Profile-completion gate — non-dismissable, blocks plan purchase. */}
         <ProfileBanner missing={profileGate} />
 
+        {/* Plan-ending-during-a-pause — spec §6.4. Sits above the hero so a
+            loyal customer whose plan is about to lapse learns about the pause
+            here, not by reaching a shut checkout. */}
+        {showPlanEndingPausedBanner && (
+          <PlanEndingPausedBanner
+            daysRemaining={planEndDaysRemaining}
+            creditAed={intakePause.creditAed}
+            alreadyJoined={intakePause.alreadyJoined}
+          />
+        )}
+
         {/* End-of-cycle renew banner — visibility window scales with plan
             length so longer plans get a longer lead-time:
               · Monthly   → last 4 days  (4-day heads-up on a ~30-day cycle)
@@ -1744,6 +1770,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           <ProfileBanner missing={profileGate} />
           <MobileHome
             data={mobileData}
+            planEndingBanner={showPlanEndingPausedBanner ? (
+              <PlanEndingPausedBanner
+                daysRemaining={planEndDaysRemaining}
+                creditAed={intakePause.creditAed}
+                alreadyJoined={intakePause.alreadyJoined}
+              />
+            ) : null}
             errorBanner={actionError ? (
               <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontFamily: BODY, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <span>{actionError}</span>

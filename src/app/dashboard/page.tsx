@@ -1,11 +1,14 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder } from '@/infra/supabase/subscriptions-repo'
+import { createClient } from '@/utils/supabase/server'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
 import type { Viewport } from 'next'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import { getMenuDishes } from '@/infra/supabase/menu-catalog'
+import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import type { IntakeGateState } from './_shared/types'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -73,7 +76,8 @@ export default async function DashboardPage({
     // monthlyWindow IS needed here for the post-cron strip + empty banner — the
     // React cache() wrapper makes the second call free since the layout fetched
     // it first. See project_now_tray_architecture memory.
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes] = await Promise.all([
+    const supabase = await createClient()
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, intakeState, waitlistStatus] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
@@ -81,12 +85,28 @@ export default async function DashboardPage({
         getMonthlyReviewWindow(user.id),
         getMostRecentOrder(user.id),
         getMenuDishes(),
+        // Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4).
+        getIntakeState(),
+        getWaitlistStatus(supabase, user.id),
     ])
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are
     // now real subscriptions (planKind='gift'), so they surface through
     // getActiveSubscription naturally and render via ActiveDashboard — same
     // path as paid plans.
+
+    // Same shape PlanClient/IntakePausedGate already consume — creditAed is
+    // the prospective amount for this customer's meal preference (matches
+    // what joinIntakeWaitlist will actually mint), not the ledger balance;
+    // alreadyJoined comes from the shared getWaitlistStatus helper so this
+    // fact can't drift from the Now-tray's.
+    const intakePause: IntakeGateState = {
+        paused: intakeState.paused,
+        headline: intakeState.headline,
+        body: intakeState.body,
+        creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+        alreadyJoined: waitlistStatus.joined,
+    }
 
     return (
         <Suspense fallback={<Spinner />}>
@@ -99,6 +119,7 @@ export default async function DashboardPage({
                 monthlyWindow={monthlyWindow}
                 mostRecentOrder={mostRecentOrder}
                 menuData={menuDishes}
+                intakePause={intakePause}
             />
         </Suspense>
     )
