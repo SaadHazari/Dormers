@@ -76,6 +76,7 @@ export default async function PlanPage({
     body: intakeState.body,
     creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
     alreadyJoined: waitlistStatus.joined,
+    waitlistCreditAed: waitlistStatus.unspentCreditAed,
   }
 
   return (

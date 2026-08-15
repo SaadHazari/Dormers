@@ -131,6 +131,14 @@ export interface IntakeGateState {
   body: string
   creditAed: number
   alreadyJoined: boolean
+  /** Unspent waitlist credit currently sitting in the customer's ledger
+   *  (getWaitlistStatus().unspentCreditAed — the single source of truth).
+   *  Can differ from `creditAed` above, which is the prospective
+   *  per-preference amount computed from the CURRENT intake_settings row;
+   *  if the admin changes the credit amounts after a customer joins, their
+   *  actual minted credit stays whatever it was at join time. The
+   *  "reopened" takeover names THIS number, never `creditAed`. */
+  waitlistCreditAed: number
 }
 
 /** Default for surfaces that don't thread a live `intake` prop (preview
@@ -141,6 +149,7 @@ export const INTAKE_NOT_PAUSED: IntakeGateState = {
   body: '',
   creditAed: 0,
   alreadyJoined: false,
+  waitlistCreditAed: 0,
 }
 
 /**

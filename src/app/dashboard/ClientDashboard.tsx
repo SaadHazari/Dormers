@@ -10,6 +10,7 @@ import { ProfileBanner } from './_shared/ProfileBanner'
 import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { MonthlyWrapEmptyBanner } from './_shared/MonthlyWrapEmptyBanner'
 import { CheckoutSuccessTakeover } from './_shared/CheckoutSuccessTakeover'
+import { IntakePauseTakeover } from './_shared/IntakePauseTakeover'
 import { whatsAppHref } from '@/shared/contacts'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import type { Customer, Subscription, IntakeGateState } from './_shared/types'
@@ -36,6 +37,14 @@ const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
 // reassurance + WhatsApp escape hatch. Norman: errors must offer alternative
 // paths; an infinite spinner is a dead-end.
 const WEBHOOK_FALLBACK_MS = 20_000
+
+// Seasonal intake pause — once-only takeover flags. One key per variant so
+// dismissing "pausing" can never suppress a later "reopened" (they track
+// independent state changes). Plain localStorage, unscoped by customer —
+// same convention as WeeklyReviewTakeover's ACK_STORAGE_KEY and the Dorm
+// Wars hub's REWARD_SEEN_KEY elsewhere in this app.
+const INTAKE_PAUSING_SEEN_KEY = 'dormers:intake-pausing-ack-v1'
+const INTAKE_REOPENED_SEEN_KEY = 'dormers:intake-reopened-ack-v1'
 
 interface Props {
   customer: Customer | null
@@ -127,6 +136,47 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     if (checkoutCanceled && activeSubscription) router.replace('/dashboard')
   }, [checkoutCanceled, activeSubscription, router])
 
+  // Seasonal intake pause — once-only state-change takeovers. Pessimistic
+  // init (seen=true) so nothing renders until this effect has actually
+  // checked localStorage — avoids an SSR/hydration flash where the
+  // takeover would flicker on for a client that already dismissed it.
+  const [intakeTakeoverChecked, setIntakeTakeoverChecked] = useState(false)
+  const [pausingSeen, setPausingSeen] = useState(true)
+  const [reopenedSeen, setReopenedSeen] = useState(true)
+  useEffect(() => {
+    try {
+      setPausingSeen(!!window.localStorage.getItem(INTAKE_PAUSING_SEEN_KEY))
+      setReopenedSeen(!!window.localStorage.getItem(INTAKE_REOPENED_SEEN_KEY))
+    } catch {
+      // Storage disabled (privacy mode / sandboxed iframe) — treat as
+      // already seen. A takeover that can never remember being dismissed
+      // must not wedge every future visit.
+      setPausingSeen(true)
+      setReopenedSeen(true)
+    }
+    setIntakeTakeoverChecked(true)
+  }, [])
+
+  const dismissPausingTakeover = () => {
+    try { window.localStorage.setItem(INTAKE_PAUSING_SEEN_KEY, '1') } catch { /* see above */ }
+    setPausingSeen(true)
+  }
+  const dismissReopenedTakeover = () => {
+    try { window.localStorage.setItem(INTAKE_REOPENED_SEEN_KEY, '1') } catch { /* see above */ }
+    setReopenedSeen(true)
+    router.push('/dashboard/plan')
+  }
+
+  // pausing: only a customer with a live plan gets the reassurance moment.
+  // reopened: only someone who joined the early-access list AND still holds
+  // unspent credit — a joined customer who already redeemed it (or whose
+  // credit amount is genuinely zero) has nothing to be told is "ready".
+  const showPausingTakeover =
+    intakeTakeoverChecked && !pausingSeen && intakePause.paused && !!activeSubscription
+  const showReopenedTakeover =
+    intakeTakeoverChecked && !reopenedSeen && !intakePause.paused &&
+    intakePause.alreadyJoined && intakePause.waitlistCreditAed > 0
+
   // Order received → setting up (with webhook-delay fallback). Spinner now
   // covers BOTH first-time customers (no active sub) and existing customers
   // (active sub but new one hasn't landed yet) — anyone whose new sub the
@@ -216,6 +266,31 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
         />
       )
     }
+  }
+
+  // Seasonal intake pause — once-only state-change takeovers. Sits after
+  // the checkout-success branches (never fights that moment — a customer
+  // who just paid sees CheckoutSuccessTakeover first, and this can't win a
+  // race because paused customers can't reach checkout in the first place)
+  // and before every other branch, since like CheckoutSuccessTakeover it
+  // fully replaces the view rather than layering on top of it.
+  if (showPausingTakeover) {
+    return (
+      <IntakePauseTakeover
+        variant="pausing"
+        creditAed={intakePause.creditAed}
+        onDismiss={dismissPausingTakeover}
+      />
+    )
+  }
+  if (showReopenedTakeover) {
+    return (
+      <IntakePauseTakeover
+        variant="reopened"
+        creditAed={intakePause.waitlistCreditAed}
+        onDismiss={dismissReopenedTakeover}
+      />
+    )
   }
 
   // Profile-completion gate — non-dismissable, blocks plan purchase. Required
