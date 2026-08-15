@@ -64,6 +64,13 @@ describe('getRedeemableCredit', () => {
     expect(res.lockedRequiresMonthly).toBe(true)
   })
 
+  it('locks a non-monthly-restricted credit without flagging lockedRequiresMonthly', async () => {
+    const sb = sbWith([{ id: 't', amount_aed: 15, eligible_plan_ids: ['trial'] }])
+    const res = await getRedeemableCredit(sb, 'user-1', 'weekly-flex')
+    expect(res.lockedFils).toBeGreaterThan(0)
+    expect(res.lockedRequiresMonthly).toBe(false)
+  })
+
   it('splits a mixed balance correctly on a weekly plan', async () => {
     const sb = sbWith([
       { id: 'referral', amount_aed: 50, eligible_plan_ids: null },

@@ -11,7 +11,7 @@ import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { creditAppliesToPlan } from '@/contexts/subscriptions/domain/credit-eligibility'
+import { creditAppliesToPlan, MONTHLY_PLAN_IDS } from '@/contexts/subscriptions/domain/credit-eligibility'
 import type { PlanId } from '@/contexts/subscriptions/domain/plans'
 
 // React `cache()` deduplicates these calls inside a single render. When the
@@ -183,7 +183,7 @@ export async function getRedeemableCredit(
       rows.push({ id: r.id, amount_aed: Number(r.amount_aed) })
     } else {
       lockedFils += Math.round(Number(r.amount_aed) * 100)
-      if ((r.eligible_plan_ids ?? []).some(p => p.startsWith('monthly-'))) {
+      if ((r.eligible_plan_ids ?? []).some(p => (MONTHLY_PLAN_IDS as readonly string[]).includes(p))) {
         lockedRequiresMonthly = true
       }
     }
