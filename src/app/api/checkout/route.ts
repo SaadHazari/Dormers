@@ -11,6 +11,7 @@ import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-s
 import { getRedeemableCredit } from '@/infra/supabase/subscriptions-repo';
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo';
 import { notifyAdmin } from '@/infra/admin-alerts/notify';
+import { getIntakeState } from '@/infra/config/intake';
 
 // Release It! L2: cap this route's wall-clock so a slow Stripe/Supabase chain
 // fails fast inside our control instead of dying at the opaque platform limit
@@ -35,6 +36,20 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+    }
+
+    // ── Seasonal intake pause ──────────────────────────────────────────────
+    // Placed before ANY Stripe, pricing or profile work so a paused shop
+    // rejects cheaply. The UI gates the plan surfaces, but a stale tab or a
+    // hand-crafted POST reaches here — this is the authoritative stop.
+    // getIntakeState fails open, so a settings-read blip lets the sale through
+    // rather than closing the shop by accident.
+    const intake = await getIntakeState();
+    if (intake.paused) {
+      return NextResponse.json({
+        error: 'INTAKE_PAUSED',
+        message: intake.body || 'We have paused new plans for now. Save your spot and we will message you the day we reopen.',
+      }, { status: 409 });
     }
 
     const body = await req.json();
