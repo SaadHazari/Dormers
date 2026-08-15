@@ -28,11 +28,12 @@
 // no is_test flag): getKitchenCounts and getDormCounts both count rows with
 // status Active | Paused | Skipped, one per SUBSCRIPTION, not per meal. The
 // paused and skipped fixtures carry today in paused_dates / skipped_dates, so
-// both are filtered out. That leaves the four Active fixtures: +2 veg and
-// +2 non-veg on the kitchen display, and a group of 4 under "Other" on the
-// rider's dorm counts. All nine sit on dorm "Other" (is_delivery_target =
-// false) so they land in their own obviously-fake bucket rather than
-// inflating a real dorm's box count.
+// both are filtered out. That leaves the four Active fixtures on a normal day,
+// and only two of those on a Saturday (the 5DAYS ones do not deliver). Run
+// `list` for the exact veg / non-veg figure to subtract today — it computes
+// the same filter chain rather than restating a number that moves with the
+// weekday. All nine sit on dorm "Other" (is_delivery_target = false) so they
+// land in their own obviously-fake bucket rather than inflating a real dorm.
 
 import path from 'path'
 import { randomUUID, createHash } from 'crypto'
@@ -47,6 +48,7 @@ import {
   type PlanId,
 } from '@/contexts/subscriptions/domain/plans'
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
+import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') })
 
@@ -532,7 +534,9 @@ async function cmdSeed(sb: SupabaseClient) {
       meals_count: d.totalMeals,
       price_per_meal: d.pricePerMeal,
       invoice_status: 'Paid',
-      payment_method: spec.planId === 'welcome-gift' ? 'gift' : 'stripe',
+      // Only 'stripe' | 'credit' pass orders_payment_method_check. The real
+      // free/gift checkout books itself as 'credit', so the fixture matches it.
+      payment_method: spec.planId === 'welcome-gift' ? 'credit' : 'stripe',
       payment_date: new Date(`${d.startDate}T06:00:00Z`).toISOString(),
       webhook_completed_at: new Date(`${d.startDate}T06:00:00Z`).toISOString(),
     })
@@ -670,9 +674,38 @@ async function cmdList(sb: SupabaseClient) {
   for (const spec of ACCOUNTS) {
     console.log(`  ${spec.slug.padEnd(8)} ${spec.covers}`)
   }
-  console.log('\nAll nine sit on dorm "Other". Four are Active, so the kitchen display reads')
-  console.log('+2 veg and +2 non-veg, and the rider sees a group of 4 under "Other".')
+  const { veg, nonVeg, dayName } = fixtureOpsImpact(today)
+  console.log(`\nAll nine sit on dorm "Other". Today is ${dayName}, so these fixtures add`)
+  console.log(`+${veg} veg and +${nonVeg} non-veg to the kitchen display, and a group of`)
+  console.log(`${veg + nonVeg} under "Other" on the rider's dorm counts. Subtract those.`)
   void sb
+}
+
+/**
+ * What the fixtures contribute to today's kitchen and rider counts.
+ *
+ * Mirrors getKitchenCounts exactly: status in Active|Paused|Skipped, minus
+ * the 5DAYS Saturday rule, minus today-in-skipped_dates, minus
+ * today-in-paused_dates. Computed rather than stated because the answer moves
+ * with the weekday — on Saturday the two 5DAYS fixtures drop out on their own.
+ */
+function fixtureOpsImpact(today: Date): { veg: number; nonVeg: number; dayName: string } {
+  const dayName = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long' }).format(today)
+  const todayIso = isoDate(today)
+  const isSaturday = today.getUTCDay() === 6
+
+  let veg = 0
+  let nonVeg = 0
+  for (const [index, spec] of ACCOUNTS.entries()) {
+    if (!spec.planId || !spec.status) continue
+    if (!['Active', 'Paused', 'Skipped'].includes(spec.status)) continue
+    if (spec.weekType === '5DAYS' && isSaturday) continue
+    const d = derive(spec, index, today)
+    if (d.skippedDates.includes(todayIso) || d.pausedDates.includes(todayIso)) continue
+    if (isVegOnDayName(spec.preference, spec.vegDays, dayName)) veg++
+    else nonVeg++
+  }
+  return { veg, nonVeg, dayName }
 }
 
 // ─── entry ───────────────────────────────────────────────────────────────────
