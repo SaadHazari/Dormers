@@ -119,6 +119,31 @@ export type MenuItem = {
 export type WeekStatus = 'live' | 'fallback' | 'empty'
 
 /**
+ * Seasonal intake pause state, threaded from the server component
+ * (getIntakeState + creditAedFor + the customer's intake_waitlist row) down
+ * through PlanClient to every surface that renders IntakePausedGate. Same
+ * shape everywhere so the gate is a drop-in mount, not a bespoke prop list
+ * per surface.
+ */
+export interface IntakeGateState {
+  paused: boolean
+  headline: string
+  body: string
+  creditAed: number
+  alreadyJoined: boolean
+}
+
+/** Default for surfaces that don't thread a live `intake` prop (preview
+ *  mode, tests) — never gates a purchase by accident. */
+export const INTAKE_NOT_PAUSED: IntakeGateState = {
+  paused: false,
+  headline: '',
+  body: '',
+  creditAed: 0,
+  alreadyJoined: false,
+}
+
+/**
  * UI-only computed status for the dashboard hero card. Distinct from
  * the persisted SubscriptionStatus — adds 'skipped' (derived from
  * `last_skipped_date`) which is not a stored sub.status value.

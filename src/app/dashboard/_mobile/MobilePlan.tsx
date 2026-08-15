@@ -4,7 +4,8 @@ import { useEffect, useState, useTransition, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle, Gift } from 'lucide-react'
-import type { Customer, Subscription } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import { INTAKE_NOT_PAUSED } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { whatsAppHref } from '@/shared/contacts'
@@ -12,6 +13,7 @@ import { changeStartDate } from '@/contexts/subscriptions/usecases/subscription-
 import { fmt, fmtWithDay } from '../_shared/format'
 import { StatusDot } from '../_shared/StatusDot'
 import { MobileDatePicker } from './MobileDatePicker'
+import { IntakePausedGate } from '../_shared/IntakePausedGate'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
   eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
@@ -62,9 +64,12 @@ interface Props {
   onRenew: () => void
   /** PlanClient.handleCancelPlannedPause — runs the action + refresh. */
   onConfirmCancelPause: () => void
+  /** Seasonal intake pause — mounts IntakePausedGate over the empty-state
+   *  card, taking precedence over the profile / out-of-zone gate copy. */
+  intake?: IntakeGateState
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED }: Props) {
   return (
     <MobileColumn style={{ color: S.fg }}>
       <div style={{ paddingLeft: 56, minHeight: 34, display: 'flex', alignItems: 'center' }}>
@@ -73,7 +78,7 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
 
       {activeSubscription
         ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} />
-        : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} />}
+        : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} intake={intake} />}
 
       {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} />}
 
@@ -427,28 +432,43 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 }
 
 // ── Empty state (no active plan) ─────────────────────────────────────────────
-function EmptyState({ onRenew, profileGated, outOfZone }: { onRenew: () => void; profileGated: boolean; outOfZone: boolean }) {
-  const gated = profileGated || outOfZone
+function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () => void; profileGated: boolean; outOfZone: boolean; intake: IntakeGateState }) {
+  const gated = profileGated || outOfZone || intake.paused
   return (
-    <section style={{ ...CARD, padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-      <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CalendarDays size={20} strokeWidth={2} /></span>
-      <SectionTitle size={20}>No active plan</SectionTitle>
-      <p style={{ margin: 0, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>Pick a plan and your dinners start arriving 7–8 PM, every evening.</p>
-      {gated ? (
-        <>
-          <span style={{ ...lightDisabledPill, maxWidth: 280 }}>Browse plans →</span>
-          <p style={{ margin: '-4px 0 0', fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
-            {outOfZone
-              ? 'Your dorm is outside our delivery radius — message us on WhatsApp.'
-              : <>Finish your profile to unlock plans.{' '}
-                  <Link href="/dashboard/profile" style={{ color: OG, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Complete profile →</Link>
-                </>}
-          </p>
-        </>
-      ) : (
-        <button type="button" onClick={onRenew} style={{ ...orangePill, color: '#fff', maxWidth: 280 }}>Browse plans →</button>
+    // Wrapper is the gate's mount point (position:relative), so
+    // IntakePausedGate frosts exactly this card and nothing else on the
+    // page — same idiom as the desktop plan grid's gate wrapper.
+    <div style={{ position: 'relative' }}>
+      {intake.paused && (
+        <IntakePausedGate
+          headline={intake.headline}
+          body={intake.body}
+          creditAed={intake.creditAed}
+          alreadyJoined={intake.alreadyJoined}
+        />
       )}
-    </section>
+      <section style={{ ...CARD, padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CalendarDays size={20} strokeWidth={2} /></span>
+        <SectionTitle size={20}>No active plan</SectionTitle>
+        <p style={{ margin: 0, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>Pick a plan and your dinners start arriving 7–8 PM, every evening.</p>
+        {gated ? (
+          <>
+            <span style={{ ...lightDisabledPill, maxWidth: 280 }}>Browse plans →</span>
+            <p style={{ margin: '-4px 0 0', fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
+              {intake.paused
+                ? 'New plans are paused right now.'
+                : outOfZone
+                  ? 'Your dorm is outside our delivery radius — message us on WhatsApp.'
+                  : <>Finish your profile to unlock plans.{' '}
+                      <Link href="/dashboard/profile" style={{ color: OG, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Complete profile →</Link>
+                    </>}
+            </p>
+          </>
+        ) : (
+          <button type="button" onClick={onRenew} style={{ ...orangePill, color: '#fff', maxWidth: 280 }}>Browse plans →</button>
+        )}
+      </section>
+    </div>
   )
 }
 

@@ -15,6 +15,7 @@ import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileBanner } from '../_shared/ProfileBanner'
 import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
+import { IntakePausedGate } from '../_shared/IntakePausedGate'
 import { Tooltip } from '../_shared/Tooltip'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
@@ -52,7 +53,8 @@ const DISPLAY = BODY
 // duplicates here drifted out of sync with downstream code during Phase 1+5
 // development. Consuming the shared definitions keeps every render path on
 // the same shape.
-import type { Customer, Subscription } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import { INTAKE_NOT_PAUSED } from '../_shared/types'
 interface Props {
   customer: Customer | null
   activeSubscription: Subscription | null
@@ -71,6 +73,11 @@ interface Props {
    *  checkout panels, and the POSTed amount all show the DB-backed price.
    *  Defaults to [] (code prices) in preview mode / fetch failure. */
   priceOverrides?: PriceOverride[]
+  /** Seasonal intake pause (server-fetched via getIntakeState + the
+   *  customer's intake_waitlist row). Drives IntakePausedGate everywhere a
+   *  plan can be bought. Takes precedence over the profile-completion gate
+   *  — never render both. Defaults to "not paused" in preview mode. */
+  intake?: IntakeGateState
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -185,7 +192,7 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null }: {
+function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null, intake = INTAKE_NOT_PAUSED }: {
   sub: Subscription | null
   onRenewClick: () => void
   // Opens the cancel-planned-pause confirmation modal. Wired by PlanClient
@@ -198,11 +205,15 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   // the QueuedSubCallout below would be redundant noise.
   hasQueuedSub?: boolean
   outOfZone?: boolean
-  /** Full purchase gate (profile incomplete OR out of zone) — disables the
-   *  empty-state CTA exactly like the dashboard home. */
+  /** Full purchase gate (profile incomplete OR out of zone OR intake
+   *  paused) — disables the empty-state CTA exactly like the dashboard home. */
   purchaseGated?: boolean
-  /** ProfileBanner node shown above the empty-state hero when profile gated. */
+  /** ProfileBanner node shown above the empty-state hero when profile gated.
+   *  Caller already suppresses this when intake.paused (never both). */
   gateBanner?: React.ReactNode
+  /** Seasonal intake pause — mounts IntakePausedGate over the empty-state
+   *  hero, taking precedence over the profile gate. */
+  intake?: IntakeGateState
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
 
@@ -210,7 +221,7 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
     // Reuse the dashboard's NoPlanView so the new-customer entry point reads
     // identically across /dashboard and /dashboard/plan — same brand DNA grid,
     // same headline, same CTA. Single source of truth for the empty state.
-    return <NoPlanView outOfZone={outOfZone} purchaseGated={purchaseGated || outOfZone} banners={gateBanner} />
+    return <NoPlanView outOfZone={outOfZone} purchaseGated={purchaseGated || outOfZone} banners={gateBanner} intake={intake} />
   }
   const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
@@ -1295,15 +1306,18 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0, priceOverrides = [] }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
   // empty-state CTA and the /explore-plans grid must never offer a purchase
-  // path that /api/checkout will reject (PROFILE_INCOMPLETE).
+  // path that /api/checkout will reject (PROFILE_INCOMPLETE). Seasonal
+  // intake pause folds into the same gate — a paused intake blocks every
+  // purchase CTA site-wide, same as an incomplete profile or an out-of-zone
+  // dorm. Which MESSAGE is shown is decided separately (intake wins).
   const missingFields = missingProfileFields(customer)
   const profileGated = missingFields.length > 0
-  const purchaseGated = profileGated || outOfZone
+  const purchaseGated = profileGated || outOfZone || intake.paused
   const router = useRouter()
   const [, startPlanTransition] = useTransition()
 
@@ -1477,7 +1491,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               hasQueuedSub={!!queuedSub}
               outOfZone={outOfZone}
               purchaseGated={purchaseGated}
-              gateBanner={profileGated ? <ProfileBanner missing={missingFields} /> : null}
+              // Intake pause wins — telling someone to finish their profile
+              // so they can buy something that isn't for sale is the wrong
+              // instruction. IntakePausedGate carries its own message.
+              gateBanner={intake.paused ? null : (profileGated ? <ProfileBanner missing={missingFields} /> : null)}
+              intake={intake}
             />
           </div>
         )}
@@ -1702,13 +1720,17 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   3-column zone that orphans the 4th plan. The recommended
                   card sits in row position 3 of 4 at desktop and bottom-left
                   of a 2x2 grid at tablet, both deliberate. */}
-              {/* Profile gate — frosted overlay over the grid until the
-                  profile is complete (mirrors the dashboard-home gate;
-                  /api/checkout rejects incomplete profiles anyway). The
+              {/* Intake-paused / profile gate — frosted overlay over the
+                  grid until plans are open (or the profile is complete).
+                  Intake pause wins: telling someone to finish their profile
+                  so they can buy something that isn't for sale is the wrong
+                  instruction, so the two never render together. The
                   onSelect guard below covers the keyboard path the overlay
-                  can't intercept. */}
+                  can't intercept — it must repeat the same precedence. */}
               <div style={{ position: 'relative', marginBottom: 24 }}>
-                {profileGated && <ProfileGateOverlay missing={missingFields} />}
+                {intake.paused
+                  ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} />
+                  : profileGated && <ProfileGateOverlay missing={missingFields} />}
                 <div id="plans-grid" className="plans-grid">
                   {PLANS.map(p => (
                     <PlanCard
@@ -1718,7 +1740,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       vegDayCount={vegDayCount}
                       weekType={weekType}
                       selected={selected === p.id}
-                      onSelect={(id) => { if (profileGated) return; setSelected(prev => prev === id ? null : id) }}
+                      onSelect={(id) => { if (intake.paused || profileGated) return; setSelected(prev => prev === id ? null : id) }}
                       priceOverrides={priceOverrides}
                     />
                   ))}
@@ -1922,6 +1944,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           missingFields={missingFields}
           creditBalanceAed={creditBalanceAed}
           priceOverrides={priceOverrides}
+          intake={intake}
         />
       ) : (
         <MobilePlan
@@ -1934,6 +1957,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           profileGated={profileGated}
           onRenew={openPricing}
           onConfirmCancelPause={handleCancelPlannedPause}
+          intake={intake}
         />
       )}
     </div>

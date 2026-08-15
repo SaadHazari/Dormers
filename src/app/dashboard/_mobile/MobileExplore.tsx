@@ -3,10 +3,12 @@
 import { type CSSProperties } from 'react'
 import Link from 'next/link'
 import { Check, Info, Utensils, CalendarDays, Unlock } from 'lucide-react'
-import type { Customer, Subscription } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import { INTAKE_NOT_PAUSED } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
+import { IntakePausedGate } from '../_shared/IntakePausedGate'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobileCheckout } from './MobileCheckout'
 import { MobileColumn, CARD, PlanGlyph, SectionTitle, eyebrow, OG, S, BODY, useIsCompact } from './kit'
@@ -39,9 +41,12 @@ interface Props {
   /** Active admin price overrides (plan_pricing rows) — threaded into the
    *  cards + checkout sheet so mobile shows the DB-backed price. */
   priceOverrides?: PriceOverride[]
+  /** Seasonal intake pause — mounts IntakePausedGate over the plan stack,
+   *  taking precedence over the profile gate. Never render both. */
+  intake?: IntakeGateState
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditBalanceAed, priceOverrides = [] }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditBalanceAed, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -96,11 +101,16 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
 
       <OutOfZoneBanner show={outOfZone} />
 
-      {/* Plan cards — recommended first, single column. Profile gate frosts
-          the stack until the profile is complete; the onSelect guard covers
-          the keyboard path the overlay can't intercept. */}
+      {/* Plan cards — recommended first, single column. Intake pause frosts
+          the stack ahead of the profile gate (never both — telling someone
+          to finish their profile so they can buy something that isn't for
+          sale is the wrong instruction); the onSelect guard covers the
+          keyboard path the overlay can't intercept and must repeat the
+          same precedence. */}
       <div style={{ position: 'relative' }}>
-        {profileGated && <ProfileGateOverlay missing={missingFields} />}
+        {intake.paused
+          ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} />
+          : profileGated && <ProfileGateOverlay missing={missingFields} />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {ordered.map(plan => (
             <PlanCard
@@ -110,7 +120,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               vegDayCount={vegDayCount}
               weekType={weekType}
               selected={selected === plan.id}
-              onSelect={() => { if (profileGated) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
+              onSelect={() => { if (intake.paused || profileGated) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
               priceOverrides={priceOverrides}
             />
           ))}

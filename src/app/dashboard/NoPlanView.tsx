@@ -12,13 +12,16 @@ import { fmt } from './_shared/format'
 import { useNavigation } from './_shared/useNavigation'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
-import type { Customer, Subscription } from './_shared/types'
+import { IntakePausedGate } from './_shared/IntakePausedGate'
+import type { Customer, Subscription, IntakeGateState } from './_shared/types'
+import { INTAKE_NOT_PAUSED } from './_shared/types'
 
 interface Props {
   customer?: Customer | null
   allSubscriptions?: Subscription[]
   userEmail?: string
-  /** True iff customer profile is incomplete OR dorm is out of zone — disables purchase CTAs. */
+  /** True iff customer profile is incomplete OR dorm is out of zone OR
+   *  intake is paused — disables purchase CTAs. */
   purchaseGated?: boolean
   /** Subset of purchaseGated: true when the gate is the out-of-zone flag (vs missing profile fields). Drives the disabled-CTA tooltip copy. */
   outOfZone?: boolean
@@ -27,6 +30,9 @@ interface Props {
    *  greeting must always be the first thing on the dashboard — banners
    *  slot in below it, never above. */
   banners?: React.ReactNode
+  /** Seasonal intake pause — mounts IntakePausedGate over the hero card,
+   *  taking precedence over the profile / out-of-zone gate copy below. */
+  intake?: IntakeGateState
 }
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
@@ -44,10 +50,16 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
  * preselect param so /dashboard/explore-plans can land on the user's
  * previous tier.
  */
-export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false, banners = null }: Props) {
-  const gateTooltip = outOfZone
-    ? 'Outside delivery radius — message us on WhatsApp'
-    : 'Complete your profile first'
+export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false, banners = null, intake = INTAKE_NOT_PAUSED }: Props) {
+  // Intake pause wins the tooltip copy too — telling someone to finish
+  // their profile so they can buy something that isn't for sale is the
+  // wrong instruction. IntakePausedGate below carries the real message;
+  // this tooltip is just a defensive fallback on the (disabled) CTA span.
+  const gateTooltip = intake.paused
+    ? 'New plans are paused right now'
+    : outOfZone
+      ? 'Outside delivery radius — message us on WhatsApp'
+      : 'Complete your profile first'
   const prefersReducedMotion = useReducedMotion()
   const { navigate, isPending } = useNavigation()
 
@@ -132,19 +144,32 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
 
       {/* ── Hero card — light TIER1 surface (matches the rest of the dashboard).
             Two-zone grid: copy left, illustration right. Stacks vertically on
-            mobile so the headline is never compromised. ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={t(0.05)}
-        style={{
-          ...TIER1,
-          padding: 'clamp(28px, 4vw, 56px)',
-          borderRadius: 24,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
+            mobile so the headline is never compromised. Wrapped in its own
+            position:relative box so IntakePausedGate can frost exactly this
+            block (the actionable area) without covering the past-plans
+            reference section below it — same idiom as the plan grid's own
+            gate wrapper in PlanClient. ── */}
+      <div style={{ position: 'relative' }}>
+        {intake.paused && (
+          <IntakePausedGate
+            headline={intake.headline}
+            body={intake.body}
+            creditAed={intake.creditAed}
+            alreadyJoined={intake.alreadyJoined}
+          />
+        )}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={t(0.05)}
+          style={{
+            ...TIER1,
+            padding: 'clamp(28px, 4vw, 56px)',
+            borderRadius: 24,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
         {/* Faint grid wash — same DNA as before, but tuned down for the light
             surface so it reads as texture, not pattern. */}
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5, pointerEvents: 'none', color: 'var(--ds-fg)' }} aria-hidden>
@@ -289,7 +314,8 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             <OrbitMark spin={!prefersReducedMotion} />
           </motion.div>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* ── Past plans — same layout as /plan so the user reads identical
             structure across surfaces. Compact reference grid; tiles are

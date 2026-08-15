@@ -1,6 +1,7 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
+import { getIntakeState, creditAedFor, hasJoinedIntakeWaitlist } from '@/infra/config/intake'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import PlanClient from '../plan/PlanClient'
@@ -65,7 +66,7 @@ export default async function ExplorePlansPage({
   // also needs the Dorm Wars approved credit balance to render the discount
   // row before submit.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides, intakeState, alreadyOnWaitlist] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -73,8 +74,20 @@ export default async function ExplorePlansPage({
     // Admin-set price overrides (plan_pricing) — the pricing grid, the
     // checkout sheet, and /api/checkout validation all read the same rows.
     fetchActivePriceOverrides(),
+    // Seasonal intake pause — the operator switch that stops new plan
+    // purchases between semesters. IntakePausedGate takes precedence over
+    // the profile-completion gate in PlanClient.
+    getIntakeState(),
+    hasJoinedIntakeWaitlist(user.id),
   ])
   const creditBalanceAed = redeemable.balanceFils / 100
+  const intake = {
+    paused: intakeState.paused,
+    headline: intakeState.headline,
+    body: intakeState.body,
+    creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+    alreadyJoined: alreadyOnWaitlist,
+  }
 
   return (
     <PlanClient
@@ -85,6 +98,7 @@ export default async function ExplorePlansPage({
       mode="explore"
       creditBalanceAed={creditBalanceAed}
       priceOverrides={priceOverrides}
+      intake={intake}
     />
   )
 }

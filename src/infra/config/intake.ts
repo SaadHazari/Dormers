@@ -80,6 +80,31 @@ export function creditAedFor(
   return state.creditNonvegAed
 }
 
+/**
+ * Does this customer already have an intake_waitlist row? Server components
+ * thread the result into IntakePausedGate's `alreadyJoined` prop so a repeat
+ * visit renders the confirmed state directly on mount, with no re-tap and
+ * no entry animation.
+ *
+ * Fails closed to `false` (not joined) on a read error — worst case the
+ * customer sees the join button again and taps it, which is idempotent by
+ * design (join-intake-waitlist.ts), so nothing is lost by asking twice.
+ */
+export async function hasJoinedIntakeWaitlist(customerId: string): Promise<boolean> {
+  try {
+    const sb = createAdminSupabaseClient()
+    const { data, error } = await sb
+      .from('intake_waitlist')
+      .select('id')
+      .eq('customer_id', customerId)
+      .maybeSingle()
+    if (error) throw error
+    return !!data
+  } catch {
+    return false
+  }
+}
+
 /** Test seam — clear the in-memory cache between tests. */
 export function __resetIntakeCache(): void {
   cache = null

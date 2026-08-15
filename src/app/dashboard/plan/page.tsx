@@ -1,6 +1,7 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
+import { getIntakeState, creditAedFor, hasJoinedIntakeWaitlist } from '@/infra/config/intake'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
@@ -39,7 +40,7 @@ export default async function PlanPage({
   // can render "AED X applied" before submit. RLS lets the user read their
   // own rows, so the user-scoped server client is sufficient.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides, intakeState, alreadyOnWaitlist] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -47,8 +48,20 @@ export default async function PlanPage({
     // Admin-set price overrides (plan_pricing) — same rows /api/checkout
     // validates against, so displayed price === charged price.
     fetchActivePriceOverrides(),
+    // Seasonal intake pause — the operator switch that stops new plan
+    // purchases between semesters. IntakePausedGate takes precedence over
+    // the profile-completion gate in PlanClient.
+    getIntakeState(),
+    hasJoinedIntakeWaitlist(user.id),
   ])
   const creditBalanceAed = redeemable.balanceFils / 100
+  const intake = {
+    paused: intakeState.paused,
+    headline: intakeState.headline,
+    body: intakeState.body,
+    creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+    alreadyJoined: alreadyOnWaitlist,
+  }
 
   return (
     <Suspense>
@@ -59,6 +72,7 @@ export default async function PlanPage({
         userEmail={user.email}
         creditBalanceAed={creditBalanceAed}
         priceOverrides={priceOverrides}
+        intake={intake}
       />
     </Suspense>
   )
