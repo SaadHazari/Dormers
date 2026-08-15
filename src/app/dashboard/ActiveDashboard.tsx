@@ -1479,8 +1479,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             Hidden if a queued sub already exists (customer's already
             committed to a follow-up) or the primary is Scheduled (no live
             cycle to end). Always sits above the queued-banner slot so the
-            retention bookend gets the dominant position. */}
-        {!queuedSub && !isScheduled && (() => {
+            retention bookend gets the dominant position.
+            Also hidden while intake is paused — every one of these windows
+            (4/2/1 days) sits inside PlanEndingPausedBanner's 7-day window, so
+            a paused customer would otherwise see "Renew now" stacked under
+            "new plans are paused" with a live CTA into a gated checkout. The
+            plan-ending banner above is the only affordance during a pause. */}
+        {!queuedSub && !isScheduled && !intakePause.paused && (() => {
           const renewWindow = sub.plan_name.includes('Monthly') ? 4
             : sub.plan_name.includes('Weekly') ? 2
             : 1
@@ -1796,10 +1801,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 <button onClick={() => setShowOrderBanner(false)} aria-label="Dismiss" style={{ background: 'none', border: 'none', color: S.fgMuted, cursor: 'pointer', flexShrink: 0, padding: 2 }}><X size={14} strokeWidth={2.5} aria-hidden /></button>
               </div>
             ) : null}
-            renewBanner={(!queuedSub && !isScheduled) ? (() => {
+            renewBanner={(!queuedSub && !isScheduled && !intakePause.paused) ? (() => {
               // Same end-of-cycle window + copy + gating as the desktop renew
               // banner (ActiveDashboard renew block) — mobile had none, so
-              // phone customers got zero renew CTA at cycle end.
+              // phone customers got zero renew CTA at cycle end. Also hidden
+              // while intake is paused (see the desktop block's comment) —
+              // planEndingBanner above is the only affordance during a pause.
               const renewWindow = sub.plan_name.includes('Monthly') ? 4 : sub.plan_name.includes('Weekly') ? 2 : 1
               const todayMidnight = new Date(new Date().toDateString()).getTime()
               const endMidnight = new Date(sub.end_date + 'T00:00:00').getTime()

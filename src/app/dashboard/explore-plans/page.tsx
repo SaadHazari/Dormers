@@ -1,7 +1,7 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
-import { getIntakeState, creditAedFor, hasJoinedIntakeWaitlist } from '@/infra/config/intake'
+import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
 import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { createClient } from '@/utils/supabase/server'
@@ -72,7 +72,7 @@ export default async function ExplorePlansPage({
   // ONE query: fetch the approved rows unfiltered, then compute each plan's
   // balance/locked split in memory, never one round trip per plan.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, intakeState, alreadyOnWaitlist] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, intakeState, waitlistStatus] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -84,7 +84,10 @@ export default async function ExplorePlansPage({
     // purchases between semesters. IntakePausedGate takes precedence over
     // the profile-completion gate in PlanClient.
     getIntakeState(),
-    hasJoinedIntakeWaitlist(user.id),
+    // Single source of truth for "has this customer joined the waitlist" —
+    // shared with the Now-tray entries and the plan-ending banner so the
+    // fact can't drift between surfaces. This page only needs `.joined`.
+    getWaitlistStatus(supabase, user.id),
   ])
   // Re-key from the kebab plan_id (credit-eligibility's domain) to the
   // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
@@ -96,7 +99,7 @@ export default async function ExplorePlansPage({
     headline: intakeState.headline,
     body: intakeState.body,
     creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
-    alreadyJoined: alreadyOnWaitlist,
+    alreadyJoined: waitlistStatus.joined,
   }
 
   return (
