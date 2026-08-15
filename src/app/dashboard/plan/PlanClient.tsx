@@ -53,7 +53,7 @@ const DISPLAY = BODY
 // duplicates here drifted out of sync with downstream code during Phase 1+5
 // development. Consuming the shared definitions keeps every render path on
 // the same shape.
-import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
 interface Props {
   customer: Customer | null
@@ -63,11 +63,13 @@ interface Props {
   // 'plan'    → /dashboard/plan: shows current plan, profile, past plans (no pricing grid).
   // 'explore' → /dashboard/explore-plans: shows ONLY pricing grid + checkout, no other sections.
   mode?: 'plan' | 'explore'
-  /** Sum of approved Dorm Wars credits in AED (server-fetched). Threaded to
-   *  CheckoutPanel so the discount row renders before submit. Optional —
-   *  defaults to 0 when the SSR fetch returns nothing (no credits / fetch
-   *  failure / preview mode). */
-  creditBalanceAed?: number
+  /** Per-plan split of approved credits in fils, server-fetched ONCE
+   *  (getCreditSplitByPlan) and computed in memory for every selectable
+   *  plan. Threaded to both checkout surfaces so switching plan cards
+   *  updates the applied-discount row and the locked-credit explanation
+   *  without a round trip. Optional, defaults to {} when the SSR fetch
+   *  returns nothing (preview mode / fetch failure). */
+  creditByPlan?: CreditByPlan
   /** Active admin price overrides (plan_pricing rows, server-fetched).
    *  Threaded into every pricePerMeal/totalPrice call so the cards, the
    *  checkout panels, and the POSTed amount all show the DB-backed price.
@@ -1306,7 +1308,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditBalanceAed = 0, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
@@ -1767,7 +1769,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     activeSubscription={activeSubscription}
                     weekType={weekType}
                     outOfZone={outOfZone}
-                    creditBalanceAed={creditBalanceAed}
+                    creditByPlan={creditByPlan}
                     priceOverrides={priceOverrides}
                   />
                 )}
@@ -1942,7 +1944,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           outOfZone={outOfZone}
           profileGated={profileGated}
           missingFields={missingFields}
-          creditBalanceAed={creditBalanceAed}
+          creditByPlan={creditByPlan}
           priceOverrides={priceOverrides}
           intake={intake}
         />

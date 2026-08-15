@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, Lock, MapPin, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import type { Customer } from '../_shared/types'
+import type { Customer, CreditByPlan } from '../_shared/types'
 import { whatsAppHref } from '@/shared/contacts'
 import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 import { MobileDatePicker } from './MobileDatePicker'
 import { MobileSheet, PlanGlyph, eyebrow, OG, S, BODY } from './kit'
+import { LockedCreditNote } from '../_shared/LockedCreditNote'
 
 /**
  * MobileCheckout — the rising checkout sheet for /explore (≤768). It owns the
@@ -54,13 +55,18 @@ interface Props {
   activeSubscription: { end_date: string } | null
   weekType: WeekType
   outOfZone?: boolean
-  creditBalanceAed?: number
+  /** Per-plan split of approved credits in fils (getCreditSplitByPlan runs
+   *  one query, computed in memory for every selectable plan). Looked up
+   *  here by the sheet's own `plan` state so switching plan cards, and the
+   *  close-animation's retained-last-plan, both resolve without a round
+   *  trip. */
+  creditByPlan?: CreditByPlan
   /** Active admin price overrides (plan_pricing rows) — same rows the
    *  server validates against, so the sheet total === charged amount. */
   priceOverrides?: PriceOverride[]
 }
 
-export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditBalanceAed = 0, priceOverrides = [] }: Props) {
+export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditByPlan = {}, priceOverrides = [] }: Props) {
   const open = selected !== null
   // Retain the last selected plan so the sheet keeps its content while it
   // animates out (selected → null) instead of blanking instantly.
@@ -161,6 +167,11 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
 
   if (!plan) return null
   const total = totalPrice(plan, pref, vegDayCount, weekType, priceOverrides)
+  // Split for the currently open plan only, computed once server-side for
+  // every selectable plan, so this lookup is free of any round trip.
+  const selectedCredit = creditByPlan[plan]
+  const creditBalanceAed = (selectedCredit?.balanceFils ?? 0) / 100
+  const lockedCreditAed  = (selectedCredit?.lockedFils  ?? 0) / 100
   const appliedAed = Math.min(creditBalanceAed, total)
   const leftoverAed = Math.max(0, creditBalanceAed - appliedAed)
   // What the customer actually pays now — gross minus the Dorm Wars credit the
@@ -378,6 +389,12 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
               <div style={{ borderTop: `1px solid ${S.border}`, margin: '4px 0' }} />
               <SummaryRow label="Total due today" value={`AED ${netDueAed}`} emphasize />
             </div>
+
+            {/* The customer holds a credit that does NOT apply to this plan
+                (e.g. the seasonal-pause waitlist credit is monthly-only),
+                told why here, before they pay, on every plan it doesn't
+                apply to. Renders null at zero. */}
+            <LockedCreditNote lockedAed={lockedCreditAed} />
           </motion.div>
         )}
       </AnimatePresence>

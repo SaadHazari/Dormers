@@ -144,6 +144,17 @@ export const INTAKE_NOT_PAUSED: IntakeGateState = {
 }
 
 /**
+ * Per-plan split of the customer's approved credit balance, keyed by the
+ * display PlanId ('Trial' | 'Weekly Flex' | 'Monthly Premium' | 'Monthly
+ * Max'). Server-computed ONCE from a single unfiltered credits fetch (see
+ * getCreditSplitByPlan) and threaded down to the checkout leaf components
+ * so switching plan cards updates the applied/locked amounts in memory,
+ * no per-plan round trip. Partial because preview mode / a fetch failure
+ * may leave it empty; every consumer must fall back to 0.
+ */
+export type CreditByPlan = Partial<Record<string, { balanceFils: number; lockedFils: number }>>
+
+/**
  * UI-only computed status for the dashboard hero card. Distinct from
  * the persisted SubscriptionStatus — adds 'skipped' (derived from
  * `last_skipped_date`) which is not a stored sub.status value.

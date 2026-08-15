@@ -1,11 +1,14 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getRedeemableCredit } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { getIntakeState, creditAedFor, hasJoinedIntakeWaitlist } from '@/infra/config/intake'
+import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
+import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import PlanClient from './PlanClient'
+import type { CreditByPlan } from '../_shared/types'
 
 // Skip the Router Cache so the redeemable-credit prop reflects the latest
 // state after checkout completes (credit rows flip from approved → applied
@@ -36,15 +39,20 @@ export default async function PlanPage({
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
-  // Server-fetch the Dorm Wars approved credit balance so the CheckoutPanel
-  // can render "AED X applied" before submit. RLS lets the user read their
-  // own rows, so the user-scoped server client is sufficient.
+  // Server-fetch the customer's approved credit balance, split per selectable
+  // plan, so the CheckoutPanel can render "AED X applied" AND explain a
+  // credit that does NOT apply to the plan on screen (e.g. the seasonal-
+  // pause waitlist credit is monthly-only). getCreditSplitByPlan does this
+  // in ONE query: it fetches the approved rows unfiltered, then computes
+  // each plan's balance/locked split in memory, rather than one round trip
+  // per selectable plan. RLS lets the user read their own rows, so the
+  // user-scoped server client is sufficient.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, redeemable, priceOverrides, intakeState, alreadyOnWaitlist] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, intakeState, alreadyOnWaitlist] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
-    getRedeemableCredit(supabase, user.id),
+    getCreditSplitByPlan(supabase, user.id, PLANS.map(p => PLAN_KEBAB[p.id]) as KebabPlanId[]),
     // Admin-set price overrides (plan_pricing) — same rows /api/checkout
     // validates against, so displayed price === charged price.
     fetchActivePriceOverrides(),
@@ -54,7 +62,11 @@ export default async function PlanPage({
     getIntakeState(),
     hasJoinedIntakeWaitlist(user.id),
   ])
-  const creditBalanceAed = redeemable.balanceFils / 100
+  // Re-key from the kebab plan_id (credit-eligibility's domain) to the
+  // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
+  // off of, so CheckoutPanel/MobileCheckout can index straight off `selected`.
+  const creditByPlan: CreditByPlan = {}
+  for (const p of PLANS) creditByPlan[p.id] = creditSplitByKebab[PLAN_KEBAB[p.id] as KebabPlanId]
   const intake = {
     paused: intakeState.paused,
     headline: intakeState.headline,
@@ -70,7 +82,7 @@ export default async function PlanPage({
         activeSubscription={activeSubscription}
         allSubscriptions={allSubscriptions}
         userEmail={user.email}
-        creditBalanceAed={creditBalanceAed}
+        creditByPlan={creditByPlan}
         priceOverrides={priceOverrides}
         intake={intake}
       />

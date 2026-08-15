@@ -39,7 +39,8 @@ export type PriceOverride = {
   price_per_meal: number
 }
 
-const PLAN_KEBAB: Record<PlanId, string> = {
+/** Display PlanId used here → kebab plan_id (plans.ts / plan_pricing). */
+export const PLAN_KEBAB: Record<PlanId, string> = {
   'Trial': 'trial',
   'Weekly Flex': 'weekly-flex',
   'Monthly Premium': 'monthly-premium',

@@ -195,3 +195,50 @@ export async function getRedeemableCredit(
   )
   return { rows, balanceFils, lockedFils, lockedRequiresMonthly }
 }
+
+/**
+ * Splits the customer's approved credit balance into a {balanceFils,
+ * lockedFils} pair for EVERY planId supplied, in one query.
+ *
+ * The naive approach would call getRedeemableCredit(sb, userId, planId) once
+ * per selectable plan, round-tripping to Supabase on every plan-page render.
+ * Instead this fetches the same unfiltered row set getRedeemableCredit would
+ * fetch when its `planId` argument is omitted, then applies
+ * creditAppliesToPlan(...) against each requested planId in memory. Same
+ * output as calling getRedeemableCredit per plan, one round trip.
+ *
+ * Used by the plan page (and explore-plans) to thread a full planId → split
+ * map down to the client so switching between plan cards updates the
+ * locked-credit note without hitting the server again.
+ */
+export async function getCreditSplitByPlan(
+  sb: SupabaseClient,
+  userId: string,
+  planIds: readonly PlanId[],
+): Promise<Record<PlanId, { balanceFils: number; lockedFils: number }>> {
+  const { data } = await sb
+    .from('credits')
+    .select('amount_aed, eligible_plan_ids')
+    .eq('customer_id', userId)
+    .eq('status', 'approved')
+
+  const rows = (data ?? []) as Array<{
+    amount_aed: number
+    eligible_plan_ids: string[] | null
+  }>
+
+  const result = {} as Record<PlanId, { balanceFils: number; lockedFils: number }>
+  for (const planId of planIds) {
+    let balanceFils = 0
+    let lockedFils = 0
+    for (const r of rows) {
+      // Supabase returns numeric columns as strings through PostgREST.
+      // Coerce before arithmetic or this silently string-concatenates.
+      const fils = Math.round(Number(r.amount_aed) * 100)
+      if (creditAppliesToPlan(r.eligible_plan_ids, planId)) balanceFils += fils
+      else lockedFils += fils
+    }
+    result[planId] = { balanceFils, lockedFils }
+  }
+  return result
+}

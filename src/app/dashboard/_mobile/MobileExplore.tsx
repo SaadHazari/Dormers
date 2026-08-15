@@ -3,7 +3,7 @@
 import { type CSSProperties } from 'react'
 import Link from 'next/link'
 import { Check, Info, Utensils, CalendarDays, Unlock } from 'lucide-react'
-import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
@@ -37,7 +37,11 @@ interface Props {
    *  gate as the dashboard home; /api/checkout rejects anyway). */
   profileGated: boolean
   missingFields: string[]
-  creditBalanceAed: number
+  /** Per-plan split of approved credits in fils, threaded straight to
+   *  MobileCheckout so it can resolve the applied/locked amounts for
+   *  whichever plan the sheet has open. One server query, no round trip
+   *  on plan switch. */
+  creditByPlan: CreditByPlan
   /** Active admin price overrides (plan_pricing rows) — threaded into the
    *  cards + checkout sheet so mobile shows the DB-backed price. */
   priceOverrides?: PriceOverride[]
@@ -46,7 +50,7 @@ interface Props {
   intake?: IntakeGateState
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditBalanceAed, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditByPlan, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -141,7 +145,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
         activeSubscription={activeSubscription}
         weekType={weekType}
         outOfZone={outOfZone}
-        creditBalanceAed={creditBalanceAed}
+        creditByPlan={creditByPlan}
         priceOverrides={priceOverrides}
       />
     </MobileColumn>

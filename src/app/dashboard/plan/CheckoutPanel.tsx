@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { TIER1, BODY, OG, S } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { PlanGlyph } from '../_shared/PlanGlyph'
+import { LockedCreditNote } from '../_shared/LockedCreditNote'
+import type { CreditByPlan } from '../_shared/types'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
 import { whatsAppHref } from '@/shared/contacts'
@@ -53,12 +55,16 @@ interface Props {
    *  and shows the out-of-zone notice inline rather than waiting for a
    *  server-side rejection after the user clicks. */
   outOfZone?: boolean
-  /** Sum of approved Dorm Wars credit rows in AED, threaded from the page
-   *  SSR fetch. When > 0 the panel renders a discount line above the CTA
-   *  showing how much of the plan total will be wiped out by credits.
-   *  Display amount is `min(creditBalanceAed, planTotalAed)` — mirrors the
-   *  hard cap the coupon synth applies server-side (REDEEM-03). */
-  creditBalanceAed?: number
+  /** Per-plan split of approved credits in fils, threaded from the page SSR
+   *  fetch (getCreditSplitByPlan runs one query, computed in memory for
+   *  every selectable plan). Looked up here by `selected` so switching plan
+   *  cards updates the applied/locked amounts without a round trip. The
+   *  applied half renders a discount line above the CTA; display amount is
+   *  `min(balanceAed, planTotalAed)`, mirroring the hard cap the coupon
+   *  synth applies server-side (REDEEM-03). The locked half (e.g. the
+   *  seasonal-pause waitlist credit on a non-monthly plan) renders the
+   *  LockedCreditNote explanation instead. */
+  creditByPlan?: CreditByPlan
   /** Active admin price overrides (plan_pricing rows) — threaded from the
    *  page SSR fetch so the displayed total and the POSTed amount both use
    *  the DB-backed price the server validates against. */
@@ -121,9 +127,14 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
  */
 export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
-  outOfZone = false, creditBalanceAed = 0, priceOverrides = [],
+  outOfZone = false, creditByPlan = {}, priceOverrides = [],
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+  // Split for the currently selected plan only, computed once server-side
+  // for every selectable plan, so this lookup is free of any round trip.
+  const selectedCredit = creditByPlan[selected]
+  const creditBalanceAed = (selectedCredit?.balanceFils ?? 0) / 100
+  const lockedCreditAed  = (selectedCredit?.lockedFils  ?? 0) / 100
   // weekType is the effective cadence (pending → canonical fallback) supplied
   // by PlanClient. Reading customer.week_type here would diverge from the
   // pricing cards above when a pending_week_type change is queued.
@@ -432,6 +443,16 @@ export function CheckoutPanel({
             </>
           )
         })()}
+
+        {/* ── LOCKED CREDIT NOTE ──
+            The customer holds a credit that does NOT apply to this plan
+            (e.g. the seasonal-pause waitlist credit is monthly-only). If a
+            held credit isn't coming off the price in front of them, they
+            must be told why before they pay, on every plan it doesn't
+            apply to, not just some. Sits directly below the total/discount block.
+            Renders null at zero, so it costs nothing when there's nothing
+            locked. */}
+        <LockedCreditNote lockedAed={lockedCreditAed} />
 
         {/* ── VEG-DAY PICKER (Religious mix only) ──
             Lets the customer choose exactly which days are veg. Selection
