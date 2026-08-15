@@ -434,6 +434,16 @@ Rules carried over from the dashboard that also apply here:
 - **`#f57f20` is the ceiling.** Gradients may fade lighter; they never go darker into
   amber, burnt orange or red.
 
+**Logo.** The email carries the Dormers logo, but **not as SVG** — Gmail, Outlook and
+Yahoo all strip inline and linked SVG, so most recipients would see a broken image. The
+same artwork ships as a **PNG rendered at 2x** and referenced by absolute HTTPS URL with
+explicit `width`, `height` and `alt`.
+
+Variant: the cream artwork (`public/logo-dark.svg`, fill `#EEEADB`) on a navy header band,
+rather than the navy artwork on cream. A navy band with a cream mark survives forced
+dark-mode inversion far better than the reverse, and it matches the `TIER_POP` treatment
+the dashboard already uses for dark panels.
+
 Email-specific constraints that must be designed around, not discovered late:
 
 - **Webfonts are unreliable in email.** Outlook's desktop client and several Android
