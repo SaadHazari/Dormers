@@ -18,9 +18,25 @@ export async function setIntakePaused(paused: boolean): Promise<{ ok: true } | {
     // Stamp who paused it and when on the way in; clear paused_at on the way
     // out. paused_by is intentionally left alone when reopening — it stays
     // as a record of who paused it last, useful context on the next pause.
-    const patch: { paused: boolean; paused_at: string | null; paused_by?: string } = paused
-        ? { paused: true, paused_at: new Date().toISOString(), paused_by: user.email }
-        : { paused: false, paused_at: null }
+    //
+    // cycle_started_at / cycle_ended_at are a SEPARATE pair of timestamps,
+    // stamped alongside paused_at/paused_by but never cleared. They exist
+    // so the customer-facing takeovers can key their once-only dismissal
+    // flag to a specific pause CYCLE rather than firing once ever — see
+    // IntakePauseTakeover / ClientDashboard.tsx. If these cleared like
+    // paused_at does, a second pause months later would reuse the same
+    // (null) epoch and the "your plan is safe" reassurance would never
+    // show again, defeating the point of that copy.
+    const now = new Date().toISOString()
+    const patch: {
+        paused: boolean
+        paused_at: string | null
+        paused_by?: string
+        cycle_started_at?: string
+        cycle_ended_at?: string
+    } = paused
+        ? { paused: true, paused_at: now, paused_by: user.email, cycle_started_at: now }
+        : { paused: false, paused_at: null, cycle_ended_at: now }
 
     const { error } = await sb
         .from('intake_settings')

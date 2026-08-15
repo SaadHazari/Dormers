@@ -23,6 +23,15 @@ export interface IntakeState {
   creditNonvegAed: number
   creditVegAed: number
   creditReligiousAed: number
+  /** Stamped on every pause-ON, never cleared. Keys the "pausing" takeover's
+   *  once-per-cycle dismissal flag (see ClientDashboard.tsx) — separate from
+   *  paused_at, which IS cleared on resume and so cannot key it. Null until
+   *  the switch has been paused at least once. */
+  cycleStartedAt: string | null
+  /** Stamped on every pause-OFF, never cleared. Same reasoning, keys the
+   *  "reopened" takeover. Null until the switch has been reopened at least
+   *  once. */
+  cycleEndedAt: string | null
 }
 
 /** Used when the row is missing or unreadable. Intake stays open. */
@@ -33,6 +42,8 @@ const FAIL_OPEN: IntakeState = {
   creditNonvegAed: 20,
   creditVegAed: 15,
   creditReligiousAed: 20,
+  cycleStartedAt: null,
+  cycleEndedAt: null,
 }
 
 let cache: { state: IntakeState; at: number } | null = null
@@ -44,7 +55,7 @@ export async function getIntakeState(): Promise<IntakeState> {
     const sb = createAdminSupabaseClient()
     const { data, error } = await sb
       .from('intake_settings')
-      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed')
+      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, cycle_started_at, cycle_ended_at')
       .maybeSingle()
     if (error) throw error
     if (!data) return FAIL_OPEN
@@ -57,6 +68,8 @@ export async function getIntakeState(): Promise<IntakeState> {
       creditNonvegAed: Number(row.credit_nonveg_aed ?? FAIL_OPEN.creditNonvegAed),
       creditVegAed: Number(row.credit_veg_aed ?? FAIL_OPEN.creditVegAed),
       creditReligiousAed: Number(row.credit_religious_aed ?? FAIL_OPEN.creditReligiousAed),
+      cycleStartedAt: row.cycle_started_at == null ? null : String(row.cycle_started_at),
+      cycleEndedAt: row.cycle_ended_at == null ? null : String(row.cycle_ended_at),
     }
     cache = { state, at: Date.now() }
     return state

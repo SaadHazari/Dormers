@@ -38,13 +38,23 @@ const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
 // paths; an infinite spinner is a dead-end.
 const WEBHOOK_FALLBACK_MS = 20_000
 
-// Seasonal intake pause — once-only takeover flags. One key per variant so
-// dismissing "pausing" can never suppress a later "reopened" (they track
-// independent state changes). Plain localStorage, unscoped by customer —
-// same convention as WeeklyReviewTakeover's ACK_STORAGE_KEY and the Dorm
-// Wars hub's REWARD_SEEN_KEY elsewhere in this app.
-const INTAKE_PAUSING_SEEN_KEY = 'dormers:intake-pausing-ack-v1'
-const INTAKE_REOPENED_SEEN_KEY = 'dormers:intake-reopened-ack-v1'
+// Seasonal intake pause — once-per-CYCLE takeover flags. Each key is
+// namespaced by the epoch timestamp the admin action stamps on
+// intake_settings (cycle_started_at for pausing, cycle_ended_at for
+// reopened) — see src/app/admin/season/actions.ts. Those two columns are
+// stamped on every toggle and NEVER cleared (unlike paused_at, which clears
+// on resume), so a fresh pause months from now gets a fresh key and the
+// reassurance fires again. A flat per-variant key would fire once ever, per
+// browser, which defeats the point of "pausing" copy on a business that
+// pauses every semester. Plain localStorage, unscoped by customer — same
+// convention as WeeklyReviewTakeover's ACK_STORAGE_KEY and the Dorm Wars
+// hub's REWARD_SEEN_KEY elsewhere in this app.
+function intakePausingSeenKey(cycleStartedAt: string): string {
+  return `dormers:intake-pausing-ack:${cycleStartedAt}`
+}
+function intakeReopenedSeenKey(cycleEndedAt: string): string {
+  return `dormers:intake-reopened-ack:${cycleEndedAt}`
+}
 
 interface Props {
   customer: Customer | null
@@ -136,17 +146,28 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     if (checkoutCanceled && activeSubscription) router.replace('/dashboard')
   }, [checkoutCanceled, activeSubscription, router])
 
-  // Seasonal intake pause — once-only state-change takeovers. Pessimistic
-  // init (seen=true) so nothing renders until this effect has actually
-  // checked localStorage — avoids an SSR/hydration flash where the
-  // takeover would flicker on for a client that already dismissed it.
+  // Seasonal intake pause — once-per-cycle state-change takeovers.
+  // Pessimistic init (seen=true) so nothing renders until this effect has
+  // actually checked localStorage — avoids an SSR/hydration flash where the
+  // takeover would flicker on for a client that already dismissed it. A
+  // null epoch (row predates the cycle columns, or intake has never been
+  // toggled) also resolves to "seen" — a missing epoch has nothing safe to
+  // key a flag to, so it stays quiet rather than showing unconditionally.
   const [intakeTakeoverChecked, setIntakeTakeoverChecked] = useState(false)
   const [pausingSeen, setPausingSeen] = useState(true)
   const [reopenedSeen, setReopenedSeen] = useState(true)
   useEffect(() => {
     try {
-      setPausingSeen(!!window.localStorage.getItem(INTAKE_PAUSING_SEEN_KEY))
-      setReopenedSeen(!!window.localStorage.getItem(INTAKE_REOPENED_SEEN_KEY))
+      setPausingSeen(
+        intakePause.cycleStartedAt == null
+          ? true
+          : !!window.localStorage.getItem(intakePausingSeenKey(intakePause.cycleStartedAt)),
+      )
+      setReopenedSeen(
+        intakePause.cycleEndedAt == null
+          ? true
+          : !!window.localStorage.getItem(intakeReopenedSeenKey(intakePause.cycleEndedAt)),
+      )
     } catch {
       // Storage disabled (privacy mode / sandboxed iframe) — treat as
       // already seen. A takeover that can never remember being dismissed
@@ -155,14 +176,22 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       setReopenedSeen(true)
     }
     setIntakeTakeoverChecked(true)
-  }, [])
+  }, [intakePause.cycleStartedAt, intakePause.cycleEndedAt])
 
   const dismissPausingTakeover = () => {
-    try { window.localStorage.setItem(INTAKE_PAUSING_SEEN_KEY, '1') } catch { /* see above */ }
+    try {
+      if (intakePause.cycleStartedAt) {
+        window.localStorage.setItem(intakePausingSeenKey(intakePause.cycleStartedAt), '1')
+      }
+    } catch { /* see above */ }
     setPausingSeen(true)
   }
   const dismissReopenedTakeover = () => {
-    try { window.localStorage.setItem(INTAKE_REOPENED_SEEN_KEY, '1') } catch { /* see above */ }
+    try {
+      if (intakePause.cycleEndedAt) {
+        window.localStorage.setItem(intakeReopenedSeenKey(intakePause.cycleEndedAt), '1')
+      }
+    } catch { /* see above */ }
     setReopenedSeen(true)
     router.push('/dashboard/plan')
   }

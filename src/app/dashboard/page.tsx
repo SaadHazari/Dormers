@@ -107,6 +107,8 @@ export default async function DashboardPage({
         creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
         alreadyJoined: waitlistStatus.joined,
         waitlistCreditAed: waitlistStatus.unspentCreditAed,
+        cycleStartedAt: intakeState.cycleStartedAt,
+        cycleEndedAt: intakeState.cycleEndedAt,
     }
 
     return (

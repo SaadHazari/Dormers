@@ -78,6 +78,8 @@ describe('creditAedFor', () => {
     creditNonvegAed: 20,
     creditVegAed: 15,
     creditReligiousAed: 20,
+    cycleStartedAt: null,
+    cycleEndedAt: null,
   }
 
   it('gives the non-veg amount to a Non Veg customer', () => {

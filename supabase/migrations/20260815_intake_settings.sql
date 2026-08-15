@@ -31,3 +31,27 @@ revoke all on public.intake_settings from anon, authenticated;
 grant all on public.intake_settings to service_role;
 
 insert into public.intake_settings (id) values (true) on conflict (id) do nothing;
+
+-- Pause-cycle epoch columns, added 2026-08-15 after the first takeover
+-- implementation shipped with a bug: the customer-facing "pausing" /
+-- "reopened" takeovers (src/app/dashboard/_shared/IntakePauseTakeover.tsx)
+-- need to fire once per pause CYCLE, not once ever per browser. paused_at /
+-- paused_by cannot key that dismissal flag because setIntakePaused(false)
+-- clears paused_at on every resume — by design, since paused_at/paused_by
+-- answer the admin question "who paused this and when," which should go
+-- blank once the pause ends.
+--
+-- cycle_started_at and cycle_ended_at answer a different question: "which
+-- pause cycle is this." They are stamped by the SAME admin toggle
+-- (src/app/admin/season/actions.ts, setIntakePaused) but are NEVER cleared —
+-- cycle_started_at only ever moves forward on a pause-ON, cycle_ended_at
+-- only ever moves forward on a pause-OFF. The dashboard client namespaces
+-- each takeover's localStorage dismissal key by the relevant column's
+-- value, so a fresh pause months from now stamps a fresh timestamp, gets a
+-- fresh key, and the reassurance takeover fires again exactly as it should.
+--
+-- Applied live to the Ohio project (yjjayivwfqjfppawgyaz) via Supabase MCP on
+-- 2026-08-15. This block is the source-control mirror.
+alter table public.intake_settings
+  add column if not exists cycle_started_at timestamptz,
+  add column if not exists cycle_ended_at   timestamptz;

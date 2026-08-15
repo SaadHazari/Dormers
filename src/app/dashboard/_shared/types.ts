@@ -139,6 +139,16 @@ export interface IntakeGateState {
    *  actual minted credit stays whatever it was at join time. The
    *  "reopened" takeover names THIS number, never `creditAed`. */
   waitlistCreditAed: number
+  /** intake_settings.cycle_started_at — stamped on every pause-ON, NEVER
+   *  cleared on resume (unlike paused_at). Keys the "pausing" takeover's
+   *  once-per-CYCLE dismissal flag so it fires again on a later pause
+   *  instead of only ever once per browser. Null until the switch has been
+   *  paused at least once. */
+  cycleStartedAt: string | null
+  /** intake_settings.cycle_ended_at — stamped on every pause-OFF, never
+   *  cleared. Keys the "reopened" takeover the same way. Null until the
+   *  switch has been reopened at least once. */
+  cycleEndedAt: string | null
 }
 
 /** Default for surfaces that don't thread a live `intake` prop (preview
@@ -150,6 +160,8 @@ export const INTAKE_NOT_PAUSED: IntakeGateState = {
   creditAed: 0,
   alreadyJoined: false,
   waitlistCreditAed: 0,
+  cycleStartedAt: null,
+  cycleEndedAt: null,
 }
 
 /**
