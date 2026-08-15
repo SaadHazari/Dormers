@@ -40,3 +40,19 @@ create policy "own_row_read" on public.intake_waitlist
 drop policy if exists "service_role_full_access" on public.intake_waitlist;
 create policy "service_role_full_access" on public.intake_waitlist
   for all using (true) with check (true);
+
+-- 2026-08-15 follow-up: makes minting the waitlist credit idempotent at the
+-- database level too, not just by insert ordering. Without this, a customer
+-- whose first tap saved the waitlist row but failed to mint a credit could
+-- retry, and a second concurrent retry could then mint two credits for the
+-- same customer. The server action (join-intake-waitlist.ts) still inserts
+-- the waitlist row first, then relies on this index to make its own credit
+-- mint safe to retry: a duplicate insert now fails with 23505 the same way
+-- the waitlist insert does, so the action can read back the real amount
+-- instead of reporting one that was never granted.
+--
+-- Applied live to the Ohio project (yjjayivwfqjfppawgyaz) via Supabase MCP on
+-- 2026-08-15. This addition is the source-control mirror.
+create unique index if not exists credits_one_intake_waitlist_per_customer
+  on public.credits (customer_id)
+  where source = 'intake_waitlist';
