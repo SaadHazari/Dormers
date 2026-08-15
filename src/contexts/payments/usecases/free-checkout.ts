@@ -29,6 +29,24 @@ import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-
 import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
+import { getIntakeState } from '@/infra/config/intake'
+
+/**
+ * Shared intake guard for the non-Stripe provisioning paths — free checkout
+ * and referral gift claims. A claimed gift is a real meal the kitchen has to
+ * cook, so it counts as intake and stops with everything else.
+ *
+ * Staff and intern provisioning is intentionally NOT guarded: it is assigned
+ * by an admin rather than bought by a customer.
+ */
+export async function assertIntakeOpen(): Promise<void> {
+  const intake = await getIntakeState()
+  if (intake.paused) {
+    throw new Error(
+      intake.body || 'New plans are paused for now. Save your spot and we will message you the day we reopen.',
+    )
+  }
+}
 
 export interface FreeCheckoutInput {
   supabaseAdmin: SupabaseClient
@@ -50,6 +68,8 @@ export interface FreeCheckoutInput {
 }
 
 export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
+  await assertIntakeOpen()
+
   const {
     supabaseAdmin, userId, planString, preference, vegDays,
     name, phone, location, startDate, amountFils, reservationToken,

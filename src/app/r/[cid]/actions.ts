@@ -16,6 +16,7 @@ import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-dat
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { eligibleTrialDeliveryDates, trialDateIso } from '@/contexts/referrals/domain/trial-delivery'
+import { assertIntakeOpen } from '@/contexts/payments/usecases/free-checkout'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -256,6 +257,18 @@ export async function claimGift(payload: {
    *  invalid we fall back to the soonest eligible day. */
   startDate?:  string
 }): Promise<ClaimResult> {
+  // ── Seasonal intake pause ────────────────────────────────────────────
+  // A claimed gift is a real meal the kitchen has to cook, so it counts as
+  // intake and stops right alongside checkout. claimGift has no top-level
+  // try/catch of its own, so the guard gets a local one here — that way a
+  // paused shop returns a friendly inline error instead of throwing past
+  // this server action.
+  try {
+    await assertIntakeOpen()
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'New plans are paused for now.' }
+  }
+
   const supabaseAdmin = createAdminSupabaseClient()
 
   const phoneE164    = normalisePhone(payload.phone)
