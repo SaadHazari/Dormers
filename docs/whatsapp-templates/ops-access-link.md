@@ -44,8 +44,11 @@ Sample values for the review submission:
 
 ### Footer
 
+**Meta's footer limit is 60 characters and it clips silently, mid-word, with no
+warning.** Keep it short:
+
 ```
-Dormers Ops
+Keep this link to yourself.
 ```
 
 ### Button
@@ -55,16 +58,35 @@ Dormers Ops
 | Field | Value |
 |---|---|
 | Button text | `Open` |
-| Website URL | `https://dormers.ae/{{1}}` |
-| Sample value for `{{1}}` | `kitchen/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6` |
+| Website URL | `https://dormers.ae/` |
+| Sample value for the variable | `kitchen/0a804f4083660635407500ec2a98e92a` |
 
-**The trailing `{{1}}` is the whole point.** The code sends only the path
-suffix (`kitchen/<token>` or `ops/<token>`) and Meta appends it to the base.
+> ⚠️ **Type the base URL only. Do NOT type `{{1}}` into the URL box.**
+>
+> Choosing "Dynamic" makes Meta append its own `{{1}}` for you — the UI shows
+> it sitting at the end of what you typed. Typing the placeholder yourself
+> gets it stored as literal text and percent-encoded, and Meta then adds a
+> second variable after it:
+>
+> ```
+> https://dormers.ae/%7B%7B1%7D%7D{{1}}     ← broken, every link 404s
+> https://dormers.ae/{{1}}                  ← correct
+> ```
+>
+> This one is nasty because Meta still **approves** it and the send still
+> **succeeds**, so the wa.me fallback never fires. The rider just gets a dead
+> button. Run `npm run check:whatsapp-template` after any template change —
+> it reads back what Meta actually stored and fails on exactly this.
 
-> This is exactly where the admin alert template went wrong. That one was
-> created with a **static** URL, so the moment code sent button parameters Meta
-> rejected it with error **132018**. If `ops_access_link` is ever recreated,
-> the URL must keep the `{{1}}` on the end or sending breaks the same way.
+The code sends only the path suffix (`kitchen/<token>` or `ops/<token>`) and
+Meta joins it onto the base.
+
+> A **static** URL button breaks it a different way: Meta rejects the send with
+> error **132018** the moment code passes button parameters. That is what
+> happened to the admin alert template.
+
+The sample token above is fabricated, not a live link. Never put a real token
+into a template sample — it sits in Meta's review system indefinitely.
 
 ---
 
@@ -86,6 +108,21 @@ saying the template does not exist in that language when it does not match.
 ---
 
 ## Check it works
+
+**Run this first, before sending anything:**
+
+```
+npm run check:whatsapp-template
+```
+
+It reads the template back from Meta and fails on the mistakes that still pass
+review: an encoded placeholder in the button URL, a static button, numbered
+body variables where the code sends named ones, a language that does not match
+the env var, and a footer clipped at 60 characters. APPROVED does not mean
+correct — this is the only thing that tells the two apart without sending a
+real message to a real person.
+
+Then, end to end:
 
 1. Open `/admin/ops-tokens` and add yourself to Ops Crew with your own number.
 2. Press **Share** on any link, then **Send** next to your name.
