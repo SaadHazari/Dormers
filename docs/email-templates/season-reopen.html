@@ -1,0 +1,180 @@
+<!--
+  Dormers — Season Reopen announcement.
+  Audience: the early access list (holding a credit) AND lapsed customers
+  whose plan ended during the pause. ONE template serves both.
+
+  HOW THE TWO AUDIENCES SHARE ONE TEMPLATE
+  The credit block is wrapped in {{#credit_aed}} ... {{/credit_aed}}. Send the
+  key and the block renders; OMIT the key entirely and it disappears.
+  ZeptoMail Mustache treats an empty string as TRUTHY, so never send '' or '0'
+  to hide it — that renders the block with a blank amount in it.
+
+  Brand: dashboard palette, NOT the older ZeptoMail transactional language.
+    #f57f20 brand orange (ceiling — never darker into amber/red)
+    #8c4214 deep orange, for small orange text on cream only
+    #091825 navy, #1e3a4f navy mid
+    #ede8da / #f5f0e8 cream
+  Never sharp #fff on navy — cream #f5f0e8 instead. White is only for text
+  sitting on an orange fill.
+
+  MERGE KEYS (ZeptoMail Mustache)
+    first_name     required
+    cta_label      required   "Use my credit" for the list, "Restart my plan" for lapsed
+    footer_reason  required   the opt-in reason line. Must be TRUE for the recipient:
+                              list   -> "You are getting this because you asked to hear when we reopened."
+                              lapsed -> "You are getting this because you were on a Dormers plan before."
+    credit_aed     OPTIONAL   e.g. "20". Omit the key for anyone without a credit.
+-->
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The kitchen is open again</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Montserrat lands in the clients that honour webfonts. Outlook desktop and
+       several Android clients will not load it, so every rule below also names
+       Arial and the layout is built to look deliberate without it. */
+    body { margin: 0; padding: 0; width: 100% !important; }
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    table { border-collapse: collapse !important; }
+    a { text-decoration: none; }
+
+    @media (prefers-color-scheme: dark) {
+      .page-bg   { background-color: #0d1f2d !important; }
+      .card      { background-color: #12242f !important; border-color: #2a4152 !important; }
+      .body-text { color: #e7e1d4 !important; }
+      .muted     { color: #a9b6c0 !important; }
+      .panel     { background-color: #162c39 !important; border-color: #2f4b5e !important; }
+      .panel-label { color: #f9a04f !important; }
+      .navy-panel  { background-color: #071320 !important; }
+      .footer-text { color: #8b98a2 !important; }
+    }
+
+    @media only screen and (max-width: 620px) {
+      .card-pad { padding: 28px 22px !important; }
+      .h1       { font-size: 26px !important; line-height: 1.22 !important; }
+      .cta      { display: block !important; text-align: center !important; }
+    }
+  </style>
+</head>
+
+<body class="page-bg" style="margin:0; padding:0; background-color:#ede8da;">
+
+  <div style="display:none; font-size:1px; color:#ede8da; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    Same rotation, same dorm drop, same hour. Dinner is handled from this week.
+  </div>
+
+  <table class="page-bg" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#ede8da;">
+    <tr>
+      <td align="center" style="padding:36px 12px;">
+
+        <table class="card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+          style="max-width:600px; background-color:#f9f6ef; border:1px solid #ddd5c2; border-radius:14px; overflow:hidden;">
+
+          <!-- Navy header band. The logo artwork is the dark-background lockup:
+               cream dome, navy house, white wordmark. It only reads correctly
+               on a dark ground, which is why this band is navy and not cream. -->
+          <tr>
+            <td class="navy-panel" align="center" style="background-color:#091825; padding:30px 24px 26px 24px;">
+              <img src="https://dormers.ae/email-logo.png" width="240" height="174" alt="Dormers"
+                style="display:block; width:240px; max-width:240px; height:auto;">
+            </td>
+          </tr>
+
+          <tr>
+            <td class="card-pad" style="padding:38px 40px 34px 40px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+
+              <h1 class="h1 body-text"
+                style="margin:0 0 18px 0; font-size:29px; line-height:1.2; font-weight:700; color:#091825; letter-spacing:-0.2px;">
+                We are cooking again, {{first_name}}.
+              </h1>
+
+              <p class="body-text" style="margin:0 0 30px 0; font-size:16px; line-height:26px; color:#33454f; font-weight:400;">
+                Dinner is handled from this week. Same rotation, same dorm drop, same hour.
+              </p>
+
+              <!-- Credit block. Renders ONLY when credit_aed is supplied.
+                   Omit the key for lapsed customers; never send '' or '0'. -->
+              {{#credit_aed}}
+              <table class="navy-panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#091825; border-radius:12px; margin-bottom:30px;">
+                <tr>
+                  <td style="padding:28px 26px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p style="margin:0 0 10px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#f57f20;">
+                      Your AED {{credit_aed}} is waiting
+                    </p>
+                    <p style="margin:0; font-size:16px; line-height:26px; color:#f5f0e8;">
+                      It has been sitting in your Credit Wallet since you joined the early access
+                      list. It comes straight off a monthly plan. Nothing to enter, nothing to claim.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              {{/credit_aed}}
+
+              <table class="panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#fdfbf6; border:1px solid #e2d9c4; border-radius:10px; margin-bottom:32px;">
+                <tr>
+                  <td style="padding:22px 24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p class="panel-label" style="margin:0 0 9px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8c4214;">
+                      What comes back
+                    </p>
+                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
+                      A hot dinner at your dorm on every delivery day, dropped at the usual spot.
+                      Skip a night whenever your plans change. Stop cooking, stop deciding, just eat.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:34px;">
+                <tr>
+                  <td align="center">
+                    <a class="cta" href="https://dormers.ae/dashboard/plan"
+                      style="background-color:#f57f20; color:#ffffff; padding:16px 34px; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:16px; font-weight:700; border-radius:8px; display:inline-block;">
+                      {{cta_label}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="border-top:1px solid #e2d9c4;">
+                <tr>
+                  <td style="padding-top:24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
+                      See you at dinner,<br>
+                      <b style="color:#091825; font-size:16px;">Team Dormers</b>
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:32px;">
+                    <!-- Reason line is a merge key, not fixed copy. The early access
+                         list asked to hear from us; lapsed customers did not, and
+                         telling them they opted in when they did not is exactly the
+                         kind of inaccuracy that earns a spam complaint. -->
+                    <p class="muted" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#7d8b94; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                      {{footer_reason}}
+                    </p>
+                    <p class="footer-text" style="margin:0; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#a99f8c; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                      Made in Dubai
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>
