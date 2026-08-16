@@ -190,6 +190,20 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
     const waitlistId = (existingRow as { id: string }).id
     const existing = await findCycleCredit(sb, waitlistId)
     if (existing) {
+      // A credit already spent this cycle is not money waiting. Report zero
+      // rather than the spent amount so the gate never claims a balance the
+      // customer has already redeemed (spec §8.1 / IntakeCreditDisplay's
+      // "never tell a customer an amount is waiting when the real balance is
+      // zero"). SPOT_SAVED_NO_CREDIT_YET_MESSAGE already documents this exact
+      // case as one of its two valid uses.
+      if (existing.spent) {
+        return {
+          ok: true,
+          alreadyJoined: true,
+          creditAed: 0,
+          message: SPOT_SAVED_NO_CREDIT_YET_MESSAGE,
+        }
+      }
       return {
         ok: true,
         alreadyJoined: true,

@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const {
   getIntakeStateMock,
   insertWaitlistMock,
+  insertWaitlistArgsMock,
   insertCreditMock,
   existingRowMock,
   existingCreditMock,
@@ -16,6 +17,9 @@ const {
 } = vi.hoisted(() => ({
   getIntakeStateMock: vi.fn(),
   insertWaitlistMock: vi.fn(),
+  // Records the payload passed to intake_waitlist's insert(), so tests can
+  // assert the join actually carries the CURRENT cycle's stamp.
+  insertWaitlistArgsMock: vi.fn(),
   insertCreditMock: vi.fn(),
   existingRowMock: vi.fn(),
   existingCreditMock: vi.fn(),
@@ -44,7 +48,10 @@ vi.mock('@/infra/supabase/admin-client', () => ({
       // select('id').eq(customer_id).eq(cycle_started_at).maybeSingle() to
       // resolve the existing row's id after a 23505, update to stamp credit_id
       return {
-        insert: () => ({ select: () => ({ single: insertWaitlistMock }) }),
+        insert: (payload: unknown) => {
+          insertWaitlistArgsMock(payload)
+          return { select: () => ({ single: insertWaitlistMock }) }
+        },
         select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: existingRowMock }) }) }),
         update: () => ({ eq: async () => ({ error: null }) }),
       }
@@ -66,6 +73,7 @@ beforeEach(() => {
   userMock.mockReset().mockResolvedValue({ id: 'u1', email: 'a@b.c' })
   insertCreditMock.mockReset().mockResolvedValue({ data: { id: 'credit-1' }, error: null })
   insertWaitlistMock.mockReset().mockResolvedValue({ data: { id: 'wl-1' }, error: null })
+  insertWaitlistArgsMock.mockReset()
   existingRowMock.mockReset().mockResolvedValue({ data: { id: 'wl-1' }, error: null })
   existingCreditMock.mockReset().mockResolvedValue({ data: null, error: null })
   customerMock.mockReset()
@@ -157,5 +165,61 @@ describe('joinIntakeWaitlist', () => {
     expect(res.alreadyJoined).toBe(true)
     expect(res.creditAed).toBe(0)
     expect(res.message).toBe(SPOT_SAVED_NO_CREDIT_YET_MESSAGE)
+  })
+
+  it('reports zero, not the spent amount, when the credit for THIS cycle was already redeemed', async () => {
+    // Tab A: gate loaded while joined=false. Tab B: same customer joins,
+    // checks out on the credit, flips it to status='applied'. Back in tab A,
+    // the stale "Save my spot" tap 23505s, resolves the same waitlist row,
+    // and findCycleCredit finds the now-spent credit. The gate must never
+    // report that spent money as still waiting (IntakeCreditDisplay's rule,
+    // spec §8.1) — it must fall back to the same "no live credit" message
+    // used when a credit was never minted at all.
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
+    existingCreditMock.mockResolvedValue({ data: { id: 'credit-1', amount_aed: '20', status: 'applied' }, error: null })
+
+    const res = await joinIntakeWaitlist()
+
+    expect(res.ok).toBe(true)
+    expect(res.alreadyJoined).toBe(true)
+    expect(res.creditAed).toBe(0)
+    expect(res.message).toBe(SPOT_SAVED_NO_CREDIT_YET_MESSAGE)
+    expect(insertCreditMock).not.toHaveBeenCalled()
+  })
+
+  it('bails out when a 23505 lands but the existing row can no longer be resolved', async () => {
+    // Defensive path: the insert says a duplicate exists, but the follow-up
+    // read by (customer_id, cycle_started_at) comes back empty. Nothing to
+    // mint against, so refuse cleanly instead of crashing on a null id.
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
+    existingRowMock.mockResolvedValue({ data: null, error: null })
+
+    const res = await joinIntakeWaitlist()
+
+    expect(res.ok).toBe(false)
+    expect(res.alreadyJoined).toBe(false)
+    expect(res.creditAed).toBe(0)
+    expect(res.message).toBe('Could not save your spot. Please try again.')
+    expect(insertCreditMock).not.toHaveBeenCalled()
+  })
+
+  it('lets a customer who joined an earlier cycle join again in a new cycle and earn a fresh credit', async () => {
+    // The whole point of this task: the old UNIQUE(customer_id) index would
+    // 23505 here regardless of cycle. The per-cycle index does not, so a
+    // customer with a row from an earlier pause gets a normal first-time
+    // join for THIS pause's cycle_started_at.
+    const newCycle = '2026-09-01T00:00:00.000Z'
+    getIntakeStateMock.mockResolvedValue({ ...STATE, cycleStartedAt: newCycle })
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
+    insertWaitlistMock.mockResolvedValue({ data: { id: 'wl-new-cycle' }, error: null })
+
+    const res = await joinIntakeWaitlist()
+
+    expect(res.ok).toBe(true)
+    expect(res.alreadyJoined).toBe(false)
+    expect(res.creditAed).toBe(20)
+    expect(insertWaitlistArgsMock).toHaveBeenCalledWith({ customer_id: 'u1', cycle_started_at: newCycle })
   })
 })
