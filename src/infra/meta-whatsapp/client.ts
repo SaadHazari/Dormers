@@ -106,6 +106,57 @@ async function postTemplate(to: string, template: unknown): Promise<void> {
     await graphPost({ messaging_product: 'whatsapp', to, type: 'template', template })
 }
 
+// ── Ops access link — sent to a rider or kitchen lead from /admin/ops-tokens ─
+//
+// UTILITY template with a DYNAMIC url button. The button's base URL is
+// configured in Business Manager as `https://dormers.ae/{{1}}` and we pass the
+// path suffix ("ops/<token>" or "kitchen/<token>") as that variable — Meta
+// appends it. This is the piece that differs from the admin-alert template,
+// which was built with a STATIC button and therefore 132018'd the moment code
+// tried to send button parameters. If this template is ever recreated, it must
+// keep the trailing {{1}} or this call breaks the same way.
+//
+// Body uses NAMED parameters, so each one carries `parameter_name`. Meta is
+// strict here: a template authored with named variables rejects positional
+// parameters outright.
+//
+// Throws on failure. The caller is expected to catch and offer the wa.me
+// fallback rather than leave the admin with nothing.
+
+export async function sendOpsLinkWhatsApp(
+    phone: string,
+    recipientName: string,
+    linkName: string,
+    linkPath: string,
+): Promise<void> {
+    const templateName = process.env.WHATSAPP_OPS_LINK_TEMPLATE_NAME ?? 'ops_access_link'
+    // Locale must match Business Manager exactly — "English" is `en`, not
+    // `en_US`, and Meta 404s ("template does not exist in <lang>") on a miss.
+    const language = process.env.WHATSAPP_OPS_LINK_TEMPLATE_LANG ?? 'en'
+    const to = phone.replace(/\D/g, '').replace(/^00/, '')
+
+    await postTemplate(to, {
+        name: templateName,
+        language: { code: language },
+        components: [
+            {
+                type: 'body',
+                parameters: [
+                    { type: 'text', parameter_name: 'name', text: recipientName },
+                    { type: 'text', parameter_name: 'link_name', text: linkName },
+                ],
+            },
+            {
+                type: 'button',
+                sub_type: 'url',
+                index: 0,
+                // Suffix only — Business Manager holds the https://dormers.ae/ base.
+                parameters: [{ type: 'text', text: linkPath }],
+            },
+        ],
+    })
+}
+
 export async function sendStaffInviteWhatsApp(
     phoneE164: string,
     firstName: string,

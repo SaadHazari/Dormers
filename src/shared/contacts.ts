@@ -26,6 +26,21 @@ export function whatsAppHref(message?: string): string {
 /** Display label for the wa.me link (no `https://` prefix). */
 export const WHATSAPP_HANDLE_DISPLAY = `wa.me/${WHATSAPP_NUMBER.replace(/^\+/, '')}`
 
+/**
+ * Builds a `https://wa.me/...` URL aimed at *someone else* — the outbound
+ * direction, where an admin opens a chat with a rider or kitchen lead.
+ * {@link whatsAppHref} is the inbound direction (customer → Dormers) and is
+ * pinned to the Dormers number; this one takes the recipient.
+ *
+ * Accepts any format (`+971 50 461 9384`, `00971…`, digits) and normalises to
+ * the digits-only form wa.me expects.
+ */
+export function whatsAppTo(phone: string, message?: string): string {
+    const digits = phone.replace(/\D/g, '').replace(/^00/, '')
+    const base = `https://wa.me/${digits}`
+    return message ? `${base}?text=${encodeURIComponent(message)}` : base
+}
+
 /** Customer-care email (account, billing, plan changes). */
 export const SUPPORT_EMAIL = 'care@dormers.ae'
 
