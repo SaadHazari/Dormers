@@ -1,13 +1,15 @@
 <!--
-  Dormers — Season Reopen announcement.
-  Audience: the early access list (holding a credit) AND lapsed customers
-  whose plan ended during the pause. ONE template serves both.
+  Dormers — "Your plan has ended, and we are closed for the season".
 
-  HOW THE TWO AUDIENCES SHARE ONE TEMPLATE
-  The credit block is wrapped in {{#credit_aed}} ... {{/credit_aed}}. Send the
-  key and the block renders; OMIT the key entirely and it disappears.
-  ZeptoMail Mustache treats an empty string as TRUTHY, so never send '' or '0'
-  to hide it — that renders the block with a blank amount in it.
+  Replaces the standard subscription-ended email whenever intake is paused.
+  Audience: someone whose plan just finished DURING a pause. They are not
+  active, so this is the first and only season email they receive.
+
+  WHY THIS FILE EXISTS
+  The earlier season-pause.html was aimed at customers whose plan was still
+  running. That email is no longer sent: messaging a happy, running customer
+  about a pause carries no action for them and can only worry them. The
+  moment that matters is the moment their plan dies and they cannot renew.
 
   BRAND
     #f57f20 brand orange — the ceiling. Never darker into amber, burnt or red.
@@ -22,15 +24,23 @@
   The dashboard is deliberately light and the marketing site deliberately
   dark; they are not unified. This is interface, so it stays light. The dark
   media block below RE-ASSERTS the light palette rather than inverting it,
-  and color-scheme:light asks clients not to invert it themselves.
+  and color-scheme:light asks clients not to invert it themselves. Navy
+  appears only where it is chosen as an accent.
 
   MERGE KEYS (ZeptoMail Mustache)
-    first_name     required
-    cta_label      required   "Use my credit" for the list, "Restart my plan" for lapsed
-    footer_reason  required   the opt-in reason line. Must be TRUE for the recipient:
-                              list   -> "You are getting this because you asked to hear when we reopened."
-                              lapsed -> "You are getting this because you were on a Dormers plan before."
-    credit_aed     OPTIONAL   e.g. "20". Omit the key for anyone without a credit.
+    first_name        required
+    plan_name         required   e.g. "Monthly Max"
+    delivered_meals   required   e.g. "24"
+    evenings          required   e.g. "24"
+    cta_label         required   e.g. "Save my spot" / "See my wallet"
+    cta_url           required   full HTTPS URL. Do NOT use ?renew=1 — that
+                                 opens a renewal flow that cannot complete
+                                 while intake is paused.
+    credit_aed        OPTIONAL   send ONLY if they already hold the credit
+    offer_aed         OPTIONAL   send ONLY if they do not hold it yet
+  Send exactly one of credit_aed / offer_aed, never both.
+  ZeptoMail Mustache treats an empty string as TRUTHY. To hide a block, OMIT
+  the key entirely. Never send '' or '0'.
 -->
 <!doctype html>
 <html lang="en">
@@ -40,7 +50,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <title>The kitchen is open again</title>
+  <title>Your plan has ended</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root { color-scheme: light; supported-color-schemes: light; }
@@ -49,6 +59,9 @@
     table { border-collapse: collapse !important; }
     a { text-decoration: none; }
 
+    /* Re-assert the LIGHT palette. Outlook.com and the Gmail app will invert a
+       page that says nothing; naming the same values here keeps the email
+       looking like the dashboard rather than like the marketing site. */
     @media (prefers-color-scheme: dark) {
       .page-bg    { background-color: #ede8da !important; }
       .card       { background-color: #f9f6ef !important; }
@@ -63,9 +76,10 @@
     }
 
     @media only screen and (max-width: 620px) {
-      .card-pad { padding: 28px 22px !important; }
-      .h1       { font-size: 25px !important; line-height: 1.24 !important; }
-      .cta      { display: block !important; }
+      .card-pad  { padding: 28px 22px !important; }
+      .h1        { font-size: 25px !important; line-height: 1.24 !important; }
+      .stat      { display: block !important; width: 100% !important; }
+      .cta       { display: block !important; }
     }
   </style>
 </head>
@@ -73,7 +87,7 @@
 <body class="page-bg" style="margin:0; padding:0; background-color:#ede8da;">
 
   <div style="display:none; font-size:1px; color:#ede8da; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
-    Same rotation, same dorm drop, same hour. Dinner is handled from this week.
+    We are closed between semesters. Here is what is waiting for you when we reopen.
   </div>
 
   <table class="page-bg" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#ede8da;">
@@ -106,59 +120,97 @@
 
               <h1 class="h1 strong-text"
                 style="margin:0 0 16px 0; font-size:28px; line-height:1.22; font-weight:800; color:#091825; letter-spacing:-0.3px;">
-                We are cooking again, {{first_name}}.
+                That is your {{plan_name}} done, {{first_name}}.
               </h1>
 
               <p class="body-text" style="margin:0 0 28px 0; font-size:16px; line-height:26px; color:#33454f;">
-                Dinner is handled from this week. Same rotation, same dorm drop, same hour.
+                Thanks for eating with us this cycle. Here is how it went.
               </p>
 
-              <!-- Credit block. Renders ONLY when credit_aed is supplied.
-                   Omit the key for lapsed customers; never send '' or '0'. -->
+              <!-- Recap as stat blocks rather than a sentence, so a one-meal
+                   plan cannot produce "1 dinners". -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:16px;">
+                <tr>
+                  <td class="stat panel" width="50%" valign="top"
+                    style="background-color:#fdfbf6; border-radius:12px; padding:20px 22px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <div class="strong-text" style="font-size:30px; font-weight:800; color:#091825; line-height:1;">{{delivered_meals}}</div>
+                    <div class="muted" style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#7d8b94; margin-top:7px;">Dinners delivered</div>
+                  </td>
+                  <td width="12" style="font-size:0; line-height:0;">&nbsp;</td>
+                  <td class="stat panel" width="50%" valign="top"
+                    style="background-color:#fdfbf6; border-radius:12px; padding:20px 22px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <div class="strong-text" style="font-size:30px; font-weight:800; color:#091825; line-height:1;">{{evenings}}</div>
+                    <div class="muted" style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#7d8b94; margin-top:7px;">Evenings not cooking</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- The honest reason, stated before they go looking for a
+                   renew button and find a locked door. -->
+              <table class="panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#fdfbf6; border-radius:12px; margin-bottom:28px;">
+                <tr>
+                  <td style="padding:22px 24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p class="panel-label" style="margin:0 0 9px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8c4214;">
+                      Why you cannot renew yet
+                    </p>
+                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
+                      We are closed between semesters. Campus empties out, and below a certain number
+                      of dorms a delivery run stops making sense. New plans open the day everyone is back.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- They already hold the credit. -->
               {{#credit_aed}}
               <table class="navy-panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
-                style="background-color:#091825; border-radius:16px; margin-bottom:28px;">
+                style="background-color:#091825; border-radius:16px; margin-bottom:30px;">
                 <tr>
                   <td style="padding:28px 26px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
                     <p style="margin:0 0 10px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#f57f20;">
                       Your AED {{credit_aed}} is waiting
                     </p>
                     <p class="cream-text" style="margin:0; font-size:16px; line-height:26px; color:#f5f0e8;">
-                      It has been sitting in your Credit Wallet since you joined the early access
-                      list. It comes straight off a monthly plan. Nothing to enter, nothing to claim.
+                      It is sitting in your Credit Wallet right now. It comes straight off your next
+                      monthly plan the day we reopen. Nothing to enter, nothing to claim.
                     </p>
                   </td>
                 </tr>
               </table>
               {{/credit_aed}}
 
-              <table class="panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
-                style="background-color:#fdfbf6; border-radius:12px; margin-bottom:32px;">
+              <!-- They do not hold it yet. Send offer_aed instead. -->
+              {{#offer_aed}}
+              <table class="navy-panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#091825; border-radius:16px; margin-bottom:30px;">
                 <tr>
-                  <td style="padding:22px 24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
-                    <p class="panel-label" style="margin:0 0 9px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8c4214;">
-                      What comes back
+                  <td style="padding:28px 26px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p style="margin:0 0 10px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#f57f20;">
+                      Take AED {{offer_aed}} with you
                     </p>
-                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
-                      A hot dinner at your dorm on every delivery day, dropped at the usual spot.
-                      Skip a night whenever your plans change. Stop cooking, stop deciding, just eat.
+                    <p class="cream-text" style="margin:0; font-size:16px; line-height:26px; color:#f5f0e8;">
+                      Save your spot for the new semester and we will hold AED {{offer_aed}} in your
+                      Credit Wallet. It comes off your first monthly plan when we are back, and you
+                      hear before anyone else.
                     </p>
                   </td>
                 </tr>
               </table>
+              {{/offer_aed}}
 
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:32px;">
                 <tr>
                   <td align="center">
                     <!--[if mso]>
                     <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
-                      href="https://dormers.ae/dashboard/plan" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="24%" stroke="f" fillcolor="#f57f20">
+                      href="{{cta_url}}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="24%" stroke="f" fillcolor="#f57f20">
                       <w:anchorlock/>
                       <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">{{cta_label}}</center>
                     </v:roundrect>
                     <![endif]-->
                     <!--[if !mso]><!-->
-                    <a class="cta" href="https://dormers.ae/dashboard/plan"
+                    <a class="cta" href="{{cta_url}}"
                       style="background-color:#f57f20; color:#ffffff; padding:16px 34px; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:16px; font-weight:700; border-radius:12px; display:inline-block;">
                       {{cta_label}}
                     </a>
@@ -171,19 +223,15 @@
                 <tr>
                   <td style="padding-top:24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
                     <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
-                      See you at dinner,<br>
+                      See you next semester,<br>
                       <b class="strong-text" style="color:#091825; font-size:16px;">Team Dormers</b>
                     </p>
                   </td>
                 </tr>
                 <tr>
                   <td align="center" style="padding-top:32px;">
-                    <!-- Reason line is a merge key, not fixed copy. The early access
-                         list asked to hear from us; lapsed customers did not, and
-                         telling them they opted in when they did not is exactly the
-                         kind of inaccuracy that earns a spam complaint. -->
                     <p class="muted" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#7d8b94; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
-                      {{footer_reason}}
+                      You are getting this because your Dormers plan just finished.
                     </p>
                     <p class="footer-text" style="margin:0; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#a99f8c; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
                       Made in Dubai
