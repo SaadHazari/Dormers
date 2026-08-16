@@ -59,7 +59,13 @@ Keep this link to yourself.
 |---|---|
 | Button text | `Open` |
 | Website URL | `https://dormers.ae/` |
-| Sample value for the variable | `kitchen/0a804f4083660635407500ec2a98e92a` |
+| Sample URL | `https://dormers.ae/kitchen/0a804f4083660635407500ec2a98e92a` |
+
+Note the two fields want different things, which is easy to get backwards:
+**Website URL** takes the base only, while **Sample URL** takes the whole
+thing including the suffix ("Enter full URL for https://dormers.ae/{{1}}").
+Neither is what the code sends at runtime — that is the bare suffix
+`kitchen/<token>`, which Meta joins onto the base.
 
 > ⚠️ **Type the base URL only. Do NOT type `{{1}}` into the URL box.**
 >
