@@ -9,6 +9,7 @@ const {
   getIntakeStateMock,
   insertWaitlistMock,
   insertCreditMock,
+  existingRowMock,
   existingCreditMock,
   customerMock,
   userMock,
@@ -16,6 +17,7 @@ const {
   getIntakeStateMock: vi.fn(),
   insertWaitlistMock: vi.fn(),
   insertCreditMock: vi.fn(),
+  existingRowMock: vi.fn(),
   existingCreditMock: vi.fn(),
   customerMock: vi.fn(),
   userMock: vi.fn(),
@@ -34,12 +36,18 @@ vi.mock('@/infra/supabase/admin-client', () => ({
       if (table === 'credits') {
         return {
           insert: () => ({ select: () => ({ single: insertCreditMock }) }),
-          // findWaitlistCredit: select('id, amount_aed').eq(customer_id).eq(source).eq(status='approved').maybeSingle()
-          select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: existingCreditMock }) }) }) }),
+          // findCycleCredit: select('id, amount_aed, status').eq(intake_waitlist_id).maybeSingle()
+          select: () => ({ eq: () => ({ maybeSingle: existingCreditMock }) }),
         }
       }
-      // intake_waitlist. insert for the opt-in, update to stamp credit_id
-      return { insert: insertWaitlistMock, update: () => ({ eq: async () => ({ error: null }) }) }
+      // intake_waitlist. insert(...).select('id').single() for the join,
+      // select('id').eq(customer_id).eq(cycle_started_at).maybeSingle() to
+      // resolve the existing row's id after a 23505, update to stamp credit_id
+      return {
+        insert: () => ({ select: () => ({ single: insertWaitlistMock }) }),
+        select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: existingRowMock }) }) }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      }
     },
   }),
 }))
@@ -50,13 +58,15 @@ import { SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
 const STATE = {
   paused: true, headline: '', body: '',
   creditNonvegAed: 20, creditVegAed: 15, creditReligiousAed: 20,
+  cycleStartedAt: '2026-08-15T18:15:51.035Z', cycleEndedAt: null,
 }
 
 beforeEach(() => {
   getIntakeStateMock.mockReset().mockResolvedValue(STATE)
   userMock.mockReset().mockResolvedValue({ id: 'u1', email: 'a@b.c' })
   insertCreditMock.mockReset().mockResolvedValue({ data: { id: 'credit-1' }, error: null })
-  insertWaitlistMock.mockReset().mockResolvedValue({ error: null })
+  insertWaitlistMock.mockReset().mockResolvedValue({ data: { id: 'wl-1' }, error: null })
+  existingRowMock.mockReset().mockResolvedValue({ data: { id: 'wl-1' }, error: null })
   existingCreditMock.mockReset().mockResolvedValue({ data: null, error: null })
   customerMock.mockReset()
 })
@@ -76,7 +86,7 @@ describe('joinIntakeWaitlist', () => {
 
   it('is idempotent, a second join grants no second credit', async () => {
     customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
-    insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
     existingCreditMock.mockResolvedValue({ data: { id: 'credit-1', amount_aed: '20' }, error: null })
     const res = await joinIntakeWaitlist()
     expect(res.ok).toBe(true)
@@ -99,7 +109,7 @@ describe('joinIntakeWaitlist', () => {
 
   it('mints the credit on a retry when the first tap saved the spot but the credit never landed', async () => {
     customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
-    insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
     existingCreditMock.mockResolvedValue({ data: null, error: null }) // no credit ever minted
     insertCreditMock.mockResolvedValue({ data: { id: 'credit-2' }, error: null })
 
@@ -116,7 +126,7 @@ describe('joinIntakeWaitlist', () => {
     // 999, a value creditAedFor could never produce, so this only passes if
     // the action actually reads the row instead of recomputing the amount.
     customerMock.mockResolvedValue({ data: { meal_preference_type: 'Veg' }, error: null })
-    insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
     // amount_aed comes back from PostgREST as a string
     existingCreditMock.mockResolvedValue({ data: { id: 'credit-9', amount_aed: '999' }, error: null })
 
@@ -128,20 +138,17 @@ describe('joinIntakeWaitlist', () => {
     expect(insertCreditMock).not.toHaveBeenCalled()
   })
 
-  it('reports zero, not the spent amount, when the customer already used their credit in an earlier pause', async () => {
-    // Scenario: joined pause 1, spent the credit (status flipped to
-    // 'applied'), then taps "Save my spot" again in pause 2. The
-    // intake_waitlist row still exists (unique per customer), so the insert
-    // 23505s just like a normal repeat-join. findWaitlistCredit is now
-    // filtered to status='approved', so the spent row never matches — both
-    // the initial lookup and mintWaitlistCredit's retry come back empty even
-    // though a credit row genuinely exists for this customer.
+  it('reports zero when a concurrent mint races and the retry read still comes back empty', async () => {
+    // Scenario: two concurrent taps within the SAME cycle both lose the
+    // waitlist insert race (23505), both look up the existing row, and both
+    // find no credit yet (extreme read lag). One of them wins the credit
+    // insert; this one loses it too (23505), and credits_one_per_intake_waitlist_row
+    // means the retry read still comes back empty at the instant this code
+    // checks. Zero must be reported rather than a guessed amount — an admin
+    // can reconcile from the waitlist row.
     customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
-    insertWaitlistMock.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
     existingCreditMock.mockResolvedValue({ data: null, error: null })
-    // credits_one_intake_waitlist_per_customer blocks a second credit row
-    // for this customer regardless of the existing row's status, so the
-    // mint attempt also 23505s.
     insertCreditMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
 
     const res = await joinIntakeWaitlist()

@@ -251,21 +251,29 @@ export async function getCreditSplitByPlan(
 // intake_waitlist or credits directly.
 
 export interface WaitlistStatus {
-  /** Has this customer ever submitted the join-waitlist action? */
+  /** Has this customer joined the CURRENT pause cycle? */
   joined: boolean
   /** Sum of `credits.amount_aed` rows with source='intake_waitlist' and
    *  status='approved' (approved = unspent; the redemption flow flips it to
-   *  'applied' on checkout). Persists past intake reopening — the credit
-   *  stays unspent until the customer actually redeems it on a monthly plan. */
+   *  'applied' on checkout). Persists past intake reopening AND across
+   *  cycles — the credit stays unspent until the customer actually redeems
+   *  it on a monthly plan, even if it was minted in an earlier pause. */
   unspentCreditAed: number
 }
 
 /**
  * Reads the customer's seasonal-intake-waitlist standing: whether they've
- * joined, and how much unspent credit (status='approved') that join earned
- * them. Two independent reads (a point lookup + a small aggregate), run in
- * parallel — not a join, since intake_waitlist and credits are separate
- * tables with no FK the query layer relies on.
+ * joined the CURRENT pause cycle, and how much unspent credit
+ * (status='approved') they hold from ANY cycle. Two independent reads (a
+ * point lookup + a small aggregate), run in parallel — not a join, since
+ * intake_waitlist and credits are separate tables with no FK the query layer
+ * relies on.
+ *
+ * `cycleStartedAt` scopes the join lookup to the pause running right now
+ * (from `getIntakeState().cycleStartedAt`). Omit it (or pass null/undefined)
+ * to fall back to "has this customer ever joined any cycle" — used by
+ * callers that only need the credit balance and don't have an IntakeState
+ * in scope.
  *
  * Fails safe on a read error: logs and defaults that piece to
  * not-joined/zero rather than throwing, so a transient DB hiccup can't take
@@ -274,9 +282,18 @@ export interface WaitlistStatus {
 export async function getWaitlistStatus(
   sb: SupabaseClient,
   userId: string,
+  cycleStartedAt?: string | null,
 ): Promise<WaitlistStatus> {
+  // `joined` is scoped to the CURRENT pause: a customer who joined last
+  // season has not joined this one and must still see the join button.
+  // `unspentCreditAed` is deliberately NOT scoped — an unspent credit from an
+  // earlier pause is still the customer's money and stays visible.
+  const waitlistQuery = cycleStartedAt
+    ? sb.from('intake_waitlist').select('id').eq('customer_id', userId).eq('cycle_started_at', cycleStartedAt).maybeSingle()
+    : sb.from('intake_waitlist').select('id').eq('customer_id', userId).limit(1).maybeSingle()
+
   const [waitlistResult, creditsResult] = await Promise.all([
-    sb.from('intake_waitlist').select('id').eq('customer_id', userId).maybeSingle(),
+    waitlistQuery,
     sb.from('credits').select('amount_aed').eq('customer_id', userId).eq('source', INTAKE_WAITLIST_SOURCE).eq('status', 'approved'),
   ])
   if (waitlistResult.error) console.error('getWaitlistStatus: intake_waitlist read failed:', waitlistResult.error.message)

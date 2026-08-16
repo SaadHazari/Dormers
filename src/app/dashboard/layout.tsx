@@ -70,15 +70,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
     })
 
     const supabase = await createClient()
-    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, intakeState, waitlistStatus] = await Promise.all([
+    // Resolved first (cached 30s, so this is not a new round trip) so its
+    // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
+    // pause — see project_seasonal_intake_pause / getWaitlistStatus.
+    const intakeState = await getIntakeState()
+    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, waitlistStatus] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
       getQueuedSubscription(user.id),
       getReferralData(user.id),
       getWeeklyReviewState(user.id),
       getMonthlyReviewWindow(user.id),
-      getIntakeState(),
-      getWaitlistStatus(supabase, user.id),
+      getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
     ])
     customerName = customer?.name ?? ''
     customerCid = customer?.cid ?? ''

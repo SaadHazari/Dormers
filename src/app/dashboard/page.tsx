@@ -77,7 +77,11 @@ export default async function DashboardPage({
     // React cache() wrapper makes the second call free since the layout fetched
     // it first. See project_now_tray_architecture memory.
     const supabase = await createClient()
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, intakeState, waitlistStatus] = await Promise.all([
+    // Resolved first (cached 30s, so this is not a new round trip) so its
+    // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
+    // pause — see getWaitlistStatus.
+    const intakeState = await getIntakeState()
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
@@ -85,9 +89,7 @@ export default async function DashboardPage({
         getMonthlyReviewWindow(user.id),
         getMostRecentOrder(user.id),
         getMenuDishes(),
-        // Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4).
-        getIntakeState(),
-        getWaitlistStatus(supabase, user.id),
+        getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
     ])
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are

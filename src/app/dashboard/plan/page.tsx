@@ -48,7 +48,13 @@ export default async function PlanPage({
   // per selectable plan. RLS lets the user read their own rows, so the
   // user-scoped server client is sufficient.
   const supabase = await createClient()
-  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, intakeState, waitlistStatus] = await Promise.all([
+  // Seasonal intake pause — the operator switch that stops new plan
+  // purchases between semesters. IntakePausedGate takes precedence over the
+  // profile-completion gate in PlanClient. Resolved first (cached 30s, so
+  // this is not a new round trip) so its cycleStartedAt can scope the
+  // waitlist-join lookup below to the CURRENT pause.
+  const intakeState = await getIntakeState()
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -56,14 +62,10 @@ export default async function PlanPage({
     // Admin-set price overrides (plan_pricing) — same rows /api/checkout
     // validates against, so displayed price === charged price.
     fetchActivePriceOverrides(),
-    // Seasonal intake pause — the operator switch that stops new plan
-    // purchases between semesters. IntakePausedGate takes precedence over
-    // the profile-completion gate in PlanClient.
-    getIntakeState(),
     // Single source of truth for "has this customer joined the waitlist" —
     // shared with the Now-tray entries and the plan-ending banner so the
     // fact can't drift between surfaces. This page only needs `.joined`.
-    getWaitlistStatus(supabase, user.id),
+    getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
   ])
   // Re-key from the kebab plan_id (credit-eligibility's domain) to the
   // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
