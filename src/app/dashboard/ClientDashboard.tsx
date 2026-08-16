@@ -309,6 +309,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
         variant="pausing"
         creditAed={intakePause.creditAed}
         onDismiss={dismissPausingTakeover}
+        alreadyJoined={intakePause.alreadyJoined}
       />
     )
   }

@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ShieldCheck, Check } from 'lucide-react'
 import { OG, BODY, TIER_POP_TEXT } from './tokens'
+import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { deriveJoinOutcome, type JoinOutcome } from './intake-join-outcome'
+import { pauseTakeoverCta } from './pause-takeover-actions'
 
 interface Props {
     variant: 'pausing' | 'reopened'
     creditAed: number
     onDismiss: () => void
+    /** True when this customer already saved a spot in the CURRENT pause. */
+    alreadyJoined?: boolean
 }
 
 /**
@@ -35,9 +40,29 @@ interface Props {
  * This component only renders the two messages; it holds no persistence
  * logic of its own.
  */
-export function IntakePauseTakeover({ variant, creditAed, onDismiss }: Props) {
+export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoined }: Props) {
     const [dismissing, setDismissing] = useState(false)
     const prefersReducedMotion = useReducedMotion()
+
+    const [outcome, setOutcome] = useState<JoinOutcome | null>(null)
+    const [joining, startJoin] = useTransition()
+
+    const cta = pauseTakeoverCta({
+        variant,
+        alreadyJoined: !!alreadyJoined,
+        justJoined: !!outcome?.joined,
+    })
+
+    // Every displayed value comes from the action's own result, never from the
+    // prospective `creditAed` prop — that prop is what the settings row would
+    // mint, not what actually landed. Promising an amount that was never
+    // created is the exact regression intake-join-outcome.ts exists to stop.
+    const handleJoin = () => {
+        startJoin(async () => {
+            const result = await joinIntakeWaitlist()
+            setOutcome(deriveJoinOutcome(result))
+        })
+    }
 
     const handleDismiss = () => {
         setDismissing(true)
@@ -119,62 +144,74 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss }: Props) {
                     </>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {outcome?.message && (
+                    <p style={{
+                        margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
+                        color: TIER_POP_TEXT.primary, textAlign: 'center',
+                    }}>
+                        {outcome.message}
+                    </p>
+                )}
+                {outcome?.error && (
+                    <p style={{
+                        margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
+                        color: '#ffb4a2', textAlign: 'center',
+                    }}>
+                        {outcome.error}
+                    </p>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    {cta.showJoin && (
+                        <button
+                            type="button"
+                            onClick={handleJoin}
+                            disabled={joining}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                minHeight: 48, padding: '14px 32px',
+                                borderRadius: 'var(--radius-pill)', border: 0,
+                                background: OG, color: '#fff',
+                                fontFamily: BODY, fontSize: 13, fontWeight: 700,
+                                letterSpacing: '0.06em', textTransform: 'uppercase',
+                                cursor: joining ? 'default' : 'pointer',
+                                boxShadow: '0 8px 28px rgba(245,127,32,0.50)',
+                                opacity: joining ? 0.85 : 1,
+                            }}
+                        >
+                            {joining ? 'Saving your spot' : cta.joinLabel}
+                        </button>
+                    )}
+
                     <button
                         type="button"
                         onClick={handleDismiss}
                         disabled={dismissing}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 10,
-                            minHeight: 48,
-                            padding: '14px 32px',
+                        style={cta.showJoin ? {
+                            // Secondary when it sits under an offer: still a real
+                            // control, visibly not the primary one.
+                            minHeight: 44, padding: '10px 24px',
                             borderRadius: 'var(--radius-pill)',
-                            border: 0,
-                            background: OG,
-                            color: '#fff',
-                            fontFamily: BODY,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            letterSpacing: '0.06em',
-                            textTransform: 'uppercase',
+                            border: '1px solid rgba(245,240,232,0.28)',
+                            background: 'transparent', color: TIER_POP_TEXT.primary,
+                            fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                            letterSpacing: '0.06em', textTransform: 'uppercase',
+                            cursor: dismissing ? 'default' : 'pointer',
+                        } : {
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                            minHeight: 48, padding: '14px 32px',
+                            borderRadius: 'var(--radius-pill)', border: 0,
+                            background: OG, color: '#fff',
+                            fontFamily: BODY, fontSize: 13, fontWeight: 700,
+                            letterSpacing: '0.06em', textTransform: 'uppercase',
                             cursor: dismissing ? 'default' : 'pointer',
                             boxShadow: '0 8px 28px rgba(245,127,32,0.50)',
                             opacity: dismissing ? 0.85 : 1,
-                            transition: 'transform 150ms cubic-bezier(0.16,1,0.3,1), opacity 150ms',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!dismissing) e.currentTarget.style.transform = 'translateY(-1px)'
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)'
                         }}
                     >
-                        {dismissing ? (
-                            <>
-                                <span
-                                    style={{
-                                        display: 'inline-block',
-                                        width: 14,
-                                        height: 14,
-                                        borderRadius: '50%',
-                                        border: '2px solid #fff',
-                                        borderTopColor: 'transparent',
-                                        animation: 'spin 0.8s linear infinite',
-                                    }}
-                                />
-                                {variant === 'reopened' ? 'Loading your plan' : 'Closing'}
-                            </>
-                        ) : variant === 'reopened' ? (
-                            <>
-                                See your plan options
-                                <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
-                            </>
-                        ) : (
-                            'Got it'
-                        )}
+                        {dismissing
+                            ? (variant === 'reopened' ? 'Loading your plan' : 'Closing')
+                            : cta.dismissLabel}
                     </button>
                 </div>
             </motion.div>
