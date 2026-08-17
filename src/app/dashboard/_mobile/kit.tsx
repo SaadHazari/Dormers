@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { OG, OG3, NV, CR, BODY, S } from '../_shared/tokens'
+import { COMPACT } from '../_shared/breakpoints'
 
 /**
  * _mobile/kit — the shared mobile design vocabulary.
@@ -40,7 +41,7 @@ export { HeatBar } from '../_shared/HeatBar'
 export function useIsCompact(): boolean {
   const [compact, setCompact] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)')
+    const mq = window.matchMedia(COMPACT)
     setCompact(mq.matches)
     const onChange = (e: MediaQueryListEvent) => setCompact(e.matches)
     mq.addEventListener('change', onChange)

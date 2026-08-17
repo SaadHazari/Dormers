@@ -26,6 +26,7 @@ import { QuickActions } from './QuickActions'
 import { MonthlyWrapStrip } from './_shared/MonthlyWrapStrip'
 import { MobileHome, type MobileHomeData } from './_mobile/MobileHome'
 import { computeArrivalLabel, type DeliveryWeekType } from './_shared/delivery-phase'
+import { COMPACT } from './_shared/breakpoints'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
@@ -2158,10 +2159,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       <style jsx global>{`
         .dash-root { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-        /* Mobile (≤768) swaps the desktop home tree for the redesigned
-           single-screen MobileHome. Pure CSS toggle — no flash, desktop intact. */
+        /* COMPACT swaps the desktop home tree for the redesigned single-screen
+           MobileHome. Pure CSS toggle — no flash, desktop intact. Keyed on the
+           shared contract (see _shared/breakpoints.ts), so every portrait tablet
+           gets the touch-native tree instead of desktop cards in a drawer. */
         .home-mobile { display: none; }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .home-desktop { display: none; }
           .home-mobile { display: block; }
           .dash-root { padding: 0 !important; }

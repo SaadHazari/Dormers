@@ -16,6 +16,7 @@ import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { WalletRow } from './_shared/credit-wallet'
+import { COMPACT } from './_shared/breakpoints'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -180,7 +181,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
            the canvas never falls back to navy. (See the matching body rule below.) */
         html.dash { background-color: #ffffff; }
 
-        @media (max-width: 1024px) {
+        /* Compact shell: no rail, so no left margin. Keyed on the shared
+           contract rather than a raw width — see _shared/breakpoints.ts for why
+           1024 alone cannot tell a portrait iPad from a landscape one. */
+        @media ${COMPACT} {
           .dash-content {
             margin-left: 0 !important;
             /* Top inset clears the fixed hamburger (top:16 + 44h = 60) so page

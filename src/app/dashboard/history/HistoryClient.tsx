@@ -6,6 +6,7 @@ import { cleanPlanName, OG, BODY, DISPLAY } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { fmt } from '../_shared/format'
 import { MobileHistory } from '../_mobile/MobileHistory'
+import { COMPACT } from '../_shared/breakpoints'
 
 // Translucent-surface S — History rows sit over the BG_GRADIENT page wash
 // (set by the layout), so cards use a soft glass over the cream/navy panel.
@@ -142,7 +143,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
         /* Mobile (≤768) swaps the desktop history tree for MobileHistory. Pure
            CSS toggle — no flash, desktop DOM untouched. */
         .history-mobile { display: none; }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .history-desktop { display: none; }
           .history-mobile { display: block; }
         }

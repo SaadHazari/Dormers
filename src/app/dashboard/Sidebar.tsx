@@ -9,6 +9,7 @@ import {
   X, Activity, Gift, Shield,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
+import { COMPACT } from './_shared/breakpoints'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
 import { CreditWallet } from './CreditWallet'
 import type { WalletRow } from './_shared/credit-wallet'
@@ -566,7 +567,11 @@ export default function Sidebar({
         .sidebar-dormwars-row:hover {
           background: rgba(245,127,32,0.17) !important;
         }
-        @media (max-width: 1024px) {
+        /* Drawer mode. Keyed on the shared COMPACT contract, not a raw width:
+           a landscape iPad mini (exactly 1024 wide) must keep the rail, while a
+           portrait iPad Pro (also exactly 1024 wide) must get the drawer. See
+           _shared/breakpoints.ts. */
+        @media ${COMPACT} {
           .dash-sidebar {
             top: 0 !important;
             left: 0 !important;

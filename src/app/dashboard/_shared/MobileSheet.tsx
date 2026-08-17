@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import { BODY, S, TIER1 } from './tokens'
 import { useFocusTrap } from './useFocusTrap'
 import { useBodyScrollLock } from '@/ui-system/hooks/useBodyScrollLock'
+import { COMPACT } from './breakpoints'
 
 /**
  * MobileSheet — the keystone Phase-0 primitive for the mobile redesign.
@@ -30,7 +31,10 @@ import { useBodyScrollLock } from '@/ui-system/hooks/useBodyScrollLock'
  * See .interface-design/mobile-redesign-spec.md.
  */
 
-const COMPACT_QUERY = '(max-width: 768px)'
+// Re-exported from the shared contract so sheets follow the same switch as
+// the tree they belong to — a portrait iPad shows the mobile tree, so it must
+// get mobile sheets too, not desktop modals sized for a mouse.
+const COMPACT_QUERY = COMPACT
 
 /**
  * SSR-safe compact-viewport flag. Sheets only ever mount after a client-side

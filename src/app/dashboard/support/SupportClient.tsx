@@ -9,6 +9,7 @@ import { FAQItem } from '../_shared/FAQItem'
 import { whatsAppHref } from '@/shared/contacts'
 import { MobileSupport } from '../_mobile/MobileSupport'
 import { SupportChat } from '../_mobile/SupportChat'
+import { COMPACT } from '../_shared/breakpoints'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Matches MenuClient/PlanClient: hierarchy comes from scale + weight + colour,
@@ -335,7 +336,7 @@ export default function SupportClient({
         /* Mobile (≤768) swaps the desktop support tree for MobileSupport. Pure
            CSS toggle — no flash, desktop DOM untouched. */
         .support-mobile { display: none; }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .support-desktop { display: none; }
           .support-mobile { display: block; }
         }

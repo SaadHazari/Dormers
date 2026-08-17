@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Bug } from 'lucide-react'
 import * as Sentry from '@sentry/nextjs'
 import { BODY, NV, S } from './tokens'
+import { COMPACT } from './breakpoints'
 
 export function BugReportTrigger() {
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -28,7 +29,7 @@ export function BugReportTrigger() {
   // no-flash guard for the pre-hydration frame.
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)')
+    const mq = window.matchMedia(COMPACT)
     setIsMobile(mq.matches)
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     mq.addEventListener('change', onChange)

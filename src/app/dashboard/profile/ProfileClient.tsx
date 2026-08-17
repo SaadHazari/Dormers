@@ -29,6 +29,7 @@ const S = {
 // Customer canonical type lives in _shared/types.ts; mirrors what
 // getCustomer() returns from supabase. Avoids drift across consumer files.
 import type { Customer } from '../_shared/types'
+import { COMPACT } from '../_shared/breakpoints'
 
 function Field({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
   return (
@@ -1069,7 +1070,7 @@ export default function ProfileClient({
         /* Mobile (≤768) swaps the desktop profile tree for MobileProfile. Pure
            CSS toggle — no flash, desktop DOM untouched. */
         .profile-mobile { display: none; }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .profile-desktop { display: none; }
           .profile-mobile { display: block; }
         }

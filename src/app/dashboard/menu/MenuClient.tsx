@@ -15,6 +15,7 @@ import { vegDayNumbersFor } from '@/contexts/subscriptions/domain/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { MobileMenu, type MobileMenuCell } from '../_mobile/MobileMenu'
+import { COMPACT } from '../_shared/breakpoints'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -1119,7 +1120,7 @@ export default function MenuClient({
         /* Mobile (≤768) swaps the desktop /menu tree for MobileMenu. Pure CSS
            toggle — no flash, desktop intact. */
         .menu-mobile { display: none; }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .menu-desktop { display: none; }
           .menu-mobile { display: block; }
         }

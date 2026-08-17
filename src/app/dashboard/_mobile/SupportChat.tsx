@@ -8,6 +8,7 @@ import { X, Send, Sparkles, ArrowRight, MessageCircle, UtensilsCrossed, Calendar
 import Link from 'next/link'
 import { whatsAppHref } from '@/shared/contacts'
 import { useBodyScrollLock } from '@/ui-system/hooks/useBodyScrollLock'
+import { EXPANDED } from '../_shared/breakpoints'
 
 const NV = '#091825'
 const CR = '#f5f0e8'
@@ -76,7 +77,7 @@ function parseReply(raw: string) {
 function useIsDesktop() {
   const [v, setV] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 769px)')
+    const mq = window.matchMedia(EXPANDED)
     setV(mq.matches)
     const h = (e: MediaQueryListEvent) => setV(e.matches)
     mq.addEventListener('change', h)

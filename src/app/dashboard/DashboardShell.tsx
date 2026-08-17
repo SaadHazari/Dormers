@@ -9,6 +9,7 @@ import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { MonthlyWrapForceOverlay } from './_shared/MonthlyWrapForceOverlay'
+import { COMPACT } from './_shared/breakpoints'
 
 const DEFAULT_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -75,11 +76,14 @@ export default function DashboardShell({
   // wins over every stylesheet rule AND a value change forces the repaint. Per the brief:
   //   • main dashboard (/dashboard)  → orange   • drawer open (any page) → orange
   //   • every other dashboard page   → beige (matches that page's surface)
-  // Mobile only (≤768); on desktop we clear the override so the CSS white canvas stands.
-  // theme-color meta is kept in lock-step for the Safari versions that tint chrome from it.
+  // COMPACT only; in expanded mode we clear the override so the CSS white canvas
+  // stands. Keyed on the shared contract so a portrait iPad, which now renders
+  // the mobile tree, gets the matching orange/beige canvas rather than a white
+  // band in its safe-area. theme-color meta is kept in lock-step for the Safari
+  // versions that tint chrome from it.
   useEffect(() => {
     const root = document.documentElement
-    const mq = window.matchMedia('(max-width: 768px)')
+    const mq = window.matchMedia(COMPACT)
     const ORANGE = '#f57f20'
     const BEIGE = '#efe8dc'
 
@@ -158,7 +162,10 @@ export default function DashboardShell({
       />
 
       <style jsx global>{`
-        @media (max-width: 1024px) {
+        /* The floating burger belongs to drawer mode only. Keyed on the shared
+           contract, otherwise a landscape iPad mini (1024 wide, rail visible)
+           renders a burger on top of the sidebar logo. */
+        @media ${COMPACT} {
           .dash-mobile-menu { display: flex !important; }
           /* When the drawer is open, the close affordance lives at the drawer's
              top-right (in Sidebar); hide the floating burger so it's not duplicated. */

@@ -55,6 +55,7 @@ const DISPLAY = BODY
 // the same shape.
 import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
+import { COMPACT } from '../_shared/breakpoints'
 interface Props {
   customer: Customer | null
   activeSubscription: Subscription | null
@@ -1965,7 +1966,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
     </div>
     <style>{`
       .plan-mobile { display: none; }
-      @media (max-width: 768px) {
+      @media ${COMPACT} {
         .plan-desktop { display: none; }
         .plan-mobile { display: block; }
       }
