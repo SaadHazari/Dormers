@@ -8,6 +8,7 @@ import {
     PRE_END_WRAP_WINDOW,
     planTierFrom,
     cycleLabelFor,
+    weeklyWrapGate,
     type MonthlyReviewWindow,
     type MonthlyRevealStats,
 } from '@/contexts/subscriptions/domain/monthly-review'
@@ -47,6 +48,7 @@ function parseDateUTC(s: string): Date {
 
 const EMPTY_WINDOW: MonthlyReviewWindow = {
     eligible: false,
+    locked: false,
     submitted: false,
     daysLeftForFullReward: 0,
     daysSinceCycleEnd: 0,
@@ -57,9 +59,17 @@ const EMPTY_WINDOW: MonthlyReviewWindow = {
 }
 
 // Broadest pre-end lead-in across all tiers — used to widen the SQL date
-// filter so the query catches the monthly tier's 4-day pre-end window. The
+// filter so the query catches every tier's earliest possible surfacing. The
 // tier-specific check happens in code after we know the plan_name.
-const MAX_PRE_END_DAYS = Math.max(...Object.values(PRE_END_WRAP_WINDOW))
+//
+// The floor of 7 exists for the weekly tier, which no longer surfaces off
+// end_date at all: it appears on day 4 of a ~7-day plan, roughly 4 days
+// before the end. A pre-end filter derived only from PRE_END_WRAP_WINDOW
+// would be 4 and would clip that at the boundary. 7 buys headroom for any
+// weekly plan whose end_date sits further out (5DAYS/7DAYS week types shift
+// it), at the cost of considering one extra row that the tier check below
+// discards anyway.
+const MAX_PRE_END_DAYS = Math.max(...Object.values(PRE_END_WRAP_WINDOW), 7)
 
 async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReviewWindow> {
     const supabase = await createClient()
@@ -95,15 +105,36 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
     const endDate = parseDateUTC(sub.end_date)
     const daysSinceCycleEnd = daysBetween(endDate, today)
 
-    // Pre-end gating: the SQL filter is widened to the broadest tier's
-    // window, so here we narrow back to this customer's specific tier. A
-    // monthly customer 5 days from end → too early (window is 4). A weekly
-    // customer 3 days from end → too early (window is 2). A trial is
-    // post-end only (window is 0) — see PRE_END_WRAP_WINDOW.
+    const deliveredMeals = (sub.delivered_meals as number | null) ?? 0
+
+    // Weekly is gated FORWARD from start_date, not backward from end_date:
+    // on a 7-day plan "4 days before the end" is day 3, far too early to have
+    // an opinion worth collecting. weeklyWrapGate shows the card locked from
+    // day 4 and opens it on the 5th delivered meal — see its docblock for why
+    // the open state counts meals rather than days.
     //
-    // daysSinceCycleEnd < -preEndWindow means: more days remain to end than
-    // the tier's pre-end window allows.
-    if (daysSinceCycleEnd < -preEndWindow) {
+    // `locked` is carried through to the window so the three low-key surfaces
+    // can render the greyed-out card; `eligible` stays false throughout, which
+    // is what keeps the takeover and forcing overlay silent for free.
+    let weeklyLocked = false
+    if (planTier === 'weekly') {
+        const startDateIso = sub.start_date as string | null
+        if (!startDateIso) return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
+        const gate = weeklyWrapGate({
+            daysSinceStart: daysBetween(parseDateUTC(startDateIso), today),
+            deliveredMeals,
+            cycleEnded: daysSinceCycleEnd >= 0,
+        })
+        if (gate === 'hidden') return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
+        weeklyLocked = gate === 'locked'
+    } else if (daysSinceCycleEnd < -preEndWindow) {
+        // Pre-end gating for the remaining tiers: the SQL filter is widened to
+        // the broadest window, so here we narrow back to this customer's tier.
+        // A monthly customer 5 days from end → too early (window is 4). A
+        // trial is post-end only (window is 0) — see PRE_END_WRAP_WINDOW.
+        //
+        // daysSinceCycleEnd < -preEndWindow means: more days remain to end
+        // than the tier's pre-end window allows.
         return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
     }
 
@@ -113,7 +144,6 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
     // on delivery-day morning before the meal arrives — asking the customer
     // to reflect on a meal they haven't tasted. The 7 PM force overlay
     // doesn't catch this case because it gates on hour, not delivery.
-    const deliveredMeals = (sub.delivered_meals as number | null) ?? 0
     if (planTier === 'trial' && deliveredMeals < 1) {
         return { ...EMPTY_WINDOW, daysSinceCycleEnd, planTier }
     }
@@ -142,7 +172,12 @@ async function computeMonthlyReviewWindow(userId: string): Promise<MonthlyReview
     const preCron = !submitted && endIso === todayIso && aeHour >= MONTHLY_PRE_CRON_HOUR_AE
 
     return {
-        eligible: !expired && !submitted,
+        // A locked weekly wrap is shown but not submittable, so it must not
+        // read as eligible anywhere. Keeping the two mutually exclusive means
+        // every existing `if (!eligible) return null` surface keeps working
+        // untouched, and only the surfaces that opt into `locked` change.
+        eligible: !expired && !submitted && !weeklyLocked,
+        locked: weeklyLocked && !expired && !submitted,
         submitted,
         daysLeftForFullReward: Math.max(0, MONTHLY_FULL_REWARD_WINDOW_DAYS - daysSinceCycleEnd),
         daysSinceCycleEnd,

@@ -10,12 +10,14 @@ import {
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
+import { CreditWallet } from './CreditWallet'
+import type { WalletRow } from './_shared/credit-wallet'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
@@ -58,9 +60,8 @@ interface Props {
   monthlyWindow?: MonthlyReviewWindow
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
-   *  Now-tray entry. Persists past intake reopening. */
-  waitlistCreditAed?: number
+  /** Approved credit rows — drives the persistent Credit Wallet rail. */
+  walletRows?: WalletRow[]
 }
 
 export default function Sidebar({
@@ -70,7 +71,7 @@ export default function Sidebar({
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
   intakePaused = false,
-  waitlistCreditAed = 0,
+  walletRows = [],
 }: Props) {
   // Combined badge state for the Now tray icon — escalates by precedence:
   //   'active' (orange dot) > 'late' (muted dot) > 'none' (no dot)
@@ -175,6 +176,29 @@ export default function Sidebar({
     whiteSpace: 'nowrap',
   }
 
+  // Every glyph slot is an explicit 18×18 box so the absolutely-positioned
+  // count badges anchor off a known rect instead of a shrink-wrapped inline
+  // box. Without this the badge width feeds back into the anchor and the
+  // pill drifts over the middle of the icon.
+  const iconSlot: React.CSSProperties = {
+    position: 'relative', display: 'inline-flex',
+    width: 18, height: 18, flexShrink: 0,
+  }
+
+  // Shared count-badge geometry. 14px on an 18px glyph, hung off the
+  // top-right corner with a navy ring — big enough to read, small enough
+  // that it clips the corner instead of covering the icon.
+  const countBadge: React.CSSProperties = {
+    position: 'absolute', top: -6, right: -8,
+    minWidth: 14, height: 14, padding: '0 3px',
+    borderRadius: 7,
+    border: `2px solid ${NV2}`,
+    boxSizing: 'border-box',
+    fontFamily: BODY, fontSize: 9, fontWeight: 800, lineHeight: 1,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontFeatureSettings: '"tnum"',
+  }
+
   return (
     <>
       {/* Mobile drawer overlay */}
@@ -225,30 +249,34 @@ export default function Sidebar({
           </button>
         )}
 
-        {/* ── Logo / Wordmark ───────────────────────────────────────────────── */}
+        {/* ── Logo / Wordmark ───────────────────────────────────────────────
+            logo-dark.svg is a SQUARE 3200×3200 stacked lockup. It used to be
+            forced to minWidth:140 + objectFit:contain inside a 52px
+            overflow-hidden box, which letterboxed a 32px square into the
+            middle of a 140px band and then cropped the band back down — a lot
+            of machinery to render a 32px square at an arbitrary offset. Drawn
+            square and directly now, so it can share the icon column: centred
+            on the collapsed rail, flush to the 25px glyph column once the rail
+            expands. */}
         <div
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '4px 6px', marginBottom: 18,
+            display: 'flex', alignItems: 'center',
+            justifyContent: expanded ? 'flex-start' : 'center',
+            paddingLeft: expanded ? 13 : 0,
+            marginBottom: 18,
             height: 36,
-            overflow: 'hidden',
-            width: 52,
-            alignSelf: 'flex-start',
+            alignSelf: 'stretch',
             flexShrink: 0,
+            transition: 'padding-left 220ms cubic-bezier(.22,1,.36,1)',
           }}
         >
           <Image
             src="/logo-dark.svg"
             alt="Dormers"
-            width={140}
+            width={32}
             height={32}
             priority
-            style={{
-              height: 32,
-              width: 'auto',
-              minWidth: 140,
-              objectFit: 'contain',
-            }}
+            style={{ width: 32, height: 32, display: 'block', flexShrink: 0 }}
           />
         </div>
 
@@ -289,7 +317,7 @@ export default function Sidebar({
                 className={active ? 'sidebar-nav-active' : 'sidebar-nav-item'}
                 style={rowStyle(active)}
               >
-                <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                <span style={iconSlot}>
                   <Icon size={18} strokeWidth={active ? 2.4 : 2} />
                 </span>
                 <span style={labelStyle}>{item.label}</span>
@@ -301,16 +329,20 @@ export default function Sidebar({
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* ── Dorm Wars rail — its own small framed container above utilities ── */}
-        <div
-          style={{
-            marginBottom: 12,
-            padding: 6,
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(245,127,32,0.10)',
-            border: '1px solid rgba(245,127,32,0.22)',
-          }}
-        >
+        {/* ── Credit Wallet rail — persistent, above Dorm Wars ────────────────
+            A credit balance has no deadline and deliberately outlives the pause
+            that granted it, so it lives on a rail that's always on screen
+            rather than behind the Now-tray toggle. Renders nothing on a zero
+            balance. See CreditWallet.tsx. */}
+        <CreditWallet rows={walletRows} expanded={expanded} />
+
+        {/* ── Dorm Wars rail — the orange frame IS the button ────────────────
+            The frame used to be a wrapper div with its own 6px padding, which
+            pushed this icon 4px right of every other glyph in the rail and
+            broke the icon column. Frame moved onto the button so its padding
+            and 1px border match the nav rows exactly (12 + 1 → same 25px
+            glyph column, same 12px gap → same 55px label column). */}
+        <div style={{ marginBottom: 12 }}>
           <button
             type="button"
             onClick={() => setOpenDropdown(d => d === 'dormwars' ? null : 'dormwars')}
@@ -320,12 +352,12 @@ export default function Sidebar({
             className={openDropdown === 'dormwars' ? 'sidebar-nav-active' : 'sidebar-dormwars-row'}
             style={{
               display: 'flex', alignItems: 'center',
-              gap: expanded ? 10 : 0,
+              gap: expanded ? 12 : 0,
               justifyContent: expanded ? 'flex-start' : 'center',
-              padding: '9px 10px', borderRadius: 'var(--radius-sm)',
-              fontFamily: BODY, fontSize: 12, fontWeight: 700,
-              background: openDropdown === 'dormwars' ? 'rgba(245,127,32,0.18)' : 'transparent',
-              border: 'none',
+              padding: '11px 12px', borderRadius: 'var(--radius-sm)',
+              fontFamily: BODY, fontSize: 13, fontWeight: 700,
+              background: openDropdown === 'dormwars' ? 'rgba(245,127,32,0.18)' : 'rgba(245,127,32,0.10)',
+              border: '1px solid rgba(245,127,32,0.22)',
               color: OG3,
               whiteSpace: 'nowrap',
               transition: 'background 150ms, gap 220ms',
@@ -334,17 +366,10 @@ export default function Sidebar({
               textAlign: 'left',
             }}
           >
-            <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <span style={iconSlot}>
               <Gift size={18} strokeWidth={2.2} />
               {referralData.total > 0 && (
-                <span style={{
-                  position: 'absolute', top: -5, right: -5,
-                  minWidth: 14, height: 14, borderRadius: 999,
-                  background: '#1d8a30', color: '#fff',
-                  fontSize: 11, fontWeight: 800,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0 3px', lineHeight: 1,
-                }}>
+                <span style={{ ...countBadge, background: '#1d8a30', color: '#fff' }}>
                   {referralData.total > 9 ? '9+' : referralData.total}
                 </span>
               )}
@@ -401,7 +426,7 @@ export default function Sidebar({
                   boxShadow: notifOpen ? 'inset 0 1px 2px rgba(9,24,37,0.30)' : 'none',
                 }}
               >
-                <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                <span style={iconSlot}>
                   <Activity size={18} strokeWidth={notifOpen ? 2.4 : 2} />
                   {nowBadge !== 'none' && nowPendingCount > 0 && (
                     <span
@@ -409,24 +434,9 @@ export default function Sidebar({
                       className={isUrgent ? 'now-count now-count-urgent' : 'now-count'}
                       data-tone={nowBadge}
                       style={{
-                        position: 'absolute',
-                        top: -6,
-                        right: -8,
-                        minWidth: 16,
-                        height: 16,
-                        padding: '0 4px',
-                        borderRadius: 8,
+                        ...countBadge,
                         background: nowBadge === 'active' ? OG : 'rgba(237,232,218,0.55)',
                         color: nowBadge === 'active' ? '#fff' : NV2,
-                        border: `2px solid ${NV2}`,
-                        fontFamily: BODY,
-                        fontSize: 10,
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontFeatureSettings: '"tnum"',
                       }}
                     >
                       {nowPendingCount > 9 ? '9+' : nowPendingCount}
@@ -468,9 +478,14 @@ export default function Sidebar({
             className="sidebar-profile-chip"
             style={{
               display: 'flex', alignItems: 'center',
-              gap: expanded ? 10 : 0,
+              // The avatar is 32px against an 18px glyph, so it cannot share
+              // both the icon column AND the nav rows' 12px gap. Column wins:
+              // 6px inset centres the avatar on the 25px glyph column, and a
+              // 5px gap lands the name on the 55px label column, so the whole
+              // rail reads as two straight edges.
+              gap: expanded ? 5 : 0,
               justifyContent: expanded ? 'flex-start' : 'center',
-              padding: '6px 8px', borderRadius: 'var(--radius-sm)',
+              padding: '8px 6px', borderRadius: 'var(--radius-sm)',
               background: openDropdown === 'profile' ? 'rgba(237,232,218,0.08)' : 'transparent',
               border: 'none', cursor: 'pointer',
               transition: 'background 150ms, gap 220ms',
@@ -478,10 +493,10 @@ export default function Sidebar({
               fontFamily: BODY,
             }}
           >
-            <div style={{ width: 36, height: 36, flexShrink: 0, borderRadius: '50%', background: `linear-gradient(135deg, ${OG3}, ${OG})`, color: NV2, fontFamily: BODY, fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 12px rgba(245,127,32,0.30)' }}>
+            <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: '50%', background: `linear-gradient(135deg, ${OG3}, ${OG})`, color: NV2, fontFamily: BODY, fontSize: 12, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 12px rgba(245,127,32,0.30)' }}>
               {initials}
             </div>
-            <div style={{ minWidth: 0, opacity: expanded ? 1 : 0, maxWidth: expanded ? 160 : 0, overflow: 'hidden', transition: 'opacity 180ms, max-width 220ms', whiteSpace: 'nowrap' }}>
+            <div style={{ minWidth: 0, opacity: expanded ? 1 : 0, maxWidth: expanded ? 168 : 0, overflow: 'hidden', transition: 'opacity 180ms, max-width 220ms', whiteSpace: 'nowrap' }}>
               <div style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, color: CR, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
               {customerCid && (
                 <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted, lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -505,7 +520,6 @@ export default function Sidebar({
           weeklyReviewState={weeklyReviewState}
           monthlyWindow={monthlyWindow}
           intakePaused={intakePaused}
-          waitlistCreditAed={waitlistCreditAed}
         />
       </aside>
 
@@ -547,8 +561,10 @@ export default function Sidebar({
         .sidebar-profile-chip:hover {
           background: rgba(237,232,218,0.06) !important;
         }
+        /* 0.10 is now the row's idle fill (the frame moved onto the button),
+           so hover has to go up, not sideways. */
         .sidebar-dormwars-row:hover {
-          background: rgba(245,127,32,0.10) !important;
+          background: rgba(245,127,32,0.17) !important;
         }
         @media (max-width: 1024px) {
           .dash-sidebar {

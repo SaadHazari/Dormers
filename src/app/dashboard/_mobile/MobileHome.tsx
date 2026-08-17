@@ -3,7 +3,8 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import Image, { type StaticImageData } from 'next/image'
 import Link from 'next/link'
-import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight } from 'lucide-react'
+import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight, Lock } from 'lucide-react'
+import { WEEKLY_WRAP_UNLOCK_MEALS } from '@/contexts/subscriptions/domain/monthly-review'
 import { OG, OG3, OG_DEEP, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
 import { MealTag } from '../_shared/MealTag'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -107,7 +108,7 @@ export interface MobileHomeData {
    *  on/after it (incl. today) freezes to "on hold" — no today ring, read-only —
    *  mirroring desktop's pause overlay. Distinct from plannedPauseStart (future). */
   pauseCutoffIso: string | null
-  wrap?: { cycleLabel: string; daysLeft: number; reward: number; late: boolean } | null
+  wrap?: { cycleLabel: string; daysLeft: number; reward: number; late: boolean; locked: boolean } | null
 }
 
 interface Props {
@@ -756,24 +757,49 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
       {data.wrap && (
         <button
           type="button"
-          onClick={onWrap}
+          onClick={data.wrap.locked ? undefined : onWrap}
+          disabled={data.wrap.locked}
+          aria-disabled={data.wrap.locked}
           style={{
             display: 'flex', alignItems: 'center', gap: 12,
-            padding: '14px 16px', borderRadius: 16, textAlign: 'left', cursor: 'pointer',
+            padding: '14px 16px', borderRadius: 16, textAlign: 'left',
+            cursor: data.wrap.locked ? 'default' : 'pointer',
             fontFamily: BODY, appearance: 'none',
             backgroundColor: 'rgba(9,24,37,0.045)',
-            border: '1px solid rgba(9,24,37,0.08)',
-            boxShadow: 'inset 0 1px 2px rgba(9,24,37,0.05)',
+            // Locked reads as an outline waiting to be filled: dashed edge,
+            // no inner shadow. Same silhouette so the customer recognises it
+            // as the thing that goes live in a couple of days.
+            border: data.wrap.locked ? '1px dashed rgba(9,24,37,0.20)' : '1px solid rgba(9,24,37,0.08)',
+            boxShadow: data.wrap.locked ? 'none' : 'inset 0 1px 2px rgba(9,24,37,0.05)',
           }}
         >
-          <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: OG }}>
-            <Flame size={16} strokeWidth={2} />
+          <span style={{
+            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+            background: data.wrap.locked ? 'rgba(9,24,37,0.05)' : 'var(--ds-og-wash-strong)',
+            border: data.wrap.locked ? '1px solid rgba(9,24,37,0.10)' : '1px solid var(--ds-og-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: data.wrap.locked ? S.fgFaint : OG,
+          }}>
+            {data.wrap.locked ? <Lock size={15} strokeWidth={2} /> : <Flame size={16} strokeWidth={2} />}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: S.fg }}>Rate your {data.wrap.cycleLabel}</div>
-            <div style={{ fontSize: 12, color: S.fgMuted, marginTop: 1 }}>2 mins · {data.wrap.late ? `${data.wrap.daysLeft}d late` : `${data.wrap.daysLeft}d left to earn`}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: data.wrap.locked ? S.fgMuted : S.fg }}>
+              Rate your {data.wrap.cycleLabel}
+            </div>
+            <div style={{ fontSize: 12, color: data.wrap.locked ? S.fgFaint : S.fgMuted, marginTop: 1 }}>
+              {data.wrap.locked
+                ? `Opens after your ${WEEKLY_WRAP_UNLOCK_MEALS}th meal`
+                : `2 mins · ${data.wrap.late ? `${data.wrap.daysLeft}d late` : `${data.wrap.daysLeft}d left to earn`}`}
+            </div>
           </div>
-          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.12)', border: '1px solid rgba(245,127,32,0.32)', color: OG_DEEP, fontSize: 12, fontWeight: 800, fontFeatureSettings: '"tnum"' }}>
+          <span style={{
+            flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '6px 10px', borderRadius: 999,
+            background: data.wrap.locked ? 'rgba(9,24,37,0.04)' : 'rgba(245,127,32,0.12)',
+            border: data.wrap.locked ? '1px dashed rgba(9,24,37,0.24)' : '1px solid rgba(245,127,32,0.32)',
+            color: data.wrap.locked ? S.fgFaint : OG_DEEP,
+            fontSize: 12, fontWeight: 800, fontFeatureSettings: '"tnum"',
+          }}>
             <Gift size={13} strokeWidth={2.4} /> +AED {data.wrap.reward}
           </span>
         </button>

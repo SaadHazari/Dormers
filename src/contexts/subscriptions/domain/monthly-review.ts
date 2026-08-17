@@ -57,10 +57,12 @@ export function planTierFrom(planName: string | null | undefined): WrapPlanTier 
 
 /**
  * Days BEFORE a cycle's end_date when the wrap becomes eligible. Mirrors
- * the dashboard's renew banner for monthly/weekly so the wrap and renew
- * CTAs appear together as one "you're closing this cycle" moment.
+ * the dashboard's renew banner for monthly so the wrap and renew CTAs
+ * appear together as one "you're closing this cycle" moment.
  *   Monthly → 4 days lead-in (matches Monthly Premium/Max renew window)
- *   Weekly  → 2 days lead-in
+ *   Weekly  → unused. Weekly is gated forward from start_date instead;
+ *             see weeklyWrapGate. Kept at 2 only so the SQL pre-filter
+ *             arithmetic below has a value for every tier.
  *   Trial   → 0 (post-end only — see below)
  *
  * Trial is special: end_date === start_date === delivery day (a trial is
@@ -86,11 +88,22 @@ export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
  * bare and standardising every template on the "your {cycleLabel}" pattern.
  *
  *   Monthly → "April cycle"           ("Wrap your April cycle"     ✓)
- *   Weekly  → "week of Apr 14"        ("Wrap your week of Apr 14"  ✓)
- *   Trial   → "trial"                  ("Wrap your trial"           ✓)
+ *   Weekly  → "Flex plan"             ("Wrap your Flex plan"       ✓)
+ *   Trial   → "Trial Meal"            ("Wrap your Trial Meal"      ✓)
+ *
+ * Weekly and trial name the SURVEY; monthly names the date. That looks
+ * inconsistent but isn't: a monthly customer's "April cycle" is unambiguous,
+ * while the old date-named weekly label ("week of Apr 14") sat directly under
+ * a plan card already showing the same span as "14 Apr to 21 Apr" — one
+ * period wearing two names, on one screen. The date buys nothing on a plan
+ * that only ever has one cycle open, so weekly/trial drop it.
+ *
+ * startDate is still required for monthly and kept in the signature for the
+ * other tiers so callers stay uniform and a missing date reliably yields
+ * null (surfaces treat null as "no eligible cycle").
  *
  * Eyebrow-style usages (no determiner) take the label as-is — "monthly
- * wrap · April cycle", "meal wrap · trial" both read fine.
+ * wrap · April cycle", "weekly wrap · Flex plan" both read fine.
  */
 export function cycleLabelFor(tier: WrapPlanTier, startDate: string | null): string | null {
     if (!startDate) return null
@@ -100,10 +113,69 @@ export function cycleLabelFor(tier: WrapPlanTier, startDate: string | null): str
         case 'monthly':
             return d.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' }) + ' cycle'
         case 'weekly':
-            return 'week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+            return 'Flex plan'
         case 'trial':
-            return 'trial'
+            return 'Trial Meal'
     }
+}
+
+// ── Weekly wrap gating ──────────────────────────────────────────────────────
+
+/**
+ * Day of a weekly plan (1-indexed, day 1 = start date) on which the wrap
+ * card first appears. It appears LOCKED — visible but not submittable.
+ */
+export const WEEKLY_WRAP_PREVIEW_DAY = 4
+
+/**
+ * Delivered meals a weekly customer needs before the wrap unlocks. Five of
+ * a Weekly Flex's six meals is enough of the plan tasted for the answers to
+ * mean something, while still leaving room to submit before the plan ends.
+ */
+export const WEEKLY_WRAP_UNLOCK_MEALS = 5
+
+/**
+ * Three-state visibility for the weekly wrap.
+ *   hidden → render nothing
+ *   locked → render the card greyed out, with a "what unlocks it" caption
+ *   open   → render the card as a live, submittable action
+ */
+export type WeeklyWrapGate = 'hidden' | 'locked' | 'open'
+
+/**
+ * Weekly wrap gating, measured from the plan's START rather than its end.
+ *
+ * The other tiers open a fixed number of days BEFORE end_date (see
+ * PRE_END_WRAP_WINDOW). That works when the cycle is long enough for
+ * "4 days out" to still mean "you've eaten most of it". On a 7-day plan it
+ * doesn't, so weekly counts forward from the start instead:
+ *
+ *   • Days 1-3      → hidden. Too little eaten to have an opinion.
+ *   • Day 4 onward  → locked. Visible so the reward is discoverable and the
+ *                     customer knows it's coming, but not yet answerable.
+ *   • 5 meals in    → open.
+ *
+ * Gating the OPEN state on meals rather than days is the point: a customer
+ * who skips is a day behind on meals, so "day 5 has ended" would hand them
+ * the survey after four meals, not five.
+ *
+ * `cycleEnded` is the safety net. Weekly Flex allows one skip against six
+ * meals, so five delivered is normally always reachable — but a kitchen
+ * failure or an unrecorded delivery could strand the count below five
+ * forever, and a wrap that never unlocks is a reward silently withheld.
+ * Once the plan is over, the wrap opens no matter what the count says.
+ *
+ * @param daysSinceStart Whole days since the start date. 0 on day 1.
+ */
+export function weeklyWrapGate(input: {
+    daysSinceStart: number
+    deliveredMeals: number
+    cycleEnded: boolean
+}): WeeklyWrapGate {
+    if (input.cycleEnded) return 'open'
+    if (input.deliveredMeals >= WEEKLY_WRAP_UNLOCK_MEALS) return 'open'
+    if (input.daysSinceStart >= WEEKLY_WRAP_PREVIEW_DAY - 1) return 'locked'
+    return 'hidden'
 }
 
 export type RenewalIntent = 'definitely' | 'probably' | 'probably_not' | 'no'
@@ -154,8 +226,25 @@ export interface MonthlyRevealStats {
 }
 
 export interface MonthlyReviewWindow {
-    /** True when the cycle has ended and the survey window is open. */
+    /**
+     * True when the wrap is SUBMITTABLE right now. Every surface that offers
+     * the wrap as an action gates on this, so a locked weekly wrap must leave
+     * it false — see `locked`.
+     */
     eligible: boolean
+    /**
+     * True when the wrap should be shown but cannot yet be submitted: the
+     * weekly preview state between day 4 and the 5th delivered meal
+     * (see weeklyWrapGate). Mutually exclusive with `eligible`.
+     *
+     * Only the three low-key surfaces honour it — the mobile home card, the
+     * dashboard strip and the Now tray. The forcing overlay, the takeover and
+     * the no-plan banner all gate on `eligible` alone, so they stay silent
+     * while locked. That's deliberate: those three interrupt the customer,
+     * and interrupting someone with something they can't act on is worse
+     * than not showing it at all.
+     */
+    locked: boolean
     /** True when already submitted (don't re-show takeover trigger). */
     submitted: boolean
     /** Days remaining in the 7-day full-reward window. Negative if past. */
@@ -217,7 +306,13 @@ export function monthlyReviewAed(rewardPct: 50 | 100): number {
     return rewardPct === 100 ? MONTHLY_REWARD_AED : MONTHLY_LATE_REWARD_AED
 }
 
-/** Derive the Now-tray badge value for the monthly wrap from the window state. */
+/**
+ * Derive the Now-tray badge value for the monthly wrap from the window state.
+ *
+ * A locked weekly wrap deliberately scores 'none'. The tray entry still
+ * renders (greyed out), but badging it would nag the customer toward a
+ * button that does nothing when pressed.
+ */
 export function monthlyBadgeFromWindow(w: MonthlyReviewWindow): MonthlyReviewBadge {
     if (!w.eligible) return 'none'
     return w.daysLeftForFullReward > 0 ? 'active' : 'late'

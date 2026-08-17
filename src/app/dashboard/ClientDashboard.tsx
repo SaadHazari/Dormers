@@ -27,7 +27,7 @@ interface RecentOrder {
 }
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }

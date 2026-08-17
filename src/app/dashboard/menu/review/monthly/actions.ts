@@ -11,6 +11,8 @@ import {
     monthlyReviewAed,
     planTierFrom,
     wrapVocabFor,
+    weeklyWrapGate,
+    WEEKLY_WRAP_UNLOCK_MEALS,
     type MonthlyReviewPayload,
     type MonthlyReviewSubmitResult,
 } from '@/contexts/subscriptions/domain/monthly-review'
@@ -58,14 +60,17 @@ export async function submitMonthlyReview(
     const now = new Date()
     const ae = new Date(now.getTime() + 4 * 60 * 60 * 1000)
     const today = new Date(Date.UTC(ae.getUTCFullYear(), ae.getUTCMonth(), ae.getUTCDate()))
-    const maxPreEnd = Math.max(...Object.values(PRE_END_WRAP_WINDOW))
+    // Floor of 7 mirrors MAX_PRE_END_DAYS in monthly-review-queries.ts — the
+    // weekly tier surfaces from day 4 of a ~7-day plan, which sits further
+    // out than any PRE_END_WRAP_WINDOW value.
+    const maxPreEnd = Math.max(...Object.values(PRE_END_WRAP_WINDOW), 7)
     const maxFuture = new Date(today)
     maxFuture.setUTCDate(today.getUTCDate() + maxPreEnd)
     const maxFutureIso = maxFuture.toISOString().slice(0, 10)
 
     const { data: sub } = await supabase
         .from('subscriptions')
-        .select('id, end_date, status, plan_name')
+        .select('id, end_date, start_date, status, plan_name, delivered_meals')
         .eq('customer_id', user.id)
         .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED, SUBSCRIPTION_STATUS.ENDED])
         .lte('end_date', maxFutureIso)
@@ -82,7 +87,27 @@ export async function submitMonthlyReview(
     const endDate = new Date(sub.end_date.slice(0, 10) + 'T00:00:00Z')
     const daysSinceEnd = Math.floor((today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24))
 
-    if (daysSinceEnd < -preEndWindow) {
+    // Weekly is gated forward from start_date on meals eaten, not backward
+    // from end_date on days — mirror weeklyWrapGate exactly. Without this the
+    // route guard would be the only thing stopping a locked submission, and a
+    // hand-rolled POST would slip straight past it.
+    if (planTier === 'weekly') {
+        const startIso = sub.start_date as string | null
+        const startDate = startIso ? new Date(startIso.slice(0, 10) + 'T00:00:00Z') : null
+        const gate = startDate
+            ? weeklyWrapGate({
+                daysSinceStart: Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)),
+                deliveredMeals: (sub.delivered_meals as number | null) ?? 0,
+                cycleEnded: daysSinceEnd >= 0,
+            })
+            : 'hidden'
+        if (gate !== 'open') {
+            return {
+                ok: false,
+                error: `Your wrap opens after your ${WEEKLY_WRAP_UNLOCK_MEALS}th meal. Come back once it lands.`,
+            }
+        }
+    } else if (daysSinceEnd < -preEndWindow) {
         return { ok: false, error: "Your cycle hasn't ended yet — come back when it wraps." }
     }
     if (daysSinceEnd > MONTHLY_LATE_CAP_DAYS) {

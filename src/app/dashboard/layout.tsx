@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
-import { getCustomer, getActiveSubscription, getQueuedSubscription, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
@@ -15,9 +15,10 @@ import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscript
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import type { WalletRow } from './_shared/credit-wallet'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
@@ -51,12 +52,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // queued plan exists the overlay reframes the wrap as "close out before
   // your new plan starts". Null when no queued plan.
   let queuedPlanSummary: { planName: string; startDate: string } | null = null
-  // Seasonal intake pause — drives the two Now-tray entries. Paused=false and
-  // credit=0 are the safe defaults for signed-out renders; getIntakeState
-  // itself fails open (never blocks) and getWaitlistStatus fails closed to
-  // not-joined/zero on a read error.
+  // Seasonal intake pause — drives the "New plans paused" Now-tray entry.
+  // Paused=false is the safe default for signed-out renders; getIntakeState
+  // itself fails open (never blocks).
   let intakePaused = false
-  let waitlistCreditAed = 0
+  // Approved credit rows for the persistent sidebar Credit Wallet — every
+  // credit the customer holds, not scoped to any one cycle or plan (a credit
+  // from an earlier pause is still the customer's money). Empty is the safe
+  // default for signed-out renders.
+  let walletRows: WalletRow[] = []
   const userEmail = user?.email ?? ''
 
   if (user) {
@@ -70,18 +74,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
     })
 
     const supabase = await createClient()
-    // Resolved first (cached 30s, so this is not a new round trip) so its
-    // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
-    // pause — see project_seasonal_intake_pause / getWaitlistStatus.
-    const intakeState = await getIntakeState()
-    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, waitlistStatus] = await Promise.all([
+    // getIntakeState() rides in the batch below (rather than being awaited on
+    // its own line ahead of it) — this route only reads `.paused`, so there is
+    // no reason to pay a serial hop on every dashboard render on top of the
+    // documented cold-start budget. (page.tsx / plan/page.tsx /
+    // explore-plans/page.tsx genuinely need `cycleStartedAt` ahead of their own
+    // batches and are intentionally left as they are.)
+    // Credit Wallet reads the credits rows directly (amount_aed +
+    // eligible_plan_ids) rather than going through getRedeemableCredit — that
+    // helper is payment-critical lockstep with checkout/webhook and, called
+    // with no planId, drops eligible_plan_ids from its returned rows, which
+    // the wallet needs to explain a monthly-only balance. See credit-wallet.ts.
+    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, creditsResult, intakeState] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
       getQueuedSubscription(user.id),
       getReferralData(user.id),
       getWeeklyReviewState(user.id),
       getMonthlyReviewWindow(user.id),
-      getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+      supabase
+        .from('credits')
+        .select('amount_aed, eligible_plan_ids')
+        .eq('customer_id', user.id)
+        .eq('status', 'approved'),
+      getIntakeState(),
     ])
     customerName = customer?.name ?? ''
     customerCid = customer?.cid ?? ''
@@ -91,7 +107,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     weeklyReviewState = reviewState
     monthlyWindow = monthlyWin
     intakePaused = intakeState.paused
-    waitlistCreditAed = waitlistStatus.unspentCreditAed
+    if (creditsResult.error) console.error('DashboardLayout: credits read failed:', creditsResult.error.message)
+    walletRows = (creditsResult.data ?? []) as WalletRow[]
     if (queuedSub) {
       queuedPlanSummary = {
         planName: (queuedSub.plan_name as string) ?? 'Plan',
@@ -121,7 +138,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         monthlyWindow={monthlyWindow}
         queuedPlanSummary={queuedPlanSummary}
         intakePaused={intakePaused}
-        waitlistCreditAed={waitlistCreditAed}
+        walletRows={walletRows}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div className="dash-main-row" style={{ display: 'flex', paddingTop: 16 }}>

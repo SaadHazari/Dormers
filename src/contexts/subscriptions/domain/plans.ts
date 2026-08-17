@@ -193,18 +193,25 @@ export function planKindOf(id: PlanId): PlanKind {
 
 /**
  * Number of weekly reviews a plan expects per cycle. Monthly plans cover
- * 4 calendar weeks of meals; Weekly Flex covers 1; trial/gift have none.
+ * 4 calendar weeks of meals; weekly/trial/gift have none.
  *
  * Source of truth for the weekly-review threshold instead of dividing the
  * calendar span by 7 — that math undercounts for 5DAYS / 6DAYS plans
  * because end_date lands on the last delivery weekday, not Sunday.
+ *
+ * Weekly Flex returns 0 deliberately. It used to return 1, which asked a
+ * weekly customer for a food review AND a plan wrap covering the identical
+ * 7 days — two surveys the customer had no way to tell apart. The wrap is
+ * now their only survey; see weeklyWrapGate in monthly-review.ts for the
+ * meal-count gating that replaced the food review's week-end trigger.
+ * Every weekly-review surface derives its weeks from this function, so
+ * returning 0 retires the food review across all of them at once.
  */
 export function expectedReviewWeeks(planString: string | null | undefined): number {
   const def = resolvePlan(planString)
   if (!def) return 0
   const kind = planKindOf(def.id)
   if (kind === 'monthly') return 4
-  if (kind === 'weekly') return 1
   return 0
 }
 

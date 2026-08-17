@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { OG, BODY } from './tokens'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 /**
  * Slim 1-line dashboard strip — surfaces a pending monthly wrap WITHOUT
@@ -22,10 +22,57 @@ import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type Monthly
  * hero and it self-removes.
  */
 export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyReviewWindow }) {
-    if (!monthlyWindow.eligible) return null
+    if (!monthlyWindow.eligible && !monthlyWindow.locked) return null
 
     const vocab = wrapVocabFor(monthlyWindow.planTier)
     const cycleLabel = monthlyWindow.cycleLabel ?? 'cycle'
+
+    // Locked weekly preview: a plain row instead of a Link, so it says the
+    // reward is coming without offering a destination that would turn the
+    // customer away at the door.
+    if (monthlyWindow.locked) {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center',
+                gap: 10, flexWrap: 'wrap',
+                padding: '10px 4px',
+                marginBottom: 12,
+                borderBottom: '1px solid var(--ds-border-soft)',
+                fontFamily: BODY,
+                color: 'var(--ds-fg-faint)',
+                fontSize: 12.5, lineHeight: 1.3,
+            }}>
+                <span style={{
+                    fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+                    textTransform: 'uppercase', color: 'var(--ds-fg-tint)',
+                }}>
+                    {vocab.qualifier} wrap
+                </span>
+                <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+                <span style={{ fontWeight: 600, color: 'var(--ds-fg-muted)' }}>
+                    Close out your {cycleLabel}
+                </span>
+                <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+                <span style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                    padding: '2px 7px', borderRadius: 999,
+                    background: 'rgba(9,24,37,0.06)',
+                    color: 'var(--ds-fg-muted)',
+                    border: '1px solid rgba(9,24,37,0.18)',
+                }}>
+                    Opens after meal {WEEKLY_WRAP_UNLOCK_MEALS}
+                </span>
+                <span style={{
+                    marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontWeight: 700, color: 'var(--ds-fg-muted)',
+                    fontFeatureSettings: '"tnum"',
+                }}>
+                    +AED {MONTHLY_REWARD_AED}
+                </span>
+            </div>
+        )
+    }
+
     const isPreEnd = monthlyWindow.daysSinceCycleEnd < 0
     const isLastDay = !isPreEnd && monthlyWindow.daysLeftForFullReward === 0 && monthlyWindow.daysSinceCycleEnd <= 7
     const isLate = monthlyWindow.daysSinceCycleEnd > 7

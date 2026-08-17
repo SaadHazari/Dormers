@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
+import type { WalletRow } from './_shared/credit-wallet'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { MonthlyWrapForceOverlay } from './_shared/MonthlyWrapForceOverlay'
 
 const DEFAULT_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
@@ -29,10 +30,8 @@ interface Props {
   queuedPlanSummary?: { planName: string; startDate: string } | null
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
-   *  Now-tray entry. Persists past intake reopening (see subscriptions-repo
-   *  getWaitlistStatus): only the paused entry disappears when intake reopens. */
-  waitlistCreditAed?: number
+  /** Approved credit rows — drives the persistent Credit Wallet rail. */
+  walletRows?: WalletRow[]
   children: React.ReactNode
 }
 
@@ -47,7 +46,7 @@ export default function DashboardShell({
   monthlyWindow = DEFAULT_MONTHLY_WINDOW,
   queuedPlanSummary = null,
   intakePaused = false,
-  waitlistCreditAed = 0,
+  walletRows = [],
   children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -118,7 +117,7 @@ export default function DashboardShell({
         weeklyReviewState={weeklyReviewState}
         monthlyWindow={monthlyWindow}
         intakePaused={intakePaused}
-        waitlistCreditAed={waitlistCreditAed}
+        walletRows={walletRows}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />

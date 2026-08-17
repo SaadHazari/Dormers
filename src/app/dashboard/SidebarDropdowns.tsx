@@ -12,16 +12,16 @@ import {
 } from 'lucide-react'
 import * as Sentry from '@sentry/nextjs'
 import { signout } from '@/app/login/actions'
-import { OG, OG3, OG_DEEP, NV2, BODY } from './_shared/tokens'
+import { OG, OG3, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { totalCashForConversions } from '@/contexts/dorm-wars/domain/constants'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'
 import { referralUrl, referralUrlDisplay } from '@/shared/contacts'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
@@ -106,9 +106,6 @@ interface Props {
   monthlyWindow?: MonthlyReviewWindow
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Unspent seasonal-waitlist credit (AED) — drives the "AED N waiting"
-   *  Now-tray entry. Persists past intake reopening. */
-  waitlistCreditAed?: number
 }
 
 export function SidebarDropdowns({
@@ -117,7 +114,6 @@ export function SidebarDropdowns({
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
   intakePaused = false,
-  waitlistCreditAed = 0,
 }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [referralCopied, setReferralCopied] = useState(false)
@@ -311,7 +307,6 @@ export function SidebarDropdowns({
             weeklyReviewState={weeklyReviewState}
             monthlyWindow={monthlyWindow}
             intakePaused={intakePaused}
-            waitlistCreditAed={waitlistCreditAed}
             onItemClick={() => { setOpenDropdown(null); onMobileClose?.() }}
           />
         )}
@@ -479,29 +474,27 @@ function NowTray({
   weeklyReviewState,
   monthlyWindow,
   intakePaused,
-  waitlistCreditAed,
   onItemClick,
 }: {
   weeklyReviewState: WeeklyReviewState
   monthlyWindow: MonthlyReviewWindow
   intakePaused: boolean
-  waitlistCreditAed: number
   onItemClick: () => void
 }) {
   const { current, late, justSubmitted, rewards } = weeklyReviewState
   const monthlyLive = monthlyWindow.eligible
-  // The waitlist-credit entry is deliberately NOT gated on intakePaused — the
-  // brief is explicit that it must survive intake reopening, becoming the
-  // reason to come back. Only the paused entry disappears when intake lifts.
-  const showWaitlistCredit = waitlistCreditAed > 0
-  const hasContent = !!current || late.length > 0 || !!justSubmitted || monthlyLive || intakePaused || showWaitlistCredit
+  // A locked weekly wrap (day 4 up to the 5th delivered meal) shows in the
+  // tray so the reward is discoverable early, but it is not a to-do yet.
+  const monthlyLocked = monthlyWindow.locked
+  const hasContent = !!current || late.length > 0 || !!justSubmitted || monthlyLive || monthlyLocked || intakePaused
   // Monthly plans (Premium/Max) have multiple weekly reviews in a cycle; the
-  // all-or-nothing rule only applies to them. Weekly Flex collapses to a
-  // single review per cycle — no rule banner.
+  // all-or-nothing rule only applies to them. Weekly plans no longer have
+  // weekly reviews at all — the wrap is their only survey.
   const showAllOrNothing = rewards.total > 1 && (current || late.length > 0)
   // Intake-pause entries are quiet/persistent state, not decisive to-dos with
   // a deadline — they deliberately don't count toward the "N live" chip or
-  // the sidebar rail's numeric badge (see Sidebar.tsx nowPendingCount).
+  // the sidebar rail's numeric badge (see Sidebar.tsx nowPendingCount). A
+  // locked wrap is excluded for the same reason: nothing to act on yet.
   const liveCount = (current ? 1 : 0) + late.length + (monthlyLive ? 1 : 0)
 
   return (
@@ -533,7 +526,7 @@ function NowTray({
         <div style={{ padding: '0 10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Monthly wrap leads when present — it's the cycle-closing moment
               that anchors the milestone path the weekly reviews opened. */}
-          {monthlyLive && <MonthlyWrapCard window={monthlyWindow} onClick={onItemClick} />}
+          {(monthlyLive || monthlyLocked) && <MonthlyWrapCard window={monthlyWindow} onClick={onItemClick} />}
           {showAllOrNothing && <AllOrNothingLine state={weeklyReviewState} />}
           {current && <PendingReviewCard data={current} onClick={onItemClick} />}
           {late.map(item => (
@@ -547,7 +540,6 @@ function NowTray({
               See project_now_tray_architecture: time-bound state lives here,
               not on content pages. */}
           {intakePaused && <IntakePausedRow onClick={onItemClick} />}
-          {showWaitlistCredit && <WaitlistCreditRow creditAed={waitlistCreditAed} onClick={onItemClick} />}
         </div>
       )}
     </>
@@ -581,40 +573,6 @@ function IntakePausedRow({ onClick }: { onClick: () => void }) {
         </div>
         <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
           We are between semesters.
-        </div>
-      </div>
-      <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
-    </Link>
-  )
-}
-
-// The ownership mechanic for the seasonal-pause credit: if the balance isn't
-// on screen it isn't doing its job, so this stays for as long as the credit
-// is unspent — including after intake reopens, when it becomes the reason to
-// come back (see getWaitlistStatus / project ruling on this phase).
-function WaitlistCreditRow({ creditAed, onClick }: { creditAed: number; onClick: () => void }) {
-  return (
-    <Link
-      href="/dashboard/plan"
-      onClick={onClick}
-      className="now-tray-row"
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 12px',
-        borderRadius: 'var(--radius-sm)',
-        background: 'var(--ds-og-wash)',
-        border: '1px solid var(--ds-og-border)',
-        textDecoration: 'none', color: 'var(--ds-fg)',
-        fontFamily: BODY,
-        transition: 'background 150ms',
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: OG_DEEP, lineHeight: 1.2, fontFeatureSettings: '"tnum"' }}>
-          AED {creditAed} waiting
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
-          Unlocks on a monthly plan.
         </div>
       </div>
       <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
@@ -756,6 +714,63 @@ function MonthlyWrapCard({
   const vocab = wrapVocabFor(window.planTier)
   const cycleLabel = window.cycleLabel ?? 'cycle'
   const draftActive = useMonthlyDraftActive(cycleLabel)
+
+  // Locked weekly preview: same card silhouette so it reads as the same thing
+  // that will later go live, but flat (no orange edge, no shadow) and inert.
+  // The dashed CTA is the house disabled affordance — it matches the greyed
+  // "Plan a skip" / "Pause" buttons on the mobile home card.
+  if (window.locked) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: '12px 12px 12px 14px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--ds-surface)',
+        border: '1px solid var(--ds-border-soft)',
+        color: 'var(--ds-fg)', fontFamily: BODY,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: 'var(--ds-fg-muted)',
+          }}>
+            {vocab.qualifier} wrap
+          </div>
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+            padding: '2px 7px', borderRadius: 999,
+            background: 'rgba(9,24,37,0.06)', color: 'var(--ds-fg-muted)',
+            border: '1px solid rgba(9,24,37,0.18)',
+          }}>
+            Locked
+          </span>
+        </div>
+
+        <div style={{
+          fontSize: 15, fontWeight: 800, color: 'var(--ds-fg-muted)',
+          letterSpacing: '-0.005em', lineHeight: 1.15,
+        }}>
+          Wrap your {cycleLabel}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--ds-fg-faint)', lineHeight: 1.35 }}>
+          Opens after your {WEEKLY_WRAP_UNLOCK_MEALS}th meal
+        </div>
+
+        <div style={{
+          marginTop: 4,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '8px 10px', borderRadius: 999,
+          border: '1px dashed rgba(9,24,37,0.28)',
+          color: 'var(--ds-fg-faint)',
+          fontSize: 11, fontWeight: 800,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+        }}>
+          +AED {MONTHLY_REWARD_AED} waiting
+        </div>
+      </div>
+    )
+  }
+
   const isPreEnd = window.daysSinceCycleEnd < 0
   const isLastDay = !isPreEnd && window.daysLeftForFullReward === 0 && window.daysSinceCycleEnd <= MONTHLY_FULL_REWARD_DAYS_THRESHOLD
   const isLate = window.daysSinceCycleEnd > MONTHLY_FULL_REWARD_DAYS_THRESHOLD

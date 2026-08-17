@@ -33,7 +33,7 @@ import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthl
 import { cycleSavings as computeCycleSavings, lifetimeSavings as computeLifetimeSavings, perMealCost as computePerMealCost, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
-  eligible: false, submitted: false,
+  eligible: false, locked: false, submitted: false,
   daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
   expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
@@ -1163,7 +1163,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     planSkip: mPlanSkip,
     plannedPauseStart: mPlannedPause,
     pauseCutoffIso: mPauseCutoffIso,
-    wrap: monthlyWindow.eligible && !monthlyWindow.submitted && !monthlyWindow.expired
+    wrap: (monthlyWindow.eligible || monthlyWindow.locked) && !monthlyWindow.submitted && !monthlyWindow.expired
       ? (() => {
           // Late wraps (>7 days past cycle end) pay the fixed AED 2, not the full
           // AED 5 — mirror MonthlyWrapStrip so the tile doesn't over-promise.
@@ -1173,6 +1173,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             daysLeft: late ? monthlyWindow.daysSinceCycleEnd : Math.max(0, monthlyWindow.daysLeftForFullReward),
             reward: late ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED,
             late,
+            // Locked = the weekly preview state (day 4 up to the 5th delivered
+            // meal). The tile renders greyed out and swallows the tap rather
+            // than routing to a form that would reject the submission anyway.
+            locked: monthlyWindow.locked,
           }
         })()
       : null,
