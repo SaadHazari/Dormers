@@ -37,7 +37,7 @@ describe('cycleLabelFor', () => {
     it('names the survey, not the date, for weekly and trial', () => {
         // "week of Aug 12" collided with the plan card directly above it,
         // which already showed the same span as "12 Aug to 19 Aug".
-        expect(cycleLabelFor('weekly', '2026-08-12')).toBe('Flex plan')
+        expect(cycleLabelFor('weekly', '2026-08-12')).toBe('Weekly Plan')
         expect(cycleLabelFor('trial', '2026-08-12')).toBe('Trial Meal')
     })
 
@@ -46,7 +46,8 @@ describe('cycleLabelFor', () => {
     })
 
     it('reads correctly after the "your {label}" determiner every template adds', () => {
-        expect(`Rate your ${cycleLabelFor('weekly', '2026-08-12')}`).toBe('Rate your Flex plan')
+        expect(`Rate your ${cycleLabelFor('weekly', '2026-08-12')}`).toBe('Rate your Weekly Plan')
+        expect(`Close out your ${cycleLabelFor('weekly', '2026-08-12')}`).toBe('Close out your Weekly Plan')
         expect(`Rate your ${cycleLabelFor('trial', '2026-08-12')}`).toBe('Rate your Trial Meal')
     })
 

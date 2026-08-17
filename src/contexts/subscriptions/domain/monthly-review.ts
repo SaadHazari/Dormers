@@ -88,7 +88,7 @@ export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
  * bare and standardising every template on the "your {cycleLabel}" pattern.
  *
  *   Monthly → "April cycle"           ("Wrap your April cycle"     ✓)
- *   Weekly  → "Flex plan"             ("Wrap your Flex plan"       ✓)
+ *   Weekly  → "Weekly Plan"           ("Wrap your Weekly Plan"     ✓)
  *   Trial   → "Trial Meal"            ("Wrap your Trial Meal"      ✓)
  *
  * Weekly and trial name the SURVEY; monthly names the date. That looks
@@ -103,7 +103,7 @@ export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
  * null (surfaces treat null as "no eligible cycle").
  *
  * Eyebrow-style usages (no determiner) take the label as-is — "monthly
- * wrap · April cycle", "weekly wrap · Flex plan" both read fine.
+ * wrap · April cycle", "weekly wrap · Weekly Plan" both read fine.
  */
 export function cycleLabelFor(tier: WrapPlanTier, startDate: string | null): string | null {
     if (!startDate) return null
@@ -113,7 +113,7 @@ export function cycleLabelFor(tier: WrapPlanTier, startDate: string | null): str
         case 'monthly':
             return d.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' }) + ' cycle'
         case 'weekly':
-            return 'Flex plan'
+            return 'Weekly Plan'
         case 'trial':
             return 'Trial Meal'
     }
