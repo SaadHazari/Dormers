@@ -4,12 +4,12 @@
  * renew-nudge fan-out shape: WhatsApp first (idempotency anchor), email
  * fire-and-log.
  *
- * Seasonal pause: both channels change when intake is paused. The caller
+ * Seasonal pause: both channels change when intake is paused, because the
+ * standard copy drives at a renewal that checkout will refuse. The caller
  * resolves the notice (resolveEndedNotice in ../domain/pause-suppression) and
- * hands it in; this file only executes it. WhatsApp is closed out rather than
- * sent — no season template exists at Meta — and the email swaps to the
- * season copy, because the standard one drives at a renewal that checkout
- * will refuse.
+ * hands it in; this file only executes it. Email swaps template. WhatsApp
+ * swaps to a season template once those are live at Meta, and until then is
+ * closed out rather than sent.
  */
 
 import { queueCustomerNotification, markCustomerNotificationSkipped } from './queue'
@@ -33,12 +33,12 @@ export interface SubscriptionEndedInput {
 
 export interface SubscriptionEndedResult {
   customerId: string
-  whatsapp: 'ok' | 'skipped:intake_paused' | { error: string }
+  whatsapp: 'ok' | 'ok:season' | 'skipped:intake_paused' | { error: string }
   email: 'ok' | { error: string }
 }
 
 const OPEN_INTAKE_NOTICE: EndedNotice = {
-  whatsapp: 'send',
+  whatsapp: { mode: 'send' },
   email: { variant: 'normal' },
 }
 
@@ -67,13 +67,13 @@ export async function runSubscriptionEndedForCustomer(
 async function runWhatsApp(
   input: SubscriptionEndedInput,
   notice: EndedNotice,
-): Promise<'ok' | 'skipped:intake_paused'> {
+): Promise<'ok' | 'ok:season' | 'skipped:intake_paused'> {
   const payload = {
     plan_name: input.planName,
     delivered_meals: String(input.mealsDelivered),
   }
 
-  if (notice.whatsapp === 'skip') {
+  if (notice.whatsapp.mode === 'skip') {
     // Closed-out row, never dispatched. Keeps the 7-day dedup anchor so the
     // cron stops re-attempting, and records that the hold-back was deliberate.
     await markCustomerNotificationSkipped(
@@ -83,6 +83,18 @@ async function runWhatsApp(
       payload,
     )
     return 'skipped:intake_paused'
+  }
+
+  if (notice.whatsapp.mode === 'season') {
+    // The amount's payload key must match the parameter_name in the
+    // dispatcher's CASE branch for this kind, which in turn must match the
+    // template as approved in Business Manager.
+    const amountKey = notice.whatsapp.kind === 'intake_ended_credit' ? 'credit_aed' : 'offer_aed'
+    await queueCustomerNotification(input.customerId, notice.whatsapp.kind, new Date(), {
+      ...payload,
+      [amountKey]: String(notice.whatsapp.aed),
+    })
+    return 'ok:season'
   }
 
   await queueCustomerNotification(input.customerId, 'subscription_ended', new Date(), payload)

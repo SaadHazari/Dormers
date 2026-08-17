@@ -36,6 +36,13 @@ export type CustomerNotificationKind =
     | 'subscription_ended'
     | 'delivery_confirmed'
     | 'delivery_unconfirmed_8pm'
+    // Seasonal pause replacements for 'subscription_ended'. One template per
+    // audience because a WhatsApp template cannot carry the season email's
+    // either/or block. Never queue either of these unless the matching
+    // tpl_<kind> secret exists in Vault — see resolveEndedNotice's
+    // seasonWhatsAppReady, which fails closed for exactly that reason.
+    | 'intake_ended_credit'
+    | 'intake_ended_offer'
 
 /**
  * Queue a WhatsApp notification for a customer.
