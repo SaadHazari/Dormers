@@ -53,5 +53,20 @@ export const EXPANDED = '(min-width: 1024px) and (orientation: landscape)'
  */
 export const COMPACT = '(max-width: 1023.98px), (orientation: portrait)'
 
+/**
+ * COMPACT, but with real width to spend — portrait tablets and landscape
+ * phones. The mobile tree is touch-native and correct at these sizes; it just
+ * must not render as a 1000px-wide phone. ROOMY is where single-column blocks
+ * are promoted to two-up.
+ *
+ * WHY IT IS SPELLED OUT TWICE. COMPACT is a comma list (a media query LIST),
+ * and `${COMPACT} and (min-width: 700px)` would bind the `and` to only the
+ * final clause — every phone would match the first clause and wrongly go roomy.
+ * Distributing min-width across both clauses is unambiguous, and avoids relying
+ * on media-query level 4 `or` support.
+ */
+export const ROOMY =
+  '(min-width: 700px) and (max-width: 1023.98px), (min-width: 700px) and (orientation: portrait)'
+
 // The matching hook is ./use-is-compact.ts — kept out of this file so a server
 // component can import the constants above.

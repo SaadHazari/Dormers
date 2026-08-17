@@ -10,6 +10,7 @@ import { MealTag } from '../_shared/MealTag'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 import { groupPauseRanges, buildPauseLookup, type PauseRange } from '../_shared/pause-ranges'
+import { ROOMY } from '../_shared/breakpoints'
 
 export interface ResolvedDish {
   dateLabel: string
@@ -278,7 +279,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const heroLight = !!data.heroClosure
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
+    <div className="mhome-root" style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
 
       {/* ── Top greeting — sits in the hamburger row (left padding clears the
           burger; right padding is light since the bug icon is gone on mobile,
@@ -983,6 +984,32 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
           </div>
         )
       })()}
+
+      {/* ── Roomy compact (portrait tablets, landscape phones) ──────────────
+          The mobile tree is touch-native and correct at these sizes; it just
+          must not render as a 1000px-wide phone. Two columns, and the two
+          <section> blocks (dinner-ticket hero, plan progress) sit side by side.
+
+          Everything defaults to full width and only the two sections are placed
+          explicitly. That way conditional children (order banner, plan-ending
+          banner) and anything added later stay full-bleed instead of silently
+          dropping into half a column.
+
+          align-items: start stops the shorter column stretching to match the
+          taller one, which would leave dead space inside its card. */}
+      <style jsx global>{`
+        @media ${ROOMY} {
+          .mhome-root {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            align-items: start;
+            column-gap: 14px;
+          }
+          .mhome-root > * { grid-column: 1 / -1; }
+          .mhome-root > section:nth-of-type(1) { grid-column: 1 / 2; }
+          .mhome-root > section:nth-of-type(2) { grid-column: 2 / -1; }
+        }
+      `}</style>
     </div>
   )
 }

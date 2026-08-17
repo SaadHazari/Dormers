@@ -16,7 +16,7 @@ import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { WalletRow } from './_shared/credit-wallet'
-import { COMPACT } from './_shared/breakpoints'
+import { COMPACT, ROOMY } from './_shared/breakpoints'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -195,6 +195,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
             border-radius: 16px !important;
             min-height: auto !important;
           }
+        }
+        /* Roomy compact (portrait tablets, landscape phones). The gutters above
+           are 8px, which is a phone value — at 820-1024 wide it puts cards
+           almost against the bezel. And the auto min-height above leaves the
+           content card floating in several hundred pixels of empty page on a
+           12.9 inch iPad, which reads as a half-loaded screen, not a short one.
+           NOTE: no backticks in this block — it is a raw template literal. */
+        @media ${ROOMY} {
+          .dash-content { padding: 56px 20px 20px 20px !important; }
+          /* 92 = dash-main-row padding-top 16 + dash-content padding 56/20.
+             Getting this wrong by even a few px costs a scrollbar on a page
+             that otherwise fits exactly, which is worse than not filling. */
+          .content-border { min-height: calc(100vh - 92px) !important; }
         }
         /* Mobile redesign (≤768): warm grayish-beige page with a faint orange
            breath; the cream orange-bordered content-frame is removed so cards

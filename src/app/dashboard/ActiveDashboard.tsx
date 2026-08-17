@@ -2199,7 +2199,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           grid-template-columns: repeat(12, 1fr);
           gap: 20px;
         }
-        @media (max-width: 1024px) {
+        /* Stack the 12-col grid only in COMPACT. Keyed on the contract, not a
+           raw 1024, because a landscape iPad mini is exactly 1024 wide and
+           keeps its rail — under the old rule it kept the rail but stacked
+           every card, giving 1355px of page inside a 768px viewport. */
+        @media ${COMPACT} {
           .dash-grid > * { grid-column: span 12 !important; }
         }
         /* Mobile (≤768): natural DOM order is the right scan order now that
