@@ -35,10 +35,9 @@ Captured 2026-08-17 with the QA `max` fixture across 8 geometries and 6 pages
    portrait it is 1371px tall and leads with three stat cards, with the dish
    card demoted ~540px down the page and its Skip button gone.
 
-2. **A visible orphan card.** `StatRow` carries its own private rule at
-   641-1024 setting `repeat(2, 1fr)`. There are three stats, so two sit side by
-   side and the third stretches full width with content huddled in the left
-   third. Present at 820, 834 and 1024.
+2. ~~A visible orphan card.~~ **Withdrawn.** `StatRow`'s 2+1 arrangement at
+   641-1024 is deliberate and documented in place: operational metrics share
+   row 1, the reflective metric owns row 2. Left untouched.
 
 3. **iPad mini landscape is the worst screen shipped.** 1024 landscape renders
    1399px of single-column page inside a 768px viewport, sidebar hidden. At
@@ -49,11 +48,15 @@ Captured 2026-08-17 with the QA `max` fixture across 8 geometries and 6 pages
    mini landscape are both exactly 1024px wide and both render the same layout
    at the same 1399px content height. They need opposite layouts.
 
-5. **Tablets are treated as mice.** The only touch-aware rule in the codebase
-   is `@media (hover: none), (max-width: 768px)` in `globals.css`. Fifteen
-   dashboard files carry `:hover` styling. `BugReportTrigger` hides itself
-   below 768, so it appears *only* in the undesigned band, floating over
-   content.
+5. **Touch: narrower than first claimed.** `globals.css` has
+   `@media (hover: none), (max-width: 768px)` — a comma LIST, so the
+   `(hover: none)` clause already suppresses hover tooltips on every touch
+   device at any width. Tablets were never getting stuck tooltips; that part of
+   the original finding was wrong. What remains is cosmetic `:hover` states
+   across fifteen files and tap-target sizing, both low severity.
+   `BugReportTrigger` did hide below 768 and therefore appeared only in the
+   undesigned band, so it now follows COMPACT. (The badge seen floating over
+   content in the captures was the Next.js dev indicator, not this component.)
 
 6. **Menu columns disagree with themselves.** "This week" renders in 3 columns
    while "Next week" renders in 4, on the same page at the same width.
