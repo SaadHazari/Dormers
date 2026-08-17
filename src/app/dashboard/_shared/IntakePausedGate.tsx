@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Gift, Check } from 'lucide-react'
@@ -50,6 +51,7 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
   const [joinError, setJoinError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const prefersReducedMotion = useReducedMotion()
+  const router = useRouter()
 
   const handleJoin = () => {
     setJoinError(null)
@@ -60,6 +62,10 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
         setJoined(true)
         setConfirmedCreditAed(outcome.creditAed ?? 0)
         setConfirmedMessage(outcome.message)
+        // The Credit Wallet is server-rendered in dashboard/layout.tsx — without
+        // this refresh a customer who just joined sees no wallet in the sidebar
+        // until their next navigation.
+        router.refresh()
       } else {
         // Silence is never acceptable on the most important tap in this
         // flow — surface the real reason and leave the button enabled so

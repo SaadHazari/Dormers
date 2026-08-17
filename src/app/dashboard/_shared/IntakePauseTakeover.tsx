@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ShieldCheck, Check } from 'lucide-react'
 import { OG, BODY, TIER_POP_TEXT } from './tokens'
@@ -43,6 +44,7 @@ interface Props {
 export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoined }: Props) {
     const [dismissing, setDismissing] = useState(false)
     const prefersReducedMotion = useReducedMotion()
+    const router = useRouter()
 
     const [outcome, setOutcome] = useState<JoinOutcome | null>(null)
     const [joining, startJoin] = useTransition()
@@ -60,7 +62,15 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoin
     const handleJoin = () => {
         startJoin(async () => {
             const result = await joinIntakeWaitlist()
-            setOutcome(deriveJoinOutcome(result))
+            const nextOutcome = deriveJoinOutcome(result)
+            setOutcome(nextOutcome)
+            // The Credit Wallet is server-rendered in dashboard/layout.tsx, so a
+            // fresh mint is invisible until the server components re-render —
+            // without this, a customer who just joined dismisses the takeover
+            // into a sidebar with no wallet at all.
+            if (nextOutcome.joined) {
+                router.refresh()
+            }
         })
     }
 
@@ -161,6 +171,17 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoin
                     </p>
                 )}
 
+                {variant === 'pausing' && !alreadyJoined && !outcome?.joined && (
+                    <p style={{
+                        margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
+                        color: TIER_POP_TEXT.primary, textAlign: 'center',
+                    }}>
+                        {creditAed > 0
+                            ? `Tap below to join the early-access list and get AED ${creditAed} credit the day new plans reopen.`
+                            : 'Tap below to join the early-access list and hear first the day new plans reopen.'}
+                    </p>
+                )}
+
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                     {cta.showJoin && (
                         <button
@@ -209,9 +230,16 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoin
                             opacity: dismissing ? 0.85 : 1,
                         }}
                     >
-                        {dismissing
-                            ? (variant === 'reopened' ? 'Loading your plan' : 'Closing')
-                            : cta.dismissLabel}
+                        {dismissing ? (
+                            variant === 'reopened' ? 'Loading your plan' : 'Closing'
+                        ) : variant === 'reopened' ? (
+                            <>
+                                {cta.dismissLabel}
+                                <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>→</span>
+                            </>
+                        ) : (
+                            cta.dismissLabel
+                        )}
                     </button>
                 </div>
             </motion.div>
