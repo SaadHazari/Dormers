@@ -78,6 +78,13 @@ export function Tooltip({ children, label, placement = 'top', fit = 'block' }: P
                             fontWeight: 600,
                             color: TIER_POP_TEXT.primary,
                             lineHeight: 1.45,
+                            // An absolutely positioned box with no width
+                            // shrink-wraps to the space left inside its
+                            // positioned parent from `left: 50%` onward —
+                            // about half the trigger's width. Without
+                            // max-content the copy wraps into a tall skinny
+                            // column and maxWidth never comes into play.
+                            width: 'max-content',
                             maxWidth: 280,
                             minWidth: 60,
                             textAlign: 'center',

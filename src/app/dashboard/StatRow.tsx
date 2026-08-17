@@ -31,6 +31,55 @@ const TILE_SURFACES: Record<TileColor, CSSProperties> = {
     default: { background: 'var(--ds-surface-tier2)', border: '1px solid var(--ds-border-tier2)',  boxShadow: 'var(--ds-shadow-tier2)' },
 }
 
+/** The savings tile's un-set state. Reads as an open slot, not a fourth stat:
+ *  warm orange wash + a real 2px dashed brand border. Deliberately the
+ *  highest-contrast chrome in the row — it's the only tile asking for
+ *  something. Never darker than brand orange. */
+const EMPTY_SAVINGS_SURFACE: CSSProperties = {
+    // Even wash, not a directional gradient — the dashed edge has to sit on
+    // consistent ground the whole way round or the tile reads as a smear.
+    // The border stays transparent and keeps the same 1px as the populated
+    // state (no content jump between the two); the visible dashed outline is
+    // drawn by SavingsSlotOutline below. CSS `dashed` gives no control over
+    // dash length — the browser's rhythm crowds into a tear-off-coupon look.
+    background: 'linear-gradient(0deg, rgba(245,127,32,0.075), rgba(245,127,32,0.075)), var(--ds-surface-tier2)',
+    border: '1px solid transparent',
+    boxShadow: '0 3px 14px rgba(245,127,32,0.10)',
+}
+
+/**
+ * The empty savings tile's dashed outline, drawn as SVG so the dash rhythm is
+ * ours and not the browser's. No viewBox + percentage sizing means the SVG
+ * user unit equals one CSS pixel, so dashes never stretch with the tile — the
+ * distortion you'd get from a scaled data-URI background.
+ */
+function SavingsSlotOutline() {
+    return (
+        <svg
+            aria-hidden
+            className="savings-slot-outline"
+            // Explicit width/height, not `inset: 1` — an <svg> with neither
+            // attribute falls back to its 300x150 intrinsic size instead of
+            // stretching to the positioned box, which clips the outline.
+            style={{
+                position: 'absolute', top: 1, left: 1,
+                width: 'calc(100% - 2px)', height: 'calc(100% - 2px)',
+                pointerEvents: 'none', overflow: 'visible',
+            }}
+        >
+            <rect
+                x="0" y="0" width="100%" height="100%"
+                rx="19" ry="19"
+                fill="none"
+                stroke="rgba(245,127,32,0.62)"
+                strokeWidth="2"
+                strokeDasharray="11 7"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
 function StatTile({ glyph, label, value, sub, color = 'default' }: {
     glyph: ReactNode
     label: string
@@ -263,21 +312,21 @@ export function StatRow({
                 type="button"
                 onClick={onSetBenchmark}
                 disabled={!onSetBenchmark}
-                className="stat-row-cta"
+                className={`stat-row-cta${hasBenchmark ? '' : ' stat-row-cta-empty'}`}
                 aria-label={hasBenchmark ? 'Edit your usual dinner spend' : 'Set your usual dinner spend'}
                 style={{
-                    ...TILE_SURFACES.default,
+                    // Populated: the neutral tile surface, identical to its two
+                    // neighbours. Empty: an orange-washed "open slot" with a
+                    // 2px dashed brand border. The empty state has to out-rank
+                    // the two passive stats beside it — a 7%-alpha hairline
+                    // dash read as a rendering artifact, not an invitation.
+                    ...(hasBenchmark ? TILE_SURFACES.default : EMPTY_SAVINGS_SURFACE),
                     position: 'relative',
                     padding: 20, borderRadius: 'var(--radius-md)',
                     display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0,
                     textAlign: 'left',
                     cursor: onSetBenchmark ? 'pointer' : 'default',
                     fontFamily: BODY, color: 'inherit',
-                    // Dashed border on the empty state signals "this is a seat
-                    // waiting for input" without abandoning the TILE_SURFACES
-                    // contract. Solid border on the populated state matches
-                    // the other tiles in the row.
-                    borderStyle: hasBenchmark ? 'solid' : 'dashed',
                 }}
             >
                 {/* Edit hint — only on the populated tile, only on hover/focus.
@@ -376,14 +425,19 @@ export function StatRow({
                     </>
                 ) : (
                     <>
+                        <SavingsSlotOutline />
+                        {/* Solid chip, not the usual og-wash one — a 6%-orange
+                            chip sitting on the empty tile's orange wash has
+                            nothing to separate it and the glyph disappears. */}
                         <div style={{
                             width: 44, height: 44, borderRadius: 16,
-                            background: 'var(--ds-og-wash)',
-                            border: '1.5px solid var(--ds-og-border)',
+                            background: '#ffffff',
+                            border: '1.5px solid var(--ds-og-border-strong)',
+                            boxShadow: '0 2px 6px rgba(245,127,32,0.14)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             flexShrink: 0,
                         }}>
-                            <PiggyBank size={20} strokeWidth={1.7} color={OG} />
+                            <PiggyBank size={20} strokeWidth={1.9} color={OG} />
                         </div>
                         <div style={{ minWidth: 0 }}>
                             <div style={{
@@ -441,11 +495,45 @@ export function StatRow({
                 @media (max-width: 1024px) and (min-width: 641px) {
                     :global(.stat-row) { grid-template-columns: repeat(2, 1fr) !important; }
                     :global(.stat-row) > :nth-child(3) { grid-column: 1 / -1 !important; }
+                    /* Spanning both columns leaves the un-set tile's right half
+                       empty. Neutral chrome hid that; the orange wash doesn't,
+                       so lay the chip and copy side by side to fill the run. */
+                    :global(.stat-row-cta-empty) {
+                        flex-direction: row !important;
+                        align-items: center !important;
+                        gap: 18px !important;
+                    }
                 }
                 :global(.stat-row-cta) { transition: transform 150ms, box-shadow 150ms, border-color 150ms; }
                 :global(.stat-row-cta:hover:not(:disabled)) {
                     transform: translateY(-1px);
                     border-color: var(--ds-og-border-strong) !important;
+                }
+                /* The empty tile's ring is the SVG outline, not the border —
+                   letting the shared rule paint a solid border-color would
+                   draw a second ring behind the dashes. Deepen the dash and
+                   the glow instead. */
+                :global(.stat-row-cta-empty:hover:not(:disabled)) {
+                    border-color: transparent !important;
+                    box-shadow: 0 6px 20px rgba(245,127,32,0.18) !important;
+                }
+                /* Hover shifts the dash phase by one full dash+gap, so the
+                   outline visibly travels once on intent. Idle stays perfectly
+                   still — this is a tile people see every day, not a banner. */
+                :global(.savings-slot-outline rect) {
+                    transition: stroke 150ms, stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                :global(.stat-row-cta-empty:hover:not(:disabled) .savings-slot-outline rect),
+                :global(.stat-row-cta-empty:focus-visible .savings-slot-outline rect) {
+                    stroke: rgba(245,127,32,0.92);
+                    stroke-dashoffset: -18;
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    :global(.savings-slot-outline rect) { transition: stroke 150ms; }
+                    :global(.stat-row-cta-empty:hover:not(:disabled) .savings-slot-outline rect),
+                    :global(.stat-row-cta-empty:focus-visible .savings-slot-outline rect) {
+                        stroke-dashoffset: 0;
+                    }
                 }
                 /* Reveal the "EDIT" hint on hover and on keyboard focus —
                    discoverability that doesn't compete with the static tile
