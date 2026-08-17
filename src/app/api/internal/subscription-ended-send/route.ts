@@ -18,6 +18,9 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { cycleSavings, type SubscriptionForSavings, type CustomerForSavings } from '@/contexts/subscriptions/domain/savings'
 import { runSubscriptionEndedForCustomer } from '@/contexts/notifications/usecases/subscription-ended-fanout'
+import { resolveEndedNotice } from '@/contexts/notifications/domain/pause-suppression'
+import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { timingSafeCompare } from '@/shared/crypto'
 
 const RENEW_LINK = 'https://dormers.ae/dashboard/plan?renew=1'
@@ -103,6 +106,24 @@ export async function POST(req: Request) {
     0,
   )
 
+  // Seasonal pause: the standard ended fan-out drives at a renewal on both
+  // channels, and renewal checkout refuses the customer while intake is
+  // paused. resolveEndedNotice decides what each channel does instead.
+  //
+  // getIntakeState fails open (a settings-read problem resolves to "not
+  // paused"), so a hiccup here degrades to the normal send rather than
+  // silencing a customer.
+  const intakeState = await getIntakeState()
+  // The wallet read only matters while paused — skip the two queries otherwise.
+  const unspentCreditAed = intakeState.paused
+    ? (await getWaitlistStatus(supabase, customer.id, intakeState.cycleStartedAt)).unspentCreditAed
+    : 0
+  const notice = resolveEndedNotice({
+    paused: intakeState.paused,
+    unspentCreditAed,
+    offerAed: creditAedFor(intakeState, customer.meal_preference_type),
+  })
+
   const result = await runSubscriptionEndedForCustomer({
     customerId: customer.id,
     toEmail: customer.email,
@@ -113,6 +134,7 @@ export async function POST(req: Request) {
     aedSaved,
     aedEarned: Math.round(aedEarned),
     renewLink: RENEW_LINK,
+    notice,
   })
 
   return NextResponse.json({ ok: true, subscription_id: subId, result })

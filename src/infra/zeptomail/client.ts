@@ -477,6 +477,52 @@ export async function sendSubscriptionEndedEmail(input: {
   });
 }
 
+/**
+ * Season plan-ended email — replaces sendSubscriptionEndedEmail whenever
+ * intake is paused, because that email's "Renew now" CTA points at a checkout
+ * that refuses the customer for as long as the switch is on.
+ *
+ * Which block renders is decided upstream by resolveEndedNotice (see
+ * src/contexts/notifications/domain/pause-suppression.ts), not here — this
+ * function just faithfully sends what it is handed.
+ *
+ * Template: docs/email-templates/season-plan-ended.html.
+ */
+export async function sendSeasonPlanEndedEmail(input: {
+  toEmail: string;
+  firstName: string;
+  planName: string;
+  mealsDelivered: number;
+  evenings: number;
+  /** 'credit' → they already hold it. 'offer' → we are offering it. */
+  block: 'credit' | 'offer';
+  aed: number;
+  ctaLabel: string;
+  ctaUrl: string;
+}): Promise<void> {
+  const templateKey = process.env.ZEPTOMAIL_TPL_SEASON_PLAN_ENDED;
+  if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SEASON_PLAN_ENDED is not set');
+
+  // credit_aed and offer_aed are mutually exclusive and the unused one must be
+  // OMITTED, never sent as '' — ZeptoMail Mustache treats an empty string as
+  // truthy and would render both blocks.
+  await sendTemplate({
+    templateKey,
+    to: { email: input.toEmail, name: input.firstName },
+    mergeInfo: {
+      first_name: input.firstName,
+      plan_name: input.planName,
+      delivered_meals: String(input.mealsDelivered),
+      evenings: String(input.evenings),
+      cta_label: input.ctaLabel,
+      cta_url: input.ctaUrl,
+      ...(input.block === 'credit'
+        ? { credit_aed: String(input.aed) }
+        : { offer_aed: String(input.aed) }),
+    },
+  });
+}
+
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

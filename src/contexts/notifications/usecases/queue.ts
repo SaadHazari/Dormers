@@ -101,6 +101,48 @@ export async function queueCustomerNotification(
 }
 
 /**
+ * Record a notification we deliberately did NOT send.
+ *
+ * Inserts the row already closed out — `sent_at` set, `wamid` carrying a
+ * `skipped:<reason>` sentinel — so it never reaches the dispatcher. Same
+ * sentinel convention as the dispatcher's own 'skipped:unverified' path and
+ * cancelPendingCustomerNotifications' 'cancelled:superseded'.
+ *
+ * Writing a row rather than simply returning early is the point. The cron
+ * selectors dedup on "is there a recent row of this kind for this customer",
+ * so the row is what stops tomorrow's tick re-attempting the same send
+ * forever, and it leaves an honest audit trail of a deliberate hold-back
+ * rather than a silent gap.
+ *
+ * No on-demand dispatch kick, for obvious reasons.
+ *
+ * Throws on insert failure so the caller can decide — a fan-out that treats
+ * the queue insert as its idempotency anchor needs to know it did not land.
+ */
+export async function markCustomerNotificationSkipped(
+    customerId: string,
+    kind: CustomerNotificationKind,
+    reason: string,
+    payload: Record<string, string> = {},
+): Promise<void> {
+    const admin = createAdminSupabaseClient()
+    const now = new Date().toISOString()
+    const { error } = await admin.from('customer_notifications').insert({
+        customer_id:   customerId,
+        kind,
+        scheduled_for: now,
+        payload,
+        sent_at:       now,
+        wamid:         `skipped:${reason}`,
+    })
+    if (error) {
+        throw new Error(
+            `markCustomerNotificationSkipped failed — customer=${customerId} kind=${kind} reason=${reason}: ${error.message}`,
+        )
+    }
+}
+
+/**
  * Cancel pending (unsent) notifications of the given kinds for a customer.
  *
  * Used when a later action supersedes an earlier one — e.g. pausing

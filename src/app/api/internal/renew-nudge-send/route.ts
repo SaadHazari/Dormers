@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { cycleSavings, type SubscriptionForSavings, type CustomerForSavings } from '@/contexts/subscriptions/domain/savings'
 import { runRenewNudgeForCustomer } from '@/contexts/notifications/usecases/renew-nudge-fanout'
+import { getIntakeState } from '@/infra/config/intake'
 import { timingSafeCompare } from '@/shared/crypto'
 
 const RENEW_LINK = 'https://dormers.ae/dashboard/plan?renew=1'
@@ -55,6 +56,25 @@ export async function POST(req: Request) {
   }
   const subId = body.subscription_id
   if (!subId) return NextResponse.json({ error: 'missing_subscription_id' }, { status: 400 })
+
+  // Seasonal pause: this nudge's whole payload is "renew now", and renewal
+  // checkout refuses the customer while intake is paused. Nudging them at a
+  // door we have locked is worse than staying quiet, so drop it entirely.
+  //
+  // Deliberately NO notification row here, unlike the ended fan-out's
+  // skipped:intake_paused. A nudge is a moment, not a milestone: if the pause
+  // lifts while the plan is still inside its T-3 window, the next tick should
+  // be free to nudge for real, and a dedup row would have swallowed it.
+  //
+  // dispatch_renew_nudges_tick carries the same guard so the fleet of POSTs is
+  // never fired in the first place. This check is the one that ships with the
+  // deploy, and the backstop if that function is ever restored from the stale
+  // repo migration. getIntakeState fails open — a settings-read problem
+  // resolves to "not paused" and the nudge goes out as normal.
+  const intakeState = await getIntakeState()
+  if (intakeState.paused) {
+    return NextResponse.json({ ok: true, subscription_id: subId, skipped: 'intake_paused' })
+  }
 
   const supabase = createAdminSupabaseClient()
 
