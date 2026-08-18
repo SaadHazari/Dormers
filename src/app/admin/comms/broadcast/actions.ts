@@ -164,30 +164,48 @@ export async function cancelBroadcast(id: string): Promise<CancelResult> {
  * broadcast back to 'sending' if it had already settled into 'done' or
  * 'cancelled' — a broadcast can reach 'done' with parked rows still in it
  * (the dispatcher only looks at pending rows), so this is what recovers it.
+ *
+ * Ordered so a partial failure is always recoverable by pressing Retry
+ * again: count first (nothing touched yet), flip the status second (still
+ * nothing touched if this fails), re-arm the rows last. If re-arming fails
+ * after the flip, the rows still have attempts >= 3 and the broadcast is
+ * already 'sending', so a second attempt picks up exactly where this one
+ * left off instead of getting stuck (re-arming first would zero out
+ * attempts, and a status-flip failure after that would leave no rows with
+ * attempts >= 3 for a retry to find).
  */
 export async function retryBroadcastFailures(id: string): Promise<RetryResult> {
     const admin = await requireAdmin()
 
     const sb = createAdminSupabaseClient()
-    const { data: rearmed, error } = await sb
+
+    const { count: parked, error: countErr } = await sb
+        .from('broadcast_sends')
+        .select('id', { count: 'exact', head: true })
+        .eq('broadcast_id', id)
+        .is('sent_at', null)
+        .gte('attempts', 3)
+    if (countErr) return { ok: false, rearmed: 0, message: `Could not check parked recipients: ${countErr.message}` }
+    if (!parked) return { ok: false, rearmed: 0, message: 'Nothing to retry.' }
+
+    const { error: flipErr } = await sb
+        .from('broadcasts')
+        .update({ status: 'sending' })
+        .eq('id', id)
+        .in('status', ['done', 'cancelled'])
+    if (flipErr) return { ok: false, rearmed: 0, message: `Could not resume the broadcast: ${flipErr.message}` }
+
+    const { error: rearmErr } = await sb
         .from('broadcast_sends')
         .update({ attempts: 0, last_error: null })
         .eq('broadcast_id', id)
         .is('sent_at', null)
         .gte('attempts', 3)
-        .select('id')
-    if (error) return { ok: false, rearmed: 0, message: `Could not retry: ${error.message}` }
-
-    const rearmedCount = rearmed?.length ?? 0
-    if (rearmedCount > 0) {
-        await sb
-            .from('broadcasts')
-            .update({ status: 'sending' })
-            .eq('id', id)
-            .in('status', ['done', 'cancelled'])
+    if (rearmErr) {
+        return { ok: false, rearmed: 0, message: 'Rows were not re-armed. Press Retry failures again.' }
     }
 
-    await logAdminAction(admin.email, 'retry_broadcast_failures', 'broadcast', id, { rearmed: rearmedCount })
+    await logAdminAction(admin.email, 'retry_broadcast_failures', 'broadcast', id, { rearmed: parked })
     revalidatePath('/admin/comms/broadcast')
-    return { ok: true, rearmed: rearmedCount, message: `${rearmedCount} recipient${rearmedCount === 1 ? '' : 's'} re-queued.` }
+    return { ok: true, rearmed: parked, message: `${parked} recipient${parked === 1 ? '' : 's'} re-queued.` }
 }
