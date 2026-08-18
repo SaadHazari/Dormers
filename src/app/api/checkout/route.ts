@@ -5,6 +5,7 @@ import { resolvePlan, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { priceBoundsFils, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing';
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo';
 import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
+import { journeyFits } from '@/contexts/subscriptions/domain/season-horizon';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
 import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-synth';
@@ -208,6 +209,41 @@ export async function POST(req: Request) {
     const effectiveWeekTypeRaw =
       customerRow?.pending_week_type ?? customerRow?.week_type;
     const customerWeekType: WeekType = effectiveWeekTypeRaw === '5DAYS' ? '5DAYS' : '6DAYS';
+
+    // ── Seasonal taper ──────────────────────────────────────────────────────
+    // With a pause scheduled, refuse any journey that cannot finish by the
+    // last delivery day of the term. Deliveries on the day are fine; a plan
+    // ending after it would run into the break. Needs the validated
+    // start_date and the resolved week_type, so it can only run here — after
+    // the start-window validation above and after customerWeekType is known.
+    //
+    // Only checked when start_date was supplied: the UI always sends one
+    // (handleCheckout bails without it), and a hand-crafted POST that omits
+    // it falls through to the webhook's tail-queueing/today default, which
+    // this pre-check has no way to predict — it fails open in that case
+    // rather than guessing.
+    //
+    // getIntakeState fails open (pauseScheduledFor is null on a settings-read
+    // blip), so a settings outage sells rather than blocking checkout.
+    if (!isStaffPlan && start_date) {
+      const intake = await getIntakeState();
+      if (intake.pauseScheduledFor) {
+        const fits = journeyFits({
+          planId: planDef.id,
+          weekType: customerWeekType,
+          startDate: start_date,
+          lastDeliveryDay: intake.pauseScheduledFor,
+        });
+        if (!fits) {
+          const pretty = new Date(intake.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+          return NextResponse.json({
+            error: 'INTAKE_ENDING',
+            message: `The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term. Shorter plans are still available.`,
+            last_delivery_day: intake.pauseScheduledFor,
+          }, { status: 409 });
+        }
+      }
+    }
 
     // Price band — week_type-aware so 5DAYS submissions don't get rejected
     // against the 6DAYS floor. Tamper-defense: prevents AED 1 / Monthly Max

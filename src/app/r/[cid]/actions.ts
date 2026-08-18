@@ -17,6 +17,7 @@ import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscriptio
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { eligibleTrialDeliveryDates, trialDateIso } from '@/contexts/referrals/domain/trial-delivery'
 import { assertIntakeOpen } from '@/contexts/payments/usecases/free-checkout'
+import { getIntakeState } from '@/infra/config/intake'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -268,6 +269,14 @@ export async function claimGift(payload: {
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'New plans are paused for now.' }
   }
+
+  // Seasonal taper: read once here (cached alongside the paused check above)
+  // and used later at step 11b, where the welcome-gift's one-day journey is
+  // actually chosen. A claimed gift is a real meal the kitchen has to cook,
+  // so it is refused the same way a purchased plan would be — see the
+  // isoDate comparison below. Fail open: pauseScheduledFor is null on a
+  // settings-read blip.
+  const intakeState = await getIntakeState()
 
   const supabaseAdmin = createAdminSupabaseClient()
 
@@ -719,6 +728,17 @@ export async function claimGift(payload: {
     const status = start.getTime() > todayUtc.getTime()
       ? SUBSCRIPTION_STATUS.SCHEDULED
       : SUBSCRIPTION_STATUS.ACTIVE
+
+    // ── Seasonal taper ────────────────────────────────────────────────────
+    // The gift is a one-day journey (end date == start date, after any
+    // non-delivery-day shift), so this is the same refusal as checkout's
+    // taper guard, just at one-day granularity. With a pause scheduled, a
+    // gift that would land after the last delivery day is done for the
+    // term.
+    if (intakeState.pauseScheduledFor && isoDate(end) > intakeState.pauseScheduledFor) {
+      const pretty = new Date(intakeState.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+      return { error: `The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term.` }
+    }
 
     const { error: subErr } = await supabaseAdmin
       .from('subscriptions')

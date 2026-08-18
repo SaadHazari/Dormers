@@ -141,6 +141,17 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     pauseDays: 0,
   })
 
+  // ── Seasonal taper ────────────────────────────────────────────────────
+  // Same refusal as the checkout route's taper guard, translated to this
+  // path's throw-and-catch contract: with a pause scheduled, a journey that
+  // would end after the last delivery day is done for the term. Fail open:
+  // getIntakeState returns pauseScheduledFor: null on a settings-read blip.
+  const intake = await getIntakeState()
+  if (intake.pauseScheduledFor && isoDate(endDate) > intake.pauseScheduledFor) {
+    const pretty = new Date(intake.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+    throw new Error(`The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term.`)
+  }
+
   const vegDaysList = (() => {
     if (!vegDays) return null
     const raw = Array.isArray(vegDays)
