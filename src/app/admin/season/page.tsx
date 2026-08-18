@@ -13,6 +13,7 @@ export interface IntakeSettingsRow {
     creditReligiousAed: number
     pausedAt: string | null
     pausedBy: string | null
+    pauseScheduledFor: string | null
 }
 
 // intake_settings singleton row shape as it actually comes back from
@@ -27,6 +28,7 @@ interface RawRow {
     credit_religious_aed: number | string
     paused_at: string | null
     paused_by: string | null
+    pause_scheduled_for: string | null
 }
 
 export default async function SeasonPage() {
@@ -39,7 +41,7 @@ export default async function SeasonPage() {
     const [settingsRes, waitlistCountRes] = await Promise.all([
         sb
             .from('intake_settings')
-            .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, paused_at, paused_by')
+            .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, paused_at, paused_by, pause_scheduled_for')
             .maybeSingle(),
         sb
             .from('intake_waitlist')
@@ -57,12 +59,29 @@ export default async function SeasonPage() {
         creditReligiousAed: Number(row?.credit_religious_aed ?? 20),
         pausedAt: row?.paused_at ?? null,
         pausedBy: row?.paused_by ?? null,
+        pauseScheduledFor: row?.pause_scheduled_for ?? null,
+    }
+
+    // Journeys that already run past the scheduled last delivery day. The
+    // taper only stops NEW sales, so these are the customers who were
+    // already on the books when the date was set — they ride to completion,
+    // and the owner deserves to know how many are in that tail. Only worth a
+    // round trip when a date is actually scheduled.
+    let overhangCount = 0
+    if (settings.pauseScheduledFor) {
+        const { count } = await sb
+            .from('subscriptions')
+            .select('id', { count: 'exact', head: true })
+            .gt('end_date', settings.pauseScheduledFor)
+            .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
+        overhangCount = count ?? 0
     }
 
     return (
         <SeasonClient
             settings={settings}
             waitlistCount={waitlistCountRes.count ?? 0}
+            overhangCount={overhangCount}
         />
     )
 }

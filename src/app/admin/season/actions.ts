@@ -57,6 +57,110 @@ export async function setIntakePaused(paused: boolean): Promise<{ ok: true } | {
     return { ok: true }
 }
 
+// How far out a last delivery day may be scheduled. 370 days is "a bit over
+// a year" — long enough for an owner planning the next academic year from
+// this one, short enough that a fat-fingered year (2036 instead of 2026)
+// bounces instead of silently freezing intake a decade from now.
+const MAX_SCHEDULE_DAYS_AHEAD = 370
+
+/** Today's date in Asia/Dubai (UTC+4 year-round, no DST). */
+function todayAE(): string {
+    return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+/** ISO date `days` after `iso`, parsed and returned in UTC. */
+function addDays(iso: string, days: number): string {
+    const d = new Date(`${iso}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Set the season's last delivery day. From here the taper guards (checkout
+ * route, free-checkout, gift claim) refuse any journey that would run past
+ * the date, and `intake_scheduled_pause_tick` flips the pause on the day
+ * after it, stamping paused_by='schedule'.
+ *
+ * This action and `clearScheduledIntakePause` are the only writers of
+ * pause_scheduled_for besides that tick, which only ever clears it.
+ */
+export async function scheduleIntakePause(dateIso: string): Promise<{ ok: true } | { error: string }> {
+    const user = await requireAdmin()
+
+    const clean = (dateIso ?? '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+        return { error: 'Pick a last delivery day first.' }
+    }
+    // Round-trip the parse so calendar-impossible dates (2026-02-30, which
+    // Date happily rolls forward to 2 March) are rejected rather than
+    // silently corrected into a different day than the owner typed.
+    const parsed = new Date(`${clean}T00:00:00Z`)
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== clean) {
+        return { error: 'That date does not exist. Check the day and month.' }
+    }
+
+    const today = todayAE()
+    if (clean <= today) {
+        return { error: 'The last delivery day has to be a future date.' }
+    }
+    if (clean > addDays(today, MAX_SCHEDULE_DAYS_AHEAD)) {
+        return { error: 'Pick a last delivery day within the next year.' }
+    }
+
+    const sb = createAdminSupabaseClient()
+
+    // A schedule is a promise about a future stop, so it means nothing while
+    // intake is already stopped — and worse, the tick would clear it on the
+    // day without ever flipping anything, so the owner would watch their
+    // schedule quietly vanish. Refuse instead.
+    const { data: current, error: readError } = await sb
+        .from('intake_settings')
+        .select('paused')
+        .eq('id', SETTINGS_ID)
+        .maybeSingle()
+
+    if (readError) return { error: readError.message }
+    if (current?.paused === true) {
+        return { error: 'Intake is already paused. Clear the pause instead.' }
+    }
+
+    const { error } = await sb
+        .from('intake_settings')
+        .update({ pause_scheduled_for: clean, updated_at: new Date().toISOString() })
+        .eq('id', SETTINGS_ID)
+
+    if (error) return { error: error.message }
+
+    await logAdminAction(user.email, 'intake_pause_scheduled', 'intake_settings', 'singleton', {
+        pause_scheduled_for: clean,
+    })
+
+    revalidatePath('/admin/season')
+    return { ok: true }
+}
+
+/**
+ * Drop the scheduled last delivery day. The taper guards go quiet again and
+ * the tick has nothing left to flip. Deliberately unconditional: clearing is
+ * always safe, so it stays available even in states where scheduling is not.
+ */
+export async function clearScheduledIntakePause(): Promise<{ ok: true } | { error: string }> {
+    const user = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb
+        .from('intake_settings')
+        .update({ pause_scheduled_for: null, updated_at: new Date().toISOString() })
+        .eq('id', SETTINGS_ID)
+
+    if (error) return { error: error.message }
+
+    await logAdminAction(user.email, 'intake_pause_schedule_cleared', 'intake_settings', 'singleton', {})
+
+    revalidatePath('/admin/season')
+    return { ok: true }
+}
+
 export async function updateIntakeCopy(
     headline: string,
     body: string,

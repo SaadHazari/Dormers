@@ -1,26 +1,34 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Pause, Play, Gift, AlertTriangle, Send } from 'lucide-react'
+import { Pause, Play, Gift, AlertTriangle, Send, CalendarClock } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
-import { setIntakePaused, updateIntakeCopy, updateIntakeCredits } from './actions'
+import {
+    setIntakePaused,
+    updateIntakeCopy,
+    updateIntakeCredits,
+    scheduleIntakePause,
+    clearScheduledIntakePause,
+} from './actions'
 import type { IntakeSettingsRow } from './page'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { OG, OG_DEEP, BODY } from '@/app/dashboard/_shared/tokens'
 import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 
 interface Props {
     settings: IntakeSettingsRow
     waitlistCount: number
+    overhangCount: number
 }
 
 const HEADLINE_MAX = 120
 const BODY_MAX = 400
 
-export function SeasonClient({ settings, waitlistCount }: Props) {
+export function SeasonClient({ settings, waitlistCount, overhangCount }: Props) {
     const { t } = useAdminTheme()
     const router = useRouter()
 
@@ -44,6 +52,44 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
             const result = await setIntakePaused(true)
             if ('error' in result) { setToggleError(result.error); return }
             setConfirmOpen(false)
+            router.refresh()
+        })
+    }
+
+    // ── Scheduled pause ──────────────────────────────────────────────────
+    const [dateDraft, setDateDraft] = useState('')
+    const [scheduleConfirmOpen, setScheduleConfirmOpen] = useState(false)
+    const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+    const [schedulePending, startSchedule] = useTransition()
+    const [scheduleError, setScheduleError] = useState<string | null>(null)
+
+    // Earliest pickable day: tomorrow in Asia/Dubai. The +4h shift is the
+    // same one the server action validates with, so the input's floor and
+    // the action's "must be a future date" check agree on which day it is
+    // regardless of the admin's own machine timezone.
+    const minScheduleDate = useMemo(() => {
+        const d = new Date(Date.now() + 4 * 60 * 60 * 1000)
+        d.setUTCDate(d.getUTCDate() + 1)
+        return d.toISOString().slice(0, 10)
+    }, [])
+
+    function handleConfirmSchedule() {
+        setScheduleError(null)
+        startSchedule(async () => {
+            const result = await scheduleIntakePause(dateDraft)
+            if ('error' in result) { setScheduleError(result.error); return }
+            setScheduleConfirmOpen(false)
+            router.refresh()
+        })
+    }
+
+    function handleConfirmClear() {
+        setScheduleError(null)
+        startSchedule(async () => {
+            const result = await clearScheduledIntakePause()
+            if ('error' in result) { setScheduleError(result.error); return }
+            setClearConfirmOpen(false)
+            setDateDraft('')
             router.refresh()
         })
     }
@@ -162,6 +208,77 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                     )}
                 </div>
                 {toggleError && !confirmOpen && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{toggleError}</p>}
+
+                {/* Schedule the pause */}
+                <div className={`mt-4 pt-4 border-t ${t.border}`}>
+                    <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>Schedule the pause</div>
+
+                    {settings.paused ? (
+                        <p className={`text-[12px] font-medium mt-2 max-w-[52ch] ${t.muted}`}>
+                            Scheduling a last delivery day becomes available once intake is open again.
+                        </p>
+                    ) : settings.pauseScheduledFor ? (
+                        <>
+                            <div className={`mt-3 flex items-center gap-2.5 px-4 py-3 rounded-xl border ${t.accentBg}`}>
+                                <CalendarClock size={16} strokeWidth={2.2} className={t.accent} />
+                                <span className={`text-[13px] font-bold ${t.accent}`}>
+                                    Last delivery day: {prettySeasonDate(settings.pauseScheduledFor)}
+                                </span>
+                            </div>
+                            <p className={`text-[12px] font-medium mt-3 max-w-[52ch] ${t.muted}`}>
+                                Monthly plans stop selling about four weeks before this date, weekly about a week before, and the pause turns itself on the day after.
+                            </p>
+                            {overhangCount > 0 && (
+                                <p className={`text-[12px] font-medium mt-1.5 max-w-[52ch] ${t.muted}`}>
+                                    {overhangCount === 1
+                                        ? '1 current journey already ends after this date. It rides to completion.'
+                                        : `${overhangCount} current journeys already end after this date. They ride to completion.`}
+                                </p>
+                            )}
+                            <div className="mt-3">
+                                <AdminButton
+                                    variant="ghost"
+                                    onClick={() => setClearConfirmOpen(true)}
+                                    disabled={schedulePending}
+                                >
+                                    Clear schedule
+                                </AdminButton>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <p className={`text-[12px] font-medium mt-2 max-w-[52ch] ${t.muted}`}>
+                                Pick the last delivery day of the season and new plans taper off by themselves before it. Nothing changes for customers already on a plan.
+                            </p>
+                            <div className="mt-3 flex items-end gap-3 flex-wrap">
+                                <label className="flex flex-col gap-1.5">
+                                    <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>
+                                        Last delivery day
+                                    </span>
+                                    <input
+                                        type="date"
+                                        value={dateDraft}
+                                        min={minScheduleDate}
+                                        onChange={(e) => { setDateDraft(e.target.value); setScheduleError(null) }}
+                                        className={`rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
+                                    />
+                                </label>
+                                <AdminButton
+                                    icon={<CalendarClock size={14} strokeWidth={2.5} />}
+                                    onClick={() => setScheduleConfirmOpen(true)}
+                                    disabled={!dateDraft || schedulePending}
+                                >
+                                    Schedule
+                                </AdminButton>
+                            </div>
+                        </>
+                    )}
+
+                    {scheduleError && !scheduleConfirmOpen && !clearConfirmOpen && (
+                        <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{scheduleError}</p>
+                    )}
+                </div>
+
                 {!settings.paused && (
                     <div className={`mt-4 pt-4 border-t ${t.border}`}>
                         <p className={`text-[12px] font-medium max-w-[52ch] ${t.muted}`}>
@@ -266,6 +383,50 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                         </AdminButton>
                         <AdminButton variant="danger" onClick={handleConfirmPause} loading={togglePending}>
                             Yes, Pause New Plans
+                        </AdminButton>
+                    </div>
+                </AdminModal>
+            )}
+
+            {scheduleConfirmOpen && (
+                <AdminModal label="Confirm scheduled pause" maxW="max-w-[460px]" onBackdrop={() => { if (!schedulePending) setScheduleConfirmOpen(false) }}>
+                    <div className={`px-5 py-4 border-b ${t.border}`}>
+                        <div className={`text-[15px] font-black ${t.heading}`}>Schedule the last delivery day?</div>
+                    </div>
+                    <div className="px-5 py-4">
+                        <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
+                            New plans stop being sellable as soon as their journey would cross {dateDraft ? prettySeasonDate(dateDraft) : 'that day'}. Monthly plans stop selling about four weeks before it, weekly about a week before, and the pause turns itself on the day after. Existing customers are not affected.
+                        </p>
+                        {scheduleError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{scheduleError}</p>}
+                    </div>
+                    <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
+                        <AdminButton variant="ghost" onClick={() => setScheduleConfirmOpen(false)} disabled={schedulePending}>
+                            Cancel
+                        </AdminButton>
+                        <AdminButton onClick={handleConfirmSchedule} loading={schedulePending}>
+                            Yes, Schedule It
+                        </AdminButton>
+                    </div>
+                </AdminModal>
+            )}
+
+            {clearConfirmOpen && (
+                <AdminModal label="Confirm clear schedule" maxW="max-w-[440px]" onBackdrop={() => { if (!schedulePending) setClearConfirmOpen(false) }}>
+                    <div className={`px-5 py-4 border-b ${t.border}`}>
+                        <div className={`text-[15px] font-black ${t.heading}`}>Clear the scheduled pause?</div>
+                    </div>
+                    <div className="px-5 py-4">
+                        <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
+                            Every plan goes back on sale at full length straight away, and nothing will pause on its own. You can schedule a new last delivery day whenever you want.
+                        </p>
+                        {scheduleError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{scheduleError}</p>}
+                    </div>
+                    <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
+                        <AdminButton variant="ghost" onClick={() => setClearConfirmOpen(false)} disabled={schedulePending}>
+                            Cancel
+                        </AdminButton>
+                        <AdminButton onClick={handleConfirmClear} loading={schedulePending}>
+                            Yes, Clear It
                         </AdminButton>
                     </div>
                 </AdminModal>
