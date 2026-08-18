@@ -211,41 +211,53 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const [pauseRangeInfo, setPauseRangeInfo] = useState<PauseRange | null>(null)
   const [cellInfo, setCellInfo] = useState<Pill | null>(null)
 
-  // Tuck the sun-canopy arc behind the hero. The canopy depth (--sun-h in
-  // dashboard/layout.tsx) defaults to a fixed 250px band; short hero variants
-  // (off-day / closure cards) end above that line, letting the arc's bulge
-  // peek out in the gap below the card. Measure where the hero's bottom edge
-  // actually lands inside .dash-page (the element that paints the canopy) and
-  // publish it as --sun-cap; the CSS takes min(default, cap), so on normal
-  // days (hero deeper than 250px) the cap is inert and nothing changes.
+  // Tuck the sun-canopy arc behind the FIRST card on the canvas. Normally
+  // that's the hero: the canopy depth (--sun-h in dashboard/layout.tsx)
+  // defaults to a fixed 250px band; short hero variants (off-day / closure
+  // cards) end above that line, letting the arc's bulge peek out in the gap
+  // below the card. When the plan-ending banner is mounted it sits ABOVE the
+  // hero, pushing the hero past the 250px default — the arc would surface in
+  // the gap BETWEEN banner and hero as a floating orange bulge. So the
+  // measurement anchors to the banner instead whenever it exists: the banner
+  // becomes the card that overlaps the canopy's edge, and everything below
+  // sits on beige. Measure where the anchor's bottom edge actually lands
+  // inside .dash-page (the element that paints the canopy) and publish it as
+  // --sun-cap; the CSS takes min(default, cap), so on normal days (anchor
+  // deeper than 250px) the cap is inert and nothing changes.
   // ResizeObserver on the page root catches every height shift above the
-  // hero too (banners, greeting wrapping) — not just the hero's own size.
+  // anchor too (banners, greeting wrapping) — not just the anchor's own size.
   const heroRef = useRef<HTMLElement>(null)
   const homeRootRef = useRef<HTMLDivElement>(null)
+  const planEndingRef = useRef<HTMLDivElement>(null)
+  const hasPlanEndingBanner = planEndingBanner != null
   useEffect(() => {
     const hero = heroRef.current
     const root = homeRootRef.current
     const page = root?.closest<HTMLElement>('.dash-page')
     if (!hero || !root || !page) return
-    const TUCK = 24 // arc's lowest point sits this far above the hero's bottom edge
+    const TUCK = 24 // arc's lowest point sits this far above the anchor's bottom edge
     const measure = () => {
-      const cap = hero.getBoundingClientRect().bottom - page.getBoundingClientRect().top - TUCK
+      const anchor = (hasPlanEndingBanner && planEndingRef.current) || hero
+      const cap = anchor.getBoundingClientRect().bottom - page.getBoundingClientRect().top - TUCK
       document.documentElement.style.setProperty('--sun-cap', `${Math.max(0, Math.round(cap))}px`)
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(hero)
+    // The banner shrinks in place when the customer joins the waitlist —
+    // observing it directly re-tucks the arc the moment that happens.
+    if (planEndingRef.current) ro.observe(planEndingRef.current)
     ro.observe(root)
     // Content ABOVE this component (e.g. the profile banner) can appear or
-    // collapse without resizing the hero or the home root — the hero would
-    // move while the cap stays stale. The page container's height shifts on
-    // any such change, so observing it re-measures for free.
+    // collapse without resizing the anchor or the home root — the anchor
+    // would move while the cap stays stale. The page container's height
+    // shifts on any such change, so observing it re-measures for free.
     ro.observe(page)
     return () => {
       ro.disconnect()
       document.documentElement.style.removeProperty('--sun-cap')
     }
-  }, [])
+  }, [hasPlanEndingBanner])
 
   // Dusk canopy (non-serviceable day): stable html twin for the iOS :has()
   // drop (mirrors html.dash-home), plus the status-bar tint — Safari/Chrome
@@ -442,7 +454,9 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
 
       {errorBanner}
       {orderBanner}
-      {planEndingBanner}
+      {/* Ref wrapper = the sun-cap anchor (see the measure effect above).
+          Rendered only when the banner exists so no empty flex-gap slot. */}
+      {planEndingBanner != null && <div ref={planEndingRef}>{planEndingBanner}</div>}
 
       {/* ── Dinner-ticket hero (dark = active; light = closure) ──────────── */}
       <section ref={heroRef} style={{

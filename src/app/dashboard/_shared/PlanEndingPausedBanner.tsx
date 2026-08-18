@@ -3,7 +3,7 @@
 import { useState, useTransition, type ReactElement } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CalendarClock, Check } from 'lucide-react'
-import { OG, OG_DEEP, BODY, S } from './tokens'
+import { OG, OG_DEEP, NV, BODY, S, TIER1 } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
 import { planEndingHeadline, saveSpotButtonLabel } from './plan-ending-copy'
@@ -93,21 +93,22 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   return (
     <div style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap',
-      borderRadius: 'var(--radius-sm)',
       ...(onSun
         ? {
-            // Opaque cream card — the sun provides the color, the card
-            // provides the ground. Same surface family as the mobile hero's
-            // light state, so it reads as "a card on the sun", not a tint.
-            // No marginBottom: mhome-root's own gap handles spacing.
-            padding: '12px 16px', gap: 10,
-            background: '#fdfbf6',
-            border: '1px solid rgba(9,24,37,0.06)',
-            boxShadow: '0 1px 2px rgba(9,24,37,0.04), 0 8px 24px -12px rgba(9,24,37,0.16)',
+            // TIER1 — the system's warm-cream card surface, NOT white: on the
+            // orange canopy a whiter fill reads sharp and off-brand next to
+            // the hero's warm card. The canopy arc tucks BEHIND this card
+            // (MobileHome anchors --sun-cap to it when mounted), so the card
+            // overlaps the sun's edge exactly like the hero does on normal
+            // days. No marginBottom: mhome-root's own gap handles spacing.
+            ...TIER1,
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 16px', gap: 12,
           }
         : {
             marginBottom: 18,
             padding: '14px 18px', gap: 14,
+            borderRadius: 'var(--radius-sm)',
             background: 'var(--ds-og-wash-strong)',
             border: '1px solid var(--ds-og-border-strong)',
           }),
@@ -144,11 +145,11 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
             {(() => {
               const display = intakeCreditDisplay(confirmedCreditAed, confirmedMessage)
               return display.hasCredit ? (
-                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: OG_DEEP, fontWeight: 700, lineHeight: 1.5, fontFeatureSettings: '"tnum"' }}>
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: OG_DEEP, fontWeight: 700, lineHeight: 1.5, fontFeatureSettings: '"tnum"' }}>
                   {display.text}.
                 </div>
               ) : (
-                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+                <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
                   {display.text}
                 </div>
               )
@@ -168,7 +169,7 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
                 {headline.emphasis}
               </span>.
             </div>
-            <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
               New plans are paused between semesters. You can renew the moment we reopen.
             </div>
           </motion.div>
@@ -183,13 +184,19 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             minHeight: 44,
-            padding: '10px 16px',
-            background: OG, color: '#fff',
+            padding: '10px 18px',
             border: 'none',
             borderRadius: 'var(--radius-pill)',
             fontFamily: BODY, fontSize: 12, fontWeight: 700,
             letterSpacing: '0.04em', textTransform: 'uppercase',
-            boxShadow: '0 4px 12px rgba(245,127,32,0.40)',
+            // On the sun: the quiet navy pill the mobile kit already uses for
+            // its modal actions (kit.tsx) — an orange-glow primary next to
+            // the giant orange canopy vibrates and screams. Cream label per
+            // the no-sharp-white-on-navy rule. On cream desktop the system
+            // primary (orange + glow) stays correct.
+            ...(onSun
+              ? { background: NV, color: '#f5f0e8', boxShadow: 'none' }
+              : { background: OG, color: '#fff', boxShadow: '0 4px 12px rgba(245,127,32,0.40)' }),
             opacity: isPending ? 0.75 : 1,
             cursor: isPending ? 'not-allowed' : 'pointer',
             flexShrink: 0,
