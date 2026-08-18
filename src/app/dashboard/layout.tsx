@@ -203,16 +203,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
            12.9 inch iPad, which reads as a half-loaded screen, not a short one.
            NOTE: no backticks in this block — it is a raw template literal. */
         @media ${ROOMY} {
-          .dash-content { padding: 56px 20px 20px 20px !important; }
-          /* 92 = dash-main-row padding-top 16 + dash-content padding 56/20.
-             Getting this wrong by even a few px costs a scrollbar on a page
-             that otherwise fits exactly, which is worse than not filling. */
-          .content-border { min-height: calc(100vh - 92px) !important; }
+          /* .dash-page prefix raises specificity so this beats the compact
+             block's 14px phone gutters no matter which comes later. */
+          .dash-page .dash-content { padding: 20px 28px 32px 28px !important; }
         }
-        /* Mobile redesign (≤768): warm grayish-beige page with a faint orange
-           breath; the cream orange-bordered content-frame is removed so cards
-           float directly on the page. Desktop + tablet keep the cream frame. */
-        @media (max-width: 768px) {
+        /* Mobile redesign page treatment — warm grayish-beige page with a faint
+           orange breath, and the cream orange-bordered content-frame removed so
+           cards float directly on the page.
+           Keyed on COMPACT, not 768: this is the mobile TREE's page, so it has
+           to travel with the tree. Gated at 768 it left portrait tablets showing
+           the mobile cards inside the DESKTOP cream frame, with the orange home
+           canopy covered by it — the same tree looking like two products
+           52px apart. */
+        @media ${COMPACT} {
           .dash-page {
             background: radial-gradient(135% 55% at 50% 0%, rgba(245,127,32,0.06) 0%, rgba(245,127,32,0) 58%), linear-gradient(180deg, #efe8dc 0%, #e9e2d5 60%, #e7e0d2 100%) !important;
           }
@@ -292,12 +295,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
              pinned it (fixed ::before, a parallax) but that caused iOS scroll jank,
              so it was un-pinned. Scoped via .home-mobile (/dashboard). */
           .dash-page:has(.home-mobile) {
-            --sun-h: calc(env(safe-area-inset-top) + 250px);
+            /* Depth is CLAMPED to the hero card's measured bottom edge: MobileHome
+               publishes --sun-cap (hero bottom minus a tuck margin, measured via
+               ResizeObserver) so the arc's bulge can never peek out below a short
+               hero (off-day / closure variants). On normal days the hero reaches
+               deeper than the 250px default, min() picks the default, and the
+               canopy is pixel-identical to before. The 9999px fallback keeps the
+               default active for the first paint, before the effect runs. */
+            --sun-h: min(calc(env(safe-area-inset-top) + 250px), var(--sun-cap, 9999px));
+            /* The fill lives in its own variable so the dusk (off-day) variant
+               below can swap the colour without restating the mask geometry. */
+            --sun-fill: linear-gradient(180deg, #f57f20 0%, #f88e38 50%, #fcab63 100%);
             --sun-bg:
               radial-gradient(80% var(--sun-h) at 50% 0,
                 transparent 0, transparent calc(100% - 1.5px), #e7e0d2 100%)
                 0 0 / 100% 100% no-repeat,
-              linear-gradient(180deg, #f57f20 0%, #f88e38 50%, #fcab63 100%)
+              var(--sun-fill)
                 0 0 / 100% var(--sun-h) no-repeat,
               #e7e0d2;
             /* Canopy painted as the page's OWN (scroll-attached) background — NOT a
@@ -310,6 +323,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
                orange — that one is unreachable by any page layer). */
             background: var(--sun-bg) !important;
           }
+          /* ── Non-serviceable day (weekly off-day) — the sun has SET ─────────
+             Same sharp arc, dusk NAVY fill: sun up (orange) = dinner coming;
+             sun down (navy) = kitchen resting tonight. Uses only the existing
+             navy family (NV2 #1e3a4f easing lighter toward the arc — mirroring
+             how the orange fill lightens toward its edge). MobileHome adds
+             .mhome-sundown when the hero is the weekly no-delivery card, plus
+             an html.dash-home-dusk stable twin (same iOS :has()-drop insurance
+             as html.dash-home). The html rule repaints the safe-area /
+             status-bar canvas navy to match — the same trick Dorm Wars uses
+             for its dark canvas. */
+          .dash-page:has(.mhome-sundown),
+          html.dash-home-dusk .dash-page {
+            --sun-fill: linear-gradient(180deg, #1e3a4f 0%, #2b4d64 50%, #3d617a 100%);
+          }
+          html:has(.mhome-sundown), html.dash-home-dusk { background-color: #1e3a4f; }
+
           /* Clear the notch on home: pad content + the floating burger below the
              safe-area inset so the greeting sits ON the orange, not under the
              status bar. env() resolves to 0 on non-notch devices — a no-op there. */

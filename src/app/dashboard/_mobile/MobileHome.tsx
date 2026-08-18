@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Image, { type StaticImageData } from 'next/image'
 import Link from 'next/link'
 import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight, Lock } from 'lucide-react'
@@ -92,6 +92,12 @@ export interface MobileHomeData {
    *  mirroring desktop HeroToday's inactive-state teardown so the card never
    *  frames a delivered/skipped meal as "Tonight's dish". */
   heroClosure?: { heading: string; subtitle: string } | null
+  /** Weekly non-serviceable day (Sun for 6-day, Sat+Sun for 5-day). Flips the
+   *  sun canopy to its dusk-navy variant (sun down = kitchen resting tonight)
+   *  via the .mhome-sundown marker — see dashboard/layout.tsx. Deliberately
+   *  narrower than the 'off' hero tone, which also covers "no menu yet" and
+   *  resumed-after-cutoff. */
+  sunDown: boolean
   /** No dish exists for today (weekly off-day like Sunday, or menu not set yet)
    *  → the "View dish" button is dropped: tapping it would just round-trip to the
    *  menu page's own "no delivery" rest card. Distinct from closure states that
@@ -195,6 +201,65 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const [pauseRangeInfo, setPauseRangeInfo] = useState<PauseRange | null>(null)
   const [cellInfo, setCellInfo] = useState<Pill | null>(null)
 
+  // Tuck the sun-canopy arc behind the hero. The canopy depth (--sun-h in
+  // dashboard/layout.tsx) defaults to a fixed 250px band; short hero variants
+  // (off-day / closure cards) end above that line, letting the arc's bulge
+  // peek out in the gap below the card. Measure where the hero's bottom edge
+  // actually lands inside .dash-page (the element that paints the canopy) and
+  // publish it as --sun-cap; the CSS takes min(default, cap), so on normal
+  // days (hero deeper than 250px) the cap is inert and nothing changes.
+  // ResizeObserver on the page root catches every height shift above the
+  // hero too (banners, greeting wrapping) — not just the hero's own size.
+  const heroRef = useRef<HTMLElement>(null)
+  const homeRootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const hero = heroRef.current
+    const root = homeRootRef.current
+    const page = root?.closest<HTMLElement>('.dash-page')
+    if (!hero || !root || !page) return
+    const TUCK = 24 // arc's lowest point sits this far above the hero's bottom edge
+    const measure = () => {
+      const cap = hero.getBoundingClientRect().bottom - page.getBoundingClientRect().top - TUCK
+      document.documentElement.style.setProperty('--sun-cap', `${Math.max(0, Math.round(cap))}px`)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(hero)
+    ro.observe(root)
+    // Content ABOVE this component (e.g. the profile banner) can appear or
+    // collapse without resizing the hero or the home root — the hero would
+    // move while the cap stays stale. The page container's height shifts on
+    // any such change, so observing it re-measures for free.
+    ro.observe(page)
+    return () => {
+      ro.disconnect()
+      document.documentElement.style.removeProperty('--sun-cap')
+    }
+  }, [])
+
+  // Dusk canopy (non-serviceable day): stable html twin for the iOS :has()
+  // drop (mirrors html.dash-home), plus the status-bar tint — Safari/Chrome
+  // read theme-color for the browser chrome, so it must follow the canopy.
+  const sunDown = data.sunDown
+  useEffect(() => {
+    if (!sunDown) return
+    document.documentElement.classList.add('dash-home-dusk')
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const prev = meta?.getAttribute('content') ?? null
+    meta?.setAttribute('content', '#1e3a4f')
+    return () => {
+      document.documentElement.classList.remove('dash-home-dusk')
+      if (meta && prev) meta.setAttribute('content', prev)
+    }
+  }, [sunDown])
+
+  // Greeting text sits ON the canopy — navy text works on orange but vanishes
+  // on the dusk navy, so the block flips to cream (never sharp #fff on navy).
+  const gFg = sunDown ? '#f5f0e8' : S.fg
+  const gMuted = sunDown ? 'rgba(245,240,232,0.78)' : S.fgMuted
+  const gFaint = sunDown ? 'rgba(245,240,232,0.55)' : S.fgFaint
+  const gUnderline = sunDown ? 'rgba(245,240,232,0.45)' : S.border2
+
   // Date-mapped calendar chips (desktop-faithful: delivered/today/skipped/
   // upcoming, with future cells clickable to skip / future skips to un-skip).
   const skipSet = new Set(data.skippedDates)
@@ -279,13 +344,13 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const heroLight = !!data.heroClosure
 
   return (
-    <div className="mhome-root" style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
+    <div ref={homeRootRef} className={`mhome-root${sunDown ? ' mhome-sundown' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
 
       {/* ── Top greeting — sits in the hamburger row (left padding clears the
           burger; right padding is light since the bug icon is gone on mobile,
           which also gives the value line room to stay on one line). ── */}
       <div style={{ paddingLeft: 64, paddingRight: 16, minHeight: 34, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: S.fg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: gFg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {/* Mirror the desktop hero: when no name is on file the helper
               falls back to 'there' — drop the suffix rather than greeting
               the customer with "Good evening, there". */}
@@ -299,7 +364,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             info affordance, NOT inline, so the greeting stays skimmable. */}
         {(() => {
           const hasSaved = data.benchmarkAed != null && data.savedAmount > 0
-          const dot = <span style={{ color: S.fgFaint, margin: '0 6px' }}>·</span>
+          const dot = <span style={{ color: gFaint, margin: '0 6px' }}>·</span>
           // Dotted-underline benchmark-capture / adjust link (reused below).
           const captureLink = (
             <span
@@ -308,8 +373,8 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
               onClick={onSetBenchmark}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSetBenchmark?.() } }}
               style={{
-                cursor: 'pointer', color: S.fgMuted, fontWeight: 600, touchAction: 'manipulation',
-                textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: S.border2, textUnderlineOffset: 2,
+                cursor: 'pointer', color: gMuted, fontWeight: 600, touchAction: 'manipulation',
+                textDecoration: 'underline', textDecorationStyle: 'dotted', textDecorationColor: gUnderline, textUnderlineOffset: 2,
                 padding: '4px 2px', margin: '-4px -2px',
               }}
             >
@@ -322,11 +387,11 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
           if (data.delivered === 0) {
             return data.benchmarkAed != null
               ? null
-              : <div style={{ fontSize: 12.5, color: S.fgMuted, lineHeight: 1.35, marginTop: 2 }}>{captureLink}</div>
+              : <div style={{ fontSize: 12.5, color: gMuted, lineHeight: 1.35, marginTop: 2 }}>{captureLink}</div>
           }
           return (
-            <div style={{ fontSize: 12.5, color: S.fgMuted, lineHeight: 1.35, marginTop: 2 }}>
-              <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>{data.evenings}</strong>{' '}
+            <div style={{ fontSize: 12.5, color: gMuted, lineHeight: 1.35, marginTop: 2 }}>
+              <strong style={{ color: gFg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>{data.evenings}</strong>{' '}
               dinner{data.evenings === 1 ? '' : 's'} sorted
               {hasSaved ? (
                 // nowrap so the figure + its info icon never split across lines —
@@ -335,7 +400,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
                   {dot}
                   {/* bucketed to "1,000+" past AED 1000 — keeps the claim credible
                       (mirrors desktop's formatSavedAmount). */}
-                  <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(data.savedAmount)}</strong> saved
+                  <strong style={{ color: gFg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(data.savedAmount)}</strong> saved
                   <button
                     type="button"
                     onClick={onSetBenchmark}
@@ -345,7 +410,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
                       padding: 6, margin: '-6px -2px -6px 2px',
                       // Muted navy (not brand orange) so the icon stays visible
                       // on the orange home canopy — matches the savings-line tone.
-                      background: 'transparent', border: 'none', color: S.fgMuted, cursor: 'pointer', touchAction: 'manipulation',
+                      background: 'transparent', border: 'none', color: gMuted, cursor: 'pointer', touchAction: 'manipulation',
                     }}
                   >
                     <Info size={13} strokeWidth={2.2} aria-hidden />
@@ -364,7 +429,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
       {planEndingBanner}
 
       {/* ── Dinner-ticket hero (dark = active; light = closure) ──────────── */}
-      <section style={{
+      <section ref={heroRef} style={{
         position: 'relative',
         borderRadius: 24, padding: 22, overflow: 'hidden',
         ...(heroLight
@@ -986,28 +1051,29 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
       })()}
 
       {/* ── Roomy compact (portrait tablets, landscape phones) ──────────────
-          The mobile tree is touch-native and correct at these sizes; it just
-          must not render as a 1000px-wide phone. Two columns, and the two
-          <section> blocks (dinner-ticket hero, plan progress) sit side by side.
+          A centred column, NOT a two-column grid.
 
-          Everything defaults to full width and only the two sections are placed
-          explicitly. That way conditional children (order banner, plan-ending
-          banner) and anything added later stay full-bleed instead of silently
-          dropping into half a column.
+          Two-up was tried and reverted. This tree has four optional banners
+          (error / order / renew / planEnding) and renewBanner renders BETWEEN
+          the dinner-ticket hero and the plan card. In a grid that full-width
+          banner forces a row break, so the hero sat alone in column 1 and the
+          plan card alone in column 2 one row down, with two empty half-rows
+          between them. The layout was therefore data-dependent: correct for an
+          account with no banner, broken for an account mid-renewal.
 
-          align-items: start stops the shorter column stretching to match the
-          taller one, which would leave dead space inside its card. */}
+          Any real two-up here needs the pair to be adjacent siblings, which
+          means moving renewBanner in the DOM — a change to the phone layout
+          too, so it is a product call rather than a CSS one.
+
+          The cap keeps card proportions close to the phone design instead of
+          stretching a 390px layout across 1000px. */}
       <style jsx global>{`
         @media ${ROOMY} {
           .mhome-root {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr;
-            align-items: start;
-            column-gap: 14px;
+            max-width: 760px;
+            margin-left: auto;
+            margin-right: auto;
           }
-          .mhome-root > * { grid-column: 1 / -1; }
-          .mhome-root > section:nth-of-type(1) { grid-column: 1 / 2; }
-          .mhome-root > section:nth-of-type(2) { grid-column: 2 / -1; }
         }
       `}</style>
     </div>
