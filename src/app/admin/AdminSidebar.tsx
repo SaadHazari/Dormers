@@ -8,7 +8,7 @@ import {
     Users, CreditCard, Coins,
     Share2, Swords, Star,
     UtensilsCrossed, DollarSign, QrCode,
-    ScrollText, MessageSquare,
+    ScrollText, MessageSquare, Megaphone,
     Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera, Carrot,
     CalendarClock,
 } from 'lucide-react'
@@ -81,6 +81,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
                 badgeHref: '/admin/layer4-queue',
             },
             { label: 'Messages',         href: '/admin/comms',      icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Broadcast',        href: '/admin/comms/broadcast', icon: <Megaphone size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
     },
     {
@@ -118,6 +119,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     },
 ]
 
+// Every nav href, used to settle which row owns a nested path.
+const ALL_HREFS = [OVERVIEW, ...NAV_GROUPS.flatMap(g => g.items)].map(i => i.href)
+
 export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOpen, onMobileClose }: SidebarProps) {
     const pathname = usePathname()
     const { t, isLight } = useAdminTheme()
@@ -146,7 +150,11 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
 
     function isActive(item: NavItem) {
         if (item.href === '/admin') return pathname === '/admin'
-        if (pathname.startsWith(item.href)) return true
+        if (pathname.startsWith(item.href)) {
+            // A page that lives under another row's href (Broadcast under
+            // Messages) lights its own row only, never both.
+            return !ALL_HREFS.some(h => h !== item.href && h.startsWith(item.href) && pathname.startsWith(h))
+        }
         return (item.matchHrefs ?? []).some(h => pathname.startsWith(h))
     }
 
