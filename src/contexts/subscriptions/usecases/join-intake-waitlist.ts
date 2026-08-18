@@ -208,7 +208,7 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
         ok: true,
         alreadyJoined: true,
         creditAed: existing.amountAed,
-        message: 'You are already on the list.',
+        message: 'You are already on our waitlist.',
       }
     }
 

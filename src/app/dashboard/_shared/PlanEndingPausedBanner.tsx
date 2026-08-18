@@ -140,7 +140,7 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
               {onSun && <Check size={15} strokeWidth={2.8} color={OG} aria-hidden />}
-              You are on the list.
+              You are on our waitlist.
             </div>
             {(() => {
               const display = intakeCreditDisplay(confirmedCreditAed, confirmedMessage)

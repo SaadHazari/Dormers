@@ -124,7 +124,7 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
                 <Check size={20} strokeWidth={2.4} />
               </span>
               <div style={{ fontFamily: BODY, fontSize: 16, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
-                You are on the list.
+                You are on our waitlist.
               </div>
               {(() => {
                 const display = intakeCreditDisplay(confirmedCreditAed, confirmedMessage)

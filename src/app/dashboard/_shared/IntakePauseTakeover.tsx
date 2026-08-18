@@ -177,8 +177,8 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoin
                         color: TIER_POP_TEXT.primary, textAlign: 'center',
                     }}>
                         {creditAed > 0
-                            ? `Tap below to join the early-access list and get AED ${creditAed} credit the day new plans reopen.`
-                            : 'Tap below to join the early-access list and hear first the day new plans reopen.'}
+                            ? `Tap below to join our waitlist and get AED ${creditAed} credit the day new plans reopen.`
+                            : 'Tap below to join our waitlist and hear first the day new plans reopen.'}
                     </p>
                 )}
 
