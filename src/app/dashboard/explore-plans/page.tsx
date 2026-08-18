@@ -105,6 +105,10 @@ export default async function ExplorePlansPage({
     waitlistCreditAed: waitlistStatus.unspentCreditAed,
     cycleStartedAt: intakeState.cycleStartedAt,
     cycleEndedAt: intakeState.cycleEndedAt,
+    // Season's last delivery day when a pause is SCHEDULED — this is the
+    // route where the pricing grid + checkout actually mount, so it is the
+    // taper's primary surface. See plan/page.tsx for the full note.
+    lastDeliveryDay: intakeState.pauseScheduledFor,
   }
 
   return (

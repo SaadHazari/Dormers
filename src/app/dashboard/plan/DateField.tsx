@@ -24,6 +24,12 @@ interface Props {
    *  occupies it — a FUTURE-overlap reason, not "in the past". When set, those
    *  cells explain the overlap instead of the misleading past-date message. */
   activeUntil?: string
+  /** Season taper: the last delivery day before the scheduled seasonal
+   *  pause (ISO). The caller has already clamped `maxDate` to the latest
+   *  start whose journey still finishes by then; this only changes the
+   *  explanation on a too-late cell, so the customer reads "the term ends"
+   *  instead of the now-wrong "30-day window". */
+  seasonEndsOn?: string | null
 }
 
 // Format an ISO date (date-only or timestamp) as "9 July" in AE locale.
@@ -41,7 +47,7 @@ function isoDow(d: Date): number {
   return js === 0 ? 7 : js
 }
 
-export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil }: Props) {
+export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil, seasonEndsOn }: Props) {
   const [open, setOpen] = useState(false)
   // 'down' = popover sits below the trigger (default); 'up' = flips above when
   // there isn't enough viewport space below. Sticky checkout panels at the bottom
@@ -167,7 +173,14 @@ export function DateField({ value, onChange, minDate, maxDate, weekType, cutoffA
       }
       return 'Start dates can’t be in the past.'
     }
-    if (d > maxD) return 'Outside your 30-day pick window.'
+    if (d > maxD) {
+      // Season taper: the cap isn't the 30-day window any more, it's the end
+      // of the term. Naming the real reason keeps the refusal honest.
+      if (seasonEndsOn) {
+        return `The last delivery day this term is ${fmtDayLong(seasonEndsOn)}. Pick a start that finishes before then.`
+      }
+      return 'Outside your 30-day pick window.'
+    }
     return undefined
   }
 

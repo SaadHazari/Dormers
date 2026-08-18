@@ -12,7 +12,10 @@ import type { CreditByPlan } from '../_shared/types'
 import { DateField } from './DateField'
 import { fmtWithDay } from '../_shared/format'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
+import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 
 interface CheckoutCustomer {
   name?: string | null
@@ -69,6 +72,13 @@ interface Props {
    *  page SSR fetch so the displayed total and the POSTed amount both use
    *  the DB-backed price the server validates against. */
   priceOverrides?: PriceOverride[]
+  /** Season taper — the last delivery day before a SCHEDULED seasonal pause
+   *  (IntakeGateState.lastDeliveryDay), or null when none is scheduled. The
+   *  panel clamps its own 30-day pick window down to the latest start whose
+   *  journey still finishes by that day. /api/checkout is authoritative (it
+   *  409s INTAKE_ENDING); this clamp is the courtesy that stops the customer
+   *  from reaching that refusal. */
+  lastDeliveryDay?: string | null
 }
 
 // Format a Date as YYYY-MM-DD using LOCAL components — never UTC. The Date
@@ -117,6 +127,23 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
   return isoDate(d)
 }
 
+// Mirror of clampToDeliveryDay that walks BACKWARD. Used only by the season
+// taper: `taperedMaxStart` returns the latest start whose journey fits, which
+// may itself land on a Sunday (computeEndDate shifts such a start forward,
+// the picker refuses it). Walking back to the previous delivery day keeps the
+// auto-corrected date pickable, and an earlier start can only end earlier, so
+// it can never break the fit it was chosen for.
+function clampBackToDeliveryDay(iso: string, weekType: WeekType): string {
+  const d = new Date(iso + 'T00:00:00')
+  for (let i = 0; i < 7; i++) {
+    const js = d.getDay()
+    const dow = js === 0 ? 7 : js  // 1=Mon..7=Sun
+    if (weekType === '5DAYS' ? (dow !== 6 && dow !== 7) : (dow !== 7)) break
+    d.setDate(d.getDate() - 1)
+  }
+  return isoDate(d)
+}
+
 /**
  * Slide-in checkout panel — appears once a plan is selected and owns the
  * date picker, the Stripe redirect, and the panel-local state (startDate,
@@ -127,7 +154,7 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
  */
 export function CheckoutPanel({
   selected, pref, vegDayCount, customer, userEmail, activeSubscription, weekType,
-  outOfZone = false, creditByPlan = {}, priceOverrides = [],
+  outOfZone = false, creditByPlan = {}, priceOverrides = [], lastDeliveryDay = null,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // Split for the currently selected plan only, computed once server-side
@@ -235,6 +262,28 @@ export function CheckoutPanel({
     return () => clearInterval(t)
   }, [activeSubscription])
 
+  // ── Season taper ──────────────────────────────────────────────────────
+  // When a seasonal pause is SCHEDULED, the real ceiling on a start date is
+  // no longer "+30 days" but "the latest day this plan can still start and
+  // still finish before the last delivery day". `taperedMaxStart` returns
+  // that date, or null when nothing in the window fits (the plan is done for
+  // the term — its card is already disabled upstream, so this is the
+  // defensive branch, not the normal path).
+  const taperMax = useMemo(
+    () => taperedMaxStart({
+      planId: PLAN_KEBAB[selected] as KebabPlanId,
+      weekType,
+      minStart: dateBounds.min,
+      maxStart: dateBounds.max,
+      lastDeliveryDay,
+    }),
+    [selected, weekType, dateBounds.min, dateBounds.max, lastDeliveryDay],
+  )
+  const seasonClosed = !!lastDeliveryDay && taperMax === null
+  // Degenerate window in the closed case — every cell past `min` explains
+  // itself through the picker's season message, and the CTA is disabled.
+  const maxPickable = taperMax ?? dateBounds.min
+
   // Auto-bump startDate forward when the cutoff crosses mid-session. Without
   // this, a customer who picked today at 13:55 could still hit the CTA at
   // 14:01 with a now-stale value — the server would reject, but the inline
@@ -244,6 +293,18 @@ export function CheckoutPanel({
       setStartDate(clampToDeliveryDay(dateBounds.min, weekType))
     }
   }, [dateBounds.min, startDate, weekType])
+
+  // Pull startDate back under the taper ceiling. The panel keeps its picked
+  // date across plan switches, so a date that was fine for a Trial can sit
+  // past a Monthly's tighter horizon the moment the customer switches cards.
+  // Silently correcting beats letting the CTA lead to a server refusal.
+  useEffect(() => {
+    if (!lastDeliveryDay || !startDate || !taperMax) return
+    if (startDate > taperMax) {
+      const back = clampBackToDeliveryDay(taperMax, weekType)
+      if (back >= dateBounds.min) setStartDate(back)
+    }
+  }, [taperMax, startDate, weekType, lastDeliveryDay, dateBounds.min])
 
   // Scroll the panel into clear view on mount and when selection changes,
   // so the user sees the date picker + checkout button without hunting for
@@ -307,8 +368,14 @@ export function CheckoutPanel({
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
-      } else if (data.error === 'QUEUE_FULL' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED') {
+      } else if (data.error === 'QUEUE_FULL' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED' || data.error === 'INTAKE_PAUSED' || data.error === 'INTAKE_ENDING') {
         // Friendly server-side rejection — message is pre-formatted for display.
+        // INTAKE_ENDING is the season taper's authoritative refusal: the
+        // clamps above are courtesy, so a stale tab (or a horizon the client
+        // computed differently) still lands here, and the server's sentence
+        // is the one the customer reads. INTAKE_PAUSED joins it for the same
+        // reason — both carry a written `message`, and without this branch
+        // they fell through to the raw-code fallback below.
         setErrorCode(data.error)
         setError(data.message ?? 'Checkout blocked — please review your account and try again.')
       } else {
@@ -562,10 +629,11 @@ export function CheckoutPanel({
                 value={startDate}
                 onChange={setStartDate}
                 minDate={dateBounds.min}
-                maxDate={dateBounds.max}
+                maxDate={maxPickable}
                 weekType={weekType}
                 cutoffActive={dateBounds.cutoffActive}
                 activeUntil={activeSubscription?.end_date}
+                seasonEndsOn={lastDeliveryDay}
               />
             </div>
 
@@ -575,10 +643,10 @@ export function CheckoutPanel({
                 • loading    → spinner + "Redirecting…"  (press-scaled momentarily) */}
             <button
               type="button"
-              disabled={checkoutLoading || !startDate || !vegDaysReady || outOfZone}
+              disabled={checkoutLoading || !startDate || !vegDaysReady || outOfZone || seasonClosed}
               onClick={handleCheckout}
-              className={`checkout-cta${((!startDate || !vegDaysReady) || outOfZone) && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
-              title={outOfZone ? 'Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.' : !vegDaysReady ? `Pick ${vegDayCount} veg day${vegDayCount === 1 ? '' : 's'} above` : undefined}
+              className={`checkout-cta${((!startDate || !vegDaysReady) || outOfZone || seasonClosed) && !checkoutLoading ? ' is-awaiting' : ''}${checkoutLoading ? ' is-loading' : ''}`}
+              title={outOfZone ? 'Your dorm is outside our delivery radius — message us on WhatsApp to confirm coverage.' : seasonClosed ? 'This plan runs past the end of the term.' : !vegDaysReady ? `Pick ${vegDayCount} veg day${vegDayCount === 1 ? '' : 's'} above` : undefined}
             >
               {checkoutLoading ? (
                 <>
@@ -635,7 +703,15 @@ export function CheckoutPanel({
                 Meals begin on this date — no charge for days before.
               </p>
               <p className="checkout-window-window">
-                Any working day in the next 30 days.
+                {/* The constraint line states the REAL ceiling. Once a
+                    seasonal pause is scheduled it is the end of the term,
+                    not the 30-day window, so the customer is never told a
+                    rule the picker doesn't follow. */}
+                {seasonClosed
+                  ? <>This plan runs past <strong>{prettySeasonDate(lastDeliveryDay!)}</strong>, the last delivery day this term.</>
+                  : lastDeliveryDay
+                    ? <>Any working day up to <strong>{prettySeasonDate(clampBackToDeliveryDay(maxPickable, weekType))}</strong>, so it finishes before the term ends.</>
+                    : 'Any working day in the next 30 days.'}
               </p>
             </div>
 

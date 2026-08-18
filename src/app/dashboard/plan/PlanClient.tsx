@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
-  CalendarDays, Unlock, Heart, Moon,
+  CalendarDays, CalendarClock, Unlock, Heart, Moon,
 } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -16,6 +16,7 @@ import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileBanner } from '../_shared/ProfileBanner'
 import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
 import { IntakePausedGate } from '../_shared/IntakePausedGate'
+import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
 import { Tooltip } from '../_shared/Tooltip'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
@@ -27,7 +28,10 @@ import { DateField } from './DateField'
 import { NoPlanView } from '../NoPlanView'
 import { changeStartDate, cancelPlannedPause } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { taperWindow, taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
+import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
@@ -93,11 +97,15 @@ interface Props {
 // kitchen-ops concern, not self-serve. Reuses the brand DateField so the date
 // picker UX is identical to checkout.
 function ChangeStartDateModal({
-  sub, isOpen, onClose,
+  sub, isOpen, onClose, lastDeliveryDay = null,
 }: {
   sub: Subscription
   isOpen: boolean
   onClose: () => void
+  /** Season taper — a Scheduled sub moved LATER must not cross the last
+   *  delivery day either, so the same clamp the checkout picker uses applies
+   *  here, computed for the plan + cadence of the sub being rescheduled. */
+  lastDeliveryDay?: string | null
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -114,7 +122,22 @@ function ChangeStartDateModal({
   const cap = new Date(today); cap.setDate(cap.getDate() + 30)
   const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const minIso = isoLocal(tomorrow)
-  const maxIso = isoLocal(cap)
+  const rawMaxIso = isoLocal(cap)
+  // Season taper — the plan being rescheduled decides its own horizon, so
+  // the clamp is computed from THIS sub's plan and cadence, not the
+  // customer's current shopping preferences.
+  const subWeekType: WeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
+  const taperMax = taperedMaxStart({
+    planId: (resolvePlan(sub.plan_name)?.id ?? 'trial') as KebabPlanId,
+    weekType: subWeekType,
+    minStart: minIso,
+    maxStart: rawMaxIso,
+    lastDeliveryDay,
+  })
+  // No viable day left: keep the picker at a single day rather than
+  // offering dates the server action will refuse. The note below says why.
+  const maxIso = taperMax ?? minIso
+  const seasonBlocked = !!lastDeliveryDay && taperMax === null
 
   const handleSave = () => {
     if (!picked || picked === localStart) { onClose(); return }
@@ -149,11 +172,26 @@ function ChangeStartDateModal({
               Change start date
             </div>
             <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, marginTop: 8, lineHeight: 1.6 }}>
-              Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.
+              {/* The 30-day promise stops being true once the term caps the
+                  window — say what the picker actually allows. */}
+              {lastDeliveryDay
+                ? 'Pick any day that still finishes this term. Your end date adjusts so the cycle stays the same length.'
+                : 'Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.'}
             </div>
             <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG_DEEP, fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
               You can only change the start date <strong>once</strong>. After saving, this option will be locked for this plan.
             </div>
+
+            {/* Season taper — stated before the calendar, so the customer
+                reads the new ceiling rather than discovering it by tapping
+                a greyed-out week. */}
+            {lastDeliveryDay && (
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontFamily: BODY, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+                {seasonBlocked
+                  ? <>The semester wraps up on <strong style={{ color: S.fg }}>{prettySeasonDate(lastDeliveryDay)}</strong>. This plan can no longer be moved and still finish in time.</>
+                  : <>The semester wraps up on <strong style={{ color: S.fg }}>{prettySeasonDate(lastDeliveryDay)}</strong>, so later dates are closed off.</>}
+              </div>
+            )}
 
             <div style={{ marginTop: 20 }}>
               <DateField
@@ -162,6 +200,7 @@ function ChangeStartDateModal({
                 minDate={minIso}
                 maxDate={maxIso}
                 weekType={sub.week_type === '5DAYS' || sub.week_type === '6DAYS' ? sub.week_type : undefined}
+                seasonEndsOn={lastDeliveryDay}
               />
             </div>
 
@@ -181,7 +220,7 @@ function ChangeStartDateModal({
               </button>
               <button
                 onClick={handleSave}
-                disabled={pending || !picked}
+                disabled={pending || !picked || seasonBlocked}
                 style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: pending ? 'not-allowed' : 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)', opacity: pending ? 0.7 : 1 }}
               >
                 {pending ? 'Saving…' : 'Save new date'}
@@ -443,6 +482,7 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
         sub={sub}
         isOpen={showChangeStart}
         onClose={() => setShowChangeStart(false)}
+        lastDeliveryDay={intake.paused ? null : intake.lastDeliveryDay}
       />
 
       {/* Behavioural stats — the "how is it going?" row. Label-value pattern:
@@ -501,12 +541,15 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
 // too, not just decoration". The same ChangeStartDateModal that
 // ActivePlanCallout uses is reused here so the rescheduling UX is
 // identical regardless of which sub the customer is editing.
-function QueuedSubCallout({ sub, primaryIsPaused = false }: {
+function QueuedSubCallout({ sub, primaryIsPaused = false, lastDeliveryDay = null }: {
   sub: Subscription
   // When the active sub is paused or has a planned pause queued, the
   // queued start date is tentative — it shifts as the cycle stretches.
   // Surface the ambiguity rather than promise a date that'll move.
   primaryIsPaused?: boolean
+  /** Season taper — passed straight through to the reschedule modal so a
+   *  queued sub can't be moved past the last delivery day either. */
+  lastDeliveryDay?: string | null
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
@@ -611,6 +654,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false }: {
         sub={sub}
         isOpen={showChangeStart}
         onClose={() => setShowChangeStart(false)}
+        lastDeliveryDay={lastDeliveryDay}
       />
     </div>
   )
@@ -752,7 +796,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false,
 }: {
   plan: PlanDef
   pref: Pref
@@ -763,11 +807,20 @@ function PlanCard({
   selected: boolean
   onSelect: (id: PlanId) => void
   priceOverrides?: PriceOverride[]
+  /** Season taper: no start date left in the pick window lets this plan
+   *  finish before the last delivery day. The card keeps its price (the
+   *  customer is shopping for next semester too) but goes unavailable —
+   *  same dim + disabled treatment the "pick veg days first" state uses,
+   *  so the grid has one language for "not selectable yet". */
+  doneForTerm?: boolean
 }) {
   // Religious-mix prices DEPEND on vegDayCount (it's a weighted average),
   // so when count is null we can't honestly show a number. Veg/NonVeg
   // prices are independent of count, so they always render.
   const priceUnknown = pref === 'Religious' && vegDayCount == null
+  // Either reason closes the card's select path; they never coexist in copy
+  // (the veg-day state is an instruction, this one is a season fact).
+  const unavailable = priceUnknown || doneForTerm
   // Pricing math uses 3 as a defensive fallback when count is null — the
   // value is never actually displayed for that branch, but the helpers
   // need a real number to avoid Math.floor(null) → 0 fallthrough.
@@ -837,9 +890,9 @@ function PlanCard({
   return (
     <button
       type="button"
-      onClick={() => { if (!priceUnknown) onSelect(plan.id) }}
-      disabled={priceUnknown}
-      aria-disabled={priceUnknown}
+      onClick={() => { if (!unavailable) onSelect(plan.id) }}
+      disabled={unavailable}
+      aria-disabled={unavailable}
       style={{
         ...baseTier,
         position: 'relative',
@@ -852,9 +905,9 @@ function PlanCard({
         borderRadius: 24,
         border: `1.5px solid ${selected ? OG : (featured ? 'var(--ds-og-border-strong)' : 'var(--ds-border-tier2)')}`,
         transition: 'transform 150ms, border-color 200ms, opacity 200ms',
-        cursor: priceUnknown ? 'not-allowed' : 'pointer',
+        cursor: unavailable ? 'not-allowed' : 'pointer',
         transform: selected ? 'translateY(-2px)' : 'none',
-        opacity: priceUnknown ? 0.65 : 1,
+        opacity: unavailable ? 0.65 : 1,
       }}
     >
       {/* Floating "Most Popular" ribbon — only on the recommended card. The
@@ -862,7 +915,9 @@ function PlanCard({
           the inline "Best value" caption below carries the value-claim hook.
           Two distinct messages reinforcing the recommendation, not the same
           phrase repeated. */}
-      {featured && (
+      {/* Recommending a plan the customer cannot buy is noise — the ribbon
+          steps aside for the season state. */}
+      {featured && !doneForTerm && (
         <span style={{
           position: 'absolute',
           top: -13,
@@ -926,7 +981,21 @@ function PlanCard({
               {total} AED{plan.period}
             </div>
             <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
-            {showSave && (
+            {/* Season taper — the one line that explains the dim. Sits with
+                the price block (where "Set veg days first" also lives) so
+                the reason is next to what it invalidates, and replaces the
+                savings badge rather than stacking with it. */}
+            {doneForTerm ? (
+              <div style={{
+                marginTop: 10,
+                display: 'flex', alignItems: 'flex-start', gap: 6,
+                fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
+                color: S.fgMuted, lineHeight: 1.45,
+              }}>
+                <CalendarClock size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+                <span>Done for this term. Back next semester.</span>
+              </div>
+            ) : showSave && (
               <div style={{
                 marginTop: 10,
                 display: 'inline-flex', alignItems: 'center',
@@ -985,19 +1054,25 @@ function PlanCard({
         padding: '12px 16px', borderRadius: 12,
         background:
           selected ? OG :
+          doneForTerm ? 'transparent' :
           featured ? 'var(--ds-og-wash-strong)' :
           'var(--ds-skeleton-base)',
         color:
           selected ? '#fff' :
+          doneForTerm ? S.fgFaint :
           featured ? OG :
           S.fg,
         fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
         border:
           selected ? 0 :
+          // Dashed = the dashboard's standing "not available to press"
+          // affordance (see the mobile empty-state pill), so the state reads
+          // as closed rather than merely quiet.
+          doneForTerm ? '1px dashed var(--ds-border-strong)' :
           featured ? '1px solid rgba(245,127,32,0.40)' :
           `1px solid ${S.border2}`,
       }}>
-        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : 'Choose plan')}
+        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : 'Choose plan')}
       </span>
     </button>
   )
@@ -1321,6 +1396,13 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   const missingFields = missingProfileFields(customer)
   const profileGated = missingFields.length > 0
   const purchaseGated = profileGated || outOfZone || intake.paused
+
+  // ── Season taper ──────────────────────────────────────────────────────
+  // A SCHEDULED pause keeps the shop open but only for journeys that finish
+  // by the last delivery day. Everything below hangs off this one value, and
+  // it is null while intake is paused — the frosted gate already owns that
+  // state, and the two seasonal messages must never share a screen.
+  const taperLastDay = intake.paused ? null : intake.lastDeliveryDay
   const router = useRouter()
   const [, startPlanTransition] = useTransition()
 
@@ -1379,6 +1461,27 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   )
   // Effective delivery cadence — pending wins for renewals.
   const weekType: WeekType = eff.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
+
+  // Per-plan season verdict for the grid. The window is earliest start (day
+  // after the live plan, else today / tomorrow past the 2 PM AE cutoff)
+  // through +30 days, derived in AE wall time so this SSR-rendered dimming
+  // can't disagree between the server pass and the browser. The date pickers
+  // keep their own local-time window and clamp it at interaction time.
+  // `taperedMaxStart` returning null means no start in that window lets the
+  // plan finish in time: it is done for this term.
+  const planStartWindow = taperWindow(activeSubscription?.end_date ?? null)
+  const doneForTermByPlan: Partial<Record<PlanId, boolean>> = {}
+  if (taperLastDay) {
+    for (const p of PLANS) {
+      doneForTermByPlan[p.id] = taperedMaxStart({
+        planId: PLAN_KEBAB[p.id] as KebabPlanId,
+        weekType,
+        minStart: planStartWindow.minStart,
+        maxStart: planStartWindow.maxStart,
+        lastDeliveryDay: taperLastDay,
+      }) === null
+    }
+  }
   const [selected, setSelected] = useState<PlanId | null>(null)
   const [cancelBanner, setCancelBanner] = useState(false)
   // Post-cutoff overlay — fires once per AE day per session when a customer
@@ -1484,6 +1587,12 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           </p>
         </header>
 
+        {/* Season taper — /plan has no grid, so the banner leads the page
+            instead: the renew + switch-plan CTAs below it all route into a
+            term that is closing, and the customer should know that before
+            they follow one. Same component, same once-per-surface rule. */}
+        {!isExplore && <SeasonEndingBanner intake={intake} />}
+
         {/* Active plan callout — only on /plan, not /explore-plans */}
         {!isExplore && (
           <div style={{ marginBottom: 16 }}>
@@ -1510,7 +1619,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             dashboard's "Up next · Manage →" link landed on /plan with no
             queue info — a dead-end the customer rightly flagged. */}
         {!isExplore && queuedSub && (
-          <QueuedSubCallout sub={queuedSub} primaryIsPaused={primaryIsPaused} />
+          <QueuedSubCallout sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />
         )}
 
         {/* Change-plan CTA — only on /plan. Locked when the active plan is
@@ -1714,6 +1823,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                 </AnimatePresence>
               </div>
 
+              {/* Season taper — one line above the grid, once per surface,
+                  framing every card below it. Self-suppressing when intake
+                  is paused (the frosted gate owns that state instead). */}
+              <SeasonEndingBanner intake={intake} />
+
               {/* Out-of-zone gate — mirrors the dashboard-home banner so the
                   visual language is identical wherever the user encounters it. */}
               <OutOfZoneBanner show={outOfZone} />
@@ -1743,8 +1857,11 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       vegDayCount={vegDayCount}
                       weekType={weekType}
                       selected={selected === p.id}
-                      onSelect={(id) => { if (intake.paused || profileGated) return; setSelected(prev => prev === id ? null : id) }}
+                      // Season taper joins the same guard the overlay can't
+                      // intercept (keyboard), per plan rather than per grid.
+                      onSelect={(id) => { if (intake.paused || profileGated || doneForTermByPlan[id]) return; setSelected(prev => prev === id ? null : id) }}
                       priceOverrides={priceOverrides}
+                      doneForTerm={!!doneForTermByPlan[p.id]}
                     />
                   ))}
                 </div>
@@ -1772,6 +1889,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     outOfZone={outOfZone}
                     creditByPlan={creditByPlan}
                     priceOverrides={priceOverrides}
+                    lastDeliveryDay={taperLastDay}
                   />
                 )}
               </AnimatePresence>

@@ -2,14 +2,17 @@
 
 import { type CSSProperties } from 'react'
 import Link from 'next/link'
-import { Check, Info, Utensils, CalendarDays, Unlock } from 'lucide-react'
+import { Check, Info, Utensils, CalendarDays, CalendarClock, Unlock } from 'lucide-react'
 import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
 import { IntakePausedGate } from '../_shared/IntakePausedGate'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId, type Pref, type PlanDef, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { taperWindow, taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
+import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { MobileCheckout } from './MobileCheckout'
 import { MobileColumn, CARD, PlanGlyph, SectionTitle, eyebrow, OG, S, BODY, useIsCompact } from './kit'
 
@@ -56,8 +59,34 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
   // would lock body scroll + trap focus behind the desktop CheckoutPanel).
   const compact = useIsCompact()
+
+  // ── Season taper (same rules as the desktop grid) ──────────────────────
+  // Null while intake is paused: the frosted gate owns that state and the
+  // two seasonal messages never share a screen.
+  const taperLastDay = intake.paused ? null : intake.lastDeliveryDay
+  const startWindow = taperWindow(activeSubscription?.end_date ?? null)
+  const doneForTermByPlan: Partial<Record<PlanId, boolean>> = {}
+  if (taperLastDay) {
+    for (const p of PLANS) {
+      doneForTermByPlan[p.id] = taperedMaxStart({
+        planId: PLAN_KEBAB[p.id] as KebabPlanId,
+        weekType,
+        minStart: startWindow.minStart,
+        maxStart: startWindow.maxStart,
+        lastDeliveryDay: taperLastDay,
+      }) === null
+    }
+  }
+
   // Recommended (Monthly Premium) leads; the rest keep their natural order.
-  const ordered = [...PLANS].sort((a, b) => Number(b.id === 'Monthly Premium') - Number(a.id === 'Monthly Premium'))
+  // A plan that is done for the term sinks below the ones still on sale —
+  // in a single-column stack the first card is the hero, and leading with a
+  // plan the customer cannot buy wastes that position. (The desktop grid is
+  // a row, so its deliberate 4-across order stays as designed.)
+  const ordered = [...PLANS].sort((a, b) =>
+    (Number(!!doneForTermByPlan[a.id]) - Number(!!doneForTermByPlan[b.id]))
+    || (Number(b.id === 'Monthly Premium') - Number(a.id === 'Monthly Premium')),
+  )
 
   return (
     <MobileColumn style={{ color: S.fg }}>
@@ -103,6 +132,12 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
         <VegCountPicker count={vegDayCount} setCount={setVegDayCount} weekType={weekType} />
       )}
 
+      {/* Season taper — one line above the stack, once per surface. Same
+          shared banner the desktop grid uses (OutOfZoneBanner already sets
+          the precedent for a shared banner rendering inside the mobile
+          column). Self-suppressing while intake is paused. */}
+      <SeasonEndingBanner intake={intake} />
+
       <OutOfZoneBanner show={outOfZone} />
 
       {/* Plan cards — recommended first, single column. Intake pause frosts
@@ -124,8 +159,9 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               vegDayCount={vegDayCount}
               weekType={weekType}
               selected={selected === plan.id}
-              onSelect={() => { if (intake.paused || profileGated) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
+              onSelect={() => { if (intake.paused || profileGated || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
               priceOverrides={priceOverrides}
+              doneForTerm={!!doneForTermByPlan[plan.id]}
             />
           ))}
         </div>
@@ -147,6 +183,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
         outOfZone={outOfZone}
         creditByPlan={creditByPlan}
         priceOverrides={priceOverrides}
+        lastDeliveryDay={taperLastDay}
       />
     </MobileColumn>
   )
@@ -180,10 +217,15 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides }: {
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false }: {
   plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
+  /** Season taper — no start left in the window lets this plan finish
+   *  before the last delivery day. Same dim + disabled treatment the
+   *  "pick veg days first" state uses; mirrors the desktop card. */
+  doneForTerm?: boolean
 }) {
   const priceUnknown = pref === 'Religious' && vegDayCount == null
+  const unavailable = priceUnknown || doneForTerm
   const safeCount = vegDayCount ?? 3
   const price = pricePerMeal(plan.id, pref, safeCount, weekType, priceOverrides)
   const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
@@ -211,25 +253,26 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   const cta: CSSProperties = {
     marginTop: 2, width: '100%', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 6,
     padding: '13px', borderRadius: 12, fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-    background: selected ? OG : featured ? 'var(--ds-og-wash-strong)' : 'var(--ds-skeleton-base)',
-    color: selected ? '#fff' : featured ? OG : S.fg,
-    border: selected ? '1px solid transparent' : featured ? '1px solid rgba(245,127,32,0.40)' : `1px solid ${S.border2}`,
+    background: selected ? OG : doneForTerm ? 'transparent' : featured ? 'var(--ds-og-wash-strong)' : 'var(--ds-skeleton-base)',
+    color: selected ? '#fff' : doneForTerm ? S.fgFaint : featured ? OG : S.fg,
+    // Dashed = the mobile "not available to press" affordance (empty-state pill).
+    border: selected ? '1px solid transparent' : doneForTerm ? '1px dashed var(--ds-border-strong)' : featured ? '1px solid rgba(245,127,32,0.40)' : `1px solid ${S.border2}`,
   }
 
   return (
     <button
       type="button"
-      onClick={() => { if (!priceUnknown) onSelect() }}
-      disabled={priceUnknown}
+      onClick={() => { if (!unavailable) onSelect() }}
+      disabled={unavailable}
       style={{
-        ...CARD, position: 'relative', textAlign: 'left', cursor: priceUnknown ? 'not-allowed' : 'pointer',
+        ...CARD, position: 'relative', textAlign: 'left', cursor: unavailable ? 'not-allowed' : 'pointer',
         appearance: 'none', fontFamily: BODY, padding: featured ? '20px 18px 18px' : 18,
         display: 'flex', flexDirection: 'column', gap: 14,
         border: selected ? `1.5px solid ${OG}` : featured ? '1.5px solid var(--ds-og-border-strong)' : '1.5px solid rgba(9,24,37,0.08)',
-        opacity: priceUnknown ? 0.7 : 1,
+        opacity: unavailable ? 0.7 : 1,
       }}
     >
-      {featured && (
+      {featured && !doneForTerm && (
         <span style={{ position: 'absolute', top: -11, left: 18, background: OG, color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '5px 12px', borderRadius: 999, boxShadow: '0 4px 12px -4px rgba(245,127,32,0.7)' }}>Most Popular</span>
       )}
 
@@ -252,7 +295,14 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
           {priceUnknown ? 'Set veg days first' : `${total} AED${plan.period}`}
         </div>
         <div style={{ marginTop: 3, fontSize: 11, color: S.fgFaint }}>{dynamicDuration}</div>
-        {showSave && (
+        {/* Season taper — the line that explains the dim, in the price block
+            where the savings badge would otherwise sit. */}
+        {doneForTerm ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, fontSize: 11, fontWeight: 700, color: S.fgMuted, lineHeight: 1.4 }}>
+            <CalendarClock size={12} strokeWidth={2.2} style={{ flexShrink: 0 }} aria-hidden />
+            Done for this term. Back next semester.
+          </span>
+        ) : showSave && (
           <span style={{ display: 'inline-flex', alignItems: 'center', marginTop: 9, padding: '4px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.10)', color: OG, fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>Save {saveLabel} AED/mo vs Weekly Flex</span>
         )}
       </div>
@@ -274,7 +324,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
         </div>
       )}
 
-      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : priceUnknown ? 'Pick veg days' : 'Choose plan'}</span>
+      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : 'Choose plan'}</span>
     </button>
   )
 }

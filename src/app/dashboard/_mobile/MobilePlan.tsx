@@ -14,6 +14,10 @@ import { fmt, fmtWithDay } from '../_shared/format'
 import { StatusDot } from '../_shared/StatusDot'
 import { MobileDatePicker } from './MobileDatePicker'
 import { IntakePausedGate } from '../_shared/IntakePausedGate'
+import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
+import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
+import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
   eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
@@ -70,17 +74,26 @@ interface Props {
 }
 
 export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED }: Props) {
+  // Season taper — null while intake is paused so the gate and the banner
+  // never share a screen (SeasonEndingBanner enforces the same rule itself;
+  // this keeps the reschedule sheets on the identical condition).
+  const taperLastDay = intake.paused ? null : intake.lastDeliveryDay
   return (
     <MobileColumn style={{ color: S.fg }}>
       <div style={{ paddingLeft: 56, minHeight: 34, display: 'flex', alignItems: 'center' }}>
         <SectionTitle size={24}>My plan</SectionTitle>
       </div>
 
+      {/* Season taper — leads the surface, same as the desktop /plan page:
+          every CTA below it (renew, switch plans) routes into a term that
+          is closing. */}
+      <SeasonEndingBanner intake={intake} />
+
       {activeSubscription
-        ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} />
+        ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} lastDeliveryDay={taperLastDay} />
         : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} intake={intake} />}
 
-      {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} />}
+      {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />}
 
       {activeSubscription && <ChangePlanRow paused={activeSubscription.status === SUBSCRIPTION_STATUS.PAUSED} />}
 
@@ -123,8 +136,11 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
 }
 
 // ── Active plan dark hero + metric strip ─────────────────────────────────────
-function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPause }: {
+function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPause, lastDeliveryDay = null }: {
   sub: Subscription; hasQueuedSub: boolean; outOfZone: boolean; onRenew: () => void; onConfirmCancelPause: () => void
+  /** Season taper — handed to the reschedule sheet so a Scheduled plan
+   *  can't be moved past the last delivery day. */
+  lastDeliveryDay?: string | null
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const [showCancelPause, setShowCancelPause] = useState(false)
@@ -239,7 +255,7 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
         />
       )}
 
-      <ChangeStartSheet sub={sub} open={showChangeStart} onClose={() => setShowChangeStart(false)} />
+      <ChangeStartSheet sub={sub} open={showChangeStart} onClose={() => setShowChangeStart(false)} lastDeliveryDay={lastDeliveryDay} />
 
       {/* Cancel planned pause */}
       <MobileSheet open={showCancelPause} onClose={() => setShowCancelPause(false)} ariaLabel="Cancel planned pause"
@@ -259,7 +275,7 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
 }
 
 // ── Change-start-date sheet (mirrors desktop ChangeStartDateModal logic) ──────
-function ChangeStartSheet({ sub, open, onClose }: { sub: Subscription; open: boolean; onClose: () => void }) {
+function ChangeStartSheet({ sub, open, onClose, lastDeliveryDay = null }: { sub: Subscription; open: boolean; onClose: () => void; lastDeliveryDay?: string | null }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -272,7 +288,20 @@ function ChangeStartSheet({ sub, open, onClose }: { sub: Subscription; open: boo
   const cap = new Date(today); cap.setDate(cap.getDate() + 30)
   const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const minIso = isoLocal(tomorrow)
-  const maxIso = isoLocal(cap)
+  const rawMaxIso = isoLocal(cap)
+  // Season taper — clamped for THIS sub's plan + cadence, exactly like the
+  // desktop ChangeStartDateModal. Null means no move keeps it inside the
+  // term, so the picker collapses to one day and Save is disabled.
+  const subWeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
+  const taperMax = taperedMaxStart({
+    planId: (resolvePlan(sub.plan_name)?.id ?? 'trial') as KebabPlanId,
+    weekType: subWeekType,
+    minStart: minIso,
+    maxStart: rawMaxIso,
+    lastDeliveryDay,
+  })
+  const maxIso = taperMax ?? minIso
+  const seasonBlocked = !!lastDeliveryDay && taperMax === null
 
   const handleSave = () => {
     if (!picked || picked === localStart) { onClose(); return }
@@ -289,21 +318,33 @@ function ChangeStartSheet({ sub, open, onClose }: { sub: Subscription; open: boo
     <MobileSheet open={open} onClose={onClose} ariaLabel="Change start date"
       footer={<>
         <button type="button" onClick={onClose} disabled={pending} style={{ ...sheetGhostBtn, opacity: pending ? 0.6 : 1 }}>Cancel</button>
-        <button type="button" onClick={handleSave} disabled={pending || !picked} style={{ ...sheetOrangeBtn, opacity: pending ? 0.7 : 1 }}>{pending ? 'Saving…' : 'Save new date'}</button>
+        <button type="button" onClick={handleSave} disabled={pending || !picked || seasonBlocked} style={{ ...sheetOrangeBtn, opacity: pending || seasonBlocked ? 0.7 : 1 }}>{pending ? 'Saving…' : 'Save new date'}</button>
       </>}>
       <SectionTitle size={20}>Change start date</SectionTitle>
-      <p style={{ margin: '8px 0 0', fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.</p>
+      {/* The 30-day promise stops being true once the term caps the window. */}
+      <p style={{ margin: '8px 0 0', fontSize: 13, color: S.fgMuted, lineHeight: 1.6 }}>{lastDeliveryDay
+        ? 'Pick any day that still finishes this term. Your end date adjusts so the cycle stays the same length.'
+        : 'Pick any day in the next 30 days. Your end date adjusts so the cycle stays the same length.'}</p>
       <div style={{ margin: '12px 0 16px', padding: '10px 12px', borderRadius: 10, background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', color: OG_DEEP, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
         You can only change the start date <strong>once</strong>. After saving, this option locks for this plan.
       </div>
-      <MobileDatePicker value={picked} onChange={setPicked} minDate={minIso} maxDate={maxIso} weekType={sub.week_type === '5DAYS' || sub.week_type === '6DAYS' ? sub.week_type : undefined} />
+      {/* Season taper — stated before the calendar so the new ceiling is
+          read, not discovered by tapping a closed week. */}
+      {lastDeliveryDay && (
+        <div style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: 10, background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+          {seasonBlocked
+            ? <>The semester wraps up on <strong style={{ color: S.fg }}>{prettySeasonDate(lastDeliveryDay)}</strong>. This plan can no longer be moved and still finish in time.</>
+            : <>The semester wraps up on <strong style={{ color: S.fg }}>{prettySeasonDate(lastDeliveryDay)}</strong>, so later dates are closed off.</>}
+        </div>
+      )}
+      <MobileDatePicker value={picked} onChange={setPicked} minDate={minIso} maxDate={maxIso} weekType={sub.week_type === '5DAYS' || sub.week_type === '6DAYS' ? sub.week_type : undefined} seasonEndsOn={lastDeliveryDay} />
       {error && <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--ds-danger-wash)', border: '1px solid var(--ds-danger-border)', color: 'var(--ds-danger-fg)', fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>{error}</div>}
     </MobileSheet>
   )
 }
 
 // ── Queued sub card ──────────────────────────────────────────────────────────
-function QueuedCard({ sub, primaryIsPaused }: { sub: Subscription; primaryIsPaused: boolean }) {
+function QueuedCard({ sub, primaryIsPaused, lastDeliveryDay = null }: { sub: Subscription; primaryIsPaused: boolean; lastDeliveryDay?: string | null }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
   const dateChangeUsed = !!sub.start_date_changed_at
@@ -337,7 +378,7 @@ function QueuedCard({ sub, primaryIsPaused }: { sub: Subscription; primaryIsPaus
       <div style={{ fontSize: 11.5, color: S.fgMuted, paddingTop: 4, borderTop: `1px solid ${S.border}` }}>
         Need to cancel? <a href={cancelHref} target="_blank" rel="noopener noreferrer" style={{ color: S.fgSub, textDecoration: 'underline', textUnderlineOffset: 3, fontWeight: 600 }}>Message us on WhatsApp</a>
       </div>
-      <ChangeStartSheet sub={sub} open={showChangeStart} onClose={() => setShowChangeStart(false)} />
+      <ChangeStartSheet sub={sub} open={showChangeStart} onClose={() => setShowChangeStart(false)} lastDeliveryDay={lastDeliveryDay} />
     </section>
   )
 }

@@ -81,6 +81,11 @@ export default async function PlanPage({
     waitlistCreditAed: waitlistStatus.unspentCreditAed,
     cycleStartedAt: intakeState.cycleStartedAt,
     cycleEndedAt: intakeState.cycleEndedAt,
+    // Season's last delivery day when an operator has SCHEDULED a pause.
+    // Drives the sales taper (banner + per-plan availability + clamped date
+    // pickers) while the shop is still open. Once the cron flips the switch,
+    // `paused` takes over and the taper never renders alongside the gate.
+    lastDeliveryDay: intakeState.pauseScheduledFor,
   }
 
   return (

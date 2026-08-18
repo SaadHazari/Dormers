@@ -28,6 +28,11 @@ interface Props {
    *  this date are blocked by the active plan's overlap — a future reason, not
    *  "in the past". When set, those cells explain the overlap. */
   activeUntil?: string
+  /** Season taper: the last delivery day before the scheduled seasonal
+   *  pause (ISO). `maxDate` is already clamped by the caller to the latest
+   *  start whose journey finishes by then; this only swaps the inline reason
+   *  on a too-late tap so it names the term, not the 30-day window. */
+  seasonEndsOn?: string | null
 }
 
 function isoDow(d: Date): number {
@@ -44,7 +49,7 @@ function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil }: Props) {
+export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, cutoffActive, activeUntil, seasonEndsOn }: Props) {
   const minD = new Date(minDate + 'T00:00:00')
   const maxD = new Date(maxDate + 'T00:00:00')
   // AE wall "today" pegged to the shared epoch so the server (UTC) and the
@@ -113,7 +118,15 @@ export function MobileDatePicker({ value, onChange, minDate, maxDate, weekType, 
       }
       return 'Start dates can’t be in the past.'
     }
-    if (d > maxD) return 'Outside your 30-day pick window.'
+    if (d > maxD) {
+      // Season taper: past this point the cap is the end of the term, not
+      // the 30-day window — say so rather than quoting a rule that no
+      // longer explains the block.
+      if (seasonEndsOn) {
+        return `The last delivery day this term is ${fmtDayLong(seasonEndsOn)}. Pick a start that finishes before then.`
+      }
+      return 'Outside your 30-day pick window.'
+    }
     return undefined
   }
 

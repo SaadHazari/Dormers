@@ -112,6 +112,9 @@ export default async function DashboardPage({
         waitlistCreditAed: waitlistStatus.unspentCreditAed,
         cycleStartedAt: intakeState.cycleStartedAt,
         cycleEndedAt: intakeState.cycleEndedAt,
+        // Carried for shape parity with the plan surfaces (the sales taper
+        // renders on /plan + /explore-plans, not on the home dashboard).
+        lastDeliveryDay: intakeState.pauseScheduledFor,
     }
 
     return (

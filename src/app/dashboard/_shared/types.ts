@@ -149,6 +149,16 @@ export interface IntakeGateState {
    *  cleared. Keys the "reopened" takeover the same way. Null until the
    *  switch has been reopened at least once. */
   cycleEndedAt: string | null
+  /** intake_settings.pause_scheduled_for — the season's LAST DELIVERY DAY,
+   *  set when an operator schedules a future pause. Drives the sales taper
+   *  on the plan surfaces: the season banner, per-plan "done for this term"
+   *  states, and the clamped date pickers. Null when no pause is scheduled.
+   *
+   *  The taper and the paused gate are mutually exclusive by construction —
+   *  once the cron flips the switch, `paused` is true and the gate covers
+   *  the surface, so every taper render path checks `!paused` first
+   *  (SeasonEndingBanner owns that check for the banner). */
+  lastDeliveryDay: string | null
 }
 
 /** Default for surfaces that don't thread a live `intake` prop (preview
@@ -162,6 +172,7 @@ export const INTAKE_NOT_PAUSED: IntakeGateState = {
   waitlistCreditAed: 0,
   cycleStartedAt: null,
   cycleEndedAt: null,
+  lastDeliveryDay: null,
 }
 
 /**

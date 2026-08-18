@@ -6,7 +6,10 @@ import { Loader2, Lock, MapPin, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer, CreditByPlan } from '../_shared/types'
 import { whatsAppHref } from '@/shared/contacts'
-import { pricePerMeal, totalPrice, mealsForPlan, PLANS, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId, type Pref, type WeekType, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
+import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { MobileDatePicker } from './MobileDatePicker'
 import { MobileSheet, PlanGlyph, eyebrow, OG, S, BODY } from './kit'
 import { LockedCreditNote } from '../_shared/LockedCreditNote'
@@ -44,6 +47,19 @@ function clampToDeliveryDay(iso: string, weekType: WeekType): string {
   }
   return isoDate(d)
 }
+// Backward twin, season-taper only — see CheckoutPanel for the full note:
+// the tapered ceiling can land on a non-delivery day, and walking back to
+// the previous working day keeps the auto-correction pickable (an earlier
+// start can only finish earlier, so the fit still holds).
+function clampBackToDeliveryDay(iso: string, weekType: WeekType): string {
+  const d = new Date(iso + 'T00:00:00')
+  for (let i = 0; i < 7; i++) {
+    const js = d.getDay(); const dow = js === 0 ? 7 : js
+    if (weekType === '5DAYS' ? (dow !== 6 && dow !== 7) : (dow !== 7)) break
+    d.setDate(d.getDate() - 1)
+  }
+  return isoDate(d)
+}
 
 interface Props {
   selected: PlanId | null
@@ -64,9 +80,14 @@ interface Props {
   /** Active admin price overrides (plan_pricing rows) — same rows the
    *  server validates against, so the sheet total === charged amount. */
   priceOverrides?: PriceOverride[]
+  /** Season taper — last delivery day before a SCHEDULED seasonal pause
+   *  (IntakeGateState.lastDeliveryDay), null when none. Clamps this sheet's
+   *  pick window exactly like CheckoutPanel clamps the desktop one; the
+   *  server's INTAKE_ENDING 409 stays authoritative. */
+  lastDeliveryDay?: string | null
 }
 
-export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditByPlan = {}, priceOverrides = [] }: Props) {
+export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer, userEmail, activeSubscription, weekType, outOfZone = false, creditByPlan = {}, priceOverrides = [], lastDeliveryDay = null }: Props) {
   const open = selected !== null
   // Retain the last selected plan so the sheet keeps its content while it
   // animates out (selected → null) instead of blanking instantly.
@@ -122,6 +143,34 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
   useEffect(() => {
     if (startDate && startDate < dateBounds.min) setStartDate(clampToDeliveryDay(dateBounds.min, weekType))
   }, [dateBounds.min, startDate, weekType])
+
+  // ── Season taper (mirrors CheckoutPanel) ──────────────────────────────
+  // With a pause scheduled, the ceiling is the latest start whose journey
+  // still finishes by the last delivery day; null means this plan is done
+  // for the term (its card is already disabled upstream).
+  const taperMax = useMemo(
+    () => plan
+      ? taperedMaxStart({
+          planId: PLAN_KEBAB[plan] as KebabPlanId,
+          weekType,
+          minStart: dateBounds.min,
+          maxStart: dateBounds.max,
+          lastDeliveryDay,
+        })
+      : dateBounds.max,
+    [plan, weekType, dateBounds.min, dateBounds.max, lastDeliveryDay],
+  )
+  const seasonClosed = !!lastDeliveryDay && taperMax === null
+  const maxPickable = taperMax ?? dateBounds.min
+  // The sheet keeps its picked date across plan switches, so pull it back
+  // under a tighter horizon rather than letting the CTA reach a refusal.
+  useEffect(() => {
+    if (!lastDeliveryDay || !startDate || !taperMax) return
+    if (startDate > taperMax) {
+      const back = clampBackToDeliveryDay(taperMax, weekType)
+      if (back >= dateBounds.min) setStartDate(back)
+    }
+  }, [taperMax, startDate, weekType, lastDeliveryDay, dateBounds.min])
   useEffect(() => {
     const onShow = (e: PageTransitionEvent) => { if (e.persisted) setCheckoutLoading(false) }
     window.addEventListener('pageshow', onShow)
@@ -151,7 +200,11 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
-      } else if (data.error === 'QUEUE_FULL' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED') {
+      } else if (data.error === 'QUEUE_FULL' || data.error === 'PROFILE_INCOMPLETE' || data.error === 'OUT_OF_ZONE' || data.error === 'PLAN_PAUSED' || data.error === 'INTAKE_PAUSED' || data.error === 'INTAKE_ENDING') {
+        // INTAKE_ENDING is the season taper's authoritative refusal (the
+        // client clamps are courtesy); INTAKE_PAUSED is its sibling. Both
+        // ship a written `message` — without this branch they fell through
+        // to the fallback and rendered the raw error code.
         setErrorCode(data.error)
         setError(data.message ?? 'Checkout blocked — please review your account and try again.')
       } else {
@@ -178,7 +231,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
   // server applies as a Stripe coupon. The POST still sends the GROSS amount
   // (the coupon is synthesized against it server-side); this is display-only.
   const netDueAed = Math.max(0, total - appliedAed)
-  const ctaDisabled = checkoutLoading || !startDate || !vegDaysReady || outOfZone
+  const ctaDisabled = checkoutLoading || !startDate || !vegDaysReady || outOfZone || seasonClosed
 
   // ── Summary fields (step 2) — derived once, read-only recognition surface ──
   const planDef = PLANS.find(p => p.id === plan)
@@ -327,10 +380,22 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
             <h2 style={{ margin: '6px 0 0', fontSize: 19, fontWeight: 800, color: S.fg, letterSpacing: '-0.01em', lineHeight: 1.2 }}>Choose your start date</h2>
 
             <div style={{ marginTop: 14 }}>
-              <MobileDatePicker value={startDate} onChange={setStartDate} minDate={dateBounds.min} maxDate={dateBounds.max} weekType={weekType} cutoffActive={dateBounds.cutoffActive} activeUntil={activeSubscription?.end_date} />
+              <MobileDatePicker value={startDate} onChange={setStartDate} minDate={dateBounds.min} maxDate={maxPickable} weekType={weekType} cutoffActive={dateBounds.cutoffActive} activeUntil={activeSubscription?.end_date} seasonEndsOn={lastDeliveryDay} />
               <p style={{ margin: '12px 0 0', fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
                 {startDate ? <>Starts <strong style={{ color: S.fg, fontWeight: 700 }}>{startLabel}</strong>. No charge for days before.</> : 'Pick any working day in the next 30 days.'}
               </p>
+              {/* Season taper — states the real ceiling right under the
+                  calendar, so a greyed-out late week is explained before it
+                  is tapped rather than after. Muted, not orange: the
+                  picker's own tap-refusal line is the loud one, and two
+                  orange sentences in a stack blunt each other. */}
+              {lastDeliveryDay && (
+                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: S.fgMuted, fontWeight: 600, lineHeight: 1.45 }}>
+                  {seasonClosed
+                    ? <>This plan runs past {prettySeasonDate(lastDeliveryDay)}, the last delivery day this term.</>
+                    : <>Latest start this term: <strong style={{ color: S.fg, fontWeight: 700 }}>{prettySeasonDate(clampBackToDeliveryDay(maxPickable, weekType))}</strong>.</>}
+                </p>
+              )}
             </div>
 
             {pref === 'Religious' && (
