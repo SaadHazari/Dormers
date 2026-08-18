@@ -32,7 +32,10 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
     // customer away at the door.
     if (monthlyWindow.locked) {
         return (
-            <div style={{
+            // Same class as the Link variant below: the desktop home places
+            // this strip by grid area, and the placement must hold in every
+            // state, not just the clickable one.
+            <div className="monthly-wrap-strip" style={{
                 display: 'flex', alignItems: 'center',
                 gap: 10, flexWrap: 'wrap',
                 padding: '10px 4px',

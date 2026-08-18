@@ -2198,6 +2198,56 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         }
         .queued-manage-link:hover { color: rgba(9,24,37,0.85); }
 
+        /* ── Landscape-tablet header row ──────────────────────────────────
+           A landscape iPad is 1024x700 usable: 22% SHORTER than the laptop
+           this tree was tuned for, so vertical is the scarce resource and
+           width is the surplus. The greeting carries no action and the wrap
+           strip is one line, so stacking them spends ~60px of height on two
+           half-empty rows.
+
+           Explicit grid placement, NOT a DOM move. Six conditional siblings
+           (error toast, out-of-zone gate, profile gate, plan-ending, renew
+           banner) sit between the greeting and the strip, so any flex/adjacency
+           approach breaks the moment one of them renders — which is exactly how
+           the portrait two-up broke. Grid placement is order-independent: both
+           claim row 1 by name, everything else auto-flows from row 2 no matter
+           how many banners appear or in what order.
+
+           Capped at 1279 on purpose. Desktop keeps its current stacked layout
+           until the tablet version has been judged on a real device. */
+        @media (min-width: 1024px) and (max-width: 1279px) and (orientation: landscape) {
+          .home-desktop {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            column-gap: 20px;
+          }
+          /* Default every child to the full row; only the two header items are
+             placed by hand. Anything added later stays full-bleed by default
+             rather than silently landing in half a column. */
+          .home-desktop > * { grid-column: 1 / -1; }
+          .home-desktop > .home-greeting { grid-column: 1; grid-row: 1; margin-bottom: 0 !important; }
+          .home-desktop > .monthly-wrap-strip {
+            grid-column: 2; grid-row: 1;
+            justify-self: end;
+            margin-bottom: 0 !important;
+            border-bottom: none !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+          }
+          /* The row owns the spacing now that both items dropped their own. */
+          .home-desktop > .dash-grid { margin-top: 18px; }
+
+          /* Rebalance the hero/actions pair. The 8/4 split is tuned for a
+             laptop's 1348px content; at 932px it leaves Quick Actions 268px,
+             which wraps "Skip tonight's meal" onto three lines with its chip
+             stranded alongside. 7/5 gives the action column ~345px so each
+             button reads as one decision. !important because both spans are
+             inline styles on the components themselves. */
+          .dash-grid > .hero-card { grid-column: span 7 !important; }
+          .dash-grid > .quick-actions-card { grid-column: span 5 !important; }
+        }
+
         .dash-grid {
           display: grid;
           grid-template-columns: repeat(12, 1fr);

@@ -487,23 +487,19 @@ export function StatRow({
                 @media (max-width: 640px) {
                     :global(.stat-row) { grid-template-columns: 1fr !important; }
                 }
-                /* Tablet + the full-width zone below the desktop sidebar:
-                   three tiles get tight, so collapse to 2-up. The savings tile
-                   spans both columns on its second row so it doesn't sit
-                   orphaned next to an empty cell. Operational metrics share
-                   row 1; the reflective metric owns row 2. */
-                @media (max-width: 1024px) and (min-width: 641px) {
-                    :global(.stat-row) { grid-template-columns: repeat(2, 1fr) !important; }
-                    :global(.stat-row) > :nth-child(3) { grid-column: 1 / -1 !important; }
-                    /* Spanning both columns leaves the un-set tile's right half
-                       empty. Neutral chrome hid that; the orange wash doesn't,
-                       so lay the chip and copy side by side to fill the run. */
-                    :global(.stat-row-cta-empty) {
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        gap: 18px !important;
-                    }
-                }
+                /* NOTE: a 2-up rule used to live here (641-1024, savings tile
+                   spanning row 2). It was written for the old 769-1024 band,
+                   where the DESKTOP tree rendered inside a drawer-width column
+                   and three tiles genuinely got tight. That band is gone — every
+                   portrait tablet now renders the mobile tree, so this tree only
+                   ever paints at 1024+ landscape, where the content column is
+                   932px and three tiles sit at ~290px each.
+
+                   All the rule did was cost a second row: on a landscape iPad
+                   (700px of usable height) it made this block 299px instead of
+                   ~145px and pushed tonight's dish below the fold. It also made
+                   a landscape iPad mini disagree with a landscape iPad Air,
+                   which was already 3-up. Measured, then removed. */
                 :global(.stat-row-cta) { transition: transform 150ms, box-shadow 150ms, border-color 150ms; }
                 :global(.stat-row-cta:hover:not(:disabled)) {
                     transform: translateY(-1px);
