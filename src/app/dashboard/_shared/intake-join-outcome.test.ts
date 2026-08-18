@@ -18,7 +18,7 @@ import { describe, it, expect, vi } from 'vitest'
 // join-intake-waitlist.test.ts.
 vi.mock('server-only', () => ({}))
 
-import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, creditMechanicsLine } from './intake-join-outcome'
 import type { JoinWaitlistResult } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '@/contexts/subscriptions/domain/credit-eligibility'
 
@@ -77,5 +77,27 @@ describe('intakeCreditDisplay', () => {
     const display = intakeCreditDisplay(0, 'Custom reassurance copy.')
     expect(display.hasCredit).toBe(false)
     expect(display.text).toBe('Custom reassurance copy.')
+  })
+})
+
+describe('intakeNextSteps', () => {
+  it('puts the credit mechanics FIRST and the message promise SECOND (owner-locked order)', () => {
+    expect(intakeNextSteps(15)).toEqual([
+      'Your AED 15 comes off your next monthly plan automatically.',
+      'We will message you the day we reopen.',
+    ])
+  })
+
+  it('drops the mechanics line entirely at zero — never explain money that was not minted', () => {
+    expect(intakeNextSteps(0)).toEqual(['We will message you the day we reopen.'])
+  })
+
+  it('treats a negative amount like zero', () => {
+    expect(intakeNextSteps(-5)).toEqual(['We will message you the day we reopen.'])
+  })
+
+  it('creditMechanicsLine is null at zero so the takeover renders nothing extra', () => {
+    expect(creditMechanicsLine(0)).toBeNull()
+    expect(creditMechanicsLine(20)).toBe('Your AED 20 comes off your next monthly plan automatically.')
   })
 })

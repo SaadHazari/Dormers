@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CalendarClock, Check } from 'lucide-react'
 import { OG, OG_DEEP, NV, BODY, S, TIER1 } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
-import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps } from './intake-join-outcome'
 import { planEndingHeadline, saveSpotButtonLabel } from './plan-ending-copy'
 
 interface PlanEndingPausedBannerProps {
@@ -154,6 +154,13 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
                 </div>
               )
             })()}
+            {/* Owner-locked close of the loop: what the money does first,
+                how they hear from us second — see intakeNextSteps. */}
+            <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
+              {intakeNextSteps(confirmedCreditAed).map(line => (
+                <div key={line}>{line}</div>
+              ))}
+            </div>
           </motion.div>
         ) : (
           <motion.div

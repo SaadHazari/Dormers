@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Gift, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
-import { deriveJoinOutcome, intakeCreditDisplay } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps } from './intake-join-outcome'
 
 interface IntakePausedGateProps {
   headline: string
@@ -138,6 +138,14 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
                   </div>
                 )
               })()}
+              {/* Owner-locked close of the loop: what the money does first,
+                  how they hear from us second. Never end a confirmation
+                  open-ended — see intakeNextSteps. */}
+              <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>
+                {intakeNextSteps(confirmedCreditAed).map(line => (
+                  <div key={line}>{line}</div>
+                ))}
+              </div>
               <Link
                 href="/dashboard/menu"
                 style={{

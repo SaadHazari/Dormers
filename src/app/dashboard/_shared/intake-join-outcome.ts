@@ -43,6 +43,37 @@ export function deriveJoinOutcome(result: JoinWaitlistResult): JoinOutcome {
   return { joined: false, creditAed: null, message: null, error: result.message }
 }
 
+/**
+ * The waitlist promise, verbatim — the same sentence IntakePauseTakeover's
+ * pausing subheading already makes. One string so the surfaces can never
+ * drift into three phrasings the way "the list" did.
+ */
+export const REOPEN_MESSAGE_PROMISE = 'We will message you the day we reopen.'
+
+/**
+ * How the minted credit actually gets used. The waitlist credit is
+ * restricted to monthly plans (credit-eligibility.ts MONTHLY_PLAN_IDS) —
+ * this line is the on-screen explanation that rule requires, so a customer
+ * who buys a weekly plan at reopen is never surprised by an unapplied
+ * credit. Null when nothing was minted: promising mechanics for money that
+ * does not exist is exactly the regression this module exists to stop.
+ */
+export function creditMechanicsLine(creditAed: number): string | null {
+  if (creditAed > 0) return `Your AED ${creditAed} comes off your next monthly plan automatically.`
+  return null
+}
+
+/**
+ * The closing lines every confirmed (joined) surface renders after its
+ * credit line, in owner-locked order (2026-08-18): what the money does
+ * FIRST, how the customer hears from us SECOND. Zero-credit confirmations
+ * get only the promise line.
+ */
+export function intakeNextSteps(creditAed: number): string[] {
+  const mechanics = creditMechanicsLine(creditAed)
+  return mechanics ? [mechanics, REOPEN_MESSAGE_PROMISE] : [REOPEN_MESSAGE_PROMISE]
+}
+
 export interface IntakeCreditDisplay {
   /** true = render "AED {creditAed} is waiting…"; false = render `text` as
    *  plain reassurance copy instead — a customer must never be told an

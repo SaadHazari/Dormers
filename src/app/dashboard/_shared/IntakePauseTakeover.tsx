@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { ShieldCheck, Check } from 'lucide-react'
 import { OG, BODY, TIER_POP_TEXT } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
-import { deriveJoinOutcome, type JoinOutcome } from './intake-join-outcome'
+import { deriveJoinOutcome, creditMechanicsLine, type JoinOutcome } from './intake-join-outcome'
 import { pauseTakeoverCta } from './pause-takeover-actions'
 
 interface Props {
@@ -168,6 +168,19 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
                         color: TIER_POP_TEXT.primary, textAlign: 'center',
                     }}>
                         {outcome.message}
+                    </p>
+                )}
+                {/* Close the loop on a fresh join: what the minted money does.
+                    The "we will message you" half of intakeNextSteps is already
+                    in this screen's subheading, so only the mechanics line
+                    renders here — from the action's own result, never the
+                    prospective prop. */}
+                {outcome?.joined && creditMechanicsLine(outcome.creditAed ?? 0) && (
+                    <p style={{
+                        margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
+                        color: TIER_POP_TEXT.muted, textAlign: 'center',
+                    }}>
+                        {creditMechanicsLine(outcome.creditAed ?? 0)}
                     </p>
                 )}
                 {outcome?.error && (
