@@ -1796,6 +1796,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 creditAed={intakePause.creditAed}
                 alreadyJoined={intakePause.alreadyJoined}
                 waitlistCreditAed={intakePause.waitlistCreditAed}
+                onSun
               />
             ) : null}
             errorBanner={actionError ? (
