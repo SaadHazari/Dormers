@@ -633,15 +633,15 @@ function deriveWeekDots(state: WeeklyReviewState): WeekDotState[] {
 
 // Cycle-stakes strip: per-week dots (spatial "where am I in the cycle") plus
 // one plain-language line: condition first, then the AED that is ACTUALLY
-// still attainable. "Lock in" is the strip's one verb for the payout — the
-// imperative states promise "to lock in AED X" and the success state
-// confirms "AED X locked in", so the vocabulary teaches the all-or-nothing
-// rule itself. Deliberately NOT "unlock" (that verb belongs to the wallet's
-// plan-gated credit, and it frames the AED as not-yet-yours, undercutting
-// the save-what's-yours architecture) and NOT bare "lock" (collides with
-// the wrap card's "Locked" = unavailable chip, and can read as frozen).
+// still attainable. Payout vocabulary (owner-decided 2026-08-18): the
+// imperative states promise "to lock in AED X" (secure what's already
+// accumulating — loss framing), and the completion state celebrates
+// "AED X unlocked" (the payout actually moves at that moment, so past-tense
+// unlocked describes a real event). Future-tense "unlocks" stays the
+// wallet's plan-gating verb; bare "lock" is banned (collides with the wrap
+// card's "Locked" = unavailable chip, and can read as frozen).
 // States:
-//   • all in       → success tone, "All N in · AED X locked in"
+//   • all in       → success tone, "All N in · AED X unlocked"
 //   • a week missed→ neutral muted, "Cycle bonus missed" (Model C: one
 //                    expired week makes all-in impossible, so no AED promise
 //                    survives — never dress this state in urgency)
@@ -669,7 +669,7 @@ function CycleStakesStrip({ state }: { state: WeeklyReviewState }) {
   const lead = remaining === total ? `Submit all ${total}` : `Submit ${remaining} more`
   const onTime = late.length === 0 ? ' on time' : ''
   const body = allIn
-    ? `All ${total} in · AED ${aedEarned} locked in`
+    ? `All ${total} in · AED ${aedEarned} unlocked`
     : missed
       ? 'Cycle bonus missed'
       : `${lead}${onTime} to lock in AED ${aedInPlay}`
@@ -1046,8 +1046,9 @@ function CatchUpCard({ late, onClick }: { late: LateItem[]; onClick: () => void 
 }
 
 // Sub-line honesty: under the all-or-nothing rule a single submission's AED
-// is banked, not locked in — nothing pays out until the whole cycle is in.
-// "Locked" here would contradict the strip one card up.
+// is merely "in" (the strip's own word for a filled dot) — nothing pays out
+// until the whole cycle is in. Single-review cycles pay immediately, so
+// there "unlocked" is true.
 function JustSubmittedRow({ week, rewardPct, total }: { week: number; rewardPct: 50 | 100; total: number }) {
   const aed = rewardPct === 100 ? BASE_REWARD_AED : LATE_REWARD_AED
   return (
@@ -1072,7 +1073,7 @@ function JustSubmittedRow({ week, rewardPct, total }: { week: number; rewardPct:
           Week {week} submitted
         </div>
         <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
-          {total > 1 ? `AED ${aed} banked · pays out with all ${total}` : `AED ${aed} reward locked in`}
+          {total > 1 ? `AED ${aed} in · pays out with all ${total}` : `AED ${aed} unlocked`}
         </div>
       </div>
     </div>
