@@ -26,23 +26,26 @@ as $$
   where c.email is not null
     and case p_audience
       when 'everyone' then true
+      -- 'Active','Paused','Skipped','Scheduled' are all plans still in force
+      -- (see LIVE_STATUSES in src/app/admin/customers/priority.ts); a Paused
+      -- customer must still receive plan-holder broadcasts, not be dropped.
       when 'active_plans' then exists (
         select 1 from public.subscriptions s
-        where s.customer_id = c.id and s.status = 'Active')
+        where s.customer_id = c.id and s.status = any (array['Active','Paused','Skipped','Scheduled']))
       when 'early_access' then exists (
         select 1 from public.intake_waitlist w where w.customer_id = c.id)
       when 'ended_not_renewed' then
         exists (select 1 from public.subscriptions s
                 where s.customer_id = c.id and s.status = 'Ended')
         and not exists (select 1 from public.subscriptions s
-                        where s.customer_id = c.id and s.status = 'Active')
+                        where s.customer_id = c.id and s.status = any (array['Active','Paused','Skipped','Scheduled']))
       when 'dorm' then c.dorm_name = p_dorm
       when 'reopen' then
         exists (select 1 from public.intake_waitlist w where w.customer_id = c.id)
         or (exists (select 1 from public.subscriptions s
                     where s.customer_id = c.id and s.status = 'Ended')
             and not exists (select 1 from public.subscriptions s
-                            where s.customer_id = c.id and s.status = 'Active'))
+                            where s.customer_id = c.id and s.status = any (array['Active','Paused','Skipped','Scheduled'])))
       else false
     end
 $$;
