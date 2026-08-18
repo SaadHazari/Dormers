@@ -32,6 +32,9 @@ export interface IntakeState {
    *  "reopened" takeover. Null until the switch has been reopened at least
    *  once. */
   cycleEndedAt: string | null
+  /** Date (YYYY-MM-DD) a future pause is scheduled to take effect, or null
+   *  if none is scheduled. */
+  pauseScheduledFor: string | null
 }
 
 /** Used when the row is missing or unreadable. Intake stays open. */
@@ -44,6 +47,7 @@ const FAIL_OPEN: IntakeState = {
   creditReligiousAed: 20,
   cycleStartedAt: null,
   cycleEndedAt: null,
+  pauseScheduledFor: null,
 }
 
 let cache: { state: IntakeState; at: number } | null = null
@@ -55,7 +59,7 @@ export async function getIntakeState(): Promise<IntakeState> {
     const sb = createAdminSupabaseClient()
     const { data, error } = await sb
       .from('intake_settings')
-      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, cycle_started_at, cycle_ended_at')
+      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, cycle_started_at, cycle_ended_at, pause_scheduled_for')
       .maybeSingle()
     if (error) throw error
     if (!data) return FAIL_OPEN
@@ -70,6 +74,7 @@ export async function getIntakeState(): Promise<IntakeState> {
       creditReligiousAed: Number(row.credit_religious_aed ?? FAIL_OPEN.creditReligiousAed),
       cycleStartedAt: row.cycle_started_at == null ? null : String(row.cycle_started_at),
       cycleEndedAt: row.cycle_ended_at == null ? null : String(row.cycle_ended_at),
+      pauseScheduledFor: row.pause_scheduled_for == null ? null : String(row.pause_scheduled_for),
     }
     cache = { state, at: Date.now() }
     return state

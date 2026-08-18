@@ -68,6 +68,30 @@ describe('getIntakeState', () => {
     await getIntakeState()
     expect(maybeSingleMock).toHaveBeenCalledTimes(1)
   })
+
+  it('surfaces a scheduled pause date', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { ...ROW, pause_scheduled_for: '2026-09-20' },
+      error: null,
+    })
+    const state = await getIntakeState()
+    expect(state.pauseScheduledFor).toBe('2026-09-20')
+  })
+
+  it('surfaces null when no pause is scheduled', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { ...ROW, pause_scheduled_for: null },
+      error: null,
+    })
+    const state = await getIntakeState()
+    expect(state.pauseScheduledFor).toBeNull()
+  })
+
+  it('fails open with no scheduled pause', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: { message: 'db down' } })
+    const state = await getIntakeState()
+    expect(state.pauseScheduledFor).toBeNull()
+  })
 })
 
 describe('creditAedFor', () => {
@@ -80,6 +104,7 @@ describe('creditAedFor', () => {
     creditReligiousAed: 20,
     cycleStartedAt: null,
     cycleEndedAt: null,
+    pauseScheduledFor: null,
   }
 
   it('gives the non-veg amount to a Non Veg customer', () => {
