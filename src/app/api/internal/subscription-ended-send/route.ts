@@ -122,6 +122,12 @@ export async function POST(req: Request) {
     paused: intakeState.paused,
     unspentCreditAed,
     offerAed: creditAedFor(intakeState, customer.meal_preference_type),
+    // Turn on ONLY once both season templates are approved at Meta AND their
+    // tpl_intake_ended_credit / tpl_intake_ended_offer secrets exist in Vault.
+    // Absent or anything other than 'true' means stay silent on WhatsApp,
+    // which is the safe direction: a queued kind the dispatcher cannot resolve
+    // is far worse than no message.
+    seasonWhatsAppReady: process.env.WHATSAPP_SEASON_ENDED_ENABLED === 'true',
   })
 
   const result = await runSubscriptionEndedForCustomer({
