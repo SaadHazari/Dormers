@@ -73,6 +73,11 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
             setCountLoading(false)
             if (!res.ok) { setCount(null); setCountError(res.message ?? 'Could not resolve the audience.'); return }
             setCount(res.count)
+        }).catch(() => {
+            if (stale) return
+            setCountLoading(false)
+            setCount(null)
+            setCountError('Could not count the audience. Change the audience or reload.')
         })
         return () => { stale = true }
     }, [audience, dormName])
@@ -95,8 +100,8 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
     const [launching, startLaunch] = useTransition()
 
     const readyToSend = mode === 'season_reopen'
-        ? (count ?? 0) > 0
-        : Boolean(subject.trim() && heading.trim() && body.trim()) && (count ?? 0) > 0
+        ? (count ?? 0) > 0 && !countLoading
+        : Boolean(subject.trim() && heading.trim() && body.trim()) && (count ?? 0) > 0 && !countLoading
 
     function openConfirm() {
         setLaunchError(null)

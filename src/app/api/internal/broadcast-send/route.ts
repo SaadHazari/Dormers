@@ -72,6 +72,14 @@ async function sendSeasonReopenTo(
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SEASON_REOPEN is not set')
 
   const intakeState = await getIntakeState()
+  if (!intakeState.cycleStartedAt) {
+    // getIntakeState() fails open (paused: false, cycleStartedAt: null) on a
+    // settings-read error so checkout never wrongly blocks — but that same
+    // fail-open here would scope nothing, silently telling a waitlist member
+    // they're a stranger with no retry to ever correct it. Throw so the
+    // dispatcher's per-recipient catch parks the row instead.
+    throw new Error('sendSeasonReopenTo: intake cycle_started_at is unset; parking for retry')
+  }
 
   const { data: waitlistRow, error: waitlistError } = await sb.from('intake_waitlist')
     .select('id')

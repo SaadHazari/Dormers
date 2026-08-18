@@ -11,11 +11,29 @@
 --
 -- Applied live to the Ohio project (yjjayivwfqjfppawgyaz) via Supabase MCP on
 -- 2026-08-18. This file is the source-control mirror.
+--
+-- 2026-08-18 update (migration broadcast_audience_cycle_scope, applied live
+-- via Supabase MCP): the 'early_access' and 'reopen' arms' intake_waitlist
+-- EXISTS checks are now scoped to the current pause cycle
+-- (w.cycle_started_at = intake_settings.cycle_started_at). intake_waitlist
+-- has no unique(customer_id) — a repeat member has one row PER PAUSE CYCLE —
+-- so the prior unscoped EXISTS treated a prior-cycle waitlist row (belonging
+-- to a customer with no plan history) as a current member, which would have
+-- given that customer the "asked to hear" footer while the cycle-scoped send
+-- path (sendSeasonReopenTo in broadcast-send/route.ts) never stamps
+-- notified_at for them. Also marked STABLE (was implicitly VOLATILE) so
+-- PostgREST accepts a HEAD/count-only request against it — previewAudience()
+-- now reads an exact Content-Range count instead of data?.length, which was
+-- capped at PostgREST's 1000-row default. Live-verified before/after this
+-- change: broadcast_audience('reopen') = 32, broadcast_audience('early_access')
+-- = 2, both unchanged because the live intake_waitlist table currently holds
+-- rows from only one cycle.
 -- ============================================================================
 
 create or replace function public.broadcast_audience(p_audience text, p_dorm text default null)
 returns table(customer_id uuid, email text, first_name text)
 language sql
+stable
 security definer
 set search_path = public
 as $$
@@ -33,7 +51,9 @@ as $$
         select 1 from public.subscriptions s
         where s.customer_id = c.id and s.status = any (array['Active','Paused','Skipped','Scheduled']))
       when 'early_access' then exists (
-        select 1 from public.intake_waitlist w where w.customer_id = c.id)
+        select 1 from public.intake_waitlist w
+        where w.customer_id = c.id
+          and w.cycle_started_at = (select cycle_started_at from public.intake_settings))
       when 'ended_not_renewed' then
         exists (select 1 from public.subscriptions s
                 where s.customer_id = c.id and s.status = 'Ended')
@@ -41,7 +61,9 @@ as $$
                         where s.customer_id = c.id and s.status = any (array['Active','Paused','Skipped','Scheduled']))
       when 'dorm' then c.dorm_name = p_dorm
       when 'reopen' then
-        exists (select 1 from public.intake_waitlist w where w.customer_id = c.id)
+        exists (select 1 from public.intake_waitlist w
+                where w.customer_id = c.id
+                  and w.cycle_started_at = (select cycle_started_at from public.intake_settings))
         or (exists (select 1 from public.subscriptions s
                     where s.customer_id = c.id and s.status = 'Ended')
             and not exists (select 1 from public.subscriptions s
