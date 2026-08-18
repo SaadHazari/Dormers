@@ -128,7 +128,9 @@ function ChangeStartDateModal({
   // customer's current shopping preferences.
   const subWeekType: WeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
   const taperMax = taperedMaxStart({
-    planId: (resolvePlan(sub.plan_name)?.id ?? 'trial') as KebabPlanId,
+    // Unresolvable plan name → assume the LONGEST journey (tightest clamp),
+    // so an unknown label narrows the picker rather than opening it up.
+    planId: (resolvePlan(sub.plan_name)?.id ?? 'monthly-max') as KebabPlanId,
     weekType: subWeekType,
     minStart: minIso,
     maxStart: rawMaxIso,
@@ -829,6 +831,13 @@ function PlanCard({
   const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
   const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
+  // Every prominence cue the recommended card earns — the lifted TIER1
+  // surface, the orange border, the extra top padding, the orange total, the
+  // ribbon — is a recommendation. A plan the customer cannot buy this term
+  // must not be the loudest thing on the grid, so the whole featured
+  // treatment steps down to the plain card and only the dim + the
+  // "Done for this term" line remain.
+  const showFeatured = featured && !doneForTerm
 
   // Static PLANS strings reflect 6DAYS. Override duration + the meals-count
   // line in the feature list so 5DAYS customers see correct numbers.
@@ -885,7 +894,7 @@ function PlanCard({
   // (supporting). Selected adds an orange border ring + small lift but
   // keeps the underlying surface on the same tier scale as the rest of
   // the dashboard — no white floating cards, no orange-glow shadows.
-  const baseTier = featured ? TIER1 : TIER2
+  const baseTier = showFeatured ? TIER1 : TIER2
 
   return (
     <button
@@ -901,9 +910,9 @@ function PlanCard({
         // Recommended card gets +8px top padding so its content starts a bit
         // lower than peers — combined with the floating ribbon above, the
         // card visually weighs more without breaking grid alignment.
-        padding: featured ? '32px 24px 28px' : 24,
+        padding: showFeatured ? '32px 24px 28px' : 24,
         borderRadius: 24,
-        border: `1.5px solid ${selected ? OG : (featured ? 'var(--ds-og-border-strong)' : 'var(--ds-border-tier2)')}`,
+        border: `1.5px solid ${selected ? OG : (showFeatured ? 'var(--ds-og-border-strong)' : 'var(--ds-border-tier2)')}`,
         transition: 'transform 150ms, border-color 200ms, opacity 200ms',
         cursor: unavailable ? 'not-allowed' : 'pointer',
         transform: selected ? 'translateY(-2px)' : 'none',
@@ -917,7 +926,7 @@ function PlanCard({
           phrase repeated. */}
       {/* Recommending a plan the customer cannot buy is noise — the ribbon
           steps aside for the season state. */}
-      {featured && !doneForTerm && (
+      {showFeatured && (
         <span style={{
           position: 'absolute',
           top: -13,
@@ -947,7 +956,11 @@ function PlanCard({
           </span>
           {plan.id}
         </div>
-        {plan.badge && (
+        {/* The badge is a value claim ("Best value", "For the hungry"). On a
+            card that cannot be bought this term the claim is noise, and its
+            orange/gold tint is exactly the prominence the state is trying to
+            remove — so it steps aside for the done-for-term line below. */}
+        {plan.badge && !doneForTerm && (
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, fontWeight: 600, color: badgeStyle.fg, letterSpacing: '0.04em' }}>
             {plan.badge}
           </div>
@@ -977,7 +990,7 @@ function PlanCard({
               <span style={{ fontFamily: DISPLAY, fontSize: 36, fontWeight: 800, color: S.fg, letterSpacing: '-0.03em', lineHeight: 1 }}>{price}</span>
               <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
             </div>
-            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || featured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ marginTop: 8, fontFamily: BODY, fontSize: 12, fontWeight: 700, color: (selected || showFeatured) ? OG : S.fgMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {total} AED{plan.period}
             </div>
             <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>

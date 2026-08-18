@@ -231,6 +231,11 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
   const meals = mealsForPlan(plan.id, weekType)
   const featured = plan.id === 'Monthly Premium'
+  // A plan that cannot be bought this term must not stay the loudest card in
+  // the stack: the ribbon, the orange border + padding lift and the orange
+  // total all step down to the plain treatment, leaving only the dim and the
+  // "Done for this term" line. Mirrors the desktop card.
+  const showFeatured = featured && !doneForTerm
   const W = weekType === '5DAYS' ? 5 : 6
   const dynamicDuration =
     plan.id === 'Trial' ? plan.duration
@@ -266,13 +271,13 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
       disabled={unavailable}
       style={{
         ...CARD, position: 'relative', textAlign: 'left', cursor: unavailable ? 'not-allowed' : 'pointer',
-        appearance: 'none', fontFamily: BODY, padding: featured ? '20px 18px 18px' : 18,
+        appearance: 'none', fontFamily: BODY, padding: showFeatured ? '20px 18px 18px' : 18,
         display: 'flex', flexDirection: 'column', gap: 14,
-        border: selected ? `1.5px solid ${OG}` : featured ? '1.5px solid var(--ds-og-border-strong)' : '1.5px solid rgba(9,24,37,0.08)',
+        border: selected ? `1.5px solid ${OG}` : showFeatured ? '1.5px solid var(--ds-og-border-strong)' : '1.5px solid rgba(9,24,37,0.08)',
         opacity: unavailable ? 0.7 : 1,
       }}
     >
-      {featured && !doneForTerm && (
+      {showFeatured && (
         <span style={{ position: 'absolute', top: -11, left: 18, background: OG, color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '5px 12px', borderRadius: 999, boxShadow: '0 4px 12px -4px rgba(245,127,32,0.7)' }}>Most Popular</span>
       )}
 
@@ -281,7 +286,9 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
         <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--ds-skeleton-base)', color: OG, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><PlanGlyph planName={plan.id} size={17} color={OG} /></span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: S.fg, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.id}</div>
-          {plan.badge && <div style={{ fontSize: 11, fontWeight: 600, color: S.fgMuted, marginTop: 1 }}>{plan.badge}</div>}
+          {/* The badge is a value claim; on an unbuyable card it is noise and
+              the done-for-term line below says the useful thing instead. */}
+          {plan.badge && !doneForTerm && <div style={{ fontSize: 11, fontWeight: 600, color: S.fgMuted, marginTop: 1 }}>{plan.badge}</div>}
         </div>
       </div>
 
@@ -291,7 +298,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
           <span style={{ fontSize: 32, fontWeight: 800, color: priceUnknown ? S.fgFaint : S.fg, letterSpacing: '-0.03em', lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{priceUnknown ? '—' : price}</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
         </div>
-        <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, color: priceUnknown ? OG : (selected || featured ? OG : S.fgMuted), letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+        <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, color: priceUnknown ? OG : (selected || showFeatured ? OG : S.fgMuted), letterSpacing: '0.04em', textTransform: 'uppercase' }}>
           {priceUnknown ? 'Set veg days first' : `${total} AED${plan.period}`}
         </div>
         <div style={{ marginTop: 3, fontSize: 11, color: S.fgFaint }}>{dynamicDuration}</div>

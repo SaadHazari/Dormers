@@ -294,7 +294,9 @@ function ChangeStartSheet({ sub, open, onClose, lastDeliveryDay = null }: { sub:
   // term, so the picker collapses to one day and Save is disabled.
   const subWeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
   const taperMax = taperedMaxStart({
-    planId: (resolvePlan(sub.plan_name)?.id ?? 'trial') as KebabPlanId,
+    // Unresolvable plan name → assume the LONGEST journey (tightest clamp),
+    // so an unknown label narrows the picker rather than opening it up.
+    planId: (resolvePlan(sub.plan_name)?.id ?? 'monthly-max') as KebabPlanId,
     weekType: subWeekType,
     minStart: minIso,
     maxStart: rawMaxIso,

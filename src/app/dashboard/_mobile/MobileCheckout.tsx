@@ -259,6 +259,12 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
   const vegDaysLabel = vegDays.map(d => d.slice(0, 3)).join(', ')
   const continueDisabled = !startDate || !vegDaysReady
 
+  // Season refusals read as calendar facts, so they drop the danger tone AND
+  // the support offer; a paused plan keeps the soft tone but keeps its
+  // one-tap fix.
+  const seasonError = errorCode === 'INTAKE_ENDING' || errorCode === 'INTAKE_PAUSED'
+  const softError = seasonError || errorCode === 'PLAN_PAUSED'
+
   // Step 1 advances to summary only with a complete choice; both transitions
   // clear any stale server error so it can't haunt the other step.
   const goToSummary = () => { if (continueDisabled) return; setError(null); setErrorCode(null); setStep(2) }
@@ -308,11 +314,17 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
               right above the Pay button (pinned, always in view) and slides in.
               Nielsen #1/#9 + microinteractions "feedback at the source". */}
           {error && (
-            <div role="alert" style={{ flexBasis: '100%', width: '100%', animation: 'mc-fb 240ms cubic-bezier(0.16,1,0.3,1)', padding: '11px 13px', borderRadius: 10, background: errorCode === 'PLAN_PAUSED' ? 'var(--ds-og-wash)' : 'var(--ds-danger-wash)', border: `1px solid ${errorCode === 'PLAN_PAUSED' ? 'var(--ds-og-border)' : 'var(--ds-danger-border)'}` }}>
-              <p style={{ margin: 0, fontSize: 12, color: errorCode === 'PLAN_PAUSED' ? 'var(--ds-fg)' : 'var(--ds-danger-fg)', lineHeight: 1.45 }}>{error}</p>
+            /* Soft states (og-wash, no red): a paused plan and the two season
+               states are facts, not failures — the season ones carry no CTA
+               at all, since there is nothing the customer can fix today. Only
+               real checkout failures get the danger tone + WhatsApp offer. */
+            <div role="alert" style={{ flexBasis: '100%', width: '100%', animation: 'mc-fb 240ms cubic-bezier(0.16,1,0.3,1)', padding: '11px 13px', borderRadius: 10, background: softError ? 'var(--ds-og-wash)' : 'var(--ds-danger-wash)', border: `1px solid ${softError ? 'var(--ds-og-border)' : 'var(--ds-danger-border)'}` }}>
+              <p style={{ margin: 0, fontSize: 12, color: softError ? 'var(--ds-fg)' : 'var(--ds-danger-fg)', lineHeight: 1.45 }}>{error}</p>
               {errorCode === 'PLAN_PAUSED'
                 ? <Link href="/dashboard" style={{ display: 'inline-block', marginTop: 6, fontSize: 11.5, fontWeight: 700, color: OG, textDecoration: 'none', letterSpacing: '0.04em' }}>Resume my plan →</Link>
-                : <a href={whatsAppHref('Hi! I had trouble checking out — could you help me complete my order?')} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6, fontSize: 11.5, fontWeight: 700, color: '#1ea34d', textDecoration: 'none', letterSpacing: '0.04em' }}>Message us on WhatsApp →</a>}
+                : seasonError
+                  ? null
+                  : <a href={whatsAppHref('Hi! I had trouble checking out — could you help me complete my order?')} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6, fontSize: 11.5, fontWeight: 700, color: '#1ea34d', textDecoration: 'none', letterSpacing: '0.04em' }}>Message us on WhatsApp →</a>}
             </div>
           )}
           <div style={{ flexBasis: '100%', width: '100%', display: 'flex', gap: 10 }}>

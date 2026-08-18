@@ -21,6 +21,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
+import { journeyFits, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
+import { getIntakeState } from '@/infra/config/intake';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { canPause, canPlanPause, canResume, canSkip } from '@/contexts/subscriptions/domain/subscription-rules';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
@@ -271,6 +273,41 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
                          : reqIsoDow !== 6 && reqIsoDow !== 7;
   if (!reqIsDelivery) {
     return { error: 'Pick a working delivery day for your plan (Mon–Fri for 5-day plans, Mon–Sat for 6-day plans).' };
+  }
+
+  // ── Seasonal taper ──────────────────────────────────────────────────────
+  // With a pause scheduled, a reschedule must not push this Scheduled sub's
+  // journey past the term's last delivery day. The client clamps its picker
+  // (ChangeStartDateModal / ChangeStartSheet), but that is courtesy only —
+  // a stale tab or a direct server-action call would otherwise land a start
+  // date whose plan runs into the break. This is the authoritative gate, the
+  // sibling of /api/checkout's INTAKE_ENDING 409.
+  //
+  // No webhook prediction is needed here (unlike checkout): the trigger
+  // recomputes end_date straight from the start_date written below, so
+  // newStartDate IS the journey's start.
+  //
+  // getIntakeState fails open (pauseScheduledFor is null on a settings-read
+  // blip), so a settings outage lets the reschedule through rather than
+  // freezing a legitimate date change.
+  const intakeForChange = await getIntakeState();
+  if (intakeForChange.pauseScheduledFor) {
+    // Unresolvable plan names fall back to the LONGEST journey — the
+    // tightest clamp — so an unknown label fails safe (refuse) rather than
+    // open (approve a journey that runs past the term).
+    const changePlanId = resolvePlan(subscription.plan_name)?.id ?? 'monthly-max';
+    const changeWeekType = wtChange === '5DAYS' ? '5DAYS' : '6DAYS';
+    const fitsInTerm = journeyFits({
+      planId: changePlanId,
+      weekType: changeWeekType,
+      startDate: newStartDate,
+      lastDeliveryDay: intakeForChange.pauseScheduledFor,
+    });
+    if (!fitsInTerm) {
+      return {
+        error: `${seasonEndsMessage(intakeForChange.pauseScheduledFor)} Pick an earlier start so the plan finishes in time.`,
+      };
+    }
   }
 
   // Reject if a primary live sub exists and the new start_date falls on or

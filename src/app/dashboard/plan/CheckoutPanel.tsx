@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Loader2, Lock, PauseCircle, MapPin } from 'lucide-react'
+import { Loader2, Lock, PauseCircle, MapPin, CalendarClock } from 'lucide-react'
 import Link from 'next/link'
 import { TIER1, BODY, OG, S } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
@@ -710,7 +710,7 @@ export function CheckoutPanel({
                 {seasonClosed
                   ? <>This plan runs past <strong>{prettySeasonDate(lastDeliveryDay!)}</strong>, the last delivery day this term.</>
                   : lastDeliveryDay
-                    ? <>Any working day up to <strong>{prettySeasonDate(clampBackToDeliveryDay(maxPickable, weekType))}</strong>, so it finishes before the term ends.</>
+                    ? <>Any working day up to <strong>{prettySeasonDate(clampBackToDeliveryDay(maxPickable, weekType))}</strong>, so it finishes in time.</>
                     : 'Any working day in the next 30 days.'}
               </p>
             </div>
@@ -805,6 +805,29 @@ export function CheckoutPanel({
                     >
                       Resume my plan →
                     </Link>
+                  </div>
+                ) : (errorCode === 'INTAKE_ENDING' || errorCode === 'INTAKE_PAUSED') ? (
+                  /* Season states are facts about the calendar, not failures
+                     of the customer or of checkout. They get the same soft
+                     og-wash treatment as the paused-plan block — no red, no
+                     apology, no "trouble checking out" support framing, and
+                     no CTA: there is nothing to fix today. */
+                  <div style={{
+                    marginTop: 10,
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    background: 'var(--ds-og-wash)',
+                    border: '1px solid var(--ds-og-border)',
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                  }}>
+                    <CalendarClock size={16} strokeWidth={2} color={OG} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+                    {/* textAlign is explicit: this block sits inside the
+                        centred CTA-captions column, and a two-line sentence
+                        ragged around the centre reads as a notice rather
+                        than as a sentence. */}
+                    <p style={{ margin: 0, textAlign: 'left', fontFamily: BODY, fontSize: 12.5, color: 'var(--ds-fg)', lineHeight: 1.5 }}>
+                      {error}
+                    </p>
                   </div>
                 ) : (
                   <div className="checkout-error">
