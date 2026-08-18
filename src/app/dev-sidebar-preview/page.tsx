@@ -8,21 +8,25 @@ import Sidebar from '../dashboard/Sidebar'
 import type { WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
+// Mirrors the live QA scenario: week 3 open (2d left), weeks 1+2 late
+// (19d/12d → oldest expires in 11d), nothing submitted, week 4 upcoming.
+// Consistent by construction: submitted must equal completed.length, and
+// aedPending = open×5 + late×2 (see weekly-review-queries.ts).
 const WEEKLY: WeeklyReviewState = {
-  current: { week: 3, range: 'Aug 4 — Aug 10', daysLeft: 1 },
+  current: { week: 3, range: 'Aug 7 — Aug 13', daysLeft: 2 },
   late: [
-    { week: 2, range: 'Jul 28 — Aug 3', daysLate: 13 },
-    { week: 1, range: 'Jul 21 — Jul 27', daysLate: 20 },
+    { week: 2, range: 'Jul 31 — Aug 6', daysLate: 12 },
+    { week: 1, range: 'Jul 24 — Jul 30', daysLate: 19 },
   ],
   justSubmitted: null,
   completed: [],
-  rewards: { submitted: 1, total: 4, aedEarned: 5, aedPending: 15, cycle: 'July cycle', label: 'Rewards' },
+  rewards: { submitted: 0, total: 4, aedEarned: 0, aedPending: 9, cycle: 'August cycle', label: 'Rewards' },
 }
 
 const MONTHLY: MonthlyReviewWindow = {
-  eligible: true, locked: false, submitted: false,
-  daysLeftForFullReward: 4, daysSinceCycleEnd: 3,
-  expired: false, preCron: false, cycleLabel: 'July', planTier: 'monthly',
+  eligible: false, locked: false, submitted: false,
+  daysLeftForFullReward: 0, daysSinceCycleEnd: 0,
+  expired: false, preCron: false, cycleLabel: null, planTier: 'monthly',
 }
 
 export default function DevSidebarPreview() {

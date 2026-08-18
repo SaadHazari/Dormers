@@ -7,15 +7,15 @@ import Link from 'next/link'
 import { MobileSheet } from './_shared/MobileSheet'
 import { useIsCompact } from './_mobile/kit'
 import {
-  Bug, Check, CheckCircle2, ChevronRight, CreditCard, LogOut, MessagesSquare,
-  Plus, User as UserIcon, Gift, ArrowRight, Sparkles,
+  Bug, Check, ChevronRight, CreditCard, LogOut, MessagesSquare,
+  User as UserIcon, Gift, ArrowRight, Sparkles,
 } from 'lucide-react'
 import * as Sentry from '@sentry/nextjs'
 import { signout } from '@/app/login/actions'
 import { OG, OG3, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { totalCashForConversions } from '@/contexts/dorm-wars/domain/constants'
-import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
+import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, LATE_CAP_DAYS, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'
 import { referralUrl, referralUrlDisplay } from '@/shared/contacts'
@@ -372,7 +372,11 @@ export function SidebarDropdowns({
       .utility-row:hover { background: var(--ds-og-wash) !important; }
       .utility-signout-row:hover { background: var(--ds-danger-wash) !important; color: var(--ds-danger-fg) !important; }
       .utility-bug-row:hover { background: var(--ds-og-wash) !important; color: ${OG} !important; }
-      .now-tray-row:hover { background: var(--ds-og-wash) !important; }
+      .now-tray-card-recovery:hover {
+        transform: translateY(-1px);
+        border-color: var(--ds-og-border-strong) !important;
+        box-shadow: 0 6px 16px rgba(245,127,32,0.12) !important;
+      }
       .now-tray-card-primary:hover {
         transform: translateY(-1px);
         box-shadow: inset 3px 0 0 ${OG}, 0 6px 16px rgba(245,127,32,0.14) !important;
@@ -461,13 +465,21 @@ export function SidebarDropdowns({
 // Past confirmations, system status (delivery countdown), promos — none belong
 // here. See project_now_tray_architecture memory for the full rationale.
 //
-// Composition rules:
-//   • Primary pending → PendingReviewCard with full-width CTA button (the
-//     decisive action of the tray; orange edge for urgency)
-//   • Catch-up late → compact LateReviewRow (secondary, scannable)
-//   • Monthly plans (rewards.total > 1) → one-line AllOrNothingLine above
-//     the cards naming the cycle stakes (forfeit/locked-in/in-progress)
+// Composition rules — three visual temperatures, one hue:
+//   • Primary pending → PendingReviewCard: white surface, inset orange edge,
+//     filled CTA. The edge + filled pill combo is EXCLUSIVE to "act now".
+//   • Late weeks → ONE consolidated CatchUpCard: warm og-wash surface, no
+//     edge, outlined CTA. Deadline-forward ("Nd left" until the 30-day cap),
+//     never elapsed-time ("Nd late") — the tray sells what's still savable,
+//     not how long the user has failed. Links to the oldest late week; the
+//     post-submit chain in the takeover carries them through the rest.
+//   • Monthly plans (rewards.total > 1) → CycleStakesStrip above the cards:
+//     per-week dots + the AED actually still attainable. Never promise an
+//     amount the math can no longer pay (the old "all N on time" line lied
+//     once any week had gone late).
 //   • Just-submitted → green confirmation row when nothing else is pending
+//   • Intake pause → borderless muted footnote, no tap target (status, not
+//     a task — it must not wear the same clothes as actionable rows)
 //   • Nothing → designed empty state (not silence)
 
 function NowTray({
@@ -527,19 +539,18 @@ function NowTray({
           {/* Monthly wrap leads when present — it's the cycle-closing moment
               that anchors the milestone path the weekly reviews opened. */}
           {(monthlyLive || monthlyLocked) && <MonthlyWrapCard window={monthlyWindow} onClick={onItemClick} />}
-          {showAllOrNothing && <AllOrNothingLine state={weeklyReviewState} />}
+          {showAllOrNothing && <CycleStakesStrip state={weeklyReviewState} />}
           {current && <PendingReviewCard data={current} onClick={onItemClick} />}
-          {late.map(item => (
-            <LateReviewRow key={item.week} data={item} onClick={onItemClick} />
-          ))}
+          {late.length > 0 && <CatchUpCard late={late} onClick={onItemClick} />}
           {justSubmitted && !current && late.length === 0 && !monthlyLive && (
             <JustSubmittedRow week={justSubmitted.week} rewardPct={justSubmitted.rewardPct} />
           )}
-          {/* Seasonal intake pause — quiet residue rows, last in the stack so
-              the decisive review/wrap actions above keep the primary spot.
-              See project_now_tray_architecture: time-bound state lives here,
+          {/* Seasonal intake pause — ambient status, last in the stack and
+              deliberately NOT interactive: it has no deadline and no action,
+              so it must not dress like the actionable cards above. See
+              project_now_tray_architecture: time-bound state lives here,
               not on content pages. */}
-          {intakePaused && <IntakePausedRow onClick={onItemClick} />}
+          {intakePaused && <IntakePausedNote />}
         </div>
       )}
     </>
@@ -547,36 +558,20 @@ function NowTray({
 }
 
 // Quiet, factual residue of the seasonal-pause takeover (Task 15) — no date,
-// no countdown, no reopening estimate. Links to the plan page rather than
-// carrying its own action; the one-tap join lives on IntakePausedGate /
+// no countdown, no reopening estimate. Deliberately a non-interactive footnote:
+// it used to be a bordered row with a chevron, which made it read as a task
+// sitting at the same rank as actionable items while its destination (the plan
+// page) offered nothing to do. The one-tap join lives on IntakePausedGate /
 // PlanEndingPausedBanner, not duplicated here.
-function IntakePausedRow({ onClick }: { onClick: () => void }) {
+function IntakePausedNote() {
   return (
-    <Link
-      href="/dashboard/plan"
-      onClick={onClick}
-      className="now-tray-row"
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 12px',
-        borderRadius: 'var(--radius-sm)',
-        background: 'transparent',
-        border: '1px solid var(--ds-border-soft)',
-        textDecoration: 'none', color: 'var(--ds-fg)',
-        fontFamily: BODY,
-        transition: 'background 150ms',
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2 }}>
-          New plans paused
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
-          We are between semesters.
-        </div>
-      </div>
-      <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
-    </Link>
+    <div style={{
+      padding: '6px 12px 2px',
+      fontSize: 11, lineHeight: 1.4, textAlign: 'center',
+      color: 'var(--ds-fg-faint)', fontFamily: BODY,
+    }}>
+      New plans paused for the semester break.
+    </div>
   )
 }
 
@@ -608,89 +603,111 @@ function NowTrayEmpty() {
   )
 }
 
-// Cycle-stakes summary. Four states by reward progress:
-//   • all in    → success tone, "Cycle locked in"
-//   • none in   → orange tone, "Submit all N to lock AED X"
-//   • partial   → orange tone, two-segment chip:
-//                 "[✓] AED X ready · [+] AED Y to claim"
-//
-// The partial-state chip used to read "N/M in · AED 9 on the line" — a
-// single number that collapsed three distinct sub-buckets (submitted
-// on-time, submitted late, still earnable) into one figure. Users
-// couldn't tell what was already banked vs what was still up for grabs,
-// and "on the line" doesn't carry urgency or signal "yours to lose."
-// The two-segment treatment splits the same total into:
-//   ready  = aedPending - aedToGo   → already submitted, awaiting cycle lock
-//   claim  = aedToGo                → unsubmitted, still earnable
-// The icon prefix (check vs plus) does the semantic lifting so the line
-// can carry both numbers without becoming a sentence.
-function AllOrNothingLine({ state }: { state: WeeklyReviewState }) {
-  const { rewards, current, late } = state
-  const submitted = rewards.submitted
-  const total = rewards.total
-  const earned = rewards.aedEarned
-  const pending = rewards.aedPending
+// Rust-on-orange-wash text pair used across the tray's urgent chips. Matches
+// the '#8c4214' literals on the sibling cards' chips — keep them in lockstep.
+const RUST = '#8c4214'
+
+type WeekDotState = 'in' | 'live' | 'late' | 'upcoming' | 'missed'
+
+// One dot per cycle week, derived purely from the review state. Weeks after
+// the newest week in play are upcoming; unaccounted weeks BEFORE it can only
+// be past the 30-day cap → missed (the queries file buckets them 'expired'
+// and surfaces them nowhere else).
+function deriveWeekDots(state: WeeklyReviewState): WeekDotState[] {
+  const { current, late, completed, rewards } = state
+  const completedSet = new Set(completed.map(c => c.week))
+  const lateSet = new Set(late.map(l => l.week))
+  const inPlayMax = Math.max(
+    current?.week ?? 0,
+    ...late.map(l => l.week),
+    ...completed.map(c => c.week),
+  )
+  return Array.from({ length: rewards.total }, (_, i) => {
+    const w = i + 1
+    if (completedSet.has(w)) return 'in'
+    if (current?.week === w) return 'live'
+    if (lateSet.has(w)) return 'late'
+    return w > inPlayMax ? 'upcoming' : 'missed'
+  })
+}
+
+// Cycle-stakes strip: per-week dots (spatial "where am I in the cycle") plus
+// one line naming the AED that is ACTUALLY still attainable. States:
+//   • all in       → success tone, "All N in · AED X locked"
+//   • a week missed→ neutral muted, "Cycle bonus missed" (Model C: one
+//                    expired week makes all-in impossible, so no AED promise
+//                    survives — never dress this state in urgency)
+//   • lates exist  → urgent tone, "AED X rides on all N" — the all-or-nothing
+//                    stake, counting open + late + upcoming + already-banked.
+//                    Replaces the old "Submit all N on time for AED 20" line,
+//                    which kept promising the on-time total after weeks had
+//                    already gone late (an amount the math could no longer pay).
+//   • partial      → urgent tone, "AED X ready · AED Y to go"
+//   • fresh cycle  → urgent tone, "AED X for all N on time"
+function CycleStakesStrip({ state }: { state: WeeklyReviewState }) {
+  const { rewards, late } = state
+  const { submitted, total, aedEarned, aedPending } = rewards
+  const dots = deriveWeekDots(state)
   const allIn = submitted >= total
+  const missed = !allIn && dots.includes('missed')
+  const upcomingCount = dots.filter(d => d === 'upcoming').length
 
-  // Earnable from still-unsubmitted slots — current week at full reward,
-  // each late slot at the late reward. Mirrors the breakdown in
-  // weekly-review-queries.ts so the math here stays in lockstep with
-  // what produced `pending`.
-  const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
-  const aedReady = Math.max(0, pending - aedToClaim)
+  // Everything still winnable this cycle: aedPending already carries
+  // banked-not-locked + open + late (see weekly-review-queries.ts); upcoming
+  // weeks add their on-time reward on top.
+  const aedInPlay = aedPending + upcomingCount * BASE_REWARD_AED
+  // Banked but not locked = pending minus what's still unsubmitted.
+  const aedUnsubmitted =
+    (state.current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
+  const aedReady = Math.max(0, aedPending - aedUnsubmitted)
 
-  // Partial state — the only case where one-liner copy fails. Render a
-  // two-segment chip so each number carries its own meaning.
-  if (!allIn && submitted > 0) {
-    const fg = '#8c4214'
-    return (
-      <div
-        aria-label={`${submitted} of ${total} submitted · AED ${aedReady} ready · AED ${aedToClaim} still to claim`}
-        style={{
-          padding: '7px 10px', borderRadius: 'var(--radius-sm)',
-          background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)',
-          display: 'flex', alignItems: 'center', gap: 8,
-          fontFamily: BODY, fontSize: 11, fontWeight: 700, color: fg,
-          lineHeight: 1.2, fontFeatureSettings: '"tnum"',
-        }}
-      >
-        {aedReady > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <CheckCircle2 size={11} strokeWidth={2.6} />
-            <span>AED {aedReady} ready</span>
-          </span>
-        )}
-        {aedReady > 0 && aedToClaim > 0 && (
-          <span aria-hidden style={{ color: 'rgba(140,66,20,0.45)' }}>·</span>
-        )}
-        {aedToClaim > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Plus size={11} strokeWidth={2.6} />
-            <span>AED {aedToClaim} to claim</span>
-          </span>
-        )}
-      </div>
-    )
+  const body = allIn
+    ? `All ${total} in · AED ${aedEarned} locked`
+    : missed
+      ? 'Cycle bonus missed'
+      : late.length > 0
+        ? `AED ${aedInPlay} rides on all ${total}`
+        : submitted > 0
+          ? `AED ${aedReady} ready · AED ${aedInPlay - aedReady} to go`
+          : `AED ${total * BASE_REWARD_AED} for all ${total} on time`
+
+  const tone: 'success' | 'muted' | 'urgent' = allIn ? 'success' : missed ? 'muted' : 'urgent'
+  const fg = tone === 'success' ? 'var(--ds-success-fg)' : tone === 'muted' ? 'var(--ds-fg-faint)' : RUST
+  const bg = tone === 'success' ? 'var(--ds-success-wash)' : tone === 'muted' ? 'transparent' : 'var(--ds-og-wash)'
+  const border = tone === 'success' ? 'var(--ds-success-border)' : tone === 'muted' ? 'var(--ds-border-soft)' : 'var(--ds-og-border)'
+  const dotFill = tone === 'success' ? 'var(--ds-success-fg)' : OG
+
+  const dotStyle = (d: WeekDotState): React.CSSProperties => {
+    switch (d) {
+      case 'in':       return { background: dotFill }
+      case 'live':     return { border: `1.5px solid ${OG}`, background: 'var(--ds-og-wash-strong)' }
+      case 'late':     return { border: `1.5px solid ${RUST}`, background: 'transparent' }
+      case 'upcoming': return { background: 'rgba(9,24,37,0.15)' }
+      case 'missed':   return { border: '1px solid rgba(9,24,37,0.25)', background: 'transparent' }
+    }
   }
 
-  // All-in and zero-submitted states still read clearly as one line.
-  const body = allIn
-    ? `All ${total} in · AED ${earned} locked`
-    : `Submit all ${total} on time for AED ${total * BASE_REWARD_AED}`
-  const tone: 'success' | 'urgent' = allIn ? 'success' : 'urgent'
-  const fg = tone === 'success' ? 'var(--ds-success-fg)' : '#8c4214'
-  const bg = tone === 'success' ? 'var(--ds-success-wash)' : 'var(--ds-og-wash)'
-  const border = tone === 'success' ? 'var(--ds-success-border)' : 'var(--ds-og-border)'
-
   return (
-    <div style={{
-      padding: '7px 10px', borderRadius: 'var(--radius-sm)',
-      background: bg, border: `1px solid ${border}`,
-      fontSize: 11, fontWeight: 700, color: fg, lineHeight: 1.3,
-      fontFeatureSettings: '"tnum"',
-      letterSpacing: '0.01em',
-    }}>
-      {body}
+    <div
+      aria-label={`${submitted} of ${total} weekly reviews in. ${body}`}
+      style={{
+        padding: '7px 10px', borderRadius: 'var(--radius-sm)',
+        background: bg, border: `1px solid ${border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        fontFamily: BODY, fontSize: 11, fontWeight: 700, color: fg,
+        lineHeight: 1.2, fontFeatureSettings: '"tnum"',
+        letterSpacing: '0.01em',
+      }}
+    >
+      <div aria-hidden style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        {dots.map((d, i) => (
+          <span
+            key={i}
+            style={{ width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box', ...dotStyle(d) }}
+          />
+        ))}
+      </div>
+      <span style={{ textAlign: 'right' }}>{body}</span>
     </div>
   )
 }
@@ -915,7 +932,7 @@ function PendingReviewCard({
       <div style={{
         fontSize: 11.5, color: 'var(--ds-fg-muted)', lineHeight: 1.35,
       }}>
-        {data.range}
+        {data.range} · ~2 min
       </div>
 
       <div style={{
@@ -933,50 +950,94 @@ function PendingReviewCard({
   )
 }
 
-// Compact catch-up row for late reviews. Same shape regardless of how many
-// stacked; rows are decisive but secondary to the primary pending tile.
-function LateReviewRow({ data, onClick }: { data: LateItem; onClick: () => void }) {
-  const draftActive = useWeeklyDraftActive(data.week)
-  const expiringSoon = data.daysLate >= 23
+// ONE consolidated recovery card for every late week, replacing the old
+// per-week "Nd late" rows. Design intent:
+//   • Deadline-forward: shows days LEFT until the oldest week hits the
+//     30-day cap, never days elapsed. "19d late" reads as a verdict on the
+//     past; "11d left" is a window still open. Same fact, opposite pull.
+//   • One decision: a single card with the total AED beats N identical rows
+//     — bigger number, one tap, no list fatigue. Links to the oldest week
+//     (closest to expiry); the takeover's post-submit chain CTA carries the
+//     user through the remaining weeks without returning to the tray.
+//   • Recovery temperature: warm og-wash surface, rust text, OUTLINED pill.
+//     Deliberately no inset orange edge and no filled CTA — those stay
+//     exclusive to the live "act now" card so the tray keeps three readable
+//     temperatures instead of shouting everywhere.
+function CatchUpCard({ late, onClick }: { late: LateItem[]; onClick: () => void }) {
+  // Oldest first: closest to expiry, and the chain then ascends naturally.
+  const ordered = [...late].sort((a, b) => a.week - b.week)
+  const target = ordered[0]
+  const draftActive = useWeeklyDraftActive(target.week)
+  const daysLeft = Math.max(0, LATE_CAP_DAYS - Math.max(...late.map(l => l.daysLate)))
+  const totalAed = late.length * LATE_REWARD_AED
+  const isLastDay = daysLeft === 0
+  const closingSoon = daysLeft <= 3
+  const weeksLabel = late.length === 1
+    ? `Week ${target.week}`
+    : `Weeks ${ordered.map(l => l.week).join(' + ')}`
 
   return (
     <Link
-      href={`/dashboard/menu/review/${data.week}`}
+      href={`/dashboard/menu/review/${target.week}`}
       onClick={onClick}
-      className="now-tray-row"
+      className="now-tray-card-recovery"
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 12px',
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: '12px 12px 12px 14px',
         borderRadius: 'var(--radius-sm)',
-        background: 'transparent',
-        border: '1px solid var(--ds-border-soft)',
+        background: 'var(--ds-og-wash)',
+        border: '1px solid var(--ds-og-border)',
         textDecoration: 'none', color: 'var(--ds-fg)',
         fontFamily: BODY,
-        transition: 'background 150ms',
+        transition: 'transform 150ms, box-shadow 150ms, border-color 150ms',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', lineHeight: 1.2,
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
+          textTransform: 'uppercase', color: RUST,
         }}>
-          Week {data.week}
-          {expiringSoon && (
-            <span style={{
-              fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
-              textTransform: 'uppercase', color: '#8c4214',
-              padding: '1px 5px', borderRadius: 3,
-              background: 'var(--ds-og-wash)',
-            }}>
-              Expiring
-            </span>
-          )}
+          Catch up
         </div>
-        <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
-          {data.daysLate}d late · {draftActive ? 'Resume' : 'Submit'} for AED {LATE_REWARD_AED}
-        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+          padding: '2px 7px', borderRadius: 999,
+          background: 'var(--ds-og-wash-strong)', color: RUST,
+          border: '1px solid var(--ds-og-border-strong)',
+          fontFeatureSettings: '"tnum"',
+          animation: closingSoon ? 'urgentPulse 2s ease-in-out infinite' : undefined,
+        }}>
+          {isLastDay ? 'Last day' : `${daysLeft}d left`}
+        </span>
       </div>
-      <ChevronRight size={13} strokeWidth={2.2} color="var(--ds-fg-tint)" style={{ flexShrink: 0 }} />
+
+      <div style={{
+        fontSize: 15, fontWeight: 800, color: 'var(--ds-fg)',
+        letterSpacing: '-0.005em', lineHeight: 1.15,
+      }}>
+        {weeksLabel}
+      </div>
+      <div style={{
+        fontSize: 11.5, color: RUST, lineHeight: 1.35,
+        fontFeatureSettings: '"tnum"',
+      }}>
+        {isLastDay
+          ? `Week ${target.week} expires today`
+          : `Week ${target.week} expires in ${daysLeft}d`}
+      </div>
+
+      <div style={{
+        marginTop: 4,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        padding: '8px 10px', borderRadius: 999,
+        background: 'var(--ds-surface)', color: OG,
+        border: `1px solid ${OG}`,
+        fontSize: 11, fontWeight: 800,
+        letterSpacing: '0.06em', textTransform: 'uppercase',
+        fontFeatureSettings: '"tnum"',
+      }}>
+        {draftActive ? `Resume · AED ${totalAed}` : `Save AED ${totalAed}`}
+      </div>
     </Link>
   )
 }
