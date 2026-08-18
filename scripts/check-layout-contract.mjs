@@ -92,7 +92,7 @@ for (let i = 0; i < 3; i++) {
   await ap.waitForTimeout(2000)
   const hit = await ap.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find((x) =>
-      /plan options|got it|continue|dismiss|okay/i.test(x.textContent || ''))
+      /not now|got it|see your plan options|dismiss|continue|okay/i.test(x.textContent || '') && !/save my spot|saving your spot|renew/i.test(x.textContent || ''))
     if (b) { b.click(); return true }
     return false
   })
