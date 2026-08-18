@@ -193,6 +193,12 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const perDelivery = data.planName.includes('Monthly Max') ? 2 : 1
   const deliveriesDone = Math.floor(data.delivered / perDelivery)
   const mealsLeft = Math.max(0, (data.totalDeliveries - deliveriesDone) * perDelivery)
+  // One-delivery plans (trial, gifted welcome meal) collapse the calendar grid
+  // to a single full-width square and make every counter degenerate (1 of 1,
+  // 0/0 legend, Started === Ending). The card swaps to a single-meal treatment
+  // instead. isTrialPlan only picks the noun — welcome meals aren't trials.
+  const isSingleMeal = data.totalDeliveries === 1
+  const isTrialPlan = /trial/i.test(data.planName)
   const pct = data.totalDeliveries > 0 ? Math.min(100, Math.round((deliveriesDone / data.totalDeliveries) * 100)) : 0
   // Legacy subs can have skipped_meals_count > skipped_dates.length (skips made
   // before the dates column) — count and hatched chips would silently disagree.
@@ -622,13 +628,59 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
         {mealsLeft === 0 && !data.queued && (
           <Link href="/dashboard/plan" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '12px 14px', borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', textDecoration: 'none' }}>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: S.fg }}>Plan ended</span>
-              <span style={{ display: 'block', fontSize: 11.5, color: S.fgMuted, marginTop: 1 }}>Renew to keep meals coming.</span>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: S.fg }}>{isSingleMeal ? (isTrialPlan ? 'That was your trial' : 'That was your meal') : 'Plan ended'}</span>
+              <span style={{ display: 'block', fontSize: 11.5, color: S.fgMuted, marginTop: 1 }}>{isSingleMeal ? 'Pick a plan to keep meals coming.' : 'Renew to keep meals coming.'}</span>
             </span>
-            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: OG_DEEP }}>Renew <ChevronRight size={14} strokeWidth={2.6} /></span>
+            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: OG_DEEP }}>{isSingleMeal ? 'See plans' : 'Renew'} <ChevronRight size={14} strokeWidth={2.6} /></span>
           </Link>
         )}
 
+        {/* Single-meal trial (totalDeliveries === 1): the generic counter, the
+            skip legend, the progress bar and the calendar grid all collapse
+            into nonsense at one delivery — the lone grid cell inflates to the
+            full card width. One status row in the same chip vocabulary
+            replaces the lot. Reuses pills[0] so the closure / future-start
+            states and the tap sheets carry over unchanged. */}
+        {isSingleMeal ? (() => {
+          const p: Pill = pills[0] ?? { iso: data.startIso, state: 'upcoming', action: null }
+          const chipFill: CSSProperties =
+            p.state === 'delivered' ? { background: ORANGE_GRAD }
+            : p.state === 'closure' ? PAUSE_FILL
+            : p.state === 'today' ? { background: 'rgba(245,127,32,0.10)' }
+            : { background: 'rgba(9,24,37,0.07)' }
+          const chipBorder = p.state === 'today' ? `1.5px solid ${OG}` : '1px solid rgba(9,24,37,0.12)'
+          const statusText =
+            p.state === 'delivered' ? 'Delivered'
+            : p.state === 'today' ? 'Arriving tonight'
+            : p.state === 'closure' ? 'Kitchen closed'
+            : `Arriving ${fmtRangeDate(p.iso)}`
+          const onClick =
+            p.action === 'detail' ? () => setDishSheet(p.iso)
+            : p.action != null ? () => setCellInfo(p)
+            : null
+          const inner = (
+            <>
+              <span aria-hidden style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, border: chipBorder, ...chipFill }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: S.fg }}>{isTrialPlan ? 'Your trial meal' : 'Your meal'}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: S.fgMuted, marginTop: 2 }}>{statusText}</span>
+              </span>
+            </>
+          )
+          return onClick ? (
+            <button
+              type="button"
+              onClick={onClick}
+              aria-label={`${isTrialPlan ? 'Your trial meal' : 'Your meal'}, ${statusText}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: 0, border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', appearance: 'none' }}
+            >
+              {inner}
+              <ChevronRight size={16} color="rgba(9,24,37,0.3)" style={{ flexShrink: 0 }} aria-hidden />
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>{inner}</div>
+          )
+        })() : (<>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={eyebrow}>Meals left</div>
@@ -714,6 +766,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             )
           })}
         </div>
+        </>)}
 
         {untracedSkips > 0 && (
           <div style={{ marginTop: 8, fontSize: 11, color: S.fgFaint, lineHeight: 1.4 }}>
@@ -722,6 +775,14 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(9,24,37,0.07)' }}>
+          {/* Trial start === end, so Started → Ending would print the same
+              date twice; a single "Delivery day" says it once. */}
+          {isSingleMeal ? (
+            <div>
+              <div style={eyebrowSm}>Delivery day</div>
+              <div style={dateVal}>{data.startLabel}</div>
+            </div>
+          ) : (<>
           <div>
             <div style={eyebrowSm}>Started</div>
             <div style={dateVal}>{data.startLabel}</div>
@@ -732,6 +793,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             <div style={{ ...dateVal, ...(data.isPaused ? { color: S.fgMuted } : {}) }}>{data.endLabel}</div>
             {data.isPaused && <div style={{ fontSize: 10, color: S.fgFaint, lineHeight: 1.3, marginTop: 2, maxWidth: 132 }}>Extends ~1 day per paused delivery day.</div>}
           </div>
+          </>)}
           {mobilePauseRanges.length > 0 && !data.isPaused && (() => {
             const r = mobilePauseRanges[mobilePauseRanges.length - 1]
             const label = r.count === 1 ? fmtRangeDate(r.startIso) : `${fmtRangeDate(r.startIso)}–${fmtRangeDate(r.endIso)}`
