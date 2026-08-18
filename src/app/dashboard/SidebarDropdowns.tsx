@@ -543,7 +543,7 @@ function NowTray({
           {current && <PendingReviewCard data={current} onClick={onItemClick} />}
           {late.length > 0 && <CatchUpCard late={late} onClick={onItemClick} />}
           {justSubmitted && !current && late.length === 0 && !monthlyLive && (
-            <JustSubmittedRow week={justSubmitted.week} rewardPct={justSubmitted.rewardPct} />
+            <JustSubmittedRow week={justSubmitted.week} rewardPct={justSubmitted.rewardPct} total={rewards.total} />
           )}
           {/* Seasonal intake pause — ambient status, last in the stack and
               deliberately NOT interactive: it has no deadline and no action,
@@ -633,16 +633,20 @@ function deriveWeekDots(state: WeeklyReviewState): WeekDotState[] {
 
 // Cycle-stakes strip: per-week dots (spatial "where am I in the cycle") plus
 // one plain-language line: condition first, then the AED that is ACTUALLY
-// still attainable. "Lock" is the strip's one verb for the payout — the
-// imperative states promise "to lock AED X" and the success state confirms
-// "AED X locked", so the vocabulary teaches the all-or-nothing rule itself.
+// still attainable. "Lock in" is the strip's one verb for the payout — the
+// imperative states promise "to lock in AED X" and the success state
+// confirms "AED X locked in", so the vocabulary teaches the all-or-nothing
+// rule itself. Deliberately NOT "unlock" (that verb belongs to the wallet's
+// plan-gated credit, and it frames the AED as not-yet-yours, undercutting
+// the save-what's-yours architecture) and NOT bare "lock" (collides with
+// the wrap card's "Locked" = unavailable chip, and can read as frozen).
 // States:
-//   • all in       → success tone, "All N in · AED X locked"
+//   • all in       → success tone, "All N in · AED X locked in"
 //   • a week missed→ neutral muted, "Cycle bonus missed" (Model C: one
 //                    expired week makes all-in impossible, so no AED promise
 //                    survives — never dress this state in urgency)
-//   • none in yet  → urgent tone, "Submit all N [on time] to lock AED X"
-//   • partial      → urgent tone, "Submit N more [on time] to lock AED X"
+//   • none in yet  → urgent tone, "Submit all N [on time] to lock in AED X"
+//   • partial      → urgent tone, "Submit N more [on time] to lock in AED X"
 // "on time" appears only while every remaining week can still pay full;
 // once lates exist the X already prices them at the late rate, so the
 // qualifier would be noise. X is never an amount the math can no longer
@@ -665,10 +669,10 @@ function CycleStakesStrip({ state }: { state: WeeklyReviewState }) {
   const lead = remaining === total ? `Submit all ${total}` : `Submit ${remaining} more`
   const onTime = late.length === 0 ? ' on time' : ''
   const body = allIn
-    ? `All ${total} in · AED ${aedEarned} locked`
+    ? `All ${total} in · AED ${aedEarned} locked in`
     : missed
       ? 'Cycle bonus missed'
-      : `${lead}${onTime} to lock AED ${aedInPlay}`
+      : `${lead}${onTime} to lock in AED ${aedInPlay}`
 
   const tone: 'success' | 'muted' | 'urgent' = allIn ? 'success' : missed ? 'muted' : 'urgent'
   const fg = tone === 'success' ? 'var(--ds-success-fg)' : tone === 'muted' ? 'var(--ds-fg-faint)' : RUST
@@ -1041,7 +1045,11 @@ function CatchUpCard({ late, onClick }: { late: LateItem[]; onClick: () => void 
   )
 }
 
-function JustSubmittedRow({ week, rewardPct }: { week: number; rewardPct: 50 | 100 }) {
+// Sub-line honesty: under the all-or-nothing rule a single submission's AED
+// is banked, not locked in — nothing pays out until the whole cycle is in.
+// "Locked" here would contradict the strip one card up.
+function JustSubmittedRow({ week, rewardPct, total }: { week: number; rewardPct: 50 | 100; total: number }) {
+  const aed = rewardPct === 100 ? BASE_REWARD_AED : LATE_REWARD_AED
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -1064,7 +1072,7 @@ function JustSubmittedRow({ week, rewardPct }: { week: number; rewardPct: 50 | 1
           Week {week} submitted
         </div>
         <div style={{ fontSize: 11, color: 'var(--ds-fg-muted)', marginTop: 2, lineHeight: 1.3 }}>
-          {rewardPct === 100 ? `Full AED ${BASE_REWARD_AED} reward locked` : `AED ${LATE_REWARD_AED} reward locked`}
+          {total > 1 ? `AED ${aed} banked · pays out with all ${total}` : `AED ${aed} reward locked in`}
         </div>
       </div>
     </div>
