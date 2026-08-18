@@ -134,7 +134,10 @@ export function MonthlyWrapForceOverlay({
                         maxWidth: 480, width: '100%',
                         padding: 'clamp(28px, 4vw, 40px)',
                         borderRadius: 'var(--radius-md)',
-                        background: 'var(--ds-bg)',
+                        // --ds-content-bg, NOT --ds-bg: --ds-bg has never existed,
+                        // and an undefined var() paints transparent — which left
+                        // this card's navy text invisible on the navy backdrop.
+                        background: 'var(--ds-content-bg)',
                         border: '1px solid var(--ds-og-border)',
                         boxShadow: '0 30px 80px rgba(9,24,37,0.55), 0 0 0 6px rgba(245,127,32,0.10)',
                         textAlign: 'center',
