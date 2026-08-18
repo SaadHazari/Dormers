@@ -4,8 +4,8 @@ import { createClient } from '@/utils/supabase/server';
 import { resolvePlan, planKindOf } from '@/contexts/subscriptions/domain/plans';
 import { priceBoundsFils, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing';
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo';
-import type { WeekType } from '@/contexts/subscriptions/domain/end-date';
-import { journeyFits } from '@/contexts/subscriptions/domain/season-horizon';
+import { isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date';
+import { journeyFits, effectiveTaperStart, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion';
 import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-synth';
@@ -139,6 +139,30 @@ export async function POST(req: Request) {
       }
     }
 
+    // AE = UTC+4 year-round (no DST). Server-authoritative — even if the
+    // client computed the cutoff differently, this is the boundary that
+    // counts for what the kitchen can actually deliver. Hoisted above the
+    // start_date block because the seasonal-taper guard below also needs
+    // "today, AE-local" as its no-live-sub / no-start_date default.
+    const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    const aeToday = new Date(Date.UTC(aeNow.getUTCFullYear(), aeNow.getUTCMonth(), aeNow.getUTCDate()));
+
+    // Cheap pre-check for any live sub. Used by the start-date window check
+    // below (same-day starts are disallowed when one exists) AND by the
+    // seasonal-taper guard further down (a live sub's end_date is what the
+    // webhook actually queues the next journey behind — see
+    // effectiveTaperStart in season-horizon.ts). Hoisted above the
+    // start_date block so it's available regardless of whether a
+    // start_date was supplied. Mirrors LIVE_SUBSCRIPTION_STATUSES
+    // (Active | Paused | Skipped) — Scheduled is gated separately below.
+    const { data: liveSub } = await supabase
+      .from('subscriptions')
+      .select('id, end_date')
+      .eq('customer_id', user.id)
+      .in('status', ['Active', 'Paused', 'Skipped'])
+      .limit(1)
+      .maybeSingle();
+
     // start_date must be a YYYY-MM-DD inside the allowed window — the same
     // window the date picker enforces. Without this guard, a tampered POST
     // could schedule a sub starting yesterday — which the webhook would store
@@ -153,28 +177,12 @@ export async function POST(req: Request) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
         return NextResponse.json({ error: 'Invalid start_date format' }, { status: 400 });
       }
-      // Cheap pre-check for any live sub. If one exists, same-day starts are
-      // disallowed regardless of clock time. Mirrors LIVE_SUBSCRIPTION_STATUSES
-      // (Active | Paused | Skipped) — Scheduled is gated separately below.
-      const { data: liveSub } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('customer_id', user.id)
-        .in('status', ['Active', 'Paused', 'Skipped'])
-        .limit(1)
-        .maybeSingle();
-
-      // AE = UTC+4 year-round (no DST). Server-authoritative — even if the
-      // client computed the cutoff differently, this is the boundary that
-      // counts for what the kitchen can actually deliver.
-      const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000);
       const aeHour = aeNow.getUTCHours();
       const sameDayAllowed = !liveSub && aeHour < 14;
 
-      const today = new Date(Date.UTC(aeNow.getUTCFullYear(), aeNow.getUTCMonth(), aeNow.getUTCDate()));
-      const minStart = new Date(today);
+      const minStart = new Date(aeToday);
       if (!sameDayAllowed) minStart.setUTCDate(minStart.getUTCDate() + 1);
-      const maxStart = new Date(today); maxStart.setUTCDate(maxStart.getUTCDate() + 31);
+      const maxStart = new Date(aeToday); maxStart.setUTCDate(maxStart.getUTCDate() + 31);
       const requested = new Date(start_date + 'T00:00:00Z');
       if (isNaN(requested.getTime()) || requested < minStart || requested > maxStart) {
         return NextResponse.json({ error: 'start_date must be within the allowed window' }, { status: 400 });
@@ -213,32 +221,40 @@ export async function POST(req: Request) {
     // ── Seasonal taper ──────────────────────────────────────────────────────
     // With a pause scheduled, refuse any journey that cannot finish by the
     // last delivery day of the term. Deliveries on the day are fine; a plan
-    // ending after it would run into the break. Needs the validated
-    // start_date and the resolved week_type, so it can only run here — after
-    // the start-window validation above and after customerWeekType is known.
+    // ending after it would run into the break. Needs the resolved
+    // week_type, so it can only run here — after customerWeekType is known.
     //
-    // Only checked when start_date was supplied: the UI always sends one
-    // (handleCheckout bails without it), and a hand-crafted POST that omits
-    // it falls through to the webhook's tail-queueing/today default, which
-    // this pre-check has no way to predict — it fails open in that case
-    // rather than guessing.
+    // Trusting the raw POSTed start_date is NOT enough: when the customer
+    // already has a live sub, the Stripe webhook (handle-stripe-event.ts)
+    // silently overrides whatever start_date it was sent and queues the new
+    // journey behind the live sub's end_date instead. Checking the raw
+    // start_date here could approve a journey the webhook then provisions
+    // past the last delivery day. effectiveTaperStart (season-horizon.ts)
+    // predicts the webhook's actual start from the same liveSub row already
+    // fetched above; when neither a live sub nor a start_date exists, it
+    // returns null and we fall back to "today, AE-local" — the same
+    // no-live-sub default the webhook itself uses (and the same aeToday
+    // already derived for the start-window check above).
     //
     // getIntakeState fails open (pauseScheduledFor is null on a settings-read
     // blip), so a settings outage sells rather than blocking checkout.
-    if (!isStaffPlan && start_date) {
+    if (!isStaffPlan) {
       const intake = await getIntakeState();
       if (intake.pauseScheduledFor) {
+        const taperStart = effectiveTaperStart({
+          requestedStart: start_date ?? null,
+          liveSubEndDate: liveSub?.end_date ?? null,
+        }) ?? isoDate(aeToday);
         const fits = journeyFits({
           planId: planDef.id,
           weekType: customerWeekType,
-          startDate: start_date,
+          startDate: taperStart,
           lastDeliveryDay: intake.pauseScheduledFor,
         });
         if (!fits) {
-          const pretty = new Date(intake.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
           return NextResponse.json({
             error: 'INTAKE_ENDING',
-            message: `The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term. Shorter plans are still available.`,
+            message: `${seasonEndsMessage(intake.pauseScheduledFor)} Shorter plans are still available.`,
             last_delivery_day: intake.pauseScheduledFor,
           }, { status: 409 });
         }
@@ -490,7 +506,7 @@ export async function POST(req: Request) {
     // sub + order directly via the use case. Customer still gets WhatsApp +
     // email confirmations; Zoho is skipped (no cash transaction).
     if (isFreeCheckout) {
-      const { runFreeCheckout } = await import('@/contexts/payments/usecases/free-checkout');
+      const { runFreeCheckout, IntakeEndingError } = await import('@/contexts/payments/usecases/free-checkout');
       try {
         await runFreeCheckout({
           supabaseAdmin,
@@ -518,6 +534,17 @@ export async function POST(req: Request) {
             .update({ status: 'approved', reserved_token: null, reserved_until: null })
             .eq('reserved_token', reservationToken)
             .eq('status', 'reserved');
+        }
+        // The taper refusal is a deliberate, expected outcome, not a crash —
+        // map it to the same 409 INTAKE_ENDING shape the Stripe-redirect
+        // path returns, instead of letting it fall into the outer catch's
+        // generic 500 + notifyAdmin("Checkout CRASHED") page.
+        if (err instanceof IntakeEndingError) {
+          return NextResponse.json({
+            error: 'INTAKE_ENDING',
+            message: `${err.message} Shorter plans are still available.`,
+            last_delivery_day: err.lastDeliveryDay,
+          }, { status: 409 });
         }
         throw err;
       }

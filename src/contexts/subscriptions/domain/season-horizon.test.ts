@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { journeyFits, latestViableStart } from './season-horizon'
+import { journeyFits, latestViableStart, effectiveTaperStart, seasonEndsMessage } from './season-horizon'
 
 describe('journeyFits', () => {
   it('a trial starting on the last day fits', () => {
@@ -59,5 +59,31 @@ describe('latestViableStart', () => {
   it('never returns a date outside the window', () => {
     const got = latestViableStart({ planId: 'trial', weekType: '6DAYS', minStart: '2026-09-01', maxStart: '2026-09-05', lastDeliveryDay: '2026-09-20' })
     expect(got).toBe('2026-09-05')
+  })
+})
+
+describe('effectiveTaperStart', () => {
+  it('no live sub: the requested start passes through unchanged', () => {
+    expect(effectiveTaperStart({ requestedStart: '2026-09-10', liveSubEndDate: null })).toBe('2026-09-10')
+  })
+  it('live sub, requested start before tail: snaps to tail + 1 day', () => {
+    expect(effectiveTaperStart({ requestedStart: '2026-09-05', liveSubEndDate: '2026-09-12' })).toBe('2026-09-13')
+  })
+  it('live sub, requested start after tail: the later date (requested) wins', () => {
+    expect(effectiveTaperStart({ requestedStart: '2026-09-20', liveSubEndDate: '2026-09-12' })).toBe('2026-09-20')
+  })
+  it('live sub, no requested start: tail + 1 day', () => {
+    expect(effectiveTaperStart({ requestedStart: null, liveSubEndDate: '2026-09-12' })).toBe('2026-09-13')
+  })
+  it('no live sub, no requested start: null (caller falls back to "today")', () => {
+    expect(effectiveTaperStart({ requestedStart: null, liveSubEndDate: null })).toBeNull()
+  })
+})
+
+describe('seasonEndsMessage', () => {
+  it('pins the sentence and the UTC-parsed en-GB pretty date for a known date', () => {
+    expect(seasonEndsMessage('2026-09-20')).toBe(
+      'The semester wraps up on 20 September. This plan would run past it, so it is done for this term.',
+    )
   })
 })

@@ -18,6 +18,7 @@ import { queueCustomerNotification } from '@/contexts/notifications/usecases/que
 import { eligibleTrialDeliveryDates, trialDateIso } from '@/contexts/referrals/domain/trial-delivery'
 import { assertIntakeOpen } from '@/contexts/payments/usecases/free-checkout'
 import { getIntakeState } from '@/infra/config/intake'
+import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 
 // ── Rate-limit constants ───────────────────────────────────────────────────
 // Audit P1-14: the prior MAX_PENDING_INVITES counted referrals.status='pending'
@@ -270,13 +271,40 @@ export async function claimGift(payload: {
     return { error: err instanceof Error ? err.message : 'New plans are paused for now.' }
   }
 
-  // Seasonal taper: read once here (cached alongside the paused check above)
-  // and used later at step 11b, where the welcome-gift's one-day journey is
-  // actually chosen. A claimed gift is a real meal the kitchen has to cook,
-  // so it is refused the same way a purchased plan would be — see the
-  // isoDate comparison below. Fail open: pauseScheduledFor is null on a
-  // settings-read blip.
+  // Seasonal taper: hoisted to sit right beside the paused check above,
+  // BEFORE any write. The one-day welcome-gift journey depends only on
+  // payload.startDate and the current clock (eligibleTrialDeliveryDates is
+  // pure — no DB state), so there's no reason to compute it later at step
+  // 11b, where the referral row, the lifetime referral_gifts_claimed
+  // dedupe row, the customers upsert, and the WhatsApp OTP consumption
+  // have already committed. Refusing there would permanently burn the
+  // claimant's one-time gift eligibility for a meal they never got — the
+  // same DB rows would forever say "already claimed" with no subscription
+  // behind them. Fail open: pauseScheduledFor is null on a settings-read
+  // blip.
+  //
+  // Computed once here and reused at step 11b below (chosenGiftStartIso /
+  // giftEnd) so eligibleTrialDeliveryDates — a function of `new Date()` —
+  // can't disagree with itself across two calls separated by the rest of
+  // this function's work.
   const intakeState = await getIntakeState()
+  const eligibleGiftDates = eligibleTrialDeliveryDates(new Date(), '6DAYS', 5)
+  const eligibleGiftIsoSet = new Set(eligibleGiftDates.map(trialDateIso))
+  const chosenGiftStartIso = payload.startDate && eligibleGiftIsoSet.has(payload.startDate)
+    ? payload.startDate
+    : trialDateIso(eligibleGiftDates[0])
+  const giftEnd = computeEndDate({
+    startDate: chosenGiftStartIso,
+    planKind: planKindOf('welcome-gift'),
+    weekType: '6DAYS',
+    skipCount: 0,
+    pauseDays: 0,
+  })
+  if (intakeState.pauseScheduledFor && isoDate(giftEnd) > intakeState.pauseScheduledFor) {
+    return {
+      error: `The semester wraps up on ${prettySeasonDate(intakeState.pauseScheduledFor)}. We cannot fit your welcome meal into this term.`,
+    }
+  }
 
   const supabaseAdmin = createAdminSupabaseClient()
 
@@ -706,39 +734,17 @@ export async function claimGift(payload: {
 
   if (!existingGift) {
     const welcomeGift = PLANS['welcome-gift']
-    // Pick the delivery start date. Prefer the user's chip pick from the
-    // claim form when it's one of the eligible days the chip row offered;
-    // otherwise fall back to the soonest eligible day (the historical
-    // auto-pick behaviour). Cross-checking against eligibleTrialDeliveryDates
-    // means a tampered payload can't book a Sunday or a same-day post-cutoff.
-    const eligible = eligibleTrialDeliveryDates(new Date(), '6DAYS', 5)
-    const eligibleIsoSet = new Set(eligible.map(trialDateIso))
-    const chosenIso = payload.startDate && eligibleIsoSet.has(payload.startDate)
-      ? payload.startDate
-      : trialDateIso(eligible[0])
-    const start = new Date(chosenIso + 'T00:00:00Z')
+    // Delivery start date + end date were already resolved above (before
+    // any write) — chosenGiftStartIso / giftEnd — along with the taper
+    // refusal. Cross-checking against eligibleTrialDeliveryDates there
+    // means a tampered payload can't book a Sunday or a same-day
+    // post-cutoff.
+    const start = new Date(chosenGiftStartIso + 'T00:00:00Z')
     const todayUtc = new Date(); todayUtc.setUTCHours(0, 0, 0, 0)
-    const end = computeEndDate({
-      startDate: start,
-      planKind: planKindOf('welcome-gift'),
-      weekType: '6DAYS',
-      skipCount: 0,
-      pauseDays: 0,
-    })
+    const end = giftEnd
     const status = start.getTime() > todayUtc.getTime()
       ? SUBSCRIPTION_STATUS.SCHEDULED
       : SUBSCRIPTION_STATUS.ACTIVE
-
-    // ── Seasonal taper ────────────────────────────────────────────────────
-    // The gift is a one-day journey (end date == start date, after any
-    // non-delivery-day shift), so this is the same refusal as checkout's
-    // taper guard, just at one-day granularity. With a pause scheduled, a
-    // gift that would land after the last delivery day is done for the
-    // term.
-    if (intakeState.pauseScheduledFor && isoDate(end) > intakeState.pauseScheduledFor) {
-      const pretty = new Date(intakeState.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-      return { error: `The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term.` }
-    }
 
     const { error: subErr } = await supabaseAdmin
       .from('subscriptions')

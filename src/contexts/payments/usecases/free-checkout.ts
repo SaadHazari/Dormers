@@ -30,6 +30,7 @@ import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
 import { creditInviterOnConversion } from '@/app/r/[cid]/actions'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { getIntakeState } from '@/infra/config/intake'
+import { seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon'
 
 /**
  * Shared intake guard for the non-Stripe provisioning paths — free checkout
@@ -45,6 +46,22 @@ export async function assertIntakeOpen(): Promise<void> {
     throw new Error(
       intake.body || 'New plans are paused for now. Save your spot and we will message you the day we reopen.',
     )
+  }
+}
+
+/**
+ * Tagged error for the seasonal-taper refusal below, so the checkout
+ * route's `isFreeCheckout` catch branch can distinguish "the term is
+ * ending, tell the customer" from a real crash — a bare `Error` there was
+ * falling into the generic 500 handler and firing `notifyAdmin("Checkout
+ * CRASHED: ...")`, paging on a deliberate, expected refusal.
+ */
+export class IntakeEndingError extends Error {
+  readonly lastDeliveryDay: string
+  constructor(lastDeliveryDay: string) {
+    super(`${seasonEndsMessage(lastDeliveryDay)}`)
+    this.name = 'IntakeEndingError'
+    this.lastDeliveryDay = lastDeliveryDay
   }
 }
 
@@ -146,10 +163,11 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
   // path's throw-and-catch contract: with a pause scheduled, a journey that
   // would end after the last delivery day is done for the term. Fail open:
   // getIntakeState returns pauseScheduledFor: null on a settings-read blip.
+  // Tagged (IntakeEndingError) so the checkout route's isFreeCheckout catch
+  // branch can map this to a 409 instead of the generic crash path.
   const intake = await getIntakeState()
   if (intake.pauseScheduledFor && isoDate(endDate) > intake.pauseScheduledFor) {
-    const pretty = new Date(intake.pauseScheduledFor + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-    throw new Error(`The semester wraps up on ${pretty}. This plan would run past it, so it is done for this term.`)
+    throw new IntakeEndingError(intake.pauseScheduledFor)
   }
 
   const vegDaysList = (() => {
