@@ -755,7 +755,12 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             const isRange = !!p.pauseRange
             const base: CSSProperties = {
               aspectRatio: isRange ? 'auto' : '1 / 1',
-              borderRadius: 5, padding: 0, border, ...fill,
+              // Radius rides the cell size: 24% of a square cell is the ~5px the
+              // 12-column monthly grid has always had, but keeps a 6-cell weekly
+              // grid's ~40px cells equally soft (same ratio as the single-meal
+              // 34px chip at radius 8). Span-2 range cells stay at px — a
+              // percentage would resolve per-axis and go elliptical.
+              borderRadius: isRange ? 5 : '24%', padding: 0, border, ...fill,
               ...(isRange ? { gridColumn: 'span 2', height: '100%' } : {}),
               ...(markerShadow ? { boxShadow: markerShadow } : {}),
             }
