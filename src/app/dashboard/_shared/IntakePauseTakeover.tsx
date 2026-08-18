@@ -13,6 +13,14 @@ interface Props {
     variant: 'pausing' | 'reopened'
     creditAed: number
     onDismiss: () => void
+    /**
+     * Reopened only: quiet close that marks the takeover seen WITHOUT the
+     * trip to the plan page. Rendered as "Maybe later" under the main CTA —
+     * without it the reopened screen's only exit is a navigation, and a
+     * screen you can only leave by going somewhere else is still a trap
+     * (see pauseTakeoverCta's docblock).
+     */
+    onLater?: () => void
     /** True when this customer already saved a spot in the CURRENT pause. */
     alreadyJoined?: boolean
 }
@@ -41,7 +49,7 @@ interface Props {
  * This component only renders the two messages; it holds no persistence
  * logic of its own.
  */
-export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoined }: Props) {
+export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, alreadyJoined }: Props) {
     const [dismissing, setDismissing] = useState(false)
     const prefersReducedMotion = useReducedMotion()
     const router = useRouter()
@@ -241,6 +249,25 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, alreadyJoin
                             cta.dismissLabel
                         )}
                     </button>
+
+                    {cta.showLater && onLater && (
+                        <button
+                            type="button"
+                            onClick={onLater}
+                            disabled={dismissing}
+                            style={{
+                                minHeight: 44, padding: '10px 24px',
+                                borderRadius: 'var(--radius-pill)',
+                                border: '1px solid rgba(245,240,232,0.28)',
+                                background: 'transparent', color: TIER_POP_TEXT.primary,
+                                fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                                letterSpacing: '0.06em', textTransform: 'uppercase',
+                                cursor: dismissing ? 'default' : 'pointer',
+                            }}
+                        >
+                            {cta.laterLabel}
+                        </button>
+                    )}
                 </div>
             </motion.div>
         </div>

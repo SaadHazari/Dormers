@@ -189,13 +189,19 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     } catch { /* see above */ }
     setPausingSeen(true)
   }
-  const dismissReopenedTakeover = () => {
+  // "Maybe later" path: mark seen and stay put. The takeover is once-only
+  // either way — the credit stays visible in the sidebar wallet and on the
+  // plan page, so closing here loses nothing.
+  const markReopenedSeen = () => {
     try {
       if (intakePause.cycleEndedAt) {
         window.localStorage.setItem(intakeReopenedSeenKey(intakePause.cycleEndedAt), '1')
       }
     } catch { /* see above */ }
     setReopenedSeen(true)
+  }
+  const dismissReopenedTakeover = () => {
+    markReopenedSeen()
     router.push('/dashboard/plan')
   }
 
@@ -322,6 +328,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
         variant="reopened"
         creditAed={intakePause.waitlistCreditAed}
         onDismiss={dismissReopenedTakeover}
+        onLater={markReopenedSeen}
       />
     )
   }
