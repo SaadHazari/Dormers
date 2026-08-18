@@ -108,7 +108,7 @@ const SEND_TIMEOUT_MS = 10_000;
 
 type MergeInfo = Record<string, string | number>;
 
-async function sendTemplate(params: {
+export async function sendTemplate(params: {
   templateKey: string;
   to: { email: string; name?: string };
   mergeInfo: MergeInfo;

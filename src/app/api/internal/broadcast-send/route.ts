@@ -27,9 +27,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CircuitOpenError } from '@/infra/http/circuit-breaker'
-import { sendBroadcastEmail } from '@/infra/zeptomail/client'
+import { sendBroadcastEmail, sendTemplate } from '@/infra/zeptomail/client'
 import { buildBroadcastEmailHtml, personalizeBroadcast, reasonLineFor } from '@/infra/zeptomail/broadcast-shell'
 import { timingSafeCompare } from '@/shared/crypto'
+import { getIntakeState } from '@/infra/config/intake'
+import { getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 
 const BATCH_SIZE = 25
 // Leaves a margin under maxDuration for the batch's setup/teardown queries
@@ -47,16 +49,48 @@ type PendingSend = {
   attempts: number
 }
 
-// Task 7 implements this — the 'season_reopen' kind can't be created from the
-// UI yet, so this branch is unreachable in production until then. Params are
-// unused for now; kept on the signature so the call site below (which Task 7
-// will keep calling unchanged) never needs to change shape.
+/**
+ * One reopen recipient via the ZeptoMail season-reopen template.
+ * The template serves two audiences (docs/email-templates/season-reopen.html):
+ * credit holders get the credit block + "Use my credit"; everyone else gets
+ * "Restart my plan". credit_aed is OMITTED, never '', when absent — ZeptoMail
+ * Mustache treats '' as truthy and would render a blank amount.
+ * footer_reason must be TRUE per recipient (spam-complaint hygiene).
+ */
 async function sendSeasonReopenTo(
-  _sb: ReturnType<typeof createAdminSupabaseClient>,
-  _row: PendingSend,
+  sb: ReturnType<typeof createAdminSupabaseClient>,
+  row: PendingSend,
 ): Promise<void> {
-  void _sb; void _row // unused until Task 7 wires the real send
-  throw new Error('season_reopen not wired yet')
+  const templateKey = process.env.ZEPTOMAIL_TPL_SEASON_REOPEN
+  if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SEASON_REOPEN is not set')
+
+  const { data: waitlistRow } = await sb.from('intake_waitlist')
+    .select('id').eq('customer_id', row.customer_id).maybeSingle()
+
+  const intakeState = await getIntakeState()
+  const { unspentCreditAed } = await getWaitlistStatus(sb, row.customer_id, intakeState.cycleStartedAt)
+
+  const mergeInfo: Record<string, string> = {
+    first_name: row.first_name,
+    cta_label: unspentCreditAed > 0 ? 'Use my credit' : 'Restart my plan',
+    footer_reason: waitlistRow
+      ? 'You are getting this because you asked to hear when we reopened.'
+      : 'You are getting this because you were on a Dormers plan before.',
+  }
+  if (unspentCreditAed > 0) mergeInfo.credit_aed = String(unspentCreditAed)
+
+  await sendTemplate({
+    templateKey,
+    to: { email: row.email, name: row.first_name },
+    mergeInfo,
+  })
+
+  if (waitlistRow) {
+    await sb.from('intake_waitlist')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('customer_id', row.customer_id)
+      .is('notified_at', null)
+  }
 }
 
 export async function POST(req: Request) {

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pause, Play, Gift, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { Pause, Play, Gift, AlertTriangle, Send } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
@@ -161,6 +162,20 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                     )}
                 </div>
                 {toggleError && !confirmOpen && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{toggleError}</p>}
+                {!settings.paused && (
+                    <div className={`mt-4 pt-4 border-t ${t.border}`}>
+                        <p className={`text-[12px] font-medium max-w-[52ch] ${t.muted}`}>
+                            Intake is open again. The reopening notice tells the early access list their credit is ready, and lapsed customers that plans are back.
+                        </p>
+                        <Link
+                            href="/admin/comms/broadcast?preset=reopen"
+                            className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.04em] ring-1 ring-[#f57f20]/30 ${t.card} ${t.accent} transition-all hover:ring-[#f57f20]/50`}
+                        >
+                            <Send size={14} strokeWidth={2.2} />
+                            Send the reopening notice
+                        </Link>
+                    </div>
+                )}
             </div>
 
             <div className="grid lg:grid-cols-2 gap-5 mt-5">
