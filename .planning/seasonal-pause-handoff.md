@@ -39,9 +39,20 @@ dropped.
 
 ## The broadcast / reopen messaging stream — BUILT 2026-08-18
 
-Plan: `.superpowers/sdd/2026-08-18-broadcast-composer/`. Composer live at
+Plan: `docs/superpowers/plans/2026-08-18-broadcast-composer.md` (the SDD workspace was deleted
+after the final review came back clean; git history is the record). Composer live at
 `/admin/comms/broadcast` (composer + preview + type-SEND confirm + progress + kill switch +
 retry), sidebar entry "Broadcast".
+
+**Two fast-follows parked at the final review, deliberately not blocking:**
+- The done-transition has a millisecond race against Retry (count-then-flip in two statements).
+  Symptom if ever hit: a `done` broadcast showing sent < total with no Retry button; recover by
+  SQL. Proper fix: make the flip a conditional RPC that re-checks pending atomically.
+- The two new tables' RLS policies are `for all using (true)` without `TO service_role`
+  (matches the intake_waitlist precedent; revokes are the protection). Tighten in the
+  Release It hardening pass.
+Also deliberate: the `ended_not_renewed` half of the 'reopen' audience is NOT cycle-scoped and
+must never be — lapsed customers stay reachable regardless of pause cycles.
 
 **Sending engine, all applied live to Ohio:** `broadcasts` + `broadcast_sends` tables;
 `broadcast_audience` / `broadcast_confirm` / `broadcast_claim_batch` RPCs (lease-based claiming,
