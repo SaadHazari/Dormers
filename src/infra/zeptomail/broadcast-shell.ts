@@ -11,6 +11,8 @@
  * this module is also imported client-side for the live composer preview.
  */
 
+import { whatsAppHref } from '@/shared/contacts'
+
 const FONT_STACK = "'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif"
 
 const esc = (s: string) =>
@@ -211,7 +213,7 @@ ${ctaBox}
                     <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
                       We are a tap away on WhatsApp, usually replying within an hour.
                     </p>
-                    <a href="https://wa.me/971504619384"
+                    <a href="${esc(whatsAppHref())}"
                       style="background-color:#2e7d32; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:${FONT_STACK};">
                       Chat with Support
                     </a>
