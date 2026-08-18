@@ -22,6 +22,30 @@ export function personalizeBroadcast(text: string, firstName: string): string {
   return text.replace(/\{\{\s*first_name\s*\}\}/g, firstName)
 }
 
+/**
+ * Merge keys for one season-reopen recipient (docs/email-templates/season-reopen.html).
+ * The template serves two audiences: credit holders get the credit block +
+ * "Use my credit"; everyone else gets "Restart my plan". credit_aed is
+ * OMITTED from the result — never sent as '' — when there's no unspent
+ * credit, because ZeptoMail's Mustache engine treats an empty string as
+ * truthy and would render a blank amount.
+ */
+export function buildSeasonReopenMergeInfo(input: {
+  firstName: string
+  isWaitlistMember: boolean
+  unspentCreditAed: number
+}): Record<string, string> {
+  const mergeInfo: Record<string, string> = {
+    first_name: input.firstName,
+    cta_label: input.unspentCreditAed > 0 ? 'Use my credit' : 'Restart my plan',
+    footer_reason: input.isWaitlistMember
+      ? 'You are getting this because you asked to hear when we reopened.'
+      : 'You are getting this because you were on a Dormers plan before.',
+  }
+  if (input.unspentCreditAed > 0) mergeInfo.credit_aed = String(input.unspentCreditAed)
+  return mergeInfo
+}
+
 export function reasonLineFor(audience: string): string {
   switch (audience) {
     case 'early_access':

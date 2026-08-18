@@ -28,10 +28,10 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CircuitOpenError } from '@/infra/http/circuit-breaker'
 import { sendBroadcastEmail, sendTemplate } from '@/infra/zeptomail/client'
-import { buildBroadcastEmailHtml, personalizeBroadcast, reasonLineFor } from '@/infra/zeptomail/broadcast-shell'
+import { buildBroadcastEmailHtml, buildSeasonReopenMergeInfo, personalizeBroadcast, reasonLineFor } from '@/infra/zeptomail/broadcast-shell'
 import { timingSafeCompare } from '@/shared/crypto'
 import { getIntakeState } from '@/infra/config/intake'
-import { getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
+import { getWaitlistStatusStrict } from '@/infra/supabase/subscriptions-repo'
 
 const BATCH_SIZE = 25
 // Leaves a margin under maxDuration for the batch's setup/teardown queries
@@ -53,9 +53,16 @@ type PendingSend = {
  * One reopen recipient via the ZeptoMail season-reopen template.
  * The template serves two audiences (docs/email-templates/season-reopen.html):
  * credit holders get the credit block + "Use my credit"; everyone else gets
- * "Restart my plan". credit_aed is OMITTED, never '', when absent — ZeptoMail
- * Mustache treats '' as truthy and would render a blank amount.
- * footer_reason must be TRUE per recipient (spam-complaint hygiene).
+ * "Restart my plan". Merge-key construction (including the credit_aed OMIT-
+ * when-zero contract) lives in buildSeasonReopenMergeInfo.
+ *
+ * intake_waitlist has NO unique(customer_id) — a repeat member has one row
+ * PER PAUSE CYCLE. Every read and write here is scoped to the CURRENT cycle
+ * (getIntakeState().cycleStartedAt); an unscoped read against a two-row
+ * customer would error out of maybeSingle(), so both the membership lookup
+ * and the strict credit read throw rather than swallow, letting the
+ * dispatcher's per-recipient catch park the row for retry instead of
+ * silently sending a wrong-footer, never-retried email.
  */
 async function sendSeasonReopenTo(
   sb: ReturnType<typeof createAdminSupabaseClient>,
@@ -64,20 +71,27 @@ async function sendSeasonReopenTo(
   const templateKey = process.env.ZEPTOMAIL_TPL_SEASON_REOPEN
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SEASON_REOPEN is not set')
 
-  const { data: waitlistRow } = await sb.from('intake_waitlist')
-    .select('id').eq('customer_id', row.customer_id).maybeSingle()
-
   const intakeState = await getIntakeState()
-  const { unspentCreditAed } = await getWaitlistStatus(sb, row.customer_id, intakeState.cycleStartedAt)
 
-  const mergeInfo: Record<string, string> = {
-    first_name: row.first_name,
-    cta_label: unspentCreditAed > 0 ? 'Use my credit' : 'Restart my plan',
-    footer_reason: waitlistRow
-      ? 'You are getting this because you asked to hear when we reopened.'
-      : 'You are getting this because you were on a Dormers plan before.',
+  const { data: waitlistRow, error: waitlistError } = await sb.from('intake_waitlist')
+    .select('id')
+    .eq('customer_id', row.customer_id)
+    .eq('cycle_started_at', intakeState.cycleStartedAt)
+    .maybeSingle()
+  if (waitlistError) {
+    throw new Error(`sendSeasonReopenTo: intake_waitlist read failed for ${row.customer_id}: ${waitlistError.message}`)
   }
-  if (unspentCreditAed > 0) mergeInfo.credit_aed = String(unspentCreditAed)
+
+  // Strict, not the fail-open getWaitlistStatus: a swallowed credits-read
+  // error here would send a credit holder the no-credit email and stamp it
+  // sent, with no retry ever correcting it.
+  const { unspentCreditAed } = await getWaitlistStatusStrict(sb, row.customer_id, intakeState.cycleStartedAt)
+
+  const mergeInfo = buildSeasonReopenMergeInfo({
+    firstName: row.first_name,
+    isWaitlistMember: !!waitlistRow,
+    unspentCreditAed,
+  })
 
   await sendTemplate({
     templateKey,
@@ -86,10 +100,17 @@ async function sendSeasonReopenTo(
   })
 
   if (waitlistRow) {
-    await sb.from('intake_waitlist')
+    const { error: notifyError } = await sb.from('intake_waitlist')
       .update({ notified_at: new Date().toISOString() })
       .eq('customer_id', row.customer_id)
+      .eq('cycle_started_at', intakeState.cycleStartedAt)
       .is('notified_at', null)
+    // The email already sent — at-least-once is accepted here. Log, don't
+    // throw: a stamping failure shouldn't count this send as failed and
+    // trigger a resend, it would just leave notified_at unset for this row.
+    if (notifyError) {
+      console.error(`sendSeasonReopenTo: notified_at stamp failed for ${row.customer_id}: ${notifyError.message}`)
+    }
   }
 }
 

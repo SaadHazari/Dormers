@@ -307,3 +307,37 @@ export async function getWaitlistStatus(
 
   return { joined, unspentCreditAed }
 }
+
+/**
+ * Strict sibling of getWaitlistStatus, for callers where silently defaulting
+ * to "no credit" on a read error is the WRONG failure mode — e.g. the season
+ * reopen broadcast, where a swallowed error would send a credit holder the
+ * no-credit email and stamp it sent, with no retry ever correcting it.
+ * Mirrors getWaitlistStatus's queries exactly, but throws on any query error
+ * instead of logging and defaulting, so the caller's own retry path (a
+ * per-recipient catch that parks the row for another attempt) can do its job.
+ * getWaitlistStatus itself is intentionally left fail-open for its existing
+ * callers (pause suppression must never fail closed) — do not merge these.
+ */
+export async function getWaitlistStatusStrict(
+  sb: SupabaseClient,
+  userId: string,
+  cycleStartedAt?: string | null,
+): Promise<WaitlistStatus> {
+  const waitlistQuery = cycleStartedAt
+    ? sb.from('intake_waitlist').select('id').eq('customer_id', userId).eq('cycle_started_at', cycleStartedAt).maybeSingle()
+    : sb.from('intake_waitlist').select('id').eq('customer_id', userId).limit(1).maybeSingle()
+
+  const [waitlistResult, creditsResult] = await Promise.all([
+    waitlistQuery,
+    sb.from('credits').select('amount_aed').eq('customer_id', userId).eq('source', INTAKE_WAITLIST_SOURCE).eq('status', 'approved'),
+  ])
+  if (waitlistResult.error) throw new Error(`getWaitlistStatusStrict: intake_waitlist read failed: ${waitlistResult.error.message}`)
+  if (creditsResult.error) throw new Error(`getWaitlistStatusStrict: credits read failed: ${creditsResult.error.message}`)
+
+  const joined = !!waitlistResult.data
+  const rows = (creditsResult.data ?? []) as Array<{ amount_aed: number | string }>
+  const unspentCreditAed = rows.reduce((sum, r) => sum + Number(r.amount_aed), 0)
+
+  return { joined, unspentCreditAed }
+}

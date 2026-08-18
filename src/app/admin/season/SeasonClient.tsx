@@ -165,7 +165,7 @@ export function SeasonClient({ settings, waitlistCount }: Props) {
                 {!settings.paused && (
                     <div className={`mt-4 pt-4 border-t ${t.border}`}>
                         <p className={`text-[12px] font-medium max-w-[52ch] ${t.muted}`}>
-                            Intake is open again. The reopening notice tells the early access list their credit is ready, and lapsed customers that plans are back.
+                            Reopening after a pause? The reopening notice tells the early access list their credit is ready, and lapsed customers that plans are back.
                         </p>
                         <Link
                             href="/admin/comms/broadcast?preset=reopen"
