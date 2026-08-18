@@ -74,6 +74,9 @@ interface Props {
    *  time/session-driven hero state. Never set by production callers. */
   previewState?: string
   menuData?: Dish[]
+  /** Company closure dates (YYYY-MM-DD) — forwarded to the progress grids so
+   *  closure days render "kitchen closed" instead of falsely delivered. */
+  closureDates?: string[]
   /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
   intakePause?: IntakeGateState
 }
@@ -87,7 +90,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, intakePause = INTAKE_NOT_PAUSED }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -401,6 +404,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       monthlyWindow={monthlyWindow}
       previewState={previewState}
       menuData={menuData}
+      closureDates={closureDates}
       intakePause={intakePause}
     />
   )

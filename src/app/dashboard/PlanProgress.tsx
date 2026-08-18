@@ -93,6 +93,7 @@ type PillState =
     | 'remaining'
     | 'makeup'           // remaining, but earned by a skip (post-original-end)
     | 'paused'           // overrides above for paused subs on/after pause_date
+    | 'closure'          // company closure — kitchen closed, no delivery, day added
 
 /**
  * Plan progress card — span-12. Calendar-driven progress bar: each pill is
@@ -106,12 +107,17 @@ export function PlanProgress({
     isPaused = false,
     maxSkips = 0,
     hasQueuedRenewal = false,
+    closureDates = [],
     onPillSkip,
     onPillUnskip,
     onCancelPlannedPause,
 }: {
     sub: Subscription
     isPaused?: boolean
+    // Company closure dates (YYYY-MM-DD). The delivery tick banks no meal on
+    // these days, so the bar must not paint them orange — a past closure day
+    // otherwise contradicts the delivered_meals legend by one.
+    closureDates?: string[]
     // Plan's skip allowance — drives the "credits remaining" gate on
     // future-remaining pill clickability. Defaults to 0 so the bar stays
     // read-only when this prop isn't supplied (legacy / preview usage).
@@ -158,6 +164,10 @@ export function PlanProgress({
     const pausedDateSet = useMemo(
         () => new Set(sub.paused_dates ?? []),
         [sub.paused_dates],
+    )
+    const closureDateSet = useMemo(
+        () => new Set(closureDates),
+        [closureDates],
     )
     const pauseRanges = useMemo(
         () => groupPauseRanges(sub.paused_dates ?? [], weekType, skipDateSet),
@@ -315,6 +325,12 @@ export function PlanProgress({
                         state = isToday ? 'today-skipped' : 'skipped'
                     } else if (isPillPaused || isCollapsedRange) {
                         state = 'paused'
+                    } else if (closureDateSet.has(pillIso)) {
+                        // Checked before isPast/isToday: a closure day never
+                        // delivered (the tick bails), so it must not paint
+                        // orange once past, and today-on-closure has no
+                        // "arriving tonight" state either.
+                        state = 'closure'
                     } else if (isPast) {
                         state = 'delivered'
                     } else if (isToday) {
@@ -345,7 +361,10 @@ export function PlanProgress({
                     // all collapse into "plain gray pill" — their meaning
                     // surfaces via banners and text, not via more pill colors.
                     const isSkipHatch = state === 'skipped' || state === 'today-skipped'
-                    const isPausePill = state === 'paused'
+                    // Closure shares the pause visual (plain gray + faint
+                    // hatch) — "no delivery, day added" is the same story,
+                    // told apart by the tooltip. Keeps the 4-state palette.
+                    const isPausePill = state === 'paused' || state === 'closure'
                     const isMakeupPill = state === 'makeup'
                     const backgroundColor =
                         state === 'delivered' || state === 'today-delivered'
@@ -472,6 +491,12 @@ export function PlanProgress({
                             dateCopy = dateLabel
                             footnote = 'Earned from a skip'
                             statusColor = TIER_POP_TEXT.muted
+                            break
+                        case 'closure':
+                            statusLabel = 'Kitchen closed'
+                            dateCopy = dateLabel
+                            footnote = 'No delivery. A day is added to your plan.'
+                            statusColor = TIER_POP_TEXT.faint
                             break
                         case 'paused':
                             if (isCollapsedRange && pillRange) {

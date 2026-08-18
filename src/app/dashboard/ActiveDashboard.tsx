@@ -348,7 +348,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, intakePause = INTAKE_NOT_PAUSED }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -357,6 +357,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   monthlyWindow?: MonthlyReviewWindow
   previewState?: string
   menuData?: Dish[]
+  /** Company closure dates (YYYY-MM-DD) — both progress grids render these
+   *  as "kitchen closed" instead of falsely painting them delivered. */
+  closureDates?: string[]
   /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
   intakePause?: IntakeGateState
 }) {
@@ -1144,6 +1147,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     weekType: effectiveSub.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
     skippedDates: effectiveSub.skipped_dates ?? [],
     pausedDates: effectiveSub.paused_dates ?? [],
+    closureDates,
     todayIso: aeTodayIso,
     maxSkips: skipTotal,
     totalDeliveries: Math.max(1, Math.ceil(effectiveSub.total_meals / (effectiveSub.plan_name.includes('Monthly Max') ? 2 : 1))),
@@ -1649,6 +1653,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             isPaused={localState === 'paused'}
             maxSkips={skipTotal}
             hasQueuedRenewal={!!queuedSub}
+            closureDates={closureDates}
             onPillSkip={openFutureSkipModal}
             onPillUnskip={openFutureUnskipModal}
             onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
@@ -2219,24 +2224,31 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           .home-desktop {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
-            align-items: center;
             column-gap: 20px;
+            /* row-gap owns EVERY vertical gap in this column, matching
+               .dash-grid's own 20px so the whole page keeps one rhythm.
+               Do not reintroduce per-child margins here: the children carry
+               their own (greeting 20, each banner 18) and they do not agree,
+               so mixing the two produced a 0px gap above the banner and 36px
+               below it — the header row's margin was zeroed to align it with
+               the strip, and the compensation landed on .dash-grid, which sits
+               AFTER the banner rather than after the header. One owner. */
+            row-gap: 20px;
           }
-          /* Default every child to the full row; only the two header items are
-             placed by hand. Anything added later stays full-bleed by default
-             rather than silently landing in half a column. */
-          .home-desktop > * { grid-column: 1 / -1; }
-          .home-desktop > .home-greeting { grid-column: 1; grid-row: 1; margin-bottom: 0 !important; }
+          /* Default every child to the full row and strip its own bottom
+             margin; only the two header items are placed by hand. Anything
+             added later stays full-bleed and on-rhythm by default rather than
+             silently landing in half a column with its own spacing. */
+          .home-desktop > * { grid-column: 1 / -1; margin-bottom: 0 !important; }
+          .home-desktop > .home-greeting { grid-column: 1; grid-row: 1; align-self: center; }
           .home-desktop > .monthly-wrap-strip {
             grid-column: 2; grid-row: 1;
+            align-self: center;
             justify-self: end;
-            margin-bottom: 0 !important;
             border-bottom: none !important;
             padding-top: 0 !important;
             padding-bottom: 0 !important;
           }
-          /* The row owns the spacing now that both items dropped their own. */
-          .home-desktop > .dash-grid { margin-top: 18px; }
 
           /* Rebalance the hero/actions pair. The 8/4 split is tuned for a
              laptop's 1348px content; at 932px it leaves Quick Actions 268px,

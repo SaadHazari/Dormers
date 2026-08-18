@@ -70,6 +70,10 @@ export interface MobileHomeData {
   weekType: '5DAYS' | '6DAYS'
   skippedDates: string[]
   pausedDates: string[]
+  /** Company closure dates (YYYY-MM-DD). The delivery tick banks no meal on
+   *  these days — cells must render "kitchen closed", never delivered-orange,
+   *  or the grid contradicts the delivered counter by one per closure. */
+  closureDates?: string[]
   todayIso: string
   maxSkips: number
   totalDeliveries: number
@@ -180,7 +184,7 @@ function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused'
+type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused' | 'closure'
 interface Pill { iso: string; state: PillState; action: 'skip' | 'unskip' | 'info' | 'detail' | 'pause-info' | 'cell-info' | null; pauseRange?: PauseRange }
 
 export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
@@ -264,6 +268,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   // upcoming, with future cells clickable to skip / future skips to un-skip).
   const skipSet = new Set(data.skippedDates)
   const pausedSet = new Set(data.pausedDates)
+  const closureSet = new Set(data.closureDates ?? [])
   const mobilePauseRanges = groupPauseRanges(data.pausedDates, data.weekType, skipSet)
   const mobilePauseLookup = buildPauseLookup(mobilePauseRanges)
   const hasCredits = data.maxSkips - data.skipped > 0
@@ -306,6 +311,11 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
           action = 'pause-info'
         } else if (pausedSet.has(iso)) {
           state = 'paused'
+        } else if (closureSet.has(iso)) {
+          // Before today/past: a closure day never delivered (the tick bails)
+          // so it must not fill orange once past, and today-on-closure has no
+          // "arriving tonight" ring either. Mirrors desktop PlanProgress.
+          state = 'closure'
         } else if (iso === data.todayIso) {
           // Today is classified before make-up so the orange "today" ring always
           // shows, even when today lands on a make-up day (mirrors desktop order).
@@ -651,7 +661,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             const fill: CSSProperties =
               p.state === 'delivered' ? { background: ORANGE_GRAD }
               : p.state === 'skipped' ? HATCH_SKIP
-              : p.state === 'paused' ? PAUSE_FILL
+              : p.state === 'paused' || p.state === 'closure' ? PAUSE_FILL
               : p.state === 'today' ? { background: 'rgba(245,127,32,0.10)' }
               : p.state === 'makeup' ? { background: 'rgba(9,24,37,0.07)' }
               : { background: 'rgba(9,24,37,0.07)' } // upcoming
@@ -660,7 +670,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
             // stealing the orange accent.
             const border =
               p.state === 'today' ? `1.5px solid ${OG}`
-              : p.state === 'paused' ? '1px solid transparent'
+              : p.state === 'paused' || p.state === 'closure' ? '1px solid transparent'
               : p.state === 'makeup' ? '1px solid rgba(9,24,37,0.20)'
               : (p.action === 'skip' || p.action === 'unskip') ? '1px solid rgba(9,24,37,0.30)'
               : '1px solid transparent'
@@ -946,12 +956,13 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
         // today-skipped grouping (mobile previously mislabelled a skipped-today
         // cell as plain "Skipped"). Excludes a frozen paused-today cell, which
         // keeps its paused copy rather than promising a delivery tonight.
-        const isToday = cellInfo.iso === data.todayIso && cellInfo.state !== 'paused'
+        const isToday = cellInfo.iso === data.todayIso && cellInfo.state !== 'paused' && cellInfo.state !== 'closure'
         const stateLabel =
           isToday ? 'Today'
           : cellInfo.state === 'delivered' ? 'Delivered'
           : cellInfo.state === 'skipped' ? 'Skipped'
           : cellInfo.state === 'paused' ? 'Paused'
+          : cellInfo.state === 'closure' ? 'Kitchen closed'
           : cellInfo.state === 'makeup' ? 'Make-up day'
           : isPlannedPauseStart ? 'Pause begins'
           : inPlannedPause ? 'Pause planned'
@@ -962,6 +973,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
           : isToday ? 'Dinner arrives tonight between 7–8 PM.'
           : cellInfo.state === 'skipped' ? 'This meal was skipped — your end date extended by 1 day.'
           : cellInfo.state === 'paused' ? 'No delivery — plan was paused on this day.'
+          : cellInfo.state === 'closure' ? 'No delivery — the kitchen is closed this day, so a day is added to your plan.'
           : cellInfo.state === 'delivered' ? 'Dinner was delivered by 7–8 PM.'
           : cellInfo.state === 'makeup' ? 'A bonus day earned from an earlier skip. Cannot be skipped.'
           : isPlannedPauseStart ? 'Your planned pause starts here — no deliveries from this day until you resume.'

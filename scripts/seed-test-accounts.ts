@@ -270,6 +270,35 @@ function uaeToday(): Date {
   return new Date(Date.UTC(y, m - 1, d))
 }
 
+/**
+ * Has tonight's subscription_delivery_tick (20:00 AE) already fired?
+ * When it has, "delivered before today" undercounts by one: the tick already
+ * banked today's meal, and a seed/rewind that overwrites delivered_meals with
+ * a strictly-before-today count erases it — the day still paints orange on the
+ * dashboard grid, so the counter and the calendar disagree by exactly 1
+ * forever (the tick's once-per-date guard never re-fires for a past date).
+ */
+function uaeTickRanToday(): boolean {
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dubai', hour: 'numeric', hour12: false,
+  }).format(new Date()))
+  return hour >= 20
+}
+
+/**
+ * Live company_closures dates, loaded once in main(). The delivery tick bails
+ * on these days (no delivered_meals increment), so derive() must not count
+ * them either — a fixture window spanning a closure would otherwise seed a
+ * counter the calendar contradicts.
+ */
+let CLOSURE_DATES = new Set<string>()
+
+async function loadClosureDates(sb: SupabaseClient): Promise<void> {
+  const { data, error } = await sb.from('company_closures').select('closure_date')
+  if (error) throw new Error(`company_closures: ${error.message}`)
+  CLOSURE_DATES = new Set((data ?? []).map((r) => r.closure_date as string))
+}
+
 function addDays(d: Date, n: number): Date {
   const r = new Date(d)
   r.setUTCDate(r.getUTCDate() + n)
@@ -306,7 +335,12 @@ interface Derived {
   skippedDates: string[]
   pausedDates: string[]
   pausedDays: number
+  closureDays: number
   deliveredMeals: number
+  /** Mirrors what the delivery tick would have left behind: today when the
+   *  20:00 AE tick already fired, null otherwise (null lets tonight's tick
+   *  count today). */
+  lastTickDate: string | null
   pricePerMeal: number
 }
 
@@ -319,8 +353,8 @@ function derive(spec: AccountSpec, index: number, today: Date): Derived {
       email, phone,
       planName: null, mealsPerDay: 0, totalMeals: 0,
       startDate: isoDate(today), endDate: isoDate(today),
-      skippedDates: [], pausedDates: [], pausedDays: 0,
-      deliveredMeals: 0, pricePerMeal: 0,
+      skippedDates: [], pausedDates: [], pausedDays: 0, closureDays: 0,
+      deliveredMeals: 0, lastTickDate: null, pricePerMeal: 0,
     }
   }
 
@@ -329,27 +363,42 @@ function derive(spec: AccountSpec, index: number, today: Date): Derived {
   const skippedDates = spec.skipOffsets.map((o) => isoDate(addDays(today, o)))
   const pausedDates = spec.pauseOffsets.map((o) => isoDate(addDays(today, o)))
 
+  // Company-closure delivery days inside the elapsed window. The live
+  // closure_tick banked one closure_days per such day (extending end_date via
+  // the recompute trigger), and the delivery tick skipped them — mirror both.
+  const tickRanToday = uaeTickRanToday()
+  const lastElapsed = tickRanToday ? today : addDays(today, -1)
+  let closureDays = 0
+  for (let d = new Date(start); d <= lastElapsed; d = addDays(d, 1)) {
+    if (isDeliveryDay(d, spec.weekType) && CLOSURE_DATES.has(isoDate(d))) closureDays++
+  }
+
   const end = computeEndDate({
     startDate: start,
     planKind: planKindOf(spec.planId),
     weekType: spec.weekType,
     skipCount: skippedDates.length,
-    pauseDays: pausedDates.length,
+    // The DB trigger folds paused_days + closure_days into the same extension.
+    pauseDays: pausedDates.length + closureDays,
   })
 
   const totalMeals = totalMealsFor(spec.planId, spec.weekType)
 
-  // Delivered = delivery days elapsed before today, minus skipped and paused
-  // days, times meals per day. Recomputed on every rewind so a re-dated
-  // fixture never shows a progress bar that contradicts its own dates.
+  // Delivered = delivery days elapsed, minus skipped / paused / closure days,
+  // times meals per day. Recomputed on every rewind so a re-dated fixture
+  // never shows a progress bar that contradicts its own dates. "Elapsed"
+  // includes today once the 20:00 AE delivery tick has fired — overwriting
+  // with a strictly-before-today count after the tick is exactly how the
+  // Aug 2026 off-by-one ("20 delivered, 21 orange cells") was born.
   let delivered = 0
   if (spec.status === 'Ended') {
     delivered = totalMeals
   } else {
-    for (let d = new Date(start); d < today; d = addDays(d, 1)) {
+    for (let d = new Date(start); d <= lastElapsed; d = addDays(d, 1)) {
       if (!isDeliveryDay(d, spec.weekType)) continue
       const iso = isoDate(d)
       if (skippedDates.includes(iso) || pausedDates.includes(iso)) continue
+      if (CLOSURE_DATES.has(iso)) continue
       delivered += def.mealsPerDay
     }
     delivered = Math.min(delivered, totalMeals)
@@ -365,6 +414,19 @@ function derive(spec: AccountSpec, index: number, today: Date): Derived {
       ? Number((80 / totalMeals).toFixed(2)) // flat AED 80 intern stipend plan
       : 0                                    // welcome-gift is free
 
+  // What the real delivery tick would have left behind for tonight. Only an
+  // Active sub that actually got today's meal carries last_tick = today; null
+  // is always safe (the tick treats null as "never ticked").
+  const todayIso = isoDate(today)
+  const tickedTodayForThisSub =
+    tickRanToday
+    && spec.status === 'Active'
+    && spec.startOffset <= 0
+    && isDeliveryDay(today, spec.weekType)
+    && !skippedDates.includes(todayIso)
+    && !pausedDates.includes(todayIso)
+    && !CLOSURE_DATES.has(todayIso)
+
   return {
     email, phone,
     planName: def.label,
@@ -375,7 +437,9 @@ function derive(spec: AccountSpec, index: number, today: Date): Derived {
     skippedDates,
     pausedDates,
     pausedDays: pausedDates.length,
+    closureDays,
     deliveredMeals: delivered,
+    lastTickDate: tickedTodayForThisSub ? todayIso : null,
     pricePerMeal,
   }
 }
@@ -511,8 +575,10 @@ async function cmdSeed(sb: SupabaseClient) {
       meals_per_day: d.mealsPerDay,
       total_meals: d.totalMeals,
       delivered_meals: d.deliveredMeals,
+      last_delivery_tick_date: d.lastTickDate,
       paused_days: d.pausedDays,
       paused_dates: d.pausedDates,
+      closure_days: d.closureDays,
       pause_date: spec.status === 'Paused' ? new Date().toISOString() : null,
       has_paused_before: d.pausedDates.length > 0,
       skipped_meals_count: d.skippedDates.length,
@@ -623,10 +689,12 @@ async function cmdRewind(sb: SupabaseClient) {
         start_date: d.startDate,
         end_date: d.endDate,
         delivered_meals: d.deliveredMeals,
+        last_delivery_tick_date: d.lastTickDate,
         skipped_dates: d.skippedDates,
         skipped_meals_count: d.skippedDates.length,
         paused_dates: d.pausedDates,
         paused_days: d.pausedDays,
+        closure_days: d.closureDays,
         original_start_date: d.startDate,
       })
       .eq('customer_id', userId)
@@ -716,6 +784,9 @@ async function main() {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
   if (cmd !== 'list') console.log(`Target: ${url}\n`)
+
+  // derive() needs the live closure calendar before any dates are computed.
+  await loadClosureDates(sb)
 
   switch (cmd) {
     case 'seed': return cmdSeed(sb)

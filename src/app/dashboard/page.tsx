@@ -1,6 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus, getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
@@ -81,7 +81,7 @@ export default async function DashboardPage({
     // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
     // pause — see getWaitlistStatus.
     const intakeState = await getIntakeState()
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus] = await Promise.all([
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus, closureDates] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
@@ -90,6 +90,7 @@ export default async function DashboardPage({
         getMostRecentOrder(user.id),
         getMenuDishes(),
         getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+        getCompanyClosureDates(),
     ])
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are
@@ -124,6 +125,7 @@ export default async function DashboardPage({
                 monthlyWindow={monthlyWindow}
                 mostRecentOrder={mostRecentOrder}
                 menuData={menuDishes}
+                closureDates={closureDates}
                 intakePause={intakePause}
             />
         </Suspense>

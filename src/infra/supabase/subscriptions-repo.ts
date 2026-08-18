@@ -10,6 +10,7 @@
 import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { creditAppliesToPlan, MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE } from '@/contexts/subscriptions/domain/credit-eligibility'
 import type { PlanId } from '@/contexts/subscriptions/domain/plans'
@@ -341,3 +342,33 @@ export async function getWaitlistStatusStrict(
 
   return { joined, unspentCreditAed }
 }
+
+/**
+ * Company closure dates (kitchen holidays / emergency shutdowns), as
+ * YYYY-MM-DD strings. The delivery tick banks no meal on these days and
+ * closure_tick extends end_date instead — so the dashboard progress grids
+ * must render them as "kitchen closed", never as delivered. Without this,
+ * every past closure day paints a false orange cell and the grid disagrees
+ * with delivered_meals by one (the Aug 2026 counter-vs-calendar bug class).
+ *
+ * Fail-open to [] — a read error must never take down the dashboard; the
+ * only cost is closure cells temporarily rendering as ordinary days.
+ *
+ * Reads via the service-role admin client: the 2026-06 security lockdown left
+ * the live `authenticated` role without SELECT on company_closures (verified
+ * live 2026-08-18 — the repo migration's GRANT is not what prod has), and
+ * closure dates are company-wide facts, not customer data, so a server-only
+ * admin read is the honest shape. Never call from client code.
+ */
+export const getCompanyClosureDates = cache(async (): Promise<string[]> => {
+  const supabase = createAdminSupabaseClient()
+  const { data, error } = await supabase
+    .from('company_closures')
+    .select('closure_date')
+    .order('closure_date', { ascending: true })
+  if (error) {
+    console.error('getCompanyClosureDates failed:', error.message)
+    return []
+  }
+  return (data ?? []).map((r) => r.closure_date as string)
+})
