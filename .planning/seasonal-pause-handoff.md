@@ -37,18 +37,31 @@ Live DDL already applied to Ohio (migration `intake_waitlist_per_cycle`):
 `credits.intake_waitlist_id`, unique partial on `intake_waitlist_id`. Both old lifetime indexes
 dropped.
 
-## The broadcast / reopen messaging stream — NOT BUILT
+## The broadcast / reopen messaging stream — BUILT 2026-08-18
 
-This is the open work. Nothing sends anything today.
+Plan: `.superpowers/sdd/2026-08-18-broadcast-composer/`. Composer live at
+`/admin/comms/broadcast` (composer + preview + type-SEND confirm + progress + kill switch +
+retry), sidebar entry "Broadcast".
 
-**Exists as files only:**
-- `docs/email-templates/season-plan-ended.html` — sent when a plan ends during a pause.
-  Merge keys: `first_name`, `plan_name`, `delivered_meals`, `evenings`, `cta_label`, `cta_url`,
-  plus exactly one of `credit_aed` or `offer_aed`.
-- `docs/email-templates/season-reopen.html` — serves both audiences via `{{#credit_aed}}`.
-  Merge keys: `first_name`, `cta_label`, `footer_reason`, optional `credit_aed`.
+**Sending engine, all applied live to Ohio:** `broadcasts` + `broadcast_sends` tables;
+`broadcast_audience` / `broadcast_confirm` / `broadcast_claim_batch` RPCs (lease-based claiming,
+live-status audiences); `/api/internal/broadcast-send` route (25-row batch, 40s budget, breaker
+fail-fast); `dispatch_broadcast_every_minute` pg_cron tick (idle-free).
 
-Neither is created in ZeptoMail. No code references either.
+`intake_waitlist.notified_at` now has its writer: a successful `season-reopen` send stamps
+`intake_waitlist`, scoped by `cycle_started_at`. The route uses `getWaitlistStatusStrict`, so a
+read error parks the row for retry instead of risking the wrong template variant going out.
+
+`ZEPTOMAIL_TPL_SEASON_REOPEN` is now SET in Netlify production (was deliberately withheld until
+this feature existed; code reads it as of this branch).
+
+**Deploy order matters.** Nothing sends in production until this branch deploys: the cron tick
+is idle-guarded and the send route 404s until then. `email-mark.png` rides the same deploy.
+
+**Remaining gap, unchanged:** the two reopen WhatsApp templates (`intake_reopened`,
+`intake_back_open`) still have no approved copy. Out of scope for this plan; they ride the
+`customer_notifications` queue and the strict 4-step dispatcher contract, same as every other
+kind.
 
 **Both files were REDESIGNED 2026-08-18 (owner decision).** The navy-banner design from spec
 §9.2 is dead: the owner reviewed the five live ZeptoMail templates against it and chose to
@@ -57,8 +70,7 @@ sub-containers, green WhatsApp box, real dark mode via `#1a1a1a` card). The fat 
 band is replaced by the `email-mark.png` house at 48px, no wordmark artwork. Refinements over
 the live five: navy `#091825` headings instead of grey, Montserrat with Helvetica fallback,
 `#8c4214` for small labels on near-white, no emoji. Merge-key contracts are UNCHANGED.
-`email-mark.png` is in `public/` but NOT deployed until the next push — the image 404s until
-then. Any future broadcast-composer shell must follow this same card style, not spec §9.2.
+Any future broadcast-composer shell must follow this same card style, not spec §9.2.
 
 **The approved WhatsApp copy is LOST.** It lived only in the previous session's conversation.
 Searched the repo for the names and for distinctive phrases; only the names survive, here.
@@ -76,11 +88,6 @@ is the same reasoning that killed `season-pause.html`.
 
 **Both plan-ended templates are now MARKETING** (Saad's call 2026-08-17, chosen over
 utility/marketing split to avoid Meta reclassifying and flagging the number).
-
-**Still not built:**
-- `intake_waitlist.notified_at` has no writer anywhere. The reopen notice was never built.
-- The broadcast composer (pick audience, press send) was never started. This is what would
-  send `season-reopen`; until it exists that template has no code path at all.
 
 ## Pause suppression — BUILT 2026-08-17 (uncommitted)
 
@@ -103,7 +110,8 @@ already redeemed holds nothing, and gets offered a fresh credit instead).
    dispatcher (which filters `sent_at IS NULL`) never sees it.
 3. **Plan-ended email — swaps to the season variant.** `sendSeasonPlanEndedEmail` in the
    ZeptoMail client. `ZEPTOMAIL_TPL_SEASON_PLAN_ENDED` is in `.env.local` and in Netlify
-   production. `ZEPTOMAIL_TPL_SEASON_REOPEN` is local only, on purpose — no code reads it.
+   production. `ZEPTOMAIL_TPL_SEASON_REOPEN` was local only until 2026-08-18; it is now set in Netlify
+   production and the broadcast dispatcher reads it.
 
 ## Season WhatsApp — BUILT and LIVE-CONFIGURED (templates approved 2026-08-17)
 
