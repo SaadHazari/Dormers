@@ -8,14 +8,17 @@ branch (`feat/wrap-weekly-single-survey`, commits `39d7574`..`a466498`). `npx vi
 **Column.** `intake_settings.pause_scheduled_for date` — the LAST DELIVERY DAY of the term, not
 the pause date itself. Null means nothing is scheduled. Live in Ohio.
 
-**Taper.** New pure module (`season-horizon`, exporting `journeyFits` / `effectiveTaperStart`)
-is the single source of truth. Checkout, free-checkout, gift claim, and `changeStartDate` all
+**Taper.** New pure module (`season-horizon`, exporting `journeyFits`, `latestViableStart`,
+`effectiveTaperStart`, `seasonEndsMessage`, `prettySeasonDate`, plus the `season-taper`
+selector layer) is the single source of truth. Checkout, free-checkout, gift claim, and `changeStartDate` all
 call it server-side to refuse any journey that would end after the scheduled date. Checkout's
 guard is deliberately stricter than "does the raw POST land before the date" — it predicts the
 webhook's tail-queue start, since that is what actually decides delivery dates. A skip-tail of
 1-3 days poking past the boundary is accepted by design, not a bug (revisit only if the kitchen
 actually feels it — see Deferred below). staff-monthly journeys are exempt from the guard
-entirely.
+entirely. One known honest window: a Stripe checkout session created BEFORE the schedule was
+set and paid after it provisions unguarded (the webhook deliberately has no taper check) — the
+sub just joins the overhang count and rides to completion, same as any pre-schedule sale.
 
 **Tick.** `intake_scheduled_pause_00_15_ae` runs daily at 00:15 AE. On the first AE day AFTER
 `pause_scheduled_for`, it flips `paused=true` with `paused_by='schedule'` — the same state
