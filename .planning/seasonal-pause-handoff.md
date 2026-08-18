@@ -172,8 +172,11 @@ payload:** header `first_name`; body `plan_name`, `delivered_meals`, then `credi
 `ZEPTOMAIL_TPL_SEASON_PLAN_ENDED` are set in `.env.local` AND in Netlify's **production
 context** (2026-08-18, via `netlify env:set`). Both take effect on the next redeploy.
 
-`ZEPTOMAIL_TPL_SEASON_REOPEN` was deliberately NOT added to Netlify — no code reads it, since
-the broadcast composer does not exist. Adding it would imply a feature that is not there.
+`ZEPTOMAIL_TPL_SEASON_REOPEN` is ALSO in Netlify production now (2026-08-18) — the broadcast
+composer exists and its season-reopen mode reads it. The old reasoning (withheld while no code
+read it) is retired. `WHATSAPP_SEASON_ENDED_ENABLED` was re-verified as `true` in the
+production context on 2026-08-18 after the deploy; it binds on the NEXT deploy, which is fine
+because it only matters while a pause is on.
 
 Do NOT trust `npm run check:whatsapp-template` on these. It hard-codes the `ops_access_link`
 contract and will report three false failures: it demands `{{name}}` / `{{link_name}}` and a
