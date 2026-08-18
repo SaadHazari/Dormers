@@ -3,26 +3,24 @@
   Audience: the early access list (holding a credit) AND lapsed customers
   whose plan ended during the pause. ONE template serves both.
 
+  DESIGN LANGUAGE (decided 2026-08-18)
+  This follows the LIVE ZeptoMail template style — white card, 2px orange
+  border, 13px radius, tinted sub-containers, green WhatsApp support box —
+  NOT the navy-banner design this file previously carried. The owner reviewed
+  both and chose to evolve the existing style rather than replace it. Same
+  refinements as season-plan-ended.html: navy headings, the small Dormers
+  mark instead of a banner, Montserrat with system fallback, #8c4214 for
+  small labels on near-white, MSO-safe markup, preheader, no emoji.
+
+  The mark is https://dormers.ae/email-mark.png — the favicon house rasterised
+  to PNG with a cream halo (Gmail, Outlook and Yahoo strip SVG). The halo is
+  what keeps it legible on the #1a1a1a dark-mode card.
+
   HOW THE TWO AUDIENCES SHARE ONE TEMPLATE
   The credit block is wrapped in {{#credit_aed}} ... {{/credit_aed}}. Send the
   key and the block renders; OMIT the key entirely and it disappears.
   ZeptoMail Mustache treats an empty string as TRUTHY, so never send '' or '0'
   to hide it — that renders the block with a blank amount in it.
-
-  BRAND
-    #f57f20 brand orange — the ceiling. Never darker into amber, burnt or red.
-    #8c4214 deep orange — small orange text on cream ONLY (contrast).
-    #091825 navy, #1e3a4f navy mid
-    #ede8da / #f5f0e8 cream
-    Radii follow globals.css: card 16px, panels 12px, buttons 12px.
-  Never sharp #ffffff on navy — cream #f5f0e8 instead. White is only ever used
-  for text sitting on an orange fill.
-
-  THIS EMAIL IS LIGHT IN BOTH APPEARANCES, ON PURPOSE.
-  The dashboard is deliberately light and the marketing site deliberately
-  dark; they are not unified. This is interface, so it stays light. The dark
-  media block below RE-ASSERTS the light palette rather than inverting it,
-  and color-scheme:light asks clients not to invert it themselves.
 
   MERGE KEYS (ZeptoMail Mustache)
     first_name     required
@@ -38,92 +36,95 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>The kitchen is open again</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: light; supported-color-schemes: light; }
     body { margin: 0; padding: 0; width: 100% !important; }
     img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
-    table { border-collapse: collapse !important; }
+    /* NO border-collapse reset here. The collapsed border model discards
+       border-radius (CSS spec), which squares every rounded box, and Gmail
+       renders collapsed table borders unreliably (the card's orange perimeter
+       border disappeared). Tables default to separate; leave them alone. */
     a { text-decoration: none; }
 
     @media (prefers-color-scheme: dark) {
-      .page-bg    { background-color: #ede8da !important; }
-      .card       { background-color: #f9f6ef !important; }
-      .body-text  { color: #33454f !important; }
-      .strong-text{ color: #091825 !important; }
-      .muted      { color: #7d8b94 !important; }
-      .panel      { background-color: #fdfbf6 !important; }
-      .panel-label{ color: #8c4214 !important; }
-      .navy-panel { background-color: #091825 !important; }
-      .cream-text { color: #f5f0e8 !important; }
-      .footer-text{ color: #a99f8c !important; }
+      .main-card            { border: 2px solid #f57f20 !important; background-color: #1a1a1a !important; }
+      .text-content         { color: #d9d9d9 !important; }
+      .strong-text          { color: #fcfcfc !important; }
+      .sub-container-orange { background-color: #261a0d !important; border: 1.2px solid #f57f20 !important; }
+      .sub-container-green  { background-color: #0d1a10 !important; border: 1.2px solid #2e7d32 !important; }
+      .sub-container-gray   { background-color: #222222 !important; border: 1.2px solid #444444 !important; }
+      .label-orange         { color: #f57f20 !important; }
+      .label-green          { color: #5aa860 !important; }
+      .divider              { border-top: 1px solid #333333 !important; }
+      .footer-text          { color: #555555 !important; }
+      .muted-line           { color: #aaaaaa !important; }
     }
 
     @media only screen and (max-width: 620px) {
-      .card-pad { padding: 28px 22px !important; }
-      .h1       { font-size: 25px !important; line-height: 1.24 !important; }
-      .cta      { display: block !important; }
+      .card-pad { padding: 30px 22px !important; }
+      .h1       { font-size: 24px !important; line-height: 1.24 !important; }
+      .cta      { display: block !important; text-align: center !important; }
     }
   </style>
 </head>
 
-<body class="page-bg" style="margin:0; padding:0; background-color:#ede8da;">
+<body style="margin:0; padding:0;">
 
-  <div style="display:none; font-size:1px; color:#ede8da; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
     Same rotation, same dorm drop, same hour. Dinner is handled from this week.
   </div>
 
-  <table class="page-bg" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#ede8da;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="padding:40px 10px;">
     <tr>
-      <td align="center" style="padding:36px 12px;">
+      <td align="center">
 
-        <table class="card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
-          style="max-width:600px; background-color:#f9f6ef; border-radius:16px; overflow:hidden;">
-
-          <!-- Header band. The mark is the browser-tab icon rasterised to PNG,
-               because Gmail, Outlook and Yahoo all strip SVG. Its cream halo is
-               what separates the navy house from the navy band. Wordmark and
-               tagline are live text, not artwork, so they stay crisp and still
-               render when images are blocked. -->
+        <table class="main-card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+          style="max-width:600px; background-color:#ffffff; border:2px solid #f57f20; border-radius:13px; overflow:hidden;">
           <tr>
-            <td class="navy-panel" align="center" style="background-color:#091825; padding:32px 24px 28px 24px;">
-              <img src="https://dormers.ae/email-mark.png" width="72" height="72" alt="Dormers"
-                style="display:block; width:72px; height:72px; margin:0 auto 14px auto;">
-              <div class="cream-text" style="font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:22px; font-weight:700; letter-spacing:5px; color:#f5f0e8; line-height:1;">
-                DORMERS&rsquo;
-              </div>
-              <div style="font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:10px; font-weight:700; letter-spacing:2.4px; color:#f57f20; margin-top:9px; line-height:1;">
-                MEALS THAT DON&rsquo;T SUCK
-              </div>
-            </td>
-          </tr>
+            <td class="card-pad text-content"
+              style="padding:42px; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif; color:#5c6670; font-weight:500;">
 
-          <tr>
-            <td class="card-pad" style="padding:38px 40px 34px 40px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+              <!-- Brand lockup, no banner. Wordmark and tagline stack to the
+                   icon's exact height so the signature stays compact and
+                   below the H1 in emphasis. Live text, not artwork, so the
+                   email still reads with images blocked. -->
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:0 0 26px 0;">
+                <tr>
+                  <td width="48" valign="middle">
+                    <img src="https://dormers.ae/email-mark.png" width="48" height="48" alt="Dormers"
+                      style="display:block; width:48px; height:48px;">
+                  </td>
+                  <td width="13" style="font-size:0; line-height:0;">&nbsp;</td>
+                  <td valign="middle">
+                    <div class="strong-text" style="font-size:19px; font-weight:800; letter-spacing:3px; color:#091825; line-height:1; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">DORMERS&rsquo;</div>
+                    <div class="label-orange" style="font-size:9px; font-weight:700; letter-spacing:1.9px; color:#8c4214; margin-top:6px; line-height:1; text-transform:uppercase; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">Meals that don&rsquo;t suck</div>
+                  </td>
+                </tr>
+              </table>
 
               <h1 class="h1 strong-text"
-                style="margin:0 0 16px 0; font-size:28px; line-height:1.22; font-weight:800; color:#091825; letter-spacing:-0.3px;">
+                style="margin:0 0 16px 0; font-size:26px; line-height:1.22; font-weight:800; color:#091825; letter-spacing:-0.3px;">
                 We are cooking again, {{first_name}}.
               </h1>
 
-              <p class="body-text" style="margin:0 0 28px 0; font-size:16px; line-height:26px; color:#33454f;">
+              <p style="margin:0 0 28px 0; font-size:16px; line-height:26px;">
                 Dinner is handled from this week. Same rotation, same dorm drop, same hour.
               </p>
 
               <!-- Credit block. Renders ONLY when credit_aed is supplied.
                    Omit the key for lapsed customers; never send '' or '0'. -->
               {{#credit_aed}}
-              <table class="navy-panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
-                style="background-color:#091825; border-radius:16px; margin-bottom:28px;">
+              <table class="sub-container-orange" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#fffaf5; border:1.2px solid #f57f20; border-radius:8px; margin-bottom:26px;">
                 <tr>
-                  <td style="padding:28px 26px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
-                    <p style="margin:0 0 10px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#f57f20;">
+                  <td style="padding:26px;">
+                    <p class="label-orange" style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8c4214;">
                       Your AED {{credit_aed}} is waiting
                     </p>
-                    <p class="cream-text" style="margin:0; font-size:16px; line-height:26px; color:#f5f0e8;">
+                    <p style="margin:0; font-size:15px; line-height:24px;">
                       It has been sitting in your Credit Wallet since you joined the early access
                       list. It comes straight off a monthly plan. Nothing to enter, nothing to claim.
                     </p>
@@ -132,14 +133,14 @@
               </table>
               {{/credit_aed}}
 
-              <table class="panel" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
-                style="background-color:#fdfbf6; border-radius:12px; margin-bottom:32px;">
+              <table class="sub-container-gray" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#f7f7f7; border:1.2px solid #dddddd; border-radius:8px; margin-bottom:26px;">
                 <tr>
-                  <td style="padding:22px 24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
-                    <p class="panel-label" style="margin:0 0 9px 0; font-size:12px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8c4214;">
+                  <td style="padding:22px 26px;">
+                    <p class="muted-line" style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8a8a8a;">
                       What comes back
                     </p>
-                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
+                    <p style="margin:0; font-size:15px; line-height:24px;">
                       A hot dinner at your dorm on every delivery day, dropped at the usual spot.
                       Skip a night whenever your plans change. Stop cooking, stop deciding, just eat.
                     </p>
@@ -147,45 +148,61 @@
                 </tr>
               </table>
 
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:32px;">
+              <!-- The action, in its own box so the button has a home. -->
+              <table class="sub-container-orange" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#fffaf5; border:1.2px solid #f57f20; border-radius:8px; margin-bottom:26px;">
                 <tr>
-                  <td align="center">
-                    <!--[if mso]>
-                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
-                      href="https://dormers.ae/dashboard/plan" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="24%" stroke="f" fillcolor="#f57f20">
-                      <w:anchorlock/>
-                      <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">{{cta_label}}</center>
-                    </v:roundrect>
-                    <![endif]-->
-                    <!--[if !mso]><!-->
+                  <td style="padding:26px;">
+                    <p class="label-orange" style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8c4214;">
+                      Ready when you are
+                    </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      Your setup is saved. One tap and dinner shows up again, nothing to re-enter.
+                    </p>
                     <a class="cta" href="https://dormers.ae/dashboard/plan"
-                      style="background-color:#f57f20; color:#ffffff; padding:16px 34px; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:16px; font-weight:700; border-radius:12px; display:inline-block;">
+                      style="background-color:#f57f20; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
                       {{cta_label}}
                     </a>
-                    <!--<![endif]-->
                   </td>
                 </tr>
               </table>
 
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-top:1px solid #e2d9c4;">
+              <table class="sub-container-green" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#f2faf3; border:1.2px solid #2e7d32; border-radius:8px; margin-bottom:42px;">
                 <tr>
-                  <td style="padding-top:24px; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
-                    <p class="body-text" style="margin:0; font-size:15px; line-height:24px; color:#33454f;">
-                      See you at dinner,<br>
-                      <b class="strong-text" style="color:#091825; font-size:16px;">Team Dormers</b>
+                  <td style="padding:26px;">
+                    <p class="label-green" style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#2e7d32;">
+                      Not sure yet?
                     </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      Want a different plan this semester, or just have a question? We are a tap
+                      away on WhatsApp, usually replying within an hour.
+                    </p>
+                    <a href="https://wa.me/971504619384"
+                      style="background-color:#2e7d32; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Chat with Support
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table class="divider" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-top:1px solid #eeeeee;">
+                <tr>
+                  <td style="padding-top:26px; font-size:14px; line-height:22px;">
+                    See you at dinner,<br>
+                    <b class="strong-text" style="color:#091825; font-size:16px;">Team Dormers</b>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding-top:32px;">
+                  <td align="center" style="padding-top:42px;">
                     <!-- Reason line is a merge key, not fixed copy. The early access
                          list asked to hear from us; lapsed customers did not, and
                          telling them they opted in when they did not is exactly the
                          kind of inaccuracy that earns a spam complaint. -->
-                    <p class="muted" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#7d8b94; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p class="muted-line" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#9a9a9a;">
                       {{footer_reason}}
                     </p>
-                    <p class="footer-text" style="margin:0; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#a99f8c; font-family:'Montserrat', Arial, Helvetica, sans-serif;">
+                    <p class="footer-text" style="margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#b0b0b0;">
                       Made in Dubai
                     </p>
                   </td>

@@ -50,14 +50,32 @@ This is the open work. Nothing sends anything today.
 
 Neither is created in ZeptoMail. No code references either.
 
-**WhatsApp copy written, two approved by Saad, none created at Meta:**
-`intake_reopened`, `intake_back_open`, `intake_ended_credit` (UTILITY),
-`intake_ended_offer` (MARKETING).
+**Both files were REDESIGNED 2026-08-18 (owner decision).** The navy-banner design from spec
+§9.2 is dead: the owner reviewed the five live ZeptoMail templates against it and chose to
+evolve the live card style instead (white card, 2px `#f57f20` border, 13px radius, tinted
+sub-containers, green WhatsApp box, real dark mode via `#1a1a1a` card). The fat navy header
+band is replaced by the `email-mark.png` house at 48px, no wordmark artwork. Refinements over
+the live five: navy `#091825` headings instead of grey, Montserrat with Helvetica fallback,
+`#8c4214` for small labels on near-white, no emoji. Merge-key contracts are UNCHANGED.
+`email-mark.png` is in `public/` but NOT deployed until the next push — the image 404s until
+then. Any future broadcast-composer shell must follow this same card style, not spec §9.2.
 
-**Blocked on Saad supplying six exact names/keys** (4 Meta template names, 2 ZeptoMail keys).
-Hard ordering rule: the Meta template must exist BEFORE the dispatcher branch. The dispatcher
-`dispatch_customer_notifications_tick` resolves `tpl_<kind>` from Vault and its CASE has no ELSE
-branch, so a kind with no template is skipped without setting `sent_at` and retries forever.
+**The approved WhatsApp copy is LOST.** It lived only in the previous session's conversation.
+Searched the repo for the names and for distinctive phrases; only the names survive, here.
+Fresh copy for the two plan-ended templates was drafted on 2026-08-17 and is in the build
+section below. The two reopen templates (`intake_reopened`, `intake_back_open`) still have no
+copy and no code path.
+
+Note `intake_reopened` is ALSO an admin audit-log action name written by
+`src/app/admin/season/actions.ts` on every toggle-off. Different table, no functional clash,
+but searching for either turns up both.
+
+The spec (§10) says TWO templates and names one `intake_pausing`. That is superseded: messaging
+a happy running customer about a pause gives them nothing to do and can only worry them, which
+is the same reasoning that killed `season-pause.html`.
+
+**Both plan-ended templates are now MARKETING** (Saad's call 2026-08-17, chosen over
+utility/marketing split to avoid Meta reclassifying and flagging the number).
 
 **Still not built:**
 - `intake_waitlist.notified_at` has no writer anywhere. The reopen notice was never built.
@@ -84,13 +102,90 @@ already redeemed holds nothing, and gets offered a fresh credit instead).
    The row is the point: it holds the 7-day dedup anchor so the cron stops retrying, and the
    dispatcher (which filters `sent_at IS NULL`) never sees it.
 3. **Plan-ended email — swaps to the season variant.** `sendSeasonPlanEndedEmail` in the
-   ZeptoMail client. Both season keys are now in `.env.local`
-   (`ZEPTOMAIL_TPL_SEASON_PLAN_ENDED`, `ZEPTOMAIL_TPL_SEASON_REOPEN`).
-   **Both keys still need adding to Netlify prod env before this ships.**
+   ZeptoMail client. `ZEPTOMAIL_TPL_SEASON_PLAN_ENDED` is in `.env.local` and in Netlify
+   production. `ZEPTOMAIL_TPL_SEASON_REOPEN` is local only, on purpose — no code reads it.
 
-`dispatch_subscription_ended_tick` was deliberately NOT touched — it must keep firing during
-a pause, since it is what delivers the season email. Per-channel behaviour is decided in
-application code, never in SQL.
+## Season WhatsApp — BUILT and LIVE-CONFIGURED (templates approved 2026-08-17)
+
+Saad's call: WhatsApp deserves the same treatment as email. Templates are approved, Vault and
+Netlify are set; it goes live on the next redeploy. Two templates, one per audience, because a WhatsApp template cannot
+carry the email's either/or block. WhatsApp follows the block the email already chose, so the
+two channels can never tell one person contradictory things (there is a test for exactly that).
+
+### APPROVED at Meta 2026-08-17. Copy recorded here so it cannot be lost again.
+
+Both `en`, MARKETING, static URL button to dormers.ae/dashboard. Read back from Meta, not
+transcribed from the submission.
+
+**Meta names are INCONSISTENT and that is fine** — the Vault stores each separately:
+| kind | Vault secret | Meta template name |
+|---|---|---|
+| `intake_ended_credit` | `tpl_intake_ended_credit` | `intake_ended_credit` |
+| `intake_ended_offer`  | `tpl_intake_ended_offer`  | `dormers_intake_ended_offer_v1` |
+
+**`intake_ended_credit`**
+Header: `See you next semester, {{first_name}}`
+Body: `That's your {{plan_name}} done. *{{delivered_meals}}* dinners, sorted.` / `*We'll be
+taking a short break between the semesters.*` / `Your *AED {{credit_aed}}* is already in your
+wallet, waiting for your first monthly plan when we're back next sem.` / `Enjoy the break.`
+Footer: `You are getting this because your plan just finished.`
+Button: `See my wallet`
+
+**`dormers_intake_ended_offer_v1`**
+Header: `See you next semester, {{first_name}}`
+Body: `That's your {{plan_name}} done. *{{delivered_meals}}* dinners, sorted.` / `*We'll be
+taking a short break between the semesters.*` / `AED {{offer_aed}} is yours the moment you save
+your spot, and it comes off your first monthly plan when we resume next sem.` / `Enjoy the
+break.`
+Footer: `Team Dormers`
+Button: `Save my Spot`
+
+Minor: the two footers differ. The credit one carries a why-am-I-getting-this line, the offer
+one does not. Both are triggered by the same event, and the offer one is the MARKETING-heavier
+of the two, so it is the one that would benefit more from the reason line. Worth aligning on
+the next version bump; not worth a resubmission on its own.
+
+**Parameter names, verified against BOTH Meta's stored definition and the real outgoing
+payload:** header `first_name`; body `plan_name`, `delivered_meals`, then `credit_aed` or
+`offer_aed`. Named parameters, so order does not matter, but the names must match exactly.
+
+**Vault entries are LIVE** (added 2026-08-17). `WHATSAPP_SEASON_ENDED_ENABLED=true` and
+`ZEPTOMAIL_TPL_SEASON_PLAN_ENDED` are set in `.env.local` AND in Netlify's **production
+context** (2026-08-18, via `netlify env:set`). Both take effect on the next redeploy.
+
+`ZEPTOMAIL_TPL_SEASON_REOPEN` was deliberately NOT added to Netlify — no code reads it, since
+the broadcast composer does not exist. Adding it would imply a feature that is not there.
+
+Do NOT trust `npm run check:whatsapp-template` on these. It hard-codes the `ops_access_link`
+contract and will report three false failures: it demands `{{name}}` / `{{link_name}}` and a
+dynamic `{{1}}`-suffixed button URL, none of which apply here. Its useful output is the first
+line (name, locale, status, category) and the list of named variables it found.
+
+## Two dispatcher traps fixed, 2026-08-17
+
+Both were live bugs affecting every message kind, not just this feature.
+
+1. **Silent loss.** The components CASE has no ELSE (the handoff was right; an earlier note in
+   this session wrongly said otherwise). A kind with a Vault entry but no branch produced
+   `components = NULL`, which was posted to Meta as `"components": null` and the row was then
+   stamped `sent_at`. Message gone, row claims success, and the malformed request risks the
+   number's quality rating, which degrades every template. Now it posts nothing and closes the
+   row as `skipped:no_component_branch`.
+2. **Forever jam.** A kind with no `tpl_<kind>` Vault entry warned and continued without
+   setting `sent_at`, so it returned every tick forever at the head of the oldest-first
+   LIMIT 100 batch. Now: six-hour grace, then `skipped:no_template`. This also defuses
+   `delivery_unconfirmed_8pm`, an allowed kind with neither a Vault entry nor a branch that has
+   never fired.
+
+`dispatch_subscription_ended_tick`'s dedup now also matches the two season kinds. Without that,
+queueing a season kind instead of `subscription_ended` would leave the customer looking
+un-notified and re-dispatch them the next night, duplicating the season email.
+
+It still fires during a pause on purpose — it is what delivers the season messages.
+Per-channel behaviour is decided in application code, never in SQL.
+
+Mirror: `supabase/migrations/20260817_season_whatsapp_and_dispatcher_hardening.sql`. Read its
+header before running it: it is a transformation, not a replay, and is NOT idempotent.
 
 **The SQL is already applied live** (migration `pause_suppress_renew_nudges`, mirrored at
 `supabase/migrations/20260817_pause_suppress_renew_nudges.sql`). Safe to apply while
