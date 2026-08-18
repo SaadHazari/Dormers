@@ -946,7 +946,7 @@ function AcknowledgementScreen({
     return (
         <div style={{ maxWidth: 540, width: '100%' }}>
             {/* Chain icon — same visual language as the Now tray's
-                AllOrNothingLine so the rule reads consistently across surfaces. */}
+                CycleStakesStrip so the rule reads consistently across surfaces. */}
             <div
                 aria-hidden="true"
                 style={{
@@ -979,14 +979,14 @@ function AcknowledgementScreen({
                 fontWeight: 500,
             }}>
                 <p style={{ margin: '0 0 10px' }}>
-                    You earn <strong style={{ color: '#fff', fontWeight: 700 }}>AED 5 per weekly review</strong> —
-                    but only if you finish <strong style={{ color: '#fff', fontWeight: 700 }}>all {weeksExpected} this cycle</strong>.
-                    Miss even one and the whole cycle&rsquo;s credit is forfeit.
+                    Each review earns <strong style={{ color: '#fff', fontWeight: 700 }}>AED 5 on time</strong>, or
+                    AED 2 if it&rsquo;s late. Nothing pays out until <strong style={{ color: '#fff', fontWeight: 700 }}>all {weeksExpected} are in</strong>.
+                    Skip even one and the whole cycle&rsquo;s credit is gone.
                 </p>
                 <p style={{ margin: 0 }}>
-                    The full payout (<strong style={{ color: '#ffc66b', fontWeight: 700 }}>AED {fullReward}</strong>) lands
-                    in your wallet when the {weeksExpected}th review is in. Late submissions
-                    still count toward the {weeksExpected} but earn AED 2 each instead of 5.
+                    Submit all {weeksExpected} on time and the full <strong style={{ color: '#ffc66b', fontWeight: 700 }}>AED {fullReward}</strong> lands
+                    in your wallet with the {weeksExpected}th review. Late ones still count
+                    toward the {weeksExpected}, they just earn less.
                 </p>
             </div>
 
@@ -1015,7 +1015,7 @@ function AcknowledgementScreen({
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
             >
-                Got it — start review
+                Got it, start review
             </button>
         </div>
     )

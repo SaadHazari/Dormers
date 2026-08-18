@@ -632,18 +632,22 @@ function deriveWeekDots(state: WeeklyReviewState): WeekDotState[] {
 }
 
 // Cycle-stakes strip: per-week dots (spatial "where am I in the cycle") plus
-// one line naming the AED that is ACTUALLY still attainable. States:
+// one plain-language line: condition first, then the AED that is ACTUALLY
+// still attainable. "Lock" is the strip's one verb for the payout — the
+// imperative states promise "to lock AED X" and the success state confirms
+// "AED X locked", so the vocabulary teaches the all-or-nothing rule itself.
+// States:
 //   • all in       → success tone, "All N in · AED X locked"
 //   • a week missed→ neutral muted, "Cycle bonus missed" (Model C: one
 //                    expired week makes all-in impossible, so no AED promise
 //                    survives — never dress this state in urgency)
-//   • lates exist  → urgent tone, "AED X rides on all N" — the all-or-nothing
-//                    stake, counting open + late + upcoming + already-banked.
-//                    Replaces the old "Submit all N on time for AED 20" line,
-//                    which kept promising the on-time total after weeks had
-//                    already gone late (an amount the math could no longer pay).
-//   • partial      → urgent tone, "AED X ready · AED Y to go"
-//   • fresh cycle  → urgent tone, "AED X for all N on time"
+//   • none in yet  → urgent tone, "Submit all N [on time] to lock AED X"
+//   • partial      → urgent tone, "Submit N more [on time] to lock AED X"
+// "on time" appears only while every remaining week can still pay full;
+// once lates exist the X already prices them at the late rate, so the
+// qualifier would be noise. X is never an amount the math can no longer
+// pay (the old line kept promising the on-time total after weeks had
+// gone late).
 function CycleStakesStrip({ state }: { state: WeeklyReviewState }) {
   const { rewards, late } = state
   const { submitted, total, aedEarned, aedPending } = rewards
@@ -656,20 +660,15 @@ function CycleStakesStrip({ state }: { state: WeeklyReviewState }) {
   // banked-not-locked + open + late (see weekly-review-queries.ts); upcoming
   // weeks add their on-time reward on top.
   const aedInPlay = aedPending + upcomingCount * BASE_REWARD_AED
-  // Banked but not locked = pending minus what's still unsubmitted.
-  const aedUnsubmitted =
-    (state.current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
-  const aedReady = Math.max(0, aedPending - aedUnsubmitted)
+  const remaining = total - submitted
 
+  const lead = remaining === total ? `Submit all ${total}` : `Submit ${remaining} more`
+  const onTime = late.length === 0 ? ' on time' : ''
   const body = allIn
     ? `All ${total} in · AED ${aedEarned} locked`
     : missed
       ? 'Cycle bonus missed'
-      : late.length > 0
-        ? `AED ${aedInPlay} rides on all ${total}`
-        : submitted > 0
-          ? `AED ${aedReady} ready · AED ${aedInPlay - aedReady} to go`
-          : `AED ${total * BASE_REWARD_AED} for all ${total} on time`
+      : `${lead}${onTime} to lock AED ${aedInPlay}`
 
   const tone: 'success' | 'muted' | 'urgent' = allIn ? 'success' : missed ? 'muted' : 'urgent'
   const fg = tone === 'success' ? 'var(--ds-success-fg)' : tone === 'muted' ? 'var(--ds-fg-faint)' : RUST
