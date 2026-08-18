@@ -1,3 +1,46 @@
+## Scheduled pause + sales taper — BUILT 2026-08-18
+
+Plan: `docs/superpowers/plans/2026-08-18-scheduled-pause-taper.md`. All 8 tasks shipped on this
+branch (`feat/wrap-weekly-single-survey`, commits `39d7574`..`a466498`). `npx vitest run`:
+538/539, same single pre-existing `menu-catalog.test.ts` failure (46 vs 48 dish ids, unrelated).
+`npm run lint`: clean bar the same 2 pre-existing `<img>` warnings. Nothing new either side.
+
+**Column.** `intake_settings.pause_scheduled_for date` — the LAST DELIVERY DAY of the term, not
+the pause date itself. Null means nothing is scheduled. Live in Ohio.
+
+**Taper.** New pure module (`season-horizon`, exporting `journeyFits` / `effectiveTaperStart`)
+is the single source of truth. Checkout, free-checkout, gift claim, and `changeStartDate` all
+call it server-side to refuse any journey that would end after the scheduled date. Checkout's
+guard is deliberately stricter than "does the raw POST land before the date" — it predicts the
+webhook's tail-queue start, since that is what actually decides delivery dates. A skip-tail of
+1-3 days poking past the boundary is accepted by design, not a bug (revisit only if the kitchen
+actually feels it — see Deferred below). staff-monthly journeys are exempt from the guard
+entirely.
+
+**Tick.** `intake_scheduled_pause_00_15_ae` runs daily at 00:15 AE. On the first AE day AFTER
+`pause_scheduled_for`, it flips `paused=true` with `paused_by='schedule'` — the same state
+transition the admin's manual pause button produces, just attributed differently. If intake is
+already paused when the tick fires, it only clears the schedule (the pause itself doesn't
+re-fire). Live in Ohio, cron enabled.
+
+**Admin.** Season page can schedule or clear the date, each behind its own confirm modal. Both
+actions are audited: `intake_pause_scheduled` / `intake_pause_schedule_cleared`. The scheduling
+modal shows an overhang count — journeys that would already end past the chosen date if it were
+picked today — so the owner isn't scheduling blind.
+
+**Customer-facing.** Season banner, "done for the term" plan cards, and clamped date pickers on
+both desktop and mobile checkout. `INTAKE_ENDING` / `INTAKE_PAUSED` states render as soft facts
+in the UI (a plan that already wrapped up), never as error states.
+
+**Reopen scheduling is still forbidden.** Locked decision from the original pause build, carried
+forward untouched — only the pause side got a scheduler.
+
+Working-tree note at handoff time: other files were mid-edit from a concurrent session
+(`SidebarDropdowns.tsx`, `dev-sidebar-preview/`, `StatRow.tsx`, etc.) unrelated to this feature.
+Only this doc was touched to close out Task 8.
+
+---
+
 # Seasonal intake pause — handoff (2026-08-17)
 
 Branch `feat/seasonal-intake-pause`. Not pushed. Point a fresh session at this file.
