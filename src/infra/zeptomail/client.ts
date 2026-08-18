@@ -634,3 +634,38 @@ export async function sendAdminCustomerEmail(input: {
     throw new Error(`ZeptoMail admin message ${res.status}: ${text || res.statusText}`);
   }
 }
+
+/**
+ * One broadcast recipient. Raw-HTML send through the same breaker-wrapped
+ * path as every transactional email — the DISPATCHER is what protects
+ * transactional traffic, by stopping its batch the moment the breaker opens
+ * rather than hammering a struggling ZeptoMail with hundreds of sends.
+ */
+export async function sendBroadcastEmail(input: {
+  toEmail: string;
+  toName: string;
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const token = process.env.ZEPTOMAIL_API_TOKEN;
+  const fromAddress = process.env.ZEPTOMAIL_FROM_ADDRESS;
+  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers';
+  if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
+  if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
+
+  const res = await zeptoFetch(RAW_API_URL, {
+    method: 'POST',
+    headers: { Authorization: token, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      from: { address: fromAddress, name: fromName },
+      to: [{ email_address: { address: input.toEmail, name: input.toName } }],
+      subject: input.subject,
+      htmlbody: input.html,
+    }),
+  }, { timeoutMs: SEND_TIMEOUT_MS });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`ZeptoMail broadcast ${res.status}: ${text || res.statusText}`);
+  }
+}
