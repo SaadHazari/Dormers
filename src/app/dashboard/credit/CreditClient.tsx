@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { OG, BODY, DISPLAY, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { COMPACT } from '../_shared/breakpoints'
 import { creditOutlook } from '../_shared/credit-outlook'
@@ -77,40 +77,36 @@ export default function CreditClient({
 
   return (
     <>
-    <div className="credit-desktop" style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: 'var(--ds-fg)' }}>
-      <div style={{ maxWidth: 880, margin: '0 auto' }}>
-        {/* Back link — same affordance as the history page. */}
-        <Link
-          href="/dashboard"
-          className="credit-back"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontFamily: BODY, fontSize: 12, fontWeight: 600,
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-            color: S.fgMuted, textDecoration: 'none',
-            padding: '6px 0',
-          }}
-        >
-          <ArrowLeft size={13} strokeWidth={2.4} />
-          Back to dashboard
-        </Link>
-
-        {/* Header */}
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgMuted }}>
-            Your credit
-          </div>
+    <div className="credit-desktop" style={{ minHeight: '100vh', padding: '28px 28px 48px', fontFamily: BODY, color: 'var(--ds-fg)' }}>
+      {/* Wrapper geometry copied from PlanClient's desktop root (28px top
+          padding, 1280 centered column) so this heading lands at the exact
+          position My plan's does. Content below caps at 880 for statement
+          readability but stays left-aligned to the same heading edge. */}
+      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        {/* Header — identical hierarchy to the My plan / Explore plans
+            headers: display h1 with the orange period, muted subline. No
+            back link, no eyebrow; this is a first-class page, and the
+            sidebar already owns wayfinding. */}
+        <header style={{ marginBottom: 48 }}>
           <h1 style={{
-            margin: '6px 0 0 0',
-            fontFamily: DISPLAY, fontSize: 'clamp(28px, 4vw, 40px)',
-            fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--ds-fg)', lineHeight: 1.1,
+            fontFamily: DISPLAY,
+            fontSize: 'clamp(34px, 5vw, 48px)',
+            fontWeight: 700, letterSpacing: '-0.025em',
+            marginTop: 0,
+            lineHeight: 1.05, color: 'var(--ds-fg)',
           }}>
             My credit<span style={{ color: OG }}>.</span>
           </h1>
-          <p style={{ marginTop: 8, fontSize: 14, color: S.fgMuted, lineHeight: 1.6, maxWidth: '56ch' }}>
+          <p style={{
+            fontFamily: BODY, fontSize: 15, fontWeight: 400,
+            color: S.fgMuted, marginTop: 10,
+            maxWidth: 640, lineHeight: 1.6,
+          }}>
             Every credit you hold, where it came from, and how it will be used on your next plan.
           </p>
-        </div>
+        </header>
+
+        <div style={{ maxWidth: 880 }}>
 
         {/* ── The two futures — navy hero, same surface as My Plan's current-
             plan card, so "the important money fact" wears the same clothes
@@ -119,7 +115,6 @@ export default function CreditClient({
         {lead ? (
           <div style={{
             ...TIER_POP,
-            marginTop: 28,
             borderRadius: 'var(--radius-md)',
             padding: '26px 28px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -177,7 +172,6 @@ export default function CreditClient({
           </div>
         ) : (
           <div style={{
-            marginTop: 28,
             padding: '40px 28px',
             borderRadius: 'var(--radius-md)',
             background: S.surface2, border: `1px solid ${S.border}`,
@@ -200,10 +194,10 @@ export default function CreditClient({
         {used.length > 0 && (
           <LedgerGroup title="Used" items={used} muted />
         )}
+        </div>
       </div>
 
       <style jsx global>{`
-        .credit-back:hover { color: var(--ds-fg) !important; }
         .credit-explore-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245,127,32,0.50); }
         /* Mobile (≤768) swaps the desktop tree for MobileCredit — same pure
            CSS toggle the history page uses. */

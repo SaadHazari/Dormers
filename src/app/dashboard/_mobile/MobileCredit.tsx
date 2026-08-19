@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { MobileColumn, HERO, CARD, S, BODY, eyebrow } from './kit'
+import { ArrowRight } from 'lucide-react'
+import { MobileColumn, HERO, CARD, S, BODY, eyebrow, SectionTitle } from './kit'
 import { classifyCreditSource } from '@/shared/credit-ledger'
 import type { CreditByPlan } from '../_shared/types'
 import {
@@ -29,24 +29,11 @@ export function MobileCredit({ items, creditByPlan = {} }: { items: CreditItem[]
   return (
     <MobileColumn style={{ color: S.fg, paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
 
-      {/* Back link + header — cleared of the fixed hamburger (paddingLeft 56),
-          same convention as MobileHistory. */}
-      <div style={{ paddingLeft: 56 }}>
-        <Link
-          href="/dashboard"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '6px 4px', margin: '-6px -4px',
-            fontFamily: BODY, fontSize: 12, fontWeight: 700,
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-            color: S.fgSub, textDecoration: 'none', touchAction: 'manipulation',
-          }}
-        >
-          <ArrowLeft size={13} strokeWidth={2.4} aria-hidden /> Back to dashboard
-        </Link>
-        <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 26, fontWeight: 800, letterSpacing: '-0.015em', color: S.fg, lineHeight: 1.1 }}>
-          My credit<span style={{ color: '#f57f20' }}>.</span>
-        </div>
+      {/* Header — identical to MobilePlan's: SectionTitle cleared of the
+          fixed hamburger (paddingLeft 56). No back link; this is a
+          first-class page and the drawer owns wayfinding. */}
+      <div style={{ paddingLeft: 56, minHeight: 34, display: 'flex', alignItems: 'center' }}>
+        <SectionTitle size={24}>My credit</SectionTitle>
       </div>
 
       {/* The two futures — never a balance. */}
