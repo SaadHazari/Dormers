@@ -9,6 +9,7 @@ import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import type { IntakeGateState } from './_shared/types'
+import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -50,19 +51,59 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
     if (isPreview) {
+        // Dev-only state harness (mirrors credit/plan preview params):
+        //   ?wrap=locked  — weekly wrap strip in its pre-unlock state
+        //   ?wrap=open    — clickable wrap strip with the days chip
+        //   ?paused=1     — intake pause + already-joined → plan-ending banner
+        //   ?fresh=1      — under 5 lifetime dinners → one-line greeting
+        // Dates are computed relative to today so the fixture never drifts
+        // stale: mid-cycle, ending in 3 days, which keeps the countdown tiles
+        // realistic and sits inside the plan-ending banner's 7-day window.
+        const day = 86400000
+        const dateOnly = (t: number) => new Date(t).toISOString().slice(0, 10)
+        const previewSub = {
+            ...PREVIEW_SUBSCRIPTION,
+            start_date: dateOnly(Date.now() - 24 * day),
+            end_date: dateOnly(Date.now() + 3 * day),
+            ...(params.fresh === '1' ? { total_meals: 6, delivered_meals: 2 } : {}),
+        }
+        const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
+            eligible: params.wrap === 'open',
+            locked: params.wrap === 'locked',
+            submitted: false,
+            daysLeftForFullReward: 7,
+            daysSinceCycleEnd: -3,
+            expired: false,
+            preCron: false,
+            cycleLabel: 'Weekly Plan',
+            planTier: 'weekly',
+        } : undefined
+        const previewPause: IntakeGateState | undefined = params.paused === '1' ? {
+            paused: true,
+            headline: 'We are at full capacity.',
+            body: 'New plans are paused while we cook for our current dorms.',
+            creditAed: 15,
+            alreadyJoined: true,
+            waitlistCreditAed: 15,
+            cycleStartedAt: dateOnly(Date.now() - 10 * day),
+            cycleEndedAt: null,
+            lastDeliveryDay: null,
+        } : undefined
         return (
             <Suspense fallback={<Spinner />}>
                 <ClientDashboard
                     customer={PREVIEW_CUSTOMER}
-                    activeSubscription={PREVIEW_SUBSCRIPTION}
-                    allSubscriptions={[PREVIEW_SUBSCRIPTION]}
+                    activeSubscription={previewSub}
+                    allSubscriptions={[previewSub]}
                     userEmail={PREVIEW_CUSTOMER.email}
+                    monthlyWindow={previewWrap}
+                    intakePause={previewPause}
                 />
             </Suspense>
         )

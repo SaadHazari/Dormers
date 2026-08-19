@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X, PartyPopper, ChevronRight, PauseCircle, Truck, Moon, Check } from 'lucide-react'
+import { X, PartyPopper, ChevronRight, ChevronDown, PauseCircle, Truck, Moon, Check } from 'lucide-react'
 import { cancelPlannedPause, pauseSubscription, planPause, resumeSubscription, skipFutureDate, skipMeal, unskipFutureDate } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { setTakeoutBenchmark } from '@/contexts/subscriptions/usecases/savings-actions'
 import { FutureSkipModal, type FutureSkipMode } from './_shared/FutureSkipModal'
@@ -28,7 +28,7 @@ import { MobileHome, type MobileHomeData } from './_mobile/MobileHome'
 import { MobileCreditChip } from './_mobile/MobileCreditChip'
 import type { CreditRow } from './_shared/credit-outlook'
 import { computeArrivalLabel, type DeliveryWeekType } from './_shared/delivery-phase'
-import { COMPACT } from './_shared/breakpoints'
+import { COMPACT, EXPANDED } from './_shared/breakpoints'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
@@ -1544,9 +1544,22 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>
                   {headline}
                 </div>
-                <div className="renew-subline" style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-                  {subline}
-                </div>
+                <AnimatePresence initial={false}>
+                  {renewExpanded && (
+                    <motion.div
+                      key="renew-subline"
+                      initial={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                      exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                      transition={{ duration: prefersReducedMotion ? 0.12 : 0.2 }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+                        {subline}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               {profileGate.length > 0 || outOfZone ? (
                 <span
@@ -1581,6 +1594,27 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                   Renew now <ChevronRight size={14} strokeWidth={2.6} />
                 </Link>
               )}
+              <button
+                type="button"
+                onClick={() => setRenewExpanded(v => !v)}
+                aria-expanded={renewExpanded}
+                aria-label={renewExpanded ? 'Hide renewal details' : 'Show renewal details'}
+                style={{
+                  background: 'none', border: 'none', color: S.fgMuted,
+                  cursor: 'pointer', flexShrink: 0, padding: 8, margin: -4,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <ChevronDown
+                  size={16}
+                  strokeWidth={2.4}
+                  aria-hidden
+                  style={{
+                    transition: prefersReducedMotion ? undefined : 'transform 200ms',
+                    transform: renewExpanded ? 'rotate(180deg)' : 'none',
+                  }}
+                />
+              </button>
             </div>
           )
         })()}
@@ -1846,13 +1880,35 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                   <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'var(--ds-og-wash-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: OG, fontFamily: BODY, fontSize: 17, fontWeight: 800 }}>!</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: BODY, fontSize: 13.5, fontWeight: 700, color: S.fg, lineHeight: 1.3 }}>{headline}</div>
-                    <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.45 }}>Renew to keep dinner coming — pick when your next plan starts.</div>
+                    <AnimatePresence initial={false}>
+                      {renewExpanded && (
+                        <motion.div
+                          key="renew-subline"
+                          initial={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                          animate={prefersReducedMotion ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                          exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                          transition={{ duration: prefersReducedMotion ? 0.12 : 0.2 }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.45 }}>Renew to keep dinner coming — pick when your next plan starts.</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   {blocked ? (
                     <span title={outOfZone ? 'Outside delivery radius — message us on WhatsApp' : 'Complete your profile first'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 13px', background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)', borderRadius: 999, fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', cursor: 'not-allowed', flexShrink: 0 }}>Renew <ChevronRight size={13} strokeWidth={2.6} /></span>
                   ) : (
                     <button type="button" onClick={() => navTo(`/dashboard/explore-plans?plan=${encodeURIComponent(sub.plan_name)}`)} disabled={isNavPending} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 13px', background: OG, color: '#fff', borderRadius: 999, fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', border: 'none', cursor: isNavPending ? 'default' : 'pointer', boxShadow: '0 4px 12px rgba(245,127,32,0.40)', flexShrink: 0, opacity: isNavPending ? 0.85 : 1, transition: 'opacity 150ms' }}>{isNavPending ? <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '1.5px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : <>Renew <ChevronRight size={13} strokeWidth={2.6} /></>}</button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setRenewExpanded(v => !v)}
+                    aria-expanded={renewExpanded}
+                    aria-label={renewExpanded ? 'Hide renewal details' : 'Show renewal details'}
+                    style={{ background: 'none', border: 'none', color: S.fgMuted, cursor: 'pointer', flexShrink: 0, padding: 8, margin: -4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <ChevronDown size={16} strokeWidth={2.4} aria-hidden style={{ transition: prefersReducedMotion ? undefined : 'transform 200ms', transform: renewExpanded ? 'rotate(180deg)' : 'none' }} />
+                  </button>
                 </div>
               )
             })() : null}
@@ -2210,24 +2266,36 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         }
         .queued-manage-link:hover { color: rgba(9,24,37,0.85); }
 
-        /* ── Landscape-tablet header row ──────────────────────────────────
-           A landscape iPad is 1024x700 usable: 22% SHORTER than the laptop
-           this tree was tuned for, so vertical is the scarce resource and
-           width is the surplus. The greeting carries no action and the wrap
-           strip is one line, so stacking them spends ~60px of height on two
-           half-empty rows.
+        /* ── Two-up header row (every expanded-tree width) ────────────────
+           The greeting carries no action and the wrap strip is one line, so
+           stacking them spends ~60px of height on two half-empty rows — and
+           the cost lands exactly when a waitlist / plan-ending banner is
+           already stacking the header and pushing the hero toward the fold.
+           Width is the surplus resource up here: the strip moves into the
+           dead space right of the greeting.
+
+           Height is not the only win. Full-width, the strip's marginLeft:auto
+           pushed "+AED 5" to the far edge — ~1400px from its own label on a
+           wide monitor, too far to read as one offer. The grid cell
+           shrink-wraps the strip, so label · chip · reward sit as a single
+           cluster again at every width.
 
            Explicit grid placement, NOT a DOM move. Six conditional siblings
-           (error toast, out-of-zone gate, profile gate, plan-ending, renew
-           banner) sit between the greeting and the strip, so any flex/adjacency
-           approach breaks the moment one of them renders — which is exactly how
-           the portrait two-up broke. Grid placement is order-independent: both
-           claim row 1 by name, everything else auto-flows from row 2 no matter
-           how many banners appear or in what order.
+           (order banner, error toast, out-of-zone gate, profile gate,
+           plan-ending, renew banner) sit between the greeting and the strip,
+           so any flex/adjacency approach breaks the moment one of them
+           renders — which is exactly how the portrait two-up broke. Grid
+           placement is order-independent: both claim row 1 by name,
+           everything else auto-flows from row 2 no matter how many banners
+           appear or in what order.
 
-           Capped at 1279 on purpose. Desktop keeps its current stacked layout
-           until the tablet version has been judged on a real device. */
-        @media (min-width: 1024px) and (max-width: 1279px) and (orientation: landscape) {
+           Born capped at 1279 while the layout awaited judgement on a real
+           tablet; owner extended it to all desktop widths 2026-08-19, which
+           makes the query exactly the EXPANDED contract — the two-up is now
+           simply how the expanded home header renders. The wrap trigger
+           keeps ONE stable home (top-right) in every state; do not make the
+           placement conditional on which banners happen to be present. */
+        @media ${EXPANDED} {
           .home-desktop {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -2248,21 +2316,26 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
              silently landing in half a column with its own spacing. */
           .home-desktop > * { grid-column: 1 / -1; margin-bottom: 0 !important; }
           .home-desktop > .home-greeting { grid-column: 1; grid-row: 1; align-self: center; }
+          /* No border/padding overrides here anymore: the strip renders in
+             this cell at every width it exists at, so MonthlyWrapStrip.tsx
+             owns its final styling directly (ghost pill when open, naked
+             row when locked) instead of shipping stacked-row styles for
+             this block to undo. */
           .home-desktop > .monthly-wrap-strip {
             grid-column: 2; grid-row: 1;
             align-self: center;
             justify-self: end;
-            border-bottom: none !important;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
           }
+        }
 
-          /* Rebalance the hero/actions pair. The 8/4 split is tuned for a
-             laptop's 1348px content; at 932px it leaves Quick Actions 268px,
-             which wraps "Skip tonight's meal" onto three lines with its chip
-             stranded alongside. 7/5 gives the action column ~345px so each
-             button reads as one decision. !important because both spans are
-             inline styles on the components themselves. */
+        /* Rebalance the hero/actions pair — LANDSCAPE-TABLET ONLY, deliberately
+           not part of the EXPANDED block above. The 8/4 split is tuned for a
+           laptop's 1348px content; at 932px it leaves Quick Actions 268px,
+           which wraps "Skip tonight's meal" onto three lines with its chip
+           stranded alongside. 7/5 gives the action column ~345px so each
+           button reads as one decision. !important because both spans are
+           inline styles on the components themselves. */
+        @media (min-width: 1024px) and (max-width: 1279px) and (orientation: landscape) {
           .dash-grid > .hero-card { grid-column: span 7 !important; }
           .dash-grid > .quick-actions-card { grid-column: span 5 !important; }
         }
@@ -2290,9 +2363,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
              (recall-only context; the cycle-savings number lives in the strip). */
           .home-greeting { margin-bottom: 12px !important; }
           .home-equity { display: none !important; }
-          /* Renew banner: drop the secondary subline on mobile — headline +
-             Renew CTA carry the message; the subline only added height. */
-          .renew-subline { display: none !important; }
+          /* Renew banner subline density is now handled by the collapse
+             state (starts collapsed) — a display:none override here would
+             make the expand chevron a no-op at this width. */
         }
 
         /* Quick actions row hover lift */
