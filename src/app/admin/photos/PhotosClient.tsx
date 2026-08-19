@@ -35,10 +35,18 @@ export interface PickupSummary {
 export interface DeliverySummary {
     dormName: string
     photoUrl: string | null
+    /** Every attempt photo, oldest first. Two means the count was disputed once. */
+    photoUrls: string[]
     expectedCount: number | null
     riderCount: number | null
     geminiCount: number | null
+    /** Counts agreed. Audit fact. */
     verified: boolean
+    /** Food recorded as arrived. This is what sent the customer WhatsApps. */
+    delivered: boolean
+    /** Flagged to you and still unresolved. */
+    escalated: boolean
+    attempts: number
     timeLabel: string | null
 }
 
@@ -243,13 +251,38 @@ export function PhotosClient({ day, archived = false, cutoffIso }: { day: ChainD
                             <AdminCard key={d.dormName}>
                                 <div className="mb-2 flex items-center justify-between">
                                     <div className={`text-[14px] font-bold ${t.heading}`}>{d.dormName}</div>
-                                    <MatchBadge ok={d.riderCount === null && !d.verified ? null : d.verified} label={d.verified ? 'Verified' : d.riderCount === null ? 'Pending' : 'Check'} />
+                                    <MatchBadge
+                                        ok={d.verified ? true : d.escalated ? false : d.delivered ? null : null}
+                                        label={d.verified ? 'Verified' : d.escalated ? 'Count open' : d.delivered ? 'Delivered' : 'Pending'}
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Photo url={d.photoUrl} alt={`Delivery at ${d.dormName}`} />
+                                    {d.photoUrls.length > 1 ? (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {d.photoUrls.map((url, i) => (
+                                                <div key={url} className="space-y-1">
+                                                    <Photo url={url} alt={`Delivery at ${d.dormName}, photo ${i + 1}`} />
+                                                    <p className={`text-[11px] ${t.muted}`}>Photo {i + 1}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <Photo url={d.photoUrl} alt={`Delivery at ${d.dormName}`} />
+                                    )}
                                     <CountRow label="Expected" value={d.expectedCount} />
                                     <CountRow label="Rider" value={d.riderCount} expected={d.expectedCount} />
                                     <CountRow label="AI" value={d.geminiCount} expected={d.expectedCount} />
+                                    {/* The two facts read separately on purpose: a dorm can be fed
+                                        and still have an open count, and that is not a failure. */}
+                                    {d.delivered && !d.verified && (
+                                        <p className={`text-[12px] ${t.muted}`}>
+                                            Customers were told their food arrived.
+                                            {d.escalated ? ' The count is still yours to settle.' : ' Counts were never checked.'}
+                                        </p>
+                                    )}
+                                    {!d.delivered && d.riderCount !== null && (
+                                        <p className={`text-[12px] ${t.muted}`}>Photo taken, drop-off not recorded yet.</p>
+                                    )}
                                     {d.timeLabel && <p className={`text-[12px] ${t.muted}`}>Updated {d.timeLabel}</p>}
                                 </div>
                             </AdminCard>

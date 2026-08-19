@@ -5,6 +5,7 @@ import { dormShapeSvg } from '@/shared/dorm-shapes'
 import type { DormMapping } from '@/shared/dorm-shapes'
 import type { DormCountsRecord } from '@/contexts/ops/usecases/get-dorm-counts'
 import { resizeToJpeg } from '@/shared/image-resize'
+import { MAX_VERIFY_ATTEMPTS } from '@/contexts/ops/domain/dropoff-decision'
 import { confirmDropoff } from './actions'
 
 const BG      = '#faf8f4'
@@ -19,12 +20,33 @@ const FONT    = 'var(--font-montserrat), Arial, Helvetica, sans-serif'
 
 export type DormDropoffStatus = 'ready' | 'verified' | 'mismatch' | 'escalated' | 'manual'
 
+/** Mirrors DropoffOutcome in contexts/ops/domain/dropoff-decision.ts, plus the
+ *  gates the route answers before it spends a photo upload or an AI call. */
+type VerifyOutcome =
+  | 'verified'
+  | 'retake'
+  | 'unclear_final'
+  | 'mismatch_retake'
+  | 'mismatch_final'
+  | 'manual'
+  | 'locked'
+  | 'already_verified'
+  | 'no_pickup'
+  | 'write_failed'
+
 interface VerifyResponse {
+  outcome?: VerifyOutcome
   verified: boolean
+  delivered?: boolean
   needsRetake?: boolean
   needsManualConfirm?: boolean
   escalated?: boolean
-  geminiCount?: number
+  /** Photos left for this dorm. 0 means the owner owns it from here. */
+  attemptsLeft?: number
+  attempt?: number
+  expectedCount?: number
+  riderCount?: number
+  geminiCount?: number | null
   reason: string
 }
 
@@ -42,6 +64,9 @@ interface RiderClientProps {
   initialPickedUp?: boolean
   initialPickupFlagged?: boolean
   initialDormStatuses?: Record<string, DormDropoffStatus>
+  /** Photos already spent per dorm. Server-authoritative — a reload must not
+   *  hand the rider a fresh budget, and must not steal the one they have. */
+  initialDormAttempts?: Record<string, number>
 }
 
 // ─── Utility: non-blocking geolocation (Pitfall 6 — trigger from user gesture) ─
@@ -67,6 +92,7 @@ export function RiderClient({
   initialPickedUp = false,
   initialPickupFlagged = false,
   initialDormStatuses = {},
+  initialDormAttempts = {},
 }: RiderClientProps) {
   const RIDER_DORMS = Object.entries(dormShapeMap).filter(
     ([key]) => key !== 'Other',
@@ -83,6 +109,7 @@ export function RiderClient({
 
   // ── Per-dorm drop-off status — seeded from delivery_events on load ───────
   const [dormStatuses, setDormStatuses] = useState<Record<string, DormDropoffStatus>>(initialDormStatuses)
+  const [dormAttempts, setDormAttempts] = useState<Record<string, number>>(initialDormAttempts)
 
   // ── Active modal state ───────────────────────────────────────────────────
   const [activeDorm, setActiveDorm] = useState<string | null>(null)
@@ -91,7 +118,6 @@ export function RiderClient({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
   const [boxCount, setBoxCount] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
-  const [retakeCount, setRetakeCount] = useState(0)
   const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null)
 
   // ── Refs ─────────────────────────────────────────────────────────────────
@@ -138,7 +164,6 @@ export function RiderClient({
     setCapturedPhoto(null)
     setPhotoPreviewUrl(null)
     setBoxCount('')
-    setRetakeCount(0)
     setVerifyResult(null)
 
     try {
@@ -190,7 +215,6 @@ export function RiderClient({
     setPhotoPreviewUrl(null)
     setBoxCount('')
     setVerifyResult(null)
-    setRetakeCount(0)
   }
 
   // ── Submit verification to API (VER-12) ───────────────────────────────────
@@ -210,7 +234,6 @@ export function RiderClient({
       form.append('riderCount', String(count))
       form.append('opsToken', opsTokenId)
       form.append('deliveryDateIso', deliveryDateIso)
-      form.append('retakeCount', String(retakeCount))
       if (geo) {
         form.append('geoLat', String(geo.lat))
         form.append('geoLng', String(geo.lng))
@@ -228,21 +251,66 @@ export function RiderClient({
       const data: VerifyResponse = await res.json()
       setVerifyResult(data)
 
-      if (data.verified) {
-        setDormStatuses(prev => ({ ...prev, [activeDorm]: 'verified' }))
-        // Auto-close after green tick animation (2s)
-        setTimeout(() => closeModal(), 2000)
-      } else if (data.needsRetake) {
-        // Clear photo, keep modal open for retake
-        setCapturedPhoto(null)
-        setPhotoPreviewUrl(null)
-        setRetakeCount(prev => prev + 1)
-      } else if (data.needsManualConfirm) {
-        // VER-11: Show manual confirm button — never auto-complete
-      } else if (data.escalated) {
-        const status = data.reason?.toLowerCase().includes('mismatch') ? 'mismatch' : 'escalated'
-        setDormStatuses(prev => ({ ...prev, [activeDorm]: status }))
-        setTimeout(() => closeModal(), 2000)
+      // The server owns the photo budget; mirror it so the dorm tile knows
+      // whether tapping it again will get the rider anywhere.
+      if (typeof data.attempt === 'number') {
+        setDormAttempts(prev => ({ ...prev, [activeDorm]: data.attempt as number }))
+      }
+
+      switch (data.outcome ?? (data.verified ? 'verified' : 'manual')) {
+        case 'verified':
+        case 'already_verified':
+          setDormStatuses(prev => ({ ...prev, [activeDorm]: 'verified' }))
+          setTimeout(() => closeModal(), 2000)  // green tick animation
+          break
+
+        case 'retake':
+          // Unreadable photo, budget left. Clear the shot, keep the modal up.
+          setCapturedPhoto(null)
+          setPhotoPreviewUrl(null)
+          break
+
+        case 'mismatch_retake':
+          // Owner already alerted and customers already told. The rider now
+          // gets to ADD evidence — a second angle on the stack — which is the
+          // honest way to settle a miscount. It cannot un-send the alert.
+          setDormStatuses(prev => ({ ...prev, [activeDorm]: 'mismatch' }))
+          setCapturedPhoto(null)
+          setPhotoPreviewUrl(null)
+          break
+
+        case 'mismatch_final':
+          setDormStatuses(prev => ({ ...prev, [activeDorm]: 'mismatch' }))
+          setTimeout(() => closeModal(), 3000)
+          break
+
+        case 'unclear_final':
+          setDormStatuses(prev => ({ ...prev, [activeDorm]: 'escalated' }))
+          setTimeout(() => closeModal(), 3000)
+          break
+
+        case 'manual':
+          // VER-11: show the manual confirm button, never auto-complete.
+          break
+
+        case 'locked':
+          // Budget spent. If the drop-off was never recorded the response
+          // carries needsManualConfirm, so the rider still has a way out.
+          if (!data.needsManualConfirm) {
+            setDormStatuses(prev => ({
+              ...prev,
+              [activeDorm]: data.escalated ? 'mismatch' : 'manual',
+            }))
+            setTimeout(() => closeModal(), 3000)
+          }
+          break
+
+        case 'no_pickup':
+        case 'write_failed':
+          // Nothing was recorded. Leave the dorm open so it can be retried.
+          setCapturedPhoto(null)
+          setPhotoPreviewUrl(null)
+          break
       }
     } catch {
       // fetch itself rejected (rider offline — common in a delivery PWA). Show a
@@ -263,8 +331,24 @@ export function RiderClient({
     setSubmitting(true)
     try {
       const count = parseInt(boxCount, 10) || 0
-      await confirmDropoff(activeDorm, count, opsTokenId, deliveryDateIso)
-      setDormStatuses(prev => ({ ...prev, [activeDorm]: 'manual' }))
+      const res = await confirmDropoff(activeDorm, count, opsTokenId, deliveryDateIso)
+      if (!res.ok) {
+        setVerifyResult({
+          verified: false,
+          outcome: 'manual',
+          needsManualConfirm: true,
+          reason: res.error ?? 'Could not save. Try again.',
+        })
+        return
+      }
+      // A flagged dorm stays flagged: recording the drop-off by hand never
+      // clears an escalation, it only tells the customers their food arrived.
+      setDormStatuses(prev => ({
+        ...prev,
+        [activeDorm]: prev[activeDorm] === 'mismatch' || prev[activeDorm] === 'escalated'
+          ? prev[activeDorm]
+          : 'manual',
+      }))
       setTimeout(() => closeModal(), 1500)
     } finally {
       setSubmitting(false)
@@ -357,11 +441,24 @@ export function RiderClient({
     return MUTED
   }
 
-  function statusLabel(status: DormDropoffStatus | undefined, isEmpty: boolean): string {
+  /** Photos left for this dorm, from the server-seeded count. */
+  function attemptsLeftFor(dormKey: string): number {
+    return Math.max(0, MAX_VERIFY_ATTEMPTS - (dormAttempts[dormKey] ?? 0))
+  }
+
+  function statusLabel(
+    status: DormDropoffStatus | undefined,
+    isEmpty: boolean,
+    dormKey: string,
+  ): string {
     if (status === 'verified') return '✓ Delivered'
-    if (status === 'mismatch') return '⚠ Mismatch'
-    if (status === 'escalated') return '⚠ Escalated'
-    if (status === 'manual') return '◑ Manual'
+    // A flagged count with a photo left is not a dead end — say so, because
+    // "Mismatch" on a dead tile is what made this feel like a punishment.
+    if (status === 'mismatch') {
+      return attemptsLeftFor(dormKey) > 0 ? '⚠ Tap to retake' : '⚠ Owner notified'
+    }
+    if (status === 'escalated') return '⚠ Owner notified'
+    if (status === 'manual') return '◑ Recorded by hand'
     if (isEmpty) return ''
     return 'Tap to deliver'
   }
@@ -371,11 +468,23 @@ export function RiderClient({
     const count = dormCounts[dormKey] ?? 0
     if (count === 0) return false
     const status = dormStatuses[dormKey]
-    return status !== 'verified' && status !== 'mismatch' && status !== 'escalated' && status !== 'manual'
+    // Genuinely finished states are locked. A flagged count stays open while
+    // the rider still has a photo: they can add evidence, never erase it.
+    if (status === 'verified' || status === 'manual' || status === 'escalated') return false
+    if (status === 'mismatch') return attemptsLeftFor(dormKey) > 0
+    return true
   }
 
+  // The drop-off has reached a state only the owner can move. Stop offering
+  // a Submit that the server would just refuse.
+  const modalLocked =
+    verifyResult?.outcome === 'mismatch_final' ||
+    verifyResult?.outcome === 'unclear_final' ||
+    verifyResult?.outcome === 'already_verified' ||
+    (verifyResult?.outcome === 'locked' && !verifyResult?.needsManualConfirm)
+
   const submitDisabled =
-    !capturedPhoto || !boxCount || parseInt(boxCount, 10) <= 0 || submitting
+    !capturedPhoto || !boxCount || parseInt(boxCount, 10) <= 0 || submitting || modalLocked
 
   return (
     <div
@@ -502,7 +611,7 @@ export function RiderClient({
                     fontWeight: 600,
                   }}
                 >
-                  {statusLabel(status, isEmpty)}
+                  {statusLabel(status, isEmpty, dormKey)}
                 </div>
               )}
             </div>
@@ -685,8 +794,19 @@ export function RiderClient({
               backgroundColor: BG,
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 700, color: NAVY }}>
-              {dormShapeMap[activeDorm]?.displayName ?? activeDorm}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: NAVY }}>
+                {dormShapeMap[activeDorm]?.displayName ?? activeDorm}
+              </div>
+              {/* Say the budget out loud once one photo is already spent, so a
+                  second attempt never feels like a trap. */}
+              {(dormAttempts[activeDorm] ?? 0) > 0 && (
+                <div style={{ fontSize: '13px', color: MUTED, marginTop: '2px' }}>
+                  {attemptsLeftFor(activeDorm) > 0
+                    ? `Photo ${(dormAttempts[activeDorm] ?? 0) + 1} of ${MAX_VERIFY_ATTEMPTS}`
+                    : 'Both photos used'}
+                </div>
+              )}
             </div>
             <button
               onClick={closeModal}
@@ -857,8 +977,32 @@ export function RiderClient({
               </div>
             )}
 
+            {/* ── Count flagged, one photo left ─────────────────────── */}
+            {verifyResult?.outcome === 'mismatch_retake' && (
+              <div
+                style={{
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #ef4444',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  color: '#991b1b',
+                  fontSize: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>Counts do not match</div>
+                <div style={{ fontSize: '13px' }}>{verifyResult.reason}</div>
+                <div style={{ fontSize: '13px', color: NAVY }}>
+                  The owner has been told and the customers know their food arrived.
+                  You have 1 more photo to settle the count.
+                </div>
+              </div>
+            )}
+
             {/* ── Retake prompt banner ──────────────────────────────── */}
-            {verifyResult?.needsRetake && (
+            {verifyResult?.outcome === 'retake' && verifyResult?.needsRetake && (
               <div
                 style={{
                   backgroundColor: '#fff7ed',
@@ -918,8 +1062,10 @@ export function RiderClient({
               </div>
             )}
 
-            {/* ── Escalated banner ──────────────────────────────────── */}
-            {verifyResult?.escalated && (
+            {/* ── Final state: the owner owns this drop-off now ─────── */}
+            {(verifyResult?.outcome === 'mismatch_final' ||
+              verifyResult?.outcome === 'unclear_final' ||
+              (verifyResult?.outcome === 'locked' && !verifyResult?.needsManualConfirm)) && (
               <div
                 style={{
                   backgroundColor: '#fef2f2',
@@ -928,14 +1074,36 @@ export function RiderClient({
                   padding: '12px 16px',
                   color: '#991b1b',
                   fontSize: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: '4px' }}>
-                  Owner has been notified
-                </div>
+                <div style={{ fontWeight: 700 }}>Owner has been notified</div>
                 {verifyResult.reason && (
                   <div style={{ fontSize: '13px' }}>{verifyResult.reason}</div>
                 )}
+                <div style={{ fontSize: '13px', color: NAVY }}>
+                  Nothing left to do here. Carry on to the next dorm.
+                </div>
+              </div>
+            )}
+
+            {/* ── Nothing was recorded — this one IS worth retrying ─── */}
+            {(verifyResult?.outcome === 'no_pickup' ||
+              verifyResult?.outcome === 'write_failed') && (
+              <div
+                style={{
+                  backgroundColor: '#fff7ed',
+                  border: `1px solid ${ORANGE}`,
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  color: NAVY,
+                  fontSize: '14px',
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: '4px' }}>Not saved</div>
+                <div style={{ fontSize: '13px', color: MUTED }}>{verifyResult.reason}</div>
               </div>
             )}
 
@@ -981,7 +1149,7 @@ export function RiderClient({
             </div>
 
             {/* ── Submit button (VER-12) ────────────────────────────── */}
-            {!verifyResult?.needsManualConfirm && (
+            {!verifyResult?.needsManualConfirm && !modalLocked && (
               <button
                 onClick={handleSubmitVerification}
                 disabled={submitDisabled}

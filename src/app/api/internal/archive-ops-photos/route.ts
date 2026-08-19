@@ -95,9 +95,12 @@ export async function POST(req: Request) {
     // partial failure safe (no double 'archive/archive/' prefixes).
     for (const table of ['delivery_events', 'ops_day_events'] as const) {
       const dateCol = table === 'delivery_events' ? 'delivery_date' : 'event_date'
+      // delivery_events also keeps the per-attempt history in photo_paths.
+      // Both pointers move together or the second attempt's photo goes dark.
+      const cols = table === 'delivery_events' ? 'id, photo_path, photo_paths' : 'id, photo_path'
       const { data: rows, error: rowsErr } = await sb
         .from(table)
-        .select('id, photo_path')
+        .select(cols)
         .eq(dateCol, date)
         .not('photo_path', 'is', null)
         .not('photo_path', 'like', 'archive/%')
@@ -105,10 +108,22 @@ export async function POST(req: Request) {
         captureError(rowsErr, { area: 'ops', op: 'archive-photos.read-paths', table, date })
         continue
       }
-      for (const row of rows ?? []) {
+      for (const row of (rows ?? []) as unknown as {
+        id: string
+        photo_path: string
+        photo_paths?: string[] | null
+      }[]) {
+        const patch: Record<string, unknown> = { photo_path: `archive/${row.photo_path}` }
+        if (row.photo_paths?.length) {
+          // The not-like guard above is on photo_path, so re-prefix defensively
+          // per entry — never produce 'archive/archive/...'.
+          patch.photo_paths = row.photo_paths.map(pp =>
+            pp.startsWith('archive/') ? pp : `archive/${pp}`,
+          )
+        }
         const { error: updErr } = await sb
           .from(table)
-          .update({ photo_path: `archive/${row.photo_path}` })
+          .update(patch)
           .eq('id', row.id)
         if (updErr) {
           captureError(updErr, { area: 'ops', op: 'archive-photos.update-path', table, date })

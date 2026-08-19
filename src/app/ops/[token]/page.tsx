@@ -106,19 +106,29 @@ export default async function OpsPage({
       .maybeSingle(),
     sbAdmin
       .from('delivery_events')
-      .select('dorm_name, verified, rider_count')
+      .select('dorm_name, verified, rider_count, gemini_count, delivered_at, escalated_at, verify_attempts')
       .eq('delivery_date', todayIso)
       .eq('trip_number', 1),
   ])
 
   const initialDormStatuses: Record<string, DormDropoffStatus> = {}
+  const initialDormAttempts: Record<string, number> = {}
   for (const row of eventRows ?? []) {
-    // verified → the photo check passed. rider_count without verified covers
-    // manual confirms and escalated photo attempts alike — 'manual' renders
-    // as done-but-unverified, which is honest for all of them and keeps the
-    // dorm from being re-done. Rows with neither are pickup placeholders.
-    if (row.verified) initialDormStatuses[row.dorm_name] = 'verified'
-    else if (row.rider_count !== null) initialDormStatuses[row.dorm_name] = 'manual'
+    initialDormAttempts[row.dorm_name] = row.verify_attempts ?? 0
+
+    // Only a genuinely finished drop-off comes back locked. A dorm that took
+    // one unreadable photo and never came back must stay open — rehydrating
+    // it as done was the reload half of the old lockout.
+    if (row.verified) {
+      initialDormStatuses[row.dorm_name] = 'verified'
+    } else if (row.escalated_at) {
+      // A count the AI actually produced is a mismatch (the rider may still
+      // have a photo left); no count at all is an unreadable-photo escalation.
+      initialDormStatuses[row.dorm_name] =
+        row.gemini_count !== null ? 'mismatch' : 'escalated'
+    } else if (row.delivered_at) {
+      initialDormStatuses[row.dorm_name] = 'manual'
+    }
   }
 
   return (
@@ -132,6 +142,7 @@ export default async function OpsPage({
       initialPickedUp={!!pickupRow}
       initialPickupFlagged={pickupRow?.matched === false}
       initialDormStatuses={initialDormStatuses}
+      initialDormAttempts={initialDormAttempts}
     />
   )
 }

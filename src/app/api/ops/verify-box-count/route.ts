@@ -1,22 +1,31 @@
 // src/app/api/ops/verify-box-count/route.ts
 // Phase 5 — Delivery drop-off verification endpoint.
 //
+// Two facts come out of this route and they are NOT the same fact:
+//   delivered_at — the food is at the dorm. Releases the customer WhatsApps.
+//   verified     — expected, rider and AI counts all agree. Audit only.
+// A disputed count flags the owner. It no longer silences the whole dorm,
+// and it no longer strands the rider: they get a second photo to settle it
+// (see contexts/ops/domain/dropoff-decision.ts for the full rationale).
+//
 // Flow:
-//   1. Parse multipart form data (photo + dormName + riderCount + opsToken + deliveryDateIso + geo + retakeCount)
+//   1. Parse multipart form data (photo + dormName + riderCount + opsToken + deliveryDateIso + geo)
 //   2. Validate inputs + authenticate the ops token (rider role)
-//   3. Upload photo to delivery-photos/{date}/{dorm-slug}/trip-1.jpg
-//   4. Look up expected_count from the existing delivery_events row
-//   5. Call Gemini Vision to count boxes in the photo
-//   6. Decision logic:
-//      A. Photo unclear → retake (first time) or escalate (second time)
-//      B. Gemini null count → needsManualConfirm
-//      C. Triple match (expected === rider === gemini) → verified: true
-//      D. Mismatch → escalate owner via notifyAdmin
-//   7. UPDATE delivery_events row with all results
+//   3. Read the delivery_events row — preflight before spending an upload or a Gemini call
+//   4. Upload this attempt's photo to its own key (nothing is ever overwritten)
+//   5. Call Gemini Vision to count boxes
+//   6. decideDropoff() — pure domain decision
+//   7. Persist, then fan out: customers on first delivery, owner on any flag
 
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import {
+  decideDropoff,
+  preflightDropoff,
+  attemptPhotoPath,
+  MAX_VERIFY_ATTEMPTS,
+} from '@/contexts/ops/domain/dropoff-decision'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
@@ -52,7 +61,6 @@ export async function POST(req: Request) {
   const deliveryDateIso = formData.get('deliveryDateIso') as string | null
   const geoLatRaw = formData.get('geoLat') as string | null
   const geoLngRaw = formData.get('geoLng') as string | null
-  const retakeCountRaw = formData.get('retakeCount') as string | null
 
   const riderCount = parseInt(riderCountRaw ?? '', 10)
 
@@ -85,8 +93,8 @@ export async function POST(req: Request) {
   // ── 3. Auth — validate ops token by ID ───────────────────────────────
   // The client receives opsToken.id (UUID) from the RSC, not the secret
   // token string. Look up by primary key instead of by secret.
-  const sb0 = createAdminSupabaseClient()
-  const { data: tokenRecord, error: tokenErr } = await sb0
+  const sb = createAdminSupabaseClient()
+  const { data: tokenRecord, error: tokenErr } = await sb
     .from('ops_tokens')
     .select('id, token, role, is_active, revoked_at')
     .eq('id', opsToken)
@@ -97,13 +105,82 @@ export async function POST(req: Request) {
   }
   log(`auth ok token=${tokenRecord.id}`)
 
-  // ── 4. Read photo bytes ──────────────────────────────────────────────
-  const bytes = new Uint8Array(await photo.arrayBuffer())
+  // ── 4. Read the existing row and preflight ───────────────────────────
+  // Done before the upload and the Gemini call so a locked or already-done
+  // dorm costs nothing. verify_attempts lives on the server precisely so a
+  // PWA reload cannot hand the rider a fresh budget.
+  const { data: existingRow } = await sb
+    .from('delivery_events')
+    .select('expected_count, verify_attempts, photo_paths, delivered_at, escalated_at, verified')
+    .eq('delivery_date', deliveryDateIso)
+    .eq('dorm_name', dormName)
+    .eq('trip_number', 1)
+    .maybeSingle()
 
-  // ── 5. Upload photo to delivery-photos storage ───────────────────────
+  if (!existingRow) {
+    // The row is created by pickup confirmation, and every write here is an
+    // UPDATE. Without it there is nowhere to record the drop-off, so say so
+    // plainly instead of silently discarding the rider's photo.
+    console.warn(`[verify-box-count] no delivery_events row for ${dormName} on ${deliveryDateIso}`)
+    void notifyAdmin(
+      `Rider tried to deliver to ${dormName} but no pickup was confirmed for ${deliveryDateIso}, so nothing could be recorded.`,
+      dormName.slice(0, 20),
+    )
+    return NextResponse.json({
+      outcome: 'no_pickup',
+      verified: false,
+      needsRetake: false,
+      escalated: false,
+      reason: 'No pickup confirmed today. Take the pickup photo at the kitchen first.',
+    })
+  }
+
+  const priorAttempts = existingRow.verify_attempts ?? 0
+  const priorPhotoPaths: string[] = existingRow.photo_paths ?? []
+  const expectedCount = existingRow.expected_count ?? 0
+  const alreadyDelivered = existingRow.delivered_at !== null
+  const wasEscalated = existingRow.escalated_at !== null
+
+  const gate = preflightDropoff({
+    verified: existingRow.verified === true,
+    verifyAttempts: priorAttempts,
+  })
+
+  if (gate === 'already_verified') {
+    return NextResponse.json({
+      outcome: 'already_verified',
+      verified: true,
+      needsRetake: false,
+      escalated: false,
+      attemptsLeft: 0,
+      reason: 'This dorm is already verified.',
+    })
+  }
+
+  if (gate === 'locked') {
+    // Budget spent. The owner owns this drop-off now — but if nothing has been
+    // recorded as delivered yet, the rider still gets a way to say the food
+    // arrived. They can close their own loop; they can never clear the flag.
+    return NextResponse.json({
+      outcome: 'locked',
+      verified: false,
+      needsRetake: false,
+      needsManualConfirm: !alreadyDelivered,
+      escalated: wasEscalated,
+      attemptsLeft: 0,
+      reason: alreadyDelivered
+        ? `Both photos used. The owner has this one — nothing more to do here.`
+        : `Both photos used. Tap Confirm Delivery to record the drop-off.`,
+    })
+  }
+
+  const attempt = priorAttempts + 1
+  log(`attempt ${attempt} of ${MAX_VERIFY_ATTEMPTS} for ${dormName}`)
+
+  // ── 5. Read photo bytes and upload to this attempt's own key ─────────
+  const bytes = new Uint8Array(await photo.arrayBuffer())
   const dormSlug = dormName.toLowerCase().replace(/\s+/g, '-')
-  const storagePath = `${deliveryDateIso}/${dormSlug}/trip-1.jpg`
-  const sb = createAdminSupabaseClient()
+  const storagePath = attemptPhotoPath(deliveryDateIso, dormSlug, 1, attempt)
 
   const { error: uploadErr } = await sb.storage
     .from('delivery-photos')
@@ -116,172 +193,159 @@ export async function POST(req: Request) {
     log('storage upload ok path=' + storagePath)
   }
 
-  // ── 6. Look up expected_count from existing delivery_events row ──────
-  const { data: existingRow } = await sb
-    .from('delivery_events')
-    .select('expected_count')
-    .eq('delivery_date', deliveryDateIso)
-    .eq('dorm_name', dormName)
-    .eq('trip_number', 1)
-    .maybeSingle()
+  const photoPaths = uploadErr ? priorPhotoPaths : [...priorPhotoPaths, storagePath]
 
-  const expectedCount = existingRow?.expected_count ?? 0
-
-  if (!existingRow) {
-    console.warn('[verify-box-count] No delivery_events row found — rider verifying without prior pickup confirm')
-  }
-
-  // ── 7. Call Gemini box count ─────────────────────────────────────────
+  // ── 6. Call Gemini box count ─────────────────────────────────────────
   log('starting Gemini verification...')
   const geminiResult = await verifyBoxCount(bytes, photo.type, expectedCount)
   log(`Gemini result: count=${geminiResult.count} confidence=${geminiResult.confidence} quality=${geminiResult.imageQuality}`)
 
-  // ── 8. Decision logic ────────────────────────────────────────────────
-  const retakeNum = parseInt(retakeCountRaw ?? '0', 10) || 0
-
-  // Case A — Photo unclear (VER-09 / VER-10)
-  if (geminiResult.imageQuality === 'unclear' || (geminiResult.confidence === 'low' && geminiResult.count === null)) {
-    if (retakeNum >= 2) {
-      // Second unclear photo → escalate (VER-10)
-      const signedUrl = await generateSignedUrl(sb, storagePath)
-      void notifyAdmin(
-        `UNCLEAR PHOTO x2 — ${dormName}\nExpected: ${expectedCount} | Rider: ${riderCount}\nPhoto: ${signedUrl ?? storagePath}\nDate: ${deliveryDateIso}`,
-        dormName.slice(0, 20),
-      )
-      await updateDeliveryEvent({
-        deliveryDateIso, dormName, tripNumber: 1, riderCount,
-        geminiCount: null, geminiConfidence: geminiResult.confidence,
-        photoPath: storagePath, verified: false,
-        geoLat: parseGeo(geoLatRaw), geoLng: parseGeo(geoLngRaw),
-      })
-      return NextResponse.json({
-        verified: false,
-        needsRetake: false,
-        escalated: true,
-        reason: 'Photo unclear twice — owner notified',
-      })
-    }
-    // First unclear → retake prompt (VER-09)
-    return NextResponse.json({
-      verified: false,
-      needsRetake: true,
-      escalated: false,
-      reason: geminiResult.reason,
-    })
-  }
-
-  // Case B — Gemini timeout / null count (VER-11)
-  if (geminiResult.count === null) {
-    await updateDeliveryEvent({
-      deliveryDateIso, dormName, tripNumber: 1, riderCount,
-      geminiCount: null, geminiConfidence: geminiResult.confidence,
-      photoPath: storagePath, verified: false,
-      geoLat: parseGeo(geoLatRaw), geoLng: parseGeo(geoLngRaw),
-    })
-    return NextResponse.json({
-      verified: false,
-      needsRetake: false,
-      needsManualConfirm: true,
-      reason: 'Could not count boxes — please confirm manually',
-    })
-  }
-
-  // Case C — Triple match (VER-07)
-  const isMatch = expectedCount === riderCount && riderCount === geminiResult.count
-  if (isMatch) {
-    // ── Dedup guard: skip fanout if already verified (Pitfall 1) ──────
-    const { data: preCheck } = await sb
-      .from('delivery_events')
-      .select('verified')
-      .eq('delivery_date', deliveryDateIso)
-      .eq('dorm_name', dormName)
-      .eq('trip_number', 1)
-      .maybeSingle()
-
-    const alreadyVerified = preCheck?.verified === true
-
-    await updateDeliveryEvent({
-      deliveryDateIso, dormName, tripNumber: 1, riderCount,
-      geminiCount: geminiResult.count, geminiConfidence: geminiResult.confidence,
-      photoPath: storagePath, verified: true,
-      geoLat: parseGeo(geoLatRaw), geoLng: parseGeo(geoLngRaw),
-    })
-
-    // Fire-and-log: queue customer notifications for this dorm (NOT-01)
-    if (!alreadyVerified) {
-      // deliveryDateIso is already the AE calendar date — read its weekday in
-      // UTC so a UTC server doesn't roll back to Friday (getDay() bug).
-      const isSaturday = new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
-      try {
-        const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
-        log(`fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)
-      } catch (err) {
-        // Release It! L5: the delivery is already committed as VERIFIED, so the
-        // 8PM failsafe will NOT flag it — yet customers were never told their
-        // food arrived. Surface it loudly so ops can notify them manually.
-        captureError(err, { area: 'ops', op: 'verify-box-count.fanout', dorm: dormName })
-        void notifyAdmin(
-          `Delivery VERIFIED for ${dormName} but customer notifications failed to queue — customers were not told their food arrived. Please notify them manually.`,
-          dormName,
-        )
-      }
-    } else {
-      log(`fanout: skipped (already verified) for ${dormName}`)
-    }
-
-    // Owner run update with route progress — fire and forget, inside the
-    // dedup guard so a re-verified dorm never double-pings.
-    if (!alreadyVerified) {
-      void (async () => {
-        try {
-          const { data: dayRows } = await sb
-            .from('delivery_events')
-            .select('verified')
-            .eq('delivery_date', deliveryDateIso)
-            .eq('trip_number', 1)
-            .gt('expected_count', 0)
-          const totalDorms = dayRows?.length ?? 0
-          const doneDorms = dayRows?.filter(r => r.verified).length ?? 0
-          const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
-          const hhmm = `${String(ae.getUTCHours()).padStart(2, '0')}:${String(ae.getUTCMinutes()).padStart(2, '0')}`
-          await notifyRunUpdate(
-            `Delivered to ${dormName}`,
-            `${riderCount} boxes verified by photo at ${hhmm}. ${doneDorms} of ${totalDorms} dorms done`,
-            'Nothing to do.',
-          )
-        } catch (err) {
-          captureError(err, { area: 'ops', op: 'verify-box-count.run-update', dorm: dormName })
-        }
-      })()
-    }
-
-    return NextResponse.json({
-      verified: true,
-      needsRetake: false,
-      escalated: false,
-      geminiCount: geminiResult.count,
-      reason: geminiResult.reason,
-    })
-  }
-
-  // Case D — Count mismatch (VER-08)
-  const signedUrl = await generateSignedUrl(sb, storagePath)
-  void notifyAdmin(
-    `DELIVERY MISMATCH — ${dormName}\nExpected: ${expectedCount} | Rider: ${riderCount} | Gemini: ${geminiResult.count}\nConfidence: ${geminiResult.confidence}\nPhoto: ${signedUrl ?? storagePath}\nDate: ${deliveryDateIso}`,
-    dormName.slice(0, 20),
-  )
-  await updateDeliveryEvent({
-    deliveryDateIso, dormName, tripNumber: 1, riderCount,
-    geminiCount: geminiResult.count, geminiConfidence: geminiResult.confidence,
-    photoPath: storagePath, verified: false,
-    geoLat: parseGeo(geoLatRaw), geoLng: parseGeo(geoLngRaw),
-  })
-  return NextResponse.json({
-    verified: false,
-    needsRetake: false,
-    escalated: true,
+  // ── 7. Decide (pure domain) ──────────────────────────────────────────
+  const decision = decideDropoff({
+    expectedCount,
+    riderCount,
     geminiCount: geminiResult.count,
-    reason: `Mismatch: expected ${expectedCount}, rider ${riderCount}, Gemini ${geminiResult.count}`,
+    imageQuality: geminiResult.imageQuality,
+    confidence: geminiResult.confidence,
+    attempt,
+  })
+  log(`decision: ${decision.outcome} (verified=${decision.verified} delivered=${decision.delivered} escalate=${decision.escalate})`)
+
+  // ── 8. Persist ───────────────────────────────────────────────────────
+  const nowIso = new Date().toISOString()
+  const writeResult = await updateDeliveryEvent({
+    deliveryDateIso,
+    dormName,
+    tripNumber: 1,
+    riderCount,
+    geminiCount: geminiResult.count,
+    geminiConfidence: geminiResult.confidence,
+    photoPath: uploadErr ? null : storagePath,
+    verified: decision.verified,
+    geoLat: parseGeo(geoLatRaw),
+    geoLng: parseGeo(geoLngRaw),
+    photoPaths,
+    verifyAttempts: attempt,
+    // One-way stamps: set once, never cleared by a later attempt.
+    ...(decision.delivered && !alreadyDelivered ? { deliveredAt: nowIso } : {}),
+    ...(decision.escalate && !wasEscalated ? { escalatedAt: nowIso } : {}),
+  })
+
+  if (!writeResult.ok) {
+    // The rider's evidence is in storage but the record did not move. Never
+    // report success off a failed write — the 8PM failsafe would stay quiet
+    // on a "verified" dorm that was never actually marked.
+    captureError(new Error(writeResult.error ?? 'delivery_events update failed'), {
+      area: 'ops', op: 'verify-box-count.write', dorm: dormName,
+    })
+    void notifyAdmin(
+      `Could not save the drop-off for ${dormName} on ${deliveryDateIso}. Photo is in Photos but the record did not update.`,
+      dormName.slice(0, 20),
+    )
+    return NextResponse.json({
+      outcome: 'write_failed',
+      verified: false,
+      needsRetake: false,
+      escalated: false,
+      attemptsLeft: decision.attemptsLeft,
+      reason: 'Could not save. Try once more, then tell the owner.',
+    }, { status: 500 })
+  }
+
+  // ── 9. Customer fanout — on the DELIVERED fact, not the verified one ──
+  // This is the whole point of the split: a dorm full of students who got
+  // their food must be told so, even when the three counts disagree.
+  if (decision.delivered && !alreadyDelivered) {
+    // deliveryDateIso is already the AE calendar date — read its weekday in
+    // UTC so a UTC server doesn't roll back to Friday (getDay() bug).
+    const isSaturday = new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
+    try {
+      const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
+      log(`fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)
+    } catch (err) {
+      // Release It! L5: the drop-off is already committed as delivered, so the
+      // 8PM failsafe will NOT flag it — yet customers were never told their
+      // food arrived. Surface it loudly so ops can notify them manually.
+      captureError(err, { area: 'ops', op: 'verify-box-count.fanout', dorm: dormName })
+      void notifyAdmin(
+        `Delivery recorded for ${dormName} but customer notifications failed to queue — customers were not told their food arrived. Please notify them manually.`,
+        dormName,
+      )
+    }
+  }
+
+  // ── 10. Owner alerts ─────────────────────────────────────────────────
+  const signedUrl = uploadErr ? null : await generateSignedUrl(sb, storagePath)
+
+  if (decision.escalate) {
+    void notifyAdmin(buildEscalationMessage({
+      outcome: decision.outcome,
+      dormName,
+      expectedCount,
+      riderCount,
+      geminiCount: geminiResult.count,
+      confidence: geminiResult.confidence,
+      attempt,
+      attemptsLeft: decision.attemptsLeft,
+      deliveredNow: decision.delivered && !alreadyDelivered,
+      photoUrl: signedUrl ?? storagePath,
+      deliveryDateIso,
+    }), dormName.slice(0, 20))
+  }
+
+  // A dorm that was flagged and then came good on the second photo: close the
+  // loop explicitly, otherwise the owner is left holding an alert that quietly
+  // stopped being true.
+  if (decision.verified && wasEscalated) {
+    void notifyAdmin(
+      `MISMATCH RESOLVED — ${dormName}\nSecond photo agrees: ${geminiResult.count} boxes.\nDate: ${deliveryDateIso}`,
+      dormName.slice(0, 20),
+    )
+  }
+
+  // Owner run update with route progress — fire and forget, only on the
+  // transition into verified so a re-verified dorm never double-pings.
+  if (decision.verified) {
+    void (async () => {
+      try {
+        const { data: dayRows } = await sb
+          .from('delivery_events')
+          .select('verified')
+          .eq('delivery_date', deliveryDateIso)
+          .eq('trip_number', 1)
+          .gt('expected_count', 0)
+        const totalDorms = dayRows?.length ?? 0
+        const doneDorms = dayRows?.filter(r => r.verified).length ?? 0
+        const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+        const hhmm = `${String(ae.getUTCHours()).padStart(2, '0')}:${String(ae.getUTCMinutes()).padStart(2, '0')}`
+        await notifyRunUpdate(
+          `Delivered to ${dormName}`,
+          `${riderCount} boxes verified by photo at ${hhmm}. ${doneDorms} of ${totalDorms} dorms done`,
+          'Nothing to do.',
+        )
+      } catch (err) {
+        captureError(err, { area: 'ops', op: 'verify-box-count.run-update', dorm: dormName })
+      }
+    })()
+  }
+
+  // ── 11. Respond ──────────────────────────────────────────────────────
+  return NextResponse.json({
+    outcome: decision.outcome,
+    verified: decision.verified,
+    delivered: decision.delivered || alreadyDelivered,
+    needsRetake: decision.allowRetake,
+    needsManualConfirm: decision.outcome === 'manual',
+    escalated: decision.escalate,
+    attempt,
+    attemptsLeft: decision.attemptsLeft,
+    expectedCount,
+    riderCount,
+    geminiCount: geminiResult.count,
+    reason: buildRiderReason(decision.outcome, {
+      expectedCount, riderCount, geminiCount: geminiResult.count,
+      attemptsLeft: decision.attemptsLeft, geminiReason: geminiResult.reason,
+    }),
   })
 }
 
@@ -291,6 +355,73 @@ function parseGeo(val: string | null): number | null {
   if (!val) return null
   const n = parseFloat(val)
   return Number.isFinite(n) ? n : null
+}
+
+/** What the rider reads on their phone. Plain, short, always says what to do next. */
+function buildRiderReason(
+  outcome: string,
+  ctx: {
+    expectedCount: number
+    riderCount: number
+    geminiCount: number | null
+    attemptsLeft: number
+    geminiReason: string
+  },
+): string {
+  switch (outcome) {
+    case 'verified':
+      return ctx.geminiReason
+    case 'retake':
+      return `${ctx.geminiReason} Take one more, closer and with the boxes spread out.`
+    case 'unclear_final':
+      return 'The photo still could not be read. The owner has been told and the delivery is recorded.'
+    case 'mismatch_retake':
+      return `You counted ${ctx.riderCount}, the photo shows ${ctx.geminiCount}, the list says ${ctx.expectedCount}. The owner has been told. Take one more photo from a different angle.`
+    case 'mismatch_final':
+      return `Still ${ctx.riderCount} from you and ${ctx.geminiCount} from the photo against ${ctx.expectedCount} on the list. The owner has it from here. The delivery is recorded.`
+    case 'manual':
+      return 'The photo could not be counted right now. Confirm the delivery by hand.'
+    default:
+      return ''
+  }
+}
+
+/** What lands on the owner's WhatsApp. Numbers first, then what happens next. */
+function buildEscalationMessage(ctx: {
+  outcome: string
+  dormName: string
+  expectedCount: number
+  riderCount: number
+  geminiCount: number | null
+  confidence: string
+  attempt: number
+  attemptsLeft: number
+  deliveredNow: boolean
+  photoUrl: string
+  deliveryDateIso: string
+}): string {
+  const head =
+    ctx.outcome === 'unclear_final'
+      ? `UNCLEAR PHOTO x${ctx.attempt} — ${ctx.dormName}`
+      : ctx.outcome === 'mismatch_final'
+        ? `DELIVERY MISMATCH, STILL OPEN — ${ctx.dormName}`
+        : `DELIVERY MISMATCH — ${ctx.dormName}`
+
+  const counts =
+    ctx.outcome === 'unclear_final'
+      ? `Expected: ${ctx.expectedCount} | Rider: ${ctx.riderCount}`
+      : `Expected: ${ctx.expectedCount} | Rider: ${ctx.riderCount} | Photo: ${ctx.geminiCount}\nConfidence: ${ctx.confidence}`
+
+  const next =
+    ctx.attemptsLeft > 0
+      ? `Rider has 1 more photo to settle it. You will get another message either way.`
+      : `Photo budget used up. The rider cannot clear this, only you can.`
+
+  const customers = ctx.deliveredNow
+    ? `Customers at this dorm have been told their food arrived.`
+    : `Customers at this dorm were already told earlier.`
+
+  return `${head}\nAttempt ${ctx.attempt} of 2\n${counts}\n${next}\n${customers}\nPhoto: ${ctx.photoUrl}\nDate: ${ctx.deliveryDateIso}`
 }
 
 async function generateSignedUrl(

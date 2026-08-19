@@ -57,6 +57,24 @@
 - [ ] **VER-12**: Submit button disabled until photo taken + non-zero count entered
 - [ ] **VER-13**: Delivery event data trail: who (token_id), when (timestamp), geolocation, expected_count, rider_count, gemini_count, photo_path
 
+#### Revision, 2026-08-19 — a disputed count is not a failed delivery
+
+VER-07/08 as originally built welded two different facts to one boolean. A
+mismatch left `verified` false, and `verified` was what released the customer
+WhatsApps, so an AI miscount silenced a whole dorm of students who had their
+food. It also left the rider's dorm tile permanently dead: no retake, no
+resubmit, and after a reload it even rendered as "Manual", so a flag read as
+resolved. None of that was specified — VER-08 only ever asked for an alert.
+
+- [x] **VER-14**: `delivery_events.delivered_at` is the customer-facing fact and drives the notification fanout. `verified` stays the count-audit fact. Every terminal drop-off where the rider was at the door records `delivered_at`, mismatch included.
+- [x] **VER-15**: Photo budget of 2 per dorm, held server-side in `delivery_events.verify_attempts`. A PWA reload can neither reset it nor consume it. Both the unreadable-photo and mismatch paths draw on the same budget.
+- [x] **VER-16**: A first-attempt mismatch alerts the owner AND lets the rider submit one more photo. The retake can earn `verified`; it can never un-send the alert or clear `escalated_at`. Every attempt photo is kept under its own storage key.
+- [x] **VER-17**: A second-attempt match after a flagged first sends the owner an explicit "MISMATCH RESOLVED" message, so no alert is left quietly stale.
+- [x] **VER-18**: Budget spent → the dorm locks to the owner. If nothing has been recorded as delivered, the rider is still offered manual confirm; they can close their own loop but never clear a flag.
+- [x] **VER-19**: Manual confirm (VER-11) now also sets `delivered_at` and fans out to customers. It previously ended in silence until 8PM.
+- [x] **VER-20**: Rider-page rehydration only locks genuinely finished drop-offs. An abandoned unreadable-photo attempt comes back open; a flagged one comes back red and, with budget left, still tappable.
+- [x] **VER-21**: A failed `delivery_events` write is never reported to the rider as success, and alerts the owner.
+
 ### Delivery Notifications
 
 - [x] **NOT-01**: On verified delivery (green tick), customer WhatsApp queued via `queueCustomerNotification` with kind `delivery_confirmed`
@@ -66,7 +84,7 @@
 
 ### Failsafe
 
-- [x] **FAIL-01**: pg_cron at 8 PM UAE (`0 16 * * *` UTC) checks for dorms with active subs but no verified delivery event today
+- [x] **FAIL-01**: pg_cron at 8 PM UAE (`0 16 * * *` UTC) checks for dorms with active subs and no record of the food arriving. Revised 2026-08-19: keys on `delivered_at`, not `verified`. A dorm whose count was disputed was already escalated in real time and its customers already told, so it is reported separately as "delivered but the count is still open" instead of being repeated as pending.
 - [x] **FAIL-02**: Sends owner WhatsApp alert via `notifyAdmin` with list of pending dorms + quick actions link
 - [x] **FAIL-03**: Failsafe function is idempotent — calling twice in same window does not send duplicate alerts
 - [x] **FAIL-04**: Internal API route authenticated with `INTERNAL_RETRY_SECRET` bearer token

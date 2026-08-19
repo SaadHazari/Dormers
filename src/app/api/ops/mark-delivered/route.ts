@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
   const aeNow = new Date(Date.now() + AE_OFFSET_MS)
   const deliveryDateIso = aeNow.toISOString().slice(0, 10)
 
+  // Was this dorm already recorded as delivered? A flagged photo drop-off
+  // already told its customers, so the owner's one-tap confirm afterwards
+  // must verify the row without sending everyone a second WhatsApp.
+  const sb = createAdminSupabaseClient()
+  const { data: beforeRow } = await sb
+    .from('delivery_events')
+    .select('delivered_at')
+    .eq('delivery_date', deliveryDateIso)
+    .eq('dorm_name', dorm_name)
+    .eq('trip_number', 1)
+    .maybeSingle()
+  const alreadyDelivered = beforeRow?.delivered_at != null
+
   const result = await updateDeliveryEvent({
     deliveryDateIso,
     dormName: dorm_name,
@@ -65,6 +79,7 @@ export async function POST(req: NextRequest) {
     verified: true,
     geoLat: null,
     geoLng: null,
+    ...(alreadyDelivered ? {} : { deliveredAt: new Date().toISOString() }),
   })
 
   if (!result.ok) {
@@ -84,13 +99,15 @@ export async function POST(req: NextRequest) {
   const isSaturday =
     new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
   try {
-    const fanout = await queueDeliveryConfirmedNotifications(
-      dorm_name,
-      deliveryDateIso,
-      isSaturday,
-    )
+    const fanout = alreadyDelivered
+      ? { queued: 0, skipped: 0 }
+      : await queueDeliveryConfirmedNotifications(
+          dorm_name,
+          deliveryDateIso,
+          isSaturday,
+        )
     console.log(
-      `[mark-delivered] fanout: queued=${fanout.queued} skipped=${fanout.skipped} for ${dorm_name}`,
+      `[mark-delivered] fanout: queued=${fanout.queued} skipped=${fanout.skipped} for ${dorm_name}${alreadyDelivered ? ' (already delivered)' : ''}`,
     )
   } catch (err) {
     // Release It! L5: delivery recorded, but the customer fanout failed — they

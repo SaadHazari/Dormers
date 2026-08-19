@@ -304,6 +304,18 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
     const dormCounts = await getDormCounts(todayIso, dayName, isSaturday)
     const expectedCount = dormCounts[dormName] ?? 0
 
+    // Was this dorm already recorded as delivered? A flagged photo drop-off
+    // already told its customers, so texting the dorm name afterwards must
+    // verify the row without sending everyone a second WhatsApp.
+    const { data: beforeRow } = await sb
+      .from('delivery_events')
+      .select('delivered_at')
+      .eq('delivery_date', todayIso)
+      .eq('dorm_name', dormName)
+      .eq('trip_number', 1)
+      .maybeSingle()
+    const alreadyDelivered = beforeRow?.delivered_at != null
+
     // Update the delivery_events row (WAI-05 — confirm delivery via text)
     // riderCount = expectedCount (rider is asserting delivery happened)
     // geminiCount = null (no photo in this flow)
@@ -318,6 +330,7 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
       verified: true,
       geoLat: null,
       geoLng: null,
+      ...(alreadyDelivered ? {} : { deliveredAt: new Date().toISOString() }),
     })
 
     // Pitfall 5: No pickup row exists yet
@@ -339,15 +352,19 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
       .update({ matched_dorm: dormName })
       .eq('message_id', wamid)
 
-    // Queue customer notification fanout (same as verify-box-count path)
+    // Queue customer notification fanout (same as verify-box-count path).
+    // Deduped on delivered_at — the customers of a dorm that was already
+    // recorded as delivered have had their message.
     try {
-      const fanout = await queueDeliveryConfirmedNotifications(
-        dormName,
-        todayIso,
-        isSaturday,
-      )
+      const fanout = alreadyDelivered
+        ? { queued: 0, skipped: 0 }
+        : await queueDeliveryConfirmedNotifications(
+            dormName,
+            todayIso,
+            isSaturday,
+          )
       console.log(
-        `[whatsapp-inbound] fanout for ${dormName}: queued=${fanout.queued} skipped=${fanout.skipped}`,
+        `[whatsapp-inbound] fanout for ${dormName}: queued=${fanout.queued} skipped=${fanout.skipped}${alreadyDelivered ? ' (already delivered)' : ''}`,
       )
     } catch (err) {
       // Release It! L5: dorm matched + delivery recorded, but customer fanout

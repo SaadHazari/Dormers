@@ -33,6 +33,10 @@ interface DeliveryRow {
     gemini_count: number | null
     verified: boolean | null
     photo_path: string | null
+    photo_paths: string[] | null
+    delivered_at: string | null
+    escalated_at: string | null
+    verify_attempts: number | null
     confirmed_at: string | null
 }
 
@@ -60,7 +64,7 @@ export default async function PhotosPage({
             .select('event_type, veg_count, nonveg_count, expected_veg_count, expected_nonveg_count, dorm_counts, expected_dorm_counts, total_count, gemini_count, photo_path, matched, mismatch_details, confirmed_at')
             .eq('event_date', dateIso),
         sb.from('delivery_events')
-            .select('dorm_name, expected_count, rider_count, gemini_count, verified, photo_path, confirmed_at')
+            .select('dorm_name, expected_count, rider_count, gemini_count, verified, photo_path, photo_paths, delivered_at, escalated_at, verify_attempts, confirmed_at')
             .eq('delivery_date', dateIso)
             .eq('trip_number', 1)
             .order('dorm_name'),
@@ -69,11 +73,13 @@ export default async function PhotosPage({
     const dayEvents = (dayEventsRes.data ?? []) as DayEventRow[]
     const deliveries = (deliveriesRes.data ?? []) as DeliveryRow[]
 
-    // Sign every photo path in one pass
-    const paths = [
+    // Sign every photo path in one pass. Drop-offs can carry two attempts —
+    // both are kept so a disputed count can be judged on the full evidence,
+    // not just whichever photo happened to come last.
+    const paths = Array.from(new Set([
         ...dayEvents.map(e => e.photo_path),
-        ...deliveries.map(d => d.photo_path),
-    ].filter((p): p is string => !!p)
+        ...deliveries.flatMap(d => d.photo_paths?.length ? d.photo_paths : [d.photo_path]),
+    ].filter((p): p is string => !!p)))
 
     const urlMap = new Map<string, string>()
     if (paths.length > 0) {
@@ -121,15 +127,26 @@ export default async function PhotosPage({
                 timeLabel: timeLabel(pickupRow.confirmed_at),
             }
             : null,
-        deliveries: deliveries.map(d => ({
-            dormName: d.dorm_name,
-            photoUrl: d.photo_path ? urlMap.get(d.photo_path) ?? null : null,
-            expectedCount: d.expected_count,
-            riderCount: d.rider_count,
-            geminiCount: d.gemini_count,
-            verified: d.verified === true,
-            timeLabel: timeLabel(d.confirmed_at),
-        })),
+        deliveries: deliveries.map(d => {
+            const attemptPaths = d.photo_paths?.length
+                ? d.photo_paths
+                : d.photo_path ? [d.photo_path] : []
+            return {
+                dormName: d.dorm_name,
+                photoUrl: attemptPaths.length ? urlMap.get(attemptPaths[0]) ?? null : null,
+                photoUrls: attemptPaths
+                    .map(p => urlMap.get(p) ?? null)
+                    .filter((u): u is string => !!u),
+                expectedCount: d.expected_count,
+                riderCount: d.rider_count,
+                geminiCount: d.gemini_count,
+                verified: d.verified === true,
+                delivered: d.delivered_at !== null || d.verified === true,
+                escalated: d.escalated_at !== null && d.verified !== true,
+                attempts: d.verify_attempts ?? 0,
+                timeLabel: timeLabel(d.confirmed_at),
+            }
+        }),
     }
 
     return <PhotosClient day={day} cutoffIso={cutoffIso} />

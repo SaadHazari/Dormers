@@ -1,8 +1,13 @@
 /**
  * 8 PM UAE Failsafe — internal endpoint hit by the ops_failsafe_20_ae cron.
  *
- * Finds dorms with active subscriptions today that have no verified
- * delivery_events row, then WhatsApps the owner via notifyAdmin.
+ * Finds dorms with active subscriptions today that have no record of the food
+ * arriving, then WhatsApps the owner via notifyAdmin.
+ *
+ * "No record" means delivered_at is null, NOT verified = false. Those are
+ * different alarms: a dorm whose counts were disputed was already escalated in
+ * real time and its customers were already told, so repeating it at 8PM as
+ * "pending" would be false. It is reported separately as still-open instead.
  *
  * Idempotency: delivery_failsafe_alerts table with UNIQUE(alert_date).
  * A second call on the same date skips the alert.
@@ -58,22 +63,32 @@ export async function POST(req: Request) {
     })
   }
 
-  // ── Find already-verified dorms for today ───────────────────────────
+  // ── What actually happened at each dorm today ───────────────────────
   const sb = createAdminSupabaseClient()
-  const { data: verifiedRows } = await sb
+  const { data: eventRows } = await sb
     .from('delivery_events')
-    .select('dorm_name')
+    .select('dorm_name, verified, delivered_at, escalated_at')
     .eq('delivery_date', todayIso)
-    .eq('verified', true)
 
-  const verifiedDorms = new Set(
-    (verifiedRows ?? []).map((r: { dorm_name: string }) => r.dorm_name),
-  )
-  const pendingDorms = dormsWithSubs.filter((d) => !verifiedDorms.has(d))
+  const deliveredDorms = new Set<string>()
+  const openDorms = new Set<string>()  // delivered, but the count is still disputed
+  for (const r of (eventRows ?? []) as {
+    dorm_name: string
+    verified: boolean | null
+    delivered_at: string | null
+    escalated_at: string | null
+  }[]) {
+    if (r.delivered_at !== null || r.verified === true) deliveredDorms.add(r.dorm_name)
+    if (r.verified !== true && r.escalated_at !== null) openDorms.add(r.dorm_name)
+  }
 
-  // ── Early exit if all confirmed ─────────────────────────────────────
-  if (pendingDorms.length === 0) {
-    return NextResponse.json({ ok: true, pendingDorms: [], sent: false })
+  // The real alarm: food with no record of arriving anywhere.
+  const pendingDorms = dormsWithSubs.filter((d) => !deliveredDorms.has(d))
+  const flaggedDorms = dormsWithSubs.filter((d) => openDorms.has(d))
+
+  // ── Early exit when nothing needs the owner ─────────────────────────
+  if (pendingDorms.length === 0 && flaggedDorms.length === 0) {
+    return NextResponse.json({ ok: true, pendingDorms: [], flaggedDorms: [], sent: false })
   }
 
   // ── Idempotency guard ──────────────────────────────────────────────
@@ -81,7 +96,10 @@ export async function POST(req: Request) {
   // exists, the insert is a no-op and we skip the alert.
   const { data: insertedRows, error: insertError } = await sb
     .from('delivery_failsafe_alerts')
-    .insert({ alert_date: todayIso, pending_dorms: pendingDorms })
+    .insert({
+      alert_date: todayIso,
+      pending_dorms: pendingDorms.length > 0 ? pendingDorms : flaggedDorms,
+    })
     .select('id')
 
   // Unique violation (23505) means already sent today
@@ -101,17 +119,26 @@ export async function POST(req: Request) {
   }
 
   // ── Send the alert ──────────────────────────────────────────────────
-  const pendingList = pendingDorms.join(', ')
   const quickLink = 'https://dormers.ae/admin/deliveries'
+
+  // Two different things, said as two different things. Nothing recorded is
+  // urgent; a disputed count you were already messaged about is not.
+  const parts: string[] = [`8PM FAILSAFE for ${todayIso}.`]
+  if (pendingDorms.length > 0) {
+    parts.push(`No delivery recorded: ${pendingDorms.join(', ')}.`)
+  }
+  if (flaggedDorms.length > 0) {
+    parts.push(
+      `Delivered but the count is still open: ${flaggedDorms.join(', ')}. ` +
+        `Customers there were already told their food arrived.`,
+    )
+  }
+  parts.push(`Confirm manually: ${quickLink}`)
+
   // Awaited, not fire-and-forget: this is a cron route with no caller to
   // protect, and a voided promise gets frozen with the lambda after the
   // response returns (the 2026-07-13 phantom 15s RPC timeout).
-  await notifyAdmin(
-    `8PM FAILSAFE: Unverified deliveries for ${todayIso}. ` +
-      `Pending dorms: ${pendingList}. ` +
-      `Verify manually: ${quickLink}`,
-    'deliveries',
-  )
+  await notifyAdmin(parts.join(' '), 'deliveries')
 
-  return NextResponse.json({ ok: true, pendingDorms, sent: true })
+  return NextResponse.json({ ok: true, pendingDorms, flaggedDorms, sent: true })
 }

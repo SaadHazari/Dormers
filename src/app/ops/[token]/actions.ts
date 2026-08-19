@@ -2,16 +2,23 @@
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
-import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
+import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
+import { queueDeliveryConfirmedNotifications } from '@/contexts/ops/usecases/queue-delivery-confirmed-notifications'
+import { captureError } from '@/infra/logging/capture-error'
 
 // NOTE: pickup confirmation moved to /api/ops/confirm-pickup — the pickup
 // photo is now the gate, and the per-dorm delivery_events upserts happen
 // server-side in that route.
 
 /**
- * Manual drop-off confirmation — used when Gemini cannot verify (VER-11).
- * Updates the existing delivery_events row with rider_count only.
- * Does NOT set verified=true — the 8PM failsafe cron catches unverified rows.
+ * Manual drop-off confirmation — used when Gemini cannot count (VER-11), or
+ * when the photo budget is spent and nothing has been recorded yet.
+ *
+ * Sets delivered_at, which is what releases the customer WhatsApps. It does
+ * NOT set verified: the counts were never checked, so the 8PM failsafe and
+ * the admin Photos page still show this as unverified. A rider can always
+ * record that the food arrived; they can never mark it as counted, and they
+ * can never clear an escalation flag.
  */
 export async function confirmDropoff(
   dormName: string,
@@ -26,6 +33,21 @@ export async function confirmDropoff(
 
   const sb = createAdminSupabaseClient()
 
+  // Read first so the fanout can be deduped on delivered_at — a rider who
+  // taps Confirm twice must not send every student two WhatsApps.
+  const { data: before } = await sb
+    .from('delivery_events')
+    .select('verified, delivered_at')
+    .eq('delivery_date', deliveryDateIso)
+    .eq('dorm_name', dormName)
+    .eq('trip_number', 1)
+    .maybeSingle()
+
+  if (before?.verified) return { ok: true }  // idempotent no-op, skip the owner ping
+  const alreadyDelivered = before?.delivered_at != null
+
+  const nowIso = new Date().toISOString()
+
   // Only touch UNVERIFIED rows. A dorm that already passed the photo check
   // must not be downgraded by a manual re-confirm (happens after a PWA
   // reload if the rider re-taps a dorm they already delivered) — that would
@@ -34,7 +56,9 @@ export async function confirmDropoff(
     .from('delivery_events')
     .update({
       rider_count: riderCount,
-      confirmed_at: new Date().toISOString(),
+      confirmed_at: nowIso,
+      // Never restamp: keep the first moment the food was recorded as arrived.
+      ...(alreadyDelivered ? {} : { delivered_at: nowIso }),
     })
     .eq('delivery_date', deliveryDateIso)
     .eq('dorm_name', dormName)
@@ -44,22 +68,29 @@ export async function confirmDropoff(
 
   if (error) return { ok: false, error: error.message }
   if (!data || data.length === 0) {
-    // Zero rows: either the dorm is already photo-verified (idempotent
-    // no-op — success, and skip the owner ping) or pickup never created
-    // the row (real error the rider must see).
-    const { data: existing } = await sb
-      .from('delivery_events')
-      .select('verified')
-      .eq('delivery_date', deliveryDateIso)
-      .eq('dorm_name', dormName)
-      .eq('trip_number', 1)
-      .maybeSingle()
-    if (existing?.verified) return { ok: true }
+    // Zero rows means pickup never created the row — a real error the rider
+    // must see (the already-verified case was handled above).
     return { ok: false, error: 'No delivery event found for this dorm today' }
   }
 
-  // Owner run update — manual confirms currently surface nowhere until the
-  // 8PM failsafe; tell the owner now. Fire and forget.
+  // ── Customer fanout — the manual path used to end here, which left a whole
+  //    dorm waiting in silence whenever the counter was down. ───────────────
+  if (!alreadyDelivered) {
+    const isSaturday = new Date(deliveryDateIso + 'T00:00:00Z').getUTCDay() === 6
+    try {
+      const result = await queueDeliveryConfirmedNotifications(dormName, deliveryDateIso, isSaturday)
+      console.log(`[confirmDropoff] fanout: queued=${result.queued} skipped=${result.skipped} for ${dormName}`)
+    } catch (err) {
+      captureError(err, { area: 'ops', op: 'confirmDropoff.fanout', dorm: dormName })
+      void notifyAdmin(
+        `Delivery recorded for ${dormName} by hand but customer notifications failed to queue — customers were not told their food arrived. Please notify them manually.`,
+        dormName.slice(0, 20),
+      )
+    }
+  }
+
+  // Owner run update — manual confirms surface nowhere else until the 8PM
+  // failsafe; tell the owner now. Fire and forget.
   void notifyRunUpdate(
     `Delivered to ${dormName}`,
     `Rider confirmed ${riderCount} boxes by hand, the photo could not be checked`,

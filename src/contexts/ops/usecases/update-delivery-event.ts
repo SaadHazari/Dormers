@@ -19,6 +19,19 @@ export interface UpdateDeliveryPayload {
   verified: boolean
   geoLat: number | null
   geoLng: number | null
+  /** Every attempt photo, oldest first. Omit to leave the history untouched. */
+  photoPaths?: string[]
+  /** Server-authoritative photo budget spent so far. Omit to leave untouched. */
+  verifyAttempts?: number
+  /**
+   * When the food was recorded as at the dorm. This is the customer-facing
+   * fact and is deliberately NOT the same as `verified` — a disputed count
+   * must never leave a dorm without its delivery WhatsApps. Omit to leave
+   * untouched (never clear an earlier stamp on a later attempt).
+   */
+  deliveredAt?: string
+  /** When the owner was flagged about this drop-off. Omit to leave untouched. */
+  escalatedAt?: string
 }
 
 export interface UpdateDeliveryResult {
@@ -34,24 +47,32 @@ export interface UpdateDeliveryResult {
  * Returns rowsAffected so callers can detect the "no matching row" edge case
  * (Phase 4 confirmPickup must have run before Phase 5 drop-off verification).
  *
- * Sets confirmed_at to the current ISO timestamp only when verified is true;
- * null otherwise (keeps the column null for manual-confirm and mismatch cases).
+ * confirmed_at is always restamped — it reads as "last updated" on the admin
+ * Photos page. It used to be nulled on every unverified write, which quietly
+ * erased the pickup timestamp the moment a count was disputed.
  */
 export async function updateDeliveryEvent(
   payload: UpdateDeliveryPayload,
 ): Promise<UpdateDeliveryResult> {
   const sb = createAdminSupabaseClient()
 
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     rider_count: payload.riderCount,
     gemini_count: payload.geminiCount,
     gemini_confidence: payload.geminiConfidence,
     photo_path: payload.photoPath,
     verified: payload.verified,
-    confirmed_at: payload.verified ? new Date().toISOString() : null,
+    confirmed_at: new Date().toISOString(),
     geo_lat: payload.geoLat,
     geo_lng: payload.geoLng,
   }
+
+  // Omitted fields stay untouched. Attempt 2 must never wipe what attempt 1
+  // recorded — especially delivered_at and escalated_at, which are one-way.
+  if (payload.photoPaths !== undefined) updateData.photo_paths = payload.photoPaths
+  if (payload.verifyAttempts !== undefined) updateData.verify_attempts = payload.verifyAttempts
+  if (payload.deliveredAt !== undefined) updateData.delivered_at = payload.deliveredAt
+  if (payload.escalatedAt !== undefined) updateData.escalated_at = payload.escalatedAt
 
   const { data, error } = await sb
     .from('delivery_events')
@@ -62,7 +83,7 @@ export async function updateDeliveryEvent(
     .select('id')
 
   console.log(
-    `[update-delivery-event] UPDATE delivery_events for ${payload.dormName} on ${payload.deliveryDateIso}: verified=${payload.verified}, rows=${data?.length ?? 0}`,
+    `[update-delivery-event] UPDATE delivery_events for ${payload.dormName} on ${payload.deliveryDateIso}: verified=${payload.verified}, delivered=${payload.deliveredAt !== undefined}, rows=${data?.length ?? 0}`,
   )
 
   if (error) {
