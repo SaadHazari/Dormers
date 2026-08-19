@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   // runtime — bundling it breaks those reads. Externalizing keeps it as a
   // plain node_modules require; Netlify's file tracing ships its data files.
   serverExternalPackages: ['pdfkit'],
+  // The box reference photos are read from disk at runtime by
+  // src/infra/ops/box-reference.ts. Without this, Netlify's tracer does not
+  // see them (there is no import to follow) and the vision model silently
+  // loses its reference images in production while working fine locally.
+  outputFileTracingIncludes: {
+    '/api/ops/verify-box-count': ['./box-reference/*.jpg'],
+    '/api/ops/confirm-pickup': ['./box-reference/*.jpg'],
+  },
   // Remote image allowlist. The admin menu CMS (uploadDishImage in
   // src/app/admin/menu/actions.ts) stores full Supabase Storage public URLs
   // in dishes.image_path, so the optimizer must accept that one host —

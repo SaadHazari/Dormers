@@ -31,6 +31,8 @@ export interface PickupSummary {
     /** Whether this photo actually opened the rider's day. */
     accepted: boolean
     expectedTotal: number | null
+    /** What the rider counted by hand. Outranks the camera. */
+    riderCount: number | null
     geminiCount: number | null
     matched: boolean | null
     mismatchDetails: string | null
@@ -247,7 +249,8 @@ export function PhotosClient({ day, archived = false, cutoffIso }: { day: ChainD
                                 <Photo url={pickup.photoUrl} alt="Rider pickup" tall />
                             )}
                             <CountRow label="System expects" value={pickup.expectedTotal} />
-                            <CountRow label="AI count from photo" value={pickup.geminiCount} />
+                            <CountRow label="Rider counted" value={pickup.riderCount} expected={pickup.expectedTotal} />
+                            <CountRow label="AI count from photo" value={pickup.geminiCount} expected={pickup.expectedTotal} />
                             {pickup.attempts > 1 && (
                                 <p className={`text-[12px] ${t.muted}`}>
                                     {pickup.attempts} photos taken before the day

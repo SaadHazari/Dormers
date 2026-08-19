@@ -1,51 +1,88 @@
 // src/contexts/ops/domain/box-count-verify.ts
-// Phase 5: Gemini Vision box counting for delivery drop-off verification (VER-06).
+// Gemini Vision box counting for pickup and drop-off verification (VER-06).
 //
-// Rider flow:
-//   1. Rider takes photo of boxes at drop-off point.
-//   2. Client resizes to ≤1600px JPEG and POSTs to /api/ops/verify-box-count.
-//   3. API route calls THIS function with image bytes from Supabase Storage upload.
-//   4. Gemini Vision counts the boxes independently of the rider's manual count.
-//   5. Triple-match check: expected_count === rider_count === gemini_count → verified.
+// Three rules this file exists to enforce, all learned the hard way on
+// 2026-08-19 when a photo of FIVE boxes was approved as six at "high"
+// confidence, and a separate drop-off of two was counted as three:
 //
-// Uses gemini-2.5-flash (not gemini-3.1-flash-lite) — higher multimodal accuracy
-// needed for reliable box counting vs the review-screenshot verification task.
+//   1. NEVER tell the model the number we expect. The prompt used to open
+//      with "the rider expects 6 boxes", then we treated the model agreeing
+//      with us as independent verification. It was not verification, it was
+//      suggestion. The count here is blind; the comparison happens upstream.
+//   2. Let it say "I cannot tell". The prompt used to insist it MUST return
+//      a count for any photo with a box in it, which manufactured confident
+//      guesses. A refusal costs a retake. A wrong count lets a short load
+//      leave the kitchen. Only one of those is recoverable.
+//   3. Confidence from the model is not evidence. It said "high" on both
+//      wrong answers. Callers must treat the count as one voice among three,
+//      never as proof.
 //
-// Zero imports from @/infra/ — pure domain function per L1-BOUNDARIES rule.
-// Only ai and @ai-sdk/google dependencies.
+// Reference photos of the packaging are passed in when available. They help
+// the model recognise what a Dormers box IS. They do not make it good at
+// counting, and nothing here should be read as implying otherwise.
+//
+// Uses gemini-2.5-flash (not gemini-3.1-flash-lite) — higher multimodal
+// accuracy needed for box counting vs the review-screenshot task.
+//
+// Zero imports from @/infra/ — pure domain per L1-BOUNDARIES rule.
 
 import { generateText } from 'ai'
 import { google } from '@ai-sdk/google'
 
 export interface BoxCountResult {
-  count: number | null       // null = could not count (timeout or image too unclear)
+  count: number | null       // null = could not count (unreadable, occluded, or unsure)
   confidence: 'high' | 'medium' | 'low'
   reason: string
   imageQuality: 'clear' | 'unclear'
 }
 
-/**
- * Build the Gemini Vision prompt for box counting.
- * Provides expected count as context so Gemini can flag discrepancies.
- * Requests JSON-only output; defensive parse strips fences anyway.
- */
-function buildBoxCountPrompt(expectedCount: number): string {
-  return `You are counting Dormers meal boxes in a delivery photo.
+/** A catalogue photo of the empty packaging, used only for recognition. */
+export interface BoxReferenceImage {
+  bytes: Uint8Array
+  mimeType: string
+  /** Which face this shows, e.g. "lid" or "QR side". Helps the model orient. */
+  label: string
+}
 
-WHAT THE BOXES LOOK LIKE:
-- Rectangular flip-top boxes, roughly 230×170×65 mm (about the size of a large book)
+const PACKAGING_DESCRIPTION = `WHAT A DORMERS BOX LOOKS LIKE:
+- Rectangular flip-top box, roughly 230x170x65 mm (about the size of a large book)
 - Dark navy blue exterior with bold ORANGE text reading "MEALS THAT DON'T SUCK"
-- Orange and white wavy/tiger-stripe pattern on the top lid and side flaps
-- White Dormers logo (an arch/dome shape with a small orange dot) on the top face
-- Side text: "Because you can't survive on instant noodles forever." in orange
-- One short side has a QR code with orange text "Get a FREE 25th Meal"
-- Boxes are often stacked on top of each other or placed side by side
+- White Dormers logo (an arch/dome shape with a small orange dot) on several faces
+- Faint darker line-art food doodles printed across the navy
+- The open edge of the lid shows a distinctive ORANGE AND WHITE striped band
+- One long side reads "Because you can't survive on instant noodles forever."
+- One short side carries an orange QR code and "Give an Honest review of your meal & Get a FREE 25th meal"`
 
-The rider expects ${expectedCount} box${expectedCount === 1 ? '' : 'es'} at this drop-off.
+/**
+ * The counting instruction. Deliberately contains NO expected number.
+ *
+ * The bias is set toward refusal on purpose: an honest "I cannot tell" sends
+ * the rider back for a better photo, which costs seconds. A confident wrong
+ * number sends a short van out, which costs a customer their dinner.
+ */
+function buildCountPrompt(hasReferences: boolean): string {
+  return `You are counting sealed Dormers meal boxes in one photograph.
 
-Count every Dormers box visible in the image. Include boxes that are partially hidden, stacked, or viewed from any angle. A single stack of 3 boxes = 3 boxes.
+${hasReferences ? 'The reference photos above show ONE single empty box from several angles, for recognition only. They are NOT part of the scene you are counting and must NEVER be added to your count.' : PACKAGING_DESCRIPTION}
 
-Output ONLY a JSON object with no commentary, no code fences:
+Count only the boxes present in the photo to count.
+
+HOW TO COUNT
+- Count each physical box once. A stack of 3 boxes is 3 boxes.
+- Work carefully: identify each box's own lid edge or striped band before counting it.
+- Do not estimate. Do not round. Do not assume a stack is a tidy number.
+
+WHEN TO RETURN null INSTEAD OF A NUMBER
+Returning null is the CORRECT answer, not a failure, whenever:
+- boxes overlap or stack such that you cannot resolve exactly how many there are
+- any box is cut off by the frame edge
+- the image is dark, blurred, or too far away to separate individual boxes
+- you find yourself unsure between two possible totals
+
+A wrong number is far worse than null. If you are not certain of the exact
+count, return null and say why. Never guess to be helpful.
+
+Output ONLY a JSON object, no commentary, no code fences:
 {
   "count": number | null,
   "confidence": "high" | "medium" | "low",
@@ -53,13 +90,10 @@ Output ONLY a JSON object with no commentary, no code fences:
   "imageQuality": "clear" | "unclear"
 }
 
-Rules:
-- count: number of Dormers boxes visible. null ONLY if the image is too dark/blurry to see anything at all.
-- confidence: "high" = clearly see all boxes. "medium" = some partially obscured but countable. "low" = significant guessing needed.
-- reason: one sentence (max 150 chars) describing what you counted.
-- imageQuality: "clear" if you can see boxes at all (even partially). "unclear" ONLY if the photo is completely unusable (pitch black, extreme blur, no boxes visible whatsoever).
-
-IMPORTANT: If you can see ANY navy-blue boxes with orange text, the image is "clear" and you MUST return a count. Only return "unclear" for truly unusable photos.
+- count: exact number of Dormers boxes in the photo to count, or null per the rules above.
+- confidence: "high" only if every box is separately visible and unambiguous.
+- reason: one sentence (max 150 chars) saying what you saw and how you counted it.
+- imageQuality: "clear" if the boxes are separable, "unclear" if the photo cannot support an exact count.
 
 Output JSON only. No explanation. No code fences.`
 }
@@ -72,15 +106,14 @@ Output JSON only. No explanation. No code fences.`
 function normaliseBoxCount(raw: unknown): BoxCountResult {
   const o = (raw ?? {}) as Record<string, unknown>
 
-  // count: handle number, string integer, or null
   let count: number | null = null
   if (typeof o.count === 'number') {
     count = o.count
-  } else if (typeof o.count === 'string') {
+  } else if (typeof o.count === 'string' && o.count.trim() !== '') {
     count = parseInt(o.count, 10)
   }
-  // If parsed count is not a finite integer, treat as null
-  if (count !== null && !Number.isFinite(count)) {
+  // Not a finite non-negative integer → treat as "could not count".
+  if (count !== null && (!Number.isFinite(count) || count < 0 || !Number.isInteger(count))) {
     count = null
   }
 
@@ -99,45 +132,64 @@ function normaliseBoxCount(raw: unknown): BoxCountResult {
 }
 
 /**
- * Call Gemini Vision to count delivery boxes in the provided image.
+ * Count delivery boxes in a photo. BLIND — the expected number is never
+ * passed in, so the caller's comparison stays an independent check.
  *
- * Returns a BoxCountResult. On Gemini timeout or service error, returns a
- * safe default with count: null — caller must handle null as "manual confirm
- * required" (VER-11: never auto-complete on null count).
+ * On timeout or service error returns count: null, which every caller must
+ * already handle as "could not count".
  */
 export async function verifyBoxCount(
   imageBytes: Uint8Array,
   mimeType: string,
-  expectedCount: number,
+  references: BoxReferenceImage[] = [],
 ): Promise<BoxCountResult> {
-  const prompt = buildBoxCountPrompt(expectedCount)
   const t0 = Date.now()
 
+  // Reference photos first, fenced by text on both sides so the model cannot
+  // mistake the catalogue shots for boxes in the rider's van.
+  const content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; image: Uint8Array; mediaType: string }
+  > = []
+
+  if (references.length > 0) {
+    content.push({
+      type: 'text',
+      text:
+        `REFERENCE PHOTOS (${references.length}). These show ONE single empty Dormers box ` +
+        `from different angles so you know what the packaging looks like. They are a ` +
+        `catalogue, not a scene. NEVER count them.\n\n${PACKAGING_DESCRIPTION}`,
+    })
+    for (const ref of references) {
+      content.push({ type: 'text', text: `Reference view: ${ref.label}` })
+      content.push({ type: 'image', image: ref.bytes, mediaType: ref.mimeType })
+    }
+    content.push({
+      type: 'text',
+      text: 'END OF REFERENCE PHOTOS. The single image below is the ONLY one to count.',
+    })
+  }
+
+  content.push({ type: 'text', text: 'PHOTO TO COUNT:' })
+  content.push({ type: 'image', image: imageBytes, mediaType: mimeType })
+  content.push({ type: 'text', text: buildCountPrompt(references.length > 0) })
+
   console.log(
-    `[box-count-verify] calling Gemini (mime=${mimeType}, bytes=${imageBytes.byteLength})`,
+    `[box-count-verify] calling Gemini (mime=${mimeType}, bytes=${imageBytes.byteLength}, refs=${references.length})`,
   )
 
   let raw: string
   try {
     const result = await generateText({
       model: google('gemini-2.5-flash'),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image', image: imageBytes, mediaType: mimeType },
-          ],
-        },
-      ],
+      messages: [{ role: 'user', content }],
       // SDK-level timeout — fires a clean abort before the surrounding
       // Netlify function maxDuration kills the request. 45s leaves ~15s
       // headroom under maxDuration=60 for upload + DB writes.
       abortSignal: AbortSignal.timeout(45_000),
     })
-    const elapsed = Date.now() - t0
     raw = result.text.trim()
-    console.log(`[box-count-verify] Gemini responded in ${elapsed}ms`)
+    console.log(`[box-count-verify] Gemini responded in ${Date.now() - t0}ms`)
   } catch (err) {
     const elapsed = Date.now() - t0
     console.error(`[box-count-verify] Gemini call failed after ${elapsed}ms:`, err)

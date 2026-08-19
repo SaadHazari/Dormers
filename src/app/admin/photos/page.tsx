@@ -27,6 +27,7 @@ interface DayEventRow {
     photo_paths: string[] | null
     attempts: number | null
     accepted: boolean | null
+    rider_count: number | null
 }
 
 interface DeliveryRow {
@@ -64,7 +65,7 @@ export default async function PhotosPage({
 
     const [dayEventsRes, deliveriesRes] = await Promise.all([
         sb.from('ops_day_events')
-            .select('event_type, veg_count, nonveg_count, expected_veg_count, expected_nonveg_count, dorm_counts, expected_dorm_counts, total_count, gemini_count, photo_path, matched, mismatch_details, confirmed_at, photo_paths, attempts, accepted')
+            .select('event_type, veg_count, nonveg_count, expected_veg_count, expected_nonveg_count, dorm_counts, expected_dorm_counts, total_count, gemini_count, photo_path, matched, mismatch_details, confirmed_at, photo_paths, attempts, accepted, rider_count')
             .eq('event_date', dateIso),
         sb.from('delivery_events')
             .select('dorm_name, expected_count, rider_count, gemini_count, verified, photo_path, photo_paths, delivered_at, escalated_at, verify_attempts, confirmed_at')
@@ -130,6 +131,7 @@ export default async function PhotosPage({
                 attempts: pickupRow.attempts ?? 0,
                 accepted: pickupRow.accepted !== false,
                 expectedTotal: pickupRow.total_count,
+                riderCount: pickupRow.rider_count,
                 geminiCount: pickupRow.gemini_count,
                 matched: pickupRow.matched,
                 mismatchDetails: pickupRow.mismatch_details,

@@ -20,6 +20,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import {
   decideDropoff,
   preflightDropoff,
@@ -197,7 +198,9 @@ export async function POST(req: Request) {
 
   // ── 6. Call Gemini box count ─────────────────────────────────────────
   log('starting Gemini verification...')
-  const geminiResult = await verifyBoxCount(bytes, photo.type, expectedCount)
+  // Blind: the expected count is deliberately NOT passed in, so comparing
+  // it below stays an independent check rather than a leading question.
+  const geminiResult = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
   log(`Gemini result: count=${geminiResult.count} confidence=${geminiResult.confidence} quality=${geminiResult.imageQuality}`)
 
   // ── 7. Decide (pure domain) ──────────────────────────────────────────

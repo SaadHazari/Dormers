@@ -16,6 +16,7 @@ import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
 
@@ -101,11 +102,12 @@ export async function POST(req: Request) {
   }
 
   // ── Gemini count — advisory only, never blocks the kitchen ───────────────
-  const expectedTotal = expected.vegCount + expected.nonVegCount
   let geminiCount: number | null = null
   let geminiConfidence: string | null = null
   try {
-    const gemini = await verifyBoxCount(bytes, photo.type, expectedTotal)
+    // Blind, like the rest of this check. Feeding the model expectedTotal
+    // made its agreement meaningless — it was being told the answer.
+    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
     geminiCount = gemini.count
     geminiConfidence = gemini.confidence
   } catch (err) {

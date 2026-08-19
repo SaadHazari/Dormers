@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "check:cold-start": "node scripts/check-cold-start.mjs",
     "check:whatsapp-template": "node scripts/check-whatsapp-template.mjs",
-    "check:delivered-drift": "tsx scripts/audit-delivered-drift.ts"
+    "check:delivered-drift": "tsx scripts/audit-delivered-drift.ts",
+    "prep:box-reference": "tsx scripts/prep-box-reference.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",

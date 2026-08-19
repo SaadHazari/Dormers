@@ -69,3 +69,6 @@ supabase/.temp/
 
 # Personal secrets — never commit
 Backup-codes-*.txt
+
+# Raw box photos — only the downscaled output in box-reference/ is committed
+box-reference/source/

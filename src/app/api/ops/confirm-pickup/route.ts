@@ -28,6 +28,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import {
   decidePickup,
   pickupPhotoPath,
@@ -59,6 +60,9 @@ export async function POST(req: Request) {
   // Only meaningful once the photo budget is spent: the rider tapping
   // "all N boxes are in the van" is the single way past a disagreeing photo.
   const riderAsserted = formData.get('riderAsserted') === 'true'
+  // What the rider counted himself. The strongest number in the whole check:
+  // it is the only one produced by someone standing next to the boxes.
+  const riderCount = parseInt((formData.get('riderCount') as string | null) ?? '', 10)
 
   if (!(photo instanceof File) || photo.size === 0) {
     return NextResponse.json({ error: 'missing_photo' }, { status: 400 })
@@ -71,6 +75,9 @@ export async function POST(req: Request) {
   }
   if (!opsToken || !dateIso) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
+  }
+  if (isNaN(riderCount) || riderCount < 0) {
+    return NextResponse.json({ error: 'invalid_rider_count' }, { status: 400 })
   }
 
   const token = await validateOpsTokenById(opsToken, 'rider')
@@ -113,6 +120,23 @@ export async function POST(req: Request) {
 
   const priorAttempts = priorRow?.attempts ?? 0
   const priorPhotoPaths: string[] = priorRow?.photo_paths ?? []
+  // ── The rider's own count is checked FIRST, before a photo is uploaded or
+  //    an AI call is spent. A better photo cannot conjure a missing box, so
+  //    more photos are the wrong remedy and no budget is consumed. He either
+  //    fixes the number, or taps confirm-by-hand and the owner hears about a
+  //    genuinely short van in one tap instead of three more pictures. ───────
+  if (!riderAsserted && riderCount !== expectedTotal) {
+    return NextResponse.json({
+      ok: true,
+      outcome: 'rider_disagrees',
+      accepted: false,
+      allowAssert: true,
+      expectedTotal,
+      riderCount,
+      attemptsLeft: Math.max(0, MAX_PICKUP_ATTEMPTS - priorAttempts),
+    })
+  }
+
   const attempt = priorAttempts + 1
 
   // ── Photo upload — its own key per attempt, so every shot is kept ────────
@@ -130,14 +154,15 @@ export async function POST(req: Request) {
   let geminiCount: number | null = null
   let geminiConfidence: string | null = null
   try {
-    const gemini = await verifyBoxCount(bytes, photo.type, expectedTotal)
+    // Blind: never hand the model the number we are hoping to see.
+    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
     geminiCount = gemini.count
     geminiConfidence = gemini.confidence
   } catch (err) {
     captureError(err, { area: 'ops', op: 'confirm-pickup.gemini', dateIso })
   }
 
-  const decision = decidePickup({ expectedTotal, geminiCount, attempt, riderAsserted })
+  const decision = decidePickup({ expectedTotal, riderCount, geminiCount, attempt, riderAsserted })
   const flagged = !decision.matched
   const confirmedAt = new Date().toISOString()
   console.log(
@@ -195,6 +220,7 @@ export async function POST(req: Request) {
       event_type: 'rider_pickup',
       ops_token_id: opsToken,
       total_count: expectedTotal,
+      rider_count: riderCount,
       gemini_count: geminiCount,
       gemini_confidence: geminiConfidence,
       photo_path: uploadErr ? null : photoPath,
@@ -203,7 +229,7 @@ export async function POST(req: Request) {
       accepted: decision.accepted,
       matched: decision.matched,
       mismatch_details: flagged
-        ? `AI counted ${geminiCount}, system expects ${expectedTotal}${kitchenTotal !== null ? `, kitchen packed ${kitchenTotal}` : ''}${riderAsserted ? ', rider vouched for the count' : ''}`
+        ? `Rider counted ${riderCount}, AI counted ${geminiCount}, system expects ${expectedTotal}${kitchenTotal !== null ? `, kitchen packed ${kitchenTotal}` : ''}${riderAsserted ? ', rider vouched for the count' : ''}`
         : null,
       confirmed_at: confirmedAt,
     },
@@ -233,16 +259,16 @@ export async function POST(req: Request) {
       'Rider picked up',
       `${expectedTotal} boxes left the kitchen at ${hhmm}`,
       riderAsserted
-        ? `The photo never matched after ${attempt} tries (it read ${geminiCount ?? 'nothing'}${kitchenNote}). The rider confirmed by hand that all ${expectedTotal} are in the van. Open Photos to compare.`
-        : 'Photo count agrees. Nothing to do.',
+        ? `Rider counted ${riderCount} against ${expectedTotal} on the list${kitchenNote}. The photo read ${geminiCount ?? 'nothing'}. He confirmed the load by hand. Open Photos to compare.`
+        : 'Rider and photo both agree with the list. Nothing to do.',
     )
   } else if (decision.alert) {
     // Budget spent and still no agreement. He is held at the kitchen until he
     // vouches for the count, so this needs to reach you now, not at 8PM.
     void notifyAdmin(
-      `PICKUP HELD — rider's photo does not match after ${attempt} tries.\n` +
-        `Expected: ${expectedTotal} | Photo: ${geminiCount ?? 'unreadable'}${kitchenNote}\n` +
-        `He is at the kitchen and cannot start until he confirms the count by hand.`,
+      `PICKUP HELD — the photo does not match after ${attempt} tries.\n` +
+        `List: ${expectedTotal} | Rider counted: ${riderCount} | Photo: ${geminiCount ?? 'unreadable'}${kitchenNote}\n` +
+        `He is at the kitchen and cannot start until he confirms the load by hand.`,
       'pickup',
     )
   }
@@ -255,7 +281,9 @@ export async function POST(req: Request) {
     attemptsLeft: decision.attemptsLeft,
     maxAttempts: MAX_PICKUP_ATTEMPTS,
     expectedTotal,
+    riderCount,
     geminiCount,
+    allowAssert: decision.allowAssert,
     flagged,
   })
 }
