@@ -11,6 +11,7 @@ import {
     ScrollText, MessageSquare, Megaphone,
     Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera, Carrot,
     CalendarClock,
+    ScanEye,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -113,6 +114,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     {
         label: 'System',
         items: [
+            { label: 'Box Counter',      href: '/admin/box-counter', icon: <ScanEye size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Scheduled Jobs',   href: '/admin/cron',       icon: <Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             { label: 'Audit Log',        href: '/admin/audit',      icon: <ScrollText size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
         ],
