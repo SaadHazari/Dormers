@@ -60,7 +60,7 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
                 </span>
                 <span aria-hidden style={{ opacity: 0.4 }}>·</span>
                 <span style={{ fontWeight: 600, color: 'var(--ds-fg-muted)' }}>
-                    Close out your {cycleLabel}
+                    Rate your {cycleLabel}
                 </span>
                 <span aria-hidden style={{ opacity: 0.4 }}>·</span>
                 <span style={{
@@ -122,7 +122,7 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
             </span>
             <span aria-hidden style={{ opacity: 0.4 }}>·</span>
             <span style={{ fontWeight: 600, color: 'var(--ds-fg)' }}>
-                Close out your {cycleLabel}
+                Rate your {cycleLabel}
             </span>
             <span aria-hidden style={{ opacity: 0.4 }}>·</span>
             <span style={{

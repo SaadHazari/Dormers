@@ -49,7 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let weeklyReviewState: WeeklyReviewState = EMPTY_REVIEW_STATE
   let monthlyWindow: MonthlyReviewWindow = EMPTY_MONTHLY_WINDOW
   // Queued-plan summary for the pre-cron overlay's copy variant — when a
-  // queued plan exists the overlay reframes the wrap as "close out before
+  // queued plan exists the overlay reframes the wrap as "rate it before
   // your new plan starts". Null when no queued plan.
   let queuedPlanSummary: { planName: string; startDate: string } | null = null
   // Seasonal intake pause — drives the "New plans paused" Now-tray entry.

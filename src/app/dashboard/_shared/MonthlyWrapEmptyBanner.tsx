@@ -89,7 +89,7 @@ export function MonthlyWrapEmptyBanner({ monthlyWindow }: { monthlyWindow: Month
                             letterSpacing: '-0.015em', lineHeight: 1.15,
                             color: 'var(--ds-fg)',
                         }}>
-                            Wrap your {cycleLabel} before you pick what&rsquo;s next<span style={{ color: OG }}>.</span>
+                            Rate your {cycleLabel} before you pick what&rsquo;s next<span style={{ color: OG }}>.</span>
                         </div>
                         <div style={{
                             marginTop: 8, fontSize: 13, lineHeight: 1.5,

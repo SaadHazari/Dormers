@@ -82,7 +82,7 @@ export function MonthlyWrapForceOverlay({
         ? formatStartDate(queuedPlanSummary.startDate)
         : ''
     const subline = hasQueued
-        ? `Your new ${queuedPlanSummary?.planName ?? 'plan'} starts ${startDateLabel}. Close out your ${cycleLabel} first to lock AED ${MONTHLY_REWARD_AED}.`
+        ? `Your new ${queuedPlanSummary?.planName ?? 'plan'} starts ${startDateLabel}. Rate your ${cycleLabel} first to lock AED ${MONTHLY_REWARD_AED}.`
         : vocab.period === 'meal'
             ? `That was your trial meal. Wrap it up while it's still fresh — that's where the AED ${MONTHLY_REWARD_AED} lives.`
             : `Your ${cycleLabel} ends tonight. Wrap it up while the meals are still fresh in your head — that's where the AED ${MONTHLY_REWARD_AED} lives.`

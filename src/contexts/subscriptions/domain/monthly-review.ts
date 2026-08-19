@@ -82,14 +82,22 @@ export const PRE_END_WRAP_WINDOW: Record<WrapPlanTier, number> = {
  * Plan-aware cycle label for the wrap surfaces + form.
  *
  * IMPORTANT: this returns a BARE noun phrase — no leading "your" or "the".
- * Templates that want a determiner ("Wrap your X", "Close out your X", "Your X
- * ends tonight") prepend it themselves. Returning "your trial" baked-in
- * caused a "your your trial" duplication bug — fixed by keeping the label
- * bare and standardising every template on the "your {cycleLabel}" pattern.
+ * Templates that want a determiner ("Rate your X", "Your X ends tonight")
+ * prepend it themselves. Returning "your trial" baked-in caused a
+ * "your your trial" duplication bug — fixed by keeping the label bare and
+ * standardising every template on the "your {cycleLabel}" pattern.
  *
- *   Monthly → "April cycle"           ("Wrap your April cycle"     ✓)
- *   Weekly  → "Weekly Plan"           ("Wrap your Weekly Plan"     ✓)
- *   Trial   → "Trial Meal"            ("Wrap your Trial Meal"      ✓)
+ * VERB CONTRACT (2026-08-19): "wrap" is the feature's NOUN (eyebrows, "your
+ * month, wrapped", report copy); "Rate" is the only ACTION verb on surfaces
+ * that ask the customer to do it (dashboard strip, Now tray, mobile card,
+ * empty banner, force overlay). "Close out" is retired — accounting idiom,
+ * opaque to ESL customers — and "Wrap your X" as an imperative survives only
+ * where the same sentence explains it (the takeover body). Before this the
+ * one action wore three verbs across surfaces.
+ *
+ *   Monthly → "April cycle"           ("Rate your April cycle"     ✓)
+ *   Weekly  → "Weekly Plan"           ("Rate your Weekly Plan"     ✓)
+ *   Trial   → "Trial Meal"            ("Rate your Trial Meal"      ✓)
  *
  * Weekly and trial name the SURVEY; monthly names the date. That looks
  * inconsistent but isn't: a monthly customer's "April cycle" is unambiguous,

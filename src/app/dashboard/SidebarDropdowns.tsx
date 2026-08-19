@@ -770,7 +770,7 @@ function MonthlyWrapCard({
           fontSize: 15, fontWeight: 800, color: 'var(--ds-fg-muted)',
           letterSpacing: '-0.005em', lineHeight: 1.15,
         }}>
-          Wrap your {cycleLabel}
+          Rate your {cycleLabel}
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--ds-fg-faint)', lineHeight: 1.35 }}>
           Opens after your {WEEKLY_WRAP_UNLOCK_MEALS}th meal
@@ -847,7 +847,7 @@ function MonthlyWrapCard({
         fontSize: 15, fontWeight: 800, color: 'var(--ds-fg)',
         letterSpacing: '-0.005em', lineHeight: 1.15,
       }}>
-        Wrap your {cycleLabel}
+        Rate your {cycleLabel}
       </div>
       <div style={{
         fontSize: 11.5, color: 'var(--ds-fg-muted)', lineHeight: 1.35,
