@@ -11,8 +11,8 @@ import {
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { COMPACT } from './_shared/breakpoints'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
-import { CreditWallet } from './CreditWallet'
-import type { WalletRow } from './_shared/credit-wallet'
+import { CreditChip } from './CreditChip'
+import type { CreditRow } from './_shared/credit-outlook'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
@@ -61,8 +61,9 @@ interface Props {
   monthlyWindow?: MonthlyReviewWindow
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Approved credit rows — drives the persistent Credit Wallet rail. */
-  walletRows?: WalletRow[]
+  /** Approved credit rows — drives the credit chip (one future-tense
+   *  sentence, links to the Plan & billing credit section). */
+  creditRows?: CreditRow[]
 }
 
 export default function Sidebar({
@@ -72,7 +73,7 @@ export default function Sidebar({
   weeklyReviewState = EMPTY_REVIEW_STATE,
   monthlyWindow = EMPTY_MONTHLY_WINDOW,
   intakePaused = false,
-  walletRows = [],
+  creditRows = [],
 }: Props) {
   // Combined badge state for the Now tray icon — escalates by precedence:
   //   'active' (orange dot) > 'late' (muted dot) > 'none' (no dot)
@@ -330,12 +331,12 @@ export default function Sidebar({
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* ── Credit Wallet rail — persistent, above Dorm Wars ────────────────
-            A credit balance has no deadline and deliberately outlives the pause
-            that granted it, so it lives on a rail that's always on screen
-            rather than behind the Now-tray toggle. Renders nothing on a zero
-            balance. See CreditWallet.tsx. */}
-        <CreditWallet rows={walletRows} expanded={expanded} />
+        {/* ── Credit chip — persistent, above Refer & earn ────────────────────
+            One future-tense sentence about the customer's NEXT purchase
+            ("AED X off your next plan"), never a balance. Links to the
+            Plan & billing credit section. Renders nothing on a zero ledger.
+            See CreditChip.tsx / credit-outlook.ts. */}
+        <CreditChip rows={creditRows} expanded={expanded} onNavigate={onMobileClose} />
 
         {/* ── Dorm Wars rail — the orange frame IS the button ────────────────
             The frame used to be a wrapper div with its own 6px padding, which

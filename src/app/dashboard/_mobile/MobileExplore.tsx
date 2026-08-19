@@ -162,6 +162,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               onSelect={() => { if (intake.paused || profileGated || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
               priceOverrides={priceOverrides}
               doneForTerm={!!doneForTermByPlan[plan.id]}
+              creditAed={(creditByPlan[plan.id]?.balanceFils ?? 0) / 100}
             />
           ))}
         </div>
@@ -217,12 +218,15 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false }: {
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, creditAed = 0 }: {
   plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
   /** Season taper — no start left in the window lets this plan finish
    *  before the last delivery day. Same dim + disabled treatment the
    *  "pick veg days first" state uses; mirrors the desktop card. */
   doneForTerm?: boolean
+  /** Credit that applies to THIS plan (checkout's per-plan math, in AED) —
+   *  the restricted credit's main stage. Mirrors the desktop card. */
+  creditAed?: number
 }) {
   const priceUnknown = pref === 'Religious' && vegDayCount == null
   const unavailable = priceUnknown || doneForTerm
@@ -302,6 +306,26 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
           {priceUnknown ? 'Set veg days first' : `${total} AED${plan.period}`}
         </div>
         <div style={{ marginTop: 3, fontSize: 11, color: S.fgFaint }}>{dynamicDuration}</div>
+        {/* Credit line — the exact amount checkout will apply to THIS plan,
+            capped at its price. Success tone, mirrors the desktop card. */}
+        {!doneForTerm && !priceUnknown && creditAed > 0 && (() => {
+          const appliedAed = Math.min(creditAed, total)
+          return (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', marginTop: 9,
+              padding: '4px 10px', borderRadius: 999,
+              background: 'var(--ds-success-wash)',
+              border: '1px solid var(--ds-success-border)',
+              color: 'var(--ds-success-fg)',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
+              fontFeatureSettings: '"tnum"',
+            }}>
+              {appliedAed >= total
+                ? 'Your credit covers this plan'
+                : `AED ${Math.round(appliedAed)} off with your credit`}
+            </span>
+          )
+        })()}
         {/* Season taper — the line that explains the dim, in the price block
             where the savings badge would otherwise sit. */}
         {doneForTerm ? (

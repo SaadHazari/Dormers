@@ -12,6 +12,7 @@ import { MonthlyWrapEmptyBanner } from './_shared/MonthlyWrapEmptyBanner'
 import { CheckoutSuccessTakeover } from './_shared/CheckoutSuccessTakeover'
 import { IntakePauseTakeover } from './_shared/IntakePauseTakeover'
 import { whatsAppHref } from '@/shared/contacts'
+import type { CreditRow } from './_shared/credit-outlook'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import type { Customer, Subscription, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
@@ -79,6 +80,8 @@ interface Props {
   closureDates?: string[]
   /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
   intakePause?: IntakeGateState
+  /** Approved credit rows — feeds the mobile home credit chip. */
+  creditRows?: CreditRow[]
 }
 
 /**
@@ -90,7 +93,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [] }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -319,6 +322,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
         creditAed={intakePause.creditAed}
         onDismiss={dismissPausingTakeover}
         alreadyJoined={intakePause.alreadyJoined}
+        lastDeliveryDay={activeSubscription?.end_date ? String(activeSubscription.end_date).slice(0, 10) : null}
       />
     )
   }
@@ -413,6 +417,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       menuData={menuData}
       closureDates={closureDates}
       intakePause={intakePause}
+      creditRows={creditRows}
     />
   )
 }

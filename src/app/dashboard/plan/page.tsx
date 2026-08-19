@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import PlanClient from './PlanClient'
 import type { CreditByPlan } from '../_shared/types'
+import type { CreditItem } from '../_shared/CreditSection'
 
 // Skip the Router Cache so the redeemable-credit prop reflects the latest
 // state after checkout completes (credit rows flip from approved → applied
@@ -18,12 +19,29 @@ export const dynamic = 'force-dynamic'
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>
+  searchParams: Promise<{ preview?: string; explore?: string; credit?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
   if (isPreview) {
+    // ?credit=1 adds fixture credit rows so the CreditSection (plan mode) and
+    // the per-plan-card credit lines (?explore=1) can be screenshot-verified
+    // without seeding real rows. Amounts mirror the canonical fixture: AED 50
+    // universal + AED 100 monthly-only (season pause).
+    const withCredit = params.credit === '1'
+    const previewCreditByPlan: CreditByPlan = withCredit ? {
+      'Trial':           { balanceFils: 5000,  lockedFils: 10000 },
+      'Weekly Flex':     { balanceFils: 5000,  lockedFils: 10000 },
+      'Monthly Premium': { balanceFils: 15000, lockedFils: 0 },
+      'Monthly Max':     { balanceFils: 15000, lockedFils: 0 },
+    } : {}
+    const previewCreditItems: CreditItem[] = withCredit ? [
+      { amount_aed: 100, eligible_plan_ids: ['monthly-max', 'monthly-premium'], source: 'intake_waitlist', status: 'approved', created_at: '2026-08-18T10:00:00Z' },
+      { amount_aed: 30, eligible_plan_ids: null, source: 'referral_conversion', status: 'approved', created_at: '2026-07-02T10:00:00Z' },
+      { amount_aed: 20, eligible_plan_ids: null, source: 'layer4_weekly_review', status: 'approved', created_at: '2026-06-21T10:00:00Z' },
+      { amount_aed: 25, eligible_plan_ids: null, source: 'cycle_milestone_6', status: 'applied', created_at: '2026-05-12T10:00:00Z' },
+    ] : []
     return (
       <Suspense>
         <PlanClient
@@ -31,6 +49,9 @@ export default async function PlanPage({
           activeSubscription={{ id: 'prev-sub', plan_name: 'Monthly Premium', status: 'Active', start_date: '2026-04-01', end_date: '2026-05-01', total_meals: 24, delivered_meals: 6, skipped_meals_count: 1, has_paused_before: false, pause_date: null, last_skipped_date: null, paused_days: 0, created_at: new Date().toISOString() }}
           allSubscriptions={[]}
           userEmail="test@dormers.ae"
+          mode={params.explore === '1' ? 'explore' : 'plan'}
+          creditByPlan={previewCreditByPlan}
+          creditItems={previewCreditItems}
         />
       </Suspense>
     )
@@ -54,11 +75,22 @@ export default async function PlanPage({
   // this is not a new round trip) so its cycleStartedAt can scope the
   // waitlist-join lookup below to the CURRENT pause.
   const intakeState = await getIntakeState()
-  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, creditItemsResult, priceOverrides, waitlistStatus] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
     getCreditSplitByPlan(supabase, user.id, PLANS.map(p => PLAN_KEBAB[p.id]) as KebabPlanId[]),
+    // Itemized rows for the credit statement (CreditSection) — approved
+    // rows carry the scenario numbers, applied rows are quiet history so
+    // used credit never reads as money that vanished. RLS scopes the read
+    // to the customer's own rows.
+    supabase
+      .from('credits')
+      .select('amount_aed, eligible_plan_ids, source, status, created_at')
+      .eq('customer_id', user.id)
+      .in('status', ['approved', 'applied'])
+      .order('created_at', { ascending: false })
+      .limit(30),
     // Admin-set price overrides (plan_pricing) — same rows /api/checkout
     // validates against, so displayed price === charged price.
     fetchActivePriceOverrides(),
@@ -96,6 +128,7 @@ export default async function PlanPage({
         allSubscriptions={allSubscriptions}
         userEmail={user.email}
         creditByPlan={creditByPlan}
+        creditItems={(creditItemsResult.data ?? []) as CreditItem[]}
         priceOverrides={priceOverrides}
         intake={intake}
       />

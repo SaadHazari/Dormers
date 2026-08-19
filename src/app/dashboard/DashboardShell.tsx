@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu as MenuIcon } from 'lucide-react'
 import Sidebar from './Sidebar'
-import type { WalletRow } from './_shared/credit-wallet'
+import type { CreditRow } from './_shared/credit-outlook'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
@@ -31,8 +31,8 @@ interface Props {
   queuedPlanSummary?: { planName: string; startDate: string } | null
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Approved credit rows — drives the persistent Credit Wallet rail. */
-  walletRows?: WalletRow[]
+  /** Approved credit rows — drives the sidebar credit chip. */
+  creditRows?: CreditRow[]
   children: React.ReactNode
 }
 
@@ -47,7 +47,7 @@ export default function DashboardShell({
   monthlyWindow = DEFAULT_MONTHLY_WINDOW,
   queuedPlanSummary = null,
   intakePaused = false,
-  walletRows = [],
+  creditRows = [],
   children,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -121,7 +121,7 @@ export default function DashboardShell({
         weeklyReviewState={weeklyReviewState}
         monthlyWindow={monthlyWindow}
         intakePaused={intakePaused}
-        walletRows={walletRows}
+        creditRows={creditRows}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />

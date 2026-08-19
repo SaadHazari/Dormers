@@ -1,6 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus, getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus, getCompanyClosureDates, getApprovedCreditRows } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
 import { Suspense } from 'react'
@@ -81,7 +81,7 @@ export default async function DashboardPage({
     // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
     // pause — see getWaitlistStatus.
     const intakeState = await getIntakeState()
-    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus, closureDates] = await Promise.all([
+    const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus, closureDates, creditRows] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
         getAllSubscriptions(user.id),
@@ -91,6 +91,9 @@ export default async function DashboardPage({
         getMenuDishes(),
         getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
         getCompanyClosureDates(),
+        // Mobile home credit chip — cache() folds this into the layout's
+        // getApprovedCreditRows call, so it costs no extra query.
+        getApprovedCreditRows(user.id),
     ])
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are
@@ -130,6 +133,7 @@ export default async function DashboardPage({
                 menuData={menuDishes}
                 closureDates={closureDates}
                 intakePause={intakePause}
+                creditRows={creditRows}
             />
         </Suspense>
     )

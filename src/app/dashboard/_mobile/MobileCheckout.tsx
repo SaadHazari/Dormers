@@ -461,7 +461,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
             <div style={cardStyle}>
               <SummaryRow label="Plan price" value={`AED ${total}`} />
               {appliedAed > 0 && (
-                <SummaryRow label="Dorm Wars credit" value={`− AED ${appliedAed.toFixed(0)}`} valueColor="#1d8a30" sub={leftoverAed > 0 ? `AED ${leftoverAed.toFixed(0)} stays in your wallet` : undefined} />
+                <SummaryRow label="Credit applied" value={`− AED ${appliedAed.toFixed(0)}`} valueColor="#1d8a30" sub={leftoverAed > 0 ? `AED ${leftoverAed.toFixed(0)} stays for your next plan` : undefined} />
               )}
               <div style={{ borderTop: `1px solid ${S.border}`, margin: '4px 0' }} />
               <SummaryRow label="Total due today" value={`AED ${netDueAed}`} emphasize />

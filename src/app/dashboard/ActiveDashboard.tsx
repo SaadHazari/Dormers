@@ -25,6 +25,8 @@ import { StatRow } from './StatRow'
 import { QuickActions } from './QuickActions'
 import { MonthlyWrapStrip } from './_shared/MonthlyWrapStrip'
 import { MobileHome, type MobileHomeData } from './_mobile/MobileHome'
+import { MobileCreditChip } from './_mobile/MobileCreditChip'
+import type { CreditRow } from './_shared/credit-outlook'
 import { computeArrivalLabel, type DeliveryWeekType } from './_shared/delivery-phase'
 import { COMPACT } from './_shared/breakpoints'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED } from '@/contexts/subscriptions/domain/monthly-review'
@@ -348,7 +350,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [] }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -362,6 +364,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   closureDates?: string[]
   /** Seasonal intake pause — feeds PlanEndingPausedBanner (spec §6.4). */
   intakePause?: IntakeGateState
+  /** Approved credit rows — the mobile home credit chip (sidebar chip's
+   *  phone twin; desktop needs nothing here, the rail chip is always on). */
+  creditRows?: CreditRow[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -1790,6 +1795,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           <ProfileBanner missing={profileGate} />
           <MobileHome
             data={mobileData}
+            creditChip={<MobileCreditChip rows={creditRows} />}
             planEndingBanner={showPlanEndingPausedBanner ? (
               <PlanEndingPausedBanner
                 daysRemaining={planEndDaysRemaining}

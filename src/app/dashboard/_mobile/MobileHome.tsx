@@ -131,6 +131,10 @@ interface Props {
   orderBanner?: ReactNode
   /** End-of-cycle renew nudge — rendered between the hero and the plan card. */
   renewBanner?: ReactNode
+  /** Credit chip (MobileCreditChip) — rendered between the hero and the plan
+   *  card, after the renew nudge. The phone's ambient view of the sidebar
+   *  chip; the node nulls itself at zero credit. */
+  creditChip?: ReactNode
   /** Plan-ending-during-a-pause nudge (spec §6.4) — rendered above the hero,
    *  alongside errorBanner/orderBanner. */
   planEndingBanner?: ReactNode
@@ -187,7 +191,7 @@ function isoOf(d: Date): string {
 type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused' | 'closure'
 interface Pill { iso: string; state: PillState; action: 'skip' | 'unskip' | 'info' | 'detail' | 'pause-info' | 'cell-info' | null; pauseRange?: PauseRange }
 
-export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
+export function MobileHome({ data, errorBanner, orderBanner, renewBanner, creditChip, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
   // Delivery-rounded (Monthly Max ships 2 meals/delivery) so "meals left" can
   // never show an un-deliverable odd number — mirrors desktop PlanProgress.
   const perDelivery = data.planName.includes('Monthly Max') ? 2 : 1
@@ -623,6 +627,8 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
       </section>
 
       {renewBanner}
+
+      {creditChip}
 
       {/* ── Plan progress (sunset-frosted card) ──────────────────────────── */}
       <section style={{

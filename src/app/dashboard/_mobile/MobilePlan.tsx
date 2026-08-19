@@ -4,8 +4,9 @@ import { useEffect, useState, useTransition, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle, Gift } from 'lucide-react'
-import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
+import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
+import { CreditSection, type CreditItem } from '../_shared/CreditSection'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { whatsAppHref } from '@/shared/contacts'
@@ -71,9 +72,14 @@ interface Props {
   /** Seasonal intake pause — mounts IntakePausedGate over the empty-state
    *  card, taking precedence over the profile / out-of-zone gate copy. */
   intake?: IntakeGateState
+  /** Itemized credits rows for the credit statement — the sidebar chip's
+   *  #credit landing spot. Empty hides the section. */
+  creditItems?: CreditItem[]
+  /** Checkout's per-plan credit math, for the statement's monthly line. */
+  creditByPlan?: CreditByPlan
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, creditItems = [], creditByPlan = {} }: Props) {
   // Season taper — null while intake is paused so the gate and the banner
   // never share a screen (SeasonEndingBanner enforces the same rule itself;
   // this keeps the reschedule sheets on the identical condition).
@@ -94,6 +100,10 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
         : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} intake={intake} />}
 
       {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />}
+
+      {/* Credit statement — same reading order as desktop /plan: current
+          plan → what the next one costs less → go pick one. */}
+      {creditItems.length > 0 && <CreditSection items={creditItems} creditByPlan={creditByPlan} />}
 
       {activeSubscription && <ChangePlanRow paused={activeSubscription.status === SUBSCRIPTION_STATUS.PAUSED} />}
 

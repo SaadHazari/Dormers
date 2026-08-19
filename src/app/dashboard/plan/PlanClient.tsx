@@ -34,6 +34,7 @@ import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
+import { CreditSection, type CreditItem } from '../_shared/CreditSection'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -75,6 +76,10 @@ interface Props {
    *  without a round trip. Optional, defaults to {} when the SSR fetch
    *  returns nothing (preview mode / fetch failure). */
   creditByPlan?: CreditByPlan
+  /** Itemized credits rows (approved + applied) for the credit statement
+   *  on /plan — the sidebar chip's #credit landing spot. Empty hides the
+   *  section entirely. */
+  creditItems?: CreditItem[]
   /** Active admin price overrides (plan_pricing rows, server-fetched).
    *  Threaded into every pricePerMeal/totalPrice call so the cards, the
    *  checkout panels, and the POSTed amount all show the DB-backed price.
@@ -798,7 +803,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, creditAed = 0,
 }: {
   plan: PlanDef
   pref: Pref
@@ -815,6 +820,10 @@ function PlanCard({
    *  same dim + disabled treatment the "pick veg days first" state uses,
    *  so the grid has one language for "not selectable yet". */
   doneForTerm?: boolean
+  /** Credit that applies to THIS plan (checkout's per-plan math, in AED).
+   *  A restricted credit is a discount on a specific door — it belongs on
+   *  that door, at the moment of choosing, not as a footnote elsewhere. */
+  creditAed?: number
 }) {
   // Religious-mix prices DEPEND on vegDayCount (it's a weighted average),
   // so when count is null we can't honestly show a number. Veg/NonVeg
@@ -994,6 +1003,30 @@ function PlanCard({
               {total} AED{plan.period}
             </div>
             <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11.5, color: S.fgFaint }}>{dynamicDuration}</div>
+            {/* Credit line — the exact amount checkout will apply to THIS
+                plan, capped at its price. Success tone (money coming back),
+                matching the checkout credit row, distinct from the orange
+                savings badge (marketing claim) below. Hidden on an unbuyable
+                card — a discount on a closed door is noise. */}
+            {!doneForTerm && creditAed > 0 && (() => {
+              const appliedAed = Math.min(creditAed, total)
+              return (
+                <div style={{
+                  marginTop: 10,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '4px 10px', borderRadius: 999,
+                  background: 'var(--ds-success-wash)',
+                  border: '1px solid var(--ds-success-border)',
+                  color: 'var(--ds-success-fg)',
+                  fontFamily: BODY, fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.04em', fontFeatureSettings: '"tnum"',
+                }}>
+                  {appliedAed >= total
+                    ? 'Your credit covers this plan'
+                    : `AED ${Math.round(appliedAed)} off with your credit`}
+                </div>
+              )
+            })()}
             {/* Season taper — the one line that explains the dim. Sits with
                 the price block (where "Set veg days first" also lives) so
                 the reason is next to what it invalidates, and replaces the
@@ -1397,7 +1430,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditItems = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
@@ -1633,6 +1666,16 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             queue info — a dead-end the customer rightly flagged. */}
         {!isExplore && queuedSub && (
           <QueuedSubCallout sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />
+        )}
+
+        {/* Credit statement — the sidebar chip's landing spot (#credit).
+            Sits between the current plan and the switch-plans prompt on
+            purpose: credit is about the NEXT purchase, so it reads as
+            "current plan → what your next one costs less → go pick one". */}
+        {!isExplore && creditItems.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <CreditSection items={creditItems} creditByPlan={creditByPlan} anchorId="credit" />
+          </div>
         )}
 
         {/* Change-plan CTA — only on /plan. Locked when the active plan is
@@ -1875,6 +1918,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       onSelect={(id) => { if (intake.paused || profileGated || doneForTermByPlan[id]) return; setSelected(prev => prev === id ? null : id) }}
                       priceOverrides={priceOverrides}
                       doneForTerm={!!doneForTermByPlan[p.id]}
+                      creditAed={(creditByPlan[p.id]?.balanceFils ?? 0) / 100}
                     />
                   ))}
                 </div>
@@ -2092,6 +2136,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           onRenew={openPricing}
           onConfirmCancelPause={handleCancelPlannedPause}
           intake={intake}
+          creditItems={creditItems}
+          creditByPlan={creditByPlan}
         />
       )}
     </div>

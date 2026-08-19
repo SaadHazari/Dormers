@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { createClient } from '@/utils/supabase/server'
-import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getQueuedSubscription, getApprovedCreditRows } from '@/infra/supabase/subscriptions-repo'
 import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-repo'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-actions'
@@ -15,7 +14,7 @@ import { EMPTY_REVIEW_STATE, type WeeklyReviewState } from '@/contexts/subscript
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
-import type { WalletRow } from './_shared/credit-wallet'
+import type { CreditRow } from './_shared/credit-outlook'
 import { COMPACT, ROOMY } from './_shared/breakpoints'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
@@ -57,11 +56,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Paused=false is the safe default for signed-out renders; getIntakeState
   // itself fails open (never blocks).
   let intakePaused = false
-  // Approved credit rows for the persistent sidebar Credit Wallet — every
-  // credit the customer holds, not scoped to any one cycle or plan (a credit
-  // from an earlier pause is still the customer's money). Empty is the safe
+  // Approved credit rows for the sidebar credit chip — every credit the
+  // customer holds, not scoped to any one cycle or plan (a credit from an
+  // earlier pause is still the customer's money). Empty is the safe
   // default for signed-out renders.
-  let walletRows: WalletRow[] = []
+  let creditRows: CreditRow[] = []
   const userEmail = user?.email ?? ''
 
   if (user) {
@@ -74,30 +73,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
       console.error('layout: promotePendingPreferencesIfStale failed:', err)
     })
 
-    const supabase = await createClient()
     // getIntakeState() rides in the batch below (rather than being awaited on
     // its own line ahead of it) — this route only reads `.paused`, so there is
     // no reason to pay a serial hop on every dashboard render on top of the
     // documented cold-start budget. (page.tsx / plan/page.tsx /
     // explore-plans/page.tsx genuinely need `cycleStartedAt` ahead of their own
     // batches and are intentionally left as they are.)
-    // Credit Wallet reads the credits rows directly (amount_aed +
-    // eligible_plan_ids) rather than going through getRedeemableCredit — that
-    // helper is payment-critical lockstep with checkout/webhook and, called
-    // with no planId, drops eligible_plan_ids from its returned rows, which
-    // the wallet needs to explain a monthly-only balance. See credit-wallet.ts.
-    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, creditsResult, intakeState] = await Promise.all([
+    // The credit chip reads the credits rows via getApprovedCreditRows (not
+    // getRedeemableCredit — that helper is payment-critical lockstep with
+    // checkout/webhook and, called with no planId, drops eligible_plan_ids,
+    // which the chip needs to build its sentence). cache() folds this call
+    // and the home page's into one query per request. See credit-outlook.ts.
+    const [customer, activeSubscription, queuedSub, referrals, reviewState, monthlyWin, fetchedCreditRows, intakeState] = await Promise.all([
       getCustomer(user.id),
       getActiveSubscription(user.id),
       getQueuedSubscription(user.id),
       getReferralData(user.id),
       getWeeklyReviewState(user.id),
       getMonthlyReviewWindow(user.id),
-      supabase
-        .from('credits')
-        .select('amount_aed, eligible_plan_ids')
-        .eq('customer_id', user.id)
-        .eq('status', 'approved'),
+      getApprovedCreditRows(user.id),
       getIntakeState(),
     ])
     customerName = customer?.name ?? ''
@@ -108,8 +102,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     weeklyReviewState = reviewState
     monthlyWindow = monthlyWin
     intakePaused = intakeState.paused
-    if (creditsResult.error) console.error('DashboardLayout: credits read failed:', creditsResult.error.message)
-    walletRows = (creditsResult.data ?? []) as WalletRow[]
+    creditRows = fetchedCreditRows
     if (queuedSub) {
       queuedPlanSummary = {
         planName: (queuedSub.plan_name as string) ?? 'Plan',
@@ -139,7 +132,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         monthlyWindow={monthlyWindow}
         queuedPlanSummary={queuedPlanSummary}
         intakePaused={intakePaused}
-        walletRows={walletRows}
+        creditRows={creditRows}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
         <div className="dash-main-row" style={{ display: 'flex', paddingTop: 16 }}>

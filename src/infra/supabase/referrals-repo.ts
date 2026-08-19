@@ -16,12 +16,18 @@ import { cache } from 'react'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminSupabaseClient as rewardsAdmin } from '@/infra/supabase/admin-client'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { countsAsGameEarnings } from '@/shared/credit-ledger'
 
 export interface ReferralData {
   total:         number   // gift_claimed + converted (all sent referrals that got a meal)
   converted:     number   // invitees who became paying subscribers
-  creditBalance: number   // sum of APPROVED credits in AED (spendable at checkout)
-  creditPending: number   // Phase 8K Model C — sum of PENDING credits (locked, at risk)
+  /** Sum of APPROVED credits the customer EARNED (referral + Dorm Wars
+   *  payouts, in AED). Season pause credit and admin grants are excluded —
+   *  this number feeds the Refer & Earn badge and the Dorm Wars hub wallet,
+   *  and money the customer didn't win must never dress up as winnings.
+   *  The full spendable picture lives in the credit chip / Plan & billing. */
+  creditBalance: number
+  creditPending: number   // Phase 8K Model C — sum of PENDING earned credits (locked, at risk)
 }
 
 export const getReferralData = cache(async (userId: string): Promise<ReferralData> => {
@@ -43,13 +49,17 @@ export const getReferralData = cache(async (userId: string): Promise<ReferralDat
       // to a checkout.
       supabase
         .from('credits')
-        .select('amount_aed, status')
+        .select('amount_aed, status, source')
         .eq('customer_id', userId)
         .in('status', ['approved', 'pending']),
     ])
     let creditBalance = 0
     let creditPending = 0
     for (const row of (creditRes.data ?? [])) {
+      // Earned money only — a season pause credit or admin grant showing up
+      // under the Refer & Earn headline reads as referral winnings, which it
+      // is not. See countsAsGameEarnings for the null-source legacy rule.
+      if (!countsAsGameEarnings(row.source)) continue
       const amt = Number(row.amount_aed)
       if (row.status === 'approved') creditBalance += amt
       else if (row.status === 'pending') creditPending += amt

@@ -482,15 +482,18 @@ export function CheckoutPanel({
           // "AED 200 applied" and thinks the rest evaporated. The leftover
           // line reassures them the remaining AED 4800 stays redeemable.
           const hint = leftoverAed > 0
-            ? `AED ${appliedAed.toFixed(0)} applied · AED ${leftoverAed.toFixed(0)} stays in your wallet`
-            : `AED ${appliedAed.toFixed(0)} applied from your Dorm Wars credits`
+            ? `AED ${appliedAed.toFixed(0)} applied · AED ${leftoverAed.toFixed(0)} stays for your next plan`
+            : `AED ${appliedAed.toFixed(0)} applied from your credit`
           const netDueAed = Math.max(0, planTotalAed - appliedAed)
           return (
             <>
               <div className="checkout-credit-row" role="status">
                 <div className="checkout-credit-left">
+                  {/* Plain "Credit" on purpose — this row nets EVERY credit
+                      kind (referral, Dorm Wars rewards, season pause), and
+                      naming one source here claimed pause money as winnings. */}
                   <span className="checkout-credit-label">
-                    Dorm Wars credit applied
+                    Credit applied
                   </span>
                   <span className="checkout-credit-hint">
                     {hint}

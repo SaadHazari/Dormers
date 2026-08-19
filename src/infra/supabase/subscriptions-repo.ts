@@ -198,6 +198,25 @@ export async function getRedeemableCredit(
 }
 
 /**
+ * Approved credit rows for the credit-chip surfaces (sidebar rail + mobile
+ * home). The dashboard layout and the home page both need them in the same
+ * request; cache() folds those calls into one query. Display-only — the
+ * payment-critical reads stay on getRedeemableCredit / getCreditSplitByPlan.
+ */
+export const getApprovedCreditRows = cache(
+  async (userId: string): Promise<Array<{ amount_aed: number; eligible_plan_ids: string[] | null }>> => {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('credits')
+      .select('amount_aed, eligible_plan_ids')
+      .eq('customer_id', userId)
+      .eq('status', 'approved')
+    if (error) console.error('getApprovedCreditRows failed:', error.message)
+    return (data ?? []) as Array<{ amount_aed: number; eligible_plan_ids: string[] | null }>
+  },
+)
+
+/**
  * Splits the customer's approved credit balance into a {balanceFils,
  * lockedFils} pair for EVERY planId supplied, in one query.
  *
