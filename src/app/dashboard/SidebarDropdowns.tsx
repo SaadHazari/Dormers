@@ -745,7 +745,7 @@ function MonthlyWrapCard({
         display: 'flex', flexDirection: 'column', gap: 6,
         padding: '12px 12px 12px 14px',
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--ds-surface)',
+        background: 'var(--ds-surface2)',
         border: '1px solid var(--ds-border-soft)',
         color: 'var(--ds-fg)', fontFamily: BODY,
       }}>
@@ -814,7 +814,7 @@ function MonthlyWrapCard({
         display: 'flex', flexDirection: 'column', gap: 6,
         padding: '12px 12px 12px 14px',
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--ds-surface)',
+        background: 'var(--ds-surface2)',
         border: isLate ? '1px solid var(--ds-border-soft)' : '1px solid var(--ds-og-border)',
         boxShadow: isLate
           ? '0 1px 2px rgba(9,24,37,0.04)'
@@ -900,7 +900,7 @@ function PendingReviewCard({
         display: 'flex', flexDirection: 'column', gap: 6,
         padding: '12px 12px 12px 14px',
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--ds-surface)',
+        background: 'var(--ds-surface2)',
         border: '1px solid var(--ds-og-border)',
         boxShadow: `inset 3px 0 0 ${OG}, 0 1px 2px rgba(9,24,37,0.04)`,
         textDecoration: 'none', color: 'var(--ds-fg)',
@@ -1033,7 +1033,7 @@ function CatchUpCard({ late, onClick }: { late: LateItem[]; onClick: () => void 
         marginTop: 4,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         padding: '8px 10px', borderRadius: 999,
-        background: 'var(--ds-surface)', color: OG,
+        background: 'var(--ds-surface2)', color: OG,
         border: `1px solid ${OG}`,
         fontSize: 11, fontWeight: 800,
         letterSpacing: '0.06em', textTransform: 'uppercase',

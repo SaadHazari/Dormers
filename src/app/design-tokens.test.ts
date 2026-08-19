@@ -51,14 +51,9 @@ describe('design token references', () => {
             }
         }
 
-        // Known pre-existing gap, visually mild (transparent card on the cream
-        // sidebar, text stays readable): the Now-tray cards' `--ds-surface`.
-        // Remove from this list when the token is defined or the usages fixed.
-        const knownGaps = new Set(['--ds-surface'])
-
         const missing: string[] = []
         for (const [token, tokenFiles] of usedNoFallback) {
-            if (defined.has(token) || knownGaps.has(token)) continue
+            if (defined.has(token)) continue
             missing.push(`${token} (used in ${tokenFiles.map(f => f.replace(SRC, 'src')).join(', ')})`)
         }
 

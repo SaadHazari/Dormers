@@ -47,7 +47,7 @@ export function MonthlyWrapEmptyBanner({ monthlyWindow }: { monthlyWindow: Month
                 padding: 'clamp(20px, 2.6vw, 28px)',
                 borderRadius: 'var(--radius-md)',
                 background: isLate
-                    ? 'var(--ds-surface)'
+                    ? 'var(--ds-surface2)'
                     : 'linear-gradient(135deg, var(--ds-og-wash-strong) 0%, var(--ds-og-wash) 100%)',
                 border: `1px solid ${isLate ? 'var(--ds-border-soft)' : 'var(--ds-og-border-strong)'}`,
                 boxShadow: isLate
