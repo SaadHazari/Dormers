@@ -59,7 +59,9 @@ export const REOPEN_MESSAGE_PROMISE = 'We will message you the day we reopen.'
  * does not exist is exactly the regression this module exists to stop.
  */
 export function creditMechanicsLine(creditAed: number): string | null {
-  if (creditAed > 0) return `Your AED ${creditAed} comes off your next monthly plan automatically.`
+  // Owner-locked phrasing (2026-08-18): common words only — "will be used
+  // on", never idioms like "comes off". Simple beats clever in customer copy.
+  if (creditAed > 0) return `Your AED ${creditAed} will be used on your next Monthly plan automatically.`
   return null
 }
 

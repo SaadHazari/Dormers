@@ -83,7 +83,7 @@ describe('intakeCreditDisplay', () => {
 describe('intakeNextSteps', () => {
   it('puts the credit mechanics FIRST and the message promise SECOND (owner-locked order)', () => {
     expect(intakeNextSteps(15)).toEqual([
-      'Your AED 15 comes off your next monthly plan automatically.',
+      'Your AED 15 will be used on your next Monthly plan automatically.',
       'We will message you the day we reopen.',
     ])
   })
@@ -98,6 +98,6 @@ describe('intakeNextSteps', () => {
 
   it('creditMechanicsLine is null at zero so the takeover renders nothing extra', () => {
     expect(creditMechanicsLine(0)).toBeNull()
-    expect(creditMechanicsLine(20)).toBe('Your AED 20 comes off your next monthly plan automatically.')
+    expect(creditMechanicsLine(20)).toBe('Your AED 20 will be used on your next Monthly plan automatically.')
   })
 })
