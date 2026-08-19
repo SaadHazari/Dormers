@@ -2,10 +2,10 @@
 
 import { useState, useTransition, type ReactElement } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { CalendarClock, Check } from 'lucide-react'
+import { CalendarClock, Check, ChevronDown } from 'lucide-react'
 import { OG, OG_DEEP, NV, BODY, S, TIER1 } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
-import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
 import { planEndingHeadline, saveSpotButtonLabel } from './plan-ending-copy'
 
 interface PlanEndingPausedBannerProps {
@@ -67,6 +67,14 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   const [joinError, setJoinError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const prefersReducedMotion = useReducedMotion()
+  // Joined-state collapse (owner call, 2026-08-19): a returning customer who
+  // already saved a spot gets the two-line version — status + credit — with
+  // the mechanics and reopen-promise lines behind a chevron, because on the
+  // home surface this banner is a standing reminder, not news. A FRESH join
+  // starts expanded: the payoff lines are the reward for the tap and must
+  // not be born hidden. (alreadyJoined=false at mount means any joined
+  // render this component ever shows came from a fresh tap.)
+  const [expanded, setExpanded] = useState(!alreadyJoined)
 
   const handleJoin = () => {
     setJoinError(null)
@@ -91,8 +99,9 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   const headline = planEndingHeadline(daysRemaining)
 
   return (
-    <div style={{
+    <div onClick={joined ? () => setExpanded(v => !v) : undefined} style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+      cursor: joined ? 'pointer' : undefined,
       ...(onSun
         ? {
             // TIER1 — the system's warm-cream card surface, NOT white: on the
@@ -155,12 +164,30 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
               )
             })()}
             {/* Owner-locked close of the loop: what the money does first,
-                how they hear from us second — see intakeNextSteps. */}
-            <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
-              {intakeNextSteps(confirmedCreditAed).map(line => (
-                <div key={line}>{line}</div>
-              ))}
-            </div>
+                how they hear from us second — see intakeNextSteps. The
+                reopen promise gets full-strength ink (owner call,
+                2026-08-19): it is the release condition for the pause and
+                must not blend into the muted mechanics line. No extra words
+                on this tight surface — elevation is ink only. Behind the
+                chevron for returning customers — see `expanded` above. */}
+            <AnimatePresence initial={false}>
+              {expanded && (
+                <motion.div
+                  key="details"
+                  initial={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                  animate={prefersReducedMotion ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                  exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                  transition={{ duration: prefersReducedMotion ? 0.12 : 0.22 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>
+                    {intakeNextSteps(confirmedCreditAed).map(line => (
+                      <div key={line} style={line === REOPEN_MESSAGE_PROMISE ? { color: S.fg, fontWeight: 600 } : undefined}>{line}</div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <motion.div
@@ -182,6 +209,34 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* The chevron is the visible affordance; the whole row toggles too
+          (the joined banner has no other interactive element to fight).
+          stopPropagation so a chevron tap doesn't bubble into the row's
+          own toggle and cancel itself out. */}
+      {joined && (
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Hide waitlist details' : 'Show waitlist details'}
+          style={{
+            background: 'none', border: 'none', color: S.fgMuted,
+            cursor: 'pointer', flexShrink: 0, padding: 8, margin: -4,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <ChevronDown
+            size={18}
+            strokeWidth={2.4}
+            aria-hidden
+            style={{
+              transition: prefersReducedMotion ? undefined : 'transform 200ms',
+              transform: expanded ? 'rotate(180deg)' : 'none',
+            }}
+          />
+        </button>
+      )}
 
       {!joined && (
         <button

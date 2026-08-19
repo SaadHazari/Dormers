@@ -981,6 +981,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // successful checkout. Emotional release / "feeling of accomplishment"
   // companion to the informational banner. Honours prefers-reduced-motion.
   const prefersReducedMotion = useReducedMotion()
+
+  // End-of-cycle renew banner starts collapsed (owner call, 2026-08-19):
+  // headline + Renew CTA carry the message; the subline sits behind a
+  // chevron. One state for both the desktop and mobile renders of the same
+  // window, so the choice survives a breakpoint change mid-session.
+  const [renewExpanded, setRenewExpanded] = useState(false)
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(justCheckedOut)
   useEffect(() => {
     if (!showSuccessOverlay) return
