@@ -34,12 +34,15 @@ export const creditDateLabel = (iso: string) =>
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dubai',
   })
 
-/** Restriction tag for a ledger row — where this specific credit works. */
-export function creditRestrictionTag(ids: string[] | null): string | null {
-  if (ids == null) return null
-  return ids.some(p => (MONTHLY_PLAN_IDS as readonly string[]).includes(p))
-    ? 'Monthly plans'
-    : 'Select plans'
+/**
+ * Eligibility tag for a ledger row — every row answers "where does this
+ * work?" in the same spot, so nothing is inferred from absence. Tone does
+ * the exception-marking: "Any plan" renders quiet, restricted tags warm.
+ */
+export function creditEligibilityTag(ids: string[] | null): { label: string; restricted: boolean } {
+  if (ids == null) return { label: 'Any plan', restricted: false }
+  const monthly = ids.some(p => (MONTHLY_PLAN_IDS as readonly string[]).includes(p))
+  return { label: monthly ? 'Monthly plans' : 'Select plans', restricted: true }
 }
 
 /**
@@ -237,7 +240,7 @@ function LedgerGroup({ title, items, muted = false }: { title: string; items: Cr
         opacity: muted ? 0.75 : 1,
       }}>
         {items.map((item, i) => {
-          const tag = creditRestrictionTag(item.eligible_plan_ids)
+          const tag = creditEligibilityTag(item.eligible_plan_ids)
           return (
             <div
               key={`${item.source ?? 'credit'}-${item.created_at}-${i}`}
@@ -250,14 +253,22 @@ function LedgerGroup({ title, items, muted = false }: { title: string; items: Cr
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: muted ? 600 : 700, color: muted ? S.fgMuted : 'var(--ds-fg)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {classifyCreditSource(item.source).label}
-                  {tag && !muted && (
-                    <span style={{
+                  {/* Eligibility on EVERY live row — restricted keeps the warm
+                      orange, "Any plan" stays quiet so color still marks the
+                      exception. Used rows skip it: spent credit has no
+                      eligibility left to explain. */}
+                  {!muted && (
+                    <span style={tag.restricted ? {
                       fontSize: 10, fontWeight: 800, letterSpacing: '0.06em',
                       textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999,
                       background: 'var(--ds-og-wash)', color: '#8c4214',
                       border: '1px solid var(--ds-og-border)',
+                    } : {
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                      textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999,
+                      background: 'rgba(9,24,37,0.05)', color: S.fgFaint,
                     }}>
-                      {tag}
+                      {tag.label}
                     </span>
                   )}
                 </div>

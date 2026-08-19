@@ -6,7 +6,7 @@ import { MobileColumn, HERO, CARD, S, BODY, eyebrow } from './kit'
 import { classifyCreditSource } from '@/shared/credit-ledger'
 import type { CreditByPlan } from '../_shared/types'
 import {
-  creditScenarios, creditDateLabel, creditRestrictionTag, type CreditItem,
+  creditScenarios, creditDateLabel, creditEligibilityTag, type CreditItem,
 } from '../credit/CreditClient'
 
 const CREAM = 'rgba(245,240,232,0.92)'
@@ -119,7 +119,7 @@ function MobileLedger({ title, items, muted = false }: { title: string; items: C
       <span style={{ ...eyebrow, display: 'block', marginBottom: 8 }}>{title}</span>
       <div style={{ ...CARD, padding: '2px 16px', opacity: muted ? 0.75 : 1 }}>
         {items.map((item, i) => {
-          const tag = creditRestrictionTag(item.eligible_plan_ids)
+          const tag = creditEligibilityTag(item.eligible_plan_ids)
           return (
             <div
               key={`${item.source ?? 'credit'}-${item.created_at}-${i}`}
@@ -133,14 +133,20 @@ function MobileLedger({ title, items, muted = false }: { title: string; items: C
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: muted ? 600 : 700, color: muted ? S.fgMuted : S.fg, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
                   {classifyCreditSource(item.source).label}
-                  {tag && !muted && (
-                    <span style={{
+                  {/* Eligibility on every live row — tone marks the exception.
+                      Mirrors the desktop ledger. */}
+                  {!muted && (
+                    <span style={tag.restricted ? {
                       fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em',
                       textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999,
                       background: 'var(--ds-og-wash)', color: '#8c4214',
                       border: '1px solid var(--ds-og-border)',
+                    } : {
+                      fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em',
+                      textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999,
+                      background: 'rgba(9,24,37,0.05)', color: S.fgFaint,
                     }}>
-                      {tag}
+                      {tag.label}
                     </span>
                   )}
                 </div>
