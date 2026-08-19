@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
-  CalendarDays, CalendarClock, Unlock, Heart, Moon,
+  CalendarDays, CalendarClock, Unlock, Heart, Moon, Wallet,
 } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -34,7 +34,6 @@ import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
-import { CreditSection, type CreditItem } from '../_shared/CreditSection'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
 // label for read-only displays. (Kept here because the Plan page only renders
@@ -76,10 +75,6 @@ interface Props {
    *  without a round trip. Optional, defaults to {} when the SSR fetch
    *  returns nothing (preview mode / fetch failure). */
   creditByPlan?: CreditByPlan
-  /** Itemized credits rows (approved + applied) for the credit statement
-   *  on /plan — the sidebar chip's #credit landing spot. Empty hides the
-   *  section entirely. */
-  creditItems?: CreditItem[]
   /** Active admin price overrides (plan_pricing rows, server-fetched).
    *  Threaded into every pricePerMeal/totalPrice call so the cards, the
    *  checkout panels, and the POSTed amount all show the DB-backed price.
@@ -1430,7 +1425,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditItems = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
@@ -1668,13 +1663,31 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           <QueuedSubCallout sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />
         )}
 
-        {/* Credit statement — the sidebar chip's landing spot (#credit).
-            Sits between the current plan and the switch-plans prompt on
-            purpose: credit is about the NEXT purchase, so it reads as
-            "current plan → what your next one costs less → go pick one". */}
-        {!isExplore && creditItems.length > 0 && (
+        {/* Credit pointer — a slim row, deliberately NOT a statement. The
+            full credit story lives on its own page (/dashboard/credit); a
+            card here competed with the navy current-plan hero for urgency
+            (owner call). Renders only when credit exists. */}
+        {!isExplore && Object.values(creditByPlan).some(v => (v?.balanceFils ?? 0) > 0) && (
           <div style={{ marginBottom: 16 }}>
-            <CreditSection items={creditItems} creditByPlan={creditByPlan} anchorId="credit" />
+            <Link
+              href="/dashboard/credit"
+              className="change-plan-btn"
+              style={{
+                ...TIER2,
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '14px 18px', borderRadius: 14,
+                textDecoration: 'none',
+                transition: 'background 150ms, border-color 150ms',
+              }}
+            >
+              <Wallet size={16} strokeWidth={2.2} color={OG} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg }}>
+                Your credit
+              </span>
+              <span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: S.fgMuted }}>
+                View →
+              </span>
+            </Link>
           </div>
         )}
 
@@ -2136,8 +2149,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           onRenew={openPricing}
           onConfirmCancelPause={handleCancelPlannedPause}
           intake={intake}
-          creditItems={creditItems}
-          creditByPlan={creditByPlan}
+          hasCredit={Object.values(creditByPlan).some(v => (v?.balanceFils ?? 0) > 0)}
         />
       )}
     </div>

@@ -3,10 +3,9 @@
 import { useEffect, useState, useTransition, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle, Gift } from 'lucide-react'
-import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
+import { Moon, CalendarDays, ChevronRight, ArrowUpRight, Repeat, Utensils, SkipForward, PauseCircle, CalendarClock, Plus, HelpCircle, Gift, Wallet } from 'lucide-react'
+import type { Customer, Subscription, IntakeGateState } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
-import { CreditSection, type CreditItem } from '../_shared/CreditSection'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
 import { whatsAppHref } from '@/shared/contacts'
@@ -72,14 +71,13 @@ interface Props {
   /** Seasonal intake pause — mounts IntakePausedGate over the empty-state
    *  card, taking precedence over the profile / out-of-zone gate copy. */
   intake?: IntakeGateState
-  /** Itemized credits rows for the credit statement — the sidebar chip's
-   *  #credit landing spot. Empty hides the section. */
-  creditItems?: CreditItem[]
-  /** Checkout's per-plan credit math, for the statement's monthly line. */
-  creditByPlan?: CreditByPlan
+  /** True when the customer holds any usable credit — shows the slim
+   *  pointer row to /dashboard/credit. The full story lives on that page,
+   *  never here (a statement card competed with the plan hero). */
+  hasCredit?: boolean
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, creditItems = [], creditByPlan = {} }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, hasCredit = false }: Props) {
   // Season taper — null while intake is paused so the gate and the banner
   // never share a screen (SeasonEndingBanner enforces the same rule itself;
   // this keeps the reschedule sheets on the identical condition).
@@ -101,9 +99,23 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
 
       {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />}
 
-      {/* Credit statement — same reading order as desktop /plan: current
-          plan → what the next one costs less → go pick one. */}
-      {creditItems.length > 0 && <CreditSection items={creditItems} creditByPlan={creditByPlan} />}
+      {/* Credit pointer — slim row to the credit page, same reading order as
+          desktop /plan: current plan → your credit → switch plans. */}
+      {hasCredit && (
+        <Link
+          href="/dashboard/credit"
+          style={{
+            ...CARD, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            textDecoration: 'none', fontFamily: BODY,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Wallet size={16} strokeWidth={2.2} color={OG} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: S.fg }}>Your credit</span>
+          <ChevronRight size={16} strokeWidth={2.4} color={S.fgFaint} style={{ flexShrink: 0 }} />
+        </Link>
+      )}
 
       {activeSubscription && <ChangePlanRow paused={activeSubscription.status === SUBSCRIPTION_STATUS.PAUSED} />}
 

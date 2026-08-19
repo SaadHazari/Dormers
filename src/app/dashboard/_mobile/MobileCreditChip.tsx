@@ -26,7 +26,7 @@ export function MobileCreditChip({ rows }: { rows: CreditRow[] }) {
 
   return (
     <Link
-      href="/dashboard/plan#credit"
+      href="/dashboard/credit"
       aria-label={`${chip.sentence}. See your credit.`}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,

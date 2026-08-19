@@ -6,13 +6,12 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Activity, Gift, Shield,
+  X, Activity, Gift, Shield, Wallet,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { COMPACT } from './_shared/breakpoints'
 import { SidebarDropdowns, type DropdownKind } from './SidebarDropdowns'
-import { CreditChip } from './CreditChip'
-import type { CreditRow } from './_shared/credit-outlook'
+import { creditOutlook, type CreditRow } from './_shared/credit-outlook'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { EMPTY_REVIEW_STATE, badgeFromReviewState, type WeeklyReviewState } from '@/contexts/subscriptions/domain/weekly-review'
 import { monthlyBadgeFromWindow, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
@@ -61,8 +60,10 @@ interface Props {
   monthlyWindow?: MonthlyReviewWindow
   /** Seasonal intake pause — drives the "New plans paused" Now-tray entry. */
   intakePaused?: boolean
-  /** Approved credit rows — drives the credit chip (one future-tense
-   *  sentence, links to the Plan & billing credit section). */
+  /** Approved credit rows — drives the My Credit nav item. The rail shows
+   *  ONLY the wallet icon (owner call: no figure, no sentence — short and
+   *  concise); the icon's presence itself is the signal, because it renders
+   *  only when credit exists. The full story lives on /dashboard/credit. */
   creditRows?: CreditRow[]
 }
 
@@ -331,12 +332,35 @@ export default function Sidebar({
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* ── Credit chip — persistent, above Refer & earn ────────────────────
-            One future-tense sentence about the customer's NEXT purchase
-            ("AED X off your next plan"), never a balance. Links to the
-            Plan & billing credit section. Renders nothing on a zero ledger.
-            See CreditChip.tsx / credit-outlook.ts. */}
-        <CreditChip rows={creditRows} expanded={expanded} onNavigate={onMobileClose} />
+        {/* ── My Credit nav item — icon only, above Refer & earn ─────────────
+            No figure and no sentence in the rail (owner call: the rail stays
+            short and concise). The icon renders ONLY when credit exists, so
+            its presence is the signal; screen readers still get the full
+            sentence via aria-label. Destination: the credit page. */}
+        {creditRows.length > 0 && (() => {
+          const { chip } = creditOutlook(creditRows)
+          if (!chip) return null
+          const active = isActive('/dashboard/credit')
+          return (
+            <div style={{ marginBottom: 4 }}>
+              <Link
+                href="/dashboard/credit"
+                onClick={() => onMobileClose?.()}
+                aria-current={active ? 'page' : undefined}
+                aria-label={`My credit. ${chip.sentence}.`}
+                data-tooltip="My credit"
+                data-tooltip-placement="right"
+                className={active ? 'sidebar-nav-active' : 'sidebar-nav-item'}
+                style={rowStyle(active)}
+              >
+                <span style={iconSlot}>
+                  <Wallet size={18} strokeWidth={active ? 2.4 : 2} />
+                </span>
+                <span style={labelStyle}>My credit</span>
+              </Link>
+            </div>
+          )
+        })()}
 
         {/* ── Dorm Wars rail — the orange frame IS the button ────────────────
             The frame used to be a wrapper div with its own 6px padding, which
