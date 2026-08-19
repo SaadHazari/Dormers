@@ -7,7 +7,7 @@ import { ShieldCheck, Check } from 'lucide-react'
 import { OG, BODY, TIER_POP_TEXT } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { deriveJoinOutcome, creditMechanicsLine, type JoinOutcome } from './intake-join-outcome'
-import { pauseTakeoverCta } from './pause-takeover-actions'
+import { pauseTakeoverCta, pausingTakeoverCopy } from './pause-takeover-actions'
 
 interface Props {
     variant: 'pausing' | 'reopened'
@@ -23,6 +23,10 @@ interface Props {
     onLater?: () => void
     /** True when this customer already saved a spot in the CURRENT pause. */
     alreadyJoined?: boolean
+    /** Pausing only: this customer's own subscription end date (YYYY-MM-DD),
+     *  so the body can say exactly how far their paid deliveries run. See
+     *  pausingTakeoverCopy — null drops the clause, never invents a date. */
+    lastDeliveryDay?: string | null
 }
 
 /**
@@ -34,10 +38,15 @@ interface Props {
  * gradient-heading + pill-CTA shape, so all four moments read as one family.
  *
  * `pausing` — shown once to a customer with a live plan, on their first
- * dashboard visit after the pause begins. Leads with reassurance ("Your
- * plan is safe") before it ever says the word "paused" — a pause
- * announcement that reads as "Dormers is closing" would cause the churn
- * this feature exists to prevent.
+ * dashboard visit after the pause begins. Copy contract (owner-directed
+ * rewrite, 2026-08-19 — see pausingTakeoverCopy): affirm continuity, never
+ * deny danger. The earlier "Your plan is safe." headline was reassurance-
+ * first, and reassurance about a threat the customer hasn't heard of
+ * CREATES the threat — they opened the app to check today's meal, so the
+ * headline answers that question first, the body names the event with
+ * their own end date, and the reopen promise renders as its own emphasized
+ * block above the buttons (it is the release condition for the whole
+ * pause, so it never hides inside body text).
  *
  * `reopened` — shown once to a customer on the early-access list once
  * intake reopens. Names the credit sitting in their account and points at
@@ -49,7 +58,7 @@ interface Props {
  * This component only renders the two messages; it holds no persistence
  * logic of its own.
  */
-export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, alreadyJoined }: Props) {
+export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, alreadyJoined, lastDeliveryDay }: Props) {
     const [dismissing, setDismissing] = useState(false)
     const prefersReducedMotion = useReducedMotion()
     const router = useRouter()
@@ -136,12 +145,33 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
                 </div>
 
                 {variant === 'pausing' ? (
-                    <>
-                        <H1>Your plan is safe.</H1>
-                        <Sub>
-                            New plans are paused between semesters. Every delivery you have already paid for continues exactly as scheduled. We will message you the day we reopen.
-                        </Sub>
-                    </>
+                    (() => {
+                        const copy = pausingTakeoverCopy(lastDeliveryDay ?? null)
+                        return (
+                            <>
+                                <H1>{copy.headline}</H1>
+                                <Sub>{copy.body}</Sub>
+                                {/* The reopen promise stands alone — same emphasized
+                                    treatment as the reopened variant's credit line, so
+                                    the family's "the line that matters" style carries
+                                    the release condition here. Never body text. */}
+                                <div
+                                    style={{
+                                        margin: '0 auto 32px',
+                                        maxWidth: 360,
+                                        fontFamily: BODY,
+                                        fontSize: 'clamp(16px, 2vw, 19px)',
+                                        fontWeight: 700,
+                                        lineHeight: 1.4,
+                                        letterSpacing: '-0.01em',
+                                        color: '#fbe5b5',
+                                    }}
+                                >
+                                    {copy.promise}
+                                </div>
+                            </>
+                        )
+                    })()
                 ) : (
                     <>
                         <H1>We are back.</H1>
@@ -172,9 +202,9 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
                 )}
                 {/* Close the loop on a fresh join: what the minted money does.
                     The "we will message you" half of intakeNextSteps is already
-                    in this screen's subheading, so only the mechanics line
-                    renders here — from the action's own result, never the
-                    prospective prop. */}
+                    on this screen as the standalone promise block, so only the
+                    mechanics line renders here — from the action's own result,
+                    never the prospective prop. */}
                 {outcome?.joined && creditMechanicsLine(outcome.creditAed ?? 0) && (
                     <p style={{
                         margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
@@ -200,6 +230,18 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
                         {creditAed > 0
                             ? `Tap below to join our waitlist and get AED ${creditAed} credit the day new plans reopen.`
                             : 'Tap below to join our waitlist and hear first the day new plans reopen.'}
+                    </p>
+                )}
+                {/* A customer who saved a spot earlier (gate, banner, settings)
+                    gets that status confirmed instead of the join offer —
+                    without this line the screen reads generic to the exact
+                    person who already did the one thing it asks for. */}
+                {variant === 'pausing' && alreadyJoined && (
+                    <p style={{
+                        margin: '0 0 18px 0', fontSize: 14, lineHeight: '22px',
+                        color: TIER_POP_TEXT.primary, textAlign: 'center',
+                    }}>
+                        Your spot on our waitlist is saved.
                     </p>
                 )}
 

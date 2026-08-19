@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Gift, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
-import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
 
 interface IntakePausedGateProps {
   headline: string
@@ -140,10 +140,13 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
               })()}
               {/* Owner-locked close of the loop: what the money does first,
                   how they hear from us second. Never end a confirmation
-                  open-ended — see intakeNextSteps. */}
+                  open-ended — see intakeNextSteps. The reopen promise gets
+                  full-strength ink (owner call, 2026-08-19): it is the
+                  release condition for the pause, not a footnote, so it
+                  never blends into the muted mechanics line above it. */}
               <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>
                 {intakeNextSteps(confirmedCreditAed).map(line => (
-                  <div key={line}>{line}</div>
+                  <div key={line} style={line === REOPEN_MESSAGE_PROMISE ? { color: S.fg, fontWeight: 600 } : undefined}>{line}</div>
                 ))}
               </div>
               <Link
@@ -175,6 +178,14 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
               </div>
               <div style={{ fontFamily: BODY, fontSize: 19, fontWeight: 800, color: OG_DEEP, lineHeight: 1.3, letterSpacing: '-0.01em', fontFeatureSettings: '"tnum"' }}>
                 AED {creditAed} is waiting in your account
+              </div>
+              {/* The reopen promise stands on its own line in full-strength
+                  ink (owner call, 2026-08-19) — quieter than the credit
+                  figure that drives the tap, but never buried in the muted
+                  body above. It is what unblocks buying, so it reads as a
+                  commitment, not an aside. */}
+              <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg, lineHeight: 1.5 }}>
+                {REOPEN_MESSAGE_PROMISE}
               </div>
               <button
                 type="button"
