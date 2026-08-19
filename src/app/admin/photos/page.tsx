@@ -24,6 +24,9 @@ interface DayEventRow {
     matched: boolean | null
     mismatch_details: string | null
     confirmed_at: string | null
+    photo_paths: string[] | null
+    attempts: number | null
+    accepted: boolean | null
 }
 
 interface DeliveryRow {
@@ -61,7 +64,7 @@ export default async function PhotosPage({
 
     const [dayEventsRes, deliveriesRes] = await Promise.all([
         sb.from('ops_day_events')
-            .select('event_type, veg_count, nonveg_count, expected_veg_count, expected_nonveg_count, dorm_counts, expected_dorm_counts, total_count, gemini_count, photo_path, matched, mismatch_details, confirmed_at')
+            .select('event_type, veg_count, nonveg_count, expected_veg_count, expected_nonveg_count, dorm_counts, expected_dorm_counts, total_count, gemini_count, photo_path, matched, mismatch_details, confirmed_at, photo_paths, attempts, accepted')
             .eq('event_date', dateIso),
         sb.from('delivery_events')
             .select('dorm_name, expected_count, rider_count, gemini_count, verified, photo_path, photo_paths, delivered_at, escalated_at, verify_attempts, confirmed_at')
@@ -77,7 +80,7 @@ export default async function PhotosPage({
     // both are kept so a disputed count can be judged on the full evidence,
     // not just whichever photo happened to come last.
     const paths = Array.from(new Set([
-        ...dayEvents.map(e => e.photo_path),
+        ...dayEvents.flatMap(e => e.photo_paths?.length ? e.photo_paths : [e.photo_path]),
         ...deliveries.flatMap(d => d.photo_paths?.length ? d.photo_paths : [d.photo_path]),
     ].filter((p): p is string => !!p)))
 
@@ -120,6 +123,12 @@ export default async function PhotosPage({
         pickup: pickupRow
             ? {
                 photoUrl: pickupRow.photo_path ? urlMap.get(pickupRow.photo_path) ?? null : null,
+                photoUrls: (pickupRow.photo_paths?.length
+                    ? pickupRow.photo_paths
+                    : pickupRow.photo_path ? [pickupRow.photo_path] : []
+                ).map(p => urlMap.get(p) ?? null).filter((u): u is string => !!u),
+                attempts: pickupRow.attempts ?? 0,
+                accepted: pickupRow.accepted !== false,
                 expectedTotal: pickupRow.total_count,
                 geminiCount: pickupRow.gemini_count,
                 matched: pickupRow.matched,

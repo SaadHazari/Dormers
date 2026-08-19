@@ -50,6 +50,19 @@ interface VerifyResponse {
   reason: string
 }
 
+interface PickupResponse {
+  ok: boolean
+  /** false = the count did not agree, the day stays shut. */
+  accepted?: boolean
+  outcome?: 'accepted' | 'retake' | 'needs_assertion' | 'uncountable'
+  attempt?: number
+  attemptsLeft?: number
+  maxAttempts?: number
+  expectedTotal?: number
+  geminiCount?: number | null
+  flagged?: boolean
+}
+
 interface RiderClientProps {
   dormCounts: DormCountsRecord
   dormShapeMap: Record<string, DormMapping>
@@ -105,6 +118,9 @@ export function RiderClient({
   const [pickupPhoto, setPickupPhoto] = useState<Blob | null>(null)
   const [pickupPreviewUrl, setPickupPreviewUrl] = useState<string | null>(null)
   const [pickupFlagged, setPickupFlagged] = useState(initialPickupFlagged)
+  // Set when a pickup photo is REJECTED — the box count did not agree, so the
+  // day stays shut and the rider is asked to shoot it again.
+  const [pickupResult, setPickupResult] = useState<PickupResponse | null>(null)
   const pickupInputRef = useRef<HTMLInputElement>(null)
 
   // ── Per-dorm drop-off status — seeded from delivery_events on load ───────
@@ -393,13 +409,16 @@ export function RiderClient({
     setPickupPhoto(resized)
     setPickupPreviewUrl(URL.createObjectURL(resized))
     setPickupError(null)
+    setPickupResult(null)
     e.target.value = ''
   }
 
-  // ── Submit pickup — the server writes the per-dorm expected counts and
-  //    runs the advisory AI count. A count discrepancy flags the owner but
-  //    NEVER blocks the rider; only auth/network failures stop the day. ─────
-  async function handleConfirmPickup() {
+  // ── Submit pickup — the AI box count is now a GATE (owner call 2026-08-19).
+  //    A photo that does not show the expected number of boxes sends the rider
+  //    back to shoot it again instead of opening the day. The budget is bounded
+  //    so a camera that cannot count a stack can never cancel the run: on the
+  //    last attempt he passes by vouching for the count himself. ─────────────
+  async function handleConfirmPickup(asserted = false) {
     if (!pickupPhoto) return
     setConfirming(true)
     setPickupError(null)
@@ -408,17 +427,25 @@ export function RiderClient({
       form.append('photo', pickupPhoto, 'pickup.jpg')
       form.append('opsToken', opsTokenId)
       form.append('dateIso', deliveryDateIso)
+      if (asserted) form.append('riderAsserted', 'true')
 
       const res = await fetch('/api/ops/confirm-pickup', { method: 'POST', body: form })
       if (!res.ok) {
         setPickupError(`Couldn't confirm pickup (${res.status}). Tap Confirm to retry.`)
         return
       }
-      const data: { ok: boolean; flagged?: boolean } = await res.json()
+      const data: PickupResponse = await res.json()
       if (!data.ok) {
         setPickupError('Couldn’t confirm pickup. Tap Confirm to retry.')
         return
       }
+
+      setPickupResult(data)
+
+      // Rejected: keep the overlay up with the photo still on screen so the
+      // numbers and the picture sit side by side, and let him shoot again.
+      if (data.accepted === false) return
+
       setPickupFlagged(data.flagged === true)
       setPickedUp(true)
       setPickupPhoto(null)
@@ -647,9 +674,25 @@ export function RiderClient({
         {pickedUp ? '✓ Pickup Confirmed' : 'Photo of all boxes to start'}
       </button>
 
+      {/* The day opened on the rider's word, not on the camera's. That is not
+          a footnote — it is the one fact about this run the owner needs. */}
       {pickedUp && pickupFlagged && (
-        <div style={{ fontSize: '13px', color: MUTED, textAlign: 'center', fontFamily: FONT }}>
-          Box count flagged for review — carry on with deliveries.
+        <div
+          style={{
+            backgroundColor: '#fff7ed',
+            border: `1px solid ${ORANGE}`,
+            borderRadius: '12px',
+            padding: '12px 16px',
+            fontFamily: FONT,
+            color: NAVY,
+          }}
+        >
+          <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>
+            You confirmed the count by hand
+          </div>
+          <div style={{ fontSize: '13px', color: MUTED }}>
+            The photo never matched. The owner has been told. Carry on with deliveries.
+          </div>
         </div>
       )}
 
@@ -686,8 +729,35 @@ export function RiderClient({
           }}
         >
           <div style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', textAlign: 'center' }}>
-            All {totalBoxes} boxes in the shot?
+            All {totalBoxes} {totalBoxes === 1 ? 'box' : 'boxes'} in the shot?
           </div>
+
+          {/* ── Rejected: the count did not agree ─────────────────────── */}
+          {pickupResult?.accepted === false && (
+            <div
+              style={{
+                backgroundColor: '#7f1d1d',
+                border: '1px solid #ef4444',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                color: '#ffffff',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
+              <div style={{ fontSize: '16px', fontWeight: 800 }}>
+                {pickupResult.geminiCount == null
+                  ? 'The boxes could not be counted in that photo'
+                  : `That looks like ${pickupResult.geminiCount} ${pickupResult.geminiCount === 1 ? 'box' : 'boxes'}, not ${pickupResult.expectedTotal}`}
+              </div>
+              <div style={{ fontSize: '14px', color: '#fecaca' }}>
+                {pickupResult.outcome === 'retake'
+                  ? `Lay the boxes out so every one is visible, then shoot it again. ${pickupResult.attemptsLeft} ${pickupResult.attemptsLeft === 1 ? 'try' : 'tries'} left.`
+                  : `Still no match after ${pickupResult.attempt} tries. Count the van. If all ${pickupResult.expectedTotal} really are there, say so below and the owner will be told.`}
+              </div>
+            </div>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={pickupPreviewUrl}
@@ -714,26 +784,51 @@ export function RiderClient({
                 cursor: 'pointer',
               }}
             >
-              Retake
+              {pickupResult?.accepted === false ? 'Take another' : 'Retake'}
             </button>
-            <button
-              onClick={handleConfirmPickup}
-              disabled={confirming}
-              style={{
-                flex: 2,
-                height: '56px',
-                borderRadius: '12px',
-                border: 'none',
-                backgroundColor: confirming ? BORDER : EMERALD,
-                color: '#ffffff',
-                fontSize: '16px',
-                fontWeight: 700,
-                fontFamily: FONT,
-                cursor: confirming ? 'default' : 'pointer',
-              }}
-            >
-              {confirming ? 'Confirming…' : 'Confirm pickup'}
-            </button>
+            {/* Budget spent: the only way past a disagreeing photo is the
+                rider putting his own name to the count. Recorded and sent
+                to the owner, never a silent pass. */}
+            {pickupResult?.outcome === 'retake' ? null
+              : pickupResult?.outcome === 'needs_assertion' || pickupResult?.outcome === 'uncountable' ? (
+              <button
+                onClick={() => handleConfirmPickup(true)}
+                disabled={confirming}
+                style={{
+                  flex: 2,
+                  height: '56px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: confirming ? BORDER : ORANGE,
+                  color: '#ffffff',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  cursor: confirming ? 'default' : 'pointer',
+                }}
+              >
+                {confirming ? 'Confirming…' : `All ${pickupResult.expectedTotal} are in the van`}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleConfirmPickup(false)}
+                disabled={confirming}
+                style={{
+                  flex: 2,
+                  height: '56px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: confirming ? BORDER : EMERALD,
+                  color: '#ffffff',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  cursor: confirming ? 'default' : 'pointer',
+                }}
+              >
+                {confirming ? 'Checking…' : 'Confirm pickup'}
+              </button>
+            )}
           </div>
           {pickupError && (
             <div style={{ fontSize: '13px', color: '#fca5a5', textAlign: 'center' }}>

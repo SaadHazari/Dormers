@@ -95,9 +95,9 @@ export async function POST(req: Request) {
     // partial failure safe (no double 'archive/archive/' prefixes).
     for (const table of ['delivery_events', 'ops_day_events'] as const) {
       const dateCol = table === 'delivery_events' ? 'delivery_date' : 'event_date'
-      // delivery_events also keeps the per-attempt history in photo_paths.
-      // Both pointers move together or the second attempt's photo goes dark.
-      const cols = table === 'delivery_events' ? 'id, photo_path, photo_paths' : 'id, photo_path'
+      // Both tables keep a per-attempt history in photo_paths. Every pointer
+      // moves together or the earlier attempts' photos go dark.
+      const cols = 'id, photo_path, photo_paths'
       const { data: rows, error: rowsErr } = await sb
         .from(table)
         .select(cols)

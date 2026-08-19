@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
-import { dormShapeMap } from '@/shared/dorm-registry'
+import { dormShapeMap, deliveryDormNames } from '@/shared/dorm-registry'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { RiderClient, type DormDropoffStatus } from './RiderClient'
 
@@ -72,8 +72,14 @@ export default async function OpsPage({
   const dayName = DAYS_OF_WEEK[isSunday ? 1 : aeDow]
   const lastUpdated = `${String(aeNow.getUTCHours()).padStart(2, '0')}:${String(aeNow.getUTCMinutes()).padStart(2, '0')}`
 
+  // Only dorms the rider actually drives to. Non-delivery dorms (a customer
+  // who picked "Other") have no stop on this run, and counting them in the
+  // header while the pickup check excludes them would put the rider in a
+  // retake loop he cannot win.
   const locs = await getDormLocations()
-  const shapeMap = dormShapeMap(locs)
+  const deliveryLocs = locs.filter(d => d.is_delivery_target)
+  const shapeMap = dormShapeMap(deliveryLocs)
+  const deliverable = new Set(deliveryDormNames(locs))
 
   // Sunday guard — no deliveries
   if (isSunday) {
@@ -89,7 +95,10 @@ export default async function OpsPage({
     )
   }
 
-  const dormCounts = await getDormCounts(todayIso, dayName, isSaturday)
+  const allDormCounts = await getDormCounts(todayIso, dayName, isSaturday)
+  const dormCounts = Object.fromEntries(
+    Object.entries(allDormCounts).filter(([name]) => deliverable.has(name)),
+  )
 
   // ── Rehydrate the day in progress ─────────────────────────────────────────
   // The rider PWA reloads mid-run all the time (iOS evicts background pages).
@@ -100,7 +109,7 @@ export default async function OpsPage({
   const [{ data: pickupRow }, { data: eventRows }] = await Promise.all([
     sbAdmin
       .from('ops_day_events')
-      .select('matched')
+      .select('matched, accepted')
       .eq('event_date', todayIso)
       .eq('event_type', 'rider_pickup')
       .maybeSingle(),
@@ -139,7 +148,7 @@ export default async function OpsPage({
       deliveryDateIso={todayIso}
       lastUpdated={lastUpdated}
       noDeliveryReason={null}
-      initialPickedUp={!!pickupRow}
+      initialPickedUp={!!pickupRow && pickupRow.accepted !== false}
       initialPickupFlagged={pickupRow?.matched === false}
       initialDormStatuses={initialDormStatuses}
       initialDormAttempts={initialDormAttempts}

@@ -25,6 +25,11 @@ export interface PackingSummary {
 
 export interface PickupSummary {
     photoUrl: string | null
+    /** Every attempt photo, oldest first. More than one means the count was contested. */
+    photoUrls: string[]
+    attempts: number
+    /** Whether this photo actually opened the rider's day. */
+    accepted: boolean
     expectedTotal: number | null
     geminiCount: number | null
     matched: boolean | null
@@ -219,14 +224,41 @@ export function PhotosClient({ day, archived = false, cutoffIso }: { day: ChainD
                     <div className="mb-3 flex items-center justify-between">
                         <div className={`text-[15px] font-bold ${t.heading}`}>2. Rider pickup</div>
                         {pickup
-                            ? <MatchBadge ok={pickup.matched} label={pickup.matched === false ? 'Flagged' : undefined} />
+                            ? <MatchBadge
+                                ok={!pickup.accepted ? false : pickup.matched}
+                                label={!pickup.accepted ? 'Held' : pickup.matched === false ? 'Rider vouched' : undefined}
+                              />
                             : <MatchBadge ok={null} label="Not done" />}
                     </div>
                     {pickup ? (
                         <div className="space-y-3">
-                            <Photo url={pickup.photoUrl} alt="Rider pickup" tall />
+                            {/* Every attempt is kept, so a contested count can be judged
+                                on all the photos rather than whichever came last. */}
+                            {pickup.photoUrls.length > 1 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {pickup.photoUrls.map((url, i) => (
+                                        <div key={url} className="space-y-1">
+                                            <Photo url={url} alt={`Rider pickup, photo ${i + 1}`} />
+                                            <p className={`text-[11px] ${t.muted}`}>Photo {i + 1}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <Photo url={pickup.photoUrl} alt="Rider pickup" tall />
+                            )}
                             <CountRow label="System expects" value={pickup.expectedTotal} />
                             <CountRow label="AI count from photo" value={pickup.geminiCount} />
+                            {pickup.attempts > 1 && (
+                                <p className={`text-[12px] ${t.muted}`}>
+                                    {pickup.attempts} photos taken before the day
+                                    {pickup.accepted ? ' opened' : ' was held'}.
+                                </p>
+                            )}
+                            {!pickup.accepted && (
+                                <p className="text-[13px] font-medium text-red-500">
+                                    The rider is still at the kitchen. The day has not started.
+                                </p>
+                            )}
                             {pickup.mismatchDetails && (
                                 <p className="text-[13px] font-medium text-red-500">{pickup.mismatchDetails}</p>
                             )}
