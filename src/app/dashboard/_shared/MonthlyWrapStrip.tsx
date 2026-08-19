@@ -17,6 +17,15 @@ import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, 
  * that the user can act on whenever they're ready. Always-on tray entry
  * exists in parallel; this strip is the dashboard-specific reinforcement.
  *
+ * Since 2026-08-19 the strip renders in exactly one place: the header
+ * row's top-right grid cell (ActiveDashboard places .monthly-wrap-strip
+ * by grid area at every expanded width). Header position weakens click
+ * affordance — top-right is where apps put metadata, not controls — so
+ * the OPEN state wears a hairline ghost pill: enough border to say
+ * "tappable", no fill, no shadow, still subordinate to the hero. The
+ * LOCKED state stays naked on purpose: it is not clickable, and a border
+ * would promise an action it cannot deliver.
+ *
  * Renders nothing when not eligible (cycle hasn't ended, wrap submitted,
  * or past the 30-day cap) — caller can drop it unconditionally above the
  * hero and it self-removes.
@@ -38,9 +47,7 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
             <div className="monthly-wrap-strip" style={{
                 display: 'flex', alignItems: 'center',
                 gap: 10, flexWrap: 'wrap',
-                padding: '10px 4px',
-                marginBottom: 12,
-                borderBottom: '1px solid var(--ds-border-soft)',
+                padding: '8px 0',
                 fontFamily: BODY,
                 color: 'var(--ds-fg-faint)',
                 fontSize: 12.5, lineHeight: 1.3,
@@ -91,18 +98,20 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
     return (
         <Link
             href="/dashboard/menu/review/monthly"
-            className="monthly-wrap-strip"
+            className={`monthly-wrap-strip${isLate ? ' is-late' : ''}`}
             style={{
                 display: 'flex', alignItems: 'center',
                 gap: 10, flexWrap: 'wrap',
-                padding: '10px 4px',
-                marginBottom: 12,
-                borderBottom: '1px solid var(--ds-border-soft)',
+                padding: '8px 16px',
+                // Late wraps mute to gray across the strip (eyebrow, chip,
+                // reward) — the pill hairline follows the same temperature.
+                border: `1px solid ${isLate ? 'rgba(9,24,37,0.18)' : 'var(--ds-og-border)'}`,
+                borderRadius: 999,
                 textDecoration: 'none',
                 fontFamily: BODY,
                 color: 'var(--ds-fg-muted)',
                 fontSize: 12.5, lineHeight: 1.3,
-                transition: 'color 150ms, background 150ms',
+                transition: 'color 150ms, background 150ms, border-color 150ms',
             }}
         >
             <span style={{
@@ -138,8 +147,14 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
             <style jsx>{`
                 /* :global() — class sits on a <Link>; styled-jsx only attaches
                    its scope hash to plain DOM elements, so without :global()
-                   this rule never matches. */
-                :global(.monthly-wrap-strip:hover) { background: var(--ds-og-wash); }
+                   these rules never match.
+                   wash-STRONG, not wash: the 6% wash was tuned for the old
+                   full-width row, where a whisper of tint across a wide area
+                   read fine — on this small pill it is imperceptible (proven
+                   by screenshot). The border darkens in step, except on a
+                   late wrap, which mutes to gray and should not warm up. */
+                :global(.monthly-wrap-strip:hover) { background: var(--ds-og-wash-strong); }
+                :global(.monthly-wrap-strip:not(.is-late):hover) { border-color: var(--ds-og-border-strong); }
             `}</style>
         </Link>
     )
