@@ -61,19 +61,23 @@ export type BoxCountModel = (typeof BOX_COUNT_MODELS)[number]
 export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
 
 /**
- * Kitchen packing and rider pickup: the whole load in one frame, the hardest
- * count in the system, and it happens once a day.
+ * Kitchen packing and rider pickup: the whole load in one frame.
  *
- * This briefly ran gemini-3.1-pro-preview, because Pro read occluded boxes
- * correctly where 2.5-flash guessed. After fuller testing on real boxes the
- * owner chose 3.7-flash for the kitchen and the driver alike, so the two tiers
- * currently resolve to the SAME model.
+ * This is a genuinely different problem from a drop-off, not just a bigger
+ * one. A dorm pile is two or three boxes; a pickup is the entire day's load
+ * with real depth to it, and reading that takes more computation than a fast
+ * tier does. The flash models are cheap because they think for less time,
+ * which is the wrong trade exactly here.
  *
- * They are kept as two names on purpose. Every call site already says which
- * kind of count it is doing, so putting a heavier model back on the once-a-day
- * checkpoints is a one-line change here rather than a hunt through routes.
+ * So the split is by DIFFICULTY, not by preference: 3.7-flash where the count
+ * is small and the rider is waiting at a door, Pro where the count is bulk and
+ * it happens once a day. Owner's call on both, tested against real boxes.
+ *
+ * This does not make Pro trustworthy on hidden boxes. The photo protocol still
+ * has to put every box in view, and above STACK_MODE_THRESHOLD the load gets
+ * split into piles for that reason. Pro just fails honestly more often.
  */
-export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
+export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.1-pro-preview'
 
 export interface BoxCountResult {
   count: number | null       // null = could not count (unreadable, occluded, or unsure)
