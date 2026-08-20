@@ -15,7 +15,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { validateOpsTokenById } from '@/contexts/ops/usecases/validate-token'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
-import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import { verifyBoxCount, DEEP_BOX_COUNT_MODEL } from '@/contexts/ops/domain/box-count-verify'
 import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import { notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
   try {
     // Blind, like the rest of this check. Feeding the model expectedTotal
     // made its agreement meaningless — it was being told the answer.
-    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
+    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages(), DEEP_BOX_COUNT_MODEL)
     geminiCount = gemini.count
     geminiConfidence = gemini.confidence
   } catch (err) {

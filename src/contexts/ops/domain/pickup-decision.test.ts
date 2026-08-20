@@ -10,14 +10,48 @@
 import { describe, it, expect } from 'vitest'
 import {
   decidePickup,
+  pickupTarget,
   pickupPhotoPath,
   MAX_PICKUP_ATTEMPTS,
   type PickupInput,
 } from './pickup-decision'
 
 function input(over: Partial<PickupInput> = {}): PickupInput {
-  return { expectedTotal: 6, riderCount: 6, geminiCount: 6, attempt: 1, riderAsserted: false, ...over }
+  return {
+    expectedTotal: 6, kitchenTotal: null, riderCount: 6, geminiCount: 6,
+    attempt: 1, riderAsserted: false, ...over,
+  }
 }
+
+describe('pickupTarget — the kitchen outranks the estimate', () => {
+  it('uses the kitchen count when the packing check was done', () => {
+    expect(pickupTarget({ expectedTotal: 6, kitchenTotal: 7 })).toBe(7)
+  })
+
+  it('falls back to the subscription estimate when it was not', () => {
+    expect(pickupTarget({ expectedTotal: 6, kitchenTotal: null })).toBe(6)
+  })
+
+  it('measures the rider against the kitchen, not the estimate', () => {
+    // Kitchen packed 7 (a late addition). The rider loaded all 7. The old
+    // subscription maths still says 6, and must NOT hold him at the door.
+    const d = decidePickup(input({ expectedTotal: 6, kitchenTotal: 7, riderCount: 7, geminiCount: 7 }))
+    expect(d.outcome).toBe('accepted')
+    expect(d.matched).toBe(true)
+  })
+
+  it('holds him when he matches the stale estimate but not the kitchen', () => {
+    const d = decidePickup(input({ expectedTotal: 6, kitchenTotal: 7, riderCount: 6, geminiCount: 7 }))
+    expect(d.outcome).toBe('rider_disagrees')
+    expect(d.accepted).toBe(false)
+  })
+
+  it('a kitchen count of zero is a real number, not a missing one', () => {
+    // ?? not ||: nothing packed today is a fact worth enforcing, and a truthy
+    // check would silently fall back to the estimate and wave a van through.
+    expect(pickupTarget({ expectedTotal: 6, kitchenTotal: 0 })).toBe(0)
+  })
+})
 
 describe('decidePickup — the rider\'s own count', () => {
   // The failure this was built for: on 2026-08-19 a van holding five boxes

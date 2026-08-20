@@ -61,6 +61,9 @@ interface PickupResponse {
   attemptsLeft?: number
   maxAttempts?: number
   expectedTotal?: number
+  kitchenTotal?: number | null
+  /** The number he is measured against: kitchen count if there is one. */
+  target?: number
   geminiCount?: number | null
   flagged?: boolean
 }
@@ -569,7 +572,13 @@ export function RiderClient({
           color: ORANGE,
         }}
       >
-        Total: {totalBoxes} {totalBoxes === 1 ? 'box' : 'boxes'}
+        {/* Blind until he has submitted his own count. Showing the total here
+            and then asking him to type it turned his answer into a reading of
+            our number instead of a count of the van — the same anchoring we
+            removed from the AI prompt, one screen away. */}
+        {pickedUp
+          ? `Total: ${totalBoxes} ${totalBoxes === 1 ? 'box' : 'boxes'}`
+          : 'Count the boxes yourself before you photograph them'}
       </div>
 
       {/* ── Dorm button grid — 2-column ──────────────────────────────────── */}
@@ -584,7 +593,10 @@ export function RiderClient({
         {RIDER_DORMS.map(([dormKey, dormInfo]) => {
           const count = dormCounts[dormKey] ?? 0
           const svgString = dormShapeSvg(dormInfo.shape, dormInfo.number, 72, 'dark', { hideNumber: true })
-          const isEmpty = count === 0
+          // Pre-pickup every tile looks identical. Fading the zero-box dorms
+          // would tell him which stops are live before he has committed to his
+          // own count, which is the same leak as showing the totals.
+          const isEmpty = pickedUp && count === 0
           const status = dormStatuses[dormKey] as DormDropoffStatus | undefined
           const tappable = isDormTappable(dormKey)
 
@@ -627,16 +639,18 @@ export function RiderClient({
                 {dormInfo.displayName}
               </div>
 
-              {/* Box count */}
+              {/* Box count — hidden until pickup is confirmed, for the same
+                  reason as the header. He gets every number he needs for the
+                  run the moment his own count is in. */}
               <div
                 style={{
                   fontSize: '28px',
                   fontWeight: 800,
-                  color: NAVY,
+                  color: pickedUp ? NAVY : BORDER,
                   lineHeight: 1,
                 }}
               >
-                {count}
+                {pickedUp ? count : '–'}
               </div>
 
               {/* Status label (replaces "Ready for drop-off") */}
@@ -741,7 +755,7 @@ export function RiderClient({
           }}
         >
           <div style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', textAlign: 'center' }}>
-            All {totalBoxes} {totalBoxes === 1 ? 'box' : 'boxes'} in the shot?
+            Every box in the shot, none hidden behind another
           </div>
 
           {/* ── Rejected on the PHOTO's count ─────────────────────────── */}
@@ -785,12 +799,13 @@ export function RiderClient({
               }}
             >
               <div style={{ fontSize: '16px', fontWeight: 800 }}>
-                The list says {pickupResult.expectedTotal}, you counted {pickupResult.riderCount}
+                {pickupResult.kitchenTotal != null ? 'The kitchen packed' : 'The list says'}{' '}
+                {pickupResult.target}, you counted {pickupResult.riderCount}
               </div>
               <div style={{ fontSize: '14px', color: '#fecaca' }}>
-                Recount the van. If you mistyped, fix the number. If the kitchen
-                really only gave you {pickupResult.riderCount}, say so below and
-                the owner will be told straight away.
+                Recount the van. If you mistyped, fix the number. If you really
+                only have {pickupResult.riderCount}, say so below and the owner
+                will be told straight away.
               </div>
             </div>
           )}
@@ -805,7 +820,7 @@ export function RiderClient({
           {/* ── Rider's own count ────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
             <label style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff' }}>
-              How many are you taking?
+              How many did you count?
             </label>
             <input
               type="number"
@@ -875,7 +890,7 @@ export function RiderClient({
                 {confirming
                   ? 'Confirming…'
                   : pickupResult.outcome === 'rider_disagrees'
-                    ? `The kitchen only gave me ${pickupCount}`
+                    ? `I only have ${pickupCount}`
                     : `All ${pickupCount} are in the van`}
               </button>
             ) : (

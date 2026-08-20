@@ -31,9 +31,11 @@ import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
 import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import {
   decidePickup,
+  pickupTarget,
   pickupPhotoPath,
   MAX_PICKUP_ATTEMPTS,
 } from '@/contexts/ops/domain/pickup-decision'
+import { DEEP_BOX_COUNT_MODEL } from '@/contexts/ops/domain/box-count-verify'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames } from '@/shared/dorm-registry'
 import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
@@ -118,6 +120,22 @@ export async function POST(req: Request) {
     })
   }
 
+  // ── What the kitchen says it packed ─────────────────────────────────────
+  // Read before anything is judged: this OUTRANKS the subscription estimate as
+  // the number the rider must match. The kitchen is the count of record, and a
+  // legitimate late addition lands here before it lands in the maths.
+  const { data: kitchenRow } = await sb
+    .from('ops_day_events')
+    .select('veg_count, nonveg_count')
+    .eq('event_date', dateIso)
+    .eq('event_type', 'kitchen_packing')
+    .maybeSingle()
+  const kitchenTotal =
+    kitchenRow && kitchenRow.veg_count !== null && kitchenRow.nonveg_count !== null
+      ? kitchenRow.veg_count + kitchenRow.nonveg_count
+      : null
+  const target = pickupTarget({ expectedTotal, kitchenTotal })
+
   const priorAttempts = priorRow?.attempts ?? 0
   const priorPhotoPaths: string[] = priorRow?.photo_paths ?? []
   // ── The rider's own count is checked FIRST, before a photo is uploaded or
@@ -125,13 +143,15 @@ export async function POST(req: Request) {
   //    more photos are the wrong remedy and no budget is consumed. He either
   //    fixes the number, or taps confirm-by-hand and the owner hears about a
   //    genuinely short van in one tap instead of three more pictures. ───────
-  if (!riderAsserted && riderCount !== expectedTotal) {
+  if (!riderAsserted && riderCount !== target) {
     return NextResponse.json({
       ok: true,
       outcome: 'rider_disagrees',
       accepted: false,
       allowAssert: true,
       expectedTotal,
+      kitchenTotal,
+      target,
       riderCount,
       attemptsLeft: Math.max(0, MAX_PICKUP_ATTEMPTS - priorAttempts),
     })
@@ -155,14 +175,14 @@ export async function POST(req: Request) {
   let geminiConfidence: string | null = null
   try {
     // Blind: never hand the model the number we are hoping to see.
-    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
+    const gemini = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages(), DEEP_BOX_COUNT_MODEL)
     geminiCount = gemini.count
     geminiConfidence = gemini.confidence
   } catch (err) {
     captureError(err, { area: 'ops', op: 'confirm-pickup.gemini', dateIso })
   }
 
-  const decision = decidePickup({ expectedTotal, riderCount, geminiCount, attempt, riderAsserted })
+  const decision = decidePickup({ expectedTotal, kitchenTotal, riderCount, geminiCount, attempt, riderAsserted })
   const flagged = !decision.matched
   const confirmedAt = new Date().toISOString()
   console.log(
@@ -201,18 +221,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'save_failed', failed }, { status: 500 })
     }
   }
-
-  // ── Kitchen comparison — what did the kitchen say it packed? ─────────────
-  const { data: kitchenRow } = await sb
-    .from('ops_day_events')
-    .select('veg_count, nonveg_count')
-    .eq('event_date', dateIso)
-    .eq('event_type', 'kitchen_packing')
-    .maybeSingle()
-  const kitchenTotal =
-    kitchenRow && kitchenRow.veg_count !== null && kitchenRow.nonveg_count !== null
-      ? kitchenRow.veg_count + kitchenRow.nonveg_count
-      : null
 
   const { error: upsertErr } = await sb.from('ops_day_events').upsert(
     {
@@ -281,6 +289,8 @@ export async function POST(req: Request) {
     attemptsLeft: decision.attemptsLeft,
     maxAttempts: MAX_PICKUP_ATTEMPTS,
     expectedTotal,
+    kitchenTotal,
+    target,
     riderCount,
     geminiCount,
     allowAssert: decision.allowAssert,

@@ -44,12 +44,28 @@ export const BOX_COUNT_MODELS = [
   'gemini-3.6-flash',
   'gemini-3.7-flash',
   'gemini-2.5-pro',
+  'gemini-3.1-pro-preview',
 ] as const
 
 export type BoxCountModel = (typeof BOX_COUNT_MODELS)[number]
 
-/** What every production call uses. Change only on bench evidence. */
+/**
+ * Per-dorm drop-offs: small piles, five-ish times a day, and the rider is
+ * standing at a door waiting. Speed is worth more than depth here.
+ */
 export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-2.5-flash'
+
+/**
+ * Kitchen packing and rider pickup: the whole load in one frame, the hardest
+ * count in the system, and it happens once a day. A slower, pricier model is
+ * affordable exactly here.
+ *
+ * Chosen on the owner's own testing: with boxes partly behind other boxes, the
+ * flash tiers guessed and Pro read the occlusion correctly. That does not make
+ * Pro trustworthy on hidden boxes either — the photo protocol still has to put
+ * every box in view. It just fails honestly more often.
+ */
+export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.1-pro-preview'
 
 export interface BoxCountResult {
   count: number | null       // null = could not count (unreadable, occluded, or unsure)
@@ -91,20 +107,35 @@ ${hasReferences ? 'The reference photos above show ONE single empty box from sev
 
 Count only the boxes present in the photo to count.
 
+THE RULE THAT MATTERS MOST
+Every box you count must show its OWN distinct edge or face in this photo.
+A neat pile viewed from the side is fine: each box in it has its own visible
+band of lid edge, so each can be counted. What is NOT fine is a box positioned
+BEHIND another one, where the front box hides it partly or completely.
+
+You cannot see through a box. If the boxes are arranged so that one could be
+sitting behind another unseen, then the true total is unknowable from this
+photo and no amount of care will recover it. Say so instead of inferring it.
+
 HOW TO COUNT
-- Count each physical box once. A stack of 3 boxes is 3 boxes.
-- Work carefully: identify each box's own lid edge or striped band before counting it.
-- Do not estimate. Do not round. Do not assume a stack is a tidy number.
+- Find each box's own lid edge or striped band first, then count those edges.
+- Count each physical box exactly once.
+- Do not estimate, do not round, and do not assume a pile is a tidy number.
+- Never reason from how many you would expect. You have not been told a
+  target, and there isn't one. Report only what is visible.
 
 WHEN TO RETURN null INSTEAD OF A NUMBER
-Returning null is the CORRECT answer, not a failure, whenever:
-- boxes overlap or stack such that you cannot resolve exactly how many there are
+null is the CORRECT answer, not a failure. Return it whenever:
+- one or more boxes are behind others, or the arrangement has depth you cannot
+  see into, so a hidden box is possible
+- you can see boxes but cannot give each one its own distinct edge
 - any box is cut off by the frame edge
 - the image is dark, blurred, or too far away to separate individual boxes
-- you find yourself unsure between two possible totals
+- you find yourself choosing between two possible totals
 
-A wrong number is far worse than null. If you are not certain of the exact
-count, return null and say why. Never guess to be helpful.
+A wrong number is far worse than null. A null sends someone back to take a
+better photo, which costs seconds. A wrong number sends a short delivery van
+out, which costs a customer their dinner. Never guess to be helpful.
 
 Output ONLY a JSON object, no commentary, no code fences:
 {
@@ -115,9 +146,9 @@ Output ONLY a JSON object, no commentary, no code fences:
 }
 
 - count: exact number of Dormers boxes in the photo to count, or null per the rules above.
-- confidence: "high" only if every box is separately visible and unambiguous.
+- confidence: "high" only if every box has its own clearly visible edge and nothing could be hidden behind another box.
 - reason: one sentence (max 150 chars) saying what you saw and how you counted it.
-- imageQuality: "clear" if the boxes are separable, "unclear" if the photo cannot support an exact count.
+- imageQuality: "clear" if every box is separable with nothing hidden behind another, "unclear" if the photo cannot support an exact count.
 
 Output JSON only. No explanation. No code fences.`
 }
