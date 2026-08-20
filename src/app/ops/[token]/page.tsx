@@ -90,7 +90,7 @@ export default async function OpsPage({
         opsTokenId={opsToken.id}
         deliveryDateIso={todayIso}
         lastUpdated={lastUpdated}
-        noDeliveryReason="Sunday — no deliveries"
+        noDeliveryReason="Sunday, no deliveries"
       />
     )
   }
