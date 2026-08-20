@@ -19,14 +19,16 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { verifyBoxCount } from '@/contexts/ops/domain/box-count-verify'
+import { verifyBoxCount, verifyBatch } from '@/contexts/ops/domain/box-count-verify'
 import { loadBoxReferenceImages } from '@/infra/ops/box-reference'
 import {
   decideDropoff,
   preflightDropoff,
   attemptPhotoPath,
+  dropoffStackPhotoPath,
   MAX_VERIFY_ATTEMPTS,
 } from '@/contexts/ops/domain/dropoff-decision'
+import { reconcileStacks, type StackOutcome } from '@/contexts/ops/domain/stack-pickup'
 import { updateDeliveryEvent } from '@/contexts/ops/usecases/update-delivery-event'
 import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
@@ -63,20 +65,43 @@ export async function POST(req: Request) {
   const geoLatRaw = formData.get('geoLat') as string | null
   const geoLngRaw = formData.get('geoLng') as string | null
 
+  // ── Stack mode (big drop-offs) ───────────────────────────────────────
+  // Above DROPOFF_STACK_THRESHOLD one photo cannot be counted, so the client
+  // sends one close photo per doorstep stack plus a wide shot that counts
+  // STACKS only, all in this same request. One request = one attempt of the
+  // same two-attempt budget; every other rule downstream is unchanged.
+  const pileFiles = formData.getAll('piles').filter((f): f is File => f instanceof File)
+  const overviewFile = formData.get('overview')
+  const isBatch = pileFiles.length > 0
+
   const riderCount = parseInt(riderCountRaw ?? '', 10)
 
   // ── 2. Validate inputs ───────────────────────────────────────────────
-  if (!(photo instanceof File)) {
-    return NextResponse.json({ error: 'missing_photo' }, { status: 400 })
-  }
-  if (photo.size === 0) {
-    return NextResponse.json({ error: 'empty_file' }, { status: 400 })
-  }
-  if (photo.size > MAX_PHOTO_BYTES) {
-    return NextResponse.json({ error: 'file_too_large' }, { status: 413 })
-  }
-  if (!ALLOWED_MIME.has(photo.type)) {
-    return NextResponse.json({ error: 'unsupported_mime' }, { status: 415 })
+  if (isBatch) {
+    if (pileFiles.length > 10) {
+      return NextResponse.json({ error: 'too_many_stacks' }, { status: 400 })
+    }
+    if (!(overviewFile instanceof File) || overviewFile.size === 0) {
+      return NextResponse.json({ error: 'missing_overview' }, { status: 400 })
+    }
+    for (const f of [...pileFiles, overviewFile]) {
+      if (f.size === 0) return NextResponse.json({ error: 'empty_file' }, { status: 400 })
+      if (f.size > MAX_PHOTO_BYTES) return NextResponse.json({ error: 'file_too_large' }, { status: 413 })
+      if (!ALLOWED_MIME.has(f.type)) return NextResponse.json({ error: 'unsupported_mime' }, { status: 415 })
+    }
+  } else {
+    if (!(photo instanceof File)) {
+      return NextResponse.json({ error: 'missing_photo' }, { status: 400 })
+    }
+    if (photo.size === 0) {
+      return NextResponse.json({ error: 'empty_file' }, { status: 400 })
+    }
+    if (photo.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: 'file_too_large' }, { status: 413 })
+    }
+    if (!ALLOWED_MIME.has(photo.type)) {
+      return NextResponse.json({ error: 'unsupported_mime' }, { status: 415 })
+    }
   }
   if (!dormName) {
     return NextResponse.json({ error: 'missing_dorm_name' }, { status: 400 })
@@ -178,30 +203,104 @@ export async function POST(req: Request) {
   const attempt = priorAttempts + 1
   log(`attempt ${attempt} of ${MAX_VERIFY_ATTEMPTS} for ${dormName}`)
 
-  // ── 5. Read photo bytes and upload to this attempt's own key ─────────
-  const bytes = new Uint8Array(await photo.arrayBuffer())
+  // ── 5 + 6. Upload this attempt's photo(s), then count them ───────────
   const dormSlug = dormName.toLowerCase().replace(/\s+/g, '-')
-  const storagePath = attemptPhotoPath(deliveryDateIso, dormSlug, 1, attempt)
+  let storagePath: string
+  let repUploadErr = false            // the representative photo (single / wide) failed to store
+  let photoPaths: string[] = priorPhotoPaths
+  let geminiResult: { count: number | null; confidence: 'high' | 'medium' | 'low'; reason: string; imageQuality: 'clear' | 'unclear' }
+  // Present only in stack mode: what the reconcile saw, for targeted client UI.
+  let batchInfo: {
+    outcome: StackOutcome
+    unreadableStacks: number[]
+    overviewStackCount: number | null
+    stacksPhotographed: number
+  } | null = null
 
-  const { error: uploadErr } = await sb.storage
-    .from('delivery-photos')
-    .upload(storagePath, bytes, { contentType: photo.type, upsert: true })
+  if (isBatch) {
+    const pileBytes = await Promise.all(
+      pileFiles.map(async f => ({ bytes: new Uint8Array(await f.arrayBuffer()), mimeType: f.type })),
+    )
+    const ov = overviewFile as File
+    const overviewBytes = { bytes: new Uint8Array(await ov.arrayBuffer()), mimeType: ov.type }
 
-  if (uploadErr) {
-    // Non-fatal: continue to Gemini. Audit trail loses photo but delivery proceeds.
-    console.error('[verify-box-count] storage upload failed:', uploadErr.message)
+    // Upload first: whatever the count says, the evidence is kept. Each shot
+    // gets its own per-attempt key; failures are logged, never fatal.
+    const newPaths: string[] = []
+    for (let i = 0; i < pileBytes.length; i++) {
+      const p = dropoffStackPhotoPath(deliveryDateIso, dormSlug, 1, attempt, i + 1)
+      const { error } = await sb.storage
+        .from('delivery-photos')
+        .upload(p, pileBytes[i].bytes, { contentType: pileBytes[i].mimeType, upsert: true })
+      if (error) console.error('[verify-box-count] stack upload failed:', error.message)
+      else newPaths.push(p)
+    }
+    const widePath = dropoffStackPhotoPath(deliveryDateIso, dormSlug, 1, attempt, null)
+    const { error: wideErr } = await sb.storage
+      .from('delivery-photos')
+      .upload(widePath, overviewBytes.bytes, { contentType: overviewBytes.mimeType, upsert: true })
+    if (wideErr) console.error('[verify-box-count] wide upload failed:', wideErr.message)
+    else newPaths.push(widePath)
+    repUploadErr = !!wideErr
+    storagePath = widePath
+    photoPaths = [...priorPhotoPaths, ...newPaths]
+
+    // One batched call, same machinery as the pickup pile flow. The model is
+    // never asked for a total: it counts boxes per stack photo and STACKS in
+    // the wide shot, and the addition happens here where it cannot be
+    // hallucinated. Blind as ever — no expected number goes in.
+    log(`starting batched Gemini verification (${pileBytes.length} stacks)...`)
+    const batch = await verifyBatch(pileBytes, overviewBytes, loadBoxReferenceImages())
+    const reconcile = reconcileStacks({
+      target: riderCount,
+      stackCounts: batch.piles,
+      overviewStackCount: batch.overviewStackCount,
+    })
+    batchInfo = {
+      outcome: reconcile.outcome,
+      unreadableStacks: reconcile.unreadableStacks,
+      overviewStackCount: batch.overviewStackCount,
+      stacksPhotographed: batch.piles.length,
+    }
+    log(`batch result: piles=${batch.piles.map(c => c ?? '?').join('+')} wide=${batch.overviewStackCount ?? '?'} -> ${reconcile.outcome}`)
+
+    // Structure sound (every stack readable, wide shot agrees on the stack
+    // count) -> the summed total enters the normal triple check, mismatch and
+    // all. Structure broken -> same lane as an unreadable single photo, so the
+    // budget and escalation rules stay identical.
+    const structuralOk = reconcile.outcome === 'accepted' || reconcile.outcome === 'total_mismatch'
+    geminiResult = structuralOk
+      ? { count: reconcile.total, confidence: 'high', imageQuality: 'clear', reason: batch.reason }
+      : {
+          count: null,
+          confidence: 'low',
+          imageQuality: 'unclear',
+          reason: stackProblemText(reconcile.outcome, reconcile.unreadableStacks, batch.overviewStackCount, batch.piles.length),
+        }
   } else {
-    log('storage upload ok path=' + storagePath)
+    const photoFile = photo as File
+    const bytes = new Uint8Array(await photoFile.arrayBuffer())
+    storagePath = attemptPhotoPath(deliveryDateIso, dormSlug, 1, attempt)
+
+    const { error: uploadErr } = await sb.storage
+      .from('delivery-photos')
+      .upload(storagePath, bytes, { contentType: photoFile.type, upsert: true })
+
+    if (uploadErr) {
+      // Non-fatal: continue to Gemini. Audit trail loses photo but delivery proceeds.
+      console.error('[verify-box-count] storage upload failed:', uploadErr.message)
+    } else {
+      log('storage upload ok path=' + storagePath)
+    }
+    repUploadErr = !!uploadErr
+    photoPaths = uploadErr ? priorPhotoPaths : [...priorPhotoPaths, storagePath]
+
+    log('starting Gemini verification...')
+    // Blind: the expected count is deliberately NOT passed in, so comparing
+    // it below stays an independent check rather than a leading question.
+    geminiResult = await verifyBoxCount(bytes, photoFile.type, loadBoxReferenceImages())
+    log(`Gemini result: count=${geminiResult.count} confidence=${geminiResult.confidence} quality=${geminiResult.imageQuality}`)
   }
-
-  const photoPaths = uploadErr ? priorPhotoPaths : [...priorPhotoPaths, storagePath]
-
-  // ── 6. Call Gemini box count ─────────────────────────────────────────
-  log('starting Gemini verification...')
-  // Blind: the expected count is deliberately NOT passed in, so comparing
-  // it below stays an independent check rather than a leading question.
-  const geminiResult = await verifyBoxCount(bytes, photo.type, loadBoxReferenceImages())
-  log(`Gemini result: count=${geminiResult.count} confidence=${geminiResult.confidence} quality=${geminiResult.imageQuality}`)
 
   // ── 7. Decide (pure domain) ──────────────────────────────────────────
   const decision = decideDropoff({
@@ -223,7 +322,7 @@ export async function POST(req: Request) {
     riderCount,
     geminiCount: geminiResult.count,
     geminiConfidence: geminiResult.confidence,
-    photoPath: uploadErr ? null : storagePath,
+    photoPath: repUploadErr ? null : storagePath,
     verified: decision.verified,
     geoLat: parseGeo(geoLatRaw),
     geoLng: parseGeo(geoLngRaw),
@@ -278,7 +377,7 @@ export async function POST(req: Request) {
   }
 
   // ── 10. Owner alerts ─────────────────────────────────────────────────
-  const signedUrl = uploadErr ? null : await generateSignedUrl(sb, storagePath)
+  const signedUrl = repUploadErr ? null : await generateSignedUrl(sb, storagePath)
 
   if (decision.escalate) {
     void notifyAdmin(buildEscalationMessage({
@@ -348,8 +447,33 @@ export async function POST(req: Request) {
     reason: buildRiderReason(decision.outcome, {
       expectedCount, riderCount, geminiCount: geminiResult.count,
       attemptsLeft: decision.attemptsLeft, geminiReason: geminiResult.reason,
+      isBatch,
     }),
+    // Stack-mode detail so the client can flag the exact card to reshoot.
+    ...(batchInfo ? { batch: batchInfo } : {}),
   })
+}
+
+/** What went structurally wrong with a stack submission, in rider words.
+ *  Mirrors the pickup pile flow's explain() so the two screens speak alike. */
+function stackProblemText(
+  outcome: StackOutcome,
+  unreadableStacks: number[],
+  overviewStackCount: number | null,
+  photographed: number,
+): string {
+  switch (outcome) {
+    case 'stack_unreadable':
+      return `Stack ${unreadableStacks.join(' and ')} could not be counted. Restack it five high at most, every lid edge showing.`
+    case 'stack_missing':
+      return `The wide shot shows ${overviewStackCount} stacks but only ${photographed} were photographed. Add the missing one.`
+    case 'stack_extra':
+      return `${photographed} stack photos but the wide shot shows ${overviewStackCount}. One stack got shot twice.`
+    case 'overview_unreadable':
+      return 'The wide shot could not tell the stacks apart. Move them further apart and retake it.'
+    default:
+      return 'The stacks could not be checked.'
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -369,19 +493,28 @@ function buildRiderReason(
     geminiCount: number | null
     attemptsLeft: number
     geminiReason: string
+    isBatch?: boolean
   },
 ): string {
   switch (outcome) {
     case 'verified':
       return ctx.geminiReason
     case 'retake':
-      return `${ctx.geminiReason} Take one more, closer and with the boxes spread out.`
+      // Stack mode already names the exact stack and the fix; the single-photo
+      // coaching about getting closer would point the rider the wrong way.
+      return ctx.isBatch
+        ? ctx.geminiReason
+        : `${ctx.geminiReason} Take one more, closer and with the boxes spread out.`
     case 'unclear_final':
       return 'The photo still could not be read. The owner has been told and the delivery is recorded.'
     case 'mismatch_retake':
-      return `You counted ${ctx.riderCount}, the photo shows ${ctx.geminiCount}, the list says ${ctx.expectedCount}. The owner has been told. Take one more photo from a different angle.`
+      return ctx.isBatch
+        ? `You counted ${ctx.riderCount}, the stacks add up to ${ctx.geminiCount}, the list says ${ctx.expectedCount}. The owner has been told. Recount each stack and reshoot the one that looks off.`
+        : `You counted ${ctx.riderCount}, the photo shows ${ctx.geminiCount}, the list says ${ctx.expectedCount}. The owner has been told. Take one more photo from a different angle.`
     case 'mismatch_final':
-      return `Still ${ctx.riderCount} from you and ${ctx.geminiCount} from the photo against ${ctx.expectedCount} on the list. The owner has it from here. The delivery is recorded.`
+      return ctx.isBatch
+        ? `Still ${ctx.riderCount} from you and ${ctx.geminiCount} from the stacks against ${ctx.expectedCount} on the list. The owner has it from here. The delivery is recorded.`
+        : `Still ${ctx.riderCount} from you and ${ctx.geminiCount} from the photo against ${ctx.expectedCount} on the list. The owner has it from here. The delivery is recorded.`
     case 'manual':
       return 'The photo could not be counted right now. Confirm the delivery by hand.'
     default:

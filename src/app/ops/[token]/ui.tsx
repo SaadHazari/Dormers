@@ -244,6 +244,7 @@ export function ShotCard({
   guide,
   shot,
   flagged = false,
+  flaggedHint = 'Could not be counted. Lay it out flat and shoot it again.',
   hero = false,
   disabled = false,
   onFile,
@@ -254,6 +255,9 @@ export function ShotCard({
   guide: React.ReactNode
   shot: { url: string } | null
   flagged?: boolean
+  /** What to say on a flagged card — the fix differs by context (kitchen
+   *  piles lie flat, doorstep stacks stand five high). */
+  flaggedHint?: string
   /** Full-width layout for the single most important photo of a screen. */
   hero?: boolean
   disabled?: boolean
@@ -320,7 +324,7 @@ export function ShotCard({
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: '15px', fontWeight: 700, color: OPS.navy }}>{label}</div>
         <div style={{ fontSize: '12px', color: flagged ? OPS.danger : OPS.muted, marginTop: '2px', lineHeight: 1.4 }}>
-          {flagged ? 'Could not be counted. Lay it out flat and shoot it again.' : hint}
+          {flagged ? flaggedHint : hint}
         </div>
         <div style={{ display: 'flex', gap: '14px', marginTop: '6px' }}>
           <button

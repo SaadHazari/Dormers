@@ -12,7 +12,8 @@ const COUNTS: Record<string, number> = {
   'The Myriad': 3,
   'KSK Homes': 2,
   'Yugo': 4,
-  'DSOA Residence': 5,
+  // Above DROPOFF_STACK_THRESHOLD, so its sheet exercises stack mode.
+  'DSOA Residence': 12,
   'Study World': 0,
 }
 

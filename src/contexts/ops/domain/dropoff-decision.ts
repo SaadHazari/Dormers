@@ -119,3 +119,35 @@ export function attemptPhotoPath(
 ): string {
   return `${deliveryDateIso}/${dormSlug}/trip-${tripNumber}-a${attempt}.jpg`
 }
+
+// ─── Big drop-offs: stacks at the door ──────────────────────────────────────
+//
+// One photo is trustworthy up to two doorstep stacks of five side by side.
+// Beyond that the rider has to stand so far back that box edges stop being
+// readable — so above the threshold the drop-off borrows the pickup's trick:
+// one close photo per stack (box counting) plus one wide shot (stack counting
+// ONLY), submitted together as ONE attempt of the same two-attempt budget.
+// The far photo is never asked to count boxes, so distance cannot corrupt
+// the count; the server does the addition. Owner's numbers, 2026-08-20.
+
+/** A drop-off above this many boxes must be photographed stack by stack. */
+export const DROPOFF_STACK_THRESHOLD = 10
+
+/** Boxes per doorstep stack the rider is asked not to exceed. Lower than the
+ *  pickup's pile limit: a kitchen pile lies on the floor, a doorstep stack
+ *  stands five high before it stops being stable or readable. */
+export const MAX_BOXES_PER_DROPOFF_STACK = 5
+
+/** Storage key for one stack photo of a drop-off attempt, or the wide shot
+ *  when stackIndex is null. Distinct per attempt and per stack. */
+export function dropoffStackPhotoPath(
+  deliveryDateIso: string,
+  dormSlug: string,
+  tripNumber: number,
+  attempt: number,
+  stackIndex: number | null,
+): string {
+  return stackIndex === null
+    ? `${deliveryDateIso}/${dormSlug}/trip-${tripNumber}-a${attempt}-wide.jpg`
+    : `${deliveryDateIso}/${dormSlug}/trip-${tripNumber}-a${attempt}-s${stackIndex}.jpg`
+}
