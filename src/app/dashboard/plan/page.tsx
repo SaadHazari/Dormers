@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus, getApprovedCreditRows } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
@@ -66,7 +66,7 @@ export default async function PlanPage({
   // this is not a new round trip) so its cycleStartedAt can scope the
   // waitlist-join lookup below to the CURRENT pause.
   const intakeState = await getIntakeState()
-  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus, creditRows] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -78,6 +78,12 @@ export default async function PlanPage({
     // shared with the Now-tray entries and the plan-ending banner so the
     // fact can't drift between surfaces. This page only needs `.joined`.
     getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+    // Raw approved rows for the credit row's amount line. cache()-wrapped and
+    // already awaited by dashboard/layout.tsx for the sidebar chip in this
+    // same request, so this adds no round trip. Deliberately NOT derived from
+    // creditSplitByKebab above: creditOutlook owns the "is this universal or
+    // plan-restricted" wording, and that rule must have one home.
+    getApprovedCreditRows(user.id),
   ])
   // Re-key from the kebab plan_id (credit-eligibility's domain) to the
   // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
@@ -108,6 +114,7 @@ export default async function PlanPage({
         allSubscriptions={allSubscriptions}
         userEmail={user.email}
         creditByPlan={creditByPlan}
+        creditRows={creditRows}
         priceOverrides={priceOverrides}
         intake={intake}
       />

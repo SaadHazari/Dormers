@@ -19,6 +19,7 @@ import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
 import { StatRow } from './StatRow'
@@ -800,13 +801,17 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }
 
   // Skip allowance per plan tier — `total: 0` means the plan doesn't include
-  // skips at all (Trial). Used by QuickActions to render a count chip on the
-  // skip button so the user always knows how much wiggle room they have left
-  // for the cycle. Includes the optimistic just-skipped count.
-  const skipTotal =
-    effectiveSub.plan_name.includes('Monthly Max')     ? 3 :
-    effectiveSub.plan_name.includes('Monthly Premium') ? 3 :
-    effectiveSub.plan_name.includes('Weekly Flex')     ? 1 : 0
+  // skips at all (Trial, Welcome Meal). Used by QuickActions to render a count
+  // chip on the skip button so the user always knows how much wiggle room they
+  // have left for the cycle. Includes the optimistic just-skipped count.
+  //
+  // Read from the plan domain, NOT an inline name match. The old three-way
+  // `.includes()` chain silently returned 0 for every plan outside it — Staff
+  // Monthly (which the domain grants 3 skips, "interns have exams too") lost
+  // its skips entirely, and because the exhausted-guard below required
+  // `total > 0`, the skip button stayed bright-orange and clickable while
+  // doing nothing at all. resolvePlan covers every current and future plan.
+  const skipTotal = resolvePlan(effectiveSub.plan_name)?.maxSkips ?? 0
   const skipQuota = {
     total: skipTotal,
     left:  Math.max(0, skipTotal - effectiveSub.skipped_meals_count),
@@ -1080,8 +1085,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     : skipNoDelivery         ? { disabled: true, caption: 'No delivery today — nothing to skip' }
     : skipIsMakeupDay       ? { disabled: true, caption: "Make-up days can’t be skipped" }
     : skipPastCutoff         ? { disabled: true, caption: 'Past the 2 PM cutoff — skip tomorrow instead' }
-    : (mSkipsTotal > 0 && mSkipsLeft === 0) ? { disabled: true, caption: 'No skips left this cycle' }
-    : { disabled: false, caption: mSkipsTotal > 0 ? `${mSkipsLeft} of ${mSkipsTotal} skips left this cycle` : null }
+    // Two distinct zero states, both disabled. `total === 0` is a plan that
+    // never included skips (Welcome Meal); `left === 0` is an allowance spent.
+    // Guarding only the second one left the first rendering as an enabled
+    // button that did nothing when tapped.
+    : mSkipsTotal === 0      ? { disabled: true, caption: 'Skips aren’t part of this plan' }
+    : mSkipsLeft === 0       ? { disabled: true, caption: 'No skips left this cycle' }
+    : { disabled: false, caption: `${mSkipsLeft} of ${mSkipsTotal} skips left this cycle` }
   const mPause: MobileHomeData['pause'] =
     localState === 'paused'
       ? { mode: 'resume', label: 'Resume plan', caption: resumeLockedSameDay ? 'You can resume from tomorrow' : null, disabled: resumeLockedSameDay }
@@ -1482,7 +1492,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             clears it via Supabase admin once delivery is confirmed. */}
         <OutOfZoneBanner show={outOfZone} />
         {/* Profile-completion gate — non-dismissable, blocks plan purchase. */}
-        <ProfileBanner missing={profileGate} />
+        <ProfileBanner missing={profileGate} deprioritized={outOfZone} />
 
         {/* Plan-ending-during-a-pause — spec §6.4. Sits above the hero so a
             loyal customer whose plan is about to lapse learns about the pause
@@ -1832,7 +1842,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             data + handlers + modals as desktop, just a different surface. ── */}
         <div className="home-mobile">
           <OutOfZoneBanner show={outOfZone} />
-          <ProfileBanner missing={profileGate} />
+          <ProfileBanner missing={profileGate} deprioritized={outOfZone} />
           <MobileHome
             data={mobileData}
             creditChip={<MobileCreditChip rows={creditRows} />}

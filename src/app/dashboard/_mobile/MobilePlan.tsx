@@ -75,9 +75,12 @@ interface Props {
    *  pointer row to /dashboard/credit. The full story lives on that page,
    *  never here (a statement card competed with the plan hero). */
   hasCredit?: boolean
+  /** creditOutlook's one sentence ("AED 20 off your next Monthly plan").
+   *  Shown under the row label so the amount is visible before the tap. */
+  creditSentence?: string | null
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, hasCredit = false }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, hasCredit = false, creditSentence = null }: Props) {
   // Season taper — null while intake is paused so the gate and the banner
   // never share a screen (SeasonEndingBanner enforces the same rule itself;
   // this keeps the reschedule sheets on the identical condition).
@@ -112,7 +115,14 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
           }}
         >
           <Wallet size={16} strokeWidth={2.2} color={OG} style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: S.fg }}>Your credit</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: S.fg }}>
+            Your credit
+            {creditSentence && (
+              <span style={{ display: 'block', marginTop: 2, fontSize: 12, fontWeight: 600, color: OG }}>
+                {creditSentence}
+              </span>
+            )}
+          </span>
           <ChevronRight size={16} strokeWidth={2.4} color={S.fgFaint} style={{ flexShrink: 0 }} />
         </Link>
       )}
@@ -176,10 +186,10 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
   const status = startsInFuture && sub.status !== SUBSCRIPTION_STATUS.PAUSED ? SUBSCRIPTION_STATUS.SCHEDULED : sub.status
   const isMax = sub.plan_name.includes('Monthly Max')
   const isPremium = sub.plan_name.includes('Monthly Premium')
-  const isWeekly = sub.plan_name.includes('Weekly Flex')
   const supportsPause = isMax || isPremium
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
-  const skipAllowance = isMax || isPremium ? 3 : isWeekly ? 1 : 0
+  // From the plan domain — see the same fix in PlanClient/ActiveDashboard.
+  const skipAllowance = resolvePlan(sub.plan_name)?.maxSkips ?? 0
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause ? '—' : isPaused ? 'In use' : sub.has_paused_before ? 'Used' : 'Available'
   const plannedPauseStart = sub.planned_pause_start ?? null

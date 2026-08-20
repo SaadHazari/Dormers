@@ -379,7 +379,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
             banners={
               <>
                 <OutOfZoneBanner show={outOfZone} />
-                <ProfileBanner missing={missingFields} />
+                <ProfileBanner missing={missingFields} deprioritized={outOfZone} />
                 {checkoutCanceled && (
                   <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
                     Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.

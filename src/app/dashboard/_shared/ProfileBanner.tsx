@@ -12,7 +12,7 @@ import { OG, BODY, S } from './tokens'
  * Pairs with src/lib/profile-completion.ts which is the single source of
  * truth for what counts as "complete".
  */
-export function ProfileBanner({ missing }: { missing: string[] }) {
+export function ProfileBanner({ missing, deprioritized = false }: { missing: string[]; deprioritized?: boolean }) {
   if (missing.length === 0) return null
   return (
     <div style={{
@@ -40,6 +40,10 @@ export function ProfileBanner({ missing }: { missing: string[] }) {
         </div>
         <div style={{ marginTop: 2, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
           Still needed: <strong style={{ color: S.fg }}>{missing.join(', ')}</strong>.
+          {/* Out-of-zone outranks this. Finishing the profile cannot unlock a
+              purchase we may not be able to deliver, so say which step is
+              actually first instead of showing two equal-weight CTAs. */}
+          {deprioritized && ' Sort the delivery check above first.'}
         </div>
       </div>
       <Link
@@ -47,12 +51,17 @@ export function ProfileBanner({ missing }: { missing: string[] }) {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '10px 16px',
-          background: OG, color: '#fff',
+          // Secondary treatment while a higher-priority blocker is on screen:
+          // one solid CTA per view, so the eye lands on the step that actually
+          // comes first. Still fully actionable, just not the loudest thing.
+          background: deprioritized ? 'transparent' : OG,
+          color: deprioritized ? OG : '#fff',
+          border: deprioritized ? '1px solid var(--ds-og-border-strong)' : '1px solid transparent',
           borderRadius: 'var(--radius-pill)',
           fontFamily: BODY, fontSize: 12, fontWeight: 700,
           letterSpacing: '0.04em', textTransform: 'uppercase',
           textDecoration: 'none',
-          boxShadow: '0 4px 12px rgba(245,127,32,0.40)',
+          boxShadow: deprioritized ? 'none' : '0 4px 12px rgba(245,127,32,0.40)',
           flexShrink: 0,
         }}
       >

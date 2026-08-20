@@ -109,7 +109,14 @@ export function QuickActions({
     // and the server rejected. Disabling at the UI layer + outlined
     // treatment matches every other "you can't do this" state.
     const skipQuotaExhausted = skipQuota.total > 0 && skipQuota.left === 0
-    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted
+    // A plan that never included skips at all (Welcome Meal, and any future
+    // zero-skip plan). Kept separate from `skipQuotaExhausted` because the
+    // two need different wording — "you've used all 3" is wrong for someone
+    // who never had any. Both must disable: gating only the exhausted case
+    // left this button bright-orange and clickable while handleSkipRequest
+    // silently returned, so the loudest control on the page did nothing.
+    const skipNotInPlan = skipQuota.total === 0
+    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted || skipNotInPlan
     const skipTooltip = lockedOut ? disabledReason
         : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
         : skipIsMakeupDay ? "Make-up days can't be skipped — they're extra days earned by earlier skips."
@@ -117,6 +124,7 @@ export function QuickActions({
         : isTrialPlan ? "Skipping isn't available on a one-time trial. Upgrade to a monthly plan to unlock skips."
         : isSkipped ? "You've already skipped tonight's meal."
         : skipQuotaExhausted ? `You've used all ${skipQuota.total} skips for this cycle.`
+        : skipNotInPlan ? "This plan doesn't include skips."
         // Active state: surface useful context the button label doesn't show.
         : skipQuota.total > 0
             ? `Skip tonight's delivery — ${skipQuota.left} of ${skipQuota.total} ${skipQuota.total === 1 ? 'skip' : 'skips'} left this cycle`

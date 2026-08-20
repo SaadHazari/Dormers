@@ -60,7 +60,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
             fontFamily: DISPLAY, fontSize: 'clamp(28px, 4vw, 40px)',
             fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ds-fg)', lineHeight: 1.1,
           }}>
-            Your subscription history.
+            Your subscription history<span style={{ color: OG }}>.</span>
           </h1>
           <p style={{ marginTop: 8, fontSize: 14, color: S.fgMuted, lineHeight: 1.6, maxWidth: 56 + 'ch' }}>
             Every plan you&rsquo;ve completed, with delivery and skip totals. Useful for re-ordering an old favorite.

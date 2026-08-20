@@ -386,6 +386,22 @@ html.light .hiw-text-block {
    Visible focus outline for keyboard navigation. Uses outline (not box-shadow)
    so it follows the element's border-radius automatically.
 */
+/* ── Sidebar rail toggle — touch-only ────────────────────────────────────────
+   The rail reveals its labels on hover. A landscape tablet gets that same rail
+   (>=1024px AND landscape, see _shared/breakpoints.ts) but cannot hover and has
+   no mobile drawer, so the labels were unreachable there. This button is the
+   tap equivalent.
+
+   Hidden wherever real hover exists, so mouse users never see a control they
+   don't need. The failure mode is safe in both directions: if a tablet with a
+   Magic Keyboard attached reports `hover: hover`, it has a trackpad, which
+   means hover genuinely works and the toggle is redundant. Unlike a LAYOUT
+   switch (which is why breakpoints.ts deliberately avoids pointer queries),
+   a misread here only shows or hides one small affordance. */
+@media (hover: hover) {
+  .sidebar-rail-toggle { display: none !important; }
+}
+
 .dash-root button:focus-visible,
 .dash-root a:focus-visible,
 .dash-content button:focus-visible,

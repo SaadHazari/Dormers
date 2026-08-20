@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Utensils, CalendarDays, MessagesSquare, Trophy, Compass,
-  X, Activity, Gift, Shield, Wallet,
+  X, Activity, Gift, Shield, Wallet, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react'
 import { OG, OG3, NV2, CR, BODY } from './_shared/tokens'
 import { COMPACT } from './_shared/breakpoints'
@@ -114,11 +114,19 @@ export default function Sidebar({
   const [hover, setHover] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<DropdownKind>(null)
   const drawerOpen = mobileOpen
+  // Tap-to-open, for pointerless devices in the EXPANDED band. A landscape
+  // tablet gets this rail (>=1024 + landscape) but has no hover and no mobile
+  // drawer, so before this it was six unlabelled icons with no way to read
+  // them. The toggle that drives it is hidden wherever real hover exists, so
+  // mouse users never see a control they don't need — see .sidebar-rail-toggle
+  // in globals.css.
+  const [pinned, setPinned] = useState(false)
   // The rail expands its labels on desktop hover. Touch devices never hover,
-  // so the open mobile drawer must also count as "expanded" — otherwise the
-  // 280px drawer renders a column of centered icons with the labels collapsed
-  // to zero width. Drive every label/gap/justify off this, not `hover`.
-  const expanded = hover || drawerOpen
+  // so the open mobile drawer — and the pin toggle above — must also count as
+  // "expanded", otherwise the 280px drawer renders a column of centered icons
+  // with the labels collapsed to zero width. Drive every label/gap/justify off
+  // this, not `hover`.
+  const expanded = hover || drawerOpen || pinned
 
   // Profile / History live in dropdowns and aren't visible at mount, so Next's
   // automatic Link prefetcher never sees them. Prefetch imperatively after a
@@ -144,6 +152,10 @@ export default function Sidebar({
   useEffect(() => {
     setHover(false)
     setOpenDropdown(null)
+    // Unpin on navigate too. The expanded rail is 240px of fixed overlay on
+    // top of a 92px gutter, so leaving it pinned would cover the page the user
+    // just chose. Tap to peek, tap a destination, it gets out of the way.
+    setPinned(false)
   }, [pathname])
 
   const displayName = customerName || userEmail.split('@')[0] || ''
@@ -285,6 +297,26 @@ export default function Sidebar({
 
         {/* ── Nav ─────────────────────────────────────────────────────────────── */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* Rail toggle — touch-only (CSS hides it wherever hover exists), and
+              never inside the drawer, which has its own X. Gives landscape
+              tablets the label reveal that hover provides everywhere else. */}
+          {!drawerOpen && (
+            <button
+              type="button"
+              onClick={() => { setPinned(p => !p); setHover(false) }}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Hide navigation labels' : 'Show navigation labels'}
+              className="sidebar-rail-toggle"
+              style={{ ...rowStyle(false), marginBottom: 4 }}
+            >
+              <span style={iconSlot}>
+                {expanded
+                  ? <PanelLeftClose size={18} strokeWidth={2} />
+                  : <PanelLeftOpen size={18} strokeWidth={2} />}
+              </span>
+              <span style={labelStyle}>Collapse</span>
+            </button>
+          )}
           {NAV.map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
@@ -315,7 +347,11 @@ export default function Sidebar({
                 href={item.href}
                 onClick={() => onMobileClose?.()}
                 aria-current={active ? 'page' : undefined}
-                data-tooltip={item.label}
+                // Suppressed once the rail is expanded — the label is already
+                // on screen, so the tooltip just repeated it a few pixels to
+                // the right. Tooltips that ADD something (the "coming soon"
+                // pill, the referral count, notification detail) still fire.
+                data-tooltip={expanded ? undefined : item.label}
                 data-tooltip-placement="right"
                 className={active ? 'sidebar-nav-active' : 'sidebar-nav-item'}
                 style={rowStyle(active)}
@@ -348,7 +384,7 @@ export default function Sidebar({
                 onClick={() => onMobileClose?.()}
                 aria-current={active ? 'page' : undefined}
                 aria-label={`My credit. ${chip.sentence}.`}
-                data-tooltip="My credit"
+                data-tooltip={expanded ? undefined : 'My credit'}
                 data-tooltip-placement="right"
                 className={active ? 'sidebar-nav-active' : 'sidebar-nav-item'}
                 style={rowStyle(active)}
@@ -482,7 +518,7 @@ export default function Sidebar({
             <Link
               href="/admin"
               onClick={() => onMobileClose?.()}
-              data-tooltip="Admin Panel"
+              data-tooltip={expanded ? undefined : 'Admin Panel'}
               data-tooltip-placement="right"
               className="sidebar-nav-item"
               style={rowStyle(false)}

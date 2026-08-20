@@ -21,6 +21,7 @@ import { Tooltip } from '../_shared/Tooltip'
 import { FAQItem } from '../_shared/FAQItem'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { creditOutlook, type CreditRow } from '../_shared/credit-outlook'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import { CheckoutPanel } from './CheckoutPanel'
 import { effectivePreferences } from '@/contexts/subscriptions/domain/preferences'
@@ -75,6 +76,9 @@ interface Props {
    *  without a round trip. Optional, defaults to {} when the SSR fetch
    *  returns nothing (preview mode / fetch failure). */
   creditByPlan?: CreditByPlan
+  /** Approved credit rows, for the credit row's amount line. Fed through
+   *  creditOutlook so the wording matches the sidebar chip exactly. */
+  creditRows?: CreditRow[]
   /** Active admin price overrides (plan_pricing rows, server-fetched).
    *  Threaded into every pricePerMeal/totalPrice call so the cards, the
    *  checkout panels, and the POSTed amount all show the DB-backed price.
@@ -290,10 +294,12 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   // the stored string isn't a clean exact match.
   const isMax       = sub.plan_name.includes('Monthly Max')
   const isPremium   = sub.plan_name.includes('Monthly Premium')
-  const isWeekly    = sub.plan_name.includes('Weekly Flex')
   const supportsPause = isMax || isPremium
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
-  const skipAllowance = isMax || isPremium ? 3 : isWeekly ? 1 : 0
+  // From the plan domain, not an inline name match — the old
+  // `isMax || isPremium ? 3 : isWeekly ? 1 : 0` chain returned 0 for Staff
+  // Monthly, which the domain grants 3 skips, so interns saw "Skips left —".
+  const skipAllowance = resolvePlan(sub.plan_name)?.maxSkips ?? 0
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause
     ? '—'
@@ -1425,9 +1431,12 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditRows = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
+  // One sentence, same helper the sidebar chip and MobileCreditChip use, so
+  // the amount can never word itself differently on two surfaces.
+  const { chip: creditChip } = creditOutlook(creditRows)
   // Same purchase gate as the dashboard home (ClientDashboard) — the /plan
   // empty-state CTA and the /explore-plans grid must never offer a purchase
   // path that /api/checkout will reject (PROFILE_INCOMPLETE). Seasonal
@@ -1647,7 +1656,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               // Intake pause wins — telling someone to finish their profile
               // so they can buy something that isn't for sale is the wrong
               // instruction. IntakePausedGate carries its own message.
-              gateBanner={intake.paused ? null : (profileGated ? <ProfileBanner missing={missingFields} /> : null)}
+              gateBanner={intake.paused ? null : (profileGated ? <ProfileBanner missing={missingFields} deprioritized={outOfZone} /> : null)}
               intake={intake}
             />
           </div>
@@ -1681,8 +1690,17 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               }}
             >
               <Wallet size={16} strokeWidth={2.2} color={OG} style={{ flexShrink: 0 }} />
-              <span style={{ flex: 1, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg }}>
+              <span style={{ flex: 1, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg, minWidth: 0 }}>
                 Your credit
+                {/* The amount, in creditOutlook's words — "AED 20 off your next
+                    Monthly plan", never a bare balance. Without it this row was
+                    a label and a chevron: a customer holding credit had no way
+                    to know there was anything behind it. */}
+                {creditChip && (
+                  <span style={{ display: 'block', marginTop: 2, fontSize: 12, fontWeight: 600, color: OG }}>
+                    {creditChip.sentence}
+                  </span>
+                )}
               </span>
               <span style={{ fontFamily: BODY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: S.fgMuted }}>
                 View →
@@ -2150,6 +2168,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           onConfirmCancelPause={handleCancelPlannedPause}
           intake={intake}
           hasCredit={Object.values(creditByPlan).some(v => (v?.balanceFils ?? 0) > 0)}
+          creditSentence={creditChip?.sentence ?? null}
         />
       )}
     </div>
