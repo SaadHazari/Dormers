@@ -127,11 +127,19 @@ export function StackPickup({
     >
       <div style={{ padding: '20px 16px 8px', color: '#ffffff' }}>
         <div style={{ fontSize: '20px', fontWeight: 800 }}>
-          {riderCount} boxes is too many for one photo
+          {/* He can reach this screen two ways: pushed here by the load being
+              over the limit, or by choosing to split a smaller one. Telling a
+              man who just chose to split six boxes that six is "too many" reads
+              as the app arguing with him. */}
+          {riderCount > maxPerStack
+            ? `${riderCount} boxes is too many for one photo`
+            : `Splitting ${riderCount} ${riderCount === 1 ? 'box' : 'boxes'} into piles`}
         </div>
         <div style={{ fontSize: '14px', color: '#94a3b8', marginTop: '4px' }}>
-          Split them into piles of about {maxPerStack}. One photo per pile, then one
-          wide shot of the lot. Tap a card to shoot it.
+          {riderCount > maxPerStack
+            ? `Split them into piles of about ${maxPerStack}. `
+            : 'Make as many piles as you like. '}
+          One photo per pile, then one wide shot of the lot. Tap a card to shoot it.
         </div>
       </div>
 

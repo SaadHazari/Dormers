@@ -430,7 +430,7 @@ export function RiderClient({
   //    back to shoot it again instead of opening the day. The budget is bounded
   //    so a camera that cannot count a stack can never cancel the run: on the
   //    last attempt he passes by vouching for the count himself. ─────────────
-  async function handleConfirmPickup(asserted = false) {
+  async function handleConfirmPickup(asserted = false, forceStacks = false) {
     if (!pickupPhoto) return
     const typed = parseInt(pickupCount, 10)
     if (isNaN(typed) || typed < 0) return
@@ -443,6 +443,7 @@ export function RiderClient({
       form.append('dateIso', deliveryDateIso)
       form.append('riderCount', String(parseInt(pickupCount, 10)))
       if (asserted) form.append('riderAsserted', 'true')
+      if (forceStacks) form.append('forceStacks', 'true')
 
       const res = await fetch('/api/ops/confirm-pickup', { method: 'POST', body: form })
       if (!res.ok) {
@@ -948,6 +949,26 @@ export function RiderClient({
               </button>
             )}
           </div>
+          {/* ── Split into piles, whatever the load size ─────────────── */}
+          {/* Without this the pile flow is unreachable on a normal day, since
+              it is otherwise gated on the load being over the threshold. Boxes
+              that will not lay out flat are the rider's call, not a number's. */}
+          {!pickupResult?.allowAssert && (
+            <button
+              onClick={() => handleConfirmPickup(false, true)}
+              disabled={confirming || pickupCountInvalid}
+              style={{
+                border: 'none', background: 'none', padding: '4px 0',
+                color: confirming || pickupCountInvalid ? '#94a3b8' : '#ffffff',
+                fontSize: '13px', fontWeight: 600, fontFamily: FONT,
+                textDecoration: 'underline', textUnderlineOffset: '3px',
+                cursor: confirming || pickupCountInvalid ? 'default' : 'pointer',
+              }}
+            >
+              Won&rsquo;t fit in one photo? Split into piles
+            </button>
+          )}
+
           {pickupError && (
             <div style={{ fontSize: '13px', color: '#fca5a5', textAlign: 'center' }}>
               {pickupError}

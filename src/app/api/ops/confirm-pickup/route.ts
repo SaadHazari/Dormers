@@ -66,6 +66,10 @@ export async function POST(req: Request) {
   // What the rider counted himself. The strongest number in the whole check:
   // it is the only one produced by someone standing next to the boxes.
   const riderCount = parseInt((formData.get('riderCount') as string | null) ?? '', 10)
+  // The rider asking to split a load that is under the threshold. Boxes that
+  // will not lay out flat are his call to make, not a number's, and without
+  // this the pile flow is unreachable on a normal day.
+  const forceStacks = formData.get('forceStacks') === 'true'
 
   if (!(photo instanceof File) || photo.size === 0) {
     return NextResponse.json({ error: 'missing_photo' }, { status: 400 })
@@ -162,7 +166,7 @@ export async function POST(req: Request) {
   // Above the threshold a single photo cannot be counted by anything, because
   // boxes hide behind boxes. Hand off to the pile-by-pile flow BEFORE spending
   // an upload and a vision call on a photo we already know is unanswerable.
-  if (!riderAsserted && needsStackMode(riderCount)) {
+  if (!riderAsserted && (forceStacks || needsStackMode(riderCount))) {
     return NextResponse.json({
       ok: true,
       outcome: 'needs_stacks',
