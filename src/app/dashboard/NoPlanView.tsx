@@ -332,11 +332,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             <Eyebrow>Past plans</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, 220px)',
-            gap: 10,
-          }}>
+          <div className="noplan-past-grid">
             {endedPlans.map(s => (
               <div key={s.id} style={{ ...TIER3, padding: '12px 14px', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -376,10 +372,22 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
            elements, so scoped rules NEVER match components. :global() opts
            out of scoping; without it these rules are dead CSS (the art used
            to render below the copy on phones because order:-1 never fired). */
+        /* Fixed 220px tracks on desktop so the tiles read as a compact
+           reference grid. A bare 220px track never grows, so on a phone the
+           single column that fits would leave the rest of the row empty —
+           the mobile branch below swaps to a full-width single column. */
+        .noplan-past-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, 220px);
+          gap: 10px;
+        }
         @media (max-width: 768px) {
           .noplan-grid {
             grid-template-columns: 1fr;
             gap: 28px;
+          }
+          .noplan-past-grid {
+            grid-template-columns: minmax(0, 1fr);
           }
           :global(.noplan-art) {
             order: -1;
