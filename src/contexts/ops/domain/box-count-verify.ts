@@ -79,6 +79,28 @@ export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
  */
 export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.1-pro-preview'
 
+/**
+ * The BATCHED pickup, where every pile and the wide shot go in one call.
+ *
+ * Not Pro, and this is measured rather than preferred. On identical photos:
+ *
+ *   3.1 Pro     3 piles + wide -> 3/3 exact, 42.5s
+ *   3.1 Pro     6 piles + wide -> TIMED OUT at 90s
+ *   3.7-flash   3 piles + wide -> 3/3 exact, 27.2s
+ *   3.7-flash   6 piles + wide -> 6/6 exact, 11.1s
+ *
+ * Pro fails at exactly the load the pile flow exists to handle, so it is
+ * disqualified here no matter how well it reads a single bulk frame.
+ *
+ * That is not a contradiction of DEEP_BOX_COUNT_MODEL, it is the same rule
+ * applied honestly. Pro earns the single-frame pickup because that photo is
+ * bulk boxes with real depth. A pile photo is at most MAX_BOXES_PER_STACK
+ * boxes laid out flat — drop-off difficulty by construction — and counting
+ * four piles in the wide shot is easier still. The hard problem was removed by
+ * the protocol, so the expensive model is no longer buying anything.
+ */
+export const BATCH_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
+
 export interface BoxCountResult {
   count: number | null       // null = could not count (unreadable, occluded, or unsure)
   confidence: 'high' | 'medium' | 'low'
@@ -230,6 +252,164 @@ export async function verifyStackCount(
   modelId: BoxCountModel = DEEP_BOX_COUNT_MODEL,
 ): Promise<BoxCountResult> {
   return runVisionCount(buildStackPrompt(references.length > 0), imageBytes, mimeType, references, modelId)
+}
+
+/** One batched read of a whole pickup: every pile, plus the wide shot. */
+export interface BatchCountResult {
+  /** Boxes in each pile photo, in the order sent. null = could not count it. */
+  piles: (number | null)[]
+  /** How many PILES the wide shot showed. null = could not tell. */
+  overviewStackCount: number | null
+  model: string
+  reason: string
+}
+
+/**
+ * Count a whole pickup in ONE call: every pile photo and the wide shot together.
+ *
+ * Measured against doing it one photo at a time on identical images: same
+ * accuracy, 2.5x faster, and 2.4x fewer images over the wire. The saving is
+ * mostly the reference photos, which a per-photo loop re-sends every single
+ * time. Four piles sequentially ships the box catalogue four times.
+ *
+ * The model is NEVER asked for a total, and that is the whole safety property.
+ * The wide shot contains the SAME boxes as the pile photos, so "add it all up"
+ * would count every box twice — four piles of 8 plus an overview of 32 comes
+ * back as 64. Instead it reports a number per image and the arithmetic happens
+ * in code, where addition cannot be hallucinated. See stack-pickup.ts.
+ */
+export async function verifyBatch(
+  pileImages: { bytes: Uint8Array; mimeType: string }[],
+  overviewImage: { bytes: Uint8Array; mimeType: string } | null,
+  references: BoxReferenceImage[] = [],
+  modelId: BoxCountModel = BATCH_BOX_COUNT_MODEL,
+): Promise<BatchCountResult> {
+  const fail = (reason: string): BatchCountResult => ({
+    piles: pileImages.map(() => null),
+    overviewStackCount: null,
+    model: modelId,
+    reason,
+  })
+
+  const content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; image: Uint8Array; mediaType: string }
+  > = []
+
+  if (references.length > 0) {
+    content.push({
+      type: 'text',
+      text:
+        `REFERENCE PHOTOS (${references.length}). One single empty Dormers box from ` +
+        `several angles, so you know what the packaging looks like. They are a ` +
+        `catalogue, not a scene. NEVER count them.\n\n${PACKAGING_DESCRIPTION}`,
+    })
+    for (const ref of references) {
+      content.push({ type: 'text', text: `Reference view: ${ref.label}` })
+      content.push({ type: 'image', image: ref.bytes, mediaType: ref.mimeType })
+    }
+    content.push({ type: 'text', text: 'END OF REFERENCE PHOTOS.' })
+  }
+
+  pileImages.forEach((img, i) => {
+    content.push({ type: 'text', text: `PILE ${i + 1}:` })
+    content.push({ type: 'image', image: img.bytes, mediaType: img.mimeType })
+  })
+
+  if (overviewImage) {
+    content.push({ type: 'text', text: 'WIDE SHOT (all the piles together):' })
+    content.push({ type: 'image', image: overviewImage.bytes, mediaType: overviewImage.mimeType })
+  }
+
+  content.push({ type: 'text', text: buildBatchPrompt(pileImages.length, overviewImage !== null) })
+
+  console.log(
+    `[box-count-verify] batch via ${modelId}: ${pileImages.length} pile(s)` +
+      `${overviewImage ? ' + wide shot' : ''}, ${references.length} refs`,
+  )
+
+  let raw: string
+  const t0 = Date.now()
+  try {
+    const result = await generateText({
+      model: google(modelId),
+      messages: [{ role: 'user', content }],
+      // Must abort INSIDE the route's 60s budget, or the platform kills the
+      // function and the rider gets a dead spinner instead of a message.
+      abortSignal: AbortSignal.timeout(52_000),
+    })
+    raw = result.text.trim()
+    console.log(`[box-count-verify] batch responded in ${Date.now() - t0}ms`)
+  } catch (err) {
+    console.error('[box-count-verify] batch call failed:', err)
+    return fail('Could not reach the counter. Try again.')
+  }
+
+  let parsed: { piles?: unknown; overview?: unknown }
+  try {
+    parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim())
+  } catch {
+    console.error('[box-count-verify] batch JSON parse failed. Raw:', raw.slice(0, 400))
+    return fail('Could not read the count. Try again.')
+  }
+
+  // Length must match exactly. A short or padded array means the model lost
+  // track of which photo was which, and silently mapping it would attach a
+  // count to the wrong pile.
+  const rows = Array.isArray(parsed.piles) ? parsed.piles : []
+  if (rows.length !== pileImages.length) {
+    console.error(`[box-count-verify] batch returned ${rows.length} piles for ${pileImages.length} photos`)
+    return fail('The counter lost track of which photo was which. Try again.')
+  }
+
+  const piles = rows.map((r) => {
+    const o = (r ?? {}) as Record<string, unknown>
+    const n = typeof o.count === 'number' ? o.count : null
+    return n !== null && Number.isInteger(n) && n >= 0 ? n : null
+  })
+
+  const ov = (parsed.overview ?? {}) as Record<string, unknown>
+  const stacks = typeof ov.stacks === 'number' ? ov.stacks : null
+  const overviewStackCount =
+    stacks !== null && Number.isInteger(stacks) && stacks >= 0 ? stacks : null
+
+  return {
+    piles,
+    overviewStackCount,
+    model: modelId,
+    reason: typeof ov.reason === 'string' ? ov.reason.slice(0, 200) : '',
+  }
+}
+
+function buildBatchPrompt(pileCount: number, hasOverview: boolean): string {
+  return `You have just been shown ${pileCount} PILE photo${pileCount === 1 ? '' : 's'}${hasOverview ? ' and one WIDE SHOT' : ''}.
+
+For EACH pile photo, count the Dormers boxes in that photo only.
+${hasOverview ? 'For the WIDE SHOT, count how many separate PILES there are. Do NOT count its boxes — they are the same boxes as in the pile photos.' : ''}
+
+DO NOT ADD ANYTHING UP. Report each photo on its own. The totalling is done
+elsewhere and adding here would count the same boxes twice.
+
+Every box you count must show its OWN distinct edge. A pile viewed from the
+side is fine, because each box has its own visible band of lid edge. A box
+positioned BEHIND another one is not: you cannot see through cardboard, so if
+the arrangement could hide a box, that pile's count is unknowable.
+
+Return null for any pile where:
+- a box could be hidden behind another
+- a box is cut off by the frame edge
+- it is too dark or blurred to separate the boxes
+- you find yourself choosing between two totals
+
+null is the correct answer, not a failure. It sends someone back for a better
+photo of that one pile. A wrong number sends a short van out. Never guess.
+
+Output ONLY JSON, no commentary, no code fences:
+{
+  "piles": [${Array.from({ length: pileCount }, (_, i) => `{"pile":${i + 1},"count":number|null}`).join(',')}]${hasOverview ? ',\n  "overview": {"stacks":number|null,"reason":string}' : ''}
+}
+
+Output JSON only.`
 }
 
 function buildStackPrompt(hasReferences: boolean): string {
