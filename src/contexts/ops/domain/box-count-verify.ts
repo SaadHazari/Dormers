@@ -21,19 +21,43 @@
 // the model recognise what a Dormers box IS. They do not make it good at
 // counting, and nothing here should be read as implying otherwise.
 //
-// Uses gemini-2.5-flash (not gemini-3.1-flash-lite) — higher multimodal
-// accuracy needed for box counting vs the review-screenshot task.
+// The model is a parameter with a production default. Counting near-identical
+// stacked objects is the hardest vision task in this system, so which model
+// does it is a decision that should be settled by the bench on real photos
+// rather than by taste. Production always uses DEFAULT_BOX_COUNT_MODEL;
+// /admin/box-counter can point any candidate at the same photos to compare.
 //
 // Zero imports from @/infra/ — pure domain per L1-BOUNDARIES rule.
 
 import { generateText } from 'ai'
 import { google } from '@ai-sdk/google'
 
+/**
+ * Models allowed to count boxes. Kept to a shortlist on purpose: this is a
+ * counting task, not a chat task, and flash-lite tiers were already judged
+ * too weak for it (they still run the review-screenshot checks elsewhere).
+ */
+export const BOX_COUNT_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-3-flash-preview',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-2.5-pro',
+] as const
+
+export type BoxCountModel = (typeof BOX_COUNT_MODELS)[number]
+
+/** What every production call uses. Change only on bench evidence. */
+export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-2.5-flash'
+
 export interface BoxCountResult {
   count: number | null       // null = could not count (unreadable, occluded, or unsure)
   confidence: 'high' | 'medium' | 'low'
   reason: string
   imageQuality: 'clear' | 'unclear'
+  /** Which model produced this. Surfaced so bench results are never ambiguous. */
+  model?: string
 }
 
 /** A catalogue photo of the empty packaging, used only for recognition. */
@@ -142,6 +166,7 @@ export async function verifyBoxCount(
   imageBytes: Uint8Array,
   mimeType: string,
   references: BoxReferenceImage[] = [],
+  modelId: BoxCountModel = DEFAULT_BOX_COUNT_MODEL,
 ): Promise<BoxCountResult> {
   const t0 = Date.now()
 
@@ -175,13 +200,13 @@ export async function verifyBoxCount(
   content.push({ type: 'text', text: buildCountPrompt(references.length > 0) })
 
   console.log(
-    `[box-count-verify] calling Gemini (mime=${mimeType}, bytes=${imageBytes.byteLength}, refs=${references.length})`,
+    `[box-count-verify] calling ${modelId} (mime=${mimeType}, bytes=${imageBytes.byteLength}, refs=${references.length})`,
   )
 
   let raw: string
   try {
     const result = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: google(modelId),
       messages: [{ role: 'user', content }],
       // SDK-level timeout — fires a clean abort before the surrounding
       // Netlify function maxDuration kills the request. 45s leaves ~15s
@@ -189,7 +214,7 @@ export async function verifyBoxCount(
       abortSignal: AbortSignal.timeout(45_000),
     })
     raw = result.text.trim()
-    console.log(`[box-count-verify] Gemini responded in ${Date.now() - t0}ms`)
+    console.log(`[box-count-verify] ${modelId} responded in ${Date.now() - t0}ms`)
   } catch (err) {
     const elapsed = Date.now() - t0
     console.error(`[box-count-verify] Gemini call failed after ${elapsed}ms:`, err)
@@ -200,6 +225,7 @@ export async function verifyBoxCount(
         ? 'Verification timed out — manual confirmation required'
         : 'Verification service unavailable — manual confirmation required',
       imageQuality: 'unclear',
+      model: modelId,
     }
   }
 
@@ -220,8 +246,9 @@ export async function verifyBoxCount(
       confidence: 'low',
       reason: 'Could not parse verification result',
       imageQuality: 'unclear',
+      model: modelId,
     }
   }
 
-  return normaliseBoxCount(parsed)
+  return { ...normaliseBoxCount(parsed), model: modelId }
 }

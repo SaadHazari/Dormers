@@ -18,6 +18,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminCard } from '../_components/AdminCard'
 import { resizeToJpeg } from '@/shared/image-resize'
+import { BOX_COUNT_MODELS, DEFAULT_BOX_COUNT_MODEL } from '@/contexts/ops/domain/box-count-verify'
 import { Upload, Play, Trash2, AlertTriangle, CheckCircle2, CircleDashed, ArrowDown } from 'lucide-react'
 
 // Enough to keep the batch moving without hammering the model's rate limit.
@@ -38,6 +39,7 @@ interface Row {
   reason?: string
   ms?: number
   referenceCount?: number
+  model?: string
   error?: string
 }
 
@@ -56,6 +58,10 @@ export function BoxCounterClient() {
   const [rows, setRows] = useState<Row[]>([])
   const [running, setRunning] = useState(false)
   const [defaultTruth, setDefaultTruth] = useState('')
+  const [model, setModel] = useState<string>(DEFAULT_BOX_COUNT_MODEL)
+  // Summary of the previous run, kept so switching model and running again is
+  // an actual comparison instead of a memory test.
+  const [lastRun, setLastRun] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Add photos ──────────────────────────────────────────────────────────
@@ -103,6 +109,7 @@ export function BoxCounterClient() {
     try {
       const form = new FormData()
       form.append('photo', row.file, 'bench.jpg')
+      form.append('model', model)
       const res = await fetch('/api/admin/box-counter-test', { method: 'POST', body: form })
       if (!res.ok) {
         return { status: 'done', error: `HTTP ${res.status}` }
@@ -115,15 +122,21 @@ export function BoxCounterClient() {
         reason: data.reason,
         ms: data.ms,
         referenceCount: data.referenceCount,
+        model: data.model,
       }
     } catch (err) {
       return { status: 'done', error: err instanceof Error ? err.message : 'network error' }
     }
-  }, [])
+  }, [model])
 
   // ── Run the batch, a few at a time ──────────────────────────────────────
   async function runAll() {
     if (running || rows.length === 0) return
+    // Snapshot the outgoing scoreboard BEFORE it is cleared. This is what
+    // makes "switch model, run again" a comparison: the finished run moves to
+    // the Previous line while the new one fills the live one. Captured here
+    // explicitly rather than leaning on the closure being stale.
+    const previousSummary = summaryLine
     setRunning(true)
     setRows(prev => prev.map(r => ({ ...r, status: 'running', count: undefined, error: undefined })))
 
@@ -139,6 +152,7 @@ export function BoxCounterClient() {
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker))
     setRunning(false)
+    setLastRun(previousSummary)
   }
 
   // ── Scoreboard ──────────────────────────────────────────────────────────
@@ -154,6 +168,11 @@ export function BoxCounterClient() {
   const times = rows.filter(r => r.ms).map(r => r.ms as number)
   const avgMs = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0
   const refCount = rows.find(r => r.referenceCount !== undefined)?.referenceCount
+  const ranModel = rows.find(r => r.model)?.model
+  const summaryLine =
+    done > 0
+      ? `${ranModel ?? model}: exact ${ok}/${done}, over ${over}, under ${under}, refused ${refused}, avg ${(avgMs / 1000).toFixed(1)}s`
+      : null
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -181,6 +200,22 @@ export function BoxCounterClient() {
           >
             <Upload size={15} /> Add photos
           </button>
+
+          <label className={`flex items-center gap-2 text-[13px] ${t.muted}`}>
+            Model
+            <select
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              disabled={running}
+              className={`rounded-lg border px-2 py-1.5 text-[13px] ${t.input} ${t.inputFocus}`}
+            >
+              {BOX_COUNT_MODELS.map(m => (
+                <option key={m} value={m}>
+                  {m}{m === DEFAULT_BOX_COUNT_MODEL ? '  (live)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className={`flex items-center gap-2 text-[13px] ${t.muted}`}>
             Default truth
@@ -226,6 +261,20 @@ export function BoxCounterClient() {
         </p>
       </AdminCard>
 
+      {model !== DEFAULT_BOX_COUNT_MODEL && (
+        <div className={`mt-3 rounded-lg border px-3.5 py-2.5 text-[12px] ${t.accentBg} ${t.accent}`}>
+          Scoring with <strong>{model}</strong>. Deliveries still run on{' '}
+          <strong>{DEFAULT_BOX_COUNT_MODEL}</strong> — picking a model here changes
+          nothing in the rider app.
+        </div>
+      )}
+
+      {lastRun && (
+        <div className={`mt-3 rounded-lg border px-3.5 py-2.5 text-[12px] ${t.border} ${t.muted}`}>
+          Previous run — {lastRun}
+        </div>
+      )}
+
       {missingTruth > 0 && (
         <div className={`mt-3 rounded-lg border px-3.5 py-2.5 text-[12px] ${t.warningBg} ${t.warning}`}>
           {missingTruth} {missingTruth === 1 ? 'photo has' : 'photos have'} no real count typed in.
@@ -242,7 +291,8 @@ export function BoxCounterClient() {
           <Stat label="Under-counted" value={String(under)} tone={under > 0 ? 'warning' : 'muted'} t={t}
                 hint="costs a retake" />
           <Stat label="Refused" value={String(refused)} tone="muted" t={t} hint="safe outcome" />
-          <Stat label="Avg time" value={`${(avgMs / 1000).toFixed(1)}s`} tone="muted" t={t} />
+          <Stat label="Avg time" value={`${(avgMs / 1000).toFixed(1)}s`} tone="muted" t={t}
+                hint={ranModel ?? undefined} />
         </div>
       )}
 
