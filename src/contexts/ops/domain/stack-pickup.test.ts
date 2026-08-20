@@ -10,6 +10,7 @@ import {
   needsStackMode,
   stackPhotoPath,
   STACK_MODE_THRESHOLD,
+  MAX_BOXES_PER_STACK,
 } from './stack-pickup'
 
 describe('reconcileStacks — the happy path', () => {
@@ -89,6 +90,21 @@ describe('reconcileStacks — the ways it goes wrong', () => {
 })
 
 describe('needsStackMode', () => {
+  // Pinned to the number itself, not to the constant. The symbolic tests below
+  // would pass at any threshold, so they cannot catch this drifting away from
+  // what the owner actually measured on real boxes.
+  it('keeps a load of 10 as one photo and splits 11', () => {
+    expect(STACK_MODE_THRESHOLD).toBe(10)
+    expect(needsStackMode(10)).toBe(false)
+    expect(needsStackMode(11)).toBe(true)
+  })
+
+  it('asks for piles no bigger than one photo can handle', () => {
+    // Piles larger than the single-photo limit would be photos the app does
+    // not trust itself to count.
+    expect(MAX_BOXES_PER_STACK).toBeLessThanOrEqual(STACK_MODE_THRESHOLD)
+  })
+
   it('leaves a small load as a single photo', () => {
     expect(needsStackMode(6)).toBe(false)
     expect(needsStackMode(STACK_MODE_THRESHOLD)).toBe(false)

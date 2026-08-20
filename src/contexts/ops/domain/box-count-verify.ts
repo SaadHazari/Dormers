@@ -52,20 +52,28 @@ export type BoxCountModel = (typeof BOX_COUNT_MODELS)[number]
 /**
  * Per-dorm drop-offs: small piles, five-ish times a day, and the rider is
  * standing at a door waiting. Speed is worth more than depth here.
+ *
+ * gemini-3.7-flash since 2026-08-20, on the owner's own testing against real
+ * boxes rather than anything measured here. My own comparison was worthless:
+ * it ran on tiled composites and turned out to be measuring how each model
+ * interprets a collage, not how it counts.
  */
-export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-2.5-flash'
+export const DEFAULT_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
 
 /**
  * Kitchen packing and rider pickup: the whole load in one frame, the hardest
- * count in the system, and it happens once a day. A slower, pricier model is
- * affordable exactly here.
+ * count in the system, and it happens once a day.
  *
- * Chosen on the owner's own testing: with boxes partly behind other boxes, the
- * flash tiers guessed and Pro read the occlusion correctly. That does not make
- * Pro trustworthy on hidden boxes either — the photo protocol still has to put
- * every box in view. It just fails honestly more often.
+ * This briefly ran gemini-3.1-pro-preview, because Pro read occluded boxes
+ * correctly where 2.5-flash guessed. After fuller testing on real boxes the
+ * owner chose 3.7-flash for the kitchen and the driver alike, so the two tiers
+ * currently resolve to the SAME model.
+ *
+ * They are kept as two names on purpose. Every call site already says which
+ * kind of count it is doing, so putting a heavier model back on the once-a-day
+ * checkpoints is a one-line change here rather than a hunt through routes.
  */
-export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.1-pro-preview'
+export const DEEP_BOX_COUNT_MODEL: BoxCountModel = 'gemini-3.7-flash'
 
 export interface BoxCountResult {
   count: number | null       // null = could not count (unreadable, occluded, or unsure)

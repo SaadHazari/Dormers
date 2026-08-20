@@ -72,3 +72,6 @@ Backup-codes-*.txt
 
 # Raw box photos — only the downscaled output in box-reference/ is committed
 box-reference/source/
+
+# Scratch output from the playwright-cli tooling
+.playwright-cli/

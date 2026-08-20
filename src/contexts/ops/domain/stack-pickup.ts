@@ -23,14 +23,20 @@
  * Above this many boxes, one flat layout stops being photographable and the
  * rider is asked to split the load.
  *
- * PROVISIONAL. It is a guess until the bench at /admin/box-counter has been
- * run up a ladder of real box counts to find where over-counting actually
- * starts. Move it to whatever that shows; do not defend this number.
+ * Set to 10 by the owner on 2026-08-20 after testing on real boxes, replacing
+ * the 8 I had guessed. A load of 10 or fewer stays a single photo.
  */
-export const STACK_MODE_THRESHOLD = 8
+export const STACK_MODE_THRESHOLD = 10
 
-/** Boxes per stack the rider is asked not to exceed, for the same reason. */
-export const MAX_BOXES_PER_STACK = 8
+/**
+ * Boxes per pile the rider is asked not to exceed.
+ *
+ * Deliberately the same number as the threshold: a pile photo is just a photo
+ * of N boxes, so whatever one frame can handle is also what one pile can be.
+ * If these two ever drift apart, the app is telling him to build piles it does
+ * not trust itself to count.
+ */
+export const MAX_BOXES_PER_STACK = STACK_MODE_THRESHOLD
 
 export type StackOutcome =
   | 'accepted'
