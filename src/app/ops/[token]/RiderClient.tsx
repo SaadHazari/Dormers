@@ -6,6 +6,7 @@ import type { DormMapping } from '@/shared/dorm-shapes'
 import type { DormCountsRecord } from '@/contexts/ops/usecases/get-dorm-counts'
 import { resizeToJpeg } from '@/shared/image-resize'
 import { MAX_VERIFY_ATTEMPTS } from '@/contexts/ops/domain/dropoff-decision'
+import { StackPickup } from './StackPickup'
 import { confirmDropoff } from './actions'
 
 const BG      = '#faf8f4'
@@ -54,12 +55,13 @@ interface PickupResponse {
   ok: boolean
   /** false = the count did not agree, the day stays shut. */
   accepted?: boolean
-  outcome?: 'accepted' | 'rider_disagrees' | 'retake' | 'needs_assertion' | 'uncountable'
+  outcome?: 'accepted' | 'rider_disagrees' | 'needs_stacks' | 'retake' | 'needs_assertion' | 'uncountable'
   allowAssert?: boolean
   riderCount?: number
   attempt?: number
   attemptsLeft?: number
   maxAttempts?: number
+  maxPerStack?: number
   expectedTotal?: number
   kitchenTotal?: number | null
   /** The number he is measured against: kitchen count if there is one. */
@@ -129,6 +131,8 @@ export function RiderClient({
   // The rider's own count. The only number in the pickup check produced by
   // someone standing next to the boxes, and the one that catches a short van.
   const [pickupCount, setPickupCount] = useState('')
+  // Set when the load is too big for one frame and the pile-by-pile flow takes over.
+  const [stackMode, setStackMode] = useState<{ riderCount: number; maxPerStack: number } | null>(null)
   const pickupInputRef = useRef<HTMLInputElement>(null)
 
   // ── Per-dorm drop-off status — seeded from delivery_events on load ───────
@@ -453,6 +457,16 @@ export function RiderClient({
 
       setPickupResult(data)
 
+      // Too many boxes for a single photo. Nothing was uploaded and nothing
+      // was counted — the pile-by-pile flow takes it from here.
+      if (data.outcome === 'needs_stacks') {
+        setStackMode({
+          riderCount: data.riderCount ?? parseInt(pickupCount, 10),
+          maxPerStack: data.maxPerStack ?? 8,
+        })
+        return
+      }
+
       // Rejected: keep the overlay up with the photo still on screen so the
       // numbers and the picture sit side by side, and let him shoot again.
       if (data.accepted === false) return
@@ -736,6 +750,26 @@ export function RiderClient({
         onChange={handlePickupPhoto}
         style={{ display: 'none' }}
       />
+
+      {/* ── Pile-by-pile pickup, for loads too big for one frame ─────────── */}
+      {stackMode && (
+        <StackPickup
+          opsTokenId={opsTokenId}
+          deliveryDateIso={deliveryDateIso}
+          riderCount={stackMode.riderCount}
+          maxPerStack={stackMode.maxPerStack}
+          onAccepted={() => {
+            setStackMode(null)
+            setPickupResult(null)
+            setPickedUp(true)
+            setPickupCount('')
+            setPickupPhoto(null)
+            if (pickupPreviewUrl) URL.revokeObjectURL(pickupPreviewUrl)
+            setPickupPreviewUrl(null)
+          }}
+          onCancel={() => setStackMode(null)}
+        />
+      )}
 
       {/* ── Pickup photo review overlay ──────────────────────────────────── */}
       {pickupPreviewUrl && !pickedUp && (

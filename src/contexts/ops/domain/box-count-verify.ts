@@ -199,6 +199,68 @@ export async function verifyBoxCount(
   references: BoxReferenceImage[] = [],
   modelId: BoxCountModel = DEFAULT_BOX_COUNT_MODEL,
 ): Promise<BoxCountResult> {
+  return runVisionCount(buildCountPrompt(references.length > 0), imageBytes, mimeType, references, modelId)
+}
+
+/**
+ * Count STACKS, not boxes.
+ *
+ * The overview shot in a stack-based pickup answers a different question from
+ * the stack shots, and that separation is what stops anything being counted
+ * twice (see contexts/ops/domain/stack-pickup.ts). Counting four piles is also
+ * a far easier question than counting thirty boxes, and it survives the
+ * occlusion that makes the box version impossible.
+ */
+export async function verifyStackCount(
+  imageBytes: Uint8Array,
+  mimeType: string,
+  references: BoxReferenceImage[] = [],
+  modelId: BoxCountModel = DEEP_BOX_COUNT_MODEL,
+): Promise<BoxCountResult> {
+  return runVisionCount(buildStackPrompt(references.length > 0), imageBytes, mimeType, references, modelId)
+}
+
+function buildStackPrompt(hasReferences: boolean): string {
+  return `You are looking at a photo of a delivery load made up of SEPARATE PILES
+of Dormers meal boxes. Count the PILES. Do not count the boxes.
+
+${hasReferences ? 'The reference photos above show ONE single empty box for recognition only. They are not part of the scene and must NEVER be counted.' : PACKAGING_DESCRIPTION}
+
+A pile is one group of boxes standing together, separated from the next group
+by a visible gap or by sitting in a different spot. One box on its own still
+counts as one pile.
+
+You are NOT being asked how many boxes there are. A pile of nine and a pile of
+two are two piles. Report 2.
+
+Return null instead of a number whenever:
+- the piles run into each other and you cannot tell where one ends
+- any pile is cut off by the frame edge
+- the image is too dark or blurred to separate the piles
+
+Output ONLY a JSON object, no commentary, no code fences:
+{
+  "count": number | null,
+  "confidence": "high" | "medium" | "low",
+  "reason": string,
+  "imageQuality": "clear" | "unclear"
+}
+
+- count: number of separate PILES, or null per the rules above.
+- confidence: "high" only if every pile is clearly separated from the others.
+- reason: one sentence (max 150 chars) saying how you separated the piles.
+- imageQuality: "clear" if the piles are separable, "unclear" otherwise.
+
+Output JSON only. No explanation. No code fences.`
+}
+
+async function runVisionCount(
+  instruction: string,
+  imageBytes: Uint8Array,
+  mimeType: string,
+  references: BoxReferenceImage[],
+  modelId: BoxCountModel,
+): Promise<BoxCountResult> {
   const t0 = Date.now()
 
   // Reference photos first, fenced by text on both sides so the model cannot
@@ -228,7 +290,7 @@ export async function verifyBoxCount(
 
   content.push({ type: 'text', text: 'PHOTO TO COUNT:' })
   content.push({ type: 'image', image: imageBytes, mediaType: mimeType })
-  content.push({ type: 'text', text: buildCountPrompt(references.length > 0) })
+  content.push({ type: 'text', text: instruction })
 
   console.log(
     `[box-count-verify] calling ${modelId} (mime=${mimeType}, bytes=${imageBytes.byteLength}, refs=${references.length})`,

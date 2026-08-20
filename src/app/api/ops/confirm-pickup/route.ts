@@ -36,6 +36,7 @@ import {
   MAX_PICKUP_ATTEMPTS,
 } from '@/contexts/ops/domain/pickup-decision'
 import { DEEP_BOX_COUNT_MODEL } from '@/contexts/ops/domain/box-count-verify'
+import { needsStackMode, MAX_BOXES_PER_STACK } from '@/contexts/ops/domain/stack-pickup'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames } from '@/shared/dorm-registry'
 import { notifyAdmin, notifyRunUpdate } from '@/infra/admin-alerts/notify'
@@ -154,6 +155,21 @@ export async function POST(req: Request) {
       target,
       riderCount,
       attemptsLeft: Math.max(0, MAX_PICKUP_ATTEMPTS - priorAttempts),
+    })
+  }
+
+  // ── Too big for one frame ───────────────────────────────────────────────
+  // Above the threshold a single photo cannot be counted by anything, because
+  // boxes hide behind boxes. Hand off to the pile-by-pile flow BEFORE spending
+  // an upload and a vision call on a photo we already know is unanswerable.
+  if (!riderAsserted && needsStackMode(riderCount)) {
+    return NextResponse.json({
+      ok: true,
+      outcome: 'needs_stacks',
+      accepted: false,
+      riderCount,
+      target,
+      maxPerStack: MAX_BOXES_PER_STACK,
     })
   }
 
