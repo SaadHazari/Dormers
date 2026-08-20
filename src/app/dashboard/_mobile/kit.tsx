@@ -113,9 +113,16 @@ export const actionCaption: CSSProperties = { marginTop: 7, fontSize: 11, fontWe
 
 // ── Components ───────────────────────────────────────────────────────────────
 
-/** The page column — single vertical flow, 14px rhythm, Montserrat. */
+/** The page column — single vertical flow, 14px rhythm, Montserrat.
+ *
+ *  Carries `owns-burger-row`: every page built on this column opens with a
+ *  paddingLeft:56 title row that sits BESIDE the fixed drawer burger, so it
+ *  does not want the shell's burger clearance pushing it down. The shell
+ *  reserves that clearance for everything else — see the burger contract in
+ *  dashboard/layout.tsx. Drop this class and the page simply starts below the
+ *  burger; it never renders underneath it. */
 export function MobileColumn({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, ...style }}>{children}</div>
+  return <div className="owns-burger-row" style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, ...style }}>{children}</div>
 }
 
 export type StatusTone = 'active' | 'paused' | 'scheduled' | 'off'

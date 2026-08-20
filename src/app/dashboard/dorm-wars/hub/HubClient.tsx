@@ -3813,6 +3813,16 @@ function HubStyles() {
           padding-left: 52px !important;
           min-height: 44px;
         }
+
+        /* NOTE the band this block does NOT cover. The shell shows the drawer
+           burger for every COMPACT viewport (see _shared/breakpoints.ts), but
+           this file is keyed at 768 — so from 769 to 1023 in portrait the hub
+           keeps its DESKTOP top row while the burger is still floating over
+           it, and the banner tray renders underneath the button. The rule
+           after this block reserves the burger's box for exactly that band.
+           (Moving this whole file onto the COMPACT contract would fix it at
+           the source, but that re-lays-out the hub on every portrait tablet —
+           a design decision, not this bug's business.) */
         /* Banner tray — sits AFTER TopChrome (order 0 vs -1) and compacts
            to a single tight line so it takes minimal vertical space. */
         .hub-banner-tray { order: 0 !important; }
@@ -3877,6 +3887,21 @@ function HubStyles() {
         .hub-streak-row > span:first-child { min-width: 28px !important; }
         .hub-streak-flames { gap: 4px !important; }
         .hub-streak-chest { width: 46px !important; height: 46px !important; }
+      }
+
+      /* Portrait tablets (769–1023, plus any portrait viewport above that):
+         COMPACT for the shell, so the drawer burger floats over this page, but
+         too wide for the phone block above — the hub keeps its desktop top row
+         and the banner tray lands under the button. Reserve the burger's box.
+         --burger-clear comes from THE BURGER CONTRACT in dashboard/layout.tsx
+         and already carries the notch inset, so this follows the button if the
+         button ever moves. Spelled out twice because COMPACT is a media-query
+         LIST, and a trailing "and" clause would bind to the last entry only
+         (see breakpoints.ts). NOTE: no backticks anywhere in this block — it
+         is a raw template literal. */
+      @media (min-width: 769px) and (max-width: 1023.98px),
+             (min-width: 769px) and (orientation: portrait) {
+        .hub-root { padding-top: var(--burger-clear) !important; }
       }
 
       /* Ultra-narrow phones (≤345px, e.g. iPhone SE 1st-gen): drop the wallet's

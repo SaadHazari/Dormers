@@ -135,8 +135,12 @@ export default function DashboardShell({
         data-open={mobileOpen}
         className="dash-mobile-menu"
         style={{
-          position: 'fixed', top: 16, left: 16, zIndex: 70,
-          width: 44, height: 44, display: 'none',
+          // Geometry comes from THE BURGER CONTRACT in dashboard/layout.tsx —
+          // the same variables the content-clearance rule reserves space with,
+          // so the button can never drift away from the space kept for it.
+          position: 'fixed',
+          top: 'var(--burger-top, 16px)', left: 'var(--burger-left, 16px)', zIndex: 70,
+          width: 'var(--burger-size, 44px)', height: 'var(--burger-size, 44px)', display: 'none',
           alignItems: 'center', justifyContent: 'center',
           borderRadius: 'var(--radius-md)',
           background: 'rgba(255,255,255,0.85)',

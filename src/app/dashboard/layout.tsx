@@ -135,7 +135,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         creditRows={creditRows}
       >
         {/* Main content area — sidebar (76px rail + 16px gap = 92px left), 16px breathing room top */}
-        <div className="dash-main-row" style={{ display: 'flex', paddingTop: 16 }}>
+        <div className="dash-main-row" style={{ display: 'flex', paddingTop: 'var(--dash-row-top)' }}>
           <main className="dash-content" style={{ flex: 1, marginLeft: 92, minWidth: 0, padding: '0 16px 16px 8px' }}>
             {/* Tinted container — the visual surface for all dashboard content.
                 Right padding accommodates the floating utility cluster (3 icons at top-right). */}
@@ -174,15 +174,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
            the canvas never falls back to navy. (See the matching body rule below.) */
         html.dash { background-color: #ffffff; }
 
+        /* ── THE BURGER CONTRACT — read this before adding a dashboard page ──
+           The drawer burger (DashboardShell) is position:fixed, so it occupies
+           NO space in the flow: nothing moves out from under it on its own.
+           Its box is declared here once, the button reads these variables for
+           its own top/left/size, and the clearance rule in the compact block
+           reserves exactly that box. Resize the burger here and both follow.
+           --dash-row-top mirrors .dash-main-row's inline padding-top (the
+           content box already starts that far down, so the clearance below
+           subtracts it). */
+        .dash-page {
+          --dash-row-top: 16px;
+          --burger-top: 16px;
+          --burger-left: 16px;
+          --burger-size: 44px;
+          /* First line of content that clears the burger, measured from the
+             top of .dash-content (8px of breathing room under the button). */
+          --burger-clear: calc(var(--burger-top) + var(--burger-size) + 8px - var(--dash-row-top));
+        }
+
         /* Compact shell: no rail, so no left margin. Keyed on the shared
            contract rather than a raw width — see _shared/breakpoints.ts for why
            1024 alone cannot tell a portrait iPad from a landscape one. */
         @media ${COMPACT} {
           .dash-content {
             margin-left: 0 !important;
-            /* Top inset clears the fixed hamburger (top:16 + 44h = 60) so page
-               content never renders under it — applies to every dashboard page. */
-            padding: 52px 8px 8px 8px !important;
+            /* Top inset clears the fixed burger so page content never renders
+               under it — see THE BURGER CONTRACT above. (The mobile-redesign
+               block further down re-declares this padding for its own rhythm
+               and re-applies the clearance as a default there.) */
+            padding: var(--burger-clear) 8px 8px 8px !important;
           }
           .content-border {
             border-radius: 16px !important;
@@ -239,6 +260,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
           body:has(.dash-page) { background: transparent !important; }
           html.dash body { background: transparent !important; }   /* stable twin — the one that stops the navy */
           .dash-content { padding: 14px 14px 28px 14px !important; }
+          /* ── Burger clearance: a DEFAULT, not an opt-in ────────────────────
+             The 14px above is the mobile tree's rhythm and it deliberately
+             starts content near the top: those pages open with a title row
+             indented past the burger (paddingLeft:56 — see _mobile/kit.tsx),
+             so they own that row and want no clearance. They say so with
+             .owns-burger-row. EVERY OTHER compact surface gets the clearance
+             here, without having to know the burger exists.
+             Written as an opt-OUT deliberately. It used to be an opt-in (the
+             52px inset above), the mobile block silently overrode it, and the
+             one compact surface still on the desktop tree — NoPlanView — spent
+             months rendering its "Welcome back" greeting underneath the burger
+             on every phone. A page that forgets to opt out now starts 38px
+             lower than ideal: visible, never broken.
+             Home and the Dorm Wars hub restate padding-top below; those rules
+             are equally specific and come later, so they win — correct, since
+             both own the burger row too. */
+          .dash-page:not(:has(.owns-burger-row)) .dash-content {
+            padding-top: var(--burger-clear) !important;
+          }
           .content-border {
             background: transparent !important;
             border: none !important;
@@ -266,9 +306,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           html.dash-dormwars .dash-content { padding: 0 !important; }
           html:has(.hub-root), html:has(.hub-loading),
           html.dash-dormwars { background-color: #091825 !important; }
-          .dash-page:has(.hub-root) .dash-mobile-menu,
-          .dash-page:has(.hub-loading) .dash-mobile-menu,
-          html.dash-dormwars .dash-mobile-menu { top: calc(16px + env(safe-area-inset-top)) !important; }
+          .dash-page:has(.hub-root),
+          .dash-page:has(.hub-loading),
+          html.dash-dormwars .dash-page {
+            --burger-top: calc(16px + env(safe-area-inset-top));
+            --dash-row-top: 0px;   /* the row padding is zeroed above — keep --burger-clear honest */
+          }
 
           /* ── Main dashboard (home) ONLY — convex orange "sun" canopy ─────────
              A brand-orange band across the top with a SHARP convex lower arc (the
@@ -338,8 +381,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           .dash-page:has(.home-mobile) .dash-content {
             padding-top: calc(14px + env(safe-area-inset-top)) !important;
           }
-          .dash-page:has(.home-mobile) .dash-mobile-menu {
-            top: calc(16px + env(safe-area-inset-top)) !important;
+          .dash-page:has(.home-mobile) {
+            --burger-top: calc(16px + env(safe-area-inset-top));
           }
         }
         /* NOTE: the canopy is no longer a pinned fixed layer (it was a parallax via

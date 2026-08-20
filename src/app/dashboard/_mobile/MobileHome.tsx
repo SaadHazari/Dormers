@@ -380,7 +380,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
   const heroLight = !!data.heroClosure
 
   return (
-    <div ref={homeRootRef} className={`mhome-root${sunDown ? ' mhome-sundown' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
+    <div ref={homeRootRef} className={`mhome-root owns-burger-row${sunDown ? ' mhome-sundown' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
 
       {/* ── Top greeting — sits in the hamburger row (left padding clears the
           burger; right padding is light since the bug icon is gone on mobile,
