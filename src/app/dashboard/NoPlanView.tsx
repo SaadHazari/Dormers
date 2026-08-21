@@ -15,6 +15,7 @@ import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/
 import { IntakePausedGate } from './_shared/IntakePausedGate'
 import type { Customer, Subscription, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
+import { COMPACT } from './_shared/breakpoints'
 
 interface Props {
   customer?: Customer | null
@@ -99,7 +100,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
       : { duration: 0.6, ease: EASE, delay }
 
   return (
-    <div className="noplan-root">
+    <div className={`noplan-root${isReturning ? ' owns-burger-row' : ''}`}>
       {/* ── Greeting ribbon — only renders for returning users, mirrors the
             ActiveDashboard pattern so the loyalty ledger stays visible at
             exactly the moment we're asking the user to come back. ── */}
@@ -110,12 +111,17 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           transition={t(0)}
           style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
-          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
-            Welcome back
-            {firstName && firstName !== userEmail.split('@')[0] && (
-              <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
-            )}
-            .
+          <div className="noplan-greet-line" style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
+            {/* ONE span, not loose text nodes: the line is a flex row on
+                phones (to centre it against the burger) and flex would treat
+                each node as its own item, dropping the space in "back, Amsaa". */}
+            <span>
+              Welcome back
+              {firstName && firstName !== userEmail.split('@')[0] && (
+                <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
+              )}
+              .
+            </span>
           </div>
           {totalDelivered >= 1 && (
             <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
@@ -380,6 +386,36 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           display: grid;
           grid-template-columns: repeat(auto-fill, 220px);
           gap: 10px;
+        }
+        /* ── The greeting sits IN the burger's row, not under it ────────────
+           Every mobile surface does this (see _mobile/kit.tsx): the drawer
+           burger is a fixed 44px square in the top-left, and the page's first
+           line runs alongside it rather than starting below it. This ribbon is
+           already --dash-gutter + --noplan-pad in from the viewport's left
+           edge, so it only has to make up the difference to --burger-right;
+           max() drops the indent to zero on wider compact viewports where the
+           page inset alone already clears the button. Only the NAME line is
+           indented: min-height makes that line as tall as the button, so the
+           equity line under it is already clear and can run the full width
+           (it is the long one — four segments — and would wrap badly inside
+           a 288px column).
+           Keyed on the shell's COMPACT contract, not a raw width — a portrait
+           tablet shows the burger too. The root carries .owns-burger-row while
+           this ribbon renders, which is what tells the shell not to reserve
+           the space a second time. */
+        @media ${COMPACT} {
+          /* Start the page level with the burger instead of 20px below it, so
+             the name line lands beside the button rather than under-and-right
+             of it. ClientDashboard reads this variable in the wrapper's inline
+             padding (an inline style cannot be overridden by a rule, but the
+             variable it resolves against can be). */
+          :global(.noplan-page) { --noplan-pad-top: 0px; }
+          .noplan-greet-line {
+            padding-left: max(0px, calc(var(--burger-right, 0px) - var(--dash-gutter, 0px) - var(--noplan-pad, 0px)));
+            min-height: var(--burger-size, 0px);
+            display: flex;
+            align-items: center;
+          }
         }
         @media (max-width: 768px) {
           .noplan-grid {

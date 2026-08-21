@@ -191,6 +191,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           /* First line of content that clears the burger, measured from the
              top of .dash-content (8px of breathing room under the button). */
           --burger-clear: calc(var(--burger-top) + var(--burger-size) + 8px - var(--dash-row-top));
+          /* Where the button's box ends horizontally, measured from the
+             VIEWPORT's left edge. A page that puts its own header in the
+             burger's row indents to this, minus however far in from the
+             viewport that header already sits. */
+          --burger-right: calc(var(--burger-left) + var(--burger-size) + 8px);
+          /* .dash-content's horizontal gutter, published so a page can work
+             out its own distance from the viewport edge. Restated wherever
+             the padding below is restated — never edit one without the other. */
+          --dash-gutter: 8px;
         }
 
         /* Compact shell: no rail, so no left margin. Keyed on the shared
@@ -203,7 +212,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                under it — see THE BURGER CONTRACT above. (The mobile-redesign
                block further down re-declares this padding for its own rhythm
                and re-applies the clearance as a default there.) */
-            padding: var(--burger-clear) 8px 8px 8px !important;
+            padding: var(--burger-clear) var(--dash-gutter) 8px var(--dash-gutter) !important;
           }
           .content-border {
             border-radius: 16px !important;
@@ -219,7 +228,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         @media ${ROOMY} {
           /* .dash-page prefix raises specificity so this beats the compact
              block's 14px phone gutters no matter which comes later. */
-          .dash-page .dash-content { padding: 20px 28px 32px 28px !important; }
+          .dash-page .dash-content {
+            --dash-gutter: 28px;
+            padding: 20px var(--dash-gutter) 32px var(--dash-gutter) !important;
+          }
         }
         /* Mobile redesign page treatment — warm grayish-beige page with a faint
            orange breath, and the cream orange-bordered content-frame removed so
@@ -259,7 +271,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
              html rule above; body's fill is redundant here). */
           body:has(.dash-page) { background: transparent !important; }
           html.dash body { background: transparent !important; }   /* stable twin — the one that stops the navy */
-          .dash-content { padding: 14px 14px 28px 14px !important; }
+          .dash-content {
+            --dash-gutter: 14px;
+            padding: 14px var(--dash-gutter) 28px var(--dash-gutter) !important;
+          }
           /* ── Burger clearance: a DEFAULT, not an opt-in ────────────────────
              The 14px above is the mobile tree's rhythm and it deliberately
              starts content near the top: those pages open with a title row

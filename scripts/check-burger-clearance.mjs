@@ -150,14 +150,29 @@ const page = await browser.newPage()
 try {
   // One session for the whole sweep; the viewport changes under it.
   await page.setViewport({ ...VIEWPORTS[0], deviceScaleFactor: 2, isMobile: true, hasTouch: true })
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
-  await page.waitForSelector('input[type="email"]', { timeout: 60_000 })
-  await page.type('input[type="email"]', emailFor(SLUG))
-  await page.type('input[type="password"]', PASSWORD)
-  // Submit from the keyboard, not a click: in `npm run dev` the Next.js error
-  // overlay renders a portal that can swallow pointer events on the button.
-  await page.keyboard.press('Enter')
-  await page.waitForFunction(() => location.pathname.startsWith('/dashboard'), { timeout: 120_000 })
+  // Two attempts: pressing Enter before the form has hydrated submits it as a
+  // plain GET and lands back on /login with the credentials in the query
+  // string. Keyboard rather than click because in `npm run dev` the Next.js
+  // error overlay renders a portal that can swallow pointer events.
+  let signedIn = false
+  for (let attempt = 1; attempt <= 2 && !signedIn; attempt++) {
+    await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+    await page.waitForSelector('input[type="email"]', { timeout: 60_000 })
+    await new Promise(r => setTimeout(r, attempt * 2000))   // let the form hydrate
+    await page.type('input[type="email"]', emailFor(SLUG))
+    await page.type('input[type="password"]', PASSWORD)
+    await page.keyboard.press('Enter')
+    try {
+      await page.waitForFunction(() => location.pathname.startsWith('/dashboard'), { timeout: 45_000 })
+      signedIn = true
+    } catch {
+      console.log(`  … sign-in attempt ${attempt} did not land on the dashboard, retrying`)
+    }
+  }
+  if (!signedIn) {
+    console.error(`✗ Could not sign in as ${emailFor(SLUG)}. Check QA_PASSWORD / the fixture accounts.`)
+    process.exit(1)
+  }
   console.log(`• Signed in as ${emailFor(SLUG)}`)
 
   for (const vp of VIEWPORTS) {

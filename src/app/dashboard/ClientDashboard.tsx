@@ -357,7 +357,18 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // — the effect above strips the param.
   if (!activeSubscription) {
     return (
-      <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: BODY, color: S.fg }}>
+      <div className="noplan-page" style={{
+        // The page's own inset, published as a variable so NoPlanView's
+        // greeting can work out how far it already sits from the viewport
+        // edge and indent the rest of the way past the fixed drawer burger.
+        // The top is split out because NoPlanView zeroes it on phones, where
+        // the greeting rides the burger's row and has to start level with the
+        // button rather than 20px under it. See THE BURGER CONTRACT in
+        // dashboard/layout.tsx.
+        '--noplan-pad': 'clamp(20px, 3vw, 40px)',
+        padding: 'var(--noplan-pad-top, var(--noplan-pad)) var(--noplan-pad) var(--noplan-pad)',
+        fontFamily: BODY, color: S.fg,
+      } as React.CSSProperties}>
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
           {/* Phase 7: trial-gift banner removed. Welcome meals are real
               subscriptions now — they hit ActiveDashboard, not this branch. */}
