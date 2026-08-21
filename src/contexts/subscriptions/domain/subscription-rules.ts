@@ -23,7 +23,7 @@
  */
 
 import type { Subscription } from './subscriptions'
-import { resolvePlan } from './plans'
+import { resolvePlan, noPauseNote } from './plans'
 import { SUBSCRIPTION_STATUS } from './subscription-status'
 
 export type RuleResult = { ok: true } | { ok: false; error: string }
@@ -52,7 +52,7 @@ export function canPause(sub: Subscription, today: string): RuleResult {
   if (sub.status === SUBSCRIPTION_STATUS.PAUSED) return fail('Subscription is already paused.')
   if (sub.status === SUBSCRIPTION_STATUS.ENDED) return fail('Cannot pause an ended subscription.')
   if (!resolvePlan(sub.plan_name)?.canPause) {
-    return fail('Only Monthly Premium and Monthly Max plans can be paused.')
+    return fail(noPauseNote(sub.plan_name)?.sentence ?? 'Pausing isn’t part of this plan.')
   }
   // has_paused_before WITH planned_pause_start = credit consumed by a queued
   // pause that hasn't activated; an immediate pause overrides the plan. Without
@@ -76,7 +76,7 @@ export function canPlanPause(sub: Subscription): RuleResult {
     return fail('Pauses can only be scheduled on an active subscription.')
   }
   if (!resolvePlan(sub.plan_name)?.canPause) {
-    return fail('Only Monthly Premium and Monthly Max plans can be paused.')
+    return fail(noPauseNote(sub.plan_name)?.sentence ?? 'Pausing isn’t part of this plan.')
   }
   if (sub.planned_pause_start) {
     return fail('You already have a pause scheduled. Cancel it first to pick a different date.')

@@ -31,6 +31,7 @@ export function QuickActions({
     pausePastFinalDay,
     resumeLockedSameDay,
     isPausableTier,
+    pauseNote,
     isTrialPlan,
     plannedPauseDate = null,
     pauseCreditUsed = false,
@@ -84,6 +85,10 @@ export function QuickActions({
     // False for Weekly Flex and Trial. When false the pause button is still
     // rendered but disabled with an upsell chip rather than hidden entirely.
     isPausableTier: boolean
+    // The plan's own reason pause is off, from the domain (plans.ts noPause).
+    // Absent on a pausable plan. Never write an upsell here: an intern on
+    // Staff Monthly has nothing to upgrade to.
+    pauseNote?: { chip: string; sentence: string } | null
     // True for One-Time / Trial plans. Surfaces an upsell tooltip on the
     // disabled skip button instead of silently showing "No skips".
     isTrialPlan: boolean
@@ -389,7 +394,8 @@ export function QuickActions({
                     // resumeLockedSameDay only locks Resume (not Pause) — the kitchen
                     // needs one committed no-prep window before the customer flips back.
                     const resumeLockedToday = !!resumeLockedSameDay && isPaused
-                    // Non-pausable tier (weekly / trial): always disabled, show upsell.
+                    // Non-pausable plan: always disabled, and it says which plan
+                    // fact put it there — not one shared "go monthly" line.
                     const pauseIsUpsell = !isPausableTier && !isPaused && !hasPlannedPause
                     // Planned-pause state always remains tappable (it opens the
                     // cancel-confirm modal). Only disabled while a transition
@@ -400,7 +406,7 @@ export function QuickActions({
                     const pauseTooltip = hasPlannedPause
                         ? 'Tap to cancel your scheduled pause.'
                         : pauseIsUpsell
-                            ? 'Upgrade to a monthly plan to unlock pausing.'
+                            ? (pauseNote?.sentence ?? 'Pausing isn’t part of this plan.')
                             : lockedOut
                                 ? disabledReason
                                 : resumeLockedToday
@@ -563,7 +569,7 @@ export function QuickActions({
                                     color: 'inherit',
                                     whiteSpace: 'nowrap',
                                 }}>
-                                    Monthly only
+                                    {pauseNote?.chip ?? 'Not included'}
                                 </span>
                             )}
                         </button>

@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { canPause, canPlanPause, canSkip, canResume, skipCapFor } from './subscription-rules'
+import { PLANS, noPauseNote } from './plans'
 import type { Subscription } from './subscriptions'
 
 function fakeSub(overrides: Partial<Subscription> = {}): Subscription {
@@ -55,9 +56,12 @@ describe('canPause', () => {
       .toEqual({ ok: false, error: 'Cannot pause an ended subscription.' })
   })
 
-  it('rejects plans that cannot pause (e.g. Weekly Flex)', () => {
+  it('rejects plans that cannot pause, in that plan\u2019s own words', () => {
     expect(canPause(fakeSub({ plan_name: 'Weekly Flex' }), '2026-06-01'))
-      .toEqual({ ok: false, error: 'Only Monthly Premium and Monthly Max plans can be paused.' })
+      .toEqual({ ok: false, error: 'Pausing comes with Monthly Premium and Monthly Max.' })
+    // An intern has nothing to upgrade to, so they must never be sold to.
+    expect(canPause(fakeSub({ plan_name: 'Staff Monthly' }), '2026-06-01'))
+      .toEqual({ ok: false, error: 'Your plan runs with your work month, so it can\u2019t be paused.' })
   })
 
   it('rejects when pause credit is already spent (paused-and-resumed earlier this cycle)', () => {
@@ -192,6 +196,70 @@ describe('one source of truth for plan capability', () => {
       // A plan-name match deciding a capability is how the two drift apart.
       expect(src, `${file} name-matches a plan to decide pause — read canPause`)
         .not.toMatch(/includes\('Monthly (Max|Premium)'\)/)
+    }
+  })
+})
+
+/**
+ * A disabled control must say why it is disabled, in terms that make sense to
+ * the person looking at it. These make that structural: a new plan that turns
+ * pause off cannot ship without writing its own reason.
+ */
+describe('every disabled pause explains itself', () => {
+  const nonPausable = Object.values(PLANS).filter(p => !p.canPause)
+
+  it('covers more than one plan, so the sweep below is meaningful', () => {
+    expect(nonPausable.length).toBeGreaterThan(1)
+  })
+
+  it.each(nonPausable.map(p => [p.label, p] as const))('%s carries a chip and a sentence', (_label, plan) => {
+    const note = plan.noPause
+    if (!note) throw new Error(`${plan.label} disables pause without saying why`)
+    expect(note.chip.length).toBeGreaterThan(0)
+    // Short enough for the uppercase pill on the disabled Pause row.
+    expect(note.chip.length).toBeLessThanOrEqual(14)
+    expect(note.sentence).toMatch(/[.!]$/)
+  })
+
+  it('never tells a staff intern to upgrade', () => {
+    // The whole point: Staff Monthly IS monthly, and an intern is not a buyer.
+    const staff = noPauseNote('Staff Monthly')
+    if (!staff) throw new Error('Staff Monthly disables pause without saying why')
+    expect(staff.sentence.toLowerCase()).not.toMatch(/upgrade|monthly plan/)
+    expect(staff.chip.toLowerCase()).not.toMatch(/monthly/)
+  })
+
+  it('returns null for a plan that can pause, and for an unknown plan', () => {
+    expect(noPauseNote('Monthly Premium')).toBeNull()
+    expect(noPauseNote('Some Plan That Does Not Exist')).toBeNull()
+  })
+
+  it('no dashboard surface hardcodes a pause reason or renders a bare dash', async () => {
+    const { readFileSync } = await import('node:fs')
+    for (const file of [
+      'src/app/dashboard/QuickActions.tsx',
+      'src/app/dashboard/ActiveDashboard.tsx',
+      'src/app/dashboard/plan/PlanClient.tsx',
+      'src/app/dashboard/_mobile/MobilePlan.tsx',
+    ]) {
+      const src = readFileSync(file, 'utf8')
+      // Scoped to PAUSE copy only. The trial SKIP tooltip still says "upgrade
+      // to a monthly plan", and there it is true and useful — a trial buyer
+      // really can upgrade. The staff case is what this guards: a plan whose
+      // pause is off for a reason no purchase can change.
+      expect(src, `${file} hardcodes a pause upsell — read noPauseNote(planName)`)
+        .not.toMatch(/unlock pausing/i)
+      expect(src, `${file} still says "Available on monthly plans"`)
+        .not.toMatch(/Available on monthly plans/)
+      expect(src, `${file} hardcodes the "Monthly only" pause chip`)
+        .not.toMatch(/^\s*Monthly only$/m)
+    }
+    // The pause stat cell must carry words, not a dash.
+    for (const file of ['src/app/dashboard/plan/PlanClient.tsx', 'src/app/dashboard/_mobile/MobilePlan.tsx']) {
+      const src = readFileSync(file, 'utf8')
+      expect(src, `${file} renders '—' for an unavailable pause`)
+        .not.toMatch(/supportsPause\s*(\?|\n\s*\?)\s*'—'/)
+      expect(src).toMatch(/'Not included'/)
     }
   })
 })

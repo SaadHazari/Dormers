@@ -190,7 +190,8 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
   const skipAllowance = skipCapFor(sub)
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
-  const pauseStatus = !supportsPause ? '—' : isPaused ? 'In use' : sub.has_paused_before ? 'Used' : 'Available'
+  // 'Not included', never '—' — see the same change in PlanClient.
+  const pauseStatus = !supportsPause ? 'Not included' : isPaused ? 'In use' : sub.has_paused_before ? 'Used' : 'Available'
   const plannedPauseStart = sub.planned_pause_start ?? null
   const hasPlannedPause = !!plannedPauseStart && !isPaused
   const todayAEIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)

@@ -301,8 +301,10 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
   const skipAllowance = skipCapFor(sub)
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
+  // Not '—'. A dash in the one cell that answers "can I pause?" is the same
+  // silence as a disabled button with no reason; the row below carries the why.
   const pauseStatus = !supportsPause
-    ? '—'
+    ? 'Not included'
     : isPaused
       ? 'In use'
       : sub.has_paused_before

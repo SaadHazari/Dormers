@@ -39,6 +39,20 @@ export type PlanDefinition = {
   durationDays: number
   mealsPerDay: number
   canPause: boolean
+  /**
+   * Why pause is off, in THIS plan's terms. Required whenever canPause is
+   * false (locked by a test in subscription-rules.test.ts) — a plan that
+   * disables a control without explaining it ships a dead button.
+   *
+   * `chip` is the small uppercase pill on the disabled Pause row; `sentence`
+   * is the full reason, used for the tooltip, the mobile caption, and the
+   * server's rejection message. Both are user-facing copy.
+   *
+   * These are deliberately NOT one shared "upgrade to monthly" line. An
+   * intern on Staff Monthly has nothing to upgrade to, and telling them to
+   * buy a monthly plan reads as software that doesn't know who they are.
+   */
+  noPause?: { chip: string; sentence: string }
   maxSkips: number
   /**
    * Minimum valid checkout amount in fils (AED × 100). Used as the lower
@@ -79,6 +93,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     durationDays: 7,
     mealsPerDay: 1,
     canPause: false,
+    noPause: {
+      chip: 'Monthly only',
+      sentence: 'Pausing comes with Monthly Premium and Monthly Max.',
+    },
     maxSkips: 1,
     minPriceFils: 19 * 6 * 100, // 11,400 fils — AED 114
   },
@@ -92,6 +110,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     durationDays: 1,
     mealsPerDay: 1,
     canPause: false,
+    noPause: {
+      chip: 'Single meal',
+      sentence: 'A one-time trial is a single delivery, so there’s nothing to pause.',
+    },
     maxSkips: 0,
     minPriceFils: 20 * 1 * 100, // 2,000 fils — AED 20
   },
@@ -112,6 +134,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     durationDays: 1,
     mealsPerDay: 1,
     canPause: false,
+    noPause: {
+      chip: 'Single meal',
+      sentence: 'Your welcome meal is a single delivery, so there’s nothing to pause.',
+    },
     maxSkips: 0,
     minPriceFils: 0, // Not buyable through checkout; never reaches the floor check.
   },
@@ -129,9 +155,33 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     durationDays: 28,
     mealsPerDay: 1,
     canPause: false,
+    noPause: {
+      // "Staff plan" only restated what the plan card already says. A chip on
+      // a disabled row has one job: name the consequence. This also matches
+      // the Pause cell on /dashboard/plan word for word.
+      chip: 'Not included',
+      sentence: 'Your plan runs with your work month, so it can’t be paused.',
+    },
     maxSkips: 3,
     minPriceFils: 0, // floor/ceiling handled by the staff gate, not the band
   },
+}
+
+/**
+ * The reason pause is unavailable on this plan, or null when the plan can
+ * pause (and when the name resolves to nothing — an unknown plan gets the
+ * generic disabled treatment rather than an invented excuse).
+ *
+ * Every surface that greys out a pause control reads this. Before it existed
+ * there were four hand-written variants of the same sentence, all of them
+ * some form of "upgrade to a monthly plan" — which is the wrong thing to say
+ * to an intern whose plan is already called Staff Monthly and who has nothing
+ * to upgrade to.
+ */
+export function noPauseNote(planName: string): { chip: string; sentence: string } | null {
+  const plan = resolvePlan(planName)
+  if (!plan || plan.canPause) return null
+  return plan.noPause ?? null
 }
 
 // Most-specific labels checked first so "Monthly Max" doesn't get shadowed

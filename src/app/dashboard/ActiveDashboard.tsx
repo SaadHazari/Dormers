@@ -19,7 +19,7 @@ import { OutOfZoneBanner } from './_shared/OutOfZoneBanner'
 import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
+import { resolvePlan, noPauseNote } from '@/contexts/subscriptions/domain/plans'
 import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
@@ -488,6 +488,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // the seventh would have inherited a pause button that did nothing, exactly
   // how Staff Monthly inherited a dead skip button.
   const isPausableTier = resolvePlan(sub.plan_name)?.canPause ?? false
+  // Null whenever the plan CAN pause. Read once here and handed to every
+  // surface that greys the control, so the chip, the tooltip and the mobile
+  // caption cannot word the same fact three different ways.
+  const pauseNote = noPauseNote(sub.plan_name)
   const isScheduled    = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > Date.now()
   // No `!isWeekly && !isOneTime` here any more: both have canPause: false in
   // the domain, so isPausableTier already excludes them. Restating policy the
@@ -1105,6 +1109,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     : mSkipsTotal === 0      ? { disabled: true, caption: 'Skips aren’t part of this plan' }
     : mSkipsLeft === 0       ? { disabled: true, caption: 'No skips left this cycle' }
     : { disabled: false, caption: `${mSkipsLeft} of ${mSkipsTotal} skips left this cycle` }
+  // Captions on the mobile home are complete thoughts with no full stop —
+  // all seventeen of them, skip and pause alike. `sentence` keeps its period
+  // because it also serves the desktop tooltip and the server's rejection
+  // message, where the convention is the opposite. Strip it here rather than
+  // storing two near-identical strings that could drift apart.
+  const asCaption = (sentence: string) => sentence.replace(/\.$/, '')
+
   const mPause: MobileHomeData['pause'] =
     localState === 'paused'
       ? { mode: 'resume', label: 'Resume plan', caption: resumeLockedSameDay ? 'You can resume from tomorrow' : null, disabled: resumeLockedSameDay }
@@ -1118,7 +1129,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       // fall through to the specific disabled branches below for the real reason.
       ? { mode: 'pause', label: 'Plan a pause', caption: 'Skipped tonight — pick a future day', disabled: false }
     : !isPausableTier
-      ? { mode: 'disabled', label: 'Pause', caption: 'Available on monthly plans', disabled: true }
+      // The plan's own words. The old shared line pointed everyone at the
+      // monthly plans: true for a Weekly Flex buyer, nonsense for an intern
+      // whose plan is already monthly and who cannot buy their way out of it.
+      // (Kept clear of the literal old copy so the guard test can grep for it.)
+      ? { mode: 'disabled', label: 'Pause', caption: pauseNote ? asCaption(pauseNote.sentence) : 'Pausing isn’t part of this plan', disabled: true }
     : pauseCreditUsed
       ? { mode: 'disabled', label: 'Pause', caption: 'Used this cycle · resets next cycle', disabled: true }
     : isScheduled
@@ -1708,6 +1723,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             pausePastFinalDay={!isScheduled && pausePastFinalDay}
             resumeLockedSameDay={resumeLockedSameDay}
             isPausableTier={isPausableTier}
+            pauseNote={pauseNote}
             isTrialPlan={isOneTime}
             plannedPauseDate={sub.planned_pause_start ?? null}
             pauseCreditUsed={pauseCreditUsed}
