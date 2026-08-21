@@ -322,6 +322,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
         creditAed={intakePause.creditAed}
         onDismiss={dismissPausingTakeover}
         alreadyJoined={intakePause.alreadyJoined}
+        firstName={intakePause.firstName}
         lastDeliveryDay={activeSubscription?.end_date ? String(activeSubscription.end_date).slice(0, 10) : null}
       />
     )

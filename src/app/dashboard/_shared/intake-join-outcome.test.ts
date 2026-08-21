@@ -18,7 +18,7 @@ import { describe, it, expect, vi } from 'vitest'
 // join-intake-waitlist.test.ts.
 vi.mock('server-only', () => ({}))
 
-import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, creditMechanicsLine } from './intake-join-outcome'
+import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, creditMechanicsLine, firstNameFrom } from './intake-join-outcome'
 import type { JoinWaitlistResult } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '@/contexts/subscriptions/domain/credit-eligibility'
 
@@ -99,5 +99,30 @@ describe('intakeNextSteps', () => {
   it('creditMechanicsLine is null at zero so the takeover renders nothing extra', () => {
     expect(creditMechanicsLine(0)).toBeNull()
     expect(creditMechanicsLine(20)).toBe('Your AED 20 will be used on your next Monthly plan automatically.')
+  })
+})
+
+describe('firstNameFrom', () => {
+  it('takes the first word of a full name', () => {
+    expect(firstNameFrom('Saad Hazari')).toBe('Saad')
+  })
+
+  it('trims surrounding whitespace before splitting, matching the broadcast SQL', () => {
+    expect(firstNameFrom('   Aisha   Khan  ')).toBe('Aisha')
+  })
+
+  it('collapses runs of whitespace rather than returning an empty first word', () => {
+    expect(firstNameFrom('  \n Omar\tAl Mansoori')).toBe('Omar')
+  })
+
+  it('returns a single-word name unchanged', () => {
+    expect(firstNameFrom('Priya')).toBe('Priya')
+  })
+
+  it('returns empty string for null, undefined and blank — the card renders its own fallback, never the word "there"', () => {
+    expect(firstNameFrom(null)).toBe('')
+    expect(firstNameFrom(undefined)).toBe('')
+    expect(firstNameFrom('')).toBe('')
+    expect(firstNameFrom('    ')).toBe('')
   })
 })

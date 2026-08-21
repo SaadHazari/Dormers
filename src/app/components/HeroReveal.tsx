@@ -59,6 +59,7 @@ const DORM_D   = DISH_D  + 0.55;  // 10.90 (was 11.85)
 // in HeroChecklist.tsx now — it's only used there.
 
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
+import { SIGNUP_HREF } from '@/shared/auth-routes';
 
 export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
   const router = useRouter();
@@ -206,7 +207,7 @@ export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => navTo("/maintenance")}
+                    onClick={() => navTo(SIGNUP_HREF)}
                     disabled={isNavPending}
                     style={{ opacity: isNavPending ? 0.8 : undefined }}
                   >
@@ -228,7 +229,7 @@ export default function HeroReveal({ menuData }: { menuData?: Dish[] }) {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={st({ delay: CTA_D, duration: 0.48, ease: E })}
-                    onClick={() => navTo("/maintenance")}
+                    onClick={() => navTo(SIGNUP_HREF)}
                     disabled={isNavPending}
                     style={{ opacity: isNavPending ? 0.6 : undefined }}
                   >

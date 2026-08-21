@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import PlanClient from './PlanClient'
 import type { CreditByPlan } from '../_shared/types'
+import { firstNameFrom } from '../_shared/intake-join-outcome'
 
 // Skip the Router Cache so the redeemable-credit prop reflects the latest
 // state after checkout completes (credit rows flip from approved → applied
@@ -95,6 +96,7 @@ export default async function PlanPage({
     headline: intakeState.headline,
     body: intakeState.body,
     creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+    firstName: firstNameFrom(customer?.name),
     alreadyJoined: waitlistStatus.joined,
     waitlistCreditAed: waitlistStatus.unspentCreditAed,
     cycleStartedAt: intakeState.cycleStartedAt,

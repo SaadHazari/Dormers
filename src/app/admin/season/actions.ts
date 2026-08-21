@@ -233,3 +233,42 @@ export async function updateIntakeCredits(
     revalidatePath('/admin/season')
     return { ok: true }
 }
+
+/**
+ * Set (or clear) the saved-spot target the owner is waiting for before
+ * restarting the kitchen.
+ *
+ * Informational only. Nothing in the product reads this to make a decision and
+ * hitting the number does NOT reopen intake — reopening stays the deliberate
+ * human action it has always been. The target exists so the Season page can
+ * show progress toward a restart instead of a bare count.
+ *
+ * `null` clears it, which is a real state rather than a zero: the page falls
+ * back to the plain count, and the owner is never measured against a number
+ * they did not choose. The upper bound mirrors the DB check constraint so a
+ * fat-fingered 1500 is refused with a sentence instead of a Postgres error.
+ */
+export async function setReopenTarget(target: number | null): Promise<{ ok: true } | { error: string }> {
+    const user = await requireAdmin()
+
+    if (target !== null) {
+        if (!Number.isInteger(target) || target < 1 || target > 1000) {
+            return { error: 'The target must be a whole number between 1 and 1000.' }
+        }
+    }
+
+    const sb = createAdminSupabaseClient()
+    const { error } = await sb
+        .from('intake_settings')
+        .update({ reopen_target: target, updated_at: new Date().toISOString() })
+        .eq('id', SETTINGS_ID)
+
+    if (error) return { error: error.message }
+
+    await logAdminAction(user.email, 'intake_reopen_target_set', 'intake_settings', 'singleton', {
+        reopen_target: target,
+    })
+
+    revalidatePath('/admin/season')
+    return { ok: true }
+}

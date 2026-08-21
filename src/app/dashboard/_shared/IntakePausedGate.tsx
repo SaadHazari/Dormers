@@ -8,10 +8,14 @@ import { Gift, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
+import { FoundingMemberArrival } from './FoundingMemberArrival'
 
 interface IntakePausedGateProps {
   headline: string
   body: string
+  /** Customer's first name (IntakeGateState.firstName) for the arrival place
+   *  card. Empty string is fine — the card renders a neutral fallback. */
+  firstName?: string
   /** Prospective per-preference amount from the CURRENT intake_settings row.
    *  Correct ONLY for the pre-tap offer below — nothing has been minted yet,
    *  so this is a promise, not a balance. Never used once `joined` is true. */
@@ -37,8 +41,13 @@ interface IntakePausedGateProps {
  * you." No queue position or count is ever shown either: a low number reads
  * as unwanted, a high one as hopeless.
  */
-export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, waitlistCreditAed }: IntakePausedGateProps) {
+export function IntakePausedGate({ headline, body, firstName = '', creditAed, alreadyJoined, waitlistCreditAed }: IntakePausedGateProps) {
   const [joined, setJoined] = useState(alreadyJoined)
+  // The arrival moment fires ONLY on a fresh tap in this session, never for a
+  // customer who was already joined at mount — that person gets the confirmed
+  // card below, which is the correct returning state. See
+  // FoundingMemberArrival's docblock for why the moment is not persisted.
+  const [showArrival, setShowArrival] = useState(false)
   // The number shown once joined is always an ACTUAL minted amount, never
   // the prospective `creditAed` prop — starts from the server-computed
   // ledger value (waitlistCreditAed) for a customer who was already on the
@@ -62,6 +71,7 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
         setJoined(true)
         setConfirmedCreditAed(outcome.creditAed ?? 0)
         setConfirmedMessage(outcome.message)
+        setShowArrival(true)
         // The Credit Wallet is server-rendered in dashboard/layout.tsx — without
         // this refresh a customer who just joined sees no wallet in the sidebar
         // until their next navigation.
@@ -86,6 +96,15 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
       : { opacity: 0, y: 8 }
 
   return (
+    <>
+    {showArrival && (
+      <FoundingMemberArrival
+        firstName={firstName}
+        creditAed={confirmedCreditAed}
+        message={confirmedMessage}
+        onClose={() => setShowArrival(false)}
+      />
+    )}
     <div style={{
       position: 'absolute', inset: -8, zIndex: 5,
       borderRadius: 20,
@@ -217,5 +236,6 @@ export function IntakePausedGate({ headline, body, creditAed, alreadyJoined, wai
         </div>
       </motion.div>
     </div>
+    </>
   )
 }

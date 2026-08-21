@@ -7,6 +7,7 @@ import { OG, OG_DEEP, NV, BODY, S, TIER1 } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
 import { planEndingHeadline, saveSpotButtonLabel } from './plan-ending-copy'
+import { FoundingMemberArrival } from './FoundingMemberArrival'
 
 interface PlanEndingPausedBannerProps {
   daysRemaining: number
@@ -20,6 +21,9 @@ interface PlanEndingPausedBannerProps {
    *  already-joined confirmed state. Can differ from `creditAed` if an
    *  admin changed the credit amounts after this customer joined. */
   waitlistCreditAed: number
+  /** Customer's first name (IntakeGateState.firstName) for the arrival place
+   *  card. Empty string is fine — the card renders a neutral fallback. */
+  firstName?: string
   /** Mobile home mounts this inside the orange sun canopy, where the default
    *  translucent-orange-wash shell disappears into the ground (every layer of
    *  it is a low-alpha orange designed for cream). `onSun` swaps the SHELL
@@ -54,7 +58,7 @@ interface PlanEndingPausedBannerProps {
  * is a defensive belt-and-suspenders check on daysRemaining alone, since the
  * copy is written specifically for that window.
  */
-export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined, waitlistCreditAed, onSun = false }: PlanEndingPausedBannerProps): ReactElement | null {
+export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined, waitlistCreditAed, firstName = '', onSun = false }: PlanEndingPausedBannerProps): ReactElement | null {
   const [joined, setJoined] = useState(alreadyJoined)
   // Always the ACTUAL minted amount once joined — never the prospective
   // `creditAed` prop. Starts from the server-computed ledger value for a
@@ -75,6 +79,9 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   // not be born hidden. (alreadyJoined=false at mount means any joined
   // render this component ever shows came from a fresh tap.)
   const [expanded, setExpanded] = useState(!alreadyJoined)
+  // Fires only on a fresh tap in this session — a returning joined customer
+  // gets the collapsed banner above, never a re-celebration.
+  const [showArrival, setShowArrival] = useState(false)
 
   const handleJoin = () => {
     setJoinError(null)
@@ -85,6 +92,7 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
         setJoined(true)
         setConfirmedCreditAed(outcome.creditAed ?? 0)
         setConfirmedMessage(outcome.message)
+        setShowArrival(true)
       } else {
         // Silence is never acceptable on the most important tap in this
         // flow — surface the real reason and leave the button enabled so
@@ -99,6 +107,15 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   const headline = planEndingHeadline(daysRemaining)
 
   return (
+    <>
+    {showArrival && (
+      <FoundingMemberArrival
+        firstName={firstName}
+        creditAed={confirmedCreditAed}
+        message={confirmedMessage}
+        onClose={() => setShowArrival(false)}
+      />
+    )}
     <div onClick={joined ? () => setExpanded(v => !v) : undefined} style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap',
       cursor: joined ? 'pointer' : undefined,
@@ -273,5 +290,6 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
         </div>
       )}
     </div>
+    </>
   )
 }

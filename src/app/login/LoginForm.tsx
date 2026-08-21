@@ -23,13 +23,16 @@ interface Props {
     prefillEmail?: string
     /** ?step=set-password — present when the user lands here from the magic
         link in their reset-password email. Routes them straight to the
-        set-new-password phase of the forgot flow. */
+        set-new-password phase of the forgot flow.
+        ?step=signup — the marketing site's acquisition CTAs (SIGNUP_HREF in
+        shared/auth-routes.ts). A "Get Started" button that lands on a Sign In
+        form is a conversion leak, so those links open the Sign Up tab. */
     step?: string
 }
 
 export default function LoginForm({ error, message, nextUrl, prefillEmail, step }: Props) {
     const router = useRouter()
-    const initialTab: Tab = step === 'set-password' ? 'forgot' : 'signin'
+    const initialTab: Tab = step === 'set-password' ? 'forgot' : step === 'signup' ? 'signup' : 'signin'
     const [tab, setTab] = useState<Tab>(initialTab)
     const [showPassword, setShowPassword] = useState(false)
     const { capsOn, onKeyDown: capsKeyDown, onKeyUp: capsKeyUp } = useCapsLock()

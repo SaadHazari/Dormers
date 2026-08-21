@@ -8,6 +8,7 @@ import { OG, BODY, TIER_POP_TEXT } from './tokens'
 import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
 import { deriveJoinOutcome, creditMechanicsLine, type JoinOutcome } from './intake-join-outcome'
 import { pauseTakeoverCta, pausingTakeoverCopy } from './pause-takeover-actions'
+import { FoundingMemberArrival } from './FoundingMemberArrival'
 
 interface Props {
     variant: 'pausing' | 'reopened'
@@ -23,6 +24,9 @@ interface Props {
     onLater?: () => void
     /** True when this customer already saved a spot in the CURRENT pause. */
     alreadyJoined?: boolean
+    /** Customer's first name (IntakeGateState.firstName) for the arrival place
+     *  card. Empty string is fine — the card renders a neutral fallback. */
+    firstName?: string
     /** Pausing only: this customer's own subscription end date (YYYY-MM-DD),
      *  so the body can say exactly how far their paid deliveries run. See
      *  pausingTakeoverCopy — null drops the clause, never invents a date. */
@@ -58,13 +62,16 @@ interface Props {
  * This component only renders the two messages; it holds no persistence
  * logic of its own.
  */
-export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, alreadyJoined, lastDeliveryDay }: Props) {
+export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, alreadyJoined, firstName = '', lastDeliveryDay }: Props) {
     const [dismissing, setDismissing] = useState(false)
     const prefersReducedMotion = useReducedMotion()
     const router = useRouter()
 
     const [outcome, setOutcome] = useState<JoinOutcome | null>(null)
     const [joining, startJoin] = useTransition()
+    // Fires only on a fresh tap. This takeover's own inline joined state stays
+    // as the fallback once the arrival is closed.
+    const [showArrival, setShowArrival] = useState(false)
 
     const cta = pauseTakeoverCta({
         variant,
@@ -86,6 +93,7 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
             // without this, a customer who just joined dismisses the takeover
             // into a sidebar with no wallet at all.
             if (nextOutcome.joined) {
+                setShowArrival(true)
                 router.refresh()
             }
         })
@@ -97,6 +105,20 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
     }
 
     const initial = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10 }
+
+    // A fresh join replaces this screen outright rather than restyling it in
+    // place: the takeover was an OFFER, and the arrival is the answer. Closing
+    // the arrival drops back to this takeover's own confirmed state.
+    if (showArrival) {
+        return (
+            <FoundingMemberArrival
+                firstName={firstName}
+                creditAed={outcome?.creditAed ?? 0}
+                message={outcome?.message ?? null}
+                onClose={() => setShowArrival(false)}
+            />
+        )
+    }
 
     return (
         <div

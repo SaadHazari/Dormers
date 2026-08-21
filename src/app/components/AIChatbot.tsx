@@ -7,6 +7,7 @@ import { X, Send } from "lucide-react";
 import { whatsAppHref } from "@/shared/contacts";
 import { useBodyScrollLock } from "@/ui-system/hooks/useBodyScrollLock";
 import { closeChat as broadcastClose, subscribeChatBus } from "@/contexts/chatbot/ui/chat-bus";
+import { SIGNUP_HREF } from '@/shared/auth-routes';
 
 function renderMd(s: string): React.ReactNode {
     const parts: React.ReactNode[] = [];
@@ -188,7 +189,7 @@ export default function AIChatbot() {
                                                             )}
                                                             {hasViewPlans && (
                                                                 <a
-                                                                    href="/maintenance"
+                                                                    href={SIGNUP_HREF}
                                                                     onClick={closeChat}
                                                                     className="bg-[#f57f20]/15 backdrop-blur-sm border border-[#f57f20]/35 text-[#f57f20] py-2 px-5 rounded-full flex items-center justify-center font-black uppercase tracking-wider text-[11px] hover:bg-[#f57f20]/25 transition-all w-fit mt-1"
                                                                 >

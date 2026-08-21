@@ -162,8 +162,12 @@ describe('CRITICAL 5: AIChatbot View Plans link is wired', () => {
   const menuJsxStart = content.indexOf('{hasViewMenu && (')
   const menuBlock = content.slice(menuJsxStart, menuJsxStart + 600)
 
-  it('View Plans links to /maintenance (pre-launch gate), not href="#"', () => {
-    expect(plansBlock).toContain('href="/maintenance"')
+  // The original finding was that this CTA pointed at href="#" and went
+  // nowhere. It was parked on /maintenance for the pre-launch period; the
+  // funnel is open again, so the assertion tracks the shared constant rather
+  // than any one destination. What must never come back is the dead anchor.
+  it('View Plans routes to the shared signup CTA, not href="#"', () => {
+    expect(plansBlock).toContain('href={SIGNUP_HREF}')
     expect(plansBlock).not.toContain('href="#"')
   })
 

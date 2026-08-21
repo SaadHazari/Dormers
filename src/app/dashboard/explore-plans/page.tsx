@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import PlanClient from '../plan/PlanClient'
 import type { CreditByPlan } from '../_shared/types'
+import { firstNameFrom } from '../_shared/intake-join-outcome'
 
 const PREVIEW_CUSTOMER = {
   id: 'preview',
@@ -101,6 +102,7 @@ export default async function ExplorePlansPage({
     headline: intakeState.headline,
     body: intakeState.body,
     creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+    firstName: firstNameFrom(customer?.name),
     alreadyJoined: waitlistStatus.joined,
     waitlistCreditAed: waitlistStatus.unspentCreditAed,
     cycleStartedAt: intakeState.cycleStartedAt,

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(__dirname, '../../..')
@@ -101,13 +101,42 @@ describe('Mock/dev pages deleted', () => {
     'src/app/dashboard/nudges-mock',
     'src/app/dashboard/plan/review-mock',
     'src/app/dashboard/plan/trigger-mock',
-    'src/app/dev',
   ]
   for (const dir of dirs) {
     it(`${dir} does not exist`, () => {
       expect(existsSync(resolve(ROOT, dir))).toBe(false)
     })
   }
+})
+
+/**
+ * `src/app/dev` used to be on the deleted list above, and that assertion has
+ * been failing since the rider PWA landed its preview harness there. The
+ * convention changed rather than regressed: `/dev/*` is now where preview
+ * harnesses live for surfaces that are impossible to reach by hand (a rider's
+ * mid-shift state, a waitlist arrival that only fires against a paused shop).
+ *
+ * The audit's real concern was never the directory — it was a mock page
+ * reachable in production. So the rule is now the thing that actually matters:
+ * the directory may exist, and every route in it must refuse to render in
+ * production.
+ */
+describe('Dev preview harnesses are production-gated', () => {
+  const devRoot = resolve(ROOT, 'src/app/dev')
+
+  it('every page under src/app/dev calls notFound() in production', () => {
+    if (!existsSync(devRoot)) return
+    const pages = readdirSync(devRoot, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => `src/app/dev/${e.name}/page.tsx`)
+
+    expect(pages.length).toBeGreaterThan(0)
+    for (const page of pages) {
+      const src = read(page)
+      expect(src, `${page} must import notFound`).toContain('notFound')
+      expect(src, `${page} must gate on NODE_ENV`).toContain("process.env.NODE_ENV === 'production'")
+    }
+  })
 })
 
 describe('USE_DEMO flags removed', () => {

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { NavLinkItem, type NavLink } from './NavLinkItem'
+import { LOGIN_HREF } from '@/shared/auth-routes';
 
 interface Props {
   links: readonly NavLink[]
@@ -44,7 +45,7 @@ export function NavbarMobileMenu({
 
         <div className={`pt-3 mt-1 border-t flex flex-col gap-2 ${isLight ? 'border-[#091825]/10' : 'border-white/10'}`}>
           <Link
-            href="/maintenance"
+            href={LOGIN_HREF}
             className={`w-full text-center px-4 py-3 rounded-2xl text-[13px] font-bold uppercase tracking-wider transition-colors ${isLight
               ? 'border border-[#091825]/20 text-[#091825]'
               : 'border border-white/20 text-white'

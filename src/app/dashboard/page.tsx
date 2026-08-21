@@ -9,6 +9,7 @@ import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import type { IntakeGateState } from './_shared/types'
+import { firstNameFrom } from './_shared/intake-join-outcome'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
@@ -89,6 +90,7 @@ export default async function DashboardPage({
             headline: 'We are at full capacity.',
             body: 'New plans are paused while we cook for our current dorms.',
             creditAed: 15,
+            firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
             alreadyJoined: true,
             waitlistCreditAed: 15,
             cycleStartedAt: dateOnly(Date.now() - 10 * day),
@@ -152,6 +154,7 @@ export default async function DashboardPage({
         headline: intakeState.headline,
         body: intakeState.body,
         creditAed: creditAedFor(intakeState, customer?.meal_preference_type),
+        firstName: firstNameFrom(customer?.name),
         alreadyJoined: waitlistStatus.joined,
         waitlistCreditAed: waitlistStatus.unspentCreditAed,
         cycleStartedAt: intakeState.cycleStartedAt,

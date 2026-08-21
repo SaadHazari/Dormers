@@ -76,6 +76,20 @@ export function intakeNextSteps(creditAed: number): string[] {
   return mechanics ? [mechanics, REOPEN_MESSAGE_PROMISE] : [REOPEN_MESSAGE_PROMISE]
 }
 
+/**
+ * First name for the arrival place card, from the single `name` column.
+ *
+ * Mirrors the SQL the broadcast audience already uses
+ * (`split_part(btrim(name), ' ', 1)`) so the name on the card and the name in
+ * the reopen email are always the same word. It differs in one way on purpose:
+ * where the SQL falls back to the literal 'there' for a greeting, this returns
+ * an empty string. A place card reading "there" is worse than a place card
+ * with no name on it, so the caller renders its own neutral fallback instead.
+ */
+export function firstNameFrom(name: string | null | undefined): string {
+  return (name ?? '').trim().split(/\s+/)[0] ?? ''
+}
+
 export interface IntakeCreditDisplay {
   /** true = render "AED {creditAed} is waiting…"; false = render `text` as
    *  plain reassurance copy instead — a customer must never be told an

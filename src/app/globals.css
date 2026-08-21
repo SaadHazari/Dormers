@@ -410,10 +410,45 @@ html.light .hiw-text-block {
 .dash-sidebar button:focus-visible,
 .utility-cluster button:focus-visible,
 .utility-cluster a:focus-visible,
+/* Full-screen takeovers render OUTSIDE .dash-root (position:fixed, mounted
+   above the shell), so they never inherited the brand ring and fell back to
+   the browser's blue default — glaringly off-brand on the navy ground. Any
+   new fixed overlay should carry this class. */
+.ds-overlay-root button:focus-visible,
+.ds-overlay-root a:focus-visible,
 .utility-mobile-menu:focus-visible {
   outline: 2px solid #f57f20;
   outline-offset: 3px;
 }
+/* The overlay container itself takes focus on mount (so keyboard and screen
+   reader users land inside the dialog) but is not a control, so it must not
+   paint a ring. */
+.ds-overlay-root:focus,
+.ds-overlay-root:focus-visible {
+  outline: none;
+}
+
+/* Hover/press for controls on a full-screen overlay. These live here rather
+   than inline because the takeovers style their buttons with inline objects,
+   which cannot express :hover — so every one of them has shipped as a
+   photograph of a button. Values match the dashboard button transition
+   (150ms) so overlay controls feel like the rest of the product. */
+.ds-overlay-cta,
+.ds-overlay-ghost {
+  transition: background-color 150ms ease, border-color 150ms ease,
+              box-shadow 150ms ease, transform 150ms ease;
+}
+.ds-overlay-cta:hover { background-color: #ff9038; }
+.ds-overlay-cta:active { transform: translateY(1px); box-shadow: 0 4px 16px rgba(245,127,32,0.45); }
+.ds-overlay-ghost:hover { background-color: rgba(245,240,232,0.09); border-color: rgba(245,240,232,0.45); }
+.ds-overlay-ghost:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+  .ds-overlay-cta,
+  .ds-overlay-ghost { transition: none; }
+  .ds-overlay-cta:active,
+  .ds-overlay-ghost:active { transform: none; }
+}
+
 .dash-root button:focus:not(:focus-visible),
 .dash-root a:focus:not(:focus-visible) {
   outline: none;

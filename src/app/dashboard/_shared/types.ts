@@ -137,6 +137,12 @@ export interface IntakeGateState {
   headline: string
   body: string
   creditAed: number
+  /** Customer's first name, for the arrival place card (FoundingMemberArrival).
+   *  Carried on this object rather than passed alongside it because all four
+   *  join surfaces already receive the gate state and none of them otherwise
+   *  need the customer record. Empty string when there is no usable name —
+   *  the card renders a neutral fallback rather than a placeholder word. */
+  firstName: string
   alreadyJoined: boolean
   /** Unspent waitlist credit currently sitting in the customer's ledger
    *  (getWaitlistStatus().unspentCreditAed — the single source of truth).
@@ -175,6 +181,7 @@ export const INTAKE_NOT_PAUSED: IntakeGateState = {
   headline: '',
   body: '',
   creditAed: 0,
+  firstName: '',
   alreadyJoined: false,
   waitlistCreditAed: 0,
   cycleStartedAt: null,

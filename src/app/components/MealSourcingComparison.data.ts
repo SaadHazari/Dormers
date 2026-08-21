@@ -113,8 +113,9 @@ export const MODES: SourcingMode[] = [
  */
 export const DORMERS_BENCHMARK: LeverScores = { money: 48, time: 5, health: 88, taste: 88 }
 
-/** Matches the pre-launch CTA used by Hero/Navbar; flip to the real signup at launch. */
-export const SIGNUP_HREF = '/maintenance'
+/** Re-exported so this data module keeps its single import surface; the value
+ *  itself lives in shared/auth-routes.ts alongside every other marketing CTA. */
+export { SIGNUP_HREF } from '@/shared/auth-routes'
 
 export const COPY = {
   trigger: 'Compare us to how you eat now',
