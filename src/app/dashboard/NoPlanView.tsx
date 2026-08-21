@@ -73,6 +73,11 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
   // retention asset here: customers with a lapsed plan still see what they
   // saved, which is the pull force that nudges them back to renewal.
   const lifetimeSavingsValue = computeLifetimeSavings(allSubscriptions, customer)
+  // Third greeting line: the money. Null when there is nothing to say, which
+  // collapses that line rather than printing "AED 0".
+  const savedLabel = lifetimeSavingsValue && lifetimeSavingsValue.saved > 0
+    ? formatSavedAmount(lifetimeSavingsValue.saved)
+    : null
 
   const rawName   = customer?.name ?? userEmail.split('@')[0]
   const firstName = rawName?.split(' ')[0] ?? null
@@ -106,37 +111,42 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             exactly the moment we're asking the user to come back. ── */}
       {isReturning && (
         <motion.div
+          className="noplan-greeting"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={t(0)}
           style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
-          <div className="noplan-greet-line" style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
-            {/* ONE span, not loose text nodes: the line is a flex row on
-                phones (to centre it against the burger) and flex would treat
-                each node as its own item, dropping the space in "back, Amsaa". */}
-            <span>
-              Welcome back
-              {firstName && firstName !== userEmail.split('@')[0] && (
-                <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
-              )}
-              .
-            </span>
+          {/* Three short lines rather than one long run-on: the name, the
+              history, then the money. Each is one fact, so the ribbon stays
+              readable in the narrow column left of the phone's right edge
+              once it has cleared the drawer burger. */}
+          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
+            Welcome back
+            {firstName && firstName !== userEmail.split('@')[0] && (
+              <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
+            )}
+            .
           </div>
           {totalDelivered >= 1 && (
             <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
               <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
-              {memberSinceText && <> · since {memberSinceText}</>}
-              {lifetimeSavingsValue && lifetimeSavingsValue.saved > 0 && (
-                <> · <strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {formatSavedAmount(lifetimeSavingsValue.saved)}</strong> below ordering in</>
+              {memberSinceText && <> since {memberSinceText}</>}
+            </div>
+          )}
+          {(savedLabel || endedPlans.length > 0) && (
+            <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
+              {savedLabel && (
+                <><strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {savedLabel}</strong> saved vs ordering in</>
               )}
+              {savedLabel && endedPlans.length > 0 && ' · '}
               {endedPlans.length > 0 && (
-                <> · <Link
+                <Link
                   href="/dashboard/history"
                   style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
                 >
                   {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
-                </Link></>
+                </Link>
               )}
             </div>
           )}
@@ -365,6 +375,10 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           font-family: ${BODY};
           color: var(--ds-fg);
         }
+        /* The page inset, owned here because the greeting has to know it to
+           line itself up beside the drawer burger (see the compact block
+           below). ClientDashboard's wrapper spends it as its padding. */
+        :global(.noplan-page) { --noplan-pad: clamp(20px, 3vw, 40px); }
         .noplan-grid {
           display: grid;
           grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -394,27 +408,34 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
            already --dash-gutter + --noplan-pad in from the viewport's left
            edge, so it only has to make up the difference to --burger-right;
            max() drops the indent to zero on wider compact viewports where the
-           page inset alone already clears the button. Only the NAME line is
-           indented: min-height makes that line as tall as the button, so the
-           equity line under it is already clear and can run the full width
-           (it is the long one — four segments — and would wrap badly inside
-           a 288px column).
+           page inset alone already clears the button. The WHOLE ribbon moves,
+           not just the name — indenting one line and leaving the rest at the
+           page margin reads as a ragged column, which is why the three lines
+           are short enough to live in the narrower measure. min-height keeps
+           the ribbon at least as tall as the button so a one-line greeting
+           cannot let the banner below ride up beside it.
            Keyed on the shell's COMPACT contract, not a raw width — a portrait
            tablet shows the burger too. The root carries .owns-burger-row while
            this ribbon renders, which is what tells the shell not to reserve
            the space a second time. */
         @media ${COMPACT} {
           /* Start the page level with the burger instead of 20px below it, so
-             the name line lands beside the button rather than under-and-right
-             of it. ClientDashboard reads this variable in the wrapper's inline
+             the ribbon lands beside the button rather than under-and-right of
+             it. ClientDashboard reads this variable in the wrapper's inline
              padding (an inline style cannot be overridden by a rule, but the
              variable it resolves against can be). */
-          :global(.noplan-page) { --noplan-pad-top: 0px; }
-          .noplan-greet-line {
+          :global(.noplan-page) {
+            /* Phones use the shell's own 14px rhythm rather than the desktop
+               inset: it lines the page up with every other mobile surface,
+               and the 6px it gives back is what keeps the third greeting line
+               ("AED 1,000+ saved vs ordering in · 3 past plans") on ONE line
+               at 375px, the narrowest phone we support. */
+            --noplan-pad: 14px;
+            --noplan-pad-top: 0px;
+          }
+          :global(.noplan-greeting) {
             padding-left: max(0px, calc(var(--burger-right, 0px) - var(--dash-gutter, 0px) - var(--noplan-pad, 0px)));
             min-height: var(--burger-size, 0px);
-            display: flex;
-            align-items: center;
           }
         }
         @media (max-width: 768px) {

@@ -358,15 +358,12 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   if (!activeSubscription) {
     return (
       <div className="noplan-page" style={{
-        // The page's own inset, published as a variable so NoPlanView's
-        // greeting can work out how far it already sits from the viewport
-        // edge and indent the rest of the way past the fixed drawer burger.
-        // The top is split out because NoPlanView zeroes it on phones, where
-        // the greeting rides the burger's row and has to start level with the
-        // button rather than 20px under it. See THE BURGER CONTRACT in
-        // dashboard/layout.tsx.
-        '--noplan-pad': 'clamp(20px, 3vw, 40px)',
-        padding: 'var(--noplan-pad-top, var(--noplan-pad)) var(--noplan-pad) var(--noplan-pad)',
+        // The inset itself is owned by NoPlanView (it is the only thing in
+        // here, and it has to know this number to line its greeting up beside
+        // the fixed drawer burger — see THE BURGER CONTRACT in
+        // dashboard/layout.tsx). This element just spends the variables; the
+        // literals are last-resort fallbacks, not a second source of truth.
+        padding: 'var(--noplan-pad-top, var(--noplan-pad, 20px)) var(--noplan-pad, 20px) var(--noplan-pad, 20px)',
         fontFamily: BODY, color: S.fg,
       } as React.CSSProperties}>
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
