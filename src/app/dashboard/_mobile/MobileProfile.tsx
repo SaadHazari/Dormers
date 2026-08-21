@@ -2,9 +2,14 @@
 
 import { type CSSProperties, type ReactNode } from 'react'
 import { Heart, Pencil } from 'lucide-react'
-import { MobileColumn, CARD, HERO, OG, BODY, S } from './kit'
-import { MONO, TIER_POP_TEXT } from '../_shared/tokens'
+import { MobileColumn, CARD, RECESSED, HERO, OG, BODY, S } from './kit'
+import { MONO, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { SecuritySection } from '../profile/SecuritySection'
+import { GLIMPSE_COUNT, pastPlansSummary, type PastPlanRow } from '../_shared/past-plans'
+import { SeeAllPastPlans } from '../_shared/SeeAllPastPlans'
+import { PlanGlyph } from '../_shared/PlanGlyph'
+import { StatusDot } from '../_shared/StatusDot'
+import { fmt } from '../_shared/format'
 
 /**
  * MobileProfile — the height-optimised <768 profile surface.
@@ -43,6 +48,9 @@ export interface MobileProfileData {
   pendingBanner: ReactNode | null
   promotedBanner: ReactNode | null
   saved: 'account' | 'preferences-now' | 'preferences-next' | 'discarded' | null
+  /** Finished plans, most recent first — selected and ordered on the server
+   *  by endedPlansFrom, the same call /dashboard/history reads. */
+  endedPlans: PastPlanRow[]
 }
 
 interface MobileProfileProps extends MobileProfileData {
@@ -111,10 +119,11 @@ export function MobileProfile({
   email, emailConfirmed, whatsappNumber, whatsappVerified,
   dormName, createdAtLabel,
   mealPrefLabel, weekTypeLabel, spiceLevel, allergensDisplay, vegDaysDisplay, hasActiveSub,
-  pendingBanner, promotedBanner, saved,
+  pendingBanner, promotedBanner, saved, endedPlans,
   onOpenPrefs, onEditAccount,
 }: MobileProfileProps) {
   const cardStyle: CSSProperties = { ...CARD, padding: 18 }
+  const pastSummary = pastPlansSummary(endedPlans)
 
   return (
     <MobileColumn style={{ color: S.fg, gap: 16, paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
@@ -202,6 +211,57 @@ export function MobileProfile({
           )}
         </div>
         {(saved === 'preferences-now' || saved === 'preferences-next' || saved === 'discarded') && <SavedToast kind={saved} />}
+      </section>
+
+      {/* 4 — Past plans: the permanent home for the finished-plan record.
+          Mirrors the desktop tree's PastPlansSection exactly — same copy, same
+          order, same two tiles — because /dashboard/history was previously
+          unreachable on mobile entirely (the only in-app link sits inside
+          .home-desktop). Renders at zero too, so the archive is discoverable
+          before there is anything in it. */}
+      <section style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgFaint }}>Past plans</span>
+          {endedPlans.length > 0 && <SeeAllPastPlans count={endedPlans.length} />}
+        </div>
+
+        {pastSummary ? (
+          // Navy figures against muted words — the same equity-line idiom the
+          // mobile home value line uses two screens away.
+          <div style={{ marginTop: 4, fontSize: 12, color: S.fgMuted, lineHeight: 1.45, fontFeatureSettings: '"tnum"' }}>
+            {pastSummary.map((seg, i) => (
+              <span key={seg.label}>
+                {i > 0 && ' · '}
+                <strong style={{ color: S.fg, fontWeight: 700 }}>{seg.n}</strong> {seg.label}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ marginTop: 4, fontSize: 12, color: S.fgMuted, lineHeight: 1.45 }}>
+            Your finished plans will appear here. Each one is a record of how many dinners we&rsquo;ve made for you.
+          </div>
+        )}
+
+        {endedPlans.length > 0 && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* RECESSED, not CARD — these tiles sit INSIDE a card, and
+                #fdfbf6 on #fdfbf6 would vanish. A tier down is also the
+                honest hierarchy: the record is reference, not an action. */}
+            {endedPlans.slice(0, GLIMPSE_COUNT).map(p => (
+              <div key={p.id} style={{ ...RECESSED, padding: '12px 14px', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 700, color: S.fg, minWidth: 0 }}>
+                    <PlanGlyph planName={p.plan_name} size={14} color="currentColor" />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanPlanName(p.plan_name)}</span>
+                  </span>
+                  <StatusDot status="Ended" />
+                </div>
+                <div style={{ fontSize: 11.5, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>{fmt(p.start_date)} → {fmt(p.end_date)}</div>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>{p.delivered_meals}/{p.total_meals} meals delivered</div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Footer */}

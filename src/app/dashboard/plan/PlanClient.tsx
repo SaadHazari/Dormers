@@ -11,6 +11,8 @@ import {
 import { OG, OG_DEEP, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { Eyebrow } from '../_shared/Eyebrow'
+import { endedPlansFrom } from '../_shared/past-plans'
+import { SeeAllPastPlans } from '../_shared/SeeAllPastPlans'
 import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileBanner } from '../_shared/ProfileBanner'
@@ -1573,7 +1575,10 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
   // gone entirely (users go to /dashboard/explore-plans for it).
   const showPricing = isExplore
 
-  const endedPlans = allSubscriptions.filter(s => s.status === SUBSCRIPTION_STATUS.ENDED)
+  // Selection + order come from the shared calculation, not a local filter,
+  // so this list and the /dashboard/history page the "See all" link opens can
+  // only ever show the same plans in the same order.
+  const endedPlans = endedPlansFrom(allSubscriptions)
 
   // In 'plan' mode, "Renew" routes the user to /dashboard/explore-plans.
   // In 'explore' mode, the pricing grid is already visible — just scroll to it.
@@ -1935,7 +1940,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   can't intercept — it must repeat the same precedence. */}
               <div style={{ position: 'relative', marginBottom: 24 }}>
                 {intake.paused
-                  ? <IntakePausedGate headline={intake.headline} body={intake.body} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
+                  ? <IntakePausedGate headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
                   : profileGated && <ProfileGateOverlay missing={missingFields} />}
                 <div id="plans-grid" className="plans-grid">
                   {PLANS.map(p => (
@@ -2013,7 +2018,13 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
             </div>
             <div style={{ ...TIER3, padding: 28, borderRadius: 20, display: 'flex', flexDirection: 'column' }}>
               <Eyebrow>History</Eyebrow>
-              <div style={{ marginTop: 8, fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: S.fg }}>Past plans</div>
+              {/* The heading row is a doorway now. These tiles used to be a
+                  dead end even though /dashboard/history carries the skip and
+                  completion figures they omit. */}
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: S.fg }}>Past plans</div>
+                {endedPlans.length > 0 && <SeeAllPastPlans count={endedPlans.length} />}
+              </div>
               {endedPlans.length === 0 ? (
                 <div style={{ marginTop: 18, padding: '20px 4px', fontFamily: BODY, fontSize: 13, color: S.fgFaint, lineHeight: 1.55 }}>
                   Your finished plans will appear here. Each one is a record of how many dinners we&rsquo;ve made for you so far.

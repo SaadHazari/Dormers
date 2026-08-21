@@ -42,7 +42,7 @@ export function MobileHistory({ plans }: { plans: EndedPlan[] }) {
         </div>
         <SectionTitle size={23} style={{ marginTop: 5 }}>Your plan history</SectionTitle>
         <p style={{ marginTop: 8, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-          Every plan you&rsquo;ve finished — deliveries and skips at a glance.
+          Every plan you&rsquo;ve finished. Deliveries and skips at a glance.
         </p>
       </div>
 

@@ -128,9 +128,14 @@ export default function Sidebar({
   // this, not `hover`.
   const expanded = hover || drawerOpen || pinned
 
-  // Profile / History live in dropdowns and aren't visible at mount, so Next's
-  // automatic Link prefetcher never sees them. Prefetch imperatively after a
+  // Profile lives in a dropdown and isn't visible at mount, so Next's
+  // automatic Link prefetcher never sees it. Prefetch imperatively after a
   // brief idle so the user's first click into the profile menu feels instant.
+  //
+  // History used to be prefetched here too, on the strength of a dropdown
+  // link that had already been removed — so the rail was warming a page
+  // nothing could reach. Past plans now live in a section on the profile
+  // page, whose own visible <Link> Next prefetches for free.
   useEffect(() => {
     const idle = (cb: () => void) =>
       ('requestIdleCallback' in window
@@ -138,7 +143,6 @@ export default function Sidebar({
         : setTimeout(cb, 200))
     idle(() => {
       router.prefetch('/dashboard/profile')
-      router.prefetch('/dashboard/history')
     })
   }, [router])
 

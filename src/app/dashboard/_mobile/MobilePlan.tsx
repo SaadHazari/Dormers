@@ -12,6 +12,7 @@ import { whatsAppHref } from '@/shared/contacts'
 import { changeStartDate } from '@/contexts/subscriptions/usecases/subscription-mutations'
 import { fmt, fmtWithDay } from '../_shared/format'
 import { StatusDot } from '../_shared/StatusDot'
+import { SeeAllPastPlans } from '../_shared/SeeAllPastPlans'
 import { MobileDatePicker } from './MobileDatePicker'
 import { IntakePausedGate } from '../_shared/IntakePausedGate'
 import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
@@ -143,10 +144,16 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
         </div>
       </div>
 
-      {/* Past plans (deep fold) */}
+      {/* Past plans (deep fold). The heading row carries the way through to
+          the full record — before this, mobile had NO route to
+          /dashboard/history at all: the only in-app link lives inside
+          .home-desktop, which never renders below 768. */}
       {endedPlans.length > 0 && (
         <div>
-          <span style={eyebrow}>Past plans</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={eyebrow}>Past plans</span>
+            <SeeAllPastPlans count={endedPlans.length} />
+          </div>
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {endedPlans.map(s => (
               <div key={s.id} style={{ ...CARD, padding: '12px 14px', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -518,6 +525,7 @@ function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () 
         <IntakePausedGate
           headline={intake.headline}
           body={intake.body}
+          firstName={intake.firstName}
           creditAed={intake.creditAed}
           alreadyJoined={intake.alreadyJoined}
           waitlistCreditAed={intake.waitlistCreditAed}

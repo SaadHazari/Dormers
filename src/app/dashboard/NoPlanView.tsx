@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { OG, OG3, BODY, S, TIER1, TIER3, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
+import { SeeAllPastPlans } from './_shared/SeeAllPastPlans'
 import { StatusDot } from './_shared/StatusDot'
 import { PlanGlyph } from './_shared/PlanGlyph'
 import { btnStyle, BtnSpinner } from './_shared/buttons'
@@ -170,6 +171,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           <IntakePausedGate
             headline={intake.headline}
             body={intake.body}
+            firstName={intake.firstName}
             creditAed={intake.creditAed}
             alreadyJoined={intake.alreadyJoined}
             waitlistCreditAed={intake.waitlistCreditAed}
@@ -347,6 +349,9 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <Eyebrow>Past plans</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
+            {/* The tiles below stay non-interactive on purpose; this is the
+                one way through to the full record. */}
+            <SeeAllPastPlans count={endedPlans.length} />
           </div>
           <div className="noplan-past-grid">
             {endedPlans.map(s => (

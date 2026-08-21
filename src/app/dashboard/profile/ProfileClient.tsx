@@ -5,13 +5,19 @@ import { motion } from 'framer-motion'
 import { Check, Heart, ChevronDown, Calendar, Pencil } from 'lucide-react'
 import { updateProfile } from '@/contexts/identity/usecases/profile-actions'
 import { savePendingPreferences, discardPendingPreferences } from '@/contexts/subscriptions/usecases/preferences-actions'
-import { OG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
+import { OG, BODY, MONO, S as BASE_S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { SecuritySection } from './SecuritySection'
 import { ALLERGENS, PREFERENCES, SPICE_LEVELS, DAYS_OF_WEEK } from '@/app/onboarding/data'
 import { effectivePreferences, hasPendingPreferences, preferenceDiff } from '@/contexts/subscriptions/domain/preferences'
 import { useIsCompact, MobileSheet } from '../_mobile/kit'
 import { MobileProfile } from '../_mobile/MobileProfile'
+import { GLIMPSE_COUNT, pastPlansSummary, type PastPlanRow } from '../_shared/past-plans'
+import { SeeAllPastPlans } from '../_shared/SeeAllPastPlans'
+import { PlanGlyph } from '../_shared/PlanGlyph'
+import { StatusDot } from '../_shared/StatusDot'
+import { cleanPlanName } from '../_shared/tokens'
+import { fmt } from '../_shared/format'
 
 // Single typeface across the dashboard — DISPLAY aliases BODY (Montserrat).
 // Mirrors Menu/Plan: hierarchy comes from scale + weight + colour, not a
@@ -30,6 +36,76 @@ const S = {
 // getCustomer() returns from supabase. Avoids drift across consumer files.
 import type { Customer } from '../_shared/types'
 import { COMPACT } from '../_shared/breakpoints'
+
+/**
+ * Past plans, desktop tree. A glimpse of the two most recently finished
+ * plans over a one-line lifetime summary, with the way through to the full
+ * record at /dashboard/history — which carries the skip and completion
+ * figures these tiles deliberately leave out.
+ *
+ * MobileProfile renders the same section in the same position. Keep the two
+ * in step: copy, order and tile contents are meant to match, only the
+ * surface tokens differ.
+ */
+function PastPlansSection({ plans }: { plans: PastPlanRow[] }) {
+  const summary = pastPlansSummary(plans)
+
+  return (
+    // TIER3, a tier below Account details and Meal preferences: this is the
+    // page's reference fold, not something you act on. It also lands the
+    // section on the exact surface /dashboard/plan gives its own past-plans
+    // card, so the two read as the same object in two places.
+    <div style={{ ...TIER3, padding: 24, borderRadius: 'var(--radius-md)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Eyebrow>Past plans</Eyebrow>
+        {plans.length > 0 && <SeeAllPastPlans count={plans.length} />}
+      </div>
+
+      {summary ? (
+        // Navy figures against muted words — the same equity-line idiom as the
+        // dashboard greeting and the mobile home value line.
+        <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 13, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
+          {summary.map((seg, i) => (
+            <span key={seg.label}>
+              {i > 0 && ' · '}
+              <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{seg.n}</strong> {seg.label}
+            </span>
+          ))}
+        </div>
+      ) : (
+        // One sentence, not an empty card. Same promise the history page's own
+        // empty state makes, so the two read as one surface.
+        <div style={{ marginTop: 6, fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.55, maxWidth: 460 }}>
+          Your finished plans will appear here. Each one is a record of how many dinners we&rsquo;ve made for you.
+        </div>
+      )}
+
+      {plans.length > 0 && (
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {plans.slice(0, GLIMPSE_COUNT).map(p => (
+            <div key={p.id} style={{ ...TIER1, padding: '12px 14px', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: 'var(--ds-fg)', minWidth: 0 }}>
+                  <PlanGlyph planName={p.plan_name} size={13} color="currentColor" />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cleanPlanName(p.plan_name)}
+                  </span>
+                </div>
+                <StatusDot status="Ended" />
+              </div>
+              <div style={{ fontFamily: BODY, fontSize: 11.5, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
+                {fmt(p.start_date)} → {fmt(p.end_date)}
+              </div>
+              <div style={{ fontFamily: BODY, fontSize: 11.5, fontWeight: 600, color: S.fgMuted, fontFeatureSettings: '"tnum"' }}>
+                {p.delivered_meals}/{p.total_meals} meals delivered
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Field({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
   return (
@@ -203,12 +279,16 @@ function PromotedPrefsBanner() {
 }
 
 export default function ProfileClient({
-  customer, userEmail, emailConfirmed = false, activeSubscription = null, dorms,
+  customer, userEmail, emailConfirmed = false, activeSubscription = null, endedPlans = [], dorms,
 }: {
   customer: Customer | null
   userEmail: string
   emailConfirmed?: boolean
   activeSubscription?: { week_type?: '5DAYS' | '6DAYS' | null; veg_days?: string[] | null } | null
+  /** Finished plans, most recent first — already selected and ordered by
+   *  endedPlansFrom on the server so this tree and /dashboard/history can't
+   *  disagree about what history is. */
+  endedPlans?: PastPlanRow[]
   dorms: string[]
 }) {
   const hasActiveSub = !!activeSubscription
@@ -442,6 +522,7 @@ export default function ProfileClient({
     pendingBanner: pendingBannerEl,
     promotedBanner: promotedBannerEl,
     saved,
+    endedPlans,
   }
 
   // Reset + close the mobile account-edit sheet (mirrors the desktop Cancel).
@@ -1019,6 +1100,19 @@ export default function ProfileClient({
             here; it was removed because two places to read the same fact
             was redundant and broke the "preferences live in one card" mental
             model. */}
+
+        {/* Past plans — the permanent home for the finished-plan record.
+              /dashboard/history had a full desktop tree, a mobile tree and an
+              empty state but nothing linked to it, so the archive was only
+              reachable through two conditional greeting codas. It belongs on
+              this page: profile is the account-records surface, it is one tap
+              from the account menu on both desktop and mobile, and it already
+              mirrors section-for-section with MobileProfile.
+
+              The section renders even at zero. That is what makes it a home
+              rather than another thing that appears later — a customer with
+              no history still learns the archive exists. */}
+        <PastPlansSection plans={endedPlans} />
 
         <div style={{ textAlign: 'center', padding: '16px 0', fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: S.fgSub }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
