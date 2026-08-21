@@ -33,6 +33,7 @@ import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId,
 import { taperWindow, taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
+import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
@@ -292,14 +293,13 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   // why ClientDashboard uses `.includes()` and a cleanPlanName helper. We
   // match the same convention here so monthly subs read correctly even when
   // the stored string isn't a clean exact match.
-  const isMax       = sub.plan_name.includes('Monthly Max')
-  const isPremium   = sub.plan_name.includes('Monthly Premium')
-  const supportsPause = isMax || isPremium
+  // Both facts come from the plan domain, never an inline name match. The
+  // pause row used to read `isMax || isPremium`, which agreed with the domain
+  // only by coincidence, and the skip row read `maxSkips` without the bonus,
+  // so an earned Dorm Wars skip never showed up in "Skips left".
+  const supportsPause = resolvePlan(sub.plan_name)?.canPause ?? false
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
-  // From the plan domain, not an inline name match — the old
-  // `isMax || isPremium ? 3 : isWeekly ? 1 : 0` chain returned 0 for Staff
-  // Monthly, which the domain grants 3 skips, so interns saw "Skips left —".
-  const skipAllowance = resolvePlan(sub.plan_name)?.maxSkips ?? 0
+  const skipAllowance = skipCapFor(sub)
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause
     ? '—'

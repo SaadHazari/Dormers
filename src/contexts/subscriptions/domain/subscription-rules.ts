@@ -88,6 +88,24 @@ export function canPlanPause(sub: Subscription): RuleResult {
 }
 
 /**
+ * How many skips this subscription is allowed in total: the plan's base
+ * allowance plus any bonus granted on top (Dorm Wars milestone 15, or an
+ * admin grant from the intervention panel).
+ *
+ * THE one place this number is computed. The dashboard used to derive its
+ * own version of it and left out `bonus_skips` entirely, so a customer who
+ * had earned extra skips saw a disabled button reading "None left" while
+ * this rule would have accepted the skip. A control's enabled state and the
+ * rule behind it must never be two separate pieces of arithmetic.
+ *
+ * Takes only the two fields it reads, so the dashboard's narrower
+ * Subscription shape can call it without widening.
+ */
+export function skipCapFor(sub: { plan_name: string; bonus_skips?: number | null }): number {
+  return (resolvePlan(sub.plan_name)?.maxSkips ?? 0) + (sub.bonus_skips ?? 0)
+}
+
+/**
  * Can the user skip a meal on this subscription?
  *
  * Used by both skipMeal (same-day) and skipFutureDate. The skip-credit
@@ -101,8 +119,7 @@ export function canSkip(sub: Subscription): RuleResult {
   if (sub.status !== SUBSCRIPTION_STATUS.ACTIVE && sub.status !== SUBSCRIPTION_STATUS.SKIPPED) {
     return fail('Skips can only be scheduled on an active subscription.')
   }
-  const baseMaxSkips = resolvePlan(sub.plan_name)?.maxSkips ?? 0
-  const maxSkips = baseMaxSkips + sub.bonus_skips
+  const maxSkips = skipCapFor(sub)
   if (sub.skipped_meals_count >= maxSkips) {
     return fail(`You've used all ${maxSkips} of your skips for this cycle.`)
   }

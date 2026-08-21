@@ -74,6 +74,13 @@ export interface Subscription {
   // appends one working day per gifted meal. Kept as its own column so the
   // plan page can label the gift instead of silently inflating the total.
   bonus_meals?: number | null
+  // Extra skips granted on top of the plan's base allowance — Dorm Wars
+  // milestone 15, or an admin grant from the intervention panel. The server's
+  // skip rule has always counted these; this type simply didn't carry the
+  // column, so the dashboard could not have shown them even in principle and
+  // rendered a disabled "None left" button over skips the customer owned.
+  // Optional because dev preview fixtures build subs by hand.
+  bonus_skips?: number | null
   // Religious-mix subs only — list of day names (e.g. ['Monday','Wednesday'])
   // that are veg deliveries. Length matches vegDayCount picked at checkout.
   // Drives per-day dish selection on the dashboard + /menu page.

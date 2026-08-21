@@ -24,7 +24,7 @@ import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { journeyFits, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
 import { getIntakeState } from '@/infra/config/intake';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
-import { canPause, canPlanPause, canResume, canSkip } from '@/contexts/subscriptions/domain/subscription-rules';
+import { canPause, canPlanPause, canResume, canSkip, skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
 import { eventBus } from '@/shared/events/event-bus';
 // Side-effect import — registers the notifications subscriber that turns
@@ -402,12 +402,11 @@ export async function skipMeal(subscriptionId: string) {
   }
 
   // Bonus skips from Dorm Wars cycle milestone 15 (awarded via
-  // increment_bonus_skips RPC) extend the plan's base skip cap. Without
-  // this `+ bonus_skips` the milestone-15 reward is invisible to the user —
-  // they get the badge but can never use the extra skips.
-  const baseMaxSkips = resolvePlan(subscription.plan_name)?.maxSkips ?? 0;
-  const bonusSkips   = subscription.bonus_skips;
-  const maxSkips     = baseMaxSkips + bonusSkips;
+  // increment_bonus_skips RPC) extend the plan's base skip cap. skipCapFor
+  // is the single definition of that sum, shared with canSkip and with every
+  // dashboard surface that renders a remaining-skips figure — so the number
+  // this check enforces is the number the customer was shown.
+  const maxSkips = skipCapFor(subscription);
 
   if (subscription.skipped_meals_count >= maxSkips) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };

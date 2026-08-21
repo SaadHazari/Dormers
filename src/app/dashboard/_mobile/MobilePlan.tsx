@@ -18,6 +18,7 @@ import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
 import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
+import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
   eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
@@ -184,12 +185,10 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
   const daysLeft = startsInFuture ? daysToStart : daysToEnd
   const renewEligible = !startsInFuture && daysToEnd <= 7
   const status = startsInFuture && sub.status !== SUBSCRIPTION_STATUS.PAUSED ? SUBSCRIPTION_STATUS.SCHEDULED : sub.status
-  const isMax = sub.plan_name.includes('Monthly Max')
-  const isPremium = sub.plan_name.includes('Monthly Premium')
-  const supportsPause = isMax || isPremium
+  // Both from the plan domain — see the same fix in PlanClient/ActiveDashboard.
+  const supportsPause = resolvePlan(sub.plan_name)?.canPause ?? false
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
-  // From the plan domain — see the same fix in PlanClient/ActiveDashboard.
-  const skipAllowance = resolvePlan(sub.plan_name)?.maxSkips ?? 0
+  const skipAllowance = skipCapFor(sub)
   const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
   const pauseStatus = !supportsPause ? '—' : isPaused ? 'In use' : sub.has_paused_before ? 'Used' : 'Available'
   const plannedPauseStart = sub.planned_pause_start ?? null

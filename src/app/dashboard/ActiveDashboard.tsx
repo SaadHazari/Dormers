@@ -20,6 +20,7 @@ import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
+import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
 import { StatRow } from './StatRow'
@@ -480,11 +481,18 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     return () => window.removeEventListener('keydown', onKey)
   }, [showSkipConfirm, showPauseConfirm, showResumeCutoffWarning, showQueuedPauseWarning, showCancelPlannedPause])
 
-  const isWeekly       = sub.plan_name.includes('Weekly Flex')
   const isOneTime      = sub.plan_name.includes('One-Time')
-  const isPausableTier = sub.plan_name.includes('Monthly Premium') || sub.plan_name.includes('Monthly Max')
+  // Which plans may pause is a domain fact, read from the same field the
+  // server's canPause rule checks. It used to be a plan-name match here that
+  // happened to agree with the domain for all six plans that exist today —
+  // the seventh would have inherited a pause button that did nothing, exactly
+  // how Staff Monthly inherited a dead skip button.
+  const isPausableTier = resolvePlan(sub.plan_name)?.canPause ?? false
   const isScheduled    = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > Date.now()
-  const canPause       = isPausableTier && !sub.has_paused_before && !isWeekly && !isOneTime && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
+  // No `!isWeekly && !isOneTime` here any more: both have canPause: false in
+  // the domain, so isPausableTier already excludes them. Restating policy the
+  // domain owns is how the two drift apart.
+  const canPause       = isPausableTier && !sub.has_paused_before && sub.status !== SUBSCRIPTION_STATUS.ENDED && !isScheduled
   // True when the 1-pause-per-cycle credit has been spent on a still-live,
   // pausable sub. Drives the "Pause used · resets next cycle" chip in
   // QuickActions so the slot doesn't vanish silently after resume — the
@@ -800,18 +808,22 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     has_paused_before: effHasPausedBefore,
   }
 
-  // Skip allowance per plan tier — `total: 0` means the plan doesn't include
-  // skips at all (Trial, Welcome Meal). Used by QuickActions to render a count
-  // chip on the skip button so the user always knows how much wiggle room they
-  // have left for the cycle. Includes the optimistic just-skipped count.
+  // Skip allowance — `total: 0` means the plan doesn't include skips at all
+  // (Trial, Welcome Meal). Used by QuickActions to render a count chip on the
+  // skip button so the user always knows how much wiggle room they have left
+  // for the cycle. Includes the optimistic just-skipped count.
   //
-  // Read from the plan domain, NOT an inline name match. The old three-way
-  // `.includes()` chain silently returned 0 for every plan outside it — Staff
-  // Monthly (which the domain grants 3 skips, "interns have exams too") lost
-  // its skips entirely, and because the exhausted-guard below required
-  // `total > 0`, the skip button stayed bright-orange and clickable while
-  // doing nothing at all. resolvePlan covers every current and future plan.
-  const skipTotal = resolvePlan(effectiveSub.plan_name)?.maxSkips ?? 0
+  // skipCapFor is THE cap — the same function canSkip enforces server-side.
+  // This line has been wrong twice for the same reason, and both times the
+  // button and the rule disagreed silently:
+  //   1. An inline three-way `.includes()` chain on the plan name returned 0
+  //      for Staff Monthly, which the domain grants 3 skips.
+  //   2. Reading `maxSkips` alone dropped `bonus_skips`, so a Dorm Wars
+  //      milestone-15 (or admin-granted) bonus was paid for, recorded, and
+  //      invisible — the customer read "None left" on a disabled button the
+  //      server would have accepted.
+  // Do not re-derive this number here. Call the domain.
+  const skipTotal = skipCapFor(effectiveSub)
   const skipQuota = {
     total: skipTotal,
     left:  Math.max(0, skipTotal - effectiveSub.skipped_meals_count),
@@ -900,7 +912,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const skipIsMakeupDay = useMemo(() => {
     const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
     const todayIso = `${ae.getUTCFullYear()}-${String(ae.getUTCMonth() + 1).padStart(2, '0')}-${String(ae.getUTCDate()).padStart(2, '0')}`
-    const mealsPerDel = sub.plan_name.includes('Monthly Max') ? 2 : 1
+    // mealsPerDay is a plan fact — read it, don't re-derive it from the name.
+    const mealsPerDel = resolvePlan(sub.plan_name)?.mealsPerDay ?? 1
     const totalDel = Math.max(1, Math.ceil(sub.total_meals / mealsPerDel))
     const startD = new Date(sub.start_date + 'T00:00:00')
     const targetD = new Date(todayIso + 'T00:00:00')
@@ -1133,7 +1146,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     // First-party delivery-day count — benchmark-INDEPENDENT (matches the domain
     // deliveryDays()), so the value line leads with a true number even when no
     // benchmark is set and cycleSavings is null.
-    evenings: effectiveSub.plan_name.includes('Monthly Max')
+    evenings: (resolvePlan(effectiveSub.plan_name)?.mealsPerDay ?? 1) > 1
       ? Math.floor(effectiveSub.delivered_meals / 2)
       : effectiveSub.delivered_meals,
     benchmarkAed: customer?.takeout_benchmark_aed ?? null,
@@ -1171,7 +1184,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     closureDates,
     todayIso: aeTodayIso,
     maxSkips: skipTotal,
-    totalDeliveries: Math.max(1, Math.ceil(effectiveSub.total_meals / (effectiveSub.plan_name.includes('Monthly Max') ? 2 : 1))),
+    totalDeliveries: Math.max(1, Math.ceil(effectiveSub.total_meals / (resolvePlan(effectiveSub.plan_name)?.mealsPerDay ?? 1))),
     todayDelivered: aeHourNow >= 20 || previewState === 'delivered',
     isPaused: localState === 'paused',
     startsInFuture: isScheduled,
