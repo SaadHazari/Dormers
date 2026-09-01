@@ -7,6 +7,7 @@ import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import ChatButtonWrapper from "@/app/components/ChatButtonWrapper";
 import { SiteFooter } from "@/app/components/SiteFooter";
+import { MarketingThemeLock } from "@/app/components/MarketingThemeLock";
 import { ArrowLeft } from "lucide-react";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -108,6 +109,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           -webkit-clip-path: inset(0 0 0 0 round 0 0 46px 46px);
         }
       `}</style>
+
+      {/* Navy unless the visitor chose light here — see marketing-theme.ts. */}
+      <MarketingThemeLock />
 
       {!isLegalPage && (pathname === "/home" ? (heroReady && !hideNavbar) : !hideNavbar) && <Navbar />}
 

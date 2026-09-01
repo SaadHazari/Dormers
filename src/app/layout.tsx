@@ -4,6 +4,11 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { WebVitalsReporter } from "@/ui-system/observability/web-vitals";
+import {
+  MARKETING_PATHS,
+  MARKETING_THEME_KEY,
+  NEXT_THEMES_STORAGE_KEY,
+} from "@/ui-system/theme/marketing-theme";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -94,6 +99,28 @@ export default function RootLayout({
 }catch(e){}})();`,
           }}
         />
+        {/* Marketing pages open in navy — always — unless the visitor chose
+            light on the marketing site itself.
+            next-themes persists ONE preference app-wide, and the auth funnel
+            forces light into it (LoginForm) so the credential fields stay
+            legible. Nothing hands that back once the user carries on into the
+            app, so returning visitors used to land on a beige /home they never
+            asked for. The marketing site keeps its own key; here we fold it
+            back into next-themes' store BEFORE its own script reads it, so the
+            correct class is on <html> at first paint and nothing flashes.
+            Must stay above <ThemeProvider> in the body for that ordering. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+  var marketing = ${JSON.stringify(MARKETING_PATHS)};
+  var path = location.pathname;
+  if (path.length > 1 && path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
+  if (marketing.indexOf(path) === -1) return;
+  var chosen = localStorage.getItem('${MARKETING_THEME_KEY}');
+  localStorage.setItem('${NEXT_THEMES_STORAGE_KEY}', chosen === 'light' ? 'light' : 'dark');
+}catch(e){}})();`,
+          }}
+        />
         {/* Defeat the browser's auto scroll-restoration on hard refresh.
             Marketing /home shows a fixed preloader splash on mount — if the
             browser restores scroll to a deep section before React hydrates,
@@ -124,6 +151,7 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
+          storageKey={NEXT_THEMES_STORAGE_KEY}
           enableSystem={false}
           themes={["dark", "light"]}
         >

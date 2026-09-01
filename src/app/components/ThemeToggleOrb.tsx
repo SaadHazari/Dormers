@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { SunIcon, MoonIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from "framer-motion";
+import { rememberMarketingTheme } from "@/ui-system/theme/marketing-theme";
 
 export default function ThemeToggleOrb({ className, size }: { className?: string; size?: number }) {
     const [mounted, setMounted] = useState(false);
@@ -16,6 +17,15 @@ export default function ThemeToggleOrb({ className, size }: { className?: string
     if (!mounted) return null;
 
     const isLightMode = theme === "light" || theme === "system" || !theme;
+
+    // Records the choice under the marketing site's own key as well:
+    // next-themes' shared preference gets overwritten by the auth funnel, so it
+    // can't be trusted to remember this. See ui-system/theme/marketing-theme.ts.
+    const toggle = () => {
+        const next = isLightMode ? "dark" : "light";
+        rememberMarketingTheme(next);
+        setTheme(next);
+    };
 
     const sizeStyle = size ? { width: size, height: size } : undefined;
     const sizeClass = className || "h-[60px] w-[60px]";
@@ -45,7 +55,7 @@ export default function ThemeToggleOrb({ className, size }: { className?: string
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                onClick={() => setTheme(isLightMode ? "dark" : "light")}
+                onClick={toggle}
                 className="absolute inset-0 flex items-center justify-center rounded-full hover:bg-[#FAF6EB]/10 transition-colors focus:outline-none"
                 aria-label="Toggle Dark Mode"
             >

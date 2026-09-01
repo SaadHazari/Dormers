@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TextRotate } from "@/components/ui/text-rotate";
 import { useTheme } from "next-themes";
 import ThemeToggleOrb from "./ThemeToggleOrb";
+import { rememberMarketingTheme } from "@/ui-system/theme/marketing-theme";
 import { NavLinkItem, navLinks } from "./NavLinkItem";
 import { NavbarOrnaments } from "./NavbarOrnaments";
 import { NavbarDesktopSectionMenu } from "./NavbarDesktopSectionMenu";
@@ -25,6 +26,14 @@ export default function Navbar() {
   const [activeSection, setActiveSection] = useState("/home#hero");
   const { theme, setTheme } = useTheme();
   const isLight = mounted && theme === "light";
+
+  // The mobile menu's toggle goes through here so the choice also lands in the
+  // marketing site's own key — next-themes' shared preference is overwritten by
+  // the auth funnel. See src/ui-system/theme/marketing-theme.ts.
+  const setMarketingTheme = (next: string) => {
+    rememberMarketingTheme(next === "light" ? "light" : "dark");
+    setTheme(next);
+  };
 
   const navRef = useRef<HTMLElement>(null);
   const [orbSize, setOrbSize] = useState(62);
@@ -253,7 +262,7 @@ export default function Navbar() {
           isLight={isLight}
           activeSection={activeSection}
           theme={theme}
-          setTheme={setTheme}
+          setTheme={setMarketingTheme}
           onLinkClick={handleNavClick}
         />
 
