@@ -40,6 +40,10 @@ const DEFAULT = 25
  * the customer can see the math before committing, and they know the
  * resulting dashboard numbers come from a benchmark they themselves set.
  *
+ * Layout reads readout → preview → track, top to bottom: every live figure
+ * above the slider, because on a phone the dragging finger covers the strip
+ * below it. See the block comments below and scripts/check-slider-readout.mjs.
+ *
  * Presented through {@link MobileSheet} — centered dialog ≥768, bottom sheet
  * <768 with a pinned Confirm band so the action never hides under the chrome.
  */
@@ -143,53 +147,37 @@ export function SavingsBenchmarkModal({
                     : 'One quick answer — what a dinner usually costs you when you order instead of cooking. We’ll use it to show your savings.'}
             </p>
 
-            {/* Slider — AED 15 to 50, integer steps. Live AED value below. */}
-            <div style={{ marginTop: 22 }}>
-                <div style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
-                    letterSpacing: '0.16em', textTransform: 'uppercase',
-                    color: S.fgSub, marginBottom: 8,
+            {/* Live readout — the number the slider is setting, ABOVE the track.
+                THE ORDER OF THE NEXT THREE BLOCKS IS THE POINT, not styling: on a
+                phone the finger dragging the thumb rests ON the track and blots
+                out roughly a fingertip's worth of screen below it. So everything
+                the slider updates live sits above the track, and the track is the
+                last thing in the sheet. This readout used to sit 14px UNDER the
+                slider, which meant the one figure the customer was dragging TO
+                was hidden by their own thumb for the whole gesture — they had to
+                lift off to see what they'd chosen.
+                Guarded by scripts/check-slider-readout.mjs. */}
+            <div style={{
+                marginTop: 22,
+                textAlign: 'center',
+            }}>
+                <span style={{
+                    fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                    color: S.fgFaint, marginRight: 4,
+                }}>AED</span>
+                <span style={{
+                    fontFamily: BODY, fontSize: 32, fontWeight: 900,
+                    color: S.fg, letterSpacing: '-0.02em',
+                    fontFeatureSettings: '"tnum"',
                 }}>
-                    <span>AED 15</span>
-                    <span>AED 50</span>
-                </div>
-                <input
-                    type="range"
-                    min={MIN}
-                    max={MAX}
-                    step={1}
-                    value={value}
-                    onChange={(e) => setValue(Number(e.target.value))}
-                    aria-label="What you usually spend ordering dinner, in AED"
-                    style={{
-                        width: '100%',
-                        accentColor: OG,
-                        cursor: 'pointer',
-                    }}
-                />
-                <div style={{
-                    marginTop: 14,
-                    textAlign: 'center',
+                    {value}
+                </span>
+                <span style={{
+                    fontFamily: BODY, fontSize: 12.5, fontWeight: 500,
+                    color: S.fgMuted, marginLeft: 6,
                 }}>
-                    <span style={{
-                        fontFamily: BODY, fontSize: 12, fontWeight: 700,
-                        color: S.fgFaint, marginRight: 4,
-                    }}>AED</span>
-                    <span style={{
-                        fontFamily: BODY, fontSize: 32, fontWeight: 900,
-                        color: S.fg, letterSpacing: '-0.02em',
-                        fontFeatureSettings: '"tnum"',
-                    }}>
-                        {value}
-                    </span>
-                    <span style={{
-                        fontFamily: BODY, fontSize: 12.5, fontWeight: 500,
-                        color: S.fgMuted, marginLeft: 6,
-                    }}>
-                        / meal
-                    </span>
-                </div>
+                    / meal
+                </span>
             </div>
 
             {/* Live preview — composites the user's input with the per-meal cost
@@ -233,6 +221,37 @@ export function SavingsBenchmarkModal({
                     We&apos;ll show your live savings once your plan is fully set up.
                 </div>
             )}
+
+            {/* Slider — AED 15 to 50, integer steps. Last element in the sheet, so
+                nothing it drives sits under the thumb and the track lands right
+                above the pinned Confirm band, in the easy part of a thumb's reach.
+                The endpoint labels stay above the track too — static, but they'd
+                be the only thing left in the occluded strip. */}
+            <div style={{ marginTop: 22 }}>
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    fontFamily: BODY, fontSize: 10.5, fontWeight: 800,
+                    letterSpacing: '0.16em', textTransform: 'uppercase',
+                    color: S.fgSub, marginBottom: 8,
+                }}>
+                    <span>AED 15</span>
+                    <span>AED 50</span>
+                </div>
+                <input
+                    type="range"
+                    min={MIN}
+                    max={MAX}
+                    step={1}
+                    value={value}
+                    onChange={(e) => setValue(Number(e.target.value))}
+                    aria-label="What you usually spend ordering dinner, in AED"
+                    style={{
+                        width: '100%',
+                        accentColor: OG,
+                        cursor: 'pointer',
+                    }}
+                />
+            </div>
         </MobileSheet>
     )
 }
