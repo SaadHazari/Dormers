@@ -16,6 +16,13 @@ import { BODY, OG, S } from './tokens'
  * fewer columns passes `columns={2}`. Pass `accent`/`danger` on at most one
  * metric — one orange (or one red) value max, per the hierarchy rules.
  *
+ * Not every value is a number, though — the Pause cell answers with a word
+ * ("Available", "Not included"). Those wear the prose size and wrap at a
+ * space; see valueIsProse below. Nothing here may be cut off. The band clips
+ * (`overflow: hidden`) to keep its rounded corners, so a value that outgrows
+ * its cell is sliced mid-glyph instead of spilling — invisible in the source,
+ * plain on the phone. `npm run check:metric-strip-fit` is the guard.
+ *
  * See .interface-design/mobile-redesign-spec.md (shared pattern: CompactMetricStrip).
  */
 
@@ -108,9 +115,25 @@ export function CompactMetricStrip({ metrics, columns = 3, style, className, ari
   )
 }
 
+/**
+ * A value that is words rather than a measurement — "Available", "In use",
+ * "Not included". It carries no digit, so the big tnum display size buys it
+ * nothing and costs it the room it needs.
+ *
+ * Deliberately NOT a length test: the Pause cell shows all four of its states
+ * in the same slot over one customer's cycle, and they must render alike, so
+ * short "Used" reads at the same size as long "Not included". A placeholder
+ * dash has no letters and stays a display glyph — it stands in for the number
+ * it replaces.
+ */
+export function valueIsProse(value: ReactNode): boolean {
+  return typeof value === 'string' && /[a-z]/i.test(value) && !/\d/.test(value)
+}
+
 /** Shared cell content (glyph+label, value, optional sub) for both the button
  *  and div cell variants. */
 function cellInner(m: CompactMetric, valueColor: string): ReactNode {
+  const prose = valueIsProse(m.value)
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
@@ -130,11 +153,20 @@ function cellInner(m: CompactMetric, valueColor: string): ReactNode {
       </div>
       <div
         style={{
-          fontFamily: BODY, fontSize: 18, fontWeight: 900,
-          lineHeight: 1.15, letterSpacing: '-0.02em',
+          fontFamily: BODY,
+          // Prose reads a step down (--text-md) at the scale's normal leading,
+          // which lands a ~21px first line — the same line box the 18px number
+          // occupies, so a word cell still sits level with the numbers beside
+          // it. At 18px "Not included" is 121px of ink in a 95px phone cell.
+          ...(prose
+            ? { fontSize: 14, fontWeight: 800, lineHeight: 1.5 }
+            : { fontSize: 18, fontWeight: 900, lineHeight: 1.15 }),
+          letterSpacing: '-0.02em',
           color: valueColor, fontFeatureSettings: '"tnum"',
-          // Number stays on one line; labels/subs wrap around it.
-          whiteSpace: 'nowrap',
+          // Wrap at spaces only (never mid-word), like the label above. A
+          // value too wide for its cell takes a second line; it never runs
+          // under the divider and off the edge of the band.
+          minWidth: 0, overflowWrap: 'normal', wordBreak: 'keep-all',
         }}
       >
         {m.value}
