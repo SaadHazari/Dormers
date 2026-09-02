@@ -35,7 +35,7 @@ import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId,
 import { taperWindow, taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
-import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { skipCapFor, hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
@@ -276,7 +276,11 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
   }
   const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
-  const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
+  // Status first, calendar second — a staff renewal held at the approval gate
+  // keeps its Scheduled status past start_date, and this page used to switch
+  // to "days left in plan" for a cycle that had not begun.
+  const startsInFuture = hasNotStartedYet(sub)
+  const startHeld = isHeldPastStartDate(sub)
   // While the plan is still in the future, surface days-until-start as the hero
   // number (the user's burning question is "when does it begin?"). Once it's
   // started, switch to days-left-in-plan.
@@ -336,7 +340,9 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
             {cleanPlanName(sub.plan_name)}
           </div>
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 12.5, color: TIER_POP_TEXT.muted }}>
-            {startsInFuture
+            {startHeld
+              ? <>Beginning <strong style={{ color: TIER_POP_TEXT.primary }}>once the team approves it</strong></>
+              : startsInFuture
               ? <>Beginning <strong style={{ color: TIER_POP_TEXT.primary }}>{fmtWithDay(sub.start_date)}</strong> · ends {fmtWithDay(sub.end_date)}</>
               : isPaused
                 ? <>Started {fmtWithDay(sub.start_date)} · <span style={{ color: TIER_POP_TEXT.faint }}>est. ends {fmtWithDay(sub.end_date)}</span></>
@@ -396,6 +402,13 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
             <>
               <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: TIER_POP_TEXT.faint, lineHeight: 1 }}>—</span>
               <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: TIER_POP_TEXT.muted }}>plan paused</span>
+            </>
+          ) : startHeld ? (
+            // Held at the approval gate — start_date is already behind us, so
+            // there is no honest countdown to print.
+            <>
+              <span style={{ fontFamily: DISPLAY, fontSize: 40, fontWeight: 900, letterSpacing: '-0.02em', color: TIER_POP_TEXT.faint, lineHeight: 1 }}>—</span>
+              <span style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, color: TIER_POP_TEXT.muted }}>awaiting approval</span>
             </>
           ) : (
             <>

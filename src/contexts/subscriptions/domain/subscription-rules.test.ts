@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { canPause, canPlanPause, canSkip, canResume, skipCapFor } from './subscription-rules'
+import { canPause, canPlanPause, canSkip, canResume, skipCapFor, hasNotStartedYet, isHeldPastStartDate } from './subscription-rules'
 import { PLANS, noPauseNote } from './plans'
 import type { Subscription } from './subscriptions'
 
@@ -261,5 +261,35 @@ describe('every disabled pause explains itself', () => {
         .not.toMatch(/supportsPause\s*(\?|\n\s*\?)\s*'—'/)
       expect(src).toMatch(/'Not included'/)
     }
+  })
+})
+
+describe('hasNotStartedYet / isHeldPastStartDate', () => {
+  // 2026-09-02, mid-morning AE.
+  const NOW = new Date('2026-09-02T06:00:00Z').getTime()
+
+  it('a Scheduled sub starting next week has not started', () => {
+    expect(hasNotStartedYet(fakeSub({ status: 'Scheduled', start_date: '2026-09-09' }), NOW)).toBe(true)
+  })
+
+  it('an Active sub that began last month has started', () => {
+    expect(hasNotStartedYet(fakeSub({ status: 'Active', start_date: '2026-08-09' }), NOW)).toBe(false)
+  })
+
+  it('a Scheduled sub held past its start date has STILL not started', () => {
+    // The staff renewal approval gate is the one thing that keeps a sub at
+    // Scheduled after start_date lands. Reading the calendar alone here is
+    // what made the dashboard announce a plan the kitchen never started.
+    expect(hasNotStartedYet(fakeSub({ status: 'Scheduled', start_date: '2026-08-24' }), NOW)).toBe(true)
+  })
+
+  it('flags only the held case as held', () => {
+    expect(isHeldPastStartDate(fakeSub({ status: 'Scheduled', start_date: '2026-08-24' }), NOW)).toBe(true)
+    expect(isHeldPastStartDate(fakeSub({ status: 'Scheduled', start_date: '2026-09-09' }), NOW)).toBe(false)
+    expect(isHeldPastStartDate(fakeSub({ status: 'Active', start_date: '2026-08-24' }), NOW)).toBe(false)
+  })
+
+  it('treats the start date itself as started, not pending', () => {
+    expect(hasNotStartedYet(fakeSub({ status: 'Active', start_date: '2026-09-02' }), NOW)).toBe(false)
   })
 })

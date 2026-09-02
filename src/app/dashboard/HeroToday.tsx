@@ -205,7 +205,16 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   // a false countdown or "Delivered" badge for a meal that was never prepped.
   resumedAfterCutoff?: boolean
 }) {
-  const isStartingSoon = !!subStartDate && new Date(subStartDate).getTime() > Date.now()
+  // The caller hands us subStartDate only for a plan that has NOT begun — it
+  // asks the domain (hasNotStartedYet), which reads status before the calendar.
+  // Re-deriving "is the date still ahead?" here is what let a staff renewal
+  // held at the approval gate past its start_date render as a live plan:
+  // tonight's dish, a running countdown, an Active badge, for a cycle the
+  // kitchen never started.
+  const isStartingSoon = !!subStartDate
+  // A held plan's start_date is a day that already came and went, so no
+  // surface can quote it back as a promise. Only the approval gate makes one.
+  const startHeld = !!subStartDate && new Date(subStartDate).getTime() <= Date.now()
   const isSkipped = !isStartingSoon && localState === 'skipped'
   const isPaused  = !isStartingSoon && localState === 'paused'
 
@@ -253,7 +262,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   const nextDelivery = isResumedAfterCutoff ? nextDeliveryLabel(weekType) : ''
 
   const footerCaption =
-    isStartingSoon ? `First meal arrives ${startDateLabel} at 7 PM`
+    isStartingSoon ? (startHeld ? 'First meal arrives once your plan is approved' : `First meal arrives ${startDateLabel} at 7 PM`)
     : isResumedAfterCutoff ? `First delivery ${nextDelivery}, 7–8 PM`
     : isActive  ? phase.label
     : isDelivered ? "Tonight's dinner delivered"
@@ -263,7 +272,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : /* off (no menu) */  "Menu being finalised"
 
   // Sub-headings only used in inactive states
-  const stateHeading = isStartingSoon ? "You're all set."
+  const stateHeading = isStartingSoon ? (startHeld ? 'Almost there.' : "You're all set.")
     : isSkipped ? 'You skipped today.'
     : isPaused ? 'Your plan is paused.'
     : isResumedAfterCutoff ? "You're back."
@@ -272,7 +281,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isOff ? 'No menu set yet.'
     : ''
   const offWeekCopy = weekType === '5DAYS' ? 'We deliver Mon–Fri.' : 'We deliver Mon–Sat.'
-  const stateSubtitle = isStartingSoon ? `Your meals begin on ${startDateLabel}.`
+  const stateSubtitle = isStartingSoon ? (startHeld ? 'Your meals begin as soon as the team approves this plan.' : `Your meals begin on ${startDateLabel}.`)
     : isSkipped ? "Tomorrow's delivery is on track."
     : isPaused ? (resumeLockedSameDay ? "You can resume from tomorrow onwards." : "Tap resume when you're ready.")
     : isResumedAfterCutoff ? `The 2 PM kitchen cutoff has passed — first delivery ${nextDelivery}.`

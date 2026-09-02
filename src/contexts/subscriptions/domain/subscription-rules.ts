@@ -150,3 +150,46 @@ export function canResume(
   }
   return ok
 }
+
+// ── Has the plan actually begun? ──────────────────────────────────────────
+
+/**
+ * Has this subscription's first delivery day not arrived yet?
+ *
+ * Status is authoritative here, not the calendar. For every ordinary plan
+ * the two agree, because subscription_status_tick promotes Scheduled →
+ * Active the morning start_date lands — so "start_date is in the future"
+ * and "still Scheduled" mean the same thing.
+ *
+ * The staff renewal approval gate breaks that tie deliberately: the tick
+ * skips a Scheduled staff sub while staff_approval = 'pending', so the row
+ * sits at Scheduled past its start_date until an admin approves it. A
+ * date-only check reads that held row as a plan in flight and the
+ * dashboard announces a cycle the kitchen never started — no meal is
+ * cooked, no delivered_meals tick, and the intern is told dinner is coming.
+ *
+ * `now` is injected so the rule stays pure and testable.
+ */
+export function hasNotStartedYet(
+  // Widened to `string | null`: the dashboard's own row type carries status as
+  // plain text, and both shapes describe the same DB column.
+  sub: { status: string | null; start_date: string },
+  now: number = Date.now(),
+): boolean {
+  return sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > now
+}
+
+/**
+ * The gate case on its own: still Scheduled although start_date has passed.
+ *
+ * Worth naming separately because the copy differs. A plan that starts next
+ * Tuesday can promise a date; a plan being held cannot — its start_date is
+ * a day that came and went, so any surface quoting it would be stating a
+ * past date as a future promise.
+ */
+export function isHeldPastStartDate(
+  sub: { status: string | null; start_date: string },
+  now: number = Date.now(),
+): boolean {
+  return sub.status === SUBSCRIPTION_STATUS.SCHEDULED && new Date(sub.start_date).getTime() <= now
+}

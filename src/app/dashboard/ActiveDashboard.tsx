@@ -20,7 +20,7 @@ import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { resolvePlan, noPauseNote } from '@/contexts/subscriptions/domain/plans'
-import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { skipCapFor, hasNotStartedYet } from '@/contexts/subscriptions/domain/subscription-rules'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
 import { StatRow } from './StatRow'
@@ -492,7 +492,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // surface that greys the control, so the chip, the tooltip and the mobile
   // caption cannot word the same fact three different ways.
   const pauseNote = noPauseNote(sub.plan_name)
-  const isScheduled    = sub.status === SUBSCRIPTION_STATUS.SCHEDULED || new Date(sub.start_date).getTime() > Date.now()
+  // Status first, calendar second — see hasNotStartedYet. The approval gate
+  // holds a staff renewal at Scheduled past its start_date, and every surface
+  // fed from here has to agree that such a plan has not begun.
+  const isScheduled    = hasNotStartedYet(sub)
   // No `!isWeekly && !isOneTime` here any more: both have canPause: false in
   // the domain, so isPausableTier already excludes them. Restating policy the
   // domain owns is how the two drift apart.

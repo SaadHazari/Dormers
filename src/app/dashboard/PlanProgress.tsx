@@ -11,6 +11,7 @@ import { btnStyle, BtnSpinner } from './_shared/buttons'
 import { useNavigation } from './_shared/useNavigation'
 import type { Subscription } from './_shared/types'
 import { groupPauseRanges, buildPauseLookup } from './_shared/pause-ranges'
+import { hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
 
 // ── Calendar-bar helpers ──────────────────────────────────────────────────────
 // The bar is a true date-pegged timeline: one pill per working day from
@@ -202,7 +203,13 @@ export function PlanProgress({
     const left = Math.max(0, totalDeliveries - deliveriesDone)
     const mealsLeft = left * mealsPerDelivery
     const daysLeft = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
-    const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
+    // Status first, calendar second. A staff renewal held at the approval gate
+    // stays Scheduled past its start_date; reading the date alone drew the
+    // timeline as a cycle already in flight, days ticked off and all.
+    const startsInFuture = hasNotStartedYet(sub)
+    // Held: start_date is behind us, so "Plan begins on <date>" would quote a
+    // day that has passed.
+    const startHeld = isHeldPastStartDate(sub)
     // Suppress the Renew CTA when a follow-up sub is already queued — the
     // user has already committed, so re-nudging them invites a duplicate
     // purchase (and disagrees with the end-of-cycle banner one row above,
@@ -731,10 +738,10 @@ export function PlanProgress({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 14, flexWrap: 'wrap' }}>
                     <div>
                         <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: startsInFuture ? OG : S.fgSub, lineHeight: 1.2 }}>
-                            {startsInFuture ? 'Starting' : 'Started'}
+                            {startHeld ? 'On hold' : startsInFuture ? 'Starting' : 'Started'}
                         </div>
-                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: S.fg, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
-                            {fmt(sub.start_date)}
+                        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: startHeld ? S.fgMuted : S.fg, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
+                            {startHeld ? 'Pending approval' : fmt(sub.start_date)}
                         </div>
                     </div>
                     <span style={{ color: S.fgFaint, fontSize: 14 }} aria-hidden>→</span>
@@ -797,7 +804,9 @@ export function PlanProgress({
                         fontFamily: BODY, fontSize: 11.5, color: S.fgFaint, lineHeight: 1.5,
                     }}>
                         {startsInFuture
-                            ? <>Plan begins on <span style={{ color: S.fgMuted, fontWeight: 600 }}>{fmt(sub.start_date)}</span>.</>
+                            ? (startHeld
+                                ? <>Plan begins once the team <span style={{ color: S.fgMuted, fontWeight: 600 }}>approves this renewal</span>.</>
+                                : <>Plan begins on <span style={{ color: S.fgMuted, fontWeight: 600 }}>{fmt(sub.start_date)}</span>.</>)
                             : <>Resume any time — your <span style={{ color: S.fgMuted, fontWeight: 600 }}>{mealsLeft} remaining meal{mealsLeft === 1 ? '' : 's'}</span> will be waiting.</>}
                     </div>
                 ) : null}

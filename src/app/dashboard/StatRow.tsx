@@ -4,6 +4,7 @@ import { Truck, CalendarDays, PiggyBank, ChevronRight, Pencil } from 'lucide-rea
 import { OG, BODY, S } from './_shared/tokens'
 import type { Subscription } from './_shared/types'
 import { formatSavedAmount, type CycleSavings } from '@/contexts/subscriptions/domain/savings'
+import { hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
 import { CompactMetricStrip, type CompactMetric } from './_shared/CompactMetricStrip'
 
 const SAVINGS_LAST_SEEN_KEY = 'dormers:last-seen-savings'
@@ -154,7 +155,13 @@ export function StatRow({
     // deliveries, just shifted later. (Matches PlanProgress's bar math.)
     const deliveriesLeft = Math.max(0, totalDeliveries - deliveriesDone)
 
-    const startsInFuture = new Date(sub.start_date).getTime() > Date.now()
+    // Status first, calendar second — a staff renewal held at the approval
+    // gate keeps its Scheduled status past start_date, and this tile used to
+    // flip to "Days left · ends 18 Sep" for a cycle that hadn't begun.
+    const startsInFuture = hasNotStartedYet(sub)
+    // Held at the gate: the start date is already behind us, so there's no
+    // honest number of days to count down to. Say what's actually true.
+    const startHeld = isHeldPastStartDate(sub)
     const daysToEnd = Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86400000))
     const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
     // While the plan is still in the future, surface days-until-start (the
@@ -241,9 +248,9 @@ export function StatRow({
             accent: true,
         },
         {
-            label: isPaused ? 'Plan paused' : startsInFuture ? 'Days to start' : 'Days left',
-            value: isPaused ? '—' : daysLeft,
-            sub: isPaused ? 'resumes later' : startsInFuture ? `starts ${startLabelShort}` : `ends ${endLabelShort}`,
+            label: isPaused ? 'Plan paused' : startHeld ? 'Awaiting approval' : startsInFuture ? 'Days to start' : 'Days left',
+            value: isPaused || startHeld ? '—' : daysLeft,
+            sub: isPaused ? 'resumes later' : startHeld ? 'starts once approved' : startsInFuture ? `starts ${startLabelShort}` : `ends ${endLabelShort}`,
             danger: daysColor === 'red',
         },
         {
@@ -290,16 +297,16 @@ export function StatRow({
                 glyph={
                     <div style={{
                         width: 44, height: 44, borderRadius: 16,
-                        background: !isPaused && daysLeft <= 3 ? 'var(--ds-danger-wash)' : 'var(--ds-skeleton-base)',
-                        border: !isPaused && daysLeft <= 3 ? '1.5px solid var(--ds-danger-border)' : '1.5px solid var(--ds-border-tier1)',
+                        background: !isPaused && !startHeld && daysLeft <= 3 ? 'var(--ds-danger-wash)' : 'var(--ds-skeleton-base)',
+                        border: !isPaused && !startHeld && daysLeft <= 3 ? '1.5px solid var(--ds-danger-border)' : '1.5px solid var(--ds-border-tier1)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                        <CalendarDays size={20} strokeWidth={1.9} color={!isPaused && daysLeft <= 3 ? 'var(--ds-danger-fg)' : 'var(--ds-fg)'} style={{ opacity: isPaused ? 0.45 : 1 }} />
+                        <CalendarDays size={20} strokeWidth={1.9} color={!isPaused && !startHeld && daysLeft <= 3 ? 'var(--ds-danger-fg)' : 'var(--ds-fg)'} style={{ opacity: isPaused || startHeld ? 0.45 : 1 }} />
                     </div>
                 }
-                label={isPaused ? 'Plan paused' : startsInFuture ? 'Days to start' : 'Days left'}
-                value={isPaused ? '—' : daysLeft}
-                sub={isPaused ? 'resumes from where you left off' : startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
+                label={isPaused ? 'Plan paused' : startHeld ? 'Awaiting approval' : startsInFuture ? 'Days to start' : 'Days left'}
+                value={isPaused || startHeld ? '—' : daysLeft}
+                sub={isPaused ? 'resumes from where you left off' : startHeld ? 'starts once the team approves it' : startsInFuture ? `starts ${startLabel}` : `ends ${endLabel}`}
             />
 
             {/* 3 — Saved this cycle. Populated and empty states share the same
