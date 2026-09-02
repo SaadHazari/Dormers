@@ -6,7 +6,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { normalisePhone } from '@/shared/phone'
 import { generateClaimCode, hashClaimCode, CODE_TTL_DAYS } from '@/contexts/staff/domain/claim-code'
-import { STAFF_PLAN_NAME, STAFF_SATURDAY_MEAL_AED, unusedSaturdays } from '@/contexts/staff/domain/staff-plan'
+import { STAFF_PLAN_NAME, STAFF_SATURDAY_MEAL_AED, unusedSaturdays, approvedRenewalStartDate, type StaffWeekType } from '@/contexts/staff/domain/staff-plan'
 import { refundPaymentFils } from '@/infra/stripe/refunds'
 import { captureError } from '@/infra/logging/capture-error'
 
@@ -239,19 +239,73 @@ export async function sendStaffInvite(
 }
 
 /**
- * The green check. Flips a queued staff renewal to approved — the next
- * status tick activates it on its start date. Also drains the customer's
- * pending week-type so menus/labels follow the renewed cycle's cadence.
+ * The green check — and the moment the renewal's start date comes into
+ * existence.
+ *
+ * A pending renewal carries only a guess about when the admin would get to
+ * it. Approving used to flip the flag and leave that guess in place, so a
+ * renewal approved three weeks late activated retroactively, its end_date
+ * computed from a day already gone. The approval now sets the real date:
+ * the next working day, or the day after the current cycle ends, whichever
+ * is later (approvedRenewalStartDate).
+ *
+ * original_start_date moves with it. _subscriptions_shift_queued_scheduled
+ * floors a queued sub at GREATEST(live.end_date + 1, original_start_date);
+ * leaving the old floor behind would let a later end-date change drag the
+ * renewal back to a date the admin never approved.
+ *
+ * end_date needs no work here — trg_subscriptions_recompute_end_date fires
+ * on UPDATE OF start_date and recomputes it from the canonical formula.
+ *
+ * Also drains the customer's pending week-type so menus/labels follow the
+ * renewed cycle's cadence.
  */
 export async function approveStaffRenewal(subscriptionId: string): Promise<Result> {
     const admin = await requireAdmin()
     const sb = createAdminSupabaseClient()
 
-    const { data: sub, error } = await sb
+    // Read before write: the start date depends on the sub's cadence and on
+    // whether this intern still has a cycle running.
+    const { data: pending } = await sb
         .from('subscriptions')
-        .update({ staff_approval: 'approved' })
+        .select('id, customer_id, week_type')
         .eq('id', subscriptionId)
         .eq('plan_name', STAFF_PLAN_NAME)
+        .eq('staff_approval', 'pending')
+        .eq('status', 'Scheduled')
+        .maybeSingle()
+    if (!pending) return { ok: false, message: 'Renewal not found or already handled.' }
+
+    // The cycle this renewal follows, if one is still running. Latest end
+    // date wins so a paused cycle's extended tail is respected.
+    const { data: liveCycle } = await sb
+        .from('subscriptions')
+        .select('end_date')
+        .eq('customer_id', pending.customer_id)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        .in('status', ['Active', 'Paused', 'Skipped'])
+        .order('end_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    const weekType: StaffWeekType = pending.week_type === '6DAYS' ? '6DAYS' : '5DAYS'
+    const startDate = approvedRenewalStartDate({
+        approvedOnIso: aeTodayIso(),
+        weekType,
+        currentCycleEndIso: (liveCycle?.end_date as string | undefined) ?? null,
+    })
+
+    const { data: sub, error } = await sb
+        .from('subscriptions')
+        .update({
+            staff_approval: 'approved',
+            start_date: startDate,
+            original_start_date: startDate,
+        })
+        .eq('id', subscriptionId)
+        .eq('plan_name', STAFF_PLAN_NAME)
+        // CAS on the gate columns: a second approver (or a decline landing
+        // first) loses rather than double-stamping a start date.
         .eq('staff_approval', 'pending')
         .eq('status', 'Scheduled')
         .select('id, customer_id, week_type, start_date')
@@ -272,7 +326,10 @@ export async function approveStaffRenewal(subscriptionId: string): Promise<Resul
     })
 
     revalidatePath('/admin/staff')
-    return { ok: true, message: `Renewal approved — starts ${sub.start_date}.` }
+    const firstDelivery = new Date(sub.start_date + 'T00:00:00').toLocaleDateString('en-AE', {
+        weekday: 'long', day: 'numeric', month: 'long',
+    })
+    return { ok: true, message: `Renewal approved — first delivery ${firstDelivery}.` }
 }
 
 /**

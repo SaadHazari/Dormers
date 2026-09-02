@@ -2,7 +2,7 @@ import 'server-only'
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { STAFF_PLAN_NAME, RENEWAL_WINDOW_DAYS } from '../domain/staff-plan'
+import { STAFF_PLAN_NAME, RENEWAL_WINDOW_DAYS, nextWorkingDayAfter } from '../domain/staff-plan'
 
 type StaffSubRow = {
     id: string
@@ -16,7 +16,7 @@ type StaffSubRow = {
 export type StaffPlanState =
     | { kind: 'not-staff' }
     | { kind: 'first-plan' }                                  // no staff sub yet → first chooser
-    | { kind: 'awaiting-approval'; startDate: string }        // renewal queued, admin hasn't approved
+    | { kind: 'awaiting-approval' }                           // renewal queued, admin hasn't approved
     | { kind: 'queued' }                                      // approved renewal already queued
     | { kind: 'renewal-open'; renewStartDate: string }        // current cycle ending → chooser in renew mode
     | { kind: 'covered' }                                     // mid-cycle, nothing to choose
@@ -25,16 +25,7 @@ function aeTodayIso(): string {
     return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
 
-/** Next working day (week-type aware) strictly after `afterIso`. */
-export function nextWorkingDayAfter(afterIso: string, weekType: '5DAYS' | '6DAYS'): string {
-    const d = new Date(afterIso + 'T00:00:00Z')
-    for (let i = 0; i < 7; i++) {
-        d.setUTCDate(d.getUTCDate() + 1)
-        const isoDow = ((d.getUTCDay() + 6) % 7) + 1
-        if (weekType === '5DAYS' ? isoDow <= 5 : isoDow <= 6) break
-    }
-    return d.toISOString().slice(0, 10)
-}
+export { nextWorkingDayAfter } from '../domain/staff-plan'
 
 /**
  * Where this intern stands in the plan lifecycle — drives what /staff/plan
@@ -64,8 +55,11 @@ export async function getStaffPlanState(userId: string): Promise<StaffPlanState>
 
     const queued = subs.find(s => s.status === SUBSCRIPTION_STATUS.SCHEDULED)
     if (queued) {
+        // No date on the awaiting state: a pending renewal's start_date is
+        // only a guess about when the admin will get to it. The real one is
+        // created by the approval (approvedRenewalStartDate).
         return queued.staff_approval === 'pending'
-            ? { kind: 'awaiting-approval', startDate: queued.start_date }
+            ? { kind: 'awaiting-approval' }
             : { kind: 'queued' }
     }
 

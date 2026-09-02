@@ -32,7 +32,7 @@ export interface PendingRenewal {
     subscriptionId: string
     staffName: string
     weekType: '5DAYS' | '6DAYS'
-    startDate: string
+    queuedAt: string
     /** AED prepaid for the cycle (0 on free 5-day renewals). */
     paidAed: number
 }
@@ -130,6 +130,14 @@ function Section({ title, t, children }: { title: string; t: ReturnType<typeof u
     )
 }
 
+/** Plain-English wait, so the oldest renewal is obvious at a glance. */
+function waitedFor(queuedAtIso: string): string {
+    const days = Math.floor((Date.now() - new Date(queuedAtIso).getTime()) / 86400000)
+    if (days <= 0) return 'queued today'
+    if (days === 1) return 'waiting since yesterday'
+    return `waiting ${days} days`
+}
+
 function RenewalCard({ renewal, t, onResult }: {
     renewal: PendingRenewal
     t: ReturnType<typeof useAdminTheme>['t']
@@ -157,8 +165,11 @@ function RenewalCard({ renewal, t, onResult }: {
                 </div>
                 <div className={`text-[12px] mt-1 ${t.muted}`}>
                     {renewal.weekType === '6DAYS' ? `6 days · prepaid AED ${renewal.paidAed}` : '5 days · free'}
-                    {' · starts '}
-                    {new Date(renewal.startDate + 'T00:00:00').toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })}
+                    {/* How long they've been waiting, not a start date. A pending
+                        renewal's start_date is only a guess at when you'd get to
+                        it — approving is what creates the real one, and the
+                        confirmation toast names it. */}
+                    {` · ${waitedFor(renewal.queuedAt)}`}
                 </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">

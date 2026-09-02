@@ -29,7 +29,6 @@ interface Props {
     /** first = post-claim chooser; renewal = next-cycle chooser (queues
      *  behind admin approval); awaiting = renewal queued, admin pending. */
     mode: 'first' | 'renewal' | 'awaiting'
-    awaitingStartDate: string | null
     surchargeAed: number
     perMealAed: number
     customer: {
@@ -42,7 +41,7 @@ interface Props {
     }
 }
 
-export default function StaffPlanClient({ firstName, mode, awaitingStartDate, surchargeAed, perMealAed, customer }: Props) {
+export default function StaffPlanClient({ firstName, mode, surchargeAed, perMealAed, customer }: Props) {
     const router = useRouter()
     const isLight = useIsLight()
     const tokens = authTokens(isLight)
@@ -119,7 +118,7 @@ export default function StaffPlanClient({ firstName, mode, awaitingStartDate, su
                         Renewal queued, {firstName}.
                     </h1>
                     <p className={`mt-2 text-[13px] leading-relaxed ${tokens.subline}`}>
-                        Your next cycle{awaitingStartDate ? ` (starting ${new Date(awaitingStartDate + 'T00:00:00').toLocaleDateString('en-AE', { day: 'numeric', month: 'long' })})` : ''} is waiting for a quick approval from the team — you don&apos;t need to do anything.
+                        Your next cycle is waiting for a quick approval from the team — you don&apos;t need to do anything. Your first delivery day is set the moment it&apos;s approved.
                     </p>
                 </motion.div>
             </div>

@@ -33,7 +33,6 @@ export default async function StaffPlanPage() {
         <StaffPlanClient
             firstName={(staff?.name as string)?.split(' ')[0] ?? 'there'}
             mode={state.kind === 'awaiting-approval' ? 'awaiting' : state.kind === 'renewal-open' ? 'renewal' : 'first'}
-            awaitingStartDate={state.kind === 'awaiting-approval' ? state.startDate : null}
             surchargeAed={STAFF_SATURDAY_MEAL_AED * SATURDAYS_PER_CYCLE}
             perMealAed={STAFF_SATURDAY_MEAL_AED}
             customer={{

@@ -44,3 +44,56 @@ export function unusedSaturdays(afterIso: string, toIso: string): number {
 
 /** How close to cycle end the self-renewal window opens (days). */
 export const RENEWAL_WINDOW_DAYS = 7
+
+// ── When a renewal actually begins ────────────────────────────────────────
+
+/** The two cadences a staff cycle can run on. */
+export type StaffWeekType = '5DAYS' | '6DAYS'
+
+/** Next working day for this cadence, strictly after `afterIso`. */
+export function nextWorkingDayAfter(afterIso: string, weekType: StaffWeekType): string {
+  const d = new Date(afterIso + 'T00:00:00Z')
+  for (let i = 0; i < 7; i++) {
+    d.setUTCDate(d.getUTCDate() + 1)
+    const isoDow = ((d.getUTCDay() + 6) % 7) + 1
+    if (weekType === '5DAYS' ? isoDow <= 5 : isoDow <= 6) break
+  }
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * The first delivery day of a renewal the admin has just approved.
+ *
+ * A pending renewal has no real start date — the approval creates it. The
+ * date it carried while it waited was only ever a guess about when the
+ * admin would get to it, and quoting that guess back is how a renewal
+ * approved three weeks late used to activate retroactively, its end_date
+ * computed from a day that had already passed.
+ *
+ *   first delivery = LATER OF
+ *       next working day after the approval
+ *       next working day after the current cycle's end date
+ *
+ * The renew button opens RENEWAL_WINDOW_DAYS before a cycle ends, so the
+ * usual case is an approval while the old plan is still running: the cycle
+ * end wins and the new one queues behind it with no gap. Once the old cycle
+ * is over the approval wins, and the intern eats the next working day.
+ *
+ * `currentCycleEndIso` is null for an intern with nothing running — a
+ * lapsed renewal, where only the approval date matters.
+ */
+export function approvedRenewalStartDate({
+  approvedOnIso,
+  weekType,
+  currentCycleEndIso,
+}: {
+  approvedOnIso: string
+  weekType: StaffWeekType
+  currentCycleEndIso: string | null
+}): string {
+  const afterApproval = nextWorkingDayAfter(approvedOnIso, weekType)
+  if (!currentCycleEndIso) return afterApproval
+  const afterCycle = nextWorkingDayAfter(currentCycleEndIso, weekType)
+  // ISO dates compare chronologically as strings.
+  return afterCycle > afterApproval ? afterCycle : afterApproval
+}

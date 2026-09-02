@@ -127,6 +127,14 @@ export const JOB_INFO: Record<string, JobInfo> = {
         impact: 'A customer who paid could be sitting without a plan',
         group: 'watchdog',
     },
+    notify_pending_staff_renewals_15min: {
+        label: 'Staff renewal approvals watchdog',
+        does: 'Pings you when an intern is waiting on your approval to renew — once, then daily.',
+        impact: 'An intern could wait weeks for a renewal nobody saw',
+        group: 'watchdog',
+        actionHref: '/admin/staff',
+        actionLabel: 'Open Staff',
+    },
     reconcile_notification_meta_responses_5min: {
         label: 'WhatsApp delivery checker',
         does: 'Asks Meta whether sent WhatsApp messages actually arrived.',

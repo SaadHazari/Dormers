@@ -13,7 +13,7 @@ export default async function StaffPage() {
             .select('id, name, email, whatsapp_number, status, code_expires_at, claimed_at, customer_id, created_at, ended_at')
             .order('created_at', { ascending: false }),
         sb.from('subscriptions')
-            .select('id, customer_id, week_type, start_date, created_at')
+            .select('id, customer_id, week_type, created_at')
             .eq('plan_name', STAFF_PLAN_NAME)
             .eq('staff_approval', 'pending')
             .eq('status', 'Scheduled')
@@ -27,7 +27,7 @@ export default async function StaffPage() {
         subscriptionId: s.id as string,
         staffName: byCustomer.get(s.customer_id as string)?.name ?? 'Unknown intern',
         weekType: (s.week_type as string) === '6DAYS' ? '6DAYS' : '5DAYS',
-        startDate: s.start_date as string,
+        queuedAt: s.created_at as string,
         paidAed: (s.week_type as string) === '6DAYS' ? STAFF_SATURDAY_MEAL_AED * SATURDAYS_PER_CYCLE : 0,
     }))
 
