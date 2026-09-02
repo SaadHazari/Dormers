@@ -302,7 +302,13 @@ export async function approveStaffRenewal(subscriptionId: string): Promise<Resul
     // Approval is what starts the cycle, so the season rule belongs here as
     // much as at the moment the intern chose. A renewal queued while the
     // shop was open can reach this button after a pause has been called.
-    const intake = await getIntakeState()
+    //
+    // Read fresh, not cached: the likeliest moment anyone presses this is
+    // seconds after reopening the season on /admin/season, and a refusal
+    // drawn from a 30-second-old copy of that row would contradict what the
+    // operator just did with their own hands. One extra read on a button
+    // pressed a few times a month.
+    const intake = await getIntakeState({ fresh: true })
     const gate = staffIntakeGate({
         paused: intake.paused,
         pauseScheduledFor: intake.pauseScheduledFor,

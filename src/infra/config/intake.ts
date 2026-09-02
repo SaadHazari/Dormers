@@ -7,7 +7,10 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
  *
  * Sibling of feature-flags.ts and deliberately the same shape: a short
  * in-memory cache over a service-role read, so flipping the switch in the
- * admin panel takes effect within CACHE_TTL_MS with no redeploy.
+ * admin panel takes effect with no redeploy. Admin writes call
+ * invalidateIntakeCache() so the operator's own next read is never stale;
+ * other server instances converge within CACHE_TTL_MS, and callers who
+ * cannot tolerate even that ask with { fresh: true }.
  *
  * FAIL OPEN: if the read errors or the row is missing, intake stays OPEN.
  * A settings-table outage must never block a sale — the switch exists for
@@ -52,8 +55,34 @@ const FAIL_OPEN: IntakeState = {
 
 let cache: { state: IntakeState; at: number } | null = null
 
-export async function getIntakeState(): Promise<IntakeState> {
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.state
+/**
+ * Drops the cached state so the very next read hits the database.
+ *
+ * Every admin write to intake_settings calls this. Without it the operator
+ * flips the switch and their own next page load can still be answering from
+ * a copy of the old row — and a decision made on that stale copy (refusing
+ * an approval because the season "is" still paused) is wrong in a way the
+ * operator cannot see or explain.
+ *
+ * This clears the cache in THIS process only. Other server instances still
+ * converge within CACHE_TTL_MS, which is why decisions that must not be
+ * wrong even briefly ask for a fresh read instead (see `fresh` below).
+ */
+export function invalidateIntakeCache(): void {
+  cache = null
+}
+
+/**
+ * @param opts.fresh Skip the cache and read the row now. For infrequent,
+ *   high-consequence decisions — an admin approving a staff renewal seconds
+ *   after reopening the season — where being 30 seconds behind produces a
+ *   refusal the operator has just disproved with their own hands. Customer
+ *   paths keep the cache: they are hot, and a brief lag there is harmless.
+ */
+export async function getIntakeState(opts?: { fresh?: boolean }): Promise<IntakeState> {
+  if (!opts?.fresh && cache && Date.now() - cache.at < CACHE_TTL_MS) {
+    return cache.state
+  }
 
   try {
     const sb = createAdminSupabaseClient()

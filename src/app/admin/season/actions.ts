@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
+import { invalidateIntakeCache } from '@/infra/config/intake'
 
 // intake_settings is a single-row table enforced by `id boolean primary key
 // default true` plus `constraint intake_settings_singleton check (id)` — the
@@ -44,6 +45,11 @@ export async function setIntakePaused(paused: boolean): Promise<{ ok: true } | {
         .eq('id', SETTINGS_ID)
 
     if (error) return { error: error.message }
+
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
 
     await logAdminAction(
         user.email,
@@ -131,6 +137,11 @@ export async function scheduleIntakePause(dateIso: string): Promise<{ ok: true }
 
     if (error) return { error: error.message }
 
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
+
     await logAdminAction(user.email, 'intake_pause_scheduled', 'intake_settings', 'singleton', {
         pause_scheduled_for: clean,
     })
@@ -154,6 +165,11 @@ export async function clearScheduledIntakePause(): Promise<{ ok: true } | { erro
         .eq('id', SETTINGS_ID)
 
     if (error) return { error: error.message }
+
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
 
     await logAdminAction(user.email, 'intake_pause_schedule_cleared', 'intake_settings', 'singleton', {})
 
@@ -183,6 +199,11 @@ export async function updateIntakeCopy(
         .eq('id', SETTINGS_ID)
 
     if (error) return { error: error.message }
+
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
 
     await logAdminAction(user.email, 'intake_copy_updated', 'intake_settings', 'singleton', {
         headline: cleanHeadline,
@@ -224,6 +245,11 @@ export async function updateIntakeCredits(
 
     if (error) return { error: error.message }
 
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
+
     await logAdminAction(user.email, 'intake_credits_updated', 'intake_settings', 'singleton', {
         credit_nonveg_aed: nonveg,
         credit_veg_aed: veg,
@@ -264,6 +290,11 @@ export async function setReopenTarget(target: number | null): Promise<{ ok: true
         .eq('id', SETTINGS_ID)
 
     if (error) return { error: error.message }
+
+
+    // The row changed — never answer the next question from the old copy.
+
+    invalidateIntakeCache()
 
     await logAdminAction(user.email, 'intake_reopen_target_set', 'intake_settings', 'singleton', {
         reopen_target: target,
