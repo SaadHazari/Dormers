@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { STAFF_SATURDAY_MEAL_AED, SATURDAYS_PER_CYCLE } from '@/contexts/staff/domain/staff-plan'
-import { getStaffPlanState } from '@/contexts/staff/usecases/renewal'
+import { getStaffPlanState, staffSeasonNote } from '@/contexts/staff/usecases/renewal'
 import StaffPlanClient from './StaffPlanClient'
 
 export const metadata = { title: 'Your staff plan — Dormers' }
@@ -23,6 +23,10 @@ export default async function StaffPlanPage() {
         redirect('/dashboard')
     }
 
+    // The season's answer, so a closed kitchen is stated up front rather
+    // than discovered by tapping a card that then refuses.
+    const seasonNote = await staffSeasonNote(state)
+
     const sb = createAdminSupabaseClient()
     const [{ data: staff }, { data: customer }] = await Promise.all([
         sb.from('staff_members').select('name').eq('customer_id', user.id).eq('status', 'active').maybeSingle(),
@@ -33,6 +37,7 @@ export default async function StaffPlanPage() {
         <StaffPlanClient
             firstName={(staff?.name as string)?.split(' ')[0] ?? 'there'}
             mode={state.kind === 'awaiting-approval' ? 'awaiting' : state.kind === 'renewal-open' ? 'renewal' : 'first'}
+            seasonNote={seasonNote}
             surchargeAed={STAFF_SATURDAY_MEAL_AED * SATURDAYS_PER_CYCLE}
             perMealAed={STAFF_SATURDAY_MEAL_AED}
             customer={{

@@ -5,6 +5,10 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { provisionStaffFreePlan } from '@/contexts/staff/usecases/provision-plan'
 import { getStaffPlanState, provisionStaffFreeRenewal, nextWorkingDayAfter } from '@/contexts/staff/usecases/renewal'
+import { staffIntakeGate } from '@/contexts/staff/domain/staff-intake-gate'
+import { staffSeasonRefusal } from '@/contexts/staff/domain/staff-season-copy'
+import { getIntakeState } from '@/infra/config/intake'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 
 export type StaffPlanResult = { ok: true } | { error: string }
 export type StaffSixDayResult = { ok: true; startDate: string | null } | { error: string }
@@ -50,8 +54,29 @@ export async function chooseStaffSixDay(): Promise<StaffSixDayResult> {
     }
     if (state.kind === 'covered') return { error: 'Renewal isn\'t open yet.' }
 
-    const sb = createAdminSupabaseClient()
     const isRenewal = state.kind === 'renewal-open'
+    const today = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const sixDayStart = isRenewal
+        ? (state.renewStartDate <= today ? nextWorkingDayAfter(today, '6DAYS') : state.renewStartDate)
+        : nextWorkingDayAfter(today, '6DAYS')
+
+    // The same season rule the 5-day path applies. Without this the two
+    // options on one screen disagreed: the free plan was created while the
+    // paid one bounced off /api/checkout with customer sign-up copy —
+    // "Save your spot and we will message you the day we reopen" — aimed at
+    // an employee whose meals are pay.
+    const intake = await getIntakeState()
+    const gate = staffIntakeGate({
+        paused: intake.paused,
+        pauseScheduledFor: intake.pauseScheduledFor,
+        cycleEndIso: isoDate(computeEndDate({
+            startDate: new Date(sixDayStart + 'T00:00:00Z'),
+            planKind: 'monthly', weekType: '6DAYS', skipCount: 0, pauseDays: 0,
+        })),
+    })
+    if (!gate.ok) return { error: staffSeasonRefusal(gate, 'intern') }
+
+    const sb = createAdminSupabaseClient()
     const { error } = await sb
         .from('customers')
         .update(isRenewal ? { pending_week_type: '6DAYS' } : { week_type: '6DAYS', pending_week_type: null })
@@ -62,9 +87,5 @@ export async function chooseStaffSixDay(): Promise<StaffSixDayResult> {
     }
 
     if (!isRenewal) return { ok: true, startDate: null }
-    const today = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const startDate = state.renewStartDate <= today
-        ? nextWorkingDayAfter(today, '6DAYS')
-        : state.renewStartDate
-    return { ok: true, startDate }
+    return { ok: true, startDate: sixDayStart }
 }

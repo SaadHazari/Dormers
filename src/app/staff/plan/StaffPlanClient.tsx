@@ -29,6 +29,9 @@ interface Props {
     /** first = post-claim chooser; renewal = next-cycle chooser (queues
      *  behind admin approval); awaiting = renewal queued, admin pending. */
     mode: 'first' | 'renewal' | 'awaiting'
+    /** Set when the season is closed to new cycles — the chooser is replaced
+     *  by this, because both cards would refuse on tap. */
+    seasonNote: string | null
     surchargeAed: number
     perMealAed: number
     customer: {
@@ -41,7 +44,7 @@ interface Props {
     }
 }
 
-export default function StaffPlanClient({ firstName, mode, surchargeAed, perMealAed, customer }: Props) {
+export default function StaffPlanClient({ firstName, mode, seasonNote, surchargeAed, perMealAed, customer }: Props) {
     const router = useRouter()
     const isLight = useIsLight()
     const tokens = authTokens(isLight)
@@ -100,6 +103,30 @@ export default function StaffPlanClient({ firstName, mode, surchargeAed, perMeal
     }
 
     const cardBase = `rounded-2xl border p-6 text-left transition-all ${tokens.card} ${tokens.cardShadow}`
+
+    if (seasonNote && mode !== 'awaiting') {
+        return (
+            <div
+                className="min-h-screen flex items-center justify-center px-5 py-10"
+                style={{ background: tokens.pageBackground, fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif' }}
+            >
+                <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className={`w-full max-w-[420px] rounded-2xl border p-7 text-center ${tokens.card} ${tokens.cardShadow}`}
+                >
+                    <Hourglass size={32} className="mx-auto text-[#f57f20]" strokeWidth={2} />
+                    <h1 className={`mt-3 text-[20px] font-extrabold ${tokens.heading}`}>
+                        Hold tight, {firstName}.
+                    </h1>
+                    <p className={`mt-2 text-[13px] leading-relaxed ${tokens.subline}`}>
+                        {seasonNote}
+                    </p>
+                </motion.div>
+            </div>
+        )
+    }
 
     if (mode === 'awaiting') {
         return (

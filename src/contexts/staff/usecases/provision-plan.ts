@@ -3,6 +3,11 @@ import 'server-only'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { STAFF_PLAN_NAME } from '../domain/staff-plan'
+import { earliestStartIso } from '../domain/staff-plan'
+import { staffIntakeGate } from '../domain/staff-intake-gate'
+import { staffSeasonRefusal } from '../domain/staff-season-copy'
+import { getIntakeState } from '@/infra/config/intake'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 
 export type ProvisionResult = { ok: true } | { error: string }
 
@@ -10,18 +15,6 @@ export type ProvisionResult = { ok: true } | { error: string }
  *  14:00 kitchen cutoff, else the next working day for the week type.
  *  Mirrors the checkout date rules — staff plans skip the date picker
  *  (their pay starts as soon as the kitchen can serve them). */
-function earliestStartIso(weekType: '5DAYS' | '6DAYS'): string {
-    const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
-    const d = new Date(Date.UTC(ae.getUTCFullYear(), ae.getUTCMonth(), ae.getUTCDate()))
-    if (ae.getUTCHours() >= 14) d.setUTCDate(d.getUTCDate() + 1)
-    for (let i = 0; i < 7; i++) {
-        const isoDow = ((d.getUTCDay() + 6) % 7) + 1 // 1=Mon..7=Sun
-        const works = weekType === '5DAYS' ? isoDow <= 5 : isoDow <= 6
-        if (works) break
-        d.setUTCDate(d.getUTCDate() + 1)
-    }
-    return d.toISOString().slice(0, 10)
-}
 
 /**
  * Provisions the FREE 5-day Staff Monthly plan — the intern's pay. Modeled
@@ -61,6 +54,22 @@ export async function provisionStaffFreePlan(userId: string): Promise<ProvisionR
         .eq('id', userId)
         .maybeSingle()
 
+    const startDate = earliestStartIso('5DAYS')
+
+    // Same season rule as everyone: no new cycle while sign-ups are paused,
+    // none that outlives the last delivery day. Checked before the profile
+    // write below so a refused plan leaves nothing changed behind it.
+    const intake = await getIntakeState()
+    const gate = staffIntakeGate({
+        paused: intake.paused,
+        pauseScheduledFor: intake.pauseScheduledFor,
+        cycleEndIso: isoDate(computeEndDate({
+            startDate: new Date(startDate + 'T00:00:00Z'),
+            planKind: 'monthly', weekType: '5DAYS', skipCount: 0, pauseDays: 0,
+        })),
+    })
+    if (!gate.ok) return { error: staffSeasonRefusal(gate, 'intern') }
+
     // The free flavor IS the 5-day week — pin the profile to it so menus,
     // labels, and the delivery tick all agree on Mon–Fri.
     const { error: weekErr } = await sb
@@ -72,8 +81,8 @@ export async function provisionStaffFreePlan(userId: string): Promise<ProvisionR
         return { error: 'Could not set up your delivery week. Try again.' }
     }
 
-    const startDate = earliestStartIso('5DAYS')
     const todayAE = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
     const isReligious = /religious/i.test(customer?.meal_preference_type ?? '')
 
     // end_date is computed by the BEFORE INSERT trigger from the canonical

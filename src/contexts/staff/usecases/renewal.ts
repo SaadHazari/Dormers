@@ -2,7 +2,11 @@ import 'server-only'
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { STAFF_PLAN_NAME, RENEWAL_WINDOW_DAYS, nextWorkingDayAfter } from '../domain/staff-plan'
+import { STAFF_PLAN_NAME, RENEWAL_WINDOW_DAYS, nextWorkingDayAfter, earliestStartIso } from '../domain/staff-plan'
+import { staffIntakeGate } from '../domain/staff-intake-gate'
+import { staffSeasonRefusal } from '../domain/staff-season-copy'
+import { getIntakeState } from '@/infra/config/intake'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 
 type StaffSubRow = {
     id: string
@@ -105,16 +109,32 @@ export async function provisionStaffFreeRenewal(userId: string): Promise<Renewal
         .eq('id', userId)
         .maybeSingle()
 
+    // Same season rule as everyone: no new cycle while sign-ups are paused,
+    // none that outlives the last delivery day. Checked before anything is
+    // written so a refusal leaves no half-queued renewal behind.
+    const today = aeTodayIso()
+    const provisionalStart = state.renewStartDate <= today
+        ? nextWorkingDayAfter(today, '5DAYS')
+        : state.renewStartDate
+    const intake = await getIntakeState()
+    const gate = staffIntakeGate({
+        paused: intake.paused,
+        pauseScheduledFor: intake.pauseScheduledFor,
+        cycleEndIso: isoDate(computeEndDate({
+            startDate: new Date(provisionalStart + 'T00:00:00Z'),
+            planKind: 'monthly', weekType: '5DAYS', skipCount: 0, pauseDays: 0,
+        })),
+    })
+    if (!gate.ok) return { error: staffSeasonRefusal(gate, 'intern') }
+
     // Queue the week-type switch for the NEXT cycle — the current cycle's
     // menus/labels keep reading the canonical value. Drained on approval.
     await sb.from('customers').update({ pending_week_type: '5DAYS' }).eq('id', userId)
 
-    const today = aeTodayIso()
     // Lapsed renewals start at the next 5DAYS working day from today;
-    // in-window renewals start the day after the current cycle ends.
-    const startDate = state.renewStartDate <= today
-        ? nextWorkingDayAfter(today, '5DAYS')
-        : state.renewStartDate
+    // in-window renewals start the day after the current cycle ends. This is
+    // still only a placeholder — approveStaffRenewal creates the real one.
+    const startDate = provisionalStart
     const isReligious = /religious/i.test(customer?.meal_preference_type ?? '')
 
     const { data: created, error } = await sb.from('subscriptions').insert({
@@ -161,4 +181,39 @@ export async function provisionStaffFreeRenewal(userId: string): Promise<Renewal
     }
 
     return { ok: true }
+}
+
+
+/**
+ * The season's answer for this intern, worded for them, or null when the
+ * season is open. The chooser screen asks so it can say the kitchen is shut
+ * instead of offering two buttons that both fail on tap.
+ *
+ * Judged against the day the cycle would actually start, so it agrees with
+ * what provisionStaffFreePlan / provisionStaffFreeRenewal will decide a
+ * moment later.
+ */
+export async function staffSeasonNote(state: StaffPlanState): Promise<string | null> {
+    let startIso: string
+    if (state.kind === 'first-plan') {
+        startIso = earliestStartIso('5DAYS')
+    } else if (state.kind === 'renewal-open') {
+        const today = aeTodayIso()
+        startIso = state.renewStartDate <= today
+            ? nextWorkingDayAfter(today, '5DAYS')
+            : state.renewStartDate
+    } else {
+        return null
+    }
+
+    const intake = await getIntakeState()
+    const gate = staffIntakeGate({
+        paused: intake.paused,
+        pauseScheduledFor: intake.pauseScheduledFor,
+        cycleEndIso: isoDate(computeEndDate({
+            startDate: new Date(startIso + 'T00:00:00Z'),
+            planKind: 'monthly', weekType: '5DAYS', skipCount: 0, pauseDays: 0,
+        })),
+    })
+    return gate.ok ? null : staffSeasonRefusal(gate, 'intern')
 }

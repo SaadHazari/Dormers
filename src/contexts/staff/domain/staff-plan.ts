@@ -97,3 +97,23 @@ export function approvedRenewalStartDate({
   // ISO dates compare chronologically as strings.
   return afterCycle > afterApproval ? afterCycle : afterApproval
 }
+
+/**
+ * Earliest day a brand-new staff cycle can start: today if the kitchen's
+ * 2 PM cutoff hasn't passed and today is a working day, otherwise the next
+ * working day. Lives here rather than in provision-plan so the chooser
+ * screen and the provisioning path agree on which day they are judging
+ * against the season.
+ */
+export function earliestStartIso(weekType: StaffWeekType): string {
+  const ae = new Date(Date.now() + 4 * 60 * 60 * 1000)
+  const d = new Date(Date.UTC(ae.getUTCFullYear(), ae.getUTCMonth(), ae.getUTCDate()))
+  if (ae.getUTCHours() >= 14) d.setUTCDate(d.getUTCDate() + 1)
+  for (let i = 0; i < 7; i++) {
+    const isoDow = ((d.getUTCDay() + 6) % 7) + 1 // 1=Mon..7=Sun
+    const works = weekType === '5DAYS' ? isoDow <= 5 : isoDow <= 6
+    if (works) break
+    d.setUTCDate(d.getUTCDate() + 1)
+  }
+  return d.toISOString().slice(0, 10)
+}

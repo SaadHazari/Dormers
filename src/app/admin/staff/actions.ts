@@ -7,6 +7,10 @@ import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { normalisePhone } from '@/shared/phone'
 import { generateClaimCode, hashClaimCode, CODE_TTL_DAYS } from '@/contexts/staff/domain/claim-code'
 import { STAFF_PLAN_NAME, STAFF_SATURDAY_MEAL_AED, unusedSaturdays, approvedRenewalStartDate, type StaffWeekType } from '@/contexts/staff/domain/staff-plan'
+import { staffIntakeGate } from '@/contexts/staff/domain/staff-intake-gate'
+import { staffSeasonRefusal } from '@/contexts/staff/domain/staff-season-copy'
+import { getIntakeState } from '@/infra/config/intake'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 import { refundPaymentFils } from '@/infra/stripe/refunds'
 import { captureError } from '@/infra/logging/capture-error'
 
@@ -294,6 +298,20 @@ export async function approveStaffRenewal(subscriptionId: string): Promise<Resul
         weekType,
         currentCycleEndIso: (liveCycle?.end_date as string | undefined) ?? null,
     })
+
+    // Approval is what starts the cycle, so the season rule belongs here as
+    // much as at the moment the intern chose. A renewal queued while the
+    // shop was open can reach this button after a pause has been called.
+    const intake = await getIntakeState()
+    const gate = staffIntakeGate({
+        paused: intake.paused,
+        pauseScheduledFor: intake.pauseScheduledFor,
+        cycleEndIso: isoDate(computeEndDate({
+            startDate: new Date(startDate + 'T00:00:00Z'),
+            planKind: 'monthly', weekType, skipCount: 0, pauseDays: 0,
+        })),
+    })
+    if (!gate.ok) return { ok: false, message: staffSeasonRefusal(gate, 'admin') }
 
     const { data: sub, error } = await sb
         .from('subscriptions')
