@@ -68,20 +68,32 @@ export function EmailStep({ form, set }: {
         const finalUni  = form.university === 'Other' ? form.customUniversity.trim() : form.university
 
         startTransition(async () => {
-            const result = await createAccount({
-                preference: form.preference,
-                allergens:  form.allergens.length ? form.allergens : ['None'],
-                spiceLevel: form.spiceLevel,
-                dorm:       finalDorm,
-                university: finalUni,
-                weekType:   form.weekType,
-                name:       form.name.trim(),
-                phone:      form.phone.trim(),
-                email:      form.email.trim(),
-                password:   form.password,
-                vegDays:    form.vegDays,
-                emailFallback: form.emailFallback,
-            })
+            // Server-action calls are fetches underneath — on a flaky mobile
+            // network (or a webview suspending mid-request) the await REJECTS
+            // with "Failed to fetch"/"Load failed". Uncaught, that bubbles to
+            // the global error boundary and replaces the whole onboarding
+            // form with the crash screen (Sentry JAVASCRIPT-NEXTJS-1B/-1D).
+            // Catch it and show the same inline retry copy PhoneStep uses.
+            let result: Awaited<ReturnType<typeof createAccount>> | undefined
+            try {
+                result = await createAccount({
+                    preference: form.preference,
+                    allergens:  form.allergens.length ? form.allergens : ['None'],
+                    spiceLevel: form.spiceLevel,
+                    dorm:       finalDorm,
+                    university: finalUni,
+                    weekType:   form.weekType,
+                    name:       form.name.trim(),
+                    phone:      form.phone.trim(),
+                    email:      form.email.trim(),
+                    password:   form.password,
+                    vegDays:    form.vegDays,
+                    emailFallback: form.emailFallback,
+                })
+            } catch {
+                setError('Network error. Try again.')
+                return
+            }
             if (!result) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} ; return }
             if ('error' in result) { setError(result.error); return }
             if ('requiresConfirmation' in result) {
@@ -99,7 +111,17 @@ export function EmailStep({ form, set }: {
         if (isPending || verified || token.length !== OTP_LENGTH) return
         setError('')
         startTransition(async () => {
-            const res = await verifyEmailOtp(form.email.trim(), token)
+            // Password rides along so the action can recover when a mailbox
+            // link-scanner already consumed the one-time token (the account is
+            // confirmed by then — signing in with the just-chosen password
+            // completes signup instead of dead-ending on "code expired").
+            let res: Awaited<ReturnType<typeof verifyEmailOtp>>
+            try {
+                res = await verifyEmailOtp(form.email.trim(), token, form.password)
+            } catch {
+                setError('Network error. Try again.')
+                return
+            }
             if ('error' in res) { setError(prettifyError(res.error)); return }
             setVerified(true)
             setTimeout(() => router.replace(staffClaimedRef.current ? '/staff/plan' : '/dashboard'), 500)
@@ -115,7 +137,13 @@ export function EmailStep({ form, set }: {
         if (resendIn > 0 || isPending || isResending) return
         setError('')
         startResend(async () => {
-            const res = await resendEmailOtp(form.email.trim())
+            let res: Awaited<ReturnType<typeof resendEmailOtp>>
+            try {
+                res = await resendEmailOtp(form.email.trim())
+            } catch {
+                setError('Network error. Try again.')
+                return
+            }
             if ('error' in res) { setError(prettifyError(res.error)); return }
             setResendIn(45)
             setCode('')

@@ -288,7 +288,11 @@ export async function createAccount(
 
 export type VerifyEmailOtpResult = { ok: true } | { error: string }
 
-export async function verifyEmailOtp(email: string, token: string): Promise<VerifyEmailOtpResult> {
+export async function verifyEmailOtp(
+    email: string,
+    token: string,
+    password?: string,
+): Promise<VerifyEmailOtpResult> {
     // Email OTP is 6 digits (Supabase Auth setting flipped 2026-05-17).
     // Mirror this regex in src/app/r/[cid]/actions.ts verifyTrialEmailOtp
     // AND EmailStep.tsx OTP_LENGTH if the Supabase setting ever changes again.
@@ -304,6 +308,27 @@ export async function verifyEmailOtp(email: string, token: string): Promise<Veri
     })
 
     if (error) {
+        // Mailbox link-scanners (Microsoft SafeLinks on university-hosted
+        // domains, mostly) prefetch the "verify in one tap" link in the
+        // confirmation email. That link and the 6-digit code share ONE
+        // single-use token, so the scanner's GET confirms the account and
+        // burns the token before the user can type the code — every attempt
+        // then returns otp_expired and signup dead-ends. The account IS
+        // confirmed at that point and this form still holds the password the
+        // user chose seconds ago, so recover by signing in with it. For a
+        // plain mistyped code the account is still unconfirmed and
+        // signInWithPassword refuses ("Email not confirmed"), falling
+        // through to the original OTP error below.
+        if (password) {
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            })
+            if (!signInError) {
+                revalidatePath('/', 'layout')
+                return { ok: true }
+            }
+        }
         // Common cases: expired (24h default), wrong code, too many attempts.
         // Surface Supabase's message — it's already user-friendly.
         return { error: error.message }
