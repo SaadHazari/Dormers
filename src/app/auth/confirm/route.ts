@@ -25,8 +25,27 @@ function safeNext(raw: string): string {
 export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url)
     const token_hash = searchParams.get('token_hash')
+    const code = searchParams.get('code')
     const type = searchParams.get('type')
     const next = safeNext(searchParams.get('next') ?? '/dashboard')
+
+    // PKCE leg. signUp runs through the @supabase/ssr server client, so the
+    // emailed ConfirmationURL carries a `pkce_` token; GoTrue's /verify
+    // consumes it and 303s back HERE with `?code=` — never with token_hash.
+    // Before this branch existed, every click of the email's "verify in one
+    // tap" button ended at the /login error below even though the account
+    // was already confirmed (Supabase auth logs, Sept 1–6: all four affected
+    // signups). The exchange needs the PKCE verifier cookie, so it succeeds
+    // in the browser that started signup and fails for mailbox scanners and
+    // cross-device clicks — those still fall through to the error redirect.
+    if (code) {
+        const supabase = await createClient()
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (!error) {
+            return NextResponse.redirect(new URL(next, origin))
+        }
+    }
 
     if (token_hash && isValidOtpType(type)) {
         const supabase = await createClient()
