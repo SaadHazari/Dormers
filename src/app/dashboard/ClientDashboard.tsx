@@ -388,7 +388,11 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
             banners={
               <>
                 <OutOfZoneBanner show={outOfZone} />
-                <ProfileBanner missing={missingFields} deprioritized={outOfZone} />
+                {/* Intake pause wins — telling someone to finish their
+                    profile so they can buy something that isn't for sale is
+                    the wrong instruction. Same precedence PlanClient's
+                    gateBanner already enforces. */}
+                {!intakePause.paused && <ProfileBanner missing={missingFields} deprioritized={outOfZone} />}
                 {checkoutCanceled && (
                   <div style={{ marginBottom: 22, padding: '12px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, color: S.fgMuted, fontSize: 13, fontFamily: BODY, lineHeight: 1.5 }}>
                     Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.

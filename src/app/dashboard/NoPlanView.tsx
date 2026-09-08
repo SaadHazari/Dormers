@@ -166,17 +166,24 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             block (the actionable area) without covering the past-plans
             reference section below it — same idiom as the plan grid's own
             gate wrapper in PlanClient. ── */}
-      <div style={{ position: 'relative' }}>
-        {intake.paused && (
-          <IntakePausedGate
-            headline={intake.headline}
-            body={intake.body}
-            firstName={intake.firstName}
-            creditAed={intake.creditAed}
-            alreadyJoined={intake.alreadyJoined}
-            waitlistCreditAed={intake.waitlistCreditAed}
-          />
-        )}
+      <div>
+        {/* Shelf contract (owner call, 2026-09-08): during a seasonal pause
+            the waitlist card renders IN FLOW as the hero — the sales pitch
+            below it is for a register that is closed, so the card takes its
+            slot outright instead of frosting it. Width-capped so the card
+            reads as a card on desktop and fills the column on mobile. */}
+        {intake.paused ? (
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
+            <IntakePausedGate
+              headline={intake.headline}
+              body={intake.body}
+              firstName={intake.firstName}
+              creditAed={intake.creditAed}
+              alreadyJoined={intake.alreadyJoined}
+              waitlistCreditAed={intake.waitlistCreditAed}
+            />
+          </div>
+        ) : (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -334,6 +341,7 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           </motion.div>
         </div>
         </motion.div>
+        )}
       </div>
 
       {/* ── Past plans — same layout as /plan so the user reads identical

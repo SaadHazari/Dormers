@@ -104,7 +104,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
           below stays readable as the evidence under the offer, and every
           card wears the season-closed treatment instead of a buy CTA. */}
       {intake.paused && (
-        <IntakePausedGate variant="inline" headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
+        <IntakePausedGate headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
       )}
 
       {/* Compact trust band — one row, replaces the three stacked promise cards. */}

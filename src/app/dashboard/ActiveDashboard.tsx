@@ -1522,8 +1522,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         {/* Out-of-zone gate — non-dismissable, blocks renewal. Customer-service
             clears it via Supabase admin once delivery is confirmed. */}
         <OutOfZoneBanner show={outOfZone} />
-        {/* Profile-completion gate — non-dismissable, blocks plan purchase. */}
-        <ProfileBanner missing={profileGate} deprioritized={outOfZone} />
+        {/* Profile-completion gate — non-dismissable, blocks plan purchase.
+            Suppressed while intake is paused: purchases aren't for sale, so
+            "finish your profile to unlock purchase" is the wrong instruction
+            (same precedence as PlanClient's gateBanner). */}
+        {!intakePause.paused && <ProfileBanner missing={profileGate} deprioritized={outOfZone} />}
 
         {/* Plan-ending-during-a-pause — spec §6.4. Sits above the hero so a
             loyal customer whose plan is about to lapse learns about the pause
@@ -1875,7 +1878,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             data + handlers + modals as desktop, just a different surface. ── */}
         <div className="home-mobile">
           <OutOfZoneBanner show={outOfZone} />
-          <ProfileBanner missing={profileGate} deprioritized={outOfZone} />
+          {/* Same intake-pause precedence as the desktop mount above. */}
+          {!intakePause.paused && <ProfileBanner missing={profileGate} deprioritized={outOfZone} />}
           <MobileHome
             data={mobileData}
             creditChip={<MobileCreditChip rows={creditRows} />}

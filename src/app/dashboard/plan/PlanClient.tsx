@@ -821,7 +821,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, creditAed = 0,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, creditAed = 0,
 }: {
   plan: PlanDef
   pref: Pref
@@ -838,6 +838,10 @@ function PlanCard({
    *  same dim + disabled treatment the "pick veg days first" state uses,
    *  so the grid has one language for "not selectable yet". */
   doneForTerm?: boolean
+  /** Seasonal intake pause — the whole shop is closed. Same resting
+   *  treatment as doneForTerm, but the line is a fact that points at the
+   *  waitlist hero above the grid. Mirrors the mobile card. */
+  seasonClosed?: boolean
   /** Credit that applies to THIS plan (checkout's per-plan math, in AED).
    *  A restricted credit is a discount on a specific door — it belongs on
    *  that door, at the moment of choosing, not as a footnote elsewhere. */
@@ -849,7 +853,10 @@ function PlanCard({
   const priceUnknown = pref === 'Religious' && vegDayCount == null
   // Either reason closes the card's select path; they never coexist in copy
   // (the veg-day state is an instruction, this one is a season fact).
-  const unavailable = priceUnknown || doneForTerm
+  // One resting grammar for both season reasons — which line explains the
+  // dim differs below.
+  const closed = doneForTerm || seasonClosed
+  const unavailable = priceUnknown || closed
   // Pricing math uses 3 as a defensive fallback when count is null — the
   // value is never actually displayed for that branch, but the helpers
   // need a real number to avoid Math.floor(null) → 0 fallthrough.
@@ -864,7 +871,7 @@ function PlanCard({
   // must not be the loudest thing on the grid, so the whole featured
   // treatment steps down to the plain card and only the dim + the
   // "Done for this term" line remain.
-  const showFeatured = featured && !doneForTerm
+  const showFeatured = featured && !closed
 
   // Static PLANS strings reflect 6DAYS. Override duration + the meals-count
   // line in the feature list so 5DAYS customers see correct numbers.
@@ -987,7 +994,7 @@ function PlanCard({
             card that cannot be bought this term the claim is noise, and its
             orange/gold tint is exactly the prominence the state is trying to
             remove — so it steps aside for the done-for-term line below. */}
-        {plan.badge && !doneForTerm && (
+        {plan.badge && !closed && (
           <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 11, fontWeight: 600, color: badgeStyle.fg, letterSpacing: '0.04em' }}>
             {plan.badge}
           </div>
@@ -1049,7 +1056,7 @@ function PlanCard({
                 the price block (where "Set veg days first" also lives) so
                 the reason is next to what it invalidates, and replaces the
                 savings badge rather than stacking with it. */}
-            {doneForTerm ? (
+            {closed ? (
               <div style={{
                 marginTop: 10,
                 display: 'flex', alignItems: 'flex-start', gap: 6,
@@ -1057,7 +1064,7 @@ function PlanCard({
                 color: S.fgMuted, lineHeight: 1.45,
               }}>
                 <CalendarClock size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
-                <span>Done for this term. Back next semester.</span>
+                <span>{doneForTerm ? 'Done for this term. Back next semester.' : 'Closed for the season — save your spot above.'}</span>
               </div>
             ) : showSave && (
               <div style={{
@@ -1118,12 +1125,12 @@ function PlanCard({
         padding: '12px 16px', borderRadius: 12,
         background:
           selected ? OG :
-          doneForTerm ? 'transparent' :
+          closed ? 'transparent' :
           featured ? 'var(--ds-og-wash-strong)' :
           'var(--ds-skeleton-base)',
         color:
           selected ? '#fff' :
-          doneForTerm ? S.fgFaint :
+          closed ? S.fgFaint :
           featured ? OG :
           S.fg,
         fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -1132,11 +1139,11 @@ function PlanCard({
           // Dashed = the dashboard's standing "not available to press"
           // affordance (see the mobile empty-state pill), so the state reads
           // as closed rather than merely quiet.
-          doneForTerm ? '1px dashed var(--ds-border-strong)' :
+          closed ? '1px dashed var(--ds-border-strong)' :
           featured ? '1px solid rgba(245,127,32,0.40)' :
           `1px solid ${S.border2}`,
       }}>
-        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : 'Choose plan')}
+        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : 'Choose plan')}
       </span>
     </button>
   )
@@ -1951,10 +1958,20 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   instruction, so the two never render together. The
                   onSelect guard below covers the keyboard path the overlay
                   can't intercept — it must repeat the same precedence. */}
+              {/* Seasonal pause — the closed sign leads the shop instead of
+                  frosting it: the waitlist card renders in flow above the
+                  grid, the priced cards stay readable as the evidence under
+                  the offer, and every card wears the season-closed
+                  treatment instead of a buy CTA (shelf contract, owner
+                  call 2026-09-08). The profile gate keeps its overlay but
+                  yields to the pause. */}
+              {intake.paused && (
+                <div style={{ maxWidth: 560, margin: '0 auto 24px' }}>
+                  <IntakePausedGate headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
+                </div>
+              )}
               <div style={{ position: 'relative', marginBottom: 24 }}>
-                {intake.paused
-                  ? <IntakePausedGate headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
-                  : profileGated && <ProfileGateOverlay missing={missingFields} />}
+                {!intake.paused && profileGated && <ProfileGateOverlay missing={missingFields} />}
                 <div id="plans-grid" className="plans-grid">
                   {PLANS.map(p => (
                     <PlanCard
@@ -1969,10 +1986,17 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       onSelect={(id) => { if (intake.paused || profileGated || doneForTermByPlan[id]) return; setSelected(prev => prev === id ? null : id) }}
                       priceOverrides={priceOverrides}
                       doneForTerm={!!doneForTermByPlan[p.id]}
+                      seasonClosed={intake.paused}
                       creditAed={(creditByPlan[p.id]?.balanceFils ?? 0) / 100}
                     />
                   ))}
                 </div>
+                {/* Price honesty — the shelf shows this term's numbers, and says so. */}
+                {intake.paused && (
+                  <p style={{ margin: '18px 0 0', textAlign: 'center', fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: S.fgMuted, lineHeight: 1.5 }}>
+                    This term&rsquo;s prices — next term&rsquo;s are confirmed when plans reopen.
+                  </p>
+                )}
               </div>
 
               {/* Checkout panel — slides in once a plan is selected.

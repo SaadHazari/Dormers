@@ -524,7 +524,6 @@ function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () 
   if (intake.paused) {
     return (
       <IntakePausedGate
-        variant="inline"
         headline={intake.headline}
         body={intake.body}
         firstName={intake.firstName}

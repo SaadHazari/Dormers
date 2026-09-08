@@ -52,7 +52,7 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, joined?: string, far?: string, reopened?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -62,6 +62,10 @@ export default async function DashboardPage({
         //   ?wrap=locked  — weekly wrap strip in its pre-unlock state
         //   ?wrap=open    — clickable wrap strip with the days chip
         //   ?paused=1     — intake pause + already-joined → plan-ending banner
+        //   ?paused=1&joined=0 — intake pause, not yet joined → offer card
+        //   ?paused=1&nosub=1  — pause with no active sub → NoPlanView shelf
+        //   ?far=1        — end date +20d → outside the plan-ending window
+        //   ?reopened=1   — pause lifted, joined + credit → reopened takeover
         //   ?fresh=1      — under 5 lifetime dinners → one-line greeting
         // Dates are computed relative to today so the fixture never drifts
         // stale: mid-cycle, ending in 3 days, which keeps the countdown tiles
@@ -71,7 +75,7 @@ export default async function DashboardPage({
         const previewSub = {
             ...PREVIEW_SUBSCRIPTION,
             start_date: dateOnly(Date.now() - 24 * day),
-            end_date: dateOnly(Date.now() + 3 * day),
+            end_date: dateOnly(Date.now() + (params.far === '1' ? 20 : 3) * day),
             ...(params.fresh === '1' ? { total_meals: 6, delivered_meals: 2 } : {}),
         }
         const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
@@ -91,18 +95,29 @@ export default async function DashboardPage({
             body: 'New plans are paused while we cook for our current dorms.',
             creditAed: 15,
             firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
-            alreadyJoined: true,
-            waitlistCreditAed: 15,
+            alreadyJoined: params.joined !== '0',
+            waitlistCreditAed: params.joined !== '0' ? 15 : 0,
             cycleStartedAt: dateOnly(Date.now() - 10 * day),
             cycleEndedAt: null,
+            lastDeliveryDay: null,
+        } : params.reopened === '1' ? {
+            paused: false,
+            headline: '',
+            body: '',
+            creditAed: 15,
+            firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
+            alreadyJoined: true,
+            waitlistCreditAed: 15,
+            cycleStartedAt: dateOnly(Date.now() - 30 * day),
+            cycleEndedAt: dateOnly(Date.now() - 1 * day),
             lastDeliveryDay: null,
         } : undefined
         return (
             <Suspense fallback={<Spinner />}>
                 <ClientDashboard
                     customer={PREVIEW_CUSTOMER}
-                    activeSubscription={previewSub}
-                    allSubscriptions={[previewSub]}
+                    activeSubscription={params.nosub === '1' ? null : previewSub}
+                    allSubscriptions={params.nosub === '1' ? [] : [previewSub]}
                     userEmail={PREVIEW_CUSTOMER.email}
                     monthlyWindow={previewWrap}
                     intakePause={previewPause}

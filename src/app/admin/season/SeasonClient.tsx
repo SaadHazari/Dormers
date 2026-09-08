@@ -689,41 +689,42 @@ function CreditField({ label, t, value, onChange }: {
 // panel's own light/dark theme, because that is what customers always see.
 
 function PreviewCard({ headline, body, creditAed }: { headline: string; body: string; creditAed: number }) {
+    const headlineDot = !/[.!?…]$/.test(headline.trim())
     return (
         <div style={{
-            background: '#fcf8ee',
-            border: '1px solid rgba(9,24,37,0.10)',
-            borderRadius: 18,
-            boxShadow: '0 6px 18px rgba(9,24,37,0.07), 0 1px 3px rgba(9,24,37,0.04)',
-            padding: '26px 24px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-            textAlign: 'center',
+            background: 'linear-gradient(180deg, #fdfbf6 0%, #fdfbf6 58%, #fdf1e3 100%)',
+            border: '1px solid rgba(245,127,32,0.40)',
+            borderRadius: 22,
+            boxShadow: '0 1px 2px rgba(9,24,37,0.04), 0 8px 24px -12px rgba(9,24,37,0.16)',
+            padding: 22,
+            display: 'flex', flexDirection: 'column', gap: 14,
             fontFamily: BODY,
         }}>
-            <span style={{
-                width: 42, height: 42, borderRadius: '50%',
-                background: 'rgba(245,127,32,0.12)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: OG,
-            }}>
-                <Gift size={20} strokeWidth={2.4} />
-            </span>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#091825', lineHeight: 1.3 }}>
-                {headline.trim() || 'Headline goes here'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(245,127,32,0.12)', color: OG, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Gift size={13} strokeWidth={2.4} />
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(9,24,37,0.45)' }}>Seasonal break</span>
             </div>
-            <div style={{ fontSize: 12.5, color: 'rgba(9,24,37,0.65)', lineHeight: 1.55 }}>
-                {body.trim() || 'Body copy goes here.'}
+            <div>
+                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#091825', lineHeight: 1.25 }}>
+                    {headline.trim() || 'Headline goes here'}{headlineDot && <span style={{ color: OG }}>.</span>}
+                </div>
+                <div style={{ margin: '8px 0 0', fontSize: 12.5, color: 'rgba(9,24,37,0.65)', lineHeight: 1.55 }}>
+                    {body.trim() || 'Body copy goes here.'}
+                </div>
             </div>
-            <div style={{ fontSize: 19, fontWeight: 800, color: OG_DEEP, letterSpacing: '-0.01em' }}>
-                AED {creditAed} is waiting in your account
+            <div>
+                <span style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: OG_DEEP, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>AED {creditAed}</span>
+                <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(9,24,37,0.55)' }}>yours if you save your spot</div>
             </div>
             <div style={{
-                marginTop: 4, minHeight: 44,
+                minHeight: 44, width: '100%',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                padding: '12px 22px',
+                padding: '14px 18px',
                 background: OG, color: '#fff', opacity: 0.55,
                 borderRadius: 999,
-                fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase',
             }}>
                 Save my spot
             </div>
