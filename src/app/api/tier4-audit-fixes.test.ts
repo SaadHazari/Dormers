@@ -21,7 +21,7 @@ describe('#33: Negative stripeNetFils guard', () => {
 })
 
 describe('#35: Referral credit insert has error handling + admin alert', () => {
-  const src = read('src/app/r/[cid]/actions.ts')
+  const src = read('src/contexts/referrals/usecases/credit-inviter.ts')
   const fn = src.slice(src.indexOf('creditInviterOnConversion'))
   it('checks credit insert error', () => {
     expect(fn).toContain('error: creditErr')

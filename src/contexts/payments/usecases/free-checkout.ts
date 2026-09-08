@@ -27,7 +27,7 @@ import {
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
 import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
-import { creditInviterOnConversion } from '@/app/r/[cid]/actions'
+import { creditInviterOnConversion } from '@/contexts/referrals/usecases/credit-inviter'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { getIntakeState } from '@/infra/config/intake'
 import { seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon'

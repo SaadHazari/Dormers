@@ -88,11 +88,18 @@ describe('r/[cid]/actions.ts — referral failure paths alert ops', () => {
   it('welcome meal sub insert failure alerts ops', () => {
     expect(src).toContain('Welcome meal subscription INSERT FAILED')
   })
-  it('Layer 1 credit insert failure alerts ops', () => {
-    expect(src).toContain('Layer 1 credit INSERT FAILED')
-  })
   it('trial customer row insert failure returns error', () => {
     expect(src).toContain("return { error: 'Profile setup failed.")
+  })
+})
+
+// creditInviterOnConversion moved OUT of the 'use server' actions file — every
+// export there is a public HTTP endpoint, and that one is a service-role payout.
+describe('credit-inviter.ts — referral payout failure alerts ops', () => {
+  const src = read('src/contexts/referrals/usecases/credit-inviter.ts')
+  it('Layer 1 credit insert failure alerts ops', () => {
+    expect(src).toContain('Layer 1 credit INSERT FAILED')
+    expect(src).toContain('notifyAdmin')
   })
 })
 

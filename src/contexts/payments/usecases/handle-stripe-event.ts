@@ -22,7 +22,7 @@ import type { Stripe } from '@/infra/stripe/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans'
-import { creditInviterOnConversion } from '@/app/r/[cid]/actions'
+import { creditInviterOnConversion } from '@/contexts/referrals/usecases/credit-inviter'
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo'
 import {
   SUBSCRIPTION_STATUS,
