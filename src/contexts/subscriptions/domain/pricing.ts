@@ -251,6 +251,51 @@ export function totalPrice(
 }
 
 /**
+ * The one place a free-text meal-preference string becomes a priced `Pref`.
+ *
+ * Canonical `customers.meal_preference_type` values are "Non Veg", "Veg" and
+ * "Religious Preference"; the plant/carnivore branches stay so historical rows
+ * that were never backfilled still resolve. Checkout receives this string from
+ * the client, so the mapping has to be identical to the one the dashboard and
+ * the savings maths use — otherwise the price a customer is charged and the
+ * price they are shown come from two different readings of the same word.
+ *
+ * Unrecognised input falls to NonVeg, which is the PRICIEST branch. That
+ * matters: this function decides what a customer owes, so an unknown string
+ * must never resolve to the cheapest option.
+ */
+export function resolvePref(mealPref: string | null | undefined): Pref {
+  const p = (mealPref ?? '').toLowerCase()
+  if (p.includes('religious')) return 'Religious'
+  if (p.includes('plant') || (p.includes('veg') && !p.includes('non'))) return 'Veg'
+  return 'NonVeg'
+}
+
+/**
+ * The EXACT cycle total in fils for one specific (plan, preference, veg-day
+ * count, week_type). This is what checkout must charge.
+ *
+ * Not to be confused with {@link priceBoundsFils}, which returns the widest
+ * legal band across EVERY preference. Checkout used to validate the submitted
+ * amount against that band, but `preference` rides in the same request body
+ * and was never checked against the money — so a hand-crafted POST could ask
+ * for NonVeg Monthly Max (AED 1032) while paying the Veg floor (AED 840) and
+ * pass validation. The webhook then wrote that preference onto the order, so
+ * the kitchen packed non-veg for a veg-priced plan: AED 192 of food per cycle.
+ *
+ * Charge for what was ordered. The band is for display ranges, not for money.
+ */
+export function exactPriceFils(
+  plan: PlanId,
+  pref: Pref,
+  vegDayCount: number,
+  weekType: WeekType = '6DAYS',
+  overrides?: readonly PriceOverride[],
+): number {
+  return Math.round(totalPrice(plan, pref, vegDayCount, weekType, overrides) * 100)
+}
+
+/**
  * Min/max valid cycle total in fils (AED × 100) for (plan, week_type),
  * scanning every preference the customer could legitimately submit:
  * Veg, NonVeg, and each Religious veg-day count 1..W-1.

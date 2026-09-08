@@ -12,18 +12,24 @@ import { resolve } from 'node:path'
 const ROOT = resolve(__dirname, '../../..')
 const read = (rel: string) => readFileSync(resolve(ROOT, rel), 'utf-8')
 
-// ── #14: Max price ceiling on checkout ──────────────────────────────────────
-// The ceiling moved from plans.ts' hand-maintained NONVEG_PRICE_PER_MEAL
-// table (which drifted) to the single pricing engine: checkout validates
-// against priceBoundsFils (code defaults + plan_pricing DB overrides).
-describe('#14: Checkout has a max price ceiling', () => {
+// ── #14: Checkout validates the price ───────────────────────────────────────
+// History: a hand-maintained NONVEG_PRICE_PER_MEAL table in plans.ts (drifted)
+// → priceBoundsFils, a band across every preference (code defaults + DB
+// overrides) → an EXACT match against the ordered preference.
+//
+// The band had to go because `preference` rides in the same request body and
+// was never compared against the money, so a POST could order NonVeg Monthly
+// Max and pay the Veg floor — AED 192 of food per cycle. See
+// contexts/subscriptions/domain/checkout-price.test.ts for the full case.
+describe('#14: Checkout validates the price exactly', () => {
   const src = read('src/app/api/checkout/route.ts')
-  it('derives the band from the effective price engine', () => {
-    expect(src).toContain('priceBoundsFils')
+  it('derives the figure from the effective price engine', () => {
+    expect(src).toContain('exactPriceFils')
     expect(src).toContain('fetchActivePriceOverrides')
   })
-  it('rejects amounts above the plan ceiling', () => {
-    expect(src).toContain("'Amount exceeds plan price'")
+  it('rejects any amount that is not the exact price', () => {
+    expect(src).toContain('amount !== expectedFils')
+    expect(src).toContain('PRICE_MISMATCH')
   })
 })
 
@@ -116,7 +122,7 @@ describe('#13: Free checkout rolls back on credit flip failure', () => {
 
 // ── #7: Referral CAS guard on conversion ────────────────────────────────────
 describe('#7: creditInviterOnConversion has CAS guard', () => {
-  const src = read('src/app/r/[cid]/actions.ts')
+  const src = read('src/contexts/referrals/usecases/credit-inviter.ts')
   const fn = src.slice(src.indexOf('creditInviterOnConversion'))
   it('uses CAS on status=gift_claimed in the UPDATE', () => {
     expect(fn).toContain(".eq('status', 'gift_claimed')")

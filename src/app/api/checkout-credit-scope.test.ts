@@ -85,6 +85,7 @@ vi.mock('@/infra/supabase/subscriptions-repo', () => ({
   getRedeemableCredit: vi.fn(async () => ({ rows: [], balanceFils: 0, lockedFils: 0, lockedRequiresMonthly: false })),
 }))
 
+import { exactPriceFils } from '@/contexts/subscriptions/domain/pricing'
 import { POST } from './checkout/route'
 
 beforeEach(() => getIntakeStateMock.mockReset())
@@ -101,13 +102,18 @@ describe('checkout credit fetch is plan-scoped', () => {
     getIntakeStateMock.mockResolvedValue({ paused: false, headline: '', body: '' })
     const { getRedeemableCredit } = await import('@/infra/supabase/subscriptions-repo')
     const spy = vi.mocked(getRedeemableCredit)
-    // 12000 fils (AED 120) sits inside Weekly Flex's 6DAYS price band
-    // (AED 19-23/meal × 6 meals = 11400-13800 fils) so the route's price
-    // validation passes and execution actually reaches the credit fetch.
+    // The amount must now be the EXACT price for the submitted preference,
+    // not merely inside the plan's band — checkout stopped accepting a range
+    // once it turned out a POST could order NonVeg and pay the Veg floor.
+    // Weekly Flex 6DAYS NonVeg = AED 23/meal × 6 meals = 13800 fils, and
+    // `preference` has to be sent because the route prices what was ordered.
+    //
     // `plan` must be the label resolvePlan matches against ('Weekly Flex'),
     // not the kebab id — the kebab id is what planDef.id resolves TO, which
     // is what we assert got passed through as the third argument below.
-    await POST(req({ amount: 12000, plan: 'Weekly Flex' }))
+    const expected = exactPriceFils('Weekly Flex', 'NonVeg', 0, '6DAYS')
+    expect(expected).toBe(13_800)
+    await POST(req({ amount: expected, plan: 'Weekly Flex', preference: 'Non Veg' }))
     const planArg = spy.mock.calls.at(-1)?.[2]
     expect(planArg).toBe('weekly-flex')
   })

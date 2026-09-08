@@ -15,7 +15,7 @@
  * evenings of not having to think about dinner, not portions.
  */
 
-import { pricePerMeal, type PlanId, type Pref, type WeekType } from './pricing'
+import { pricePerMeal, resolvePref, type PlanId, type WeekType } from './pricing'
 
 export interface SubscriptionForSavings {
   plan_name: string
@@ -41,15 +41,9 @@ function resolvePlanId(planName: string): PlanId | null {
   return null
 }
 
-// Canonical customer.meal_preference_type values are "Non Veg", "Veg", and
-// "Religious Preference". The plant/carnivore branches stay so any historical
-// rows that weren't backfilled still resolve correctly.
-function resolvePref(mealPref: string | null | undefined): Pref {
-  const p = (mealPref ?? '').toLowerCase()
-  if (p.includes('religious')) return 'Religious'
-  if (p.includes('plant') || (p.includes('veg') && !p.includes('non'))) return 'Veg'
-  return 'NonVeg'
-}
+// resolvePref is imported from pricing.ts — ONE reading of the preference
+// string, shared with checkout, so the price shown and the price charged can
+// never come apart.
 
 // Per-meal cost the customer is actually paying on this subscription. Religious
 // mix needs vegDayCount (length of veg_days) because the per-meal price is a

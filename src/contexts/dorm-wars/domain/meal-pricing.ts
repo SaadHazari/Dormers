@@ -17,7 +17,7 @@
 // the displayed "this is what you'll get" exactly matches what eventually
 // lands in the wallet. Drift here = trust break.
 
-import { pricePerMeal, mealsForPlan, type Pref, type PlanId, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
+import { pricePerMeal, mealsForPlan, resolvePref, type Pref, type PlanId, type PriceOverride } from '@/contexts/subscriptions/domain/pricing'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = { from: (t: string) => any }
 
@@ -31,15 +31,9 @@ export interface MealPriceContext {
   source:           'active-sub' | 'last-premium-sub' | 'fallback'  // for ops traceability
 }
 
-// Resolve customer.meal_preference_type free-text → canonical Pref.
-// Matches the same heuristic used by src/app/dashboard/plan/PlanClient.tsx
-// (lowercased substring match) so the UI and the awarder agree.
-function resolvePref(raw: string | null | undefined): Pref {
-  const s = (raw ?? '').toLowerCase()
-  if (s.includes('religious')) return 'Religious'
-  if (s.includes('plant') || (s.includes('veg') && !s.includes('non'))) return 'Veg'
-  return 'NonVeg'
-}
+// resolvePref is imported from pricing.ts. It used to be copied here, and
+// separately in savings.ts, so three readings of the same preference string
+// could drift apart — and one of them decides what a customer is charged.
 
 // Resolve plan_name string → PlanId. Substring match because legacy rows
 // can have decorations / emoji and "Monthly Max" must match before any

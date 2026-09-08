@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripeClient, type Stripe } from '@/infra/stripe/client';
 import { createClient } from '@/utils/supabase/server';
 import { resolvePlan, planKindOf } from '@/contexts/subscriptions/domain/plans';
-import { priceBoundsFils, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing';
+import { exactPriceFils, resolvePref, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing';
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo';
 import { isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date';
 import { journeyFits, effectiveTaperStart, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
@@ -280,13 +280,42 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid staff plan amount' }, { status: 400 });
       }
     } else {
+      // Charge for what was ORDERED, not "something in the plausible range".
+      //
+      // This used to be a band check against priceBoundsFils, which spans the
+      // cheapest to the priciest preference for the plan. But `preference`
+      // arrives in this same request body and was never checked against the
+      // money, so a hand-crafted POST could order NonVeg Monthly Max and pay
+      // the Veg floor: AED 840 for AED 1032 of food, and the webhook wrote the
+      // submitted preference onto the order, so the kitchen packed non-veg.
+      // Every plan had the same hole (Premium AED 96, Weekly Flex AED 24).
+      //
+      // Every input needed for the exact figure is already validated above:
+      // the plan is whitelisted, the week_type comes from the customer's own
+      // profile (not the request), and vegDays has been length/uniqueness/
+      // day-name checked for religious mixes. So compute the one true price
+      // and require it. fetchActivePriceOverrides still fails open to code
+      // defaults, so a DB blip degrades to the default price rather than
+      // blocking checkout.
       const priceOverrides = await fetchActivePriceOverrides();
-      const bounds = priceBoundsFils(PLAN_ID_BY_KEBAB[planDef.id], customerWeekType, priceOverrides);
-      if (amount < bounds.minFils) {
-        return NextResponse.json({ error: 'Amount too low for selected plan' }, { status: 400 });
-      }
-      if (amount > bounds.maxFils) {
-        return NextResponse.json({ error: 'Amount exceeds plan price' }, { status: 400 });
+      const pref = resolvePref(preference);
+      const vegDayCount = pref === 'Religious' ? (Array.isArray(vegDays) ? vegDays.length : 0) : 0;
+      const expectedFils = exactPriceFils(
+        PLAN_ID_BY_KEBAB[planDef.id],
+        pref,
+        vegDayCount,
+        customerWeekType,
+        priceOverrides,
+      );
+      if (amount !== expectedFils) {
+        console.error(
+          `checkout amount mismatch: plan=${planDef.id} pref=${pref} vegDays=${vegDayCount} ` +
+          `weekType=${customerWeekType} sent=${amount} expected=${expectedFils}`,
+        );
+        return NextResponse.json({
+          error: 'PRICE_MISMATCH',
+          message: 'That price is out of date. Refresh the page and try again.',
+        }, { status: 400 });
       }
     }
 
