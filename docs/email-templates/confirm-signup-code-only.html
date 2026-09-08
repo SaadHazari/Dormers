@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{ .Token }} — your Dormers code</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fafaf9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#091825;-webkit-font-smoothing:antialiased;">
+
+  <!-- Preheader: shows in inbox preview pane. Putting the code here means
+       the user often sees it without even opening the email. -->
+  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#fafaf9;opacity:0;">
+    {{ .Token }} is your Dormers code. Tap and hold to copy.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fafaf9;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="440" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;width:100%;background-color:#ffffff;border-radius:16px;box-shadow:0 1px 3px rgba(9,24,37,0.06),0 8px 24px rgba(9,24,37,0.06);">
+
+          <!-- Brand strip — minimal, anchors the email but doesn't compete with the code -->
+          <tr>
+            <td align="center" style="padding:18px 24px;border-bottom:1px solid rgba(9,24,37,0.06);">
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td width="24" valign="middle">
+                    <img src="https://dormers.ae/email-mark.png" width="24" height="24" alt=""
+                      style="display:block;width:24px;height:24px;">
+                  </td>
+                  <td width="8" style="font-size:0;line-height:0;">&nbsp;</td>
+                  <td valign="middle">
+                    <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:-0.01em;color:#091825;">
+                      Dormers<span style="color:#f57f20;">.</span>
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- THE code, prominently. Centered, oversized, monospace, easy to long-press select on mobile.
+               user-select:all + the visual affordance makes it the obvious target. -->
+          <tr>
+            <td align="center" style="padding:40px 24px 8px;">
+              <div style="-webkit-user-select:all;user-select:all;font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:0.28em;color:#f57f20;line-height:1;cursor:text;">
+                {{ .Token }}
+              </div>
+              <p style="margin:18px 0 0;font-size:12px;color:rgba(9,24,37,0.50);">
+                Tap and hold the code to copy.
+              </p>
+            </td>
+          </tr>
+
+          <!-- No confirmation link on purpose: the link and the code share ONE
+               single-use token, and university/corporate mail scanners
+               (Microsoft SafeLinks) prefetch links — burning the token before
+               the user can type the code. Code-only keeps it un-prefetchable. -->
+          <tr>
+            <td align="center" style="padding:8px 24px 32px;">
+              <p style="margin:0;font-size:11px;color:rgba(9,24,37,0.40);">
+                Expires in 1 hour. Didn&rsquo;t request this? Ignore this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
