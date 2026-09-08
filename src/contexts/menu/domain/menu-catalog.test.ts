@@ -18,9 +18,17 @@ describe('menu catalog data', () => {
   })
 
   it('all dishes have unique ids', () => {
-    const ids = MENU_DATA.map((d) => d.id)
-    const unique = new Set(ids)
-    expect(unique.size).toBe(ids.length)
+    // A dish may fill more than one slot in the 4-week rotation and keeps ONE
+    // id when it does — Chicken Biryani (6) and Chickpea Veg Biryani (54) each
+    // run twice, which is why 48 slots carry 46 ids. The id identifies the
+    // DISH, not the slot, so the QR on a box resolves to the same page either
+    // week. What must never happen is two DIFFERENT dishes sharing an id.
+    const byId = new Map<number, string>()
+    for (const d of MENU_DATA) {
+      const seen = byId.get(d.id)
+      expect(seen ?? d.name, `id ${d.id} is used by two different dishes`).toBe(d.name)
+      byId.set(d.id, d.name)
+    }
   })
 
   it('all dishes have non-empty names and required nutrition fields', () => {
