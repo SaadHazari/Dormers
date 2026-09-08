@@ -517,12 +517,16 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () => void; profileGated: boolean; outOfZone: boolean; intake: IntakeGateState }) {
   const gated = profileGated || outOfZone || intake.paused
   return (
-    // Wrapper is the gate's mount point (position:relative), so
-    // IntakePausedGate frosts exactly this card and nothing else on the
-    // page — same idiom as the desktop plan grid's gate wrapper.
-    <div style={{ position: 'relative' }}>
+    // Wrapper is the gate's mount point. Grid-stacked (both children in one
+    // cell) rather than the desktop grid's position:relative idiom: the gate
+    // card is TALLER than this empty-state card, and an overlay would paint
+    // its overflow straight over "Your setup" below (it did — 83px deep).
+    // Stacking sizes the wrapper to whichever child is taller, so the frost
+    // always covers the card and the rest of the column moves down.
+    <div style={{ display: 'grid' }}>
       {intake.paused && (
         <IntakePausedGate
+          variant="stacked"
           headline={intake.headline}
           body={intake.body}
           firstName={intake.firstName}
@@ -531,7 +535,7 @@ function EmptyState({ onRenew, profileGated, outOfZone, intake }: { onRenew: () 
           waitlistCreditAed={intake.waitlistCreditAed}
         />
       )}
-      <section style={{ ...CARD, padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <section style={{ ...CARD, gridArea: '1 / 1', padding: '28px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <span style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--ds-og-wash-strong)', border: '1px solid var(--ds-og-border)', color: OG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CalendarDays size={20} strokeWidth={2} /></span>
         <SectionTitle size={20}>No active plan</SectionTitle>
         <p style={{ margin: 0, fontSize: 13, color: S.fgMuted, lineHeight: 1.55 }}>Pick a plan and your dinners start arriving 7–8 PM, every evening.</p>

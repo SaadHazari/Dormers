@@ -26,6 +26,14 @@ interface IntakePausedGateProps {
    *  already-joined confirmed state. Can differ from `creditAed` if an
    *  admin changed the credit amounts after this customer joined. */
   waitlistCreditAed: number
+  /** How the gate claims its space. 'overlay' (default) floats it over the
+   *  mount surface — correct wherever that surface is TALLER than the gate
+   *  card (the desktop plan hero, the explore grid). 'stacked' makes it a
+   *  grid item instead, for a `display:grid` wrapper that stacks gate and
+   *  surface in one cell: the wrapper then sizes to whichever is taller, so
+   *  a gate mounted over a short card pushes the next card down rather than
+   *  painting over it (the mobile /plan empty state was 83px buried). */
+  variant?: 'overlay' | 'stacked'
 }
 
 /**
@@ -41,7 +49,7 @@ interface IntakePausedGateProps {
  * you." No queue position or count is ever shown either: a low number reads
  * as unwanted, a high one as hopeless.
  */
-export function IntakePausedGate({ headline, body, firstName = '', creditAed, alreadyJoined, waitlistCreditAed }: IntakePausedGateProps) {
+export function IntakePausedGate({ headline, body, firstName = '', creditAed, alreadyJoined, waitlistCreditAed, variant = 'overlay' }: IntakePausedGateProps) {
   const [joined, setJoined] = useState(alreadyJoined)
   // The arrival moment fires ONLY on a fresh tap in this session, never for a
   // customer who was already joined at mount — that person gets the confirmed
@@ -106,7 +114,12 @@ export function IntakePausedGate({ headline, body, firstName = '', creditAed, al
       />
     )}
     <div style={{
-      position: 'absolute', inset: -8, zIndex: 5,
+      // Same 8px bleed past the mount surface either way — only how the box
+      // earns its height differs (see the variant prop's docblock).
+      ...(variant === 'stacked'
+        ? { gridArea: '1 / 1', margin: -8, position: 'relative' as const }
+        : { position: 'absolute' as const, inset: -8 }),
+      zIndex: 5,
       borderRadius: 20,
       background: 'var(--ds-overlay)',
       backdropFilter: 'blur(7px)', WebkitBackdropFilter: 'blur(7px)',

@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string; explore?: string; credit?: string }>
+  searchParams: Promise<{ preview?: string; explore?: string; credit?: string; state?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -35,15 +35,54 @@ export default async function PlanPage({
       'Monthly Premium': { balanceFils: 15000, lockedFils: 0 },
       'Monthly Max':     { balanceFils: 15000, lockedFils: 0 },
     } : {}
+    // ?state=<name> renders one branch of the plan page's state machine from
+    // fixtures, so every look of the page can be screenshot-verified without
+    // seeding accounts (PlanClient renders purely from props). Dates are
+    // relative to today so a state can never age out of itself. Used by
+    // scripts/check-waitlist-gate-fit.mjs and manual mobile audits.
+    // States: active (default) | renew | scheduled | paused | planned-pause |
+    // queued | paused-queued | empty | waitlist | waitlist-joined | season
+    const st = params.state ?? 'active'
+    const d = (off: number) => new Date(Date.now() + off * 86400000).toISOString().slice(0, 10)
+    const now = new Date().toISOString()
+    const base = { id: 'prev-sub', plan_name: 'Monthly Premium', status: 'Active', start_date: d(-10), end_date: d(20), total_meals: 24, delivered_meals: 8, skipped_meals_count: 1, has_paused_before: false, pause_date: null, last_skipped_date: null, paused_days: 0, created_at: now, week_type: '6DAYS' as const }
+    const sub =
+      st === 'renew' ? { ...base, start_date: d(-25), end_date: d(3), delivered_meals: 20 }
+      : st === 'scheduled' ? { ...base, start_date: d(5), end_date: d(35), delivered_meals: 0, skipped_meals_count: 0 }
+      : st === 'paused' || st === 'paused-queued' ? { ...base, status: 'Paused', has_paused_before: true, pause_date: d(-2), paused_days: 2 }
+      : st === 'planned-pause' ? { ...base, planned_pause_start: d(4) }
+      : st === 'empty' || st === 'waitlist' || st === 'waitlist-joined' ? null
+      : base
+    const queued = (st === 'queued' || st === 'paused-queued')
+      ? [{ ...base, id: 'q-sub', plan_name: 'Monthly Max', status: 'Scheduled', start_date: d(22), end_date: d(52), delivered_meals: 0, skipped_meals_count: 0 }]
+      : []
+    const ended = [
+      { ...base, id: 'old-1', status: 'Ended', start_date: d(-70), end_date: d(-40), delivered_meals: 24 },
+      { ...base, id: 'old-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: d(-80), end_date: d(-73), total_meals: 6, delivered_meals: 6 },
+    ]
+    const intakePaused = st === 'waitlist' || st === 'waitlist-joined'
+    const previewIntake = {
+      paused: intakePaused,
+      headline: intakePaused ? 'We’re between semesters' : '',
+      body: intakePaused ? 'Dormers takes a short seasonal break while the dorms empty out. Save your spot and we’ll message you the moment plans reopen.' : '',
+      creditAed: intakePaused ? 100 : 0,
+      firstName: 'Test',
+      alreadyJoined: st === 'waitlist-joined',
+      waitlistCreditAed: st === 'waitlist-joined' ? 100 : 0,
+      cycleStartedAt: intakePaused ? now : null,
+      cycleEndedAt: null,
+      lastDeliveryDay: st === 'season' ? d(18) : null,
+    }
     return (
       <Suspense>
         <PlanClient
-          customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', whatsapp_number: '+971 50 000 0000', whatsapp_verified: true, dorm_name: 'YUGO', meal_preference_type: 'Non Veg', allergens: 'None', spice_level_preference: 'Medium', created_at: new Date().toISOString() }}
-          activeSubscription={{ id: 'prev-sub', plan_name: 'Monthly Premium', status: 'Active', start_date: '2026-04-01', end_date: '2026-05-01', total_meals: 24, delivered_meals: 6, skipped_meals_count: 1, has_paused_before: false, pause_date: null, last_skipped_date: null, paused_days: 0, created_at: new Date().toISOString() }}
-          allSubscriptions={[]}
+          customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', whatsapp_number: '+971 50 000 0000', whatsapp_verified: true, dorm_name: 'YUGO', meal_preference_type: 'Non Veg', allergens: 'None', spice_level_preference: 'Medium', created_at: now }}
+          activeSubscription={sub}
+          allSubscriptions={[...queued, ...ended]}
           userEmail="test@dormers.ae"
           mode={params.explore === '1' ? 'explore' : 'plan'}
           creditByPlan={previewCreditByPlan}
+          intake={previewIntake}
         />
       </Suspense>
     )
