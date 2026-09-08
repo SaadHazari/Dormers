@@ -1,28 +1,30 @@
-// Waitlist-gate fit check — run after touching IntakePausedGate or the
-// mobile plan page's empty state:
+// Waitlist-shelf check — run after touching IntakePausedGate, the mobile
+// plan page's empty state, or the mobile explore stack:
 //
 //   npm run dev                              (in another terminal)
 //   npm run check:waitlist-gate-fit
 //   node scripts/check-waitlist-gate-fit.mjs http://localhost:3000
 //
-// WHY THIS EXISTS. IntakePausedGate frosts whatever surface it is mounted
-// over with an overlay sized to THAT surface — while the waitlist card
-// inside it is sized to its own content. On desktop the gate covers the
-// tall plan hero and the card fits with room to spare. On the mobile plan
-// page it covers the short "No active plan" card (~290px) while the card
-// needs ~400px, and because an overlay contributes nothing to layout, the
-// excess silently painted 83px deep into the "Your setup" card below —
-// burying its header, the Adjust button, and the Dorm/Spice labels.
+// WHY THIS EXISTS. During the seasonal pause the mobile plan surfaces run
+// on the SHELF contract (owner call, 2026-09-08): the waitlist card renders
+// IN FLOW as the hero — no frosted overlay — and everything below it stays
+// readable: "Your setup" on the plan page, the priced plan stack on
+// explore. The old overlay version painted up to 122px over the card below
+// it (an overlay sized to one surface must be re-fitted to every surface it
+// mounts on; in-flow layout cannot have that bug class), and it hid every
+// price behind a blur.
 //
-// The contract: on the compact plan page, the waitlist card stays inside
-// its own frosted backdrop, and neither the card nor the frost intrudes
-// into the "Your setup" card below.
+// The contract: on the compact plan surfaces while intake is paused, the
+// waitlist card sits fully ABOVE the next card with no intersection, and
+// no frosted overlay exists in the mobile tree — the shelf stays readable.
 //
-// No unit test can see this. It is two content-sized boxes and a z-index
-// on a real viewport; the same markup passes on desktop and fails on a phone.
+// No unit test can see this. It is boxes and paint order on a real
+// viewport; the same markup passes on desktop (which keeps its overlay)
+// and used to fail on a phone.
 //
 // METHOD. Load the plan page's fixture states (?preview=1&state=…) for both
-// waitlist looks at three phone widths and compare the painted boxes.
+// waitlist looks on both mobile surfaces at three phone widths and compare
+// the painted boxes.
 
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -31,9 +33,13 @@ import puppeteer from 'puppeteer-core'
 
 const BASE = process.argv[2] ?? 'http://localhost:3000'
 
-// Both looks of the gate — the join offer is ~90px taller than the joined
-// confirmation, so the offer is the one that breaks first.
+// Both looks of the card — offer ("Save my spot") and joined ("Your spot
+// is saved") — on both mobile surfaces.
 const STATES = ['waitlist', 'waitlist-joined']
+const ROUTES = [
+  { label: 'plan', query: '', below: 'setup' },
+  { label: 'explore', query: '&explore=1', below: 'stack' },
+]
 
 const VIEWPORTS = [
   { label: '360', width: 360, height: 780 },
@@ -71,27 +77,36 @@ function resolveChrome() {
       ['chrome-headless-shell', 'Chromium'])
 }
 
-// Runs in the page: the gate card vs its frosted backdrop vs the setup card.
+// Runs in the page: the in-flow waitlist card vs whatever sits below it,
+// plus a sweep for any frosted overlay that should no longer exist.
 // Data-attribute-free on purpose — this reads the same DOM a customer's
-// browser paints.
-function gateBoxes() {
+// browser paints. `below` is 'setup' (plan page) or 'stack' (explore).
+function shelfBoxes(below) {
   const root = document.querySelector('.plan-mobile')
   if (!root) return { error: 'no .plan-mobile tree' }
-  const painted = [...root.querySelectorAll('div,section')]
-    .filter(el => el.getBoundingClientRect().height > 0)
-  // The waitlist card is the gate's one sticky child, in either look.
+  const painted = [...root.querySelectorAll('*')].filter(el => el.getBoundingClientRect().height > 0)
   const card = painted.find(el =>
-    getComputedStyle(el).position === 'sticky' &&
-    /Save my spot|You are on our waitlist/.test(el.textContent))
-  if (!card) return { error: 'gate card not painted' }
-  // Its parent is the frosted backdrop, however that backdrop is positioned.
-  const frost = card.parentElement
-  // The setup card is the innermost container holding the whole setup block.
-  const setup = painted.filter(el =>
-    el.textContent.includes('Your setup') && el.textContent.includes('Allergens')).pop()
-  if (!setup) return { error: 'setup card not painted' }
+    el.tagName === 'SECTION' && /Save my spot|Your spot is saved/.test(el.textContent))
+  if (!card) return { error: 'waitlist card not painted' }
+  let next = null
+  if (below === 'setup') {
+    // The setup card is the innermost container holding the whole block.
+    next = painted.filter(el =>
+      el.textContent.includes('Your setup') && el.textContent.includes('Allergens')).pop()
+    if (!next) return { error: 'setup card not painted' }
+  } else {
+    // The shelf's first plan card — its price must be painted (readable),
+    // which the old blur made impossible to guarantee.
+    next = painted.find(el => el.tagName === 'BUTTON' && /AED \/ meal/.test(el.textContent))
+    if (!next) return { error: 'no readable plan card in the stack' }
+  }
+  // No frosted overlay may exist during the pause on this surface any more.
+  const frost = painted.find(el => {
+    const cs = getComputedStyle(el)
+    return cs.position === 'absolute' && ((cs.backdropFilter || cs.webkitBackdropFilter || '').includes('blur'))
+  })
   const r = el => { const b = el.getBoundingClientRect(); return { top: b.top + scrollY, bottom: b.bottom + scrollY } }
-  return { card: r(card), frost: r(frost), setup: r(setup) }
+  return { card: r(card), next: r(next), frosted: !!frost }
 }
 
 const exe = resolveChrome()
@@ -118,44 +133,44 @@ try {
   const page = await browser.newPage()
   for (const vp of VIEWPORTS) {
     await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
-    for (const state of STATES) {
-      // Three attempts — a page measured while `npm run dev` recompiles can
-      // report the tree before the gate mounts, and a thin reading would let
-      // a regression slip through green.
-      let boxes = { error: 'never measured' }
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await page.goto(`${BASE}/dashboard/plan?preview=1&state=${state}`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
-          await page.waitForFunction(() =>
-            /Save my spot|You are on our waitlist/.test(document.querySelector('.plan-mobile')?.textContent ?? ''),
-            { timeout: 20_000 }).catch(() => {})
-          await new Promise(r => setTimeout(r, 1200))   // entry animation settles
-          boxes = await page.evaluate(gateBoxes)
-          if (!boxes.error) break
-        } catch (err) {
-          if (attempt === 3) throw err
+    for (const route of ROUTES) {
+      for (const state of STATES) {
+        // Three attempts — a page measured while `npm run dev` recompiles can
+        // report the tree before the card mounts, and a thin reading would
+        // let a regression slip through green.
+        let boxes = { error: 'never measured' }
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await page.goto(`${BASE}/dashboard/plan?preview=1${route.query}&state=${state}`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+            await page.waitForFunction(() =>
+              /Save my spot|Your spot is saved/.test(document.querySelector('.plan-mobile')?.textContent ?? ''),
+              { timeout: 20_000 }).catch(() => {})
+            await new Promise(r => setTimeout(r, 1200))   // entry animation settles
+            boxes = await page.evaluate(shelfBoxes, route.below)
+            if (!boxes.error) break
+          } catch (err) {
+            if (attempt === 3) throw err
+          }
+          await new Promise(r => setTimeout(r, 2000))
         }
-        await new Promise(r => setTimeout(r, 2000))
-      }
-      if (boxes.error) {
-        failures.push(`${state} @ ${vp.label} — could not measure: ${boxes.error}`)
-        console.log(`  ✗ ${state} @ ${vp.label} — ${boxes.error}`)
-        continue
-      }
-      checked++
-      const hits = []
-      // Sub-pixel layout rounding is not an intrusion; a buried row is >1px.
-      const pastFrost = boxes.card.bottom - boxes.frost.bottom
-      if (pastFrost > 1) hits.push(`card ${Math.round(pastFrost)}px past its frost`)
-      const intoSetupCard = boxes.card.bottom - boxes.setup.top
-      if (intoSetupCard > 1) hits.push(`card ${Math.round(intoSetupCard)}px into "Your setup"`)
-      const intoSetupFrost = boxes.frost.bottom - boxes.setup.top
-      if (intoSetupFrost > 1) hits.push(`frost ${Math.round(intoSetupFrost)}px into "Your setup"`)
-      if (hits.length) {
-        failures.push(`${state} @ ${vp.label} — ${hits.join(', ')}`)
-        console.log(`  ✗ ${state} @ ${vp.label} — ${hits.join(', ')}`)
-      } else {
-        console.log(`  ✓ ${state} @ ${vp.label} — card inside its frost, setup card clear`)
+        const tag = `${route.label}/${state} @ ${vp.label}`
+        if (boxes.error) {
+          failures.push(`${tag} — could not measure: ${boxes.error}`)
+          console.log(`  ✗ ${tag} — ${boxes.error}`)
+          continue
+        }
+        checked++
+        const hits = []
+        // Sub-pixel layout rounding is not an intrusion; a buried row is >1px.
+        const overlap = boxes.card.bottom - boxes.next.top
+        if (overlap > 1) hits.push(`card ${Math.round(overlap)}px into the card below`)
+        if (boxes.frosted) hits.push('a frosted overlay is back in the mobile tree')
+        if (hits.length) {
+          failures.push(`${tag} — ${hits.join(', ')}`)
+          console.log(`  ✗ ${tag} — ${hits.join(', ')}`)
+        } else {
+          console.log(`  ✓ ${tag} — card in flow above the shelf, no frost`)
+        }
       }
     }
   }
@@ -164,10 +179,11 @@ try {
 }
 
 if (failures.length) {
-  console.error(`\n✗ ${failures.length} waitlist-gate reading(s) intrude on the card below.\n` +
-    '  The gate must take real layout height on the compact plan page — see\n' +
-    '  the stacked variant in src/app/dashboard/_shared/IntakePausedGate.tsx\n' +
-    '  and the grid wrapper in src/app/dashboard/_mobile/MobilePlan.tsx.')
+  console.error(`\n✗ ${failures.length} shelf reading(s) violate the pause contract.\n` +
+    '  While intake is paused the waitlist card renders IN FLOW above a\n' +
+    '  readable surface — no overlay, no intersection. See the inline\n' +
+    '  variant in src/app/dashboard/_shared/IntakePausedGate.tsx and its\n' +
+    '  mounts in _mobile/MobilePlan.tsx + _mobile/MobileExplore.tsx.')
   process.exit(1)
 }
-console.log(`\n✓ ${checked} waitlist-gate reading(s) stay inside their own card.`)
+console.log(`\n✓ ${checked} shelf reading(s) keep the pause surfaces in flow and readable.`)
