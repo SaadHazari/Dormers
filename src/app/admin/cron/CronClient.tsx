@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { Age } from '../_components/Age'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import {
-    DOT_COLORS, HEALTH_WORDS, formatAge, getJobHealth, getJobInfo, groupJobs,
+    DOT_COLORS, HEALTH_WORDS, getJobHealth, getJobInfo, groupJobs,
     healthTextClass, isUnhealthy,
     type CronJob, type JobHealth,
 } from '../_components/cron-registry'
@@ -116,7 +117,7 @@ function JobCard({ job, focus }: { job: CronJob; focus: boolean }) {
                     </div>
                     <div className={`text-[10px] font-semibold tabular-nums ${t.faint}`}>
                         {job.schedule}
-                        {job.last_run && ` · Last: ${formatAge(job.last_run)}`}
+                        {job.last_run && <> · Last: <Age iso={job.last_run} /></>}
                         {job.last_duration_ms != null && ` · ${Math.round(job.last_duration_ms)}ms`}
                     </div>
                 </div>
@@ -200,9 +201,29 @@ function JobCard({ job, focus }: { job: CronJob; focus: boolean }) {
     )
 }
 
+// Formatted by hand rather than through toLocaleString('en-AE', …).
+//
+// That call produced a hydration mismatch (React #418) on this page: Node's
+// ICU build and the browser's disagree on 'en-AE' — the hour cycle differs,
+// and the separator before am/pm is a narrow no-break space (U+202F) in one
+// and a plain space in the other. The strings differ by an invisible
+// character, React throws away the server HTML for the subtree and re-renders
+// on the client, and the console fills with errors on every load.
+//
+// A locale-independent formatter cannot disagree with itself. Intl is still
+// used for the Dubai timezone shift, which is the part that actually needs a
+// timezone database, with 'en-GB' + hourCycle 'h23' pinned so the output is
+// the same on both sides.
+const AE_PARTS = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    hourCycle: 'h23', timeZone: 'Asia/Dubai',
+})
+
 function formatTimestamp(iso: string): string {
-    return new Date(iso).toLocaleString('en-AE', {
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-        timeZone: 'Asia/Dubai',
-    })
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    const p = Object.fromEntries(
+        AE_PARTS.formatToParts(d).map(({ type, value }) => [type, value]),
+    )
+    return `${p.day} ${p.month}, ${p.hour}:${p.minute}`
 }

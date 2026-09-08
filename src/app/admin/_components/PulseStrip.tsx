@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useAdminTheme } from './AdminThemeProvider'
+import { Age } from './Age'
 import {
-    DOT_COLORS, HEALTH_WORDS, formatAge, getJobHealth, getJobInfo, groupJobs,
+    DOT_COLORS, HEALTH_WORDS, getJobHealth, getJobInfo, groupJobs,
     healthTextClass, isUnhealthy,
     type CronJob, type JobHealth,
 } from './cron-registry'
@@ -101,7 +102,7 @@ function JobTile({ job }: { job: CronJob }) {
                         <span className={healthTextClass(t, health)}>{HEALTH_WORDS[health]}</span>
                     )}
                     {job.last_run && (
-                        <span>{health !== 'ok' ? ' · ' : ''}{formatAge(job.last_run)}</span>
+                        <span>{health !== 'ok' ? ' · ' : ''}<Age iso={job.last_run} /></span>
                     )}
                     {job.last_duration_ms != null && <span> · {Math.round(job.last_duration_ms)}ms</span>}
                 </div>
