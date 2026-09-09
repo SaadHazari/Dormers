@@ -17,7 +17,7 @@ import { StatusDot } from '../_shared/StatusDot'
 import { OutOfZoneBanner } from '../_shared/OutOfZoneBanner'
 import { ProfileBanner } from '../_shared/ProfileBanner'
 import { ProfileGateOverlay } from '../_shared/ProfileGateOverlay'
-import { IntakePausedGate } from '../_shared/IntakePausedGate'
+import { IntakePausedFrost } from '../_shared/IntakePausedGate'
 import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
 import { Tooltip } from '../_shared/Tooltip'
 import { FAQItem } from '../_shared/FAQItem'
@@ -1958,20 +1958,18 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                   instruction, so the two never render together. The
                   onSelect guard below covers the keyboard path the overlay
                   can't intercept — it must repeat the same precedence. */}
-              {/* Seasonal pause — the closed sign leads the shop instead of
-                  frosting it: the waitlist card renders in flow above the
-                  grid, the priced cards stay readable as the evidence under
-                  the offer, and every card wears the season-closed
-                  treatment instead of a buy CTA (shelf contract, owner
-                  call 2026-09-08). The profile gate keeps its overlay but
-                  yields to the pause. */}
-              {intake.paused && (
-                <div style={{ maxWidth: 560, margin: '0 auto 24px' }}>
-                  <IntakePausedGate headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
-                </div>
-              )}
+              {/* Seasonal pause — desktop keeps the tease (owner call,
+                  2026-09-09): the grid stays under warm glass with the
+                  waitlist card on the pane, so the shop reads as present
+                  but resting. (Mobile runs the shelf in MobileExplore.)
+                  seasonClosed still dresses the cards — it also demotes
+                  the Most Popular ribbon, which would otherwise overflow
+                  the pane. The profile gate keeps its overlay but yields
+                  to the pause. */}
               <div style={{ position: 'relative', marginBottom: 24 }}>
-                {!intake.paused && profileGated && <ProfileGateOverlay missing={missingFields} />}
+                {intake.paused
+                  ? <IntakePausedFrost radius={18} headline={intake.headline} body={intake.body} firstName={intake.firstName} creditAed={intake.creditAed} alreadyJoined={intake.alreadyJoined} waitlistCreditAed={intake.waitlistCreditAed} />
+                  : profileGated && <ProfileGateOverlay missing={missingFields} />}
                 <div id="plans-grid" className="plans-grid">
                   {PLANS.map(p => (
                     <PlanCard
@@ -1991,12 +1989,6 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                     />
                   ))}
                 </div>
-                {/* Price honesty — the shelf shows this term's numbers, and says so. */}
-                {intake.paused && (
-                  <p style={{ margin: '18px 0 0', textAlign: 'center', fontFamily: BODY, fontSize: 12.5, fontWeight: 600, color: S.fgMuted, lineHeight: 1.5 }}>
-                    This term&rsquo;s prices — next term&rsquo;s are confirmed when plans reopen.
-                  </p>
-                )}
               </div>
 
               {/* Checkout panel — slides in once a plan is selected.

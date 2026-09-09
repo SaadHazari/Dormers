@@ -117,7 +117,16 @@ export default async function DashboardPage({
                 <ClientDashboard
                     customer={PREVIEW_CUSTOMER}
                     activeSubscription={params.nosub === '1' ? null : previewSub}
-                    allSubscriptions={params.nosub === '1' ? [] : [previewSub]}
+                    // No-sub previews carry history: the typical no-plan
+                    // customer during a pause is RETURNING (their semester
+                    // plan just ended), and NoPlanView's greeting ribbon +
+                    // renew path only render for that shape. An empty list
+                    // here once hid the greeting in a screenshot survey and
+                    // read as a missing feature.
+                    allSubscriptions={params.nosub === '1' ? [
+                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 },
+                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: dateOnly(Date.now() - 80 * day), end_date: dateOnly(Date.now() - 73 * day), total_meals: 6, delivered_meals: 6 },
+                    ] : [previewSub]}
                     userEmail={PREVIEW_CUSTOMER.email}
                     monthlyWindow={previewWrap}
                     intakePause={previewPause}

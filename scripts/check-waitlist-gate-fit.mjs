@@ -15,10 +15,12 @@
 // mounts on; in-flow layout cannot have that bug class), and it hid every
 // price behind a blur.
 //
-// The contract: on EVERY plan surface while intake is paused — mobile and
-// desktop, plan, explore, and the dashboard home — the waitlist card sits
-// fully ABOVE the content below it with no intersection, and no frosted
-// overlay exists anywhere in the painted tree.
+// The contract splits by breakpoint (owner calls, 2026-09-08/09):
+//   COMPACT — the shelf: the card sits IN FLOW fully above the content
+//   below it, and no frosted overlay exists in the painted tree.
+//   EXPANDED — the tease: the warm-glass pane IS present over the surface,
+//   and the card sits fully INSIDE its pane (the original overlap bug was
+//   exactly a card outgrowing its pane).
 //
 // No unit test can see this. It is boxes and paint order on a real
 // viewport; the bug class it guards against only ever showed at specific
@@ -60,7 +62,7 @@ const RUNS = [
   { label: 'plan', states: planStates(''), viewports: MOBILE, anchor: 'setup' },
   { label: 'plan', states: planStates(''), viewports: DESKTOP, anchor: 'none' },
   { label: 'explore', states: planStates('&explore=1'), viewports: MOBILE, anchor: 'stackMobile' },
-  { label: 'explore', states: planStates('&explore=1'), viewports: DESKTOP, anchor: 'grid' },
+  { label: 'explore', states: planStates('&explore=1'), viewports: DESKTOP, anchor: 'none' },
   { label: 'home', states: homeStates, viewports: [...MOBILE, ...DESKTOP], anchor: 'none' },
 ]
 
@@ -124,7 +126,7 @@ function shelfBoxes(anchor) {
     return cs.position === 'absolute' && ((cs.backdropFilter || cs.webkitBackdropFilter || '').includes('blur'))
   })
   const r = el => { const b = el.getBoundingClientRect(); return { top: b.top + scrollY, bottom: b.bottom + scrollY } }
-  return { card: r(card), next: next ? r(next) : null, frosted: !!frost }
+  return { card: r(card), next: next ? r(next) : null, frost: frost ? r(frost) : null }
 }
 
 const exe = resolveChrome()
@@ -180,16 +182,24 @@ try {
         checked++
         const hits = []
         // Sub-pixel layout rounding is not an intrusion; a buried row is >1px.
-        if (boxes.next) {
-          const overlap = boxes.card.bottom - boxes.next.top
-          if (overlap > 1) hits.push(`card ${Math.round(overlap)}px into the content below`)
+        if (vp.mobile) {
+          if (boxes.next) {
+            const overlap = boxes.card.bottom - boxes.next.top
+            if (overlap > 1) hits.push(`card ${Math.round(overlap)}px into the content below`)
+          }
+          if (boxes.frost) hits.push('a frosted overlay is in the compact tree')
+        } else {
+          if (!boxes.frost) hits.push('the warm-glass pane is missing')
+          else {
+            const spill = boxes.card.bottom - boxes.frost.bottom
+            if (spill > 1) hits.push(`card ${Math.round(spill)}px past its pane`)
+          }
         }
-        if (boxes.frosted) hits.push('a frosted overlay is back in the painted tree')
         if (hits.length) {
           failures.push(`${tag} — ${hits.join(', ')}`)
           console.log(`  ✗ ${tag} — ${hits.join(', ')}`)
         } else {
-          console.log(`  ✓ ${tag} — card in flow, no frost`)
+          console.log(`  ✓ ${tag} — ${vp.mobile ? 'card in flow, no frost' : 'card on its pane, pane on its surface'}`)
         }
       }
     }

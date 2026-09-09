@@ -236,3 +236,38 @@ export function IntakePausedGate({ headline, body, firstName = '', creditAed, al
     </>
   )
 }
+
+/**
+ * Desktop frame for the card above: a warm frosted pane over the mounted
+ * surface (owner call, 2026-09-09 — desktop keeps the tease: the page
+ * behind stays present as glowing silhouettes rather than being removed).
+ * The glass wears the brand's material — a cream wash over a saturating
+ * blur with a light top edge — and hugs the surface exactly: `inset: 0`
+ * and the mount's own corner radius, never the old -8 bleed. Mobile never
+ * mounts this; the compact breakpoints render the card in flow (shelf).
+ *
+ * The mount wraps the covered surface in `position: relative` and renders
+ * this as its first child. The card is sticky so it stays in view while
+ * the frosted surface scrolls past.
+ */
+export function IntakePausedFrost({ radius = 24, ...gateProps }: IntakePausedGateProps & {
+  /** Corner radius of the surface being frosted — the glass hugs the
+   *  mount exactly (the no-plan hero is 24, the explore grid's cards 18). */
+  radius?: number
+}) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 5,
+      borderRadius: radius,
+      background: 'linear-gradient(180deg, rgba(245,240,232,0.62) 0%, rgba(245,240,232,0.5) 100%)',
+      border: '1px solid rgba(255,255,255,0.55)',
+      backdropFilter: 'blur(10px) saturate(1.4)', WebkitBackdropFilter: 'blur(10px) saturate(1.4)',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '40px 24px',
+    }}>
+      <div style={{ position: 'sticky', top: 96, width: '100%', maxWidth: 400 }}>
+        <IntakePausedGate {...gateProps} />
+      </div>
+    </div>
+  )
+}

@@ -13,7 +13,7 @@ import { fmt } from './_shared/format'
 import { useNavigation } from './_shared/useNavigation'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
-import { IntakePausedGate } from './_shared/IntakePausedGate'
+import { IntakePausedGate, IntakePausedFrost } from './_shared/IntakePausedGate'
 import type { Customer, Subscription, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
 import { COMPACT } from './_shared/breakpoints'
@@ -166,24 +166,35 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
             block (the actionable area) without covering the past-plans
             reference section below it — same idiom as the plan grid's own
             gate wrapper in PlanClient. ── */}
-      <div>
-        {/* Shelf contract (owner call, 2026-09-08): during a seasonal pause
-            the waitlist card renders IN FLOW as the hero — the sales pitch
-            below it is for a register that is closed, so the card takes its
-            slot outright instead of frosting it. Width-capped so the card
-            reads as a card on desktop and fills the column on mobile. */}
-        {intake.paused ? (
-          <div style={{ maxWidth: 560, margin: '0 auto' }}>
-            <IntakePausedGate
-              headline={intake.headline}
-              body={intake.body}
-              firstName={intake.firstName}
-              creditAed={intake.creditAed}
-              alreadyJoined={intake.alreadyJoined}
-              waitlistCreditAed={intake.waitlistCreditAed}
-            />
-          </div>
-        ) : (
+      {/* Pause rendering splits by breakpoint (owner calls, 2026-09-08/09):
+          COMPACT gets the shelf — the card in flow, taking the hero's slot
+          outright. EXPANDED keeps the hero and frosts it with the warm
+          glass, so the page behind stays present as a tease rather than
+          disappearing. Both trees render; the media block below shows one. */}
+      {intake.paused && (
+        <div className="noplan-pause-card" style={{ maxWidth: 560, margin: '0 auto' }}>
+          <IntakePausedGate
+            headline={intake.headline}
+            body={intake.body}
+            firstName={intake.firstName}
+            creditAed={intake.creditAed}
+            alreadyJoined={intake.alreadyJoined}
+            waitlistCreditAed={intake.waitlistCreditAed}
+          />
+        </div>
+      )}
+      <div className={intake.paused ? 'noplan-hero-frosted' : ''} style={{ position: 'relative' }}>
+        {intake.paused && (
+          <IntakePausedFrost
+            radius={24}
+            headline={intake.headline}
+            body={intake.body}
+            firstName={intake.firstName}
+            creditAed={intake.creditAed}
+            alreadyJoined={intake.alreadyJoined}
+            waitlistCreditAed={intake.waitlistCreditAed}
+          />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -341,7 +352,6 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
           </motion.div>
         </div>
         </motion.div>
-        )}
       </div>
 
       {/* ── Past plans — same layout as /plan so the user reads identical
@@ -431,7 +441,14 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
            tablet shows the burger too. The root carries .owns-burger-row while
            this ribbon renders, which is what tells the shell not to reserve
            the space a second time. */
+        /* Pause split — the two pause renderings above are both in the DOM;
+           exactly one is visible per breakpoint. Default (expanded) shows
+           the frosted hero; the compact block below flips it. */
+        .noplan-pause-card { display: none; }
+
         @media ${COMPACT} {
+          .noplan-pause-card { display: block; }
+          .noplan-hero-frosted { display: none; }
           /* Start the page level with the burger instead of 20px below it, so
              the ribbon lands beside the button rather than under-and-right of
              it. ClientDashboard reads this variable in the wrapper's inline
