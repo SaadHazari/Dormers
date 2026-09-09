@@ -259,7 +259,7 @@ export function IntakePausedFrost({ radius = 24, ...gateProps }: IntakePausedGat
     <div style={{
       position: 'absolute', inset: 0, zIndex: 5,
       borderRadius: radius,
-      background: 'linear-gradient(180deg, rgba(245,240,232,0.62) 0%, rgba(245,240,232,0.5) 100%)',
+      background: 'linear-gradient(180deg, rgba(245,240,232,0.46) 0%, rgba(245,240,232,0.34) 100%)',
       border: '1px solid rgba(255,255,255,0.55)',
       backdropFilter: 'blur(10px) saturate(1.4)', WebkitBackdropFilter: 'blur(10px) saturate(1.4)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
