@@ -91,8 +91,12 @@ export default async function DashboardPage({
         } : undefined
         const previewPause: IntakeGateState | undefined = params.paused === '1' ? {
             paused: true,
-            headline: 'We are at full capacity.',
-            body: 'New plans are paused while we cook for our current dorms.',
+            // Fixture copy mirrors the real intake_settings tone — the card
+            // exists because of the SEASONAL pause, never capacity. (Live
+            // copy is DB-driven, edited in /admin/season; this only feeds
+            // dev previews and must not misrepresent why the card exists.)
+            headline: 'We are between semesters.',
+            body: 'Dormers cooks when the dorms are full. We have paused new plans until enough of you are back on campus.',
             creditAed: 15,
             firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
             alreadyJoined: params.joined !== '0',
