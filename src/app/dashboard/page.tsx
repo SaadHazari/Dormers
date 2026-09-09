@@ -52,7 +52,7 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, joined?: string, far?: string, reopened?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -64,6 +64,7 @@ export default async function DashboardPage({
         //   ?paused=1     — intake pause + already-joined → plan-ending banner
         //   ?paused=1&joined=0 — intake pause, not yet joined → offer card
         //   ?paused=1&nosub=1  — pause with no active sub → NoPlanView shelf
+        //   ?nosub=1&first=1   — brand-new signup: no plan, no history at all
         //   ?far=1        — end date +20d → outside the plan-ending window
         //   ?reopened=1   — pause lifted, joined + credit → reopened takeover
         //   ?fresh=1      — under 5 lifetime dinners → one-line greeting
@@ -119,15 +120,19 @@ export default async function DashboardPage({
         return (
             <Suspense fallback={<Spinner />}>
                 <ClientDashboard
-                    customer={PREVIEW_CUSTOMER}
+                    // A finished onboarding has a verified WhatsApp number, so
+                    // the brand-new-signup fixture must not show the profile
+                    // gate the base fixture (unverified) does.
+                    customer={params.first === '1' ? { ...PREVIEW_CUSTOMER, created_at: new Date().toISOString(), whatsapp_verified: true } : PREVIEW_CUSTOMER}
                     activeSubscription={params.nosub === '1' ? null : previewSub}
-                    // No-sub previews carry history: the typical no-plan
-                    // customer during a pause is RETURNING (their semester
-                    // plan just ended), and NoPlanView's greeting ribbon +
-                    // renew path only render for that shape. An empty list
-                    // here once hid the greeting in a screenshot survey and
-                    // read as a missing feature.
-                    allSubscriptions={params.nosub === '1' ? [
+                    // No-sub previews default to a RETURNING customer (their
+                    // semester plan just ended) — the renew path only renders
+                    // for that shape. &first=1 is the brand-new signup: no
+                    // history at all. Both shapes greet by name; an empty list
+                    // here once showed NO greeting, and rather than being read
+                    // as the bug it was, the fixture was made returning so the
+                    // survey looked right. Keep both shapes screenshot-able.
+                    allSubscriptions={params.first === '1' ? [] : params.nosub === '1' ? [
                         { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 },
                         { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: dateOnly(Date.now() - 80 * day), end_date: dateOnly(Date.now() - 73 * day), total_meals: 6, delivered_meals: 6 },
                     ] : [previewSub]}

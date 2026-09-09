@@ -16,12 +16,12 @@ import { lifetimeSavings as computeLifetimeSavings, formatSavedAmount } from '@/
 import { IntakePausedGate, IntakePausedFrost } from './_shared/IntakePausedGate'
 import type { Customer, Subscription, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
+import { noPlanGreeting } from './_shared/greeting'
 import { COMPACT } from './_shared/breakpoints'
 
 interface Props {
   customer?: Customer | null
   allSubscriptions?: Subscription[]
-  userEmail?: string
   /** True iff customer profile is incomplete OR dorm is out of zone OR
    *  intake is paused — disables purchase CTAs. */
   purchaseGated?: boolean
@@ -52,7 +52,7 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
  * preselect param so /dashboard/explore-plans can land on the user's
  * previous tier.
  */
-export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', purchaseGated = false, outOfZone = false, banners = null, intake = INTAKE_NOT_PAUSED }: Props) {
+export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = false, outOfZone = false, banners = null, intake = INTAKE_NOT_PAUSED }: Props) {
   // Intake pause wins the tooltip copy too — telling someone to finish
   // their profile so they can buy something that isn't for sale is the
   // wrong instruction. IntakePausedGate below carries the real message;
@@ -80,8 +80,8 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
     ? formatSavedAmount(lifetimeSavingsValue.saved)
     : null
 
-  const rawName   = customer?.name ?? userEmail.split('@')[0]
-  const firstName = rawName?.split(' ')[0] ?? null
+  // Both shapes greet — see _shared/greeting.ts for why the name can be null.
+  const { lead: greetingLead, firstName } = noPlanGreeting(customer?.name, isReturning)
   const memberSinceText = customer?.created_at
     ? new Date(customer.created_at).toLocaleDateString('en-AE', { month: 'short', year: 'numeric' })
     : null
@@ -106,53 +106,57 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
       : { duration: 0.6, ease: EASE, delay }
 
   return (
-    <div className={`noplan-root${isReturning ? ' owns-burger-row' : ''}`}>
-      {/* ── Greeting ribbon — only renders for returning users, mirrors the
-            ActiveDashboard pattern so the loyalty ledger stays visible at
-            exactly the moment we're asking the user to come back. ── */}
-      {isReturning && (
-        <motion.div
-          className="noplan-greeting"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={t(0)}
-          style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 4 }}
-        >
-          {/* Three short lines rather than one long run-on: the name, the
-              history, then the money. Each is one fact, so the ribbon stays
-              readable in the narrow column left of the phone's right edge
-              once it has cleared the drawer burger. */}
-          <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
-            Welcome back
-            {firstName && firstName !== userEmail.split('@')[0] && (
-              <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
-            )}
-            .
+    <div className="noplan-root owns-burger-row">
+      {/* ── Greeting ribbon — renders for EVERY customer, mirroring the
+            ActiveDashboard pattern. "Welcome back" plus the loyalty ledger
+            for a returning customer, so the equity stays visible at exactly
+            the moment we ask them to come back; a plain "Welcome, <name>."
+            for a brand-new signup, whose history lines collapse on their own
+            (nothing delivered, nothing saved, no past plans). It once
+            rendered for returning customers only, which left every new
+            signup with no name on the page and, on a phone, an empty burger
+            row above the purchase gate — see _shared/greeting.test.ts. ── */}
+      <motion.div
+        className="noplan-greeting"
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={t(0)}
+        style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 4 }}
+      >
+        {/* Three short lines rather than one long run-on: the name, the
+            history, then the money. Each is one fact, so the ribbon stays
+            readable in the narrow column left of the phone's right edge
+            once it has cleared the drawer burger. */}
+        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: S.fgMuted }}>
+          {greetingLead}
+          {firstName && (
+            <>, <strong style={{ color: S.fg, fontWeight: 700 }}>{firstName}</strong></>
+          )}
+          .
+        </div>
+        {totalDelivered >= 1 && (
+          <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
+            <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
+            {memberSinceText && <> since {memberSinceText}</>}
           </div>
-          {totalDelivered >= 1 && (
-            <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
-              <strong style={{ color: S.fg, fontWeight: 700 }}>{totalDelivered}</strong> dinner{totalDelivered === 1 ? '' : 's'} with us
-              {memberSinceText && <> since {memberSinceText}</>}
-            </div>
-          )}
-          {(savedLabel || endedPlans.length > 0) && (
-            <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
-              {savedLabel && (
-                <><strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {savedLabel}</strong> saved vs ordering in</>
-              )}
-              {savedLabel && endedPlans.length > 0 && ' · '}
-              {endedPlans.length > 0 && (
-                <Link
-                  href="/dashboard/history"
-                  style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
-                >
-                  {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
-                </Link>
-              )}
-            </div>
-          )}
-        </motion.div>
-      )}
+        )}
+        {(savedLabel || endedPlans.length > 0) && (
+          <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgSub, lineHeight: 1.5 }}>
+            {savedLabel && (
+              <><strong style={{ color: S.fg, fontWeight: 700, fontFeatureSettings: '"tnum"' }}>AED {savedLabel}</strong> saved vs ordering in</>
+            )}
+            {savedLabel && endedPlans.length > 0 && ' · '}
+            {endedPlans.length > 0 && (
+              <Link
+                href="/dashboard/history"
+                style={{ color: 'inherit', textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}
+              >
+                {endedPlans.length} past plan{endedPlans.length === 1 ? '' : 's'}
+              </Link>
+            )}
+          </div>
+        )}
+      </motion.div>
 
       {/* ── Banner stack — gates and wrap nudges sit BELOW the greeting
             (the greeting always owns the top of the page) but above the
@@ -438,9 +442,10 @@ export function NoPlanView({ customer, allSubscriptions = [], userEmail = '', pu
            the ribbon at least as tall as the button so a one-line greeting
            cannot let the banner below ride up beside it.
            Keyed on the shell's COMPACT contract, not a raw width — a portrait
-           tablet shows the burger too. The root carries .owns-burger-row while
-           this ribbon renders, which is what tells the shell not to reserve
-           the space a second time. */
+           tablet shows the burger too. The root always carries
+           .owns-burger-row because this ribbon renders for every customer,
+           which is what tells the shell not to reserve the space a second
+           time. */
         /* Pause split — the two pause renderings above are both in the DOM;
            exactly one is visible per breakpoint. Default (expanded) shows
            the frosted hero; the compact block below flips it. */

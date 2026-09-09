@@ -381,7 +381,6 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
           <NoPlanView
             customer={customer}
             allSubscriptions={allSubscriptions}
-            userEmail={userEmail}
             purchaseGated={purchaseGated}
             outOfZone={outOfZone}
             intake={intakePause}
