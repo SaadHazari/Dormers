@@ -124,6 +124,13 @@ export interface MobileHomeData {
 
 interface Props {
   data: MobileHomeData
+  /** Purchase gates (out-of-zone / profile) — rendered just below the
+   *  greeting, never above it. They used to be mounted above <MobileHome>
+   *  itself, which put the banner under the drawer burger and pushed the
+   *  greeting beneath it: the greeting owns the burger row on every mobile
+   *  surface. A slot, so ActiveDashboard keeps deciding WHICH gate shows
+   *  (same precedence as its desktop mount). */
+  gateBanners?: ReactNode
   /** Action-error toast — rendered just below the greeting (not above it). */
   errorBanner?: ReactNode
   /** Post-checkout order confirmation — persistent record of the just-bought
@@ -195,7 +202,7 @@ function isoOf(d: Date): string {
 type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused' | 'closure'
 interface Pill { iso: string; state: PillState; action: 'skip' | 'unskip' | 'info' | 'detail' | 'pause-info' | 'cell-info' | null; pauseRange?: PauseRange }
 
-export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
+export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
   // Delivery-rounded (Monthly Max ships 2 meals/delivery) so "meals left" can
   // never show an un-deliverable odd number — mirrors desktop PlanProgress.
   const perDelivery = data.planName.includes('Monthly Max') ? 2 : 1
@@ -385,7 +392,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
       {/* ── Top greeting — sits in the hamburger row (left padding clears the
           burger; right padding is light since the bug icon is gone on mobile,
           which also gives the value line room to stay on one line). ── */}
-      <div style={{ paddingLeft: 64, paddingRight: 16, minHeight: 34, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div className="mhome-greeting" style={{ paddingLeft: 64, paddingRight: 16, minHeight: 34, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: gFg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {/* Mirror the desktop hero: when no name is on file the helper
               falls back to 'there' — drop the suffix rather than greeting
@@ -460,6 +467,7 @@ export function MobileHome({ data, errorBanner, orderBanner, renewBanner, planEn
         })()}
       </div>
 
+      {gateBanners}
       {errorBanner}
       {orderBanner}
       {/* Ref wrapper = the sun-cap anchor (see the measure effect above).

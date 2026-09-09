@@ -1877,11 +1877,21 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         {/* ── Mobile home (≤768) — the redesigned single-screen view. Same
             data + handlers + modals as desktop, just a different surface. ── */}
         <div className="home-mobile">
-          <OutOfZoneBanner show={outOfZone} />
-          {/* Same intake-pause precedence as the desktop mount above. */}
-          {!intakePause.paused && <ProfileBanner missing={profileGate} deprioritized={outOfZone} />}
+          {/* The purchase gates go BELOW the greeting, through MobileHome's
+              slot — mounted up here they sat under the drawer burger and
+              pushed the greeting beneath them. Same intake-pause precedence
+              as the desktop mount above. The wrapper cancels the banners'
+              desktop bottom margin so the column's own gap does the spacing,
+              and it only mounts while a gate is showing: an empty flex child
+              would still spend a gap slot. */}
           <MobileHome
             data={mobileData}
+            gateBanners={(outOfZone || (!intakePause.paused && profileGate.length > 0)) ? (
+              <div style={{ marginBottom: -18 }}>
+                <OutOfZoneBanner show={outOfZone} />
+                {!intakePause.paused && <ProfileBanner missing={profileGate} deprioritized={outOfZone} />}
+              </div>
+            ) : null}
             creditChip={<MobileCreditChip rows={creditRows} />}
             planEndingBanner={showPlanEndingPausedBanner ? (
               <PlanEndingPausedBanner

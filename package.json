@@ -18,7 +18,8 @@
     "check:burger-clearance": "node scripts/check-burger-clearance.mjs",
     "check:slider-readout": "node scripts/check-slider-readout.mjs",
     "check:metric-strip-fit": "node scripts/check-metric-strip-fit.mjs",
-    "check:waitlist-gate-fit": "node scripts/check-waitlist-gate-fit.mjs"
+    "check:waitlist-gate-fit": "node scripts/check-waitlist-gate-fit.mjs",
+    "check:greeting-row": "node scripts/check-greeting-row.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",

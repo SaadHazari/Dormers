@@ -57,4 +57,15 @@ describe('the greeting owns the top of every dashboard-home shape', () => {
     // And the burger-row claim travels with the ribbon — unconditionally.
     expect(src).toMatch(/className="noplan-root owns-burger-row"/)
   })
+
+  it('the mobile home mounts its purchase gates below the greeting, not above it', () => {
+    const src = read('src/app/dashboard/ActiveDashboard.tsx')
+    const mobile = src.slice(src.indexOf('className="home-mobile"'))
+    const home = mobile.indexOf('<MobileHome')
+    expect(home).toBeGreaterThan(-1)
+    for (const banner of ['<ProfileBanner', '<OutOfZoneBanner']) {
+      const at = mobile.indexOf(banner)
+      expect(at, `${banner} must be handed to <MobileHome> as a slot, not mounted above it`).toBeGreaterThan(home)
+    }
+  })
 })
