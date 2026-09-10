@@ -11,6 +11,7 @@ import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import type { IntakeGateState } from './_shared/types'
 import { firstNameFrom } from './_shared/intake-join-outcome'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import DashboardLoading from './loading'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -52,15 +53,14 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, pref?: string, week?: string, checkout_success?: string, loading?: string, error?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
     if (isPreview) {
         // Dev-only state harness (mirrors credit/plan preview params):
-        //   ?wrap=locked  — weekly wrap strip in its pre-unlock state
-        //   ?wrap=open    — clickable wrap strip with the days chip
+        //   ?wrap=locked|open|late|submitted — monthly wrap strip states
         //   ?paused=1     — intake pause + already-joined → plan-ending banner
         //   ?paused=1&joined=0 — intake pause, not yet joined → offer card
         //   ?paused=1&nosub=1  — pause with no active sub → NoPlanView shelf
@@ -68,23 +68,88 @@ export default async function DashboardPage({
         //   ?far=1        — end date +20d → outside the plan-ending window
         //   ?reopened=1   — pause lifted, joined + credit → reopened takeover
         //   ?fresh=1      — under 5 lifetime dinners → one-line greeting
+        //   ?state=delivered|resumed — force the time/session-driven hero states
+        //   ?sub=paused|skipped|scheduled|planned-pause|pause-used|queued|trial
+        //        |weekly|max|dayone|noskips|lastday|ended0 — subscription shapes
+        //   ?verified=1   — WhatsApp verified (no profile gate)
+        //   ?benchmark=1  — takeout benchmark set (savings tile / greeting)
+        //   ?zone=0       — out-of-zone customer
+        //   ?closure=1    — company closure days in the progress grid
+        //   ?pref=veg|mix — meal preference (mix = religious with veg days)
+        //   ?week=5       — 5-day cadence
+        //   ?checkout_success=true — success takeover (with a fixture order)
+        //   ?loading=1 / ?error=1 — route skeleton / error boundary
         // Dates are computed relative to today so the fixture never drifts
         // stale: mid-cycle, ending in 3 days, which keeps the countdown tiles
         // realistic and sits inside the plan-ending banner's 7-day window.
+        if (params.loading === '1') return <DashboardLoading />
+        if (params.error === '1') throw new Error('Preview: forced error boundary')
         const day = 86400000
         const dateOnly = (t: number) => new Date(t).toISOString().slice(0, 10)
+        const todayAE = dateOnly(Date.now() + 4 * 3600000)
+        const weekType = params.week === '5' ? '5DAYS' as const : '6DAYS' as const
+        const isMix = params.pref === 'mix'
+        const mealPref = params.pref === 'veg' ? 'Veg' : isMix ? 'Religious Preference' : 'Non Veg'
+        const vegDays = isMix ? ['Monday', 'Wednesday'] : null
+        const subKnob = params.sub ?? ''
+        const planShape =
+            subKnob === 'trial' ? { plan_name: 'Trial', total_meals: 1, delivered_meals: 0, skipped_meals_count: 0 }
+            : subKnob === 'weekly' ? { plan_name: 'Weekly Flex', total_meals: 6, delivered_meals: 2, skipped_meals_count: 0 }
+            : subKnob === 'max' ? { plan_name: 'Monthly Max', total_meals: 48, delivered_meals: 12, skipped_meals_count: 1 }
+            : {}
+        const endOff = params.far === '1' ? 20 : subKnob === 'lastday' ? 0 : subKnob === 'trial' ? 0 : subKnob === 'weekly' ? 3 : 3
+        // Start so the cycle spans a realistic number of delivery days (a
+        // 24-meal plan on 6 days/week is ~28 calendar days) and derive
+        // delivered_meals from the working days that have elapsed, so the
+        // date-traced progress pills and the counts on the same card agree.
+        const startOff = subKnob === 'trial' || subKnob === 'dayone' ? 0 : subKnob === 'weekly' || params.fresh === '1' ? 2 : params.far === '1' ? 8 : 24
+        const workingDaysElapsed = (() => {
+            let n = 0
+            for (let i = startOff; i >= 1; i--) {
+                const d = new Date(Date.now() + 4 * 3600000 - i * day)
+                const dow = d.getUTCDay()
+                if (dow === 0 || (weekType === '5DAYS' && dow === 6)) continue
+                n++
+            }
+            return n
+        })()
+        const mealsPerDelivery = subKnob === 'max' ? 2 : 1
+        const baseTotal = (planShape as { total_meals?: number }).total_meals ?? (params.fresh === '1' ? 6 : PREVIEW_SUBSCRIPTION.total_meals)
+        const baseSkips = (planShape as { skipped_meals_count?: number }).skipped_meals_count ?? (params.fresh === '1' ? 0 : PREVIEW_SUBSCRIPTION.skipped_meals_count)
+        const pausedDays = subKnob === 'paused' ? 2 : subKnob === 'pause-used' ? 3 : 0
+        const derivedDelivered = Math.max(0, Math.min(baseTotal, (workingDaysElapsed - baseSkips - pausedDays) * mealsPerDelivery))
         const previewSub = {
             ...PREVIEW_SUBSCRIPTION,
-            start_date: dateOnly(Date.now() - 24 * day),
-            end_date: dateOnly(Date.now() + (params.far === '1' ? 20 : 3) * day),
-            ...(params.fresh === '1' ? { total_meals: 6, delivered_meals: 2 } : {}),
+            ...planShape,
+            delivered_meals: derivedDelivered,
+            skipped_meals_count: baseSkips,
+            start_date: dateOnly(Date.now() - startOff * day),
+            end_date: dateOnly(Date.now() + endOff * day),
+            week_type: weekType,
+            veg_days: vegDays,
+            skipped_dates: baseSkips > 0 && startOff > 5 ? [dateOnly(Date.now() - 5 * day)] : baseSkips > 0 ? [dateOnly(Date.now() - day)] : [],
+            ...(params.fresh === '1' ? { total_meals: 6 } : {}),
+            ...(subKnob === 'dayone' ? { delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [] } : {}),
+            ...(subKnob === 'paused' ? { status: 'Paused', has_paused_before: true, pause_date: dateOnly(Date.now() - 2 * day), paused_days: 2, paused_dates: [dateOnly(Date.now() - 2 * day), dateOnly(Date.now() - day)] } : {}),
+            ...(subKnob === 'skipped' ? { status: 'Skipped', last_skipped_date: todayAE, skipped_dates: [dateOnly(Date.now() - 5 * day), todayAE, dateOnly(Date.now() + 2 * day)], skipped_meals_count: 2 } : {}),
+            ...(subKnob === 'scheduled' ? { status: 'Scheduled', start_date: dateOnly(Date.now() + 5 * day), end_date: dateOnly(Date.now() + 35 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [] } : {}),
+            ...(subKnob === 'planned-pause' ? { planned_pause_start: dateOnly(Date.now() + 4 * day), has_paused_before: true } : {}),
+            ...(subKnob === 'pause-used' ? { has_paused_before: true, paused_days: 3, paused_dates: [dateOnly(Date.now() - 6 * day), dateOnly(Date.now() - 5 * day), dateOnly(Date.now() - 4 * day)] } : {}),
+            ...(subKnob === 'noskips' ? { skipped_meals_count: 3, skipped_dates: [dateOnly(Date.now() - 12 * day), dateOnly(Date.now() - 8 * day), dateOnly(Date.now() - 5 * day)] } : {}),
+            ...(subKnob === 'ended0' ? { delivered_meals: 24, skipped_meals_count: 0, skipped_dates: [] } : {}),
         }
+        const queuedSub = subKnob === 'queued' ? {
+            ...PREVIEW_SUBSCRIPTION,
+            id: 'preview-queued', plan_name: 'Monthly Max', status: 'Scheduled',
+            start_date: dateOnly(Date.now() + (endOff + 1) * day), end_date: dateOnly(Date.now() + (endOff + 31) * day),
+            total_meals: 48, delivered_meals: 0, skipped_meals_count: 0,
+        } : null
         const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
-            eligible: params.wrap === 'open',
+            eligible: params.wrap === 'open' || params.wrap === 'late',
             locked: params.wrap === 'locked',
-            submitted: false,
-            daysLeftForFullReward: 7,
-            daysSinceCycleEnd: -3,
+            submitted: params.wrap === 'submitted',
+            daysLeftForFullReward: params.wrap === 'late' ? 0 : 7,
+            daysSinceCycleEnd: params.wrap === 'late' ? 9 : -3,
             expired: false,
             preCron: false,
             cycleLabel: 'Weekly Plan',
@@ -117,14 +182,25 @@ export default async function DashboardPage({
             cycleEndedAt: dateOnly(Date.now() - 1 * day),
             lastDeliveryDay: null,
         } : undefined
+        const previewCustomer = {
+            ...PREVIEW_CUSTOMER,
+            meal_preference_type: mealPref,
+            week_type: weekType,
+            veg_days: vegDays,
+            ...(params.first === '1' ? { created_at: new Date().toISOString(), whatsapp_verified: true } : {}),
+            ...(params.verified === '1' ? { whatsapp_verified: true } : {}),
+            ...(params.benchmark === '1' ? { takeout_benchmark_aed: 35 } : {}),
+            ...(params.zone === '0' ? { out_of_zone: true } : {}),
+        }
         return (
             <Suspense fallback={<Spinner />}>
                 <ClientDashboard
                     // A finished onboarding has a verified WhatsApp number, so
                     // the brand-new-signup fixture must not show the profile
                     // gate the base fixture (unverified) does.
-                    customer={params.first === '1' ? { ...PREVIEW_CUSTOMER, created_at: new Date().toISOString(), whatsapp_verified: true } : PREVIEW_CUSTOMER}
+                    customer={previewCustomer}
                     activeSubscription={params.nosub === '1' ? null : previewSub}
+                    queuedSubscription={queuedSub}
                     // No-sub previews default to a RETURNING customer (their
                     // semester plan just ended) — the renew path only renders
                     // for that shape. &first=1 is the brand-new signup: no
@@ -135,10 +211,13 @@ export default async function DashboardPage({
                     allSubscriptions={params.first === '1' ? [] : params.nosub === '1' ? [
                         { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 },
                         { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: dateOnly(Date.now() - 80 * day), end_date: dateOnly(Date.now() - 73 * day), total_meals: 6, delivered_meals: 6 },
-                    ] : [previewSub]}
+                    ] : params.fresh === '1' ? [previewSub] : [previewSub, { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 }]}
                     userEmail={PREVIEW_CUSTOMER.email}
                     monthlyWindow={previewWrap}
                     intakePause={previewPause}
+                    previewState={params.state}
+                    closureDates={params.closure === '1' ? [dateOnly(Date.now() + day), dateOnly(Date.now() + 2 * day)] : []}
+                    mostRecentOrder={params.checkout_success === 'true' ? { id: 'preview-order', plan: previewSub.plan_name, meals_count: previewSub.total_meals, price_per_meal: 27.5, created_at: new Date().toISOString() } : null}
                 />
             </Suspense>
         )

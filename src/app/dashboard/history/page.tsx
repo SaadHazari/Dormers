@@ -3,6 +3,7 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { redirect } from 'next/navigation'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import HistoryClient, { type EndedPlan } from './HistoryClient'
+import HistoryLoading from './loading'
 
 const PREVIEW_PLANS: EndedPlan[] = [
   {
@@ -30,13 +31,14 @@ const PREVIEW_PLANS: EndedPlan[] = [
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>
+  searchParams: Promise<{ preview?: string; empty?: string; loading?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
   if (isPreview) {
-    return <HistoryClient plans={PREVIEW_PLANS} />
+    if (params.loading === '1') return <HistoryLoading />
+    return <HistoryClient plans={params.empty === '1' ? [] : PREVIEW_PLANS} />
   }
 
   const user = await getUserFromHeaders()

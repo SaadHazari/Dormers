@@ -99,6 +99,14 @@ export const updateSession = async (request: NextRequest) => {
         if (user.email) requestHeaders.set('x-user-email', user.email);
     }
 
+    // Dev-only preview harness: layouts cannot read searchParams, so forward
+    // the query string for /dashboard?preview=1 renders. dashboard/layout.tsx
+    // reads it to build fixture shell props (sidebar name, Now tray, credit
+    // chip) instead of hitting the database. Never set outside development.
+    if (isPreview) {
+        requestHeaders.set('x-dash-preview', request.nextUrl.search.slice(1));
+    }
+
     return applyBufferedCookies(
         NextResponse.next({ request: { headers: requestHeaders } })
     )

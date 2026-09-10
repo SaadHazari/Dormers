@@ -75,3 +75,6 @@ box-reference/source/
 
 # Scratch output from the playwright-cli tooling
 .playwright-cli/
+
+# Screenshot atlas output (PDFs + hundreds of PNGs)
+scripts/atlas/atlas-out/

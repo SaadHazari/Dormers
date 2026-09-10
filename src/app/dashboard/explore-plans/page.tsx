@@ -9,20 +9,8 @@ import { redirect } from 'next/navigation'
 import PlanClient from '../plan/PlanClient'
 import type { CreditByPlan } from '../_shared/types'
 import { firstNameFrom } from '../_shared/intake-join-outcome'
-
-const PREVIEW_CUSTOMER = {
-  id: 'preview',
-  cid: 'YUG6750',
-  name: 'Saad Hazari',
-  email: 'preview@dormers.ae',
-  whatsapp_number: '+971 50 000 0000',
-  whatsapp_verified: true,
-  dorm_name: 'YUGO',
-  meal_preference_type: 'Non Veg',
-  allergens: 'None',
-  spice_level_preference: 'Medium',
-  created_at: '2026-02-01T00:00:00Z',
-}
+import { buildPlanPreview } from '../_shared/preview-plan'
+import ExploreLoading from './loading'
 
 // Skip the Router Cache so creditByPlan reflects the latest wallet
 // state after checkout. Without this, the CheckoutPanel can show stale
@@ -32,19 +20,26 @@ export const dynamic = 'force-dynamic'
 export default async function ExplorePlansPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>
+  searchParams: Promise<{ preview?: string; state?: string; credit?: string; pref?: string; week?: string; zone?: string; unverified?: string; loading?: string; error?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
   if (isPreview) {
+    // Same dev-only harness as /dashboard/plan (see _shared/preview-plan.ts),
+    // always in explore mode so the sidebar highlights this route.
+    if (params.loading === '1') return <ExploreLoading />
+    if (params.error === '1') throw new Error('Preview: forced error boundary')
+    const fx = buildPlanPreview({ ...params, explore: '1' })
     return (
       <PlanClient
-        customer={PREVIEW_CUSTOMER}
-        activeSubscription={null}
-        allSubscriptions={[]}
-        userEmail={PREVIEW_CUSTOMER.email}
+        customer={fx.customer}
+        activeSubscription={fx.activeSubscription}
+        allSubscriptions={fx.allSubscriptions}
+        userEmail={fx.customer.email ?? ''}
         mode="explore"
+        creditByPlan={fx.creditByPlan}
+        intake={fx.intake}
       />
     )
   }

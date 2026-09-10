@@ -6,6 +6,7 @@ import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plan
 import type { CreditByPlan } from '../_shared/types'
 import { redirect } from 'next/navigation'
 import CreditClient, { type CreditItem } from './CreditClient'
+import CreditLoading from './loading'
 
 // Same freshness rule as the plan page: credit rows flip approved → applied
 // in the checkout webhook, and this page must never show a stale statement.
@@ -29,12 +30,13 @@ const PREVIEW_SPLIT: CreditByPlan = {
 export default async function CreditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string; empty?: string }>
+  searchParams: Promise<{ preview?: string; empty?: string; loading?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
   if (isPreview) {
+    if (params.loading === '1') return <CreditLoading />
     const empty = params.empty === '1'
     return <CreditClient items={empty ? [] : PREVIEW_ITEMS} creditByPlan={empty ? {} : PREVIEW_SPLIT} />
   }

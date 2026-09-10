@@ -5,11 +5,11 @@ import { redirect } from 'next/navigation'
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { getSubscriptionWeeks } from '@/contexts/subscriptions/domain/weekly-review'
 import { expectedReviewWeeks } from '@/contexts/subscriptions/domain/plans'
-import { getMenuWeek } from '@/contexts/menu/domain/catalog-data'
+import { getMenuWeek, MENU_DATA } from '@/contexts/menu/domain/catalog-data'
 import { getMenuDishes } from '@/infra/supabase/menu-catalog'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { ReviewClient } from './ReviewClient'
-import type { WeeklyReviewMeal } from '../../../_shared/WeeklyReviewTakeover'
+import type { WeeklyReviewMeal, WeeklyReviewSubmitResult } from '../../../_shared/WeeklyReviewTakeover'
 
 /**
  * Weekly review submission route — `/dashboard/menu/review/[week]`.
@@ -32,7 +32,7 @@ export default async function ReviewPage({
     searchParams,
 }: {
     params: Promise<{ week: string }>
-    searchParams?: Promise<{ just_submitted?: string; from?: string }>
+    searchParams?: Promise<{ just_submitted?: string; from?: string; preview?: string; first?: string; late?: string; weeks?: string; skipped?: string; result?: string }>
 }) {
     const { week: weekParam } = await params
     const sp = (await searchParams) ?? {}
@@ -46,6 +46,47 @@ export default async function ReviewPage({
     const justSubmitted = sp.just_submitted === '1'
     const week = Number.parseInt(weekParam, 10)
     if (!Number.isFinite(week) || week < 1) redirect('/dashboard/menu')
+
+    if (process.env.NODE_ENV === 'development' && sp.preview === '1') {
+        // Dev-only state harness — the takeover renders purely from props.
+        //   ?first=1   first-ever review (all-or-nothing acknowledgement screen)
+        //   ?late=1    outside the 7-day full-reward window (AED 2)
+        //   ?weeks=1   single-week plan (no all-or-nothing rule)
+        //   ?skipped=1 one skipped + one paused meal in the grid
+        //   ?result=locked|chain|error   what a submit resolves to (thank-you looks)
+        // Step is driven by the takeover's own localStorage draft
+        // (dormers:weekly-review:draft:v1:<week>), which the screenshot harness seeds.
+        const weekStartMs = Date.now() - 8 * 86400000
+        const dayIso = (i: number) => new Date(weekStartMs + i * 86400000).toISOString().slice(0, 10)
+        const meals: WeeklyReviewMeal[] = MENU_DATA
+            .filter((d) => d.week === 'week1' && !d.isVeg && d.dayOfWeek <= 5)
+            .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+            .map((d) => ({
+                id: String(d.id), name: d.name,
+                day: `${DAY_LABELS[d.dayOfWeek]} · ${formatDate(new Date(dayIso(d.dayOfWeek) + 'T00:00:00Z'))}`,
+                image: d.image,
+                skipped: sp.skipped === '1' && d.dayOfWeek === 2 ? true : undefined,
+                paused: sp.skipped === '1' && d.dayOfWeek === 4 ? true : undefined,
+            }))
+        const previewResult: WeeklyReviewSubmitResult =
+            sp.result === 'error' ? { ok: false, error: 'Could not save your review — please try again.' }
+            : sp.result === 'locked' ? { ok: true, rewardPct: 100, lumpSumApprovedAed: 20, nextPendingWeek: null, nextPendingWeekAed: null }
+            : sp.result === 'chain' ? { ok: true, rewardPct: sp.late === '1' ? 50 : 100, lumpSumApprovedAed: null, nextPendingWeek: week + 1, nextPendingWeekAed: 5 }
+            : { ok: true, rewardPct: sp.late === '1' ? 50 : 100, lumpSumApprovedAed: null, nextPendingWeek: null, nextPendingWeekAed: null }
+        return (
+            <ReviewClient
+                userName="Saad"
+                week={week}
+                weekRange={`${formatDate(new Date(dayIso(0) + 'T00:00:00Z'))} — ${formatDate(new Date(dayIso(5) + 'T00:00:00Z'))}`}
+                meals={meals}
+                daysLeftForFullReward={sp.late === '1' ? 0 : 4}
+                priorSubmissions={sp.first === '1' ? 0 : 1}
+                weeksExpected={sp.weeks === '1' ? 1 : 4}
+                returnTo={sp.from === 'dorm-wars' ? '/dashboard/dorm-wars' : '/dashboard'}
+                previewResult={previewResult}
+            />
+        )
+    }
 
     // Kick off the catalog load immediately — it needs no auth context and
     // never rejects (fails open to static MENU_DATA), so it downloads in

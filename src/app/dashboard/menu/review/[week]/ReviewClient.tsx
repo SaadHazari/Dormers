@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { WeeklyReviewTakeover, type WeeklyReviewMeal, type WeeklyReviewPayload } from '../../../_shared/WeeklyReviewTakeover'
+import { WeeklyReviewTakeover, type WeeklyReviewMeal, type WeeklyReviewPayload, type WeeklyReviewSubmitResult } from '../../../_shared/WeeklyReviewTakeover'
 import { submitWeeklyReview } from '../actions'
 
 /**
@@ -23,6 +23,7 @@ export function ReviewClient({
     priorSubmissions,
     weeksExpected,
     returnTo = '/dashboard',
+    previewResult,
 }: {
     userName: string
     week: number
@@ -32,6 +33,9 @@ export function ReviewClient({
     priorSubmissions: number
     weeksExpected: number
     returnTo?: string
+    /** DEV-ONLY (preview harness): resolve the submit with this instead of the
+     *  server action, so the thank-you screens can be screenshot-verified. */
+    previewResult?: WeeklyReviewSubmitResult
 }) {
     const router = useRouter()
     const [isNavPending, startNavTransition] = useTransition()
@@ -46,7 +50,7 @@ export function ReviewClient({
             daysLeftForFullReward={daysLeftForFullReward}
             priorSubmissions={priorSubmissions}
             weeksExpected={weeksExpected}
-            onSubmit={(payload: WeeklyReviewPayload) => submitWeeklyReview(week, payload)}
+            onSubmit={(payload: WeeklyReviewPayload) => previewResult ? Promise.resolve(previewResult) : submitWeeklyReview(week, payload)}
             isClosePending={isNavPending}
             onClose={() => startNavTransition(() => router.push(returnTo))}
             onContinueChain={(nextWeek) => {

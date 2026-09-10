@@ -16,6 +16,7 @@ import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { CreditRow } from './_shared/credit-outlook'
 import { COMPACT, ROOMY } from './_shared/breakpoints'
+import { getPreviewShellProps } from './_shared/preview-shell'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -61,7 +62,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // earlier pause is still the customer's money). Empty is the safe
   // default for signed-out renders.
   let creditRows: CreditRow[] = []
-  const userEmail = user?.email ?? ''
+  let userEmail = user?.email ?? ''
+  let isAdmin = isAdminEmail(userEmail)
+
+  // Dev-only preview harness — see _shared/preview-shell.ts.
+  const previewShell = user ? null : await getPreviewShellProps()
+  if (previewShell) {
+    ;({ customerName, customerCid, customerDorm, planName, referralData, weeklyReviewState, monthlyWindow, queuedPlanSummary, intakePaused, creditRows, userEmail, isAdmin } = previewShell)
+  }
 
   if (user) {
     // Fire-and-forget background cleanup — never blocks page render.
@@ -125,7 +133,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         customerDorm={customerDorm}
         userEmail={userEmail}
         planName={planName}
-        isAdmin={isAdminEmail(userEmail)}
+        isAdmin={isAdmin}
         dormWarsEligible={dormWarsEligible}
         referralData={referralData}
         weeklyReviewState={weeklyReviewState}

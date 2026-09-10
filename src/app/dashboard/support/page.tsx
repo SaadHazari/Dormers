@@ -3,6 +3,7 @@ import { getCustomer, getAllSubscriptions } from '@/infra/supabase/subscriptions
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import SupportClient from './SupportClient'
+import SupportLoading from './loading'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
@@ -123,18 +124,19 @@ function buildCustomerContext(
 export default async function SupportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>
+  searchParams: Promise<{ preview?: string; fresh?: string; loading?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
 
   if (isPreview) {
+    if (params.loading === '1') return <SupportLoading />
     return (
       <Suspense>
         <SupportClient
-          customer={{ id: 'preview', cid: 'TST0001', name: 'Test User', email: 'test@dormers.ae', created_at: new Date().toISOString() }}
-          userEmail="test@dormers.ae"
-          totalDelivered={42}
+          customer={{ id: 'preview', cid: 'YUG6750', name: 'Saad Hazari', email: 'preview@dormers.ae', created_at: new Date().toISOString() }}
+          userEmail="preview@dormers.ae"
+          totalDelivered={params.fresh === '1' ? 2 : 42}
         />
       </Suspense>
     )

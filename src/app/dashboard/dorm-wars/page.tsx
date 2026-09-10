@@ -19,6 +19,8 @@ import { captureError } from '@/infra/logging/capture-error'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { getWeeklyReviewState } from '@/utils/supabase/weekly-review-queries'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
+import { EMPTY_REVIEW_STATE } from '@/contexts/subscriptions/domain/weekly-review'
+import HubLoading from './loading'
 
 export const metadata = { title: 'Dorm Wars — Dormers' }
 
@@ -27,7 +29,144 @@ export const metadata = { title: 'Dorm Wars — Dormers' }
 // serve a cached snapshot for up to 30s and the user sees stale numbers.
 export const dynamic = 'force-dynamic'
 
-export default async function DormWarsPage() {
+export default async function DormWarsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>
+}) {
+  const params = await searchParams
+  const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
+
+  if (isPreview) {
+    // Dev-only state harness — HubClient renders purely from props.
+    //   ?gate=none|trial|weekly|gift      ineligible overlay variants
+    //   ?streak=0|fresh|ready|doubler     chest strip / chest screen states (default 12d, 2 to next)
+    //   ?chest=opened                     most recent chest result shown in the chest screen
+    //   ?celebrate=referral|milestone|tier4|jacket|anniversary|monthly   celebration banner
+    //   ?wallet=empty                     no reward history
+    //   ?scouts=empty|all                 squad strip (default 3; all = every stage)
+    //   ?recruits=N  ?cycle=N             lifetime conversions / this-cycle recruits
+    //   ?perks=1                          Early Access + GOAT badges
+    //   ?google=pending|earned            Google review side quest state
+    //   ?weekly=pending|late|allin|none   weekly reviews side quest
+    //   ?monthly=open|late|done|expired|soon
+    //   ?feed=empty                       no cross-dorm activity
+    //   ?tour=1                           first-visit spotlight tour
+    //   ?loading=1  ?error=1
+    if (params.loading === '1') return <HubLoading />
+    if (params.error === '1') throw new Error('Preview: forced error boundary')
+    const day = 86400000
+    const iso = (off: number) => new Date(Date.now() + off * day).toISOString()
+    const dateOnly = (off: number) => iso(off).slice(0, 10)
+    const gate = params.gate
+    const planName = gate === 'trial' ? 'Trial' : gate === 'weekly' ? 'Weekly Flex' : gate === 'gift' ? 'Welcome Gift' : 'Monthly Premium'
+    const currentPlanId = gate === 'none' ? null : gate === 'trial' ? 'trial' as const : gate === 'weekly' ? 'weekly-flex' as const : gate === 'gift' ? 'welcome-gift' as const : 'monthly-premium' as const
+    const activeSubscription = gate === 'none' ? null : {
+      id: 'preview-sub', plan_name: planName, status: 'Active', start_date: dateOnly(-10), end_date: dateOnly(20),
+      total_meals: 24, delivered_meals: 8, skipped_meals_count: 1, has_paused_before: false, pause_date: null,
+      last_skipped_date: null, paused_days: 0, created_at: iso(-10), week_type: '6DAYS' as const,
+    }
+    const recruits = params.recruits != null ? Number(params.recruits) : 2
+    const streakKnob = params.streak
+    const count = streakKnob === '0' ? 0 : streakKnob === 'fresh' ? 3 : streakKnob === 'ready' ? 14 : streakKnob === 'doubler' ? 16 : 12
+    const lastChestDay = streakKnob === '0' || streakKnob === 'fresh' ? 0 : streakKnob === 'doubler' ? 14 : 7
+    const gap = count - lastChestDay
+    const recentChest = params.chest === 'opened'
+      ? { rng_bucket: 'cash_8_10' as const, value_aed: 9, claimed_at: iso(0), doubler_expires_at: null, streak_day: lastChestDay }
+      : streakKnob === 'doubler'
+        ? { rng_bucket: 'doubler' as const, value_aed: null, claimed_at: iso(-2), doubler_expires_at: iso(5), streak_day: 14 }
+        : null
+    const initialChestState = {
+      count, lastChestDay, chestReady: gap >= 7, daysUntilNext: gap >= 7 ? 0 : Math.max(0, 7 - gap),
+      recentChest,
+      activeDoubler: streakKnob === 'doubler' ? { expiresAt: iso(5), msRemaining: 5 * day } : null,
+    }
+    const celebrateSource = {
+      referral: 'referral_conversion', milestone: 'cycle_milestone_3', tier4: 'tier_4_meals',
+      jacket: 'tier_3_jacket', anniversary: 'layer4_anniversary', monthly: 'layer4_monthly_review',
+    }[params.celebrate ?? ''] ?? null
+    const rewardEvents = params.wallet === 'empty' ? [] : [
+      ...(celebrateSource ? [{ id: `preview-celebrate-${celebrateSource}`, amount_aed: celebrateSource === 'tier_3_jacket' ? 0 : celebrateSource === 'tier_4_meals' ? 300 : 30, source: celebrateSource, created_at: iso(0), invitee_name: celebrateSource === 'referral_conversion' ? 'Omar' : null, status: 'approved' as const }] : []),
+      { id: 'ev-1', amount_aed: 30, source: 'referral_conversion', created_at: iso(-3), invitee_name: 'Aisha', status: 'approved' as const },
+      { id: 'ev-2', amount_aed: 5, source: 'layer4_weekly_review', created_at: iso(-6), invitee_name: null, status: 'pending' as const },
+      { id: 'ev-3', amount_aed: 25, source: 'cycle_milestone_2', created_at: iso(-12), invitee_name: null, status: 'applied' as const },
+      { id: 'ev-4', amount_aed: 10, source: 'layer4_google_review', created_at: iso(-20), invitee_name: null, status: 'approved' as const },
+    ]
+    const scoutRows = (() => {
+      const mk = (i: number, firstName: string, status: 'gift_claimed' | 'converted' | 'ineligible_existing_customer', delivered: number | null, endOff: number | null, claimedOff: number, convertedOff: number | null) => ({
+        id: `inv-${i}`, firstName, status, claimedAt: iso(claimedOff), convertedAt: convertedOff == null ? null : iso(convertedOff),
+        welcomeDeliveredMeals: delivered, welcomeSubStatus: delivered == null ? null : 'Active', welcomeEndDate: endOff == null ? null : iso(endOff),
+      })
+      if (params.scouts === 'empty') return []
+      const all = [
+        mk(1, 'Omar', 'gift_claimed', 0, 3, -1, null),          // scheduled
+        mk(2, 'Layla', 'gift_claimed', 1, 4, -3, null),         // delivered
+        mk(3, 'Zayd', 'gift_claimed', 1, -2, -12, null),        // decided
+        mk(4, 'Aisha', 'converted', 1, -5, -20, -3),            // subscribed
+        mk(5, 'Noor', 'ineligible_existing_customer', null, null, -2, null),
+        mk(6, 'Sami', 'gift_claimed', null, null, -1, null),    // legacy: claim-age heuristic
+      ]
+      return params.scouts === 'all' ? all : all.slice(0, 3)
+    })()
+    const layer4Rewards = params.google ? [{
+      id: 'l4-1', kind: 'google_review' as const, period_key: 'preview-sub',
+      status: params.google === 'earned' ? 'approved' as const : 'pending' as const,
+      value_aed: 10, claimed_at: iso(-1), awarded_at: params.google === 'earned' ? iso(0) : null,
+    }] : []
+    const fmt = (off: number) => new Date(Date.now() + off * day).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+    const range = (startOff: number) => `${fmt(startOff)} — ${fmt(startOff + 5)}`
+    const wk = params.weekly ?? 'pending'
+    const weeklyReviewState = {
+      ...EMPTY_REVIEW_STATE,
+      current: wk === 'pending' ? { week: 2, range: range(-8), daysLeft: 4 } : null,
+      late: wk === 'late' ? [{ week: 1, range: range(-15), daysLate: 3 }] : [],
+      completed: wk === 'allin' ? [4, 3, 2, 1].map(w => ({ week: w, range: range(-8 * w), rewardPct: 100 as const })) : wk === 'none' ? [] : [{ week: 1, range: range(-15), rewardPct: 100 as const }],
+      rewards: { submitted: wk === 'allin' ? 4 : wk === 'none' ? 0 : 1, total: 4, aedEarned: wk === 'allin' ? 20 : 0, aedPending: wk === 'allin' ? 0 : wk === 'none' ? 0 : 5, cycle: 'sep-2026', label: 'Monthly Premium' },
+    }
+    const mo = params.monthly ?? 'soon'
+    const monthlyReviewWindow = {
+      eligible: mo === 'open' || mo === 'late',
+      locked: false,
+      submitted: mo === 'done',
+      daysLeftForFullReward: mo === 'late' ? 0 : 5,
+      daysSinceCycleEnd: mo === 'late' ? 9 : mo === 'open' ? 2 : -10,
+      expired: mo === 'expired',
+      preCron: false,
+      cycleLabel: 'Monthly Premium',
+      planTier: 'monthly' as const,
+    }
+    const crossDormRecent = params.feed === 'empty' ? [] : [
+      { firstName: 'Hamza', dormName: 'YUGO', planName: 'Monthly Premium', createdAt: iso(0), isElite: true },
+      { firstName: 'Mariam', dormName: 'Study World', planName: 'Weekly Flex', createdAt: iso(-1), isElite: false },
+      { firstName: 'Yusuf', dormName: 'Uninest', planName: 'Monthly Max', createdAt: iso(-2), isElite: false },
+      { firstName: 'Dana', dormName: 'YUGO', planName: 'Trial', createdAt: iso(-3), isElite: false },
+    ]
+    return (
+      <HubClient
+        customerCid="YUG6750"
+        customerName="Saad Hazari"
+        customerDorm="YUGO"
+        referralData={{ total: recruits + 1, converted: recruits, creditBalance: params.wallet === 'empty' ? 0 : 66, creditPending: params.wallet === 'empty' ? 0 : 5 }}
+        invites={scoutRows}
+        activeSubscription={activeSubscription}
+        initialStreak={count}
+        initialChestState={initialChestState}
+        cycleRecruits={params.cycle != null ? Number(params.cycle) : 1}
+        earlyAccess={params.perks === '1'}
+        hallWall={params.perks === '1'}
+        recentRewards={rewardEvents}
+        dormWarsEligible={!gate}
+        currentPlanId={currentPlanId}
+        crossDormRecent={crossDormRecent}
+        mealPriceContext={{ pricePerMeal: 27.5, mealsPerWeek: 6, totalMealsInPlan: 24, planId: 'Monthly Premium', pref: 'NonVeg', weekType: '6DAYS', source: 'fallback' }}
+        layer4Rewards={layer4Rewards}
+        weeklyReviewState={weeklyReviewState}
+        monthlyReviewWindow={monthlyReviewWindow}
+        dormWarsTourCompleted={params.tour !== '1'}
+      />
+    )
+  }
+
   const user = await getUserFromHeaders()
   if (!user) redirect('/login')
 
