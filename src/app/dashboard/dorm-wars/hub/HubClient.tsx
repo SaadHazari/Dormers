@@ -941,7 +941,8 @@ export default function HubClient({
 
       {/* 4. ACTIVITY + SCOUTS — two-column lower row
           Same responsive treatment via .hub-activity-grid — stacks under
-          720px so Activity feed and Scouts each get full width on phones. */}
+          768px so Activity feed and Scouts each get full width on phones,
+          where the CSS flips the order: Your Squad above Happening Now. */}
       <div className="hub-activity-grid" style={{ flex: '1 1 auto', minHeight: 0 }}>
         <ActivityFeed pulseItem={pulseItems[pulseIdx]} pulseItems={pulseItems} />
         <ScoutsStrip
@@ -3786,6 +3787,11 @@ function HubStyles() {
            let them shrink too. */
         .hub-activity-grid > *,
         .hub-progress-grid > * > * { min-width: 0; }
+        /* Phones read the stack top-down and Your Squad is the card with the
+           customer's own people + the Send-new tile in it, so it goes before
+           the cross-dorm Happening Now feed; the feed closes the page. Desktop
+           keeps feed-left / squad-right (source order). */
+        .hub-activity-grid > :first-child { order: 2; }
 
         /* Full-bleed mobile shell — the hub owns all its own insets now that
            the dashboard gutter is zeroed for this page (layout.tsx). Side
