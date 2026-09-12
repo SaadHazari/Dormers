@@ -112,9 +112,9 @@ add('shell-bug-report', 'Bug report — Sentry feedback dialog', {
   actions: [{ type: 'hover', selector: 'button[aria-label="Report a bug"]', settleMs: 600 }, { type: 'click', selector: 'button[aria-label="Report a bug"]', settleMs: 1500 }],
 })
 add('shell-bug-report-mobile', 'Bug report — mobile entry point (account sheet row)', {
-  description: 'On phones the ghost icon is gone; the account sheet carries a "Report a bug" row that opens the same Sentry feedback dialog.',
+  description: 'On phones the ghost corner icon is gone; the account sheet header carries the same bug icon beside the name, which opens the Sentry feedback dialog.',
   conditions: 'Mobile, account sheet open.', url: '/dashboard/plan?preview=1', kind: 'overlay', viewports: ['mobile'],
-  actions: [{ type: 'click', selector: '.dash-mobile-menu', settleMs: 600 }, { type: 'click', selector: 'button[aria-label="Account menu"]', js: true, settleMs: 700 }, { type: 'click', selector: 'button:has-text("Report a bug")', settleMs: 1500 }],
+  actions: [{ type: 'click', selector: '.dash-mobile-menu', settleMs: 600 }, { type: 'click', selector: 'button[aria-label="Account menu"]', js: true, settleMs: 700 }, { type: 'click', selector: 'button[aria-label="Report a bug"]', settleMs: 1500 }],
 })
 add('shell-idle-toast', 'Idle refresh toast', {
   description: 'After 30 minutes without activity (or 15 minutes hidden) a bottom-right toast offers a refresh.',

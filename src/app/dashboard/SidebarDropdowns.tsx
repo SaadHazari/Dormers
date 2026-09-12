@@ -321,10 +321,11 @@ export function SidebarDropdowns({
                 <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 700, color: D.fg, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
                 <div style={{ fontSize: 12, color: D.fgMuted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
               </div>
-              {/* Desktop only — bug-report is a desktop affordance, and on mobile
-                  the sheet's focus trap would land on it and auto-show its
-                  tooltip. Dropping it here removes the focus target entirely. */}
-              {!compact && <BugReportIconButton />}
+              {/* Same ghost icon beside the name on both trees. On compact the
+                  sheet's focus trap lands here first, so the hover tooltip is
+                  off (touch has no hover; the aria-label carries the name) and
+                  the tap closes the sheet before opening the Sentry form. */}
+              <BugReportIconButton compact={compact} onOpen={() => { setOpenDropdown(null); onMobileClose?.() }} />
             </div>
             <div style={{ padding: 6 }}>
               {[
@@ -346,12 +347,7 @@ export function SidebarDropdowns({
                   <ChevronRight size={13} color="var(--ds-fg-tint)" />
                 </Link>
               ))}
-              {/* Mobile-only entry point to the Sentry feedback dialog. The
-                  ghost icon (BugReportTrigger) and the header icon above are
-                  both desktop-only, which left phones — the majority device —
-                  with no way to report a bug at all. A plain row has no
-                  tooltip for the sheet's focus trap to auto-show. */}
-              {compact && <BugReportRow onOpen={() => { setOpenDropdown(null); onMobileClose?.() }} />}
+
             </div>
             <div style={{ borderTop: '1px solid var(--ds-border-soft)', padding: 6 }}>
               <form action={signout}>
@@ -1095,56 +1091,47 @@ function JustSubmittedRow({ week, rewardPct, total }: { week: number; rewardPct:
 // because body.dropdown-open globally suppresses data-tooltip popups
 // (so they don't clash with open panels). We still want a hint here so
 // users know what the icon does — a small inline tooltip handles it.
-// One dialog per page, created on first use and re-opened after that. NOT
-// feedback.attachTo(button): its cleanup calls dialog.removeFromDom(), and this
-// row unmounts with the sheet in the same click that opens the dialog — the
-// microtask that appends the form runs between the button's listener and
-// React's, so the form was on the page for a moment and then gone.
+// Mobile opener: one Sentry form per page, created on first use and re-opened
+// after that. NOT feedback.attachTo(button) on compact — its cleanup calls
+// dialog.removeFromDom(), and the icon unmounts with the sheet in the same tap
+// that opens the dialog (the microtask that appends the form runs between the
+// button's own listener and React's), so the form was on the page for a
+// moment and then gone. Desktop keeps attachTo: the popover stays mounted.
 let mobileBugForm: Promise<{ appendToDom: () => void; open: () => void }> | null = null
-
-function BugReportRow({ onOpen }: { onOpen: () => void }) {
-  const openForm = () => {
-    onOpen()
-    const feedback = Sentry.getFeedback()
-    if (!feedback) return
-    mobileBugForm ??= feedback.createForm()
-    mobileBugForm.then((form) => { form.appendToDom(); form.open() }).catch(() => { mobileBugForm = null })
-  }
-
-  return (
-    <button
-      type="button"
-      className="utility-row"
-      onClick={openForm}
-      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: D.fg, fontFamily: BODY, fontSize: 13, fontWeight: 500, textAlign: 'left' }}
-    >
-      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Bug size={14} strokeWidth={2} color="currentColor" />
-        Report a bug
-      </span>
-      <ChevronRight size={13} color="var(--ds-fg-tint)" />
-    </button>
-  )
+function openMobileBugForm() {
+  const feedback = Sentry.getFeedback()
+  if (!feedback) return
+  mobileBugForm ??= feedback.createForm()
+  mobileBugForm.then((form) => { form.appendToDom(); form.open() }).catch(() => { mobileBugForm = null })
 }
 
-function BugReportIconButton() {
+function BugReportIconButton({ compact = false, onOpen }: { compact?: boolean; onOpen?: () => void }) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [hover, setHover] = useState(false)
 
   useEffect(() => {
+    if (compact) return
     const button = buttonRef.current
     if (!button) return
     const feedback = Sentry.getFeedback()
     if (!feedback) return
     const unsubscribe = feedback.attachTo(button)
     return () => { if (typeof unsubscribe === 'function') unsubscribe() }
-  }, [])
+  }, [compact])
+
+  // Tooltip is a hover affordance — never on compact, where the sheet's focus
+  // trap lands on this button first and would auto-show it.
+  const showTip = hover && !compact
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+    // zIndex 2: on compact the header sits under MobileSheet's 84px grab zone
+    // (absolute, zIndex 1, the drag-to-dismiss hit area). The sheet's own
+    // close button lifts itself the same way; without this a tap on the icon
+    // started a drag instead of opening the form.
+    <div style={{ position: 'relative', zIndex: 2, display: 'inline-flex', flexShrink: 0 }}>
       <div
         role="tooltip"
-        aria-hidden={!hover}
+        aria-hidden={!showTip}
         style={{
           position: 'absolute',
           top: 'calc(100% + 6px)',
@@ -1157,8 +1144,8 @@ function BugReportIconButton() {
           padding: '6px 10px',
           borderRadius: 6,
           whiteSpace: 'nowrap',
-          opacity: hover ? 1 : 0,
-          transform: hover ? 'translateY(0)' : 'translateY(-2px)',
+          opacity: showTip ? 1 : 0,
+          transform: showTip ? 'translateY(0)' : 'translateY(-2px)',
           pointerEvents: 'none',
           transition: 'opacity 140ms ease, transform 140ms ease',
           boxShadow: '0 4px 12px rgba(9,24,37,0.18)',
@@ -1172,6 +1159,7 @@ function BugReportIconButton() {
         type="button"
         aria-label="Report a bug"
         className="utility-bug-row"
+        onClick={compact ? () => { onOpen?.(); openMobileBugForm() } : undefined}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)}
@@ -1179,6 +1167,8 @@ function BugReportIconButton() {
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 36, padding: '0 8px',
+          // A 14px glyph is not a touch target; give the phone a 36px square.
+          minHeight: compact ? 36 : undefined,
           borderRadius: 'var(--radius-sm)',
           background: 'none', border: 'none', cursor: 'pointer',
           color: 'var(--ds-fg-muted)', flexShrink: 0,
