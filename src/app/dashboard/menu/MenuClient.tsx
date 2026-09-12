@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import Link from 'next/link'
@@ -16,6 +16,7 @@ import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { MobileMenu, type MobileMenuCell } from '../_mobile/MobileMenu'
 import { COMPACT } from '../_shared/breakpoints'
+import { spotlightStatusKind, spotlightStatusCopy } from '../_shared/menu-spotlight'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -220,12 +221,54 @@ function computeCountdown(now: Date, subStatus: string | null): { label: string;
 // the dashboard's HeroToday for cross-page cohesion.
 const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
 
-function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, weekType = '6DAYS' }: {
+// Shared shell for the "nothing arrives tonight" spotlight family (resumed
+// after cutoff, paused, scheduled, no plan). TIER1 with the orange edge-wash
+// so the card still anchors the section without implying a delivery.
+const NOTICE_BODY: CSSProperties = { margin: 0, fontFamily: BODY, fontSize: 14, color: S.fgMuted, lineHeight: 1.6, maxWidth: '52ch' }
+const NOTICE_FOOT: CSSProperties = { margin: 0, fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5, maxWidth: '60ch' }
+const NOTICE_LINK: CSSProperties = { appearance: 'none', background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: BODY, fontSize: 12, fontWeight: 700, color: OG, letterSpacing: '0.04em' }
+const NOTICE_CTA: CSSProperties = { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, padding: '10px 18px', borderRadius: 999, background: OG, color: '#fff', textDecoration: 'none', fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }
+
+function SpotlightNotice({ headline, children }: { headline: string; children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        ...TIER1,
+        background: `
+          linear-gradient(105deg, rgba(245,127,32,0.11) 0%, rgba(245,127,32,0.06) 22%, rgba(245,127,32,0.025) 55%, rgba(245,127,32,0.01) 100%),
+          var(--ds-surface-tier1)
+        `,
+        borderRadius: 'var(--radius-md)',
+        padding: 'clamp(32px, 3.2vw, 48px) clamp(24px, 2.8vw, 40px)',
+        display: 'flex', flexDirection: 'column', gap: 16,
+      }}
+    >
+      {/* Visual anchor — same treatment as the Sunday rest-day card */}
+      <Moon size={28} strokeWidth={1.6} color="rgba(200,148,23,0.80)" />
+      <div style={{
+        fontFamily: BODY, fontSize: 'clamp(24px, 2.2vw, 32px)',
+        fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em',
+      }}>
+        {headline}<span style={{ color: OG }}>.</span>
+      </div>
+      {children}
+    </motion.div>
+  )
+}
+
+function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, weekType = '6DAYS', startsOn = null, onOpenDish }: {
   meal: WeekMeal | null
   dorm: string | null
   subStatus: string | null
   resumedAfterCutoff?: boolean
   weekType?: '5DAYS' | '6DAYS'
+  /** Scheduled sub's start_date — the status card names the first delivery. */
+  startsOn?: string | null
+  /** Opens the dish modal from the status card's footnote. */
+  onOpenDish?: () => void
 }) {
   const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
 
@@ -281,47 +324,38 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
   }
 
   // Resumed after kitchen cutoff (2 PM AE) — no meal was prepped tonight.
-  // Step back to TIER1 with orange edge-wash so the card still anchors the
-  // section without falsely implying something is on its way.
   if (resumedAfterCutoff) {
     const nextDelivery = nextDeliveryLabel(weekType)
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-        style={{
-          ...TIER1,
-          background: `
-            linear-gradient(105deg, rgba(245,127,32,0.11) 0%, rgba(245,127,32,0.06) 22%, rgba(245,127,32,0.025) 55%, rgba(245,127,32,0.01) 100%),
-            var(--ds-surface-tier1)
-          `,
-          borderRadius: 'var(--radius-md)',
-          padding: 'clamp(32px, 3.2vw, 48px) clamp(24px, 2.8vw, 40px)',
-          display: 'flex', flexDirection: 'column', gap: 16,
-        }}
-      >
-        {/* Visual anchor — same treatment as the Sunday rest-day card */}
-        <Moon size={28} strokeWidth={1.6} color="rgba(200,148,23,0.80)" />
-        <div style={{
-          fontFamily: BODY, fontSize: 'clamp(24px, 2.2vw, 32px)',
-          fontWeight: 700, color: S.fg, lineHeight: 1.2, letterSpacing: '-0.01em',
-        }}>
-          No delivery tonight<span style={{ color: OG }}>.</span>
-        </div>
-        <p style={{
-          margin: 0, fontFamily: BODY, fontSize: 14,
-          color: S.fgMuted, lineHeight: 1.6, maxWidth: '52ch',
-        }}>
+      <SpotlightNotice headline="No delivery tonight">
+        <p style={NOTICE_BODY}>
           You resumed after the 2 PM kitchen cutoff — your first delivery is <strong style={{ fontWeight: 700, color: S.fg }}>{nextDelivery}</strong>, 7–8 PM.
         </p>
-        <p style={{
-          margin: 0, fontFamily: BODY, fontSize: 12,
-          color: S.fgMuted, opacity: 0.60, lineHeight: 1.5, maxWidth: '52ch',
-        }}>
+        <p style={{ ...NOTICE_FOOT, opacity: 0.60 }}>
           {"Tonight's meal slot has been moved to the end of your plan — nothing is lost."}
         </p>
-      </motion.div>
+      </SpotlightNotice>
+    )
+  }
+
+  // Paused / scheduled / no plan — nothing arrives tonight either, so the
+  // dinner ticket (TONIGHT eyebrow, macros) would claim the opposite of the
+  // grid card directly below it. Same card family as the resumed state; the
+  // dish is demoted to a footnote instead of headlining.
+  const statusKind = spotlightStatusKind(subStatus)
+  if (statusKind) {
+    const copy = spotlightStatusCopy(statusKind, startsOn)
+    return (
+      <SpotlightNotice headline={copy.headline}>
+        <p style={NOTICE_BODY}>{copy.body}</p>
+        <p style={{ ...NOTICE_FOOT, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>On the menu tonight: <strong style={{ fontWeight: 700, color: S.fg }}>{meal.dish}</strong></span>
+          {onOpenDish && <button type="button" onClick={onOpenDish} style={NOTICE_LINK}>View dish →</button>}
+        </p>
+        {statusKind === 'none' && (
+          <Link href="/dashboard/explore-plans" style={NOTICE_CTA}>Explore plans →</Link>
+        )}
+      </SpotlightNotice>
     )
   }
 
@@ -475,9 +509,13 @@ export type NoDeliveryReason =
   | 'in-pause'         // future day after planned_pause_start (open-ended)
   | 'plan-ends'        // future day past active sub's end_date AND no queued renewal
   | 'pre-start'        // any day before a Scheduled sub's start_date — nothing was cooked
-function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, onClick }: {
+function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, onClick }: {
   meal: WeekMeal
   dayLabel: string
+  /** No subscription at all: the calendar chips (Delivered / Today / Upcoming)
+   *  would claim meals a plan-less customer never received, so the card
+   *  shows dish and date only. */
+  noPlan?: boolean
   state: WeekDayState
   variant?: WeekDayVariant
   // When set, the card renders in its dim "no delivery" state with a
@@ -674,6 +712,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
             // "Delivered" and tonight's dish was theirs.
             'pre-start':      { Icon: Clock, label: 'Starts soon',      color: 'rgba(29,95,163,0.65)'  },
           }
+          if (noPlan) return null
           const stateConfig = noDeliveryReason
             ? noDeliveryConfig[noDeliveryReason]
             : isPast
@@ -1011,10 +1050,10 @@ export default function MenuClient({
   //    to plain props for the presentational MobileMenu (≤768). ──
   const thisWeekCells: MobileMenuCell[] = thisWeek.meals.slice(0, 6).map((meal, i) => {
     const state: WeekDayState = i < thisTodayIdx ? 'past' : i === thisTodayIdx ? 'today' : 'future'
-    return { meal, dayLabel: DAY_ABBREVS[i], state, reason: classifyNoDelivery(meal, state) }
+    return { meal, dayLabel: DAY_ABBREVS[i], state, reason: classifyNoDelivery(meal, state), noPlan: !activeSubscription }
   })
   const nextWeekCells: MobileMenuCell[] = nextWeek.meals.slice(0, 6).map((meal, i) => ({
-    meal, dayLabel: DAY_ABBREVS[i], state: 'future' as WeekDayState, reason: classifyNoDelivery(meal, 'future'),
+    meal, dayLabel: DAY_ABBREVS[i], state: 'future' as WeekDayState, reason: classifyNoDelivery(meal, 'future'), noPlan: !activeSubscription,
   }))
 
   return (
@@ -1046,7 +1085,7 @@ export default function MenuClient({
         {/* ── Section 1: Today (full-width hero) ── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Eyebrow>{resumedAfterCutoff ? 'Tonight' : "Today's delivery"}</Eyebrow>
+            <Eyebrow>{resumedAfterCutoff || spotlightStatusKind(activeSubscription?.status ?? null) ? 'Tonight' : "Today's delivery"}</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
           <TodaySpotlight
@@ -1055,6 +1094,8 @@ export default function MenuClient({
             subStatus={activeSubscription?.status ?? null}
             resumedAfterCutoff={resumedAfterCutoff}
             weekType={weekType}
+            startsOn={activeSubscription?.start_date ?? null}
+            onOpenDish={todayMeal ? () => setOpenMeal(todayMeal) : undefined}
           />
         </section>
 
@@ -1078,6 +1119,7 @@ export default function MenuClient({
                   dayLabel={DAY_ABBREVS[i]}
                   state={state}
                   noDeliveryReason={noDeliveryReason}
+                  noPlan={!activeSubscription}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
@@ -1106,6 +1148,7 @@ export default function MenuClient({
                   state="future"
                   variant="preview"
                   noDeliveryReason={noDeliveryReason}
+                  noPlan={!activeSubscription}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
@@ -1128,6 +1171,7 @@ export default function MenuClient({
           todayMeal={todayMeal}
           dorm={customer?.dorm_name ?? null}
           subStatus={activeSubscription?.status ?? null}
+          startsOn={activeSubscription?.start_date ?? null}
           resumedAfterCutoff={resumedAfterCutoff}
           nextDeliveryLabel={nextDeliveryLabel(weekType)}
           thisWeekCells={thisWeekCells}

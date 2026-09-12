@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } from 'lucide-react'
 import type { WeekMeal, WeekDayState, NoDeliveryReason } from '../menu/MenuClient'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import { spotlightStatusKind, spotlightStatusCopy } from '../_shared/menu-spotlight'
 import {
   MobileColumn, HeroTitle, SectionTitle, MealTag, HeatBar, MobileSheet, solidNavyBtn,
   CARD, OG, NV, S, BODY, eyebrow,
@@ -59,6 +60,8 @@ export interface MobileMenuCell {
   dayLabel: string
   state: WeekDayState
   reason: NoDeliveryReason | null
+  /** No subscription: no state chip at all (see desktop WeekDayCard.noPlan). */
+  noPlan?: boolean
 }
 
 interface Props {
@@ -66,6 +69,8 @@ interface Props {
   todayMeal: WeekMeal | null
   dorm: string | null
   subStatus: string | null
+  /** Scheduled sub's start_date (status spotlight). */
+  startsOn: string | null
   resumedAfterCutoff: boolean
   nextDeliveryLabel: string
   thisWeekCells: MobileMenuCell[]
@@ -80,7 +85,7 @@ const CREAM = 'rgba(245,240,232,0.88)'
 const CREAM_MUTED = 'rgba(245,240,232,0.72)'
 const CREAM_FAINT = 'rgba(245,240,232,0.45)'
 
-export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, resumedAfterCutoff, nextDeliveryLabel, thisWeekCells, nextWeekCells, onRenew }: Props) {
+export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resumedAfterCutoff, nextDeliveryLabel, thisWeekCells, nextWeekCells, onRenew }: Props) {
   const [sheetMeal, setSheetMeal] = useState<WeekMeal | null>(null)
 
   return (
@@ -105,7 +110,9 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, resumedAfterCu
         dorm={dorm}
         resumedAfterCutoff={resumedAfterCutoff}
         nextDeliveryLabel={nextDeliveryLabel}
+        startsOn={startsOn}
         onOpen={() => todayMeal && setSheetMeal(todayMeal)}
+        onExplore={onRenew}
       />
 
       {/* ── This week (2-across, today widened) ─────────────────────────────── */}
@@ -152,14 +159,30 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, resumedAfterCu
   )
 }
 
+// Shared shell for the "nothing arrives tonight" spotlight family — mirrors
+// the desktop SpotlightNotice (orange edge-wash on the light card).
+function SpotlightNotice({ headline, children }: { headline: string; children: ReactNode }) {
+  return (
+    <div style={{ ...CARD, background: 'linear-gradient(105deg, rgba(245,127,32,0.10) 0%, rgba(245,127,32,0.03) 55%, #fdfbf6 100%)', padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Moon size={26} strokeWidth={1.7} color="rgba(200,148,23,0.85)" />
+      <SectionTitle size={21}>{headline}</SectionTitle>
+      {children}
+    </div>
+  )
+}
+
 // ── Today spotlight ──────────────────────────────────────────────────────────
-function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliveryLabel, onOpen }: {
+function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliveryLabel, startsOn, onOpen, onExplore }: {
   meal: WeekMeal | null
   subStatus: string | null
   dorm: string | null
   resumedAfterCutoff: boolean
   nextDeliveryLabel: string
+  /** Scheduled sub's start_date — the status card names the first delivery. */
+  startsOn: string | null
   onOpen: () => void
+  /** No-plan status card's CTA (explore plans). */
+  onExplore: () => void
 }) {
   const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
   useEffect(() => {
@@ -182,13 +205,32 @@ function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliver
   // Resumed after the 2 PM kitchen cutoff — nothing prepped tonight.
   if (resumedAfterCutoff) {
     return (
-      <div style={{ ...CARD, background: 'linear-gradient(105deg, rgba(245,127,32,0.10) 0%, rgba(245,127,32,0.03) 55%, #fdfbf6 100%)', padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Moon size={26} strokeWidth={1.7} color="rgba(200,148,23,0.85)" />
-        <SectionTitle size={21}>No delivery tonight</SectionTitle>
+      <SpotlightNotice headline="No delivery tonight">
         <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>
           You resumed after the 2 PM kitchen cutoff — your first delivery is <strong style={{ color: S.fg, fontWeight: 700 }}>{nextDeliveryLabel}</strong>, 7–8 PM. Tonight&rsquo;s slot moves to the end of your plan — nothing is lost.
         </p>
-      </div>
+      </SpotlightNotice>
+    )
+  }
+
+  // Paused / scheduled / no plan — same family as the resumed card. The
+  // dark ticket (TONIGHT badge, macros, "View dish") used to render here and
+  // contradict the "Paused" chip on the card right below it.
+  const statusKind = spotlightStatusKind(subStatus)
+  if (statusKind) {
+    const copy = spotlightStatusCopy(statusKind, startsOn)
+    return (
+      <SpotlightNotice headline={copy.headline}>
+        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>{copy.body}</p>
+        <button type="button" onClick={onOpen} style={{ appearance: 'none', background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+          On the menu tonight: <strong style={{ color: S.fg, fontWeight: 700 }}>{meal.dish}</strong> <span style={{ color: OG, fontWeight: 700, whiteSpace: 'nowrap' }}>View dish →</span>
+        </button>
+        {statusKind === 'none' && (
+          <button type="button" onClick={onExplore} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2, padding: '10px 16px', borderRadius: 999, border: 0, background: OG, color: '#fff', cursor: 'pointer', fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Explore plans →
+          </button>
+        )}
+      </SpotlightNotice>
     )
   }
 
@@ -282,8 +324,9 @@ const REASON: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color
   'pre-start':      { Icon: Clock, label: 'Starts soon',     color: 'rgba(29,95,163,0.70)' },
 }
 
-function stateChip(cell: MobileMenuCell): { Icon: typeof Moon; label: string; color: string } {
+function stateChip(cell: MobileMenuCell): { Icon: typeof Moon; label: string; color: string } | null {
   if (cell.reason) return REASON[cell.reason]
+  if (cell.noPlan) return null
   if (cell.state === 'past') return { Icon: Check, label: 'Delivered', color: 'rgba(29,138,48,0.80)' }
   if (cell.state === 'today') return { Icon: Sparkles, label: 'Today', color: OG }
   return { Icon: Clock, label: 'Upcoming', color: 'rgba(29,95,163,0.70)' }
@@ -333,7 +376,9 @@ function DayCard({ cell, wide, onClick }: { cell: MobileMenuCell; wide: boolean;
       <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
         {isOff
           ? <span style={{ fontSize: 11, color: S.fgFaint }}>Rest day</span>
-          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: chip.color }}><chip.Icon size={11} strokeWidth={2.2} />{chip.label}</span>}
+          : chip
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: chip.color }}><chip.Icon size={11} strokeWidth={2.2} />{chip.label}</span>
+            : <span />}
         {!isOff && !reason && <MealTag kind={meal.tag} compact />}
       </div>
     </div>
