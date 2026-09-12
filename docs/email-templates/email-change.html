@@ -8,11 +8,11 @@
       <tr><td align="center" style="padding:18px 24px;border-bottom:1px solid rgba(9,24,37,0.06);"><table role="presentation" border="0" cellspacing="0" cellpadding="0"><tr><td width="24" valign="middle"><img src="https://dormers.ae/email-mark.png" width="24" height="24" alt="" style="display:block;width:24px;height:24px;"></td><td width="8" style="font-size:0;line-height:0;">&nbsp;</td><td valign="middle"><span style="font-size:13px;font-weight:800;letter-spacing:-0.01em;color:#091825;">Dormers<span style="color:#f57f20;">.</span></span></td></tr></table></td></tr>
       <tr><td style="padding:32px 28px 0;"><div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(9,24,37,0.45);">Confirm email change</div><p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:rgba(9,24,37,0.62);">We received a request to change the email on your Dormers account from <strong style="color:#091825;">{{ .Email }}</strong> to <strong style="color:#091825;">{{ .NewEmail }}</strong>.</p></td></tr>
       <tr><td align="center" style="padding:24px 24px 8px;"><div style="-webkit-user-select:all;user-select:all;font-family:'SFMono-Regular',Menlo,Monaco,Consolas,monospace;font-size:40px;font-weight:700;letter-spacing:0.28em;color:#f57f20;line-height:1;">{{ .Token }}</div><p style="margin:18px 0 0;font-size:12px;color:rgba(9,24,37,0.50);">Tap and hold the code to copy.</p></td></tr>
-      <!-- The link STAYS in this template: the dashboard's email-change flow has
-           no code-entry field — the link is the only way to confirm. A scanner
-           prefetch here completes the change the user asked for, so the
-           signup-style dead-end can't happen. -->
-      <tr><td align="center" style="padding:24px 24px 32px;"><a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:10px 18px;color:#f57f20;border:1px solid rgba(245,127,32,0.35);text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.04em;border-radius:999px;">Or confirm in one tap →</a><p style="margin:16px 0 0;font-size:11px;color:rgba(9,24,37,0.40);">Didn&rsquo;t request this? Ignore — your email won&rsquo;t change without confirmation from both addresses.</p></td></tr>
+      <!-- Code-only, like every other Dormers auth email: the dashboard's
+           change-email sheet takes this code (confirmEmailChange), so the
+           one-tap link is gone — mailbox scanners were prefetching links and
+           burning the single-use token behind the code. -->
+      <tr><td align="center" style="padding:8px 24px 32px;"><p style="margin:0;font-size:13px;line-height:1.6;color:rgba(9,24,37,0.62);">Enter this code in the <strong style="color:#091825;">Change email</strong> sheet on your Profile page.</p><p style="margin:16px 0 0;font-size:11px;color:rgba(9,24,37,0.40);">Didn&rsquo;t request this? Ignore — your email won&rsquo;t change without confirmation from both addresses.</p></td></tr>
     </table>
   </td></tr></table>
 </body></html>

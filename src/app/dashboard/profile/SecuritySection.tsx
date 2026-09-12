@@ -8,6 +8,7 @@ import { Eyebrow } from '../_shared/Eyebrow'
 import { MobileSheet } from '../_shared/MobileSheet'
 import {
   requestEmailChange,
+  confirmEmailChange,
   changePassword,
   sendPasswordResetForSelf,
   markWhatsappVerified,
@@ -360,22 +361,49 @@ function ChangeEmailModal({
   isOpen: boolean
   onClose: () => void
 }) {
+  const router = useRouter()
   const [newEmail, setNewEmail] = useState('')
+  // enter → code-new (the code emailed to the new address) → code-current
+  // (only under Supabase's secure email change, which also codes the old
+  // address and flips the email once both are confirmed).
+  const [stage, setStage] = useState<'enter' | 'code-new' | 'code-current'>('enter')
+  const [code, setCode]         = useState('')
   const [error, setError]       = useState<string | null>(null)
   const [success, setSuccess]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [confirming, startConfirm] = useTransition()
   const [resending, startResend]   = useTransition()
 
   useEffect(() => {
-    if (isOpen) { setNewEmail(''); setError(null); setSuccess(null) }
+    if (isOpen) { setNewEmail(''); setStage('enter'); setCode(''); setError(null); setSuccess(null) }
   }, [isOpen])
 
-  const handleSave = () => {
+  const handleSendCode = () => {
     setError(null); setSuccess(null)
     startTransition(async () => {
       const res = await requestEmailChange(newEmail)
-      if ('error' in res) setError(res.error ?? null)
-      else setSuccess(res.message ?? null)
+      if ('error' in res) { setError(res.error ?? null); return }
+      setSuccess(res.message ?? null)
+      setCode('')
+      setStage('code-new')
+    })
+  }
+
+  const handleConfirm = () => {
+    setError(null); setSuccess(null)
+    const inbox = stage === 'code-current' ? currentEmail : newEmail
+    startConfirm(async () => {
+      const res = await confirmEmailChange(inbox, code)
+      if ('error' in res) { setError(res.error ?? null); return }
+      setSuccess(res.message ?? null)
+      if (res.done) {
+        // router.refresh() re-runs page.tsx so the security row shows the
+        // new address; the pause lets the success flash register first.
+        setTimeout(() => { onClose(); router.refresh() }, 1200)
+        return
+      }
+      setCode('')
+      setStage('code-current')
     })
   }
 
@@ -388,24 +416,44 @@ function ChangeEmailModal({
     })
   }
 
+  const busy = pending || confirming
+  const subtitle = stage === 'code-new'
+    ? `Enter the 6-digit code we emailed to ${newEmail}.`
+    : stage === 'code-current'
+      ? `Nearly there — enter the code we emailed to ${currentEmail} to finish the change.`
+      : emailConfirmed
+        ? `Your account email is currently ${currentEmail}. Enter a new one and we'll email it a 6-digit code.`
+        : `Your account email ${currentEmail} hasn't been verified yet. Resend the verification code, or replace it with a different address.`
+
   return (
     <ModalShell
       isOpen={isOpen}
       onClose={onClose}
       title={emailConfirmed ? 'Change email' : 'Verify or change email'}
-      subtitle={emailConfirmed
-        ? `Your account email is currently ${currentEmail}. Enter a new one and confirm via the link we send.`
-        : `Your account email ${currentEmail} hasn't been verified yet. Resend the verification link, or replace it with a different address.`}
-      footer={
+      subtitle={subtitle}
+      footer={stage === 'enter' ? (
         <>
           <button onClick={onClose} disabled={pending} style={secondaryBtn(pending)}>Cancel</button>
-          <button onClick={handleSave} disabled={pending || !newEmail.trim()} style={primaryBtn(pending)}>
-            {pending ? 'Sending…' : 'Send verification'}
+          <button onClick={handleSendCode} disabled={pending || !newEmail.trim()} style={primaryBtn(pending)}>
+            {pending ? 'Sending…' : 'Send code'}
           </button>
         </>
-      }
+      ) : (
+        <>
+          <button
+            onClick={() => { setStage('enter'); setCode(''); setError(null); setSuccess(null) }}
+            disabled={busy}
+            style={secondaryBtn(busy)}
+          >
+            Use different email
+          </button>
+          <button onClick={handleConfirm} disabled={busy || code.length !== 6} style={primaryBtn(confirming)}>
+            {confirming ? 'Confirming…' : 'Confirm'}
+          </button>
+        </>
+      )}
     >
-      {!emailConfirmed && (
+      {!emailConfirmed && stage === 'enter' && (
         <div style={{ marginBottom: 18 }}>
           <button
             onClick={handleResendVerification}
@@ -423,20 +471,51 @@ function ChangeEmailModal({
         </div>
       )}
 
-      <div>
-        <label style={labelStyle}>New email address</label>
-        <input
-          type="email"
-          autoComplete="email"
-          value={newEmail}
-          onChange={e => setNewEmail(e.target.value)}
-          placeholder="you@example.com"
-          style={fieldStyle}
-        />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={labelStyle}>New email address</label>
+          <input
+            type="email"
+            autoComplete="email"
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            placeholder="you@example.com"
+            disabled={stage !== 'enter'}
+            style={{ ...fieldStyle, opacity: stage !== 'enter' ? 0.65 : 1 }}
+          />
+        </div>
+        {stage !== 'enter' && (
+          <div>
+            <OtpInput
+              label="6-digit code"
+              value={code}
+              onChange={setCode}
+              variant="dashboard"
+              autoFocus
+              ariaLabel="Email change code"
+            />
+          </div>
+        )}
       </div>
 
       <FlashError msg={error} />
       <FlashSuccess msg={success} />
+
+      {stage === 'code-new' && (
+        <div style={{ marginTop: 18, textAlign: 'center' }}>
+          <button
+            onClick={handleSendCode}
+            disabled={busy}
+            style={{
+              background: 'none', border: 'none',
+              color: S.fgMuted, fontFamily: BODY, fontSize: 12.5, fontWeight: 600,
+              textDecoration: 'underline', textUnderlineOffset: 3, cursor: busy ? 'default' : 'pointer',
+            }}
+          >
+            {pending ? 'Sending…' : "Didn't get it? Send a new code"}
+          </button>
+        </div>
+      )}
     </ModalShell>
   )
 }

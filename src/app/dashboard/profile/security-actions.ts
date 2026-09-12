@@ -12,10 +12,16 @@ const E164 = /^\+\d{8,15}$/
 
 // ─── Email change ─────────────────────────────────────────────────────────
 //
-// Triggers Supabase's email-change verification flow. Supabase sends a
-// confirmation link to the NEW email; the change only takes effect after
-// the user clicks it. (If "Secure email change" is enabled in Supabase
-// Auth settings, a confirmation also goes to the OLD email — recommended.)
+// Triggers Supabase's email-change verification flow. Supabase emails a
+// 6-digit code ({{ .Token }}) to the NEW address; the change takes effect
+// once confirmEmailChange() below verifies it. With "Secure email change"
+// enabled in Supabase Auth settings a second code goes to the CURRENT
+// address and the change lands only after both are confirmed — the sheet
+// asks for that second code when the first one didn't flip the email.
+//
+// Code, not link: mailbox scanners on university domains prefetch anything
+// clickable in an auth email and burn the single-use token (see the OTP
+// saga on the signup template). The email-change template is code-only.
 
 export async function requestEmailChange(newEmail: string) {
   const trimmed = (newEmail || '').trim().toLowerCase()
@@ -38,8 +44,48 @@ export async function requestEmailChange(newEmail: string) {
 
   return {
     ok: true as const,
-    message:
-      'Check your inbox at the new address — we sent a verification link. The change takes effect once you confirm it.',
+    message: `We emailed a 6-digit code to ${trimmed}. Enter it below to confirm the change.`,
+  }
+}
+
+// ─── Confirm email change with the emailed code ───────────────────────────
+//
+// `email` is the inbox the code came from: the NEW address for the first
+// code, the CURRENT address for the second one under secure email change.
+// `done` tells the sheet whether the account email has actually flipped.
+
+export async function confirmEmailChange(email: string, token: string) {
+  const trimmed = (email || '').trim().toLowerCase()
+  if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
+    return { error: 'Enter a valid email address.' }
+  }
+  // Supabase OTP length is 6–10 digits depending on Auth → Settings.
+  if (!/^\d{6,10}$/.test(token ?? '')) {
+    return { error: 'Enter the code from your email.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.verifyOtp({ type: 'email_change', email: trimmed, token })
+  if (error) {
+    return {
+      error: /expired|invalid/i.test(error.message)
+        ? 'That code is wrong or has expired. Send a fresh one and try again.'
+        : error.message,
+    }
+  }
+
+  const { data: userData } = await supabase.auth.getUser()
+  const done = userData?.user?.email?.toLowerCase() === trimmed
+  if (done) {
+    revalidatePath('/dashboard', 'layout')
+    return { ok: true as const, done: true as const, message: 'Email updated.' }
+  }
+  // Secure email change: the current address got a code too, and the
+  // change lands once that one is confirmed as well.
+  return {
+    ok: true as const,
+    done: false as const,
+    message: 'One more step — enter the code we sent to your current address.',
   }
 }
 
@@ -193,5 +239,5 @@ export async function resendSignupConfirmation() {
 
   const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
   if (error) return { error: error.message }
-  return { ok: true as const, message: `Confirmation link sent to ${user.email}.` }
+  return { ok: true as const, message: `Confirmation code sent to ${user.email} — enter it on the sign-in page.` }
 }
