@@ -72,7 +72,10 @@
   "title": "Review meal grid drops to one column on mobile, burying CONTINUE",
   "detail": "On the weekly review takeover steps 2 (\"Which dinners stood out?\") and 3 (\"Any that missed the mark?\"), MealGrid uses gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' with aspectRatio: '1 / 1'; at 393px viewport the 20px side padding leaves 353px of content, 21px short of the 374px two-up needs, so each dinner becomes a full-width 353px square — in review-step2--mobile.png the MON · 1 SEP card runs y≈590–1285 of the 1704px (852 CSS px) capture and TUE · 2 SEP is already cut off at the fold. Six dinners push the \"2 / 3 picked\" counter and the CONTINUE button to roughly 2,550 CSS px, about three viewports down, while review-step2--desktop.png fits all six cards, the counter and CONTINUE in a single view. (The finding's \"six screens\" is overstated by about 2x — it is ~3 screens, i.e. two swipes past the fold — and the cut-off TUE card does signal more content below, just not that a counter or primary button exists.)",
   "verified": "screenshot",
-  "where": "src/app/dashboard/_shared/WeeklyReviewTakeover.tsx:1168"
+  "where": "src/app/dashboard/_shared/WeeklyReviewTakeover.tsx:1168",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Grid min 160px (two-up on phones) + Continue sticky at the bottom of the takeover on COMPACT."
  },
  {
   "area": "Weekly review takeover",
@@ -97,7 +100,10 @@
   "title": "FAQ sends customers to the wrong page for preferences and allergens",
   "detail": "Two FAQ answers say to update meal preference / allergens 'on the Plan page', but the plan page is read-only for these and itself links to 'Adjust on Profile'. Editing lives in Profile › Edit preferences.",
   "where": "src/app/dashboard/support/SupportClient.tsx:49,53 and _mobile/MobileSupport.tsx:29–30",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "FAQ + Doro's knowledge base send preference/allergen edits to the Profile page; new [MANAGE_PROFILE] chat token."
  },
  {
   "area": "My Menu",
@@ -126,7 +132,10 @@
   "title": "No-plan menu still chips days Delivered / Today / Upcoming",
   "detail": "On /dashboard/menu with no active plan, the spotlight row reads \"No active plan\" yet the This week grid below chips \"✓ Delivered\" on MON 7 Sep and TUE 8 Sep, \"Today\" on WED 9 Sep and \"⏱ Upcoming\" on THU 10 / FRI 11 / SAT 12 Sep — identical to a live subscriber, and \"Delivered\" claims meals a plan-less customer never received. The plan-ends surface handles the same \"nothing cooking for this day\" case correctly, greying SAT 12 Sep with a lock and \"Renew to unlock\"; the no-plan surface misses it only because the guard requires activeSubscription?.end_date, which is undefined when there is no subscription. Both viewports affected (menu-nosub--mobile.png, menu-nosub--desktop.png).",
   "verified": "screenshot",
-  "where": "/Users/SaadHazari/1Projects/Dormers Codebase/Dormers-Production/src/app/dashboard/menu/MenuClient.tsx:917"
+  "where": "/Users/SaadHazari/1Projects/Dormers Codebase/Dormers-Production/src/app/dashboard/menu/MenuClient.tsx:917",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "No subscription → no state chip at all on either tree (dish + date only)."
  },
  {
   "area": "My Menu",
@@ -155,7 +164,10 @@
   "title": "Menu spotlight headlines \"TONIGHT\" with macros while plan is paused",
   "detail": "On /dashboard/menu the Today spotlight renders the full dinner-ticket for paused, scheduled and no-plan customers: mobile shows a \"TONIGHT\" badge over the dish photo, \"African Peanut Chicken Stew w/ Indian Bread.\", \"CALORIES 728 kcal / PROTEIN 55 g / SPICE\" and a \"View dish >\" link, with only the small truck row admitting \"Plan paused — no delivery today\" (desktop: eyebrow \"TONIGHT'S DISH\", row \"No active plan\"). On the same paused screen the Wed 9 Sep card immediately below labels that identical dish \"Paused\", and the resumed-after-cutoff state already has a purpose-built card (\"No delivery tonight\", moon icon, no dish, no macros) — so one page states two contradictory things about tonight.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/_mobile/MobileMenu.tsx:215 (badge) and :241 (\"View dish\"); src/app/dashboard/menu/MenuClient.tsx:341 (\"Tonight's dish\" eyebrow)"
+  "where": "src/app/dashboard/_mobile/MobileMenu.tsx:215 (badge) and :241 (\"View dish\"); src/app/dashboard/menu/MenuClient.tsx:341 (\"Tonight's dish\" eyebrow)",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Paused / scheduled / no-plan render a status card in the resumed-after-cutoff family; dish demoted to a footnote (_shared/menu-spotlight.ts)."
  },
  {
   "area": "My Menu",
@@ -164,7 +176,10 @@
   "title": "Desktop dish modal labels spice but never names the level",
   "detail": "In the My Menu dish dialog, the chip row under the calories/protein tiles reads \"● NON-VEG   Medium ▮▮▯\" on mobile but \"● NON-VEG   Spice level ▮▮▯\" on desktop, so a desktop viewer must infer \"Medium\" from two filled bars. The desktop file already has the word available — the same MenuClient prints `SPICE_LABELS[meal.heat]` as \"MEDIUM\" in the tonight's-dish hero (MenuClient.tsx:392) — so the modal at MenuClient.tsx:845, which hardcodes the literal \"Spice level\", is the lone outlier. The button half of the original finding is NOT a defect: \"Got it\" in a solid navy pill is the documented mobile-sheet primary CTA (kit.tsx:233, \"the sheet's primary CTA (\\\"Got it\\\" / confirm)\") and the outlined \"Close\" matches the other desktop modal (FoundingMemberArrival.tsx:370).",
   "verified": "screenshot",
-  "where": "src/app/dashboard/menu/MenuClient.tsx:845 (mobile counterpart: src/app/dashboard/_mobile/MobileMenu.tsx:393)"
+  "where": "src/app/dashboard/menu/MenuClient.tsx:845 (mobile counterpart: src/app/dashboard/_mobile/MobileMenu.tsx:393)",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Desktop modal names the level; mobile macro shelf gained the word too."
  },
  {
   "area": "My Menu",
@@ -213,7 +228,10 @@
   "title": "Paused-plan notice: desktop offers Resume, mobile does not",
   "detail": "The browse-only notice above the grid links to 'Resume plan →' on desktop; the mobile notice carries no link, so the phone customer has to find the resume control on the home page themselves.",
   "where": "src/app/dashboard/plan/PlanClient.tsx ~1822–1832 vs _mobile/MobileExplore.tsx ~133–138",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Mobile paused notice carries the same 'Resume plan →' link."
  },
  {
   "area": "Explore Plans & Checkout",
@@ -222,7 +240,10 @@
   "title": "Disabled-checkout reasons are hover-only on desktop",
   "detail": "Why the Continue button is disabled (out of zone, season closed) lives in a title attribute on desktop, which touch and keyboard users never see; mobile explains only the veg-day case inline.",
   "where": "src/app/dashboard/plan/CheckoutPanel.tsx ~652; _mobile/MobileCheckout.tsx ~292–296",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Desktop renders the veg-day reason under the disabled Continue; out-of-zone cards are now greyed before checkout (state retired from the manifest)."
  },
  {
   "area": "Loading & error states",
@@ -231,7 +252,10 @@
   "title": "Loading skeletons are desktop-shaped on phones",
   "detail": "Every route skeleton is a 12-column desktop layout that merely collapses at max-width:1024px, so on a phone the placeholder does not resemble the page that replaces it (no orange canopy, no card rhythm) and it switches at a different breakpoint from the shell's COMPACT contract.",
   "where": "src/app/dashboard/loading.tsx and */loading.tsx (max-width:1024px media queries vs _shared/breakpoints.ts)",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Six route skeletons rebuilt as two trees on the COMPACT contract with phone-shaped placeholders (SkeletonTrees)."
  },
  {
   "area": "Home — no active plan",
@@ -240,7 +264,10 @@
   "title": "No mobile-native no-plan home",
   "detail": "MobileHome is only mounted with an active plan; a customer without a plan gets the desktop NoPlanView restyled by CSS, and its internal breakpoints (768px for the hero columns and past-plan tiles) differ from the shell's 1024/portrait contract — portrait tablets get the two-column desktop hero inside the mobile shell.",
   "where": "src/app/dashboard/ActiveDashboard.tsx (MobileHome mount); NoPlanView.tsx ~454–489",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "NoPlanView's hardcoded 768px hero query swapped for the shell's COMPACT contract (no new component — Saad's call)."
  },
  {
   "area": "My Plan",
@@ -249,7 +276,10 @@
   "title": "Plan page empty state never greets the returning customer",
   "detail": "The desktop plan page mounts NoPlanView without the customer or subscription history, so it always reads 'Welcome. Pick your plan.' — the home page's 'Welcome back, Saad · Renew Monthly Premium' variant cannot appear here.",
   "where": "src/app/dashboard/plan/PlanClient.tsx ~275 (ActivePlanCallout)",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "/plan mounts NoPlanView with customer + history (hidePastPlans keeps the History card the one list)."
  },
  {
   "area": "My Plan",
@@ -303,7 +333,10 @@
   "title": "Desktop refer popover wraps eyebrow and credit chip to two lines",
   "detail": "In the desktop rail popover (minWidth 280, ~236px usable in the header row) the \"REFER & EARN\" eyebrow breaks to \"REFER &\" / \"EARN\" and the green pill breaks to \"AED 66\" / \"CREDIT\" (also \"AED 20\" / \"CREDIT\" in the ineligible state), because the two flex children share one row with no nowrap/flexShrink:0 and the popover has no fixed width. The mobile bottom sheet shows the same header with both on one line each.",
   "where": "src/app/dashboard/SidebarDropdowns.tsx:187-217 (header row, eyebrow, chip); src/app/dashboard/SidebarDropdowns.tsx:442,449 (desktop popover minWidth 280, padding 8)",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Popover minWidth 280→340; eyebrow + credit chip nowrap."
  },
  {
   "area": "Shell & navigation",
@@ -348,7 +381,10 @@
   "title": "Wrap overlay primary CTA gets browser default focus ring, not brand orange",
   "detail": "In the monthly wrap forcing overlay, the autofocused \"WRAP IT UP · +AED 5\" pill opens with Chromium's default focus ring (black/white two-tone on mobile, navy on desktop) while \"REMIND ME LATER\" has none. The dialog root lacks className=\"ds-overlay-root\" and sits outside .dash-root, so the brand 2px #f57f20 ring rule never matches; the sibling FoundingMemberArrival overlay carries the class and gets the orange ring. Fix is adding the class to the overlay's fixed root.",
   "where": "src/app/dashboard/_shared/MonthlyWrapForceOverlay.tsx:102-121 (missing className=\"ds-overlay-root\"), :222 (autoFocus); src/app/dashboard/DashboardShell.tsx:163 (mounted outside .dash-root); src/app/globals.css:405-421 (ring rules that fail to match); src/app/dashboard/_shared/FoundingMemberArrival.tsx:103-105 (sibling doing it right)",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "ds-overlay-root added to MonthlyWrapForceOverlay and WeeklyReviewTakeover."
  },
  {
   "area": "Shell & navigation",
@@ -366,7 +402,10 @@
   "title": "Home past-plan tile wraps \"Monthly Premium\"; /plan tile ellipsises it",
   "detail": "On desktop the home page's Past Plans row renders \"Monthly\" / \"Premium\" on two lines inside the fixed 220px tile (192px of content width after padding), with the ENDED badge centred between the two lines and the date row pushed one line lower than the neighbouring one-line \"Weekly Flex\" tile. The /plan page's tile for the same plan — which the NoPlanView comment says it mirrors — gives the title container minWidth:0 and a nowrap + ellipsis span, so the same title stays on one line there; mobile is unaffected because the track goes full width.",
   "where": "src/app/dashboard/NoPlanView.tsx:381-384 (title without minWidth:0 / nowrap+ellipsis), src/app/dashboard/NoPlanView.tsx:426-430 (220px fixed track); reference implementation src/app/dashboard/plan/PlanClient.tsx:2066-2070",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Tile title gets /plan's minWidth:0 + nowrap ellipsis span."
  },
  {
   "area": "Dorm Wars",
@@ -384,7 +423,10 @@
   "title": "Doubler banner active but hero and Lifetime Path still show AED 20",
   "detail": "On /dashboard/dorm-wars with an active doubler, the gold status banner at the top of the hub reads \"2× rewards active · Cash for invites + cycle milestones doubled for 5d\", but the hero tagline directly beneath it still reads \"Earn AED 20 every time a friend joins Dormers.\" and the Lifetime Path card's footer still reads \"2 lifetime · earning AED 20/recruit\" — identical to the no-doubler state. The backend genuinely pays double for a Layer 1 conversion while the doubler is live (credit-inviter.ts:112-119 calls applyDoubler on cashForLifetimeConversion), so the figure the page shows is the un-doubled AED 20 rather than the AED 40 the next conversion will actually deposit; the same mismatch appears in the Send-a-free-meal sheet (\"you earn AED 20 when they subscribe\", HubClient.tsx:7035). Both mobile and desktop captures show it.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:1910 (hero tagline) and :2403 (Lifetime Path footer); value computed un-doubled at :420 (`const cashPerRecruit = cashForLifetimeConversion(recruits)`) and :2273 (`const currentCash = cashForLifetimeConversion(recruits)`); banner rendered at :838-868"
+  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:1910 (hero tagline) and :2403 (Lifetime Path footer); value computed un-doubled at :420 (`const cashPerRecruit = cashForLifetimeConversion(recruits)`) and :2273 (`const currentCash = cashForLifetimeConversion(recruits)`); banner rendered at :838-868",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Hero, Lifetime Path footer and send sheet show the doubled figure with a gold 2× tag while a doubler is live."
  },
  {
   "area": "Dorm Wars",
@@ -393,7 +435,10 @@
   "title": "Earned EARLY ACCESS and GOAT badges appear nowhere on mobile",
   "detail": "On Dorm Wars the desktop top-left progression chip reads \"13 TO THE CAPITALIST / The Clutch [EARLY ACCESS] [GOAT]\", but on the phone the top chrome collapses to burger + \"66 +5\" + \"12d\" + a bare lightning avatar. The rank name and countdown are recoverable — tapping that avatar opens the \"Titles & Progression\" modal, which prints \"The Clutch\" and \"13 more to The Capitalist\" — but the two perk badges are not: `earlyAccess` and `hallWall` are consumed only inside the `.hub-identity-text` block that `@media (max-width: 768px)` sets to `display: none !important`, and `ProgressionScreen({ recruits, name })` never receives them, so a customer who has earned EARLY ACCESS or GOAT sees no trace of it anywhere on their phone.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3843 (hide rule); badges rendered only at :1791 and :1802; ProgressionScreen at :5661"
+  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3843 (hide rule); badges rendered only at :1791 and :1802; ProgressionScreen at :5661",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "ProgressionScreen receives earlyAccess/hallWall and renders the badge row in its header card."
  },
  {
   "area": "Dorm Wars",
@@ -402,7 +447,10 @@
   "title": "Zero-streak Side Quests row says chest unlocks at day 8",
   "detail": "In the Side Quests column of the Dorm Wars hub, the zero-streak \"Weekly Streak Reward\" row reads \"Visit daily · chest unlocks at day 8\", but the chest actually unlocks at day 7 — the same file's chest modal says \"Start your first day — chest #1 unlocks at day 7\" (HubClient.tsx:4623), the info modal says \"Every 7 unbroken days = chest unlock\" (:2672), and the state math fires at `gap >= 7` from `lastChestDay = 0` (page.tsx:80, HubClient.tsx:512-514). A brand-new user is the only one who ever sees this row, and it tells them to wait one day longer than the product's own cadence.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3127"
+  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3127",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Day 7; two stale API comments fixed too."
  },
  {
   "area": "Dorm Wars",
@@ -472,7 +520,10 @@
   "title": "15-recruit milestone reads \"500 cr\" while wallet and neighbours use AED",
   "detail": "In the Dorm Wars \"This Month's Rewards\" modal (both mobile and desktop), the fourth milestone row is titled \"500 cr + 5 Skips\" with the subtitle \"500 cr\", while the three rows around it read \"AED 30–90\", \"~AED 165\" and \"~AED 660\". That 500 is deposited into the very same credits ledger as the other milestones (awarder.ts:204 calls depositCredit, and its own comment calls it \"The AED credit\"), and that balance is rendered everywhere else in the hub as \"AED {wallet}\" — so \"cr\" is an internal shorthand for AED that appears exactly once in the product and is never defined, leaving the customer unable to see that this rung actually pays less cash (AED 500) than the ~AED 660 Free Month directly above it. The subtitle also just repeats half the title instead of carrying a value, unlike every other row.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:194"
+  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:194",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "'AED 500 + 5 Skips' / 'AED 500'; rows 6/10/15 say the credit lands when the Nth recruit subscribes (awarder runs at conversion)."
  },
  {
   "area": "Dorm Wars",
@@ -544,7 +595,10 @@
   "title": "Late weekly-review row carries no late cue, unlike monthly wrap",
   "detail": "In the Dorm Wars Side Quests card, the late \"4 weekly reviews\" row renders exactly like a normal pending week — cyan sub-line \"AED 3 ready · +AED 2 to claim\" with a cyan \"TAP TO REVIEW\" pill — so the only signal that a week is late (and that its reward has dropped from AED 5 to AED 2) is the number itself. The Monthly wrap row in the same card handles its late state explicitly, in gold: \"Late · earn AED 2 before the window closes\" with a gold \"TAP TO WRAP\" pill (dormwars-monthly-late desktop, row 3). On mobile the sub-line truncates to \"AED 3 ready · +AED …\", removing even that numeric difference.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3000-3015"
+  "where": "src/app/dashboard/dorm-wars/hub/HubClient.tsx:3000-3015",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Late weeks turn the row gold with 'Late · earn AED 2 before the 30-day expiry', mirroring the monthly row."
  },
  {
   "area": "Dorm Wars",
@@ -765,7 +819,10 @@
   "title": "Change-email sheet promises 'the link we send'; auth emails are code-only",
   "detail": "The change-email subtitle says 'Enter a new one and confirm via the link we send', but since the OTP email work the auth emails carry a code and deliberately no clickable link.",
   "where": "src/app/dashboard/profile/SecuritySection.tsx:397",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Built code entry: confirmEmailChange verifies the emailed 6-digit code (OtpInput stage in the sheet); email-change template is code-only (Saad's call)."
  },
  {
   "area": "Profile & Security",
@@ -785,7 +842,10 @@
   "title": "Mobile \"From next plan\" chip shrinks into three-line oval",
   "detail": "On mobile, the \"From next plan\" chip at the top-left of the orange pending-preferences banner on /dashboard/profile collapses into a tall oval stacking \"FROM / NEXT / PLAN\" on three lines, with the calendar glyph stranded to the left of the middle line. Desktop renders the same component as a single-line pill reading \"FROM NEXT PLAN\" beside the sentence \"You've queued these for your next subscription. Today's plan keeps cooking as before.\" The chip span sets `display: 'inline-flex'` but no `flexShrink: 0` or `whiteSpace: 'nowrap'`, so as a flex child of the `alignItems: 'center'` row it shrinks instead of letting the sentence beside it wrap.",
   "verified": "screenshot",
-  "where": "src/app/dashboard/profile/ProfileClient.tsx:193-203 (chip span at 194-202; label text at 202)"
+  "where": "src/app/dashboard/profile/ProfileClient.tsx:193-203 (chip span at 194-202; label text at 202)",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Chip gets flexShrink:0 + nowrap; the sentence wraps instead."
  },
  {
   "area": "Profile & Security",
@@ -829,7 +889,10 @@
   "title": "The assistant is 'Doro' on desktop and in chat, 'Dormers Assistant' on mobile",
   "detail": "The desktop card and the chat header call the assistant Doro; the mobile support spotlight calls it 'Dormers Assistant'.",
   "where": "src/app/dashboard/_mobile/MobileSupport.tsx (spotlight title) vs support/SupportClient.tsx and _mobile/SupportChat.tsx",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Mobile spotlight renamed to Doro."
  },
  {
   "area": "Help & Support",
@@ -838,7 +901,10 @@
   "title": "Mobile FAQ has six questions, desktop has eight",
   "detail": "The mobile FAQ omits 'Do you deliver to my dorm?' and 'What payment methods do you accept?', which the desktop FAQ answers.",
   "where": "src/app/dashboard/_mobile/MobileSupport.tsx FAQS (6) vs support/SupportClient.tsx FAQS (8)",
-  "verified": "code"
+  "verified": "code",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "One shared list of eight in _shared/support-faqs.ts, imported by both trees."
  },
  {
   "area": "Help & Support",
@@ -865,7 +931,10 @@
   "title": "Renew blocked in the banner but live in the progress card (desktop)",
   "detail": "With the profile gate active the renew banner shows the grey blocked 'RENEW NOW', while the Monthly Premium card at the bottom of the same page shows a fully orange, enabled 'RENEW →'. Mobile has no in-card renew, so only desktop contradicts itself.",
   "where": "src/app/dashboard/ActiveDashboard.tsx (renew banner gate) vs PlanProgress.tsx (card CTA)",
-  "verified": "screenshot"
+  "verified": "screenshot",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "PlanProgress's Renew wears the banner's gates (profile gate / out of zone / intake pause) and links where the banner links."
  },
  {
   "area": "Home — active plan",
@@ -883,7 +952,10 @@
   "title": "Scheduled plan: mobile labels the future start 'Started'; desktop still offers Skip tonight",
   "detail": "For a plan starting in 5 days the mobile card's date row reads 'STARTED 14 Sep', and the desktop quick actions still show 'Skip tonight's meal · 3 LEFT' and 'Plan a skip' although nothing is being delivered yet.",
   "where": "src/app/dashboard/_mobile/MobileHome.tsx:822 (static 'Started' eyebrow); QuickActions.tsx (skip rows not gated on isScheduled)",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Mobile eyebrow 'Starting' for a future start; desktop's locked Skip row says 'Not started' instead of the quota chip (the rows were already disabled)."
  },
  {
   "area": "Home — active plan",
@@ -904,7 +976,10 @@
   "title": "Closure days use the same hatch as skipped meals, with no legend entry",
   "detail": "Kitchen-closure pills are drawn with the skipped hatch and the legend only lists delivered/skipped, so a customer cannot tell a closure from a skip.",
   "where": "src/app/dashboard/PlanProgress.tsx / _mobile/MobileHome.tsx pill styles",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Both legends name closure days ('N kitchen closed', pause swatch); visual unchanged (Saad's call)."
  },
  {
   "area": "Home — active plan",
@@ -913,7 +988,10 @@
   "title": "Resumed-after-cutoff desktop still offers 'Skip tonight's meal' as the primary action",
   "detail": "Desktop shows the 'No delivery tonight' hero for a post-cutoff resume but the quick-actions column keeps the orange 'Skip tonight's meal · 2 LEFT' as the primary button; mobile hides it.",
   "where": "src/app/dashboard/QuickActions.tsx (no resumedAfterCutoff input)",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Row was already disabled (past-cutoff); QuickActions now knows resumedAfterCutoff and captions it 'Back tomorrow' with a matching tooltip."
  },
  {
   "area": "Home — banners, takeovers & dialogs",
@@ -922,7 +1000,10 @@
   "title": "Wrap strip chip: '3d to end' on desktop, '7d left to earn' on mobile",
   "detail": "For the same open wrap window the desktop strip counts down to the cycle end while the mobile tile counts the full-reward window.",
   "where": "src/app/dashboard/_shared/MonthlyWrapStrip.tsx vs _mobile/MobileHome.tsx wrap tile",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "One shared wrapCountdown helper feeds the strip, the phone tile, the sidebar tray and the empty banner."
  },
  {
   "area": "Home — banners, takeovers & dialogs",
@@ -931,7 +1012,10 @@
   "title": "Progress-card 'RENEW →' stays live while intake is paused (desktop)",
   "detail": "The plan-ending banner explains that new plans are paused, but the card's renew button below is still enabled and routes to a closed shop.",
   "where": "src/app/dashboard/PlanProgress.tsx renew CTA (not gated on intake.paused)",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Covered by the PlanProgress gates: intake pause suppresses the card's Renew."
  },
  {
   "area": "Home — banners, takeovers & dialogs",
@@ -949,7 +1033,10 @@
   "title": "Queued callout says the date cannot be set yet offers 'Change date'",
   "detail": "While the primary plan is paused the queued-plan callout explains the next start is tentative and cannot be set, but an active Change date button is still shown; on mobile the start date also wraps, orphaning the year.",
   "where": "src/app/dashboard/plan/PlanClient.tsx QueuedSubCallout / _mobile/MobilePlan.tsx queued card",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Change date locked while the primary is paused ('Locks in when you resume') on both trees + server guard in changeStartDate; mobile date no longer wraps."
  },
  {
   "area": "Explore Plans & Checkout",
@@ -958,7 +1045,10 @@
   "title": "Notice says purchase is locked but every 'Choose plan' looks live (paused / out of zone)",
   "detail": "The paused-plan and out-of-zone notices explain that checkout is blocked, yet the plan cards keep fully enabled Choose plan buttons and the disabled state only appears deep in the checkout panel.",
   "where": "src/app/dashboard/plan/PlanClient.tsx plan grid (cards not gated) — see also 'Disabled-checkout reasons are hover-only'",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "Plan cards go grey (closed treatment, dead CTA, reason line) when paused or out of zone on both trees (Saad chose greying over browse-and-block)."
  },
  {
   "area": "Explore Plans & Checkout",
@@ -976,7 +1066,10 @@
   "title": "Mobile plan cards still say 'save your spot above' after the spot is saved",
   "detail": "With the waitlist already joined, the resting mobile cards keep the pre-join footnote telling the customer to save their spot above.",
   "where": "src/app/dashboard/_mobile/MobileExplore.tsx seasonClosed footnote (not keyed on alreadyJoined)",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "fixed",
+  "fixedOn": "2026-09-12",
+  "resolution": "alreadyJoined threaded to the cards: 'Closed for the season — your spot is saved.' on both trees."
  },
  {
   "area": "Explore Plans & Checkout",

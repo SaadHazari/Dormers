@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { BODY, OG, TIER_POP_TEXT } from './tokens'
 import { Eyebrow } from './Eyebrow'
+import { COMPACT } from './breakpoints'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -353,7 +354,7 @@ export function WeeklyReviewTakeover({
         <div
             // ds-overlay-root: brand focus ring for controls inside a fixed
             // overlay that mounts outside .dash-root (see globals.css).
-            className="ds-overlay-root"
+            className="ds-overlay-root weekly-review-takeover"
             style={{
                 position: 'fixed',
                 inset: 0,
@@ -373,6 +374,15 @@ export function WeeklyReviewTakeover({
                 overflow: 'auto',
             }}
         >
+            {/* Phones: the dinner grids run two-up (minmax 160) and Continue
+                sticks to the bottom of the scroll container, so the button is
+                reachable without three swipes past six full-width cards. */}
+            <style>{`
+                @media ${COMPACT} {
+                    .weekly-review-takeover .wrt-continue { position: sticky; bottom: 12px; z-index: 2; }
+                    .weekly-review-takeover .wrt-grid { gap: 10px !important; }
+                }
+            `}</style>
             {/* Progress bar — flexShrink 0: it is the first child of an
                 overflow:auto flex column, and on the two dinner-grid steps the
                 browser absorbed the overflow by crushing this 3px track to 0. */}
@@ -1129,6 +1139,7 @@ function ContinueButton({
         <button
             disabled={off}
             onClick={onClick}
+            className="wrt-continue"
             style={{
                 marginTop: 32,
                 display: 'inline-flex',
@@ -1177,9 +1188,12 @@ function MealGrid({
     disabled?: (id: string) => boolean
 }) {
     return (
-        <div style={{
+        <div className="wrt-grid" style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            // 160 (was 180): at 393px the 180 minimum forced one card per row
+            // and pushed Continue three screens down. 160 fits two-up with
+            // the 15px label still legible (132px of line).
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 14,
             marginBottom: 4,
         }}>

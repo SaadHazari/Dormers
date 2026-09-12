@@ -124,7 +124,7 @@ function supabaseChain(result: { data: unknown; error: unknown }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: any = {
     from: () => chain, select: () => chain, update: () => chain,
-    eq: () => chain, neq: () => chain, in: () => chain, is: () => chain,
+    eq: () => chain, neq: () => chain, in: () => chain, is: () => chain, or: () => chain,
     order: () => chain, limit: () => chain,
     maybeSingle: async () => result,
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
@@ -250,5 +250,28 @@ describe('changeStartDate — seasonal taper', () => {
     const result = await changeStartDate('sub-1', start)
 
     expect(result).toMatchObject({ error: expect.stringContaining('The semester wraps up on') })
+  })
+})
+
+// ── changeStartDate — paused primary ──────────────────────────────────────
+// Behind a paused (or pause-planned) primary the queued start date is
+// tentative — it shifts as the pause stretches — so the once-only change
+// must not be spent on it. The queued card disables its button; this is
+// the authoritative gate.
+
+describe('changeStartDate — paused primary', () => {
+  it('refuses while the customer\'s primary plan is paused', async () => {
+    const start = viableStartIso()
+    requireUserMock.mockResolvedValue(
+      authedUser(supabaseChain({ data: [{ id: 'sub-0' }], error: null })),
+    )
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true, subscription: fakeSub({ status: 'Scheduled', start_date_changed_at: null }),
+    })
+    getIntakeStateMock.mockResolvedValue(intakeState(null))
+
+    const result = await changeStartDate('sub-1', start)
+
+    expect(result).toEqual({ error: 'Your current plan is paused — the start date locks in when you resume. Change it then.' })
   })
 })

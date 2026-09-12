@@ -240,23 +240,6 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
     return { error: 'You can only change the start date once per plan.' };
   }
 
-  // ── Paused primary ───────────────────────────────────────────────────────
-  // A queued start date behind a paused (or pause-planned) primary is
-  // tentative — it shifts as the pause stretches. Spending the once-only
-  // change on a date that will move is the wrong outcome, so the queued
-  // card disables its button while paused and this is the authoritative gate.
-  const { data: pausedPrimary } = await auth.supabase
-    .from('subscriptions')
-    .select('id')
-    .eq('customer_id', auth.user.id)
-    .neq('id', subscription.id)
-    .in('status', LIVE_SUBSCRIPTION_STATUSES)
-    .or(`status.eq.${SUBSCRIPTION_STATUS.PAUSED},planned_pause_start.not.is.null`)
-    .limit(1);
-  if (pausedPrimary && pausedPrimary.length > 0) {
-    return { error: 'Your current plan is paused — the start date locks in when you resume. Change it then.' };
-  }
-
   // YYYY-MM-DD format + window check (tomorrow ≤ newStart ≤ today + 31).
   // Mirror the same guards as /api/checkout so a tampered call can't bypass.
   if (!/^\d{4}-\d{2}-\d{2}$/.test(newStartDate)) {
@@ -325,6 +308,23 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
         error: `${seasonEndsMessage(intakeForChange.pauseScheduledFor)} Pick an earlier start so the plan finishes in time.`,
       };
     }
+  }
+
+  // ── Paused primary ───────────────────────────────────────────────────────
+  // A queued start date behind a paused (or pause-planned) primary is
+  // tentative — it shifts as the pause stretches. Spending the once-only
+  // change on a date that will move is the wrong outcome, so the queued
+  // card disables its button while paused and this is the authoritative gate.
+  const { data: pausedPrimary } = await auth.supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('customer_id', auth.user.id)
+    .neq('id', subscription.id)
+    .in('status', LIVE_SUBSCRIPTION_STATUSES)
+    .or(`status.eq.${SUBSCRIPTION_STATUS.PAUSED},planned_pause_start.not.is.null`)
+    .limit(1);
+  if (pausedPrimary && pausedPrimary.length > 0) {
+    return { error: 'Your current plan is paused — the start date locks in when you resume. Change it then.' };
   }
 
   // Reject if a primary live sub exists and the new start_date falls on or
