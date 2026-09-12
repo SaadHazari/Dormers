@@ -391,6 +391,8 @@ function QueuedCard({ sub, primaryIsPaused, lastDeliveryDay = null }: { sub: Sub
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
   const dateChangeUsed = !!sub.start_date_changed_at
+  // Tentative while the primary is paused — locked until resume (server gates too).
+  const dateLocked = dateChangeUsed || !!primaryIsPaused
   const cancelHref = whatsAppHref(`Hi! I'd like to cancel my upcoming ${cleanPlanName(sub.plan_name)} subscription scheduled to start ${fmt(sub.start_date)}.`)
 
   return (
@@ -402,7 +404,8 @@ function QueuedCard({ sub, primaryIsPaused, lastDeliveryDay = null }: { sub: Sub
             <PlanGlyph planName={sub.plan_name} size={17} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{cleanPlanName(sub.plan_name)}</span>
           </div>
           <div style={{ marginTop: 4, fontSize: 12, color: S.fgMuted }}>
-            {primaryIsPaused ? 'Est. starts ' : 'Starts '}<strong style={{ color: S.fg }}>{fmtWithDay(sub.start_date)}</strong>
+            {/* The date never breaks mid-string; the Tentative pill wraps as a unit. */}
+            <span style={{ whiteSpace: 'nowrap' }}>{primaryIsPaused ? 'Est. starts ' : 'Starts '}<strong style={{ color: S.fg }}>{fmtWithDay(sub.start_date)}</strong></span>
             {primaryIsPaused && <span style={{ marginLeft: 7, padding: '2px 7px', borderRadius: 999, background: 'rgba(58,111,140,0.12)', color: '#3a6f8c', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Tentative</span>}
           </div>
         </div>
@@ -411,10 +414,10 @@ function QueuedCard({ sub, primaryIsPaused, lastDeliveryDay = null }: { sub: Sub
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7 }}>
           <span style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.02em', color: OG, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{daysToStart}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: S.fgMuted }}>day{daysToStart === 1 ? '' : 's'} {primaryIsPaused ? 'estimated' : 'until it starts'}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: S.fgMuted, whiteSpace: 'nowrap' }}>day{daysToStart === 1 ? '' : 's'} {primaryIsPaused ? 'estimated' : 'until it starts'}</span>
         </span>
-        <button type="button" onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }} disabled={dateChangeUsed} style={lightOutlineBtn(dateChangeUsed)}>
-          <CalendarDays size={13} strokeWidth={2.4} /> {dateChangeUsed ? 'Date set' : 'Change date'}
+        <button type="button" onClick={() => { if (!dateLocked) setShowChangeStart(true) }} disabled={dateLocked} style={lightOutlineBtn(dateLocked)}>
+          <CalendarDays size={13} strokeWidth={2.4} /> {dateChangeUsed ? 'Date set' : primaryIsPaused ? 'Locks in on resume' : 'Change date'}
         </button>
       </div>
       {primaryIsPaused && <div style={{ fontSize: 11, color: S.fgFaint, lineHeight: 1.4 }}>Shifts forward while you&rsquo;re paused — locks in when you resume.</div>}

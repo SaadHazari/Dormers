@@ -108,6 +108,9 @@ export function PlanProgress({
     isPaused = false,
     maxSkips = 0,
     hasQueuedRenewal = false,
+    profileGate = [],
+    outOfZone = false,
+    intakePaused = false,
     closureDates = [],
     onPillSkip,
     onPillUnskip,
@@ -128,6 +131,11 @@ export function PlanProgress({
     // to renew again (double-sub risk + the end-of-cycle banner above
     // already hides itself on the same condition).
     hasQueuedRenewal?: boolean
+    // Renew gates mirrored from the home page's renew banner, so this card's
+    // CTA can't stay live while the banner above it says renewal is blocked.
+    profileGate?: string[]
+    outOfZone?: boolean
+    intakePaused?: boolean
     // Pill click callbacks. When absent, pills stay read-only.
     // (A queued renewal no longer blocks future-skip — the DB trigger
     //  shifts the queued start_date automatically and the modal surfaces
@@ -169,6 +177,12 @@ export function PlanProgress({
     const closureDateSet = useMemo(
         () => new Set(closureDates),
         [closureDates],
+    )
+    // Closure days inside the plan window. They share the pause visual, so
+    // the legend has to name them — a customer couldn't tell one from a skip.
+    const closureCount = useMemo(
+        () => pillDays.filter(d => closureDateSet.has(isoOf(d))).length,
+        [pillDays, closureDateSet],
     )
     const pauseRanges = useMemo(
         () => groupPauseRanges(sub.paused_dates ?? [], weekType, skipDateSet),
@@ -214,7 +228,23 @@ export function PlanProgress({
     // user has already committed, so re-nudging them invites a duplicate
     // purchase (and disagrees with the end-of-cycle banner one row above,
     // which already hides on the same condition).
-    const renewEligible = !startsInFuture && daysLeft <= 7 && !hasQueuedRenewal
+    const renewEligible = !startsInFuture && daysLeft <= 7 && !hasQueuedRenewal && !intakePaused
+    // Same gates as ActiveDashboard's renew banner: a profile gate or an
+    // out-of-zone dorm greys the CTA with the banner's tooltip; the link
+    // matches the banner's too (explore-plans, plan preselected).
+    const renewBlockedTitle = outOfZone
+        ? 'Outside delivery radius — message us on WhatsApp'
+        : profileGate.length > 0 ? 'Complete your profile first' : null
+    const renewHref = `/dashboard/explore-plans?plan=${encodeURIComponent(sub.plan_name)}`
+    const renewCta = (extra: Record<string, string | number>) => renewBlockedTitle ? (
+        <span title={renewBlockedTitle} aria-disabled="true" style={{ ...btnStyle('primary-tight'), ...extra, background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)', cursor: 'not-allowed', boxShadow: 'none' }}>
+            Renew →
+        </span>
+    ) : (
+        <button type="button" onClick={() => navigate(renewHref)} disabled={isRenewPending} className="btn-primary" style={{ ...btnStyle('primary-tight'), ...extra, opacity: isRenewPending ? 0.85 : 1, transition: 'opacity 150ms' }}>
+            {isRenewPending ? <BtnSpinner /> : 'Renew →'}
+        </button>
+    )
 
     // Untraced skip count — legacy subs created before the skipped_dates
     // column may have skipped_meals_count > skipped_dates.length. Surface a
@@ -715,6 +745,15 @@ export function PlanProgress({
                         </span>
                     </>
                 )}
+                {closureCount > 0 && (
+                    <>
+                        <span style={{ color: S.fgFaint }}>·</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: 'rgba(9,24,37,0.12)', backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 2px, transparent 2px, transparent 3px)', display: 'inline-block' }} />
+                            <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{closureCount}</strong> kitchen closed
+                        </span>
+                    </>
+                )}
                 {untracedSkips > 0 && (
                     <span style={{ color: S.fgFaint, fontSize: 11 }}>
                         · {untracedSkips} earlier skip{untracedSkips === 1 ? '' : 's'} not date-traced
@@ -788,16 +827,14 @@ export function PlanProgress({
                 {mealsLeft === 0 && !hasQueuedRenewal ? (
                     <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                         <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>Plan ended</div>
-                        <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>Renew to keep meals coming.</div>
-                        <button type="button" onClick={() => navigate('/dashboard/plan')} disabled={isRenewPending} className="btn-primary" style={{ ...btnStyle('primary-tight'), marginTop: 8, padding: '10px 18px', opacity: isRenewPending ? 0.85 : 1, transition: 'opacity 150ms' }}>
-                            {isRenewPending ? <BtnSpinner /> : 'Renew →'}
-                        </button>
+                        <div style={{ fontFamily: BODY, fontSize: 12, color: S.fgMuted, lineHeight: 1.5 }}>
+                            {intakePaused ? "New plans are paused for the season — we'll message you when they reopen." : 'Renew to keep meals coming.'}
+                        </div>
+                        {!intakePaused && renewCta({ marginTop: 8, padding: '10px 18px' })}
                     </div>
                 ) : renewEligible ? (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <button type="button" onClick={() => navigate('/dashboard/plan')} disabled={isRenewPending} className="btn-primary" style={{ ...btnStyle('primary-tight'), padding: '10px 20px', opacity: isRenewPending ? 0.85 : 1, transition: 'opacity 150ms' }}>
-                            {isRenewPending ? <BtnSpinner /> : 'Renew →'}
-                        </button>
+                        {renewCta({ padding: '10px 20px' })}
                     </div>
                 ) : (startsInFuture || isPaused) ? (
                     <div style={{

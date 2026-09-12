@@ -16,7 +16,8 @@ import { OG, OG3, NV2, BODY } from './_shared/tokens'
 import type { ReferralData } from '@/infra/supabase/referrals-repo'
 import { totalCashForConversions } from '@/contexts/dorm-wars/domain/constants'
 import { EMPTY_REVIEW_STATE, BASE_REWARD_AED, LATE_REWARD_AED, LATE_CAP_DAYS, type WeeklyReviewState, type LateItem } from '@/contexts/subscriptions/domain/weekly-review'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { MONTHLY_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { wrapCountdown } from './_shared/wrap-countdown'
 import { useWeeklyDraftActive, useMonthlyDraftActive } from './_shared/draft-hooks'
 import { referralUrl, referralUrlDisplay } from '@/shared/contacts'
 
@@ -796,19 +797,8 @@ function MonthlyWrapCard({
     )
   }
 
-  const isPreEnd = window.daysSinceCycleEnd < 0
-  const isLastDay = !isPreEnd && window.daysLeftForFullReward === 0 && window.daysSinceCycleEnd <= MONTHLY_FULL_REWARD_DAYS_THRESHOLD
-  const isLate = window.daysSinceCycleEnd > MONTHLY_FULL_REWARD_DAYS_THRESHOLD
-  const reward = isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED
+  const { isLate, chip: chipLabel, reward } = wrapCountdown(window)
   const ctaLabel = draftActive ? 'Resume wrap' : 'Start wrap'
-
-  const chipLabel = isLate
-    ? `${window.daysSinceCycleEnd}d late`
-    : isPreEnd
-      ? `${-window.daysSinceCycleEnd}d to end`
-      : isLastDay
-        ? 'Last day'
-        : `${window.daysLeftForFullReward}d left`
 
   return (
     <Link
@@ -881,7 +871,6 @@ function MonthlyWrapCard({
 
 // The 7-day full-reward threshold is named here for clarity at the call sites
 // above. Beyond 7 days the wrap is "late" until the 30-day cap kicks in.
-const MONTHLY_FULL_REWARD_DAYS_THRESHOLD = 7
 
 // Primary pending review — the decisive action of the tray. Full-width CTA
 // inside the card (not just a chevron). Orange edge anchors urgency without

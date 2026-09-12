@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import { OG, BODY } from './tokens'
 import { useMonthlyDraftActive } from './draft-hooks'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { wrapCountdown } from './wrap-countdown'
 
 /**
  * Full-width wrap banner shown ONLY on the no-plan dashboard (post-cron, no
@@ -27,15 +28,15 @@ export function MonthlyWrapEmptyBanner({ monthlyWindow }: { monthlyWindow: Month
     const draftActive = useMonthlyDraftActive(cycleLabel)
     if (!monthlyWindow.eligible) return null
 
-    const isLastDay = monthlyWindow.daysLeftForFullReward === 0 && monthlyWindow.daysSinceCycleEnd <= 7
-    const isLate = monthlyWindow.daysSinceCycleEnd > 7
-    const reward = isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED
+    const { isPreEnd, isLastDay, isLate, chip, reward } = wrapCountdown(monthlyWindow)
     const ctaLabel = draftActive ? 'Resume wrap' : 'Start wrap'
     const daysChip = isLate
-        ? `${monthlyWindow.daysSinceCycleEnd}d late · 50% reward`
+        ? `${chip} · 50% reward`
         : isLastDay
             ? 'Last day for full reward'
-            : `${monthlyWindow.daysLeftForFullReward}d left for full reward`
+            : isPreEnd
+                ? chip
+                : `${chip} for full reward`
 
     return (
         <Link

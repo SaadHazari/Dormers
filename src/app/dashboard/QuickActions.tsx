@@ -27,6 +27,7 @@ export function QuickActions({
     skipQuota,
     disabledReason,
     skipPastCutoff,
+    resumedAfterCutoff = false,
     skipNoDelivery,
     pausePastFinalDay,
     resumeLockedSameDay,
@@ -69,6 +70,11 @@ export function QuickActions({
     // available). When set, this overrides skipCaption with a "back tomorrow"
     // chip so the disabled state has its own visual treatment.
     skipPastCutoff?: boolean
+    // The customer resumed after today's 2 PM cutoff, so tonight has no
+    // delivery and the first meal is tomorrow. Same lock as skipPastCutoff,
+    // but the chip says why ("Back tomorrow", not "Past 2 PM") — mirrors the
+    // hero's "No delivery tonight" card.
+    resumedAfterCutoff?: boolean
     // Today is a non-delivery day for this sub's week_type (Sun on 6DAYS,
     // Sat or Sun on 5DAYS). Skip would burn a credit + push end_date for
     // a meal that was never scheduled, so we lock it. Pause stays available.
@@ -127,11 +133,12 @@ export function QuickActions({
     // left this button bright-orange and clickable while handleSkipRequest
     // silently returned, so the loudest control on the page did nothing.
     const skipNotInPlan = skipQuota.total === 0
-    const skipDisabled = lockedOut || closureToday || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted || skipNotInPlan
+    const skipDisabled = lockedOut || closureToday || resumedAfterCutoff || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted || skipNotInPlan
     const skipTooltip = lockedOut ? disabledReason
         : closureToday ? "The kitchen is closed today, so there's nothing to skip — this day is added to the end of your plan."
         : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
         : skipIsMakeupDay ? "Make-up days can't be skipped — they're extra days earned by earlier skips."
+        : resumedAfterCutoff ? "You resumed after the 2 PM cutoff — your first delivery is tomorrow, so there's nothing to skip tonight."
         : skipPastCutoff ? 'Skip cutoff for today is 2 PM. Try again tomorrow morning.'
         : isTrialPlan ? "Skipping isn't available on a one-time trial. Upgrade to a monthly plan to unlock skips."
         : isSkipped ? "You've already skipped tonight's meal."
@@ -153,6 +160,7 @@ export function QuickActions({
         closureToday           ? 'Kitchen closed' :
         skipNoDelivery         ? 'No delivery' :
         skipIsMakeupDay        ? 'Make-up day' :
+        resumedAfterCutoff     ? 'Back tomorrow' :
         skipPastCutoff         ? 'Past 2 PM' :
         isTrialPlan            ? 'Trial only' :
         skipQuota.total === 0  ? 'No skips' :

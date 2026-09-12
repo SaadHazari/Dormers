@@ -119,7 +119,9 @@ export interface MobileHomeData {
    *  on/after it (incl. today) freezes to "on hold" — no today ring, read-only —
    *  mirroring desktop's pause overlay. Distinct from plannedPauseStart (future). */
   pauseCutoffIso: string | null
-  wrap?: { cycleLabel: string; daysLeft: number; reward: number; late: boolean; locked: boolean } | null
+  /** `chip` comes from _shared/wrap-countdown so the phone tile, the desktop
+   *  strip and the sidebar tray all count the same way. */
+  wrap?: { cycleLabel: string; chip: string; reward: number; late: boolean; locked: boolean } | null
 }
 
 interface Props {
@@ -385,6 +387,10 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
   // HeroToday, where the whole surface (not just the copy) changes once the
   // night's job is done. Active stays dark (the one spotlight).
   const heroLight = !!data.heroClosure
+
+  // Closure days in the window — same pause visual as desktop, so the
+  // legend names them.
+  const closureCount = pills.filter(p => p.state === 'closure').length
 
   return (
     <div ref={homeRootRef} className={`mhome-root owns-burger-row${sunDown ? ' mhome-sundown' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
@@ -728,6 +734,12 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
               <span style={{ ...swatch, ...HATCH_SKIP }} />
               <strong style={statNum}>{data.skipped}</strong> {skipWord}
             </span>
+            {closureCount > 0 && (
+              <span style={statLine}>
+                <span style={{ ...swatch, ...PAUSE_FILL }} />
+                <strong style={statNum}>{closureCount}</strong> kitchen closed
+              </span>
+            )}
           </div>
         </div>
 
@@ -963,7 +975,7 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
             <div style={{ fontSize: 12, color: data.wrap.locked ? S.fgFaint : S.fgMuted, marginTop: 1 }}>
               {data.wrap.locked
                 ? `Opens after your ${WEEKLY_WRAP_UNLOCK_MEALS}th meal`
-                : `2 mins · ${data.wrap.late ? `${data.wrap.daysLeft}d late` : `${data.wrap.daysLeft}d left to earn`}`}
+                : `2 mins · ${data.wrap.chip}`}
             </div>
           </div>
           <span style={{

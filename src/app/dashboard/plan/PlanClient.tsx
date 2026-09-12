@@ -584,6 +584,10 @@ function QueuedSubCallout({ sub, primaryIsPaused = false, lastDeliveryDay = null
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
   const dateChangeUsed = !!sub.start_date_changed_at
+  // While the primary is paused the start date is tentative (it shifts as
+  // the pause stretches), so spending the once-only change on it is the
+  // wrong outcome. Locked until resume; the server action gates the same.
+  const dateLocked = dateChangeUsed || !!primaryIsPaused
   const cancelHref = whatsAppHref(`Hi! I'd like to cancel my upcoming ${cleanPlanName(sub.plan_name)} subscription scheduled to start ${fmt(sub.start_date)}.`)
 
   return (
@@ -631,25 +635,27 @@ function QueuedSubCallout({ sub, primaryIsPaused = false, lastDeliveryDay = null
 
         <Tooltip fit="inline" label={dateChangeUsed
           ? "You can only change the start date once."
-          : "Pick a different start date (you can only do this once)"}>
+          : primaryIsPaused
+            ? "The start date shifts while you're paused — it locks in when you resume. Change it then (once)."
+            : "Pick a different start date (you can only do this once)"}>
           <button
             type="button"
-            onClick={() => { if (!dateChangeUsed) setShowChangeStart(true) }}
-            disabled={dateChangeUsed}
+            onClick={() => { if (!dateLocked) setShowChangeStart(true) }}
+            disabled={dateLocked}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '10px 16px', borderRadius: 999,
               fontFamily: BODY, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-              border: dateChangeUsed ? `1px solid ${S.border}` : `1px solid ${S.border2}`,
-              background: dateChangeUsed ? 'var(--ds-skeleton-base)' : 'var(--ds-surface2)',
-              color: dateChangeUsed ? S.fgFaint : S.fg,
-              cursor: dateChangeUsed ? 'not-allowed' : 'pointer',
-              opacity: dateChangeUsed ? 0.7 : 1,
+              border: dateLocked ? `1px solid ${S.border}` : `1px solid ${S.border2}`,
+              background: dateLocked ? 'var(--ds-skeleton-base)' : 'var(--ds-surface2)',
+              color: dateLocked ? S.fgFaint : S.fg,
+              cursor: dateLocked ? 'not-allowed' : 'pointer',
+              opacity: dateLocked ? 0.7 : 1,
               transition: 'background 150ms, border-color 150ms',
             }}
           >
             <CalendarDays size={13} strokeWidth={2.4} aria-hidden />
-            {dateChangeUsed ? 'Date already changed' : 'Change start date'}
+            {dateChangeUsed ? 'Date already changed' : primaryIsPaused ? 'Locks in when you resume' : 'Change start date'}
           </button>
         </Tooltip>
       </div>

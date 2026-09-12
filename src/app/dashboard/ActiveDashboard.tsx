@@ -31,7 +31,7 @@ import { MobileCreditChip } from './_mobile/MobileCreditChip'
 import type { CreditRow } from './_shared/credit-outlook'
 import { computeArrivalLabel, type DeliveryWeekType } from './_shared/delivery-phase'
 import { COMPACT, EXPANDED } from './_shared/breakpoints'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED } from '@/contexts/subscriptions/domain/monthly-review'
+import { wrapCountdown } from './_shared/wrap-countdown'
 import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalState, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
@@ -1234,13 +1234,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     pauseCutoffIso: mPauseCutoffIso,
     wrap: (monthlyWindow.eligible || monthlyWindow.locked) && !monthlyWindow.submitted && !monthlyWindow.expired
       ? (() => {
-          // Late wraps (>7 days past cycle end) pay the fixed AED 2, not the full
-          // AED 5 — mirror MonthlyWrapStrip so the tile doesn't over-promise.
-          const late = monthlyWindow.daysSinceCycleEnd > 7
+          // Same countdown + reward as MonthlyWrapStrip (shared helper), so the
+          // tile can't over-promise or count a different window than desktop.
+          const { isLate: late, chip, reward } = wrapCountdown(monthlyWindow)
           return {
             cycleLabel: monthlyWindow.cycleLabel ?? 'cycle',
-            daysLeft: late ? monthlyWindow.daysSinceCycleEnd : Math.max(0, monthlyWindow.daysLeftForFullReward),
-            reward: late ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED,
+            chip,
+            reward,
             late,
             // Locked = the weekly preview state (day 4 up to the 5th delivered
             // meal). The tile renders greyed out and swallows the tap rather
@@ -1735,6 +1735,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               ? `Available once your plan starts on ${new Date(sub.start_date).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}.`
               : undefined}
             skipPastCutoff={!isScheduled && skipPastCutoff}
+            resumedAfterCutoff={resumedAfterCutoff}
             skipNoDelivery={!isScheduled && skipNoDelivery}
             closureToday={!isScheduled && closureToday}
             pausePastFinalDay={!isScheduled && pausePastFinalDay}
@@ -1754,6 +1755,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             isPaused={localState === 'paused'}
             maxSkips={skipTotal}
             hasQueuedRenewal={!!queuedSub}
+            profileGate={profileGate}
+            outOfZone={outOfZone}
+            intakePaused={intakePause.paused}
             closureDates={closureDates}
             onPillSkip={openFutureSkipModal}
             onPillUnskip={openFutureUnskipModal}

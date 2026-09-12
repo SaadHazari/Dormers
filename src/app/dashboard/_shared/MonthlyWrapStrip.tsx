@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { OG, BODY } from './tokens'
-import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { MONTHLY_REWARD_AED, WEEKLY_WRAP_UNLOCK_MEALS, wrapVocabFor, type MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
+import { wrapCountdown } from './wrap-countdown'
 
 /**
  * Slim 1-line dashboard strip — surfaces a pending monthly wrap WITHOUT
@@ -83,17 +84,7 @@ export function MonthlyWrapStrip({ monthlyWindow }: { monthlyWindow: MonthlyRevi
         )
     }
 
-    const isPreEnd = monthlyWindow.daysSinceCycleEnd < 0
-    const isLastDay = !isPreEnd && monthlyWindow.daysLeftForFullReward === 0 && monthlyWindow.daysSinceCycleEnd <= 7
-    const isLate = monthlyWindow.daysSinceCycleEnd > 7
-    const reward = isLate ? MONTHLY_LATE_REWARD_AED : MONTHLY_REWARD_AED
-    const daysChip = isLate
-        ? `${monthlyWindow.daysSinceCycleEnd}d late`
-        : isPreEnd
-            ? `${-monthlyWindow.daysSinceCycleEnd}d to end`
-            : isLastDay
-                ? 'Last day'
-                : `${monthlyWindow.daysLeftForFullReward}d left`
+    const { isLate, chip: daysChip, reward } = wrapCountdown(monthlyWindow)
 
     return (
         <Link
