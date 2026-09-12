@@ -147,6 +147,9 @@ export function QuickActions({
     // "Last one" / "None left" wording leans into loss-aversion when the
     // pool is running low, nudging the user to think before they tap.
     const skipCaption =
+        // Scheduled plan: the row is locked, so the quota chip ("3 left")
+        // would promise something that can't be tapped yet.
+        lockedOut              ? 'Not started' :
         closureToday           ? 'Kitchen closed' :
         skipNoDelivery         ? 'No delivery' :
         skipIsMakeupDay        ? 'Make-up day' :

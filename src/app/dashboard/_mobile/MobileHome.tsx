@@ -819,7 +819,8 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
             </div>
           ) : (<>
           <div>
-            <div style={eyebrowSm}>Started</div>
+            {/* Mirrors PlanProgress: a scheduled plan hasn't started yet. */}
+            <div style={eyebrowSm}>{data.startsInFuture ? 'Starting' : 'Started'}</div>
             <div style={dateVal}>{data.startLabel}</div>
           </div>
           <ChevronRight size={16} color="rgba(9,24,37,0.3)" style={{ marginTop: 12 }} />

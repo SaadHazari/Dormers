@@ -256,7 +256,7 @@ function MacroShelf({ meal }: { meal: WeekMeal }) {
       <div style={cell}><div style={cap}>Calories</div><div style={val}>{meal.cal.toFixed(0)}<span style={{ fontSize: 10, fontWeight: 500, color: CREAM_MUTED }}> kcal</span></div></div>
       {div}
       <div style={cell}><div style={cap}>Protein</div><div style={val}>{meal.protein.toFixed(0)}<span style={{ fontSize: 10, fontWeight: 500, color: CREAM_MUTED }}> g</span></div></div>
-      {meal.heat > 0 && (<>{div}<div style={{ ...cell, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}><div style={cap}>Spice</div><HeatBar level={meal.heat} onDark /></div></>)}
+      {meal.heat > 0 && (<>{div}<div style={{ ...cell, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}><div style={cap}>Spice</div><div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><HeatBar level={meal.heat} onDark /><span style={{ fontSize: 10, fontWeight: 700, color: CREAM_MUTED, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span></div></div></>)}
     </div>
   )
 }

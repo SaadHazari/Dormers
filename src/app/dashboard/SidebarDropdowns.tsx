@@ -188,7 +188,7 @@ export function SidebarDropdowns({
 
             {/* ── Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: OG, whiteSpace: 'nowrap' }}>
                 Refer &amp; Earn
               </div>
               {(() => {
@@ -211,6 +211,7 @@ export function SidebarDropdowns({
                     background: 'var(--ds-success-wash)', color: 'var(--ds-success-fg)',
                     fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
                     textTransform: 'uppercase', lineHeight: 1, fontFeatureSettings: '"tnum"',
+                    flexShrink: 0, whiteSpace: 'nowrap',
                   }}>
                     <Gift size={9} strokeWidth={2.8} />
                     AED {amount.toFixed(0)} credit
@@ -441,7 +442,9 @@ export function SidebarDropdowns({
           ...(openDropdown === 'dormwars' ? { bottom: 168 } :
               openDropdown === 'notif'    ? { bottom: 110 } :
                                             { bottom: 16 }),
-          minWidth: 280,
+          // 340 (was 280): the refer header row is eyebrow + credit chip on ONE
+          // line, and at 280 both wrapped. The rail leaves ≥760px to the right.
+          minWidth: 340,
           background: 'var(--ds-glass-bg-strong)',
           backdropFilter: 'blur(18px) saturate(1.4)',
           WebkitBackdropFilter: 'blur(18px) saturate(1.4)',

@@ -851,7 +851,7 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
           <MealTag kind={meal.tag} />
           {meal.heat > 0 && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 11, color: S.fgMuted }}>
-              Spice level <HeatBar level={meal.heat} />
+              {SPICE_LABELS[meal.heat]} <HeatBar level={meal.heat} />
             </span>
           )}
         </div>

@@ -351,6 +351,9 @@ export function WeeklyReviewTakeover({
 
     return (
         <div
+            // ds-overlay-root: brand focus ring for controls inside a fixed
+            // overlay that mounts outside .dash-root (see globals.css).
+            className="ds-overlay-root"
             style={{
                 position: 'fixed',
                 inset: 0,

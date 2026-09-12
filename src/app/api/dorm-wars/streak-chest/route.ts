@@ -1,7 +1,7 @@
 // src/app/api/dorm-wars/streak-chest/route.ts
 // Phase 8E — Streak Chest claim endpoint. Replaces the killed Daily Drop.
 //
-// The chest unlocks every 8 unbroken streak days. The RNG + insert +
+// The chest unlocks every 7 unbroken streak days. The RNG + insert +
 // last_chest_day advance all happen inside a single Postgres function
 // (claim_streak_chest) so concurrent claims cannot double-deposit.
 // The credit row is inserted AFTER the chest insert succeeds — the chest
@@ -40,7 +40,7 @@ export async function POST() {
 
   const rows = (data ?? []) as ChestRow[]
   if (rows.length === 0) {
-    // Not eligible — either cooldown (gap < 8) or no streak row.
+    // Not eligible — either cooldown (gap < 7) or no streak row.
     return NextResponse.json({ claimed: false, reason: 'not_eligible' }, { status: 409 })
   }
 

@@ -154,6 +154,10 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
         <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,127,32,0.07)', border: '1px solid rgba(245,127,32,0.22)' }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: S.fg }}>Your current plan is paused</div>
           <div style={{ fontSize: 11.5, color: S.fgMuted, marginTop: 2, lineHeight: 1.5 }}>You can browse now, but checkout unlocks once you resume — the next start date depends on your current end date.</div>
+          {/* Same destination as the desktop notice: the resume control lives on the home page. */}
+          <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '8px 14px', borderRadius: 999, background: OG, color: '#fff', textDecoration: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Resume plan →
+          </Link>
         </div>
       )}
 
@@ -192,6 +196,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               priceOverrides={priceOverrides}
               doneForTerm={!!doneForTermByPlan[plan.id]}
               seasonClosed={intake.paused}
+              alreadyJoined={intake.alreadyJoined}
               creditAed={(creditByPlan[plan.id]?.balanceFils ?? 0) / 100}
             />
           ))}
@@ -255,7 +260,7 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, creditAed = 0 }: {
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, creditAed = 0 }: {
   plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
   /** Season taper — no start left in the window lets this plan finish
    *  before the last delivery day. Same dim + disabled treatment the
@@ -265,6 +270,9 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
    *  treatment as doneForTerm, but the line is a fact, not a dead button:
    *  it names the reopen and points at the waitlist hero above. */
   seasonClosed?: boolean
+  /** Waitlist already joined — the season line confirms the saved spot
+   *  instead of asking for it again. */
+  alreadyJoined?: boolean
   /** Credit that applies to THIS plan (checkout's per-plan math, in AED) —
    *  the restricted credit's main stage. Mirrors the desktop card. */
   creditAed?: number
@@ -375,7 +383,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
         {closed ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, fontSize: 11, fontWeight: 700, color: S.fgMuted, lineHeight: 1.4 }}>
             <CalendarClock size={12} strokeWidth={2.2} style={{ flexShrink: 0 }} aria-hidden />
-            {doneForTerm ? 'Done for this term. Back next semester.' : 'Closed for the season — save your spot above.'}
+            {doneForTerm ? 'Done for this term. Back next semester.' : alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.'}
           </span>
         ) : showSave && (
           <span style={{ display: 'inline-flex', alignItems: 'center', marginTop: 9, padding: '4px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.10)', color: OG, fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>Save {saveLabel} AED/mo vs Weekly Flex</span>

@@ -198,6 +198,9 @@ function PendingPrefsBanner({
           fontFamily: BODY, fontSize: 10, fontWeight: 800,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           boxShadow: '0 0 0 3px rgba(255,170,0,0.20)',
+          // The chip never shrinks — the sentence beside it wraps instead
+          // (on phones it used to collapse into a three-line oval).
+          flexShrink: 0, whiteSpace: 'nowrap',
         }}>
           <Calendar size={11} strokeWidth={2.6} aria-hidden /> From next plan
         </span>

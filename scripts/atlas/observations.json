@@ -892,7 +892,10 @@
   "title": "'Plan a skip' disabled on mobile but enabled on desktop when skips are gone or the plan is paused",
   "detail": "With no skips left (and while paused) the mobile home disables Plan a skip with an inline reason, whereas the desktop quick action stays enabled.",
   "where": "src/app/dashboard/QuickActions.tsx vs _mobile/MobileHome.tsx pause/skip button state",
-  "verified": "reviewer"
+  "verified": "reviewer",
+  "status": "not-a-bug",
+  "verifiedOn": "2026-09-12",
+  "resolution": "Checked against QuickActions.tsx:231-242 — desktop already disables Plan a skip when skips are 0 and while paused; only the inline reason copy differs from mobile. Saad: no change."
  },
  {
   "area": "Home — active plan",

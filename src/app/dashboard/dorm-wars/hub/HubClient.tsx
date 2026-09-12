@@ -183,17 +183,17 @@ function buildCycleMilestones(ctx: MealPriceContext): CycleMilestone[] {
     {
       at: 6, label: 'Free Week', value: `~AED ${freeWeekValue(ctx)}`, color: CYAN, Emblem: Calendar,
       requirement: 'Get 6 friends to subscribe this cycle.',
-      howItWorks: `A week's worth of meals (~AED ${freeWeekValue(ctx)} on your plan) gets credited to your wallet at cycle close.`,
+      howItWorks: `A week's worth of meals (~AED ${freeWeekValue(ctx)} on your plan) lands in your wallet the moment your sixth recruit subscribes.`,
     },
     {
       at: 10, label: 'Free Month', value: `~AED ${freeMonthValue(ctx)}`, color: GOLD, Emblem: Trophy,
       requirement: 'Get 10 friends to subscribe this cycle.',
-      howItWorks: `A full month of meals (~AED ${freeMonthValue(ctx)} on your plan) is credited at cycle close.`,
+      howItWorks: `A full month of meals (~AED ${freeMonthValue(ctx)} on your plan) lands in your wallet the moment your tenth recruit subscribes.`,
     },
     {
-      at: 15, label: '500 cr + 5 Skips', value: '500 cr', color: PINK, Emblem: Coins, rare: true,
+      at: 15, label: 'AED 500 + 5 Skips', value: 'AED 500', color: PINK, Emblem: Coins, rare: true,
       requirement: 'Get 15 friends to subscribe this cycle.',
-      howItWorks: '500 credits + 5 skip-meal tokens drop into your account at cycle close. Skips never expire.',
+      howItWorks: 'AED 500 of wallet credit + 5 skip-meal tokens drop into your account the moment your 15th recruit subscribes. Skips never expire.',
     },
     {
       at: 20, label: 'Dorm Weekend', value: 'For all', color: RED, Emblem: Users, rare: true,
@@ -3125,7 +3125,7 @@ function SideRewardsColumn({
               chipColor = MIST_DIM
               chipBg = 'transparent'
               chipBorder = MIST_FAINT
-              subLine = 'Visit daily · chest unlocks at day 8'
+              subLine = 'Visit daily · chest unlocks at day 7'
               subColor = MIST
               clickable = true
               onClick = () => onShowInfo('streak_chest')

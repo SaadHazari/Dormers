@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Send, Sparkles, ArrowRight, MessageCircle, UtensilsCrossed, CalendarRange } from 'lucide-react'
+import { X, Send, Sparkles, ArrowRight, MessageCircle, UtensilsCrossed, CalendarRange, UserRound } from 'lucide-react'
 import Link from 'next/link'
 import { whatsAppHref } from '@/shared/contacts'
 import { useBodyScrollLock } from '@/ui-system/hooks/useBodyScrollLock'
@@ -64,11 +64,13 @@ function parseReply(raw: string) {
   const flags = {
     whatsapp: raw.includes('[WHATSAPP_ESCALATION]'),
     plan: raw.includes('[MANAGE_PLAN]'),
+    profile: raw.includes('[MANAGE_PROFILE]'),
     menu: raw.includes('[VIEW_MENU]'),
   }
   const text = raw
     .replace('[WHATSAPP_ESCALATION]', '')
     .replace('[MANAGE_PLAN]', '')
+    .replace('[MANAGE_PROFILE]', '')
     .replace('[VIEW_MENU]', '')
     .trim()
   return { text, flags }
@@ -278,6 +280,7 @@ export function SupportChat({ open, onClose, customerContext }: { open: boolean;
                         )}
                         {flags.whatsapp && linkBtn(whatsAppHref(), 'Message a teammate', <MessageCircle size={15} strokeWidth={2.2} />, true)}
                         {flags.plan && linkBtn('/dashboard/plan', 'Go to my plan', <CalendarRange size={15} strokeWidth={2.2} />)}
+                        {flags.profile && linkBtn('/dashboard/profile', 'Edit my preferences', <UserRound size={15} strokeWidth={2.2} />)}
                         {flags.menu && linkBtn('/dashboard/menu', "See this week's menu", <UtensilsCrossed size={15} strokeWidth={2.2} />)}
                       </div>
                     </div>

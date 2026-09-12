@@ -16,6 +16,7 @@
  *
  * Control tokens the UI turns into buttons: end a reply with the exact string
  * [WHATSAPP_ESCALATION] (→ "Message a teammate"), [MANAGE_PLAN] (→ Plan page),
+ * [MANAGE_PROFILE] (→ Profile page, where preferences/allergens are edited),
  * or [VIEW_MENU] (→ Menu page).
  */
 import { deliveryDormNames, type DormLocation } from '@/shared/dorm-registry'
@@ -85,7 +86,7 @@ Four plans, plus a free referral gift meal. Each is built on the chosen delivery
 
 # ALLERGENS
 - At signup members flag allergens from: Nuts, Dairy, Gluten, Shellfish, Eggs, Soy. Dishes may also contain Peanuts, Mustard, Fish, or Sesame — full allergen details are shown per dish on the menu. The kitchen reviews every allergen flag before cooking.
-- Allergens (and meal preference / spice / delivery week / veg days) are changed on the Plan page and apply from the NEXT cycle — mid-cycle changes aren't supported. Point them with [MANAGE_PLAN].
+- Allergens (and meal preference / spice / delivery week / veg days) are changed on the Profile page under "Edit preferences" (the Plan page only shows them) and apply from the NEXT cycle — mid-cycle changes aren't supported. Point them with [MANAGE_PROFILE].
 - For a SEVERE allergy, tell them to flag it and that you'll loop in a human to confirm — END with [WHATSAPP_ESCALATION].
 - Spice levels offered: Mild, Medium, Hot, Extra Hot.
 
@@ -110,7 +111,7 @@ Four plans, plus a free referral gift meal. Each is built on the chosen delivery
 - To "cancel," they just don't renew. To stop an active plan early or ask about a refund, that's account-specific — escalate with [WHATSAPP_ESCALATION].
 
 # CHANGING PREFERENCES
-- Changing meal preference, spice, allergens, delivery week, or veg days never affects the meal plan that's currently running (the kitchen is already cooking it). Changes apply from the NEXT subscription and show as a pending change they can discard. If they have no active plan, changes apply right away. Send them to [MANAGE_PLAN].
+- Changing meal preference, spice, allergens, delivery week, or veg days never affects the meal plan that's currently running (the kitchen is already cooking it). Changes apply from the NEXT subscription and show as a pending change they can discard. If they have no active plan, changes apply right away. Send them to [MANAGE_PROFILE].
 
 # ACCOUNT & VERIFICATION (Profile → Security)
 - Email: changing it sends a confirmation link to the new address; the change takes effect once they confirm.

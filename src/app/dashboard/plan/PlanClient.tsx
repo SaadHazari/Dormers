@@ -243,8 +243,13 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null, intake = INTAKE_NOT_PAUSED }: {
+function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null, intake = INTAKE_NOT_PAUSED }: {
   sub: Subscription | null
+  /** Threaded to NoPlanView so /plan greets a returning customer exactly
+   *  like the home page ("Welcome back, Saad · Renew Monthly Premium")
+   *  instead of the first-visit "Welcome. Pick your plan." */
+  customer?: Customer | null
+  allSubscriptions?: Subscription[]
   onRenewClick: () => void
   // Opens the cancel-planned-pause confirmation modal. Wired by PlanClient
   // when a planned pause exists on the active sub. Mirrors the dashboard's
@@ -272,7 +277,7 @@ function ActivePlanCallout({ sub, onRenewClick, onCancelPlannedPause, hasQueuedS
     // Reuse the dashboard's NoPlanView so the new-customer entry point reads
     // identically across /dashboard and /dashboard/plan — same brand DNA grid,
     // same headline, same CTA. Single source of truth for the empty state.
-    return <NoPlanView outOfZone={outOfZone} purchaseGated={purchaseGated || outOfZone} banners={gateBanner} intake={intake} />
+    return <NoPlanView customer={customer} allSubscriptions={allSubscriptions} hidePastPlans outOfZone={outOfZone} purchaseGated={purchaseGated || outOfZone} banners={gateBanner} intake={intake} />
   }
   const daysToEnd   = Math.max(0, Math.ceil((new Date(sub.end_date).getTime()   - Date.now()) / 86400000))
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
@@ -821,7 +826,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, creditAed = 0,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, creditAed = 0,
 }: {
   plan: PlanDef
   pref: Pref
@@ -842,6 +847,9 @@ function PlanCard({
    *  treatment as doneForTerm, but the line is a fact that points at the
    *  waitlist hero above the grid. Mirrors the mobile card. */
   seasonClosed?: boolean
+  /** Waitlist already joined — the season line stops telling the customer
+   *  to save a spot the hero above already confirms is saved. */
+  alreadyJoined?: boolean
   /** Credit that applies to THIS plan (checkout's per-plan math, in AED).
    *  A restricted credit is a discount on a specific door — it belongs on
    *  that door, at the moment of choosing, not as a footnote elsewhere. */
@@ -1064,7 +1072,7 @@ function PlanCard({
                 color: S.fgMuted, lineHeight: 1.45,
               }}>
                 <CalendarClock size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
-                <span>{doneForTerm ? 'Done for this term. Back next semester.' : 'Closed for the season — save your spot above.'}</span>
+                <span>{doneForTerm ? 'Done for this term. Back next semester.' : alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.'}</span>
               </div>
             ) : showSave && (
               <div style={{
@@ -1676,6 +1684,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           <div style={{ marginBottom: 16 }}>
             <ActivePlanCallout
               sub={activeSubscription}
+              customer={customer}
+              allSubscriptions={allSubscriptions}
               onRenewClick={openPricing}
               onCancelPlannedPause={() => setShowCancelPlannedPause(true)}
               hasQueuedSub={!!queuedSub}
@@ -1986,6 +1996,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       priceOverrides={priceOverrides}
                       doneForTerm={!!doneForTermByPlan[p.id]}
                       seasonClosed={intake.paused}
+                      alreadyJoined={intake.alreadyJoined}
                       creditAed={(creditByPlan[p.id]?.balanceFils ?? 0) / 100}
                     />
                   ))}

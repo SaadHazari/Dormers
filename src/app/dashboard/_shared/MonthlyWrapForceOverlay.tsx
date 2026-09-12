@@ -104,6 +104,10 @@ export function MonthlyWrapForceOverlay({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="monthly-wrap-overlay-title"
+                // ds-overlay-root gives fixed overlays the brand focus ring
+                // (globals.css); this overlay mounts outside .dash-root, so
+                // without it the autofocused CTA paints the browser default.
+                className="ds-overlay-root"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

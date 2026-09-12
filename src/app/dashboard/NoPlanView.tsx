@@ -35,6 +35,9 @@ interface Props {
   /** Seasonal intake pause — mounts IntakePausedGate over the hero card,
    *  taking precedence over the profile / out-of-zone gate copy below. */
   intake?: IntakeGateState
+  /** /plan renders its own History card below this view, so it hides the
+   *  greeting's past-plans row rather than listing the same plans twice. */
+  hidePastPlans?: boolean
 }
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
@@ -52,7 +55,7 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1] // expo-out
  * preselect param so /dashboard/explore-plans can land on the user's
  * previous tier.
  */
-export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = false, outOfZone = false, banners = null, intake = INTAKE_NOT_PAUSED }: Props) {
+export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = false, outOfZone = false, banners = null, intake = INTAKE_NOT_PAUSED, hidePastPlans = false }: Props) {
   // Intake pause wins the tooltip copy too — telling someone to finish
   // their profile so they can buy something that isn't for sale is the
   // wrong instruction. IntakePausedGate below carries the real message;
@@ -361,7 +364,7 @@ export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = fa
       {/* ── Past plans — same layout as /plan so the user reads identical
             structure across surfaces. Compact reference grid; tiles are
             non-interactive on purpose (history → /dashboard/history). ── */}
-      {endedPlans.length > 0 && (
+      {!hidePastPlans && endedPlans.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -379,9 +382,13 @@ export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = fa
             {endedPlans.map(s => (
               <div key={s.id} style={{ ...TIER3, padding: '12px 14px', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: BODY, fontSize: 13, fontWeight: 700, color: S.fg, minWidth: 0 }}>
                     <PlanGlyph planName={s.plan_name} size={13} color="currentColor" />
-                    {cleanPlanName(s.plan_name)}
+                    {/* Same ellipsis guard as the /plan past-plans tile — the 220px
+                        track wrapped "Monthly Premium" onto two lines here. */}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {cleanPlanName(s.plan_name)}
+                    </span>
                   </div>
                   <StatusDot status="Ended" />
                 </div>
@@ -412,8 +419,9 @@ export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = fa
           gap: clamp(24px, 4vw, 56px);
           align-items: center;
         }
-        /* 768 = the app-wide mobile boundary (was 720 — the only surface on
-           a non-standard breakpoint, leaving 720–768 in a half-mobile state).
+        /* The stacked hero follows the shell's COMPACT contract (below 1024
+           landscape, or any portrait). A hardcoded 768 here left 769–1023 and
+           portrait tablets with a two-column desktop hero inside the mobile shell.
            NOTE: .noplan-art sits on a motion.div and .noplan-secondary-link
            on a <Link> — styled-jsx only attaches its scope hash to plain DOM
            elements, so scoped rules NEVER match components. :global() opts
@@ -473,7 +481,7 @@ export function NoPlanView({ customer, allSubscriptions = [], purchaseGated = fa
             min-height: var(--burger-size, 0px);
           }
         }
-        @media (max-width: 768px) {
+        @media ${COMPACT} {
           .noplan-grid {
             grid-template-columns: 1fr;
             gap: 28px;

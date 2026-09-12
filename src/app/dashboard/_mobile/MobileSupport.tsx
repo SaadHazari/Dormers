@@ -6,6 +6,7 @@ import { MobileColumn, CARD, OG, S, BODY } from './kit'
 import { MONO, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { whatsAppHref } from '@/shared/contacts'
 import { SupportChat } from './SupportChat'
+import { SUPPORT_FAQS as FAQS } from '../_shared/support-faqs'
 
 /**
  * MobileSupport — the height-optimised <768 support surface.
@@ -21,15 +22,6 @@ interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null; created_at: string
 }
 
-// Short + flat (no subheadings). The assistant covers the long tail.
-const FAQS = [
-  { q: 'When is my meal delivered?', a: 'Every weekday (Monday–Saturday) by 7–8 PM, directly to your dorm building. Sunday is always a rest day — no delivery.' },
-  { q: 'Can I skip a meal?', a: 'Yes — Weekly Flex includes 1 skip, Monthly Premium and Monthly Max include 3 skips per cycle. To skip tonight, tap Skip before 2 PM (Dubai time); after that you can still skip any upcoming day. You never lose the meal — your end date just moves out by a day.' },
-  { q: 'How does pausing work?', a: 'Monthly Premium and Monthly Max subscribers get 1 free pause per cycle (indefinite duration). When you resume, your end date extends by the exact number of days paused — you never lose meals.' },
-  { q: 'Can I change my meal preference (Veg/Non-Veg)?', a: 'Yes — update your preference on the Plan page. Changes apply from the next delivery cycle. Mid-cycle changes are not supported.' },
-  { q: 'What if I have an allergy?', a: 'Update your allergens on the Plan page. Our kitchen team reviews all allergen flags before preparing your meal. For severe allergies, message us on WhatsApp directly.' },
-  { q: 'How do I renew my plan?', a: 'Tap "Renew plan" on your dashboard before your end date. Your new cycle starts immediately after the current one ends.' },
-]
 
 function FaqRow({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
@@ -98,7 +90,7 @@ export function MobileSupport({
             <Sparkles size={19} strokeWidth={2.2} color="#fff" />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: TIER_POP_TEXT.primary, letterSpacing: '-0.01em' }}>Dormers Assistant</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: TIER_POP_TEXT.primary, letterSpacing: '-0.01em' }}>Doro</div>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <span style={{ width: 6, height: 6, borderRadius: 999, background: '#37d167' }} />
               <span style={{ fontSize: 11, fontWeight: 600, color: TIER_POP_TEXT.muted }}>Online · replies instantly</span>
