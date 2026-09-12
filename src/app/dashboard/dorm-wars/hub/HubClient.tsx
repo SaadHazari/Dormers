@@ -21,7 +21,7 @@ import { LAYER1_CASH_LADDER, cashForLifetimeConversion } from '@/contexts/dorm-w
 import type { Layer4Row, Layer4Kind } from '@/contexts/dorm-wars/domain/layer4'
 import { LAYER4_VALUE_AED } from '@/contexts/dorm-wars/domain/layer4'
 import {
-  BASE_REWARD_AED, LATE_REWARD_AED,
+  BASE_REWARD_AED, LATE_REWARD_AED, LATE_CAP_DAYS,
   type WeeklyReviewState, type PendingItem, type LateItem, type CompletedReviewItem,
 } from '@/contexts/subscriptions/domain/weekly-review'
 import { MONTHLY_REWARD_AED, MONTHLY_LATE_REWARD_AED, wrapVocabFor, type MonthlyReviewWindow, type WrapPlanTier } from '@/contexts/subscriptions/domain/monthly-review'
@@ -894,6 +894,7 @@ export default function HubClient({
         nextCycleMilestone={cycleMilestones.find(m => cycleRecruits < m.at)}
         cycleRecruits={cycleRecruits}
         cashPerRecruit={cashPerRecruit}
+        doublerActive={!!chestState.activeDoubler}
       />
 
       {/* 3. THREE-COLUMN PROGRESS — Cycle, Lifetime, Side Rewards (Layer 4)
@@ -919,6 +920,7 @@ export default function HubClient({
             recruits={recruits}
             currentTier={currentTier}
             nextTier={nextTier}
+            doublerActive={!!chestState.activeDoubler}
             onOpen={() => setOpen('ladder')}
             onMilestoneClick={(at) => focusMilestone('lifetime', at)}
           />
@@ -958,6 +960,7 @@ export default function HubClient({
         step={sendStep}
         scoutName={scoutName}
         cashPerRecruit={cashPerRecruit}
+        doublerActive={!!chestState.activeDoubler}
         onNameChange={setScoutName}
         onSend={sendLink}
         onClose={closeSendFlow}
@@ -1015,7 +1018,7 @@ export default function HubClient({
         />
       </Modal>
       <Modal open={open === 'progression'} onClose={() => setOpen(null)} title="Titles & Progression" accent={progressionFor(recruits).color}>
-        <ProgressionScreen recruits={recruits} name={customerName || 'You'} />
+        <ProgressionScreen recruits={recruits} name={customerName || 'You'} earlyAccess={earlyAccess} hallWall={hallWall} />
       </Modal>
       <Modal
         open={open === 'weekly-reviews'}
@@ -1102,6 +1105,22 @@ export default function HubClient({
 //  thin gold border + warm glow + crown emblem + tracked SCREAMING-CAPS
 //  label. Two sizes: `sm` for TopChrome inline, `md` for activity feed tags.
 // ════════════════════════════════════════════════════════════════════════════
+
+// "2×" tag beside a per-recruit figure while a streak-chest doubler is live.
+// credit-inviter really deposits double (applyDoubler), so the hub shows the
+// figure the next conversion will actually pay instead of the base rung.
+function DoublerTag() {
+  return (
+    <span style={{
+      marginLeft: 6, padding: '2px 6px', borderRadius: 999, verticalAlign: 'middle',
+      background: `${GOLD}22`, border: `1px solid ${GOLD}66`,
+      fontFamily: BODY, fontSize: 9, fontWeight: 900, color: GOLD_LITE,
+      letterSpacing: '0.10em', lineHeight: 1,
+    }}>
+      2×
+    </span>
+  )
+}
 
 function EliteDormerBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
   const isSm = size === 'sm'
@@ -1884,13 +1903,15 @@ function TopChrome({
 // ════════════════════════════════════════════════════════════════════════════
 
 function HeroCTA({
-  onClick, nextCycleMilestone, cycleRecruits, cashPerRecruit,
+  onClick, nextCycleMilestone, cycleRecruits, cashPerRecruit, doublerActive = false,
 }: {
   onClick: () => void
   nextCycleMilestone?: CycleMilestone
   cycleRecruits: number
   /** Exact AED the user's current rung pays per recruit — shown verbatim. */
   cashPerRecruit: number
+  /** Streak-chest doubler live — the tagline shows the doubled payout. */
+  doublerActive?: boolean
 }) {
   const recruitsLeft = nextCycleMilestone ? nextCycleMilestone.at - cycleRecruits : 0
   return (
@@ -1908,7 +1929,7 @@ function HeroCTA({
         letterSpacing: '0.01em',
         maxWidth: 620, lineHeight: 1.4,
       }}>
-        Earn <span style={{ color: GOLD_LITE, fontWeight: 800 }}>AED {cashPerRecruit}</span> every time a friend joins Dormers.
+        Earn <span style={{ color: GOLD_LITE, fontWeight: 800 }}>AED {doublerActive ? cashPerRecruit * 2 : cashPerRecruit}</span>{doublerActive && <DoublerTag />} every time a friend joins Dormers.
       </div>
 
       {/* THE button — restrained sizing per top-design audit. Previous scale
@@ -2255,9 +2276,10 @@ function CycleColumn({
 // ════════════════════════════════════════════════════════════════════════════
 
 function LifetimeColumn({
-  recruits, currentTier, nextTier, onOpen, onMilestoneClick,
+  recruits, currentTier, nextTier, onOpen, onMilestoneClick, doublerActive = false,
 }: {
   recruits: number
+  doublerActive?: boolean
   currentTier: (typeof TIERS)[number] | null
   nextTier: (typeof TIERS)[number] | null
   onOpen: () => void
@@ -2401,7 +2423,7 @@ function LifetimeColumn({
           fontFamily: BODY, fontSize: 11, fontWeight: 600, color: MIST,
           fontFeatureSettings: '"tnum"',
         }}>
-          {recruits} lifetime · earning AED {currentCash}/recruit
+          {recruits} lifetime · earning AED {doublerActive ? currentCash * 2 : currentCash}/recruit{doublerActive && <DoublerTag />}
           {currentTier && <> · {currentTier.perk}</>}
         </div>
       </div>
@@ -3009,11 +3031,25 @@ function SideRewardsColumn({
               // what's already banked vs what's still earnable.
               const aedToClaim = (current ? BASE_REWARD_AED : 0) + late.length * LATE_REWARD_AED
               const aedReady = Math.max(0, aedPending - aedToClaim)
-              subLine = submitted === 0
-                ? `All ${total} needed for AED ${total * BASE_REWARD_AED}`
-                : `AED ${aedReady} ready · +AED ${aedToClaim} to claim`
-              subColor = r.color
-              subBadge = <ProgressRing value={submitted} total={total} color={r.color} />
+              if (late.length > 0) {
+                // Late weeks: same gold treatment as the Monthly wrap row
+                // below, so a dropped reward (AED 5 → 2) and a ticking
+                // expiry read as such instead of as a normal pending week.
+                chipColor = GOLD_LITE
+                chipBg = `${GOLD}14`
+                chipBorder = `${GOLD}55`
+                subLine = late.length === 1
+                  ? `Late · earn AED ${LATE_REWARD_AED} before the ${LATE_CAP_DAYS}-day expiry`
+                  : `${late.length} late · AED ${LATE_REWARD_AED} each before the ${LATE_CAP_DAYS}-day expiry`
+                subColor = GOLD_LITE
+                subBadge = <ProgressRing value={submitted} total={total} color={GOLD} />
+              } else {
+                subLine = submitted === 0
+                  ? `All ${total} needed for AED ${total * BASE_REWARD_AED}`
+                  : `AED ${aedReady} ready · +AED ${aedToClaim} to claim`
+                subColor = r.color
+                subBadge = <ProgressRing value={submitted} total={total} color={r.color} />
+              }
               clickable = true
               // Open the chooser modal so the user sees every week in the
               // cycle (pending + completed) and picks which one to submit.
@@ -5673,7 +5709,7 @@ function SquadScreen({ scouts, onScoutTap }: { scouts: Scout[]; onScoutTap: (s: 
 //  marking the user's current title and the next milestone to climb to.
 // ════════════════════════════════════════════════════════════════════════════
 
-function ProgressionScreen({ recruits, name }: { recruits: number; name: string }) {
+function ProgressionScreen({ recruits, name, earlyAccess = false, hallWall = false }: { recruits: number; name: string; earlyAccess?: boolean; hallWall?: boolean }) {
   const current = progressionFor(recruits)
   const nextIdx = PROGRESSION_TITLES.findIndex(p => p.threshold > recruits)
   const next = nextIdx >= 0 ? PROGRESSION_TITLES[nextIdx] : null
@@ -5727,6 +5763,25 @@ function ProgressionScreen({ recruits, name }: { recruits: number; name: string 
               ? <> · <span style={{ color: next.color, fontWeight: 900 }}>{toNext} more to {next.title}</span></>
               : <> · <span style={{ color: GOLD_LITE, fontWeight: 900 }}>Apex tier — there is no higher</span></>}
           </div>
+          {/* Perk badges. On phones the top chrome collapses to an avatar and
+              hides the identity block, so this modal is the only place an
+              earned EARLY ACCESS / GOAT can appear. Same pills as TopChrome. */}
+          {(earlyAccess || hallWall) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              {earlyAccess && (
+                <span style={{
+                  padding: '2px 7px', borderRadius: 999,
+                  backgroundColor: `${GREEN}1f`,
+                  border: `1px solid ${GREEN}66`,
+                  fontFamily: BODY, fontSize: 9, fontWeight: 900, color: GREEN,
+                  letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1,
+                }}>
+                  Early Access
+                </span>
+              )}
+              {hallWall && <EliteDormerBadge size="sm" />}
+            </div>
+          )}
         </div>
       </div>
 
@@ -6914,12 +6969,13 @@ function WalletHistoryModal({
 // ════════════════════════════════════════════════════════════════════════════
 
 function SendScoutModal({
-  step, scoutName, cashPerRecruit, onNameChange, onSend, onClose, onTrackJourney,
+  step, scoutName, cashPerRecruit, doublerActive = false, onNameChange, onSend, onClose, onTrackJourney,
 }: {
   step: SendStep
   scoutName: string
   /** Exact AED the user's current rung pays per recruit — shown verbatim. */
   cashPerRecruit: number
+  doublerActive?: boolean
   onNameChange: (s: string) => void
   onSend: () => void
   onClose: () => void
@@ -7051,7 +7107,7 @@ function SendScoutModal({
                 fontFamily: BODY, fontSize: 10, fontWeight: 600, color: MIST_DIM,
                 lineHeight: 1.5, margin: '14px 0 0', textAlign: 'center',
               }}>
-                Opens WhatsApp · they eat free · you earn AED {cashPerRecruit} when they subscribe
+                Opens WhatsApp · they eat free · you earn AED {doublerActive ? cashPerRecruit * 2 : cashPerRecruit}{doublerActive && <DoublerTag />} when they subscribe
               </p>
             </>
           )}
