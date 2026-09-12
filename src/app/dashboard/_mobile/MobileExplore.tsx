@@ -2,7 +2,7 @@
 
 import { type CSSProperties } from 'react'
 import Link from 'next/link'
-import { Check, Info, Utensils, CalendarDays, CalendarClock, Unlock } from 'lucide-react'
+import { Check, Info, Utensils, CalendarDays, CalendarClock, MapPin, Unlock } from 'lucide-react'
 import type { Customer, Subscription, IntakeGateState, CreditByPlan } from '../_shared/types'
 import { INTAKE_NOT_PAUSED } from '../_shared/types'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
@@ -192,11 +192,12 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               vegDayCount={vegDayCount}
               weekType={weekType}
               selected={selected === plan.id}
-              onSelect={() => { if (intake.paused || profileGated || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
+              onSelect={() => { if (intake.paused || profileGated || paused || outOfZone || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
               priceOverrides={priceOverrides}
               doneForTerm={!!doneForTermByPlan[plan.id]}
               seasonClosed={intake.paused}
               alreadyJoined={intake.alreadyJoined}
+              lockedReason={paused ? 'paused' : outOfZone ? 'out-of-zone' : null}
               creditAed={(creditByPlan[plan.id]?.balanceFils ?? 0) / 100}
             />
           ))}
@@ -260,7 +261,7 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, creditAed = 0 }: {
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, lockedReason = null, creditAed = 0 }: {
   plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
   /** Season taper — no start left in the window lets this plan finish
    *  before the last delivery day. Same dim + disabled treatment the
@@ -273,6 +274,11 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   /** Waitlist already joined — the season line confirms the saved spot
    *  instead of asking for it again. */
   alreadyJoined?: boolean
+  /** Purchase is locked for a non-seasonal reason — the customer's own plan
+   *  is paused, or the dorm is out of zone. The card greys out like a closed
+   *  season so nothing looks live while the notice above says buying is
+   *  blocked (it used to stay orange until deep inside checkout). */
+  lockedReason?: 'paused' | 'out-of-zone' | null
   /** Credit that applies to THIS plan (checkout's per-plan math, in AED) —
    *  the restricted credit's main stage. Mirrors the desktop card. */
   creditAed?: number
@@ -280,7 +286,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   const priceUnknown = pref === 'Religious' && vegDayCount == null
   // One resting grammar for both "cannot buy" reasons — which line explains
   // the dim differs below.
-  const closed = doneForTerm || seasonClosed
+  const closed = doneForTerm || seasonClosed || !!lockedReason
   const unavailable = priceUnknown || closed
   const safeCount = vegDayCount ?? 3
   const price = pricePerMeal(plan.id, pref, safeCount, weekType, priceOverrides)
@@ -382,8 +388,13 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
             where the savings badge would otherwise sit. */}
         {closed ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, fontSize: 11, fontWeight: 700, color: S.fgMuted, lineHeight: 1.4 }}>
-            <CalendarClock size={12} strokeWidth={2.2} style={{ flexShrink: 0 }} aria-hidden />
-            {doneForTerm ? 'Done for this term. Back next semester.' : alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.'}
+            {lockedReason === 'out-of-zone'
+              ? <MapPin size={12} strokeWidth={2.2} style={{ flexShrink: 0 }} aria-hidden />
+              : <CalendarClock size={12} strokeWidth={2.2} style={{ flexShrink: 0 }} aria-hidden />}
+            {doneForTerm ? 'Done for this term. Back next semester.'
+              : seasonClosed ? (alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.')
+              : lockedReason === 'paused' ? 'Locked while your plan is paused — resume to buy.'
+              : 'Your dorm is outside our delivery radius.'}
           </span>
         ) : showSave && (
           <span style={{ display: 'inline-flex', alignItems: 'center', marginTop: 9, padding: '4px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.10)', color: OG, fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>Save {saveLabel} AED/mo vs Weekly Flex</span>
@@ -407,7 +418,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
         </div>
       )}
 
-      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : 'Choose plan'}</span>
+      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : lockedReason === 'paused' ? 'Resume to choose' : lockedReason === 'out-of-zone' ? 'Outside delivery zone' : 'Choose plan'}</span>
     </button>
   )
 }

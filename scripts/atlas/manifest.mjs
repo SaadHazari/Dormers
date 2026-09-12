@@ -524,10 +524,8 @@ add('checkout-mobile-review', 'Mobile checkout — step 2 review & pay', {
   conditions: 'Mobile, "Review & pay" tapped.', url: '/dashboard/explore-plans?preview=1&state=empty', kind: 'sheet', viewports: ['mobile'],
   actions: [{ type: 'click', selector: 'button:has-text("Choose plan") >> nth=2', settleMs: 900 }, { type: 'click', text: 'Review & pay', settleMs: 900 }],
 })
-add('checkout-outofzone', 'Checkout blocked — out of zone', {
-  description: 'The disabled Pay/Continue with the out-of-zone explanation.', conditions: 'out_of_zone, plan selected.', url: '/dashboard/explore-plans?preview=1&state=empty&zone=0', kind: 'sheet',
-  actions: [{ type: 'click', selector: 'button:has-text("Choose plan") >> nth=2', settleMs: 900 }],
-})
+// checkout-outofzone retired 2026-09-12: out-of-zone plan cards are greyed and
+// unselectable now (see explore-outofzone), so the blocked checkout can't open.
 add('checkout-post-cutoff', 'Post-cutoff overlay — "First meal lands tomorrow"', {
   description: 'Selecting a plan after 2 PM Dubai time surfaces a once-per-day overlay explaining the first delivery is tomorrow. Mounted outside both trees, so the phone sees it over the checkout sheet.',
   conditions: 'AE clock ≥ 14:00, plan selected.', url: '/dashboard/explore-plans?preview=1&state=empty', kind: 'overlay', clock: aeAt('15:00'),

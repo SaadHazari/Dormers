@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Check, Utensils, Gem, Crown, Sparkles, Info,
-  CalendarDays, CalendarClock, Unlock, Heart, Moon, Wallet,
+  CalendarDays, CalendarClock, MapPin, Unlock, Heart, Moon, Wallet,
 } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT, cleanPlanName } from '../_shared/tokens'
 import { PlanGlyph } from '../_shared/PlanGlyph'
@@ -832,7 +832,7 @@ function VegDayPicker({
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, creditAed = 0,
+  plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, lockedReason = null, creditAed = 0,
 }: {
   plan: PlanDef
   pref: Pref
@@ -856,6 +856,11 @@ function PlanCard({
   /** Waitlist already joined — the season line stops telling the customer
    *  to save a spot the hero above already confirms is saved. */
   alreadyJoined?: boolean
+  /** Purchase is locked for a non-seasonal reason — the customer's own plan
+   *  is paused, or the dorm is out of zone. The card greys out like a closed
+   *  season so nothing looks live while the notice above says buying is
+   *  blocked (it used to stay orange until deep inside checkout). */
+  lockedReason?: 'paused' | 'out-of-zone' | null
   /** Credit that applies to THIS plan (checkout's per-plan math, in AED).
    *  A restricted credit is a discount on a specific door — it belongs on
    *  that door, at the moment of choosing, not as a footnote elsewhere. */
@@ -869,7 +874,7 @@ function PlanCard({
   // (the veg-day state is an instruction, this one is a season fact).
   // One resting grammar for both season reasons — which line explains the
   // dim differs below.
-  const closed = doneForTerm || seasonClosed
+  const closed = doneForTerm || seasonClosed || !!lockedReason
   const unavailable = priceUnknown || closed
   // Pricing math uses 3 as a defensive fallback when count is null — the
   // value is never actually displayed for that branch, but the helpers
@@ -1077,8 +1082,13 @@ function PlanCard({
                 fontFamily: BODY, fontSize: 11.5, fontWeight: 700,
                 color: S.fgMuted, lineHeight: 1.45,
               }}>
-                <CalendarClock size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
-                <span>{doneForTerm ? 'Done for this term. Back next semester.' : alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.'}</span>
+                {lockedReason === 'out-of-zone'
+                  ? <MapPin size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />
+                  : <CalendarClock size={13} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden />}
+                <span>{doneForTerm ? 'Done for this term. Back next semester.'
+                  : seasonClosed ? (alreadyJoined ? 'Closed for the season — your spot is saved.' : 'Closed for the season — save your spot above.')
+                  : lockedReason === 'paused' ? 'Locked while your plan is paused — resume to buy.'
+                  : 'Your dorm is outside our delivery radius.'}</span>
               </div>
             ) : showSave && (
               <div style={{
@@ -1157,7 +1167,7 @@ function PlanCard({
           featured ? '1px solid rgba(245,127,32,0.40)' :
           `1px solid ${S.border2}`,
       }}>
-        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : 'Choose plan')}
+        {selected ? <><Check size={13} strokeWidth={3}/> Selected</> : (priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : lockedReason === 'paused' ? 'Resume to choose' : lockedReason === 'out-of-zone' ? 'Outside delivery zone' : 'Choose plan')}
       </span>
     </button>
   )
@@ -1998,11 +2008,12 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
                       selected={selected === p.id}
                       // Season taper joins the same guard the overlay can't
                       // intercept (keyboard), per plan rather than per grid.
-                      onSelect={(id) => { if (intake.paused || profileGated || doneForTermByPlan[id]) return; setSelected(prev => prev === id ? null : id) }}
+                      onSelect={(id) => { if (intake.paused || profileGated || primaryIsPaused || outOfZone || doneForTermByPlan[id]) return; setSelected(prev => prev === id ? null : id) }}
                       priceOverrides={priceOverrides}
                       doneForTerm={!!doneForTermByPlan[p.id]}
                       seasonClosed={intake.paused}
                       alreadyJoined={intake.alreadyJoined}
+                      lockedReason={primaryIsPaused ? 'paused' : outOfZone ? 'out-of-zone' : null}
                       creditAed={(creditByPlan[p.id]?.balanceFils ?? 0) / 100}
                     />
                   ))}

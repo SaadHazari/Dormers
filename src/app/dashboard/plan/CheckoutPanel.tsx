@@ -720,6 +720,15 @@ export function CheckoutPanel({
 
             {/* RIGHT — single trust line under the CTA. */}
             <div className="checkout-cta-captions">
+              {/* The disabled reason, visible. The title attribute alone was
+                  hover-only, so touch and keyboard users never saw why Continue
+                  was off. Mirrors the mobile sheet's inline veg-day line; the
+                  out-of-zone and season reasons already have blocks below. */}
+              {!checkoutLoading && !!startDate && !vegDaysReady && (
+                <p style={{ margin: '0 0 8px', fontFamily: BODY, fontSize: 12, fontWeight: 600, color: '#3a6f8c' }}>
+                  Pick {vegDayCount} veg day{vegDayCount === 1 ? '' : 's'} above to continue.
+                </p>
+              )}
               <p className="checkout-trust">
                 <Lock size={11} strokeWidth={2.4} color="#1d8a30" aria-hidden />
                 Powered by Stripe &middot; Card details never touch our servers.
