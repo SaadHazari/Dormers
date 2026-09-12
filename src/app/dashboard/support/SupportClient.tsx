@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { MessageCircle, Heart, Sparkles } from 'lucide-react'
+import { MessageCircle, Heart } from 'lucide-react'
+import { DoroMark } from '../_shared/DoroMark'
 import { OG, BODY, MONO, S as BASE_S, TIER2, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { FAQItem } from '../_shared/FAQItem'
@@ -169,7 +170,7 @@ export default function SupportClient({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 4px 14px rgba(245,127,32,0.35)',
               }}>
-                <Sparkles size={20} strokeWidth={2.2} color="#fff" aria-hidden />
+                <DoroMark size={20} strokeWidth={2.2} color="#fff" aria-hidden />
               </div>
               <Eyebrow color={OG}>Instant</Eyebrow>
               <h3 style={{
@@ -201,7 +202,7 @@ export default function SupportClient({
                   transition: 'transform 150ms, box-shadow 150ms',
                 }}
               >
-                <Sparkles size={14} strokeWidth={2.4} /> Start chatting
+                <DoroMark size={14} strokeWidth={2.4} aria-hidden /> Start chatting
               </button>
             </div>
 

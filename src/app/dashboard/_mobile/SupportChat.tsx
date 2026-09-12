@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Send, Sparkles, ArrowRight, MessageCircle, UtensilsCrossed, CalendarRange, UserRound } from 'lucide-react'
+import { X, Send, ArrowRight, MessageCircle, UtensilsCrossed, CalendarRange, UserRound } from 'lucide-react'
+import { DoroMark } from '../_shared/DoroMark'
 import Link from 'next/link'
 import { whatsAppHref } from '@/shared/contacts'
 import { useBodyScrollLock } from '@/ui-system/hooks/useBodyScrollLock'
@@ -195,7 +196,7 @@ export function SupportChat({ open, onClose, customerContext }: { open: boolean;
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 0 16px rgba(245,127,32,0.35)', flexShrink: 0,
               }}>
-                <Sparkles size={18} strokeWidth={2.2} color="#fff" />
+                <DoroMark size={18} strokeWidth={2.2} color="#fff" aria-hidden />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: CR, letterSpacing: '-0.01em' }}>Doro</div>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Heart, Plus, Sparkles, Send, MessageCircle, ArrowRight } from 'lucide-react'
+import { Heart, Plus, Send, MessageCircle, ArrowRight } from 'lucide-react'
+import { DoroMark } from '../_shared/DoroMark'
 import { MobileColumn, CARD, OG, S, BODY } from './kit'
 import { MONO, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { whatsAppHref } from '@/shared/contacts'
@@ -87,7 +88,7 @@ export function MobileSupport({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
           <span style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 12, background: `linear-gradient(135deg, #ffaa00, ${OG})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(245,127,32,0.4)' }}>
-            <Sparkles size={19} strokeWidth={2.2} color="#fff" />
+            <DoroMark size={19} strokeWidth={2.2} color="#fff" aria-hidden />
           </span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: TIER_POP_TEXT.primary, letterSpacing: '-0.01em' }}>Doro</div>
