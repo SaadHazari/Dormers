@@ -750,6 +750,7 @@ function RevealScreen({
                             ? `Loved by ${stats.favoriteSocialProofPct}% of Dormers`
                             : ''}
                         image={stats.favoriteDish.image}
+                        wide
                     />
                 )}
                 {stats.topWeek !== null && (
@@ -759,6 +760,12 @@ function RevealScreen({
                         suffix="highest rating"
                     />
                 )}
+                <style>{`
+                    .wrap-stat-wide { grid-column: span 2; min-width: 0; }
+                    /* Below ~520px the auto-fit grid is one column; a span of 2
+                       there would force a second, overflowing track. */
+                    @media (max-width: 520px) { .wrap-stat-wide { grid-column: auto; } }
+                `}</style>
             </div>
 
             <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -864,14 +871,21 @@ function StatBlock({
     value,
     suffix,
     image,
+    wide = false,
 }: {
     label: string
     value: string
     suffix?: string
     image?: string
+    // Two columns of the stat grid on desktop (dish names need the width —
+    // "Chicken Afghani w/ Yellow Rice" broke one word per line in a single
+    // ~205px cell). The .wrap-stat-wide media query drops it back to one
+    // column when the grid itself is single-column, so span 2 never opens
+    // an implicit track that overflows a phone.
+    wide?: boolean
 }) {
     return (
-        <div>
+        <div className={wide ? 'wrap-stat-wide' : undefined}>
             <div style={{
                 fontSize: 11, fontWeight: 700,
                 letterSpacing: '0.18em', textTransform: 'uppercase',

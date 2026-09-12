@@ -346,6 +346,12 @@ export function SidebarDropdowns({
                   <ChevronRight size={13} color="var(--ds-fg-tint)" />
                 </Link>
               ))}
+              {/* Mobile-only entry point to the Sentry feedback dialog. The
+                  ghost icon (BugReportTrigger) and the header icon above are
+                  both desktop-only, which left phones — the majority device —
+                  with no way to report a bug at all. A plain row has no
+                  tooltip for the sheet's focus trap to auto-show. */}
+              {compact && <BugReportRow onOpen={() => { setOpenDropdown(null); onMobileClose?.() }} />}
             </div>
             <div style={{ borderTop: '1px solid var(--ds-border-soft)', padding: 6 }}>
               <form action={signout}>
@@ -1089,6 +1095,38 @@ function JustSubmittedRow({ week, rewardPct, total }: { week: number; rewardPct:
 // because body.dropdown-open globally suppresses data-tooltip popups
 // (so they don't clash with open panels). We still want a hint here so
 // users know what the icon does — a small inline tooltip handles it.
+// One dialog per page, created on first use and re-opened after that. NOT
+// feedback.attachTo(button): its cleanup calls dialog.removeFromDom(), and this
+// row unmounts with the sheet in the same click that opens the dialog — the
+// microtask that appends the form runs between the button's listener and
+// React's, so the form was on the page for a moment and then gone.
+let mobileBugForm: Promise<{ appendToDom: () => void; open: () => void }> | null = null
+
+function BugReportRow({ onOpen }: { onOpen: () => void }) {
+  const openForm = () => {
+    onOpen()
+    const feedback = Sentry.getFeedback()
+    if (!feedback) return
+    mobileBugForm ??= feedback.createForm()
+    mobileBugForm.then((form) => { form.appendToDom(); form.open() }).catch(() => { mobileBugForm = null })
+  }
+
+  return (
+    <button
+      type="button"
+      className="utility-row"
+      onClick={openForm}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'none', border: 'none', cursor: 'pointer', color: D.fg, fontFamily: BODY, fontSize: 13, fontWeight: 500, textAlign: 'left' }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Bug size={14} strokeWidth={2} color="currentColor" />
+        Report a bug
+      </span>
+      <ChevronRight size={13} color="var(--ds-fg-tint)" />
+    </button>
+  )
+}
+
 function BugReportIconButton() {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [hover, setHover] = useState(false)

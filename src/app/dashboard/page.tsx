@@ -75,6 +75,7 @@ export default async function DashboardPage({
         //   ?benchmark=1  — takeout benchmark set (savings tile / greeting)
         //   ?zone=0       — out-of-zone customer
         //   ?closure=1    — company closure days in the progress grid
+        //   ?closure=today — the kitchen is closed TODAY (hero + skip lock)
         //   ?pref=veg|mix — meal preference (mix = religious with veg days)
         //   ?week=5       — 5-day cadence
         //   ?checkout_success=true — success takeover (with a fixture order)
@@ -216,7 +217,9 @@ export default async function DashboardPage({
                     monthlyWindow={previewWrap}
                     intakePause={previewPause}
                     previewState={params.state}
-                    closureDates={params.closure === '1' ? [dateOnly(Date.now() + day), dateOnly(Date.now() + 2 * day)] : []}
+                    closureDates={params.closure === '1' ? [dateOnly(Date.now() + day), dateOnly(Date.now() + 2 * day)]
+                        : params.closure === 'today' ? [dateOnly(Date.now()), dateOnly(Date.now() + day)]
+                        : []}
                     mostRecentOrder={params.checkout_success === 'true' ? { id: 'preview-order', plan: previewSub.plan_name, meals_count: previewSub.total_meals, price_per_meal: 27.5, created_at: new Date().toISOString() } : null}
                 />
             </Suspense>

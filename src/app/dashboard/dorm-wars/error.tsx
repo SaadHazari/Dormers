@@ -31,6 +31,7 @@ export default function HubError({
   if (retrying) {
     return (
       <div
+        className="hub-error"
         style={{
           backgroundColor: '#091825',
           minHeight: '100vh',
@@ -64,6 +65,10 @@ export default function HubError({
 
   return (
     <div
+      // .hub-error: dashboard/layout.tsx zeroes the mobile shell gutter for
+      // this class the same way it does for .hub-loading / .hub-root. Without
+      // it the navy canvas sat inside the cream padding on phones.
+      className="hub-error"
       style={{
         backgroundColor: '#091825',
         backgroundImage:
@@ -116,7 +121,8 @@ export default function HubError({
         {error.digest && (
           <p
             style={{
-              fontSize: 10, fontWeight: 600, color: 'rgba(237,232,218,0.30)',
+              // 0.30 alpha measured 2.23:1 on the navy panel; 0.65 is 4.86:1.
+              fontSize: 11, fontWeight: 600, color: 'rgba(237,232,218,0.65)',
               fontFamily: 'var(--font-jetbrains), monospace',
               marginBottom: 18, letterSpacing: '0.04em',
             }}

@@ -1285,7 +1285,8 @@ function PlanSetupCard({
                 label="Veg days"
                 prominent
                 mono
-                value={`${sub.veg_days} of ${sub.week_type === '5DAYS' ? 5 : 6}`}
+                // veg_days is the array of day names; the dial wants the count.
+                value={`${sub.veg_days?.length ?? 0} of ${sub.week_type === '5DAYS' ? 5 : 6}`}
               />
             )}
           </div>
@@ -2090,12 +2091,6 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         </div>
       </div>
 
-      <AnimatePresence>
-        {showCutoffOverlay && (
-          <PostCutoffOverlay onDismiss={() => setShowCutoffOverlay(false)} />
-        )}
-      </AnimatePresence>
-
       {/* Cancel-planned-pause confirmation — mirrors the ActiveDashboard
           modal so the language is identical wherever the customer cancels
           a planned pause. Refunds the pause credit on commit (server side). */}
@@ -2196,6 +2191,8 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           creditByPlan={creditByPlan}
           priceOverrides={priceOverrides}
           intake={intake}
+          cancelBanner={cancelBanner}
+          onDismissCancelBanner={() => setCancelBanner(false)}
         />
       ) : (
         <MobilePlan
@@ -2214,6 +2211,16 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
         />
       )}
     </div>
+
+    {/* Post-cutoff overlay — outside .plan-desktop so it mounts for BOTH
+        trees. It used to sit inside the desktop div, which is display:none
+        on compact: the once-per-day sessionStorage key was still written on
+        a phone, so the customer never saw it there OR later on a laptop. */}
+    <AnimatePresence>
+      {showCutoffOverlay && (
+        <PostCutoffOverlay onDismiss={() => setShowCutoffOverlay(false)} />
+      )}
+    </AnimatePresence>
     <style>{`
       .plan-mobile { display: none; }
       @media ${COMPACT} {

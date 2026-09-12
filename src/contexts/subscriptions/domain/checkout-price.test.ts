@@ -163,3 +163,26 @@ describe('resolvePref has exactly one definition in the codebase', () => {
     }
   })
 })
+
+describe('cycle totals land on real coins', () => {
+  // The religious-mix weekly table carries 21.67 (= 130 ÷ 6). Multiplying it
+  // back out leaked the truncation: 130.02 AED/week on the plan card, and a
+  // "Save AED 16.08" badge derived from two such totals.
+  it('Weekly Flex mixed (2 veg days, 6DAYS) is AED 130, not 130.02', () => {
+    expect(exactPriceFils('Weekly Flex', 'Religious', 2, '6DAYS')).toBe(13_000)
+  })
+
+  it('every default total is a multiple of 5 fils', () => {
+    for (const plan of ALL_PLANS) {
+      for (const week of ['5DAYS', '6DAYS'] as const) {
+        for (const pref of ['Veg', 'NonVeg'] as Pref[]) {
+          expect(exactPriceFils(plan, pref, 0, week) % 5).toBe(0)
+        }
+        const W = week === '5DAYS' ? 5 : 6
+        for (let veg = 1; veg < W; veg++) {
+          expect(exactPriceFils(plan, 'Religious', veg, week) % 5).toBe(0)
+        }
+      }
+    }
+  })
+})

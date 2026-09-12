@@ -211,11 +211,17 @@ function PendingPrefsBanner({
             <span style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: OG, minWidth: 110 }}>
               {d.label}
             </span>
-            <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'var(--ds-fg-tint)' }}>
-              {d.from}
+            {/* The change is one phrase. Grouped so a narrow phone drops the
+                whole "old → new" under the label instead of stranding the
+                arrow at the end of one line and the new value, unlabeled, at
+                the start of the next. */}
+            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
+              <span style={{ color: S.fgMuted, textDecoration: 'line-through', textDecorationColor: 'var(--ds-fg-tint)' }}>
+                {d.from}
+              </span>
+              <span style={{ color: 'var(--ds-fg-faint)' }}>→</span>
+              <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{d.to}</strong>
             </span>
-            <span style={{ color: 'var(--ds-fg-faint)' }}>→</span>
-            <strong style={{ color: 'var(--ds-fg)', fontWeight: 700 }}>{d.to}</strong>
           </li>
         ))}
       </ul>

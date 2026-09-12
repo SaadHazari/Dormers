@@ -34,6 +34,7 @@ export default async function MenuPage({
       resume_cutoff_date: st === 'resumed' ? d(0) : null,
       skipped_dates: st === 'skipped' ? [d(-1), d(0), d(2)] : [],
       planned_pause_start: st === 'planned-pause' ? d(2) : null,
+      start_date: st === 'scheduled' ? d(5) : d(-10),
       end_date: st === 'plan-ends' ? d(2) : d(20),
     }
     return (

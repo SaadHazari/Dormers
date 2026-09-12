@@ -46,7 +46,7 @@ const STEPS: TourStep[] = [
   {
     selector: '[data-tour="streak-chest"]',
     title:    'Weekly streak chest',
-    body:     'Eat 8 days in a row to open a chest. Mystery cash or a week-long doubler — you never know what drops.',
+    body:     'Check in here 7 days in a row to open a chest. Mystery cash or a week-long doubler — you never know what drops.',
   },
   {
     selector: '[data-tour="side-quests"]',

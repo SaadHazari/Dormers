@@ -5,7 +5,7 @@ export default function PlanLoading() {
     <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: 'var(--font-montserrat), Arial, sans-serif' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <Skel style={{ width: 200, height: 18, marginBottom: 8 }} />
-        <Skel tone="strong" style={{ width: 360, height: 32, marginBottom: 24 }} />
+        <Skel tone="strong" style={{ width: 'min(100%, 360px)', height: 32, marginBottom: 24 }} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 20 }}>
           <Skel radius={16} style={{ gridColumn: 'span 8', height: 320 }} />

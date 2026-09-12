@@ -155,9 +155,11 @@ export default function DashboardError({
         {error.digest && (
           <p
             style={{
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 600,
-              color: 'rgba(26,26,26,0.25)',
+              // The customer is asked to quote this on WhatsApp — 0.25 alpha
+              // composited to 1.66:1 on the cream card. 0.65 measures 4.77:1.
+              color: 'rgba(26,26,26,0.65)',
               fontFamily: 'var(--font-jetbrains), monospace',
               marginBottom: 18,
               letterSpacing: '0.04em',

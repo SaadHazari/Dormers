@@ -247,7 +247,13 @@ export function totalPrice(
   // table — for Veg / NonVeg it's a no-op (per-meal stays constant).
   const p = pricePerMeal(plan, pref, vegDayCount, weekType, overrides)
   const meals = mealsForPlan(plan, weekType)
-  return Math.round(p * meals * 100) / 100
+  // Snap to the nearest 5 fils. The religious-mix tables carry two-decimal
+  // per-meal prices (21.67 is 130 ÷ 6), so a raw per-meal × meals product
+  // leaks the truncation back out as 130.02 AED/week and a 16.08 saving.
+  // 5 fils is the smallest coin, so every cycle total — and the savings
+  // derived from two of them — lands on a real amount. Overrides set to
+  // clean quarters (22.25 × 5 = 111.25) pass through untouched.
+  return Math.round(Math.round(p * meals * 20) / 20 * 100) / 100
 }
 
 /**

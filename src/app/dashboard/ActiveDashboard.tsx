@@ -914,6 +914,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     return isoDow === 6 || isoDow === 7  // 5DAYS
   }, [subWeekType])
 
+  // Today (AE) is a company closure date. Closure dates only reached the
+  // progress-grid pills before this — the hero still named a dish with a live
+  // countdown and Skip stayed enabled on a day the kitchen is shut.
+  const closureToday = closureDates.includes(todayAEIso)
+
   // Today is a make-up day (position > totalDeliveries). Make-up days can't be
   // skipped — they're extra days earned by earlier skips. Mirrors server guard.
   const skipIsMakeupDay = useMemo(() => {
@@ -1062,8 +1067,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   // framing a delivered / skipped / just-resumed meal as "Tonight's dish".
   const aeHourNow = new Date(Date.now() + 4 * 3600000).getUTCHours()
   // previewState (dev harness only) forces delivered/resumed without the clock.
-  const mResumedCutoff = (resumedAfterCutoff || previewState === 'resumed') && localState !== 'paused' && !isScheduled && localState !== 'skipped' && !skipNoDelivery
-  const mDelivered = !mResumedCutoff && localState !== 'paused' && !isScheduled && localState !== 'skipped' && !skipNoDelivery && (aeHourNow >= 20 || previewState === 'delivered')
+  const mResumedCutoff = (resumedAfterCutoff || previewState === 'resumed') && localState !== 'paused' && !isScheduled && localState !== 'skipped' && !skipNoDelivery && !closureToday
+  const mDelivered = !mResumedCutoff && localState !== 'paused' && !isScheduled && localState !== 'skipped' && !skipNoDelivery && !closureToday && (aeHourNow >= 20 || previewState === 'delivered')
   const mLastDayNoQueue = !isScheduled && !queuedSub && new Date(sub.end_date + 'T00:00:00').toDateString() === new Date().toDateString()
   const mNextDelivery = (): string => {
     for (let d = 1; d <= 7; d++) {
@@ -1078,6 +1083,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     localState === 'paused' ? { label: 'Paused', tone: 'paused' }
     : isScheduled            ? { label: 'Scheduled', tone: 'scheduled' }
     : localState === 'skipped' ? { label: 'Skipped', tone: 'skipped' }
+    : closureToday           ? { label: 'Kitchen closed', tone: 'off' }
     : skipNoDelivery         ? { label: 'No delivery today', tone: 'off' }
     : todayMeal == null      ? { label: 'No menu yet', tone: 'off' }
     : mResumedCutoff         ? { label: `Back ${mNextDelivery().replace(' evening', '')}`, tone: 'off' }
@@ -1092,6 +1098,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     localState === 'paused' ? { heading: 'Your plan is paused', subtitle: resumeLockedSameDay ? 'You can resume from tomorrow onwards.' : 'Tap resume when you’re ready — deliveries pick right back up.' }
     : isScheduled ? { heading: 'You’re all set', subtitle: `Your meals begin on ${fmtShort(effectiveSub.start_date)}.` }
     : localState === 'skipped' ? { heading: 'You skipped tonight', subtitle: 'Tomorrow’s delivery is on track.' }
+    : closureToday ? { heading: 'Kitchen closed today', subtitle: 'No delivery tonight — this day is added to the end of your plan.' }
     : skipNoDelivery ? { heading: 'No delivery today', subtitle: `${mobileWeekType === '5DAYS' ? 'We deliver Mon–Fri.' : 'We deliver Mon–Sat.'} See you tomorrow.` }
     : todayMeal == null ? { heading: 'No menu set yet', subtitle: 'Check back shortly.' }
     : mResumedCutoff ? { heading: 'You’re back', subtitle: `The 2 PM cutoff passed — first delivery ${mNextDelivery()}.` }
@@ -1102,6 +1109,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     : isScheduled            ? { disabled: true, caption: `Starts ${fmtShort(effectiveSub.start_date)}` }
     : localState === 'skipped' ? { disabled: true, caption: 'Tonight’s meal is skipped', done: true }
     : isOneTime              ? { disabled: true, caption: 'Skipping isn’t part of a trial' }
+    : closureToday           ? { disabled: true, caption: 'Kitchen closed today — nothing to skip' }
     : skipNoDelivery         ? { disabled: true, caption: 'No delivery today — nothing to skip' }
     : skipIsMakeupDay       ? { disabled: true, caption: "Make-up days can’t be skipped" }
     : skipPastCutoff         ? { disabled: true, caption: 'Past the 2 PM cutoff — skip tomorrow instead' }
@@ -1176,7 +1184,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     // Arrival is only truthful on a live delivery day. Paused / scheduled /
     // already-skipped / no-delivery states show nothing rather than contradict
     // the status pill with a phantom "Arriving in ~8h".
-    arrivalText: (localState === 'paused' || isScheduled || localState === 'skipped' || skipNoDelivery || mResumedCutoff || mDelivered || todayMeal == null)
+    arrivalText: (localState === 'paused' || isScheduled || localState === 'skipped' || skipNoDelivery || closureToday || mResumedCutoff || mDelivered || todayMeal == null)
       ? ''
       : computeArrivalLabel(new Date(), mobileWeekType),
     planName: effectiveSub.plan_name,
@@ -1218,7 +1226,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     // Weekly off-day (Sun for 6-day, Sat+Sun for 5-day) or no menu yet → nothing
     // to view; drop the "View dish" button rather than round-trip to the menu's
     // own "no delivery" card. Delivered/skipped keep it — the dish still exists.
-    noDishToday: skipNoDelivery || todayMeal == null,
+    noDishToday: skipNoDelivery || closureToday || todayMeal == null,
     skip: mSkip,
     pause: mPause,
     planSkip: mPlanSkip,
@@ -1710,6 +1718,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             }
             resumeLockedSameDay={resumeLockedSameDay}
             resumedAfterCutoff={resumedAfterCutoff}
+            closureToday={!isScheduled && closureToday}
           />
           <QuickActions
             canPause={canPause}
@@ -1727,6 +1736,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               : undefined}
             skipPastCutoff={!isScheduled && skipPastCutoff}
             skipNoDelivery={!isScheduled && skipNoDelivery}
+            closureToday={!isScheduled && closureToday}
             pausePastFinalDay={!isScheduled && pausePastFinalDay}
             resumeLockedSameDay={resumeLockedSameDay}
             isPausableTier={isPausableTier}

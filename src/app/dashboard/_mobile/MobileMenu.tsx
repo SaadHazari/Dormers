@@ -279,6 +279,7 @@ const REASON: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color
   'pause-start':    { Icon: Moon, label: 'Pause begins',    color: 'rgba(30,58,79,0.78)' },
   'in-pause':       { Icon: Moon, label: 'Paused',          color: 'rgba(30,58,79,0.72)' },
   'plan-ends':      { Icon: Lock, label: 'Renew to unlock', color: 'rgba(90,84,72,0.82)' },
+  'pre-start':      { Icon: Clock, label: 'Starts soon',     color: 'rgba(29,95,163,0.70)' },
 }
 
 function stateChip(cell: MobileMenuCell): { Icon: typeof Moon; label: string; color: string } {
@@ -361,10 +362,28 @@ function PeekCard({ cell, onClick }: { cell: MobileMenuCell; onClick: () => void
         {meal.image && !isOff
           ? <Image src={meal.image} alt={meal.dish} fill sizes="132px" style={{ objectFit: 'cover', filter: isPlanEnds ? 'grayscale(1) brightness(0.92)' : undefined }} />
           : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{isOff ? <Moon size={18} color="#fff" /> : <Utensils size={18} color="#fff" />}</div>}
+        {isPlanEnds && meal.image && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(9,24,37,0.30)' }}>
+            <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(245,240,232,0.92)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(9,24,37,0.3)' }}><Lock size={12} strokeWidth={2.2} color={NV} /></span>
+          </div>
+        )}
       </div>
       <div style={{ padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: S.fgSub }}>{dayLabel} · {meal.date}</span>
         <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: S.fg, opacity: isOff ? 0.55 : 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as CSSProperties}>{meal.dish}</span>
+        {/* Status chip — the rail dropped it while the This Week grid and the
+            desktop next-week row both carried one, so a paused customer saw
+            six full-colour dinners "arriving" next week with no word that they
+            won't. Only rendered when there is a reason; a plain upcoming day
+            keeps the rail quiet. */}
+        {reason && !isOff && (() => {
+          const chip = REASON[reason]
+          return (
+            <span style={{ marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: chip.color }}>
+              <chip.Icon size={10} strokeWidth={2.2} />{chip.label}
+            </span>
+          )
+        })()}
       </div>
     </button>
   )

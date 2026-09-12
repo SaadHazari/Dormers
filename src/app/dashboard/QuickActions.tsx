@@ -36,6 +36,7 @@ export function QuickActions({
     plannedPauseDate = null,
     pauseCreditUsed = false,
     skipIsMakeupDay = false,
+    closureToday = false,
 }: {
     canPause: boolean
     localState: LocalState
@@ -72,6 +73,11 @@ export function QuickActions({
     // Sat or Sun on 5DAYS). Skip would burn a credit + push end_date for
     // a meal that was never scheduled, so we lock it. Pause stays available.
     skipNoDelivery?: boolean
+    // Today is a company closure date — the kitchen is shut and the day is
+    // added to the end of the plan, so there is no delivery to skip. Same
+    // lock as skipNoDelivery with its own reason, so the button agrees with
+    // the "kitchen closed" pill in the progress grid.
+    closureToday?: boolean
     // Final delivery day + after 2 PM Asia/Dubai. Pausing now would push the
     // end_date out, but the kitchen prep window has already closed — so the
     // pause wouldn't actually protect tonight's delivery, only deliver
@@ -121,8 +127,9 @@ export function QuickActions({
     // left this button bright-orange and clickable while handleSkipRequest
     // silently returned, so the loudest control on the page did nothing.
     const skipNotInPlan = skipQuota.total === 0
-    const skipDisabled = lockedOut || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted || skipNotInPlan
+    const skipDisabled = lockedOut || closureToday || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuotaExhausted || skipNotInPlan
     const skipTooltip = lockedOut ? disabledReason
+        : closureToday ? "The kitchen is closed today, so there's nothing to skip — this day is added to the end of your plan."
         : skipNoDelivery ? "Today isn't a delivery day for your plan, so there's nothing to skip."
         : skipIsMakeupDay ? "Make-up days can't be skipped — they're extra days earned by earlier skips."
         : skipPastCutoff ? 'Skip cutoff for today is 2 PM. Try again tomorrow morning.'
@@ -140,6 +147,7 @@ export function QuickActions({
     // "Last one" / "None left" wording leans into loss-aversion when the
     // pool is running low, nudging the user to think before they tap.
     const skipCaption =
+        closureToday           ? 'Kitchen closed' :
         skipNoDelivery         ? 'No delivery' :
         skipIsMakeupDay        ? 'Make-up day' :
         skipPastCutoff         ? 'Past 2 PM' :

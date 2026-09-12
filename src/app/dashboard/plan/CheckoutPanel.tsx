@@ -432,7 +432,7 @@ export function CheckoutPanel({
               <span>{selected}</span>
             </div>
             <div className="checkout-plan-meta">
-              {pricePerMeal(selected, pref, vegDayCount, weekType, priceOverrides)} AED/meal &middot; {mealsForPlan(selected, weekType)} meals
+              {pricePerMeal(selected, pref, vegDayCount, weekType, priceOverrides)} AED/meal &middot; {mealsForPlan(selected, weekType)} {mealsForPlan(selected, weekType) === 1 ? 'meal' : 'meals'}
             </div>
             {startDate && (
               <div className="checkout-plan-when">

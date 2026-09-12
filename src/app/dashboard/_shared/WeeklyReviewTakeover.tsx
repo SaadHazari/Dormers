@@ -13,6 +13,15 @@ import { Eyebrow } from './Eyebrow'
 const TOTAL_STEPS = 5
 const DRAFT_KEY_PREFIX = 'dormers:weekly-review:draft:v1:'
 const MISS_REASONS = ['Too spicy', 'Too mild', 'Cold', 'Portion size', 'Texture', 'Flavor', 'Other']
+
+// "All six landed" was hard-coded; a 5-day plan reviews five dinners and a
+// week with a skip or a closure has fewer still. Spell the count out to keep
+// the label's voice, fall back to digits past the words we bother with.
+const COUNT_WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven']
+function allLandedLabel(count: number): string {
+    if (count === 1) return 'It landed'
+    return `All ${COUNT_WORDS[count] ?? count} landed`
+}
 const DELIVERY_REASONS = ['Late', 'Wrong time slot', 'Missed entirely', 'Driver issue']
 const PACKAGING_REASONS = ['Spilled', 'Wet / soggy', 'Damaged', 'Wrong meal']
 
@@ -361,8 +370,10 @@ export function WeeklyReviewTakeover({
                 overflow: 'auto',
             }}
         >
-            {/* Progress bar */}
-            <div style={{ height: 3, background: 'rgba(245,240,232,0.10)', position: 'relative', overflow: 'hidden' }}>
+            {/* Progress bar — flexShrink 0: it is the first child of an
+                overflow:auto flex column, and on the two dinner-grid steps the
+                browser absorbed the overflow by crushing this 3px track to 0. */}
+            <div style={{ height: 3, flexShrink: 0, background: 'rgba(245,240,232,0.10)', position: 'relative', overflow: 'hidden' }}>
                 <div
                     style={{
                         position: 'absolute',
@@ -652,7 +663,7 @@ export function WeeklyReviewTakeover({
                         <ContinueButton
                             enabled
                             onClick={next}
-                            label={misses.length === 0 ? 'All six landed →' : 'Continue'}
+                            label={misses.length === 0 ? `${allLandedLabel(meals.length)} →` : 'Continue'}
                             muted={misses.length === 0}
                         />
                     </div>

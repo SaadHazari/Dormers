@@ -35,6 +35,9 @@ interface ActiveSubLike {
   // in a static status label so the hero never claims a delivery is en
   // route when nothing is being cooked for the user.
   status?: string | null
+  // First delivery day of a Scheduled sub. Every day before it is "pre-start"
+  // in the week grid instead of the calendar default (which read "Delivered").
+  start_date?: string | null
   // Set by resumeSubscription when a customer resumes after the 2 PM kitchen
   // cutoff on a delivery day. The menu page reads this to suppress the
   // TodaySpotlight and today's WeekDayCard active treatment — no meal was
@@ -471,6 +474,7 @@ export type NoDeliveryReason =
   | 'pause-start'      // future day, customer's planned_pause_start date
   | 'in-pause'         // future day after planned_pause_start (open-ended)
   | 'plan-ends'        // future day past active sub's end_date AND no queued renewal
+  | 'pre-start'        // any day before a Scheduled sub's start_date — nothing was cooked
 function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, onClick }: {
   meal: WeekMeal
   dayLabel: string
@@ -664,6 +668,11 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
             // (tells the user the path forward) while the image grayscale
             // closes the Gulf of Evaluation (shows the current state).
             'plan-ends':      { Icon: Lock, label: 'Renew to unlock',  color: 'rgba(90,84,72,0.78)'   },
+            // Before a Scheduled plan begins. Without this branch the grid
+            // fell through to the calendar default and told a customer whose
+            // plan starts in five days that Monday and Tuesday were
+            // "Delivered" and tonight's dish was theirs.
+            'pre-start':      { Icon: Clock, label: 'Starts soon',      color: 'rgba(29,95,163,0.65)'  },
           }
           const stateConfig = noDeliveryReason
             ? noDeliveryConfig[noDeliveryReason]
@@ -906,6 +915,17 @@ export default function MenuClient({
   // 'Off' tag); this function isn't asked about those.
   function classifyNoDelivery(meal: WeekMeal, dayState: WeekDayState): NoDeliveryReason | null {
     if (meal.tag === 'Off') return null
+
+    // Scheduled plan, day before its start — past, today and future alike.
+    // Mirrors the plan-ends branch below: the cycle hasn't begun, so no
+    // day before start_date can be "Delivered" or "Today".
+    if (
+      activeSubscription?.status === SUBSCRIPTION_STATUS.SCHEDULED
+      && activeSubscription.start_date
+      && meal.iso < activeSubscription.start_date
+    ) {
+      return 'pre-start'
+    }
 
     // Plan ends, no queued renewal — future days past the active sub's
     // end_date have nothing cooking for them. Show "Plan ends" instead of

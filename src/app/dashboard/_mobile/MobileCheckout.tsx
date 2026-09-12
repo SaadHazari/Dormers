@@ -450,7 +450,7 @@ export function MobileCheckout({ selected, onClose, pref, vegDayCount, customer,
 
             {/* Setup + delivery — scannable label/value rows (recognition, not recall). */}
             <div style={cardStyle}>
-              <SummaryRow label="Meals" value={`${meals} meals`} sub={`${perMeal} AED / meal`} />
+              <SummaryRow label="Meals" value={`${meals} ${meals === 1 ? 'meal' : 'meals'}`} sub={`${perMeal} AED / meal`} />
               <SummaryRow label="Preference" value={prefSummary} sub={pref === 'Religious' && vegDays.length > 0 ? `Veg: ${vegDaysLabel}` : undefined} />
               <SummaryRow label="Schedule" value={`${weekLabel} · 7–8 PM`} />
               <SummaryRow label="Starts" value={startLabel} onEdit={goBackToDate} />

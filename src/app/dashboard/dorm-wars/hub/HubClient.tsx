@@ -3172,9 +3172,15 @@ function SideRewardsColumn({
                   minWidth: 0,
                 }}>
                   {subBadge}
+                  {/* Two-line clamp, not nowrap: the amount and the action
+                      sit at the END of every sub-line ("AED 7 ready · +AED 2
+                      to claim"), so a one-line ellipsis cut exactly the part
+                      the line exists to say — on a 393px phone and on the
+                      1440px card alike. */}
                   <span style={{
                     flex: 1, minWidth: 0,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden', lineHeight: 1.35,
                   }}>
                     {subLine}
                   </span>
@@ -4240,7 +4246,10 @@ function MilestoneInfoRow({
           <div style={{
             height: '100%', borderRadius: 2,
             width: `${Math.min(100, (current / threshold) * 100)}%`,
-            backgroundColor: earned ? GREEN : isNext ? color : `${MIST_DIM}88`,
+            // MIST_DIM is an rgba() token — the `${hex}88` alpha suffix only
+            // works on the hex accents, and appended here it produced an
+            // invalid colour the browser dropped, so locked rows had no fill.
+            backgroundColor: earned ? GREEN : isNext ? color : 'rgba(237,232,218,0.16)',
             transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
           }} />
         </div>
@@ -6826,14 +6835,18 @@ function WalletHistoryModal({
                 {/* Label + status pill + time */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    display: 'flex', alignItems: 'center', gap: 6,
                     fontFamily: BODY, fontSize: 13, fontWeight: 800,
                     color: isPending ? MIST : CREAM,
                     lineHeight: 1.2,
                     flexWrap: 'wrap',
                   }}>
+                    {/* minWidth 0 so the label can shrink below its text and
+                        truncate. As an inline-flex box it shrink-to-fitted the
+                        full nowrap width instead, running under the AED amount
+                        on phones ("recruits" touching "+AED 25"). */}
                     <span style={{
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200,
+                      minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>{meta.label}</span>
                     {meta.doubled && (
                       <span style={{

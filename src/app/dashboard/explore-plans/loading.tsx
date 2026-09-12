@@ -5,7 +5,7 @@ export default function ExplorePlansLoading() {
     <div style={{ padding: 'clamp(20px, 3vw, 40px)', fontFamily: 'var(--font-montserrat), Arial, sans-serif' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <Skel style={{ width: 220, height: 18, marginBottom: 8 }} />
-        <Skel tone="strong" style={{ width: 380, height: 32, marginBottom: 28 }} />
+        <Skel tone="strong" style={{ width: 'min(100%, 380px)', height: 32, marginBottom: 28 }} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
           {Array.from({ length: 3 }).map((_, i) => (

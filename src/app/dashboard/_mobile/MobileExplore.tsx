@@ -51,9 +51,15 @@ interface Props {
   /** Seasonal intake pause — mounts IntakePausedGate over the plan stack,
    *  taking precedence over the profile gate. Never render both. */
   intake?: IntakeGateState
+  /** Back from a Stripe cancel (?checkout_canceled=true). PlanClient owns the
+   *  flag + the URL scrub; this tree only shows and dismisses the notice. It
+   *  used to live in the desktop tree alone, so a phone customer who backed
+   *  out of Stripe landed here with no word that nothing was charged. */
+  cancelBanner?: boolean
+  onDismissCancelBanner?: () => void
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditByPlan, priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditByPlan, priceOverrides = [], intake = INTAKE_NOT_PAUSED, cancelBanner = false, onDismissCancelBanner }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -98,6 +104,20 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
           : intake.paused ? 'Browse this term’s plans — buying reopens next semester.'
           : 'Pick a plan that fits your week.'}
       </p>
+
+      {cancelBanner && (
+        <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 14, background: 'var(--ds-skeleton-base)', border: `1px solid ${S.border}`, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+          <span>Checkout was cancelled — no charge was made. Pick a plan when you&rsquo;re ready.</span>
+          <button
+            type="button"
+            onClick={onDismissCancelBanner}
+            aria-label="Dismiss"
+            style={{ flexShrink: 0, width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: S.fgMuted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0, margin: '-6px -8px -6px 0' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Seasonal pause — the closed sign leads the shop instead of frosting
           it: the waitlist card renders in flow as the hero, the priced stack

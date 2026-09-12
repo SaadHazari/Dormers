@@ -319,18 +319,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
              dark instead of flashing beige. Scoped three ways — :has(.hub-root)
              (loaded), :has(.hub-loading) (suspense), and an html.dash-dormwars
              stable twin (HubClient sets it on mount) so an iOS WebKit :has()
-             drop on drawer-open can't revert the bleed. Mirrors the home-orange
-             canopy treatment below. */
+             drop on drawer-open can't revert the bleed. :has(.hub-error) covers
+             the route's error boundary — HubClient never mounts there, so the
+             html class is never set and only the selector can zero the gutter.
+             Mirrors the home-orange canopy treatment below. */
           .dash-page:has(.hub-root) .dash-main-row,
           .dash-page:has(.hub-loading) .dash-main-row,
+          .dash-page:has(.hub-error) .dash-main-row,
           html.dash-dormwars .dash-main-row { padding-top: 0 !important; }
           .dash-page:has(.hub-root) .dash-content,
           .dash-page:has(.hub-loading) .dash-content,
+          .dash-page:has(.hub-error) .dash-content,
           html.dash-dormwars .dash-content { padding: 0 !important; }
-          html:has(.hub-root), html:has(.hub-loading),
+          html:has(.hub-root), html:has(.hub-loading), html:has(.hub-error),
           html.dash-dormwars { background-color: #091825 !important; }
           .dash-page:has(.hub-root),
           .dash-page:has(.hub-loading),
+          .dash-page:has(.hub-error),
           html.dash-dormwars .dash-page {
             --burger-top: calc(16px + env(safe-area-inset-top));
             --dash-row-top: 0px;   /* the row padding is zeroed above — keep --burger-clear honest */

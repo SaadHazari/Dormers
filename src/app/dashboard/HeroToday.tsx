@@ -178,7 +178,7 @@ function HeroStatusBadge({ status, onDark, label }: { status: BadgeStatus; onDar
   )
 }
 
-export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false, resumeLockedSameDay = false, resumedAfterCutoff = false }: {
+export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DAYS', isDayOne = false, isLastDayNoQueue = false, resumeLockedSameDay = false, resumedAfterCutoff = false, closureToday = false }: {
   todayMeal: MenuItem | null
   localState: LocalState
   // ISO date — when the user's plan is paid but hasn't begun yet, override the
@@ -204,6 +204,11 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   // day. Overrides the normal delivery phase display so the hero doesn't show
   // a false countdown or "Delivered" badge for a meal that was never prepped.
   resumedAfterCutoff?: boolean
+  // True when today (AE) is a company closure date. The kitchen is shut, so
+  // the hero must not name a dish or count down to a delivery that isn't
+  // coming — the progress grid already pills the day "kitchen closed", and
+  // the hero has to agree with it.
+  closureToday?: boolean
 }) {
   // The caller hands us subStartDate only for a plan that has NOT begun — it
   // asks the domain (hasNotStartedYet), which reads status before the calendar.
@@ -232,7 +237,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
   // the "Active + meal" rendering — even with a populated todayMeal, we
   // suppress the dish view because nothing is being delivered.
   const isOff = !isStartingSoon && !isSkipped && !isPaused && (
-    phase.phase === 'no-delivery' || todayMeal === null
+    phase.phase === 'no-delivery' || todayMeal === null || closureToday
   )
   // Kitchen cutoff passed on a delivery day and the customer just resumed —
   // override both isActive and isDelivered so the hero doesn't show a false
@@ -268,7 +273,8 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isDelivered ? "Tonight's dinner delivered"
     : isSkipped ? "Credit safe — back tomorrow"
     : isPaused  ? (resumeLockedSameDay ? "Resume available tomorrow" : "Resume when ready")
-    : phase.phase === 'no-delivery' ? "Mon–Sat, 7–8 PM"
+    : closureToday ? "Kitchen closed today"
+    : phase.phase === 'no-delivery' ? `${weekType === '5DAYS' ? 'Mon–Fri' : 'Mon–Sat'}, 7–8 PM`
     : /* off (no menu) */  "Menu being finalised"
 
   // Sub-headings only used in inactive states
@@ -277,6 +283,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isPaused ? 'Your plan is paused.'
     : isResumedAfterCutoff ? "You're back."
     : isDelivered ? "Tonight's dinner is delivered."
+    : isOff && closureToday ? 'Kitchen closed today.'
     : isOff && phase.phase === 'no-delivery' ? 'No delivery today.'
     : isOff ? 'No menu set yet.'
     : ''
@@ -286,6 +293,7 @@ export function HeroToday({ todayMeal, localState, subStartDate, weekType = '6DA
     : isPaused ? (resumeLockedSameDay ? "You can resume from tomorrow onwards." : "Tap resume when you're ready.")
     : isResumedAfterCutoff ? `The 2 PM kitchen cutoff has passed — first delivery ${nextDelivery}.`
     : isDelivered ? (isLastDayNoQueue ? "We'd love to keep serving you more." : "Same time, same place tomorrow.")
+    : isOff && closureToday ? 'No delivery tonight — this day is added to the end of your plan.'
     : isOff && phase.phase === 'no-delivery' ? `${offWeekCopy} See you tomorrow.`
     : isOff ? "Check back shortly."
     : ''

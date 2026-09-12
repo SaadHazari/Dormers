@@ -302,7 +302,9 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
           <button type="button" onClick={() => setShowCancelPause(false)} style={sheetGhostBtn}>Keep it planned</button>
           <button type="button" onClick={() => { setShowCancelPause(false); onConfirmCancelPause() }} style={sheetOrangeBtn}>Cancel pause</button>
         </>}>
-        <SectionTitle size={20}>Cancel your planned pause?</SectionTitle>
+        {/* Statement, not a question — SectionTitle appends the orange full
+            stop, and "pause?." is what the sheet used to read. */}
+        <SectionTitle size={20}>Cancel your planned pause</SectionTitle>
         {plannedPauseStart && (
           <p style={{ margin: '12px 0 0', fontSize: 13.5, color: S.fgMuted, lineHeight: 1.6 }}>
             Your pause is scheduled for <strong style={{ color: S.fg }}>{new Date(plannedPauseStart + 'T00:00:00').toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>. Cancelling now returns your <strong style={{ color: S.fg }}>1 free pause</strong> to use later in this cycle.
@@ -477,7 +479,7 @@ function PlanSetup({ customer, sub }: { customer: Customer | null; sub: Subscrip
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Dial label="Week" value={weekLabel} />
               <Dial label="Meal type" value={mealPrefLabel} />
-              {isReligious && <Dial label="Veg days" mono value={`${sub.veg_days} of ${sub.week_type === '5DAYS' ? 5 : 6}`} />}
+              {isReligious && <Dial label="Veg days" mono value={`${sub.veg_days?.length ?? 0} of ${sub.week_type === '5DAYS' ? 5 : 6}`} />}
             </div>
           </div>
           <div style={{ height: 1, background: S.border, margin: '14px 0' }} />

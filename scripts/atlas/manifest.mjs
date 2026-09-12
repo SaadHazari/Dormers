@@ -107,9 +107,14 @@ add('shell-refer-menu-ineligible', 'Refer & earn panel — Weekly Flex (no Dorm 
 
 SS('1.4 · Shell overlays')
 add('shell-bug-report', 'Bug report — Sentry feedback dialog', {
-  description: 'The ghost bug icon at the top-right of the cream card opens the Sentry feedback dialog (name, email, what went wrong, screenshot). Desktop only — mobile has no entry point.',
+  description: 'The ghost bug icon at the top-right of the cream card opens the Sentry feedback dialog (name, email, what went wrong, screenshot).',
   conditions: 'Desktop, any page.', url: '/dashboard/plan?preview=1', kind: 'overlay', viewports: ['desktop'],
   actions: [{ type: 'hover', selector: 'button[aria-label="Report a bug"]', settleMs: 600 }, { type: 'click', selector: 'button[aria-label="Report a bug"]', settleMs: 1500 }],
+})
+add('shell-bug-report-mobile', 'Bug report — mobile entry point (account sheet row)', {
+  description: 'On phones the ghost icon is gone; the account sheet carries a "Report a bug" row that opens the same Sentry feedback dialog.',
+  conditions: 'Mobile, account sheet open.', url: '/dashboard/plan?preview=1', kind: 'overlay', viewports: ['mobile'],
+  actions: [{ type: 'click', selector: '.dash-mobile-menu', settleMs: 600 }, { type: 'click', selector: 'button[aria-label="Account menu"]', js: true, settleMs: 700 }, { type: 'click', selector: 'button:has-text("Report a bug")', settleMs: 1500 }],
 })
 add('shell-idle-toast', 'Idle refresh toast', {
   description: 'After 30 minutes without activity (or 15 minutes hidden) a bottom-right toast offers a refresh.',
@@ -271,6 +276,10 @@ add('home-hero-resumed', 'Resumed after the cutoff — first meal tomorrow', {
 add('home-hero-closure', 'Company closure days in the grid', {
   description: 'Kitchen closure dates render as "kitchen closed" pills instead of upcoming meals.',
   conditions: 'closureDates tomorrow + day after.', url: '/dashboard?preview=1&verified=1&far=1&closure=1', kind: 'page',
+})
+add('home-hero-closure-today', 'Kitchen closed today — hero and skip agree with the grid', {
+  description: 'On a closure day the hero drops the dish and countdown for "Kitchen closed today", and Skip tonight is locked with a "Kitchen closed" chip; the day is added to the end of the plan.',
+  conditions: 'closureDates includes today.', url: '/dashboard?preview=1&verified=1&far=1&closure=today', kind: 'page', clock: aeAt('12:00'),
 })
 SS('3.4 · Paused, scheduled and planned pause')
 add('home-active-paused', 'Plan paused', {
@@ -519,9 +528,9 @@ add('checkout-outofzone', 'Checkout blocked — out of zone', {
   description: 'The disabled Pay/Continue with the out-of-zone explanation.', conditions: 'out_of_zone, plan selected.', url: '/dashboard/explore-plans?preview=1&state=empty&zone=0', kind: 'sheet',
   actions: [{ type: 'click', selector: 'button:has-text("Choose plan") >> nth=2', settleMs: 900 }],
 })
-add('checkout-post-cutoff', 'Post-cutoff overlay — "First meal lands tomorrow" (desktop)', {
-  description: 'Selecting a plan after 2 PM Dubai time surfaces a once-per-day overlay explaining the first delivery is tomorrow.',
-  conditions: 'Desktop, AE clock ≥ 14:00, plan selected.', url: '/dashboard/explore-plans?preview=1&state=empty', kind: 'overlay', viewports: ['desktop'], clock: aeAt('15:00'),
+add('checkout-post-cutoff', 'Post-cutoff overlay — "First meal lands tomorrow"', {
+  description: 'Selecting a plan after 2 PM Dubai time surfaces a once-per-day overlay explaining the first delivery is tomorrow. Mounted outside both trees, so the phone sees it over the checkout sheet.',
+  conditions: 'AE clock ≥ 14:00, plan selected.', url: '/dashboard/explore-plans?preview=1&state=empty', kind: 'overlay', clock: aeAt('15:00'),
   actions: [{ type: 'click', selector: 'button:has-text("Choose plan") >> nth=2', settleMs: 1200 }],
 })
 add('checkout-season-open-date', 'Season taper — clamped date picker', {
