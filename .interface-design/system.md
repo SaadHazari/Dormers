@@ -223,3 +223,21 @@ breakpoint scale**.
   StatusDot, Skeleton, Tooltip, modals, etc.)
 - Shell + nav: `DashboardShell.tsx`, `layout.tsx`, `Sidebar.tsx`, `SidebarDropdowns.tsx`
 - Pages: `dashboard/{plan,menu,history,profile,support,explore-plans,dorm-wars}/`
+
+### Closed-kitchen mark (`_shared/closure-legend.ts` → `CLOSURE_FILL`, `CLOSURE_INK`)
+- A company closure day in either progress grid is **navy running to dusk**:
+  `linear-gradient(180deg, NV → NV_DUSK #3a5568)`, the same top-dark-to-bottom-
+  light run as the delivered orange. Beside orange it reads as a blackout, the
+  night the kitchen was dark. Mobile centres a cream (`CLOSURE_INK`) lucide
+  `UtensilsCrossed` glyph at 54% of the cell; the mobile legend key is a 12px
+  miniature of the cell. Desktop pills carry the fill alone.
+- Never the skip hatch (diagonal = the customer's choice) or the pause wash
+  (faint = their hold) for a closure; never pure `#000` — NV is the product's
+  black.
+- **Make-up days** (`MAKEUP_FILL`) are white tickets: `--ds-page-bg` with a
+  `rgba(9,24,37,.18)` hairline, both layouts. Added, not yet anything. Never
+  borderless white — it vanishes on the cream card.
+- Upcoming-closure notices: `rgba(30,58,79,.07)` wash, `rgba(30,58,79,.20)`
+  border, copy from `describeClosures` ("Kitchen closed 14–15 Sep · 2 days
+  will be added"). Desktop: chip top-right of the plan card header, bare navy
+  glyph. Mobile: its own strip above the plan card with a `CLOSURE_FILL` tile.

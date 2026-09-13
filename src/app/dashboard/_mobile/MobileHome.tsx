@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Image, { type StaticImageData } from 'next/image'
 import Link from 'next/link'
-import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight, Lock } from 'lucide-react'
+import { SkipForward, Eye, CalendarPlus, PauseCircle, Truck, Flame, ChevronRight, Gift, Info, Check, Play, CalendarClock, CornerDownRight, Lock, UtensilsCrossed } from 'lucide-react'
 import { WEEKLY_WRAP_UNLOCK_MEALS } from '@/contexts/subscriptions/domain/monthly-review'
 import { OG, OG3, OG_DEEP, NV, NV2, CR, BODY, S, cleanPlanName } from '../_shared/tokens'
 import { MealTag } from '../_shared/MealTag'
 import { PlanGlyph } from '../_shared/PlanGlyph'
 import { formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 import { groupPauseRanges, buildPauseLookup, type PauseRange } from '../_shared/pause-ranges'
+import { describeClosures, CLOSURE_FILL, CLOSURE_INK, MAKEUP_FILL } from '../_shared/closure-legend'
 import { ROOMY } from '../_shared/breakpoints'
 
 export interface ResolvedDish {
@@ -389,8 +390,12 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
   const heroLight = !!data.heroClosure
 
   // Closure days in the window — same pause visual as desktop, so the
-  // legend names them.
-  const closureCount = pills.filter(p => p.state === 'closure').length
+  // legend names them by date ("Closed 9–10 Sep"); the cell sheet tells the
+  // "day added" story, the way "1 skipped" leaves its own to the sheet.
+  const closureLegend = describeClosures(pills.filter(p => p.state === 'closure').map(p => p.iso), data.todayIso, data.weekType)
+  // Closures still ahead get their own strip above the plan card, from the
+  // moment the admin schedules them.
+  const upcomingClosure = describeClosures(pills.filter(p => p.state === 'closure' && p.iso >= data.todayIso).map(p => p.iso), data.todayIso, data.weekType)
 
   return (
     <div ref={homeRootRef} className={`mhome-root owns-burger-row${sunDown ? ' mhome-sundown' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: BODY, paddingBottom: 32 }}>
@@ -646,6 +651,22 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
 
       {renewBanner}
 
+      {/* ── Upcoming kitchen closure — its own strip, not a line inside the
+          plan card: the phone card has no spare corner, and a closure is
+          news the customer needs before they scroll to the grid. Same dusk
+          family as the closed cells so the strip and the cells read as one. */}
+      {upcomingClosure && (
+        <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: 'rgba(30,58,79,0.07)', border: '1px solid rgba(30,58,79,0.20)' }}>
+          <span aria-hidden style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 9, ...CLOSURE_FILL, display: 'flex', alignItems: 'center', justifyContent: 'center', color: CLOSURE_INK }}>
+            <UtensilsCrossed size={15} strokeWidth={2.2} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: S.fg, lineHeight: 1.35 }}>
+            <strong style={{ fontWeight: 800 }}>Kitchen closed {upcomingClosure.dates}.</strong>{' '}
+            <span style={{ color: S.fgMuted }}>{upcomingClosure.added} to your plan.</span>
+          </div>
+        </div>
+      )}
+
       {/* ── Plan progress (sunset-frosted card) ──────────────────────────── */}
       <section style={{
         ...CARD,
@@ -681,10 +702,10 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
           const p: Pill = pills[0] ?? { iso: data.startIso, state: 'upcoming', action: null }
           const chipFill: CSSProperties =
             p.state === 'delivered' ? { background: ORANGE_GRAD }
-            : p.state === 'closure' ? PAUSE_FILL
+            : p.state === 'closure' ? CLOSURE_FILL
             : p.state === 'today' ? { background: 'rgba(245,127,32,0.10)' }
             : { background: 'rgba(9,24,37,0.07)' }
-          const chipBorder = p.state === 'today' ? `1.5px solid ${OG}` : '1px solid rgba(9,24,37,0.12)'
+          const chipBorder = p.state === 'today' ? `1.5px solid ${OG}` : p.state === 'closure' ? CLOSURE_FILL.border : '1px solid rgba(9,24,37,0.12)'
           const statusText =
             p.state === 'delivered' ? 'Delivered'
             : p.state === 'today' ? 'Arriving tonight'
@@ -696,7 +717,9 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
             : null
           const inner = (
             <>
-              <span aria-hidden style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, border: chipBorder, ...chipFill }} />
+              <span aria-hidden style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, border: chipBorder, ...chipFill, display: 'flex', alignItems: 'center', justifyContent: 'center', color: CLOSURE_INK }}>
+                {p.state === 'closure' && <UtensilsCrossed size={16} strokeWidth={2.2} aria-hidden />}
+              </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: S.fg }}>{isTrialPlan ? 'Your trial meal' : 'Your meal'}</span>
                 <span style={{ display: 'block', fontSize: 12.5, color: S.fgMuted, marginTop: 2 }}>{statusText}</span>
@@ -734,10 +757,12 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
               <span style={{ ...swatch, ...HATCH_SKIP }} />
               <strong style={statNum}>{data.skipped}</strong> {skipWord}
             </span>
-            {closureCount > 0 && (
+            {closureLegend && (
               <span style={statLine}>
-                <span style={{ ...swatch, ...PAUSE_FILL }} />
-                <strong style={statNum}>{closureCount}</strong> kitchen closed
+                <span aria-hidden style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, ...CLOSURE_FILL, display: 'flex', alignItems: 'center', justifyContent: 'center', color: CLOSURE_INK }}>
+                  <UtensilsCrossed size={8} strokeWidth={2.6} />
+                </span>
+                Closed <strong style={statNum}>{closureLegend.dates}</strong>
               </span>
             )}
           </div>
@@ -755,17 +780,19 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
             const fill: CSSProperties =
               p.state === 'delivered' ? { background: ORANGE_GRAD }
               : p.state === 'skipped' ? HATCH_SKIP
-              : p.state === 'paused' || p.state === 'closure' ? PAUSE_FILL
+              : p.state === 'closure' ? CLOSURE_FILL
+              : p.state === 'paused' ? PAUSE_FILL
               : p.state === 'today' ? { background: 'rgba(245,127,32,0.10)' }
-              : p.state === 'makeup' ? { background: 'rgba(9,24,37,0.07)' }
+              : p.state === 'makeup' ? { background: MAKEUP_FILL.backgroundColor }
               : { background: 'rgba(9,24,37,0.07)' } // upcoming
             // Orange border is reserved for TODAY only. Tappable skip/unskip
             // cells get a faint navy ring so the affordance reads without
             // stealing the orange accent.
             const border =
               p.state === 'today' ? `1.5px solid ${OG}`
-              : p.state === 'paused' || p.state === 'closure' ? '1px solid transparent'
-              : p.state === 'makeup' ? '1px solid rgba(9,24,37,0.20)'
+              : p.state === 'closure' ? CLOSURE_FILL.border
+              : p.state === 'paused' ? '1px solid transparent'
+              : p.state === 'makeup' ? MAKEUP_FILL.border
               : (p.action === 'skip' || p.action === 'unskip') ? '1px solid rgba(9,24,37,0.30)'
               : '1px solid transparent'
             // Navy left-edge marker on the cell where a scheduled pause begins
@@ -789,6 +816,10 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
               // 34px chip at radius 8). Span-2 range cells stay at px — a
               // percentage would resolve per-axis and go elliptical.
               borderRadius: isRange ? 5 : '24%', padding: 0, border, ...fill,
+              // The shutter glyph sits centred in a closed cell; the crossed
+              // utensils scale with the cell so a 6-cell weekly grid and the
+              // 12-column monthly grid carry the same mark.
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: CLOSURE_INK,
               ...(isRange ? { gridColumn: 'span 2', height: '100%' } : {}),
               ...(markerShadow ? { boxShadow: markerShadow } : {}),
             }
@@ -807,9 +838,13 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
                 aria-label={`${p.state} ${p.iso}`}
                 onClick={onClick}
                 style={{ ...base, cursor: 'pointer', appearance: 'none' }}
-              />
+              >
+                {p.state === 'closure' && <UtensilsCrossed strokeWidth={2.2} aria-hidden style={{ width: '54%', height: '54%' }} />}
+              </button>
             ) : (
-              <span key={i} aria-hidden style={base} />
+              <span key={i} aria-hidden style={base}>
+                {p.state === 'closure' && <UtensilsCrossed strokeWidth={2.2} aria-hidden style={{ width: '54%', height: '54%' }} />}
+              </span>
             )
           })}
         </div>

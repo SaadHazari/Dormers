@@ -1,5 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createClient } from '@/utils/supabase/server'
+import { computeEndDate, isoDate } from '@/contexts/subscriptions/domain/end-date'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getQueuedSubscription, getMostRecentOrder, getWaitlistStatus, getCompanyClosureDates, getApprovedCreditRows } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import ClientDashboard from './ClientDashboard'
@@ -53,7 +54,7 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, pref?: string, week?: string, checkout_success?: string, loading?: string, error?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, now?: string, anchor?: string, pref?: string, week?: string, checkout_success?: string, loading?: string, error?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -76,6 +77,14 @@ export default async function DashboardPage({
         //   ?zone=0       — out-of-zone customer
         //   ?closure=1    — company closure days in the progress grid
         //   ?closure=today — the kitchen is closed TODAY (hero + skip lock)
+        //   ?closure=past  — the kitchen WAS closed 3 and 2 days ago: nothing banked, end date already extended
+        //   ?closure=shortfall — Eid-shaped: 5DAYS monthly, closed Wed–Fri of its last week, end_date exactly as
+        //                       compute_subscription_end_date returns it (three delivery days back since 2026-09-13;
+        //                       before that the calendar maths gave one — the bug this fixture was built to show)
+        //   ?now=YYYY-MM-DD — pin the fixture's today (walk a scenario day by day)
+        //   ?anchor=YYYY-MM-DD — with closure=shortfall: the Monday the kitchen reopens (default: the
+        //                       last Monday on or before `now`), so one timeline can be walked across
+        //                       the days before, during and after the closure
         //   ?pref=veg|mix — meal preference (mix = religious with veg days)
         //   ?week=5       — 5-day cadence
         //   ?checkout_success=true — success takeover (with a fixture order)
@@ -86,9 +95,12 @@ export default async function DashboardPage({
         if (params.loading === '1') return <DashboardLoading />
         if (params.error === '1') throw new Error('Preview: forced error boundary')
         const day = 86400000
+        // ?now=YYYY-MM-DD pins the fixture's "today" (noon AE) so multi-day
+        // scenarios can be walked day by day; pair it with a client fake clock.
+        const nowMs = params.now && /^\d{4}-\d{2}-\d{2}$/.test(params.now) ? Date.parse(params.now + 'T08:00:00Z') : Date.now()
         const dateOnly = (t: number) => new Date(t).toISOString().slice(0, 10)
-        const todayAE = dateOnly(Date.now() + 4 * 3600000)
-        const weekType = params.week === '5' ? '5DAYS' as const : '6DAYS' as const
+        const todayAE = dateOnly(nowMs + 4 * 3600000)
+        const weekType = params.week === '5' || params.closure === 'shortfall' ? '5DAYS' as const : '6DAYS' as const
         const isMix = params.pref === 'mix'
         const mealPref = params.pref === 'veg' ? 'Veg' : isMix ? 'Religious Preference' : 'Non Veg'
         const vegDays = isMix ? ['Monday', 'Wednesday'] : null
@@ -107,7 +119,7 @@ export default async function DashboardPage({
         const workingDaysElapsed = (() => {
             let n = 0
             for (let i = startOff; i >= 1; i--) {
-                const d = new Date(Date.now() + 4 * 3600000 - i * day)
+                const d = new Date(nowMs + 4 * 3600000 - i * day)
                 const dow = d.getUTCDay()
                 if (dow === 0 || (weekType === '5DAYS' && dow === 6)) continue
                 n++
@@ -118,31 +130,68 @@ export default async function DashboardPage({
         const baseTotal = (planShape as { total_meals?: number }).total_meals ?? (params.fresh === '1' ? 6 : PREVIEW_SUBSCRIPTION.total_meals)
         const baseSkips = (planShape as { skipped_meals_count?: number }).skipped_meals_count ?? (params.fresh === '1' ? 0 : PREVIEW_SUBSCRIPTION.skipped_meals_count)
         const pausedDays = subKnob === 'paused' ? 2 : subKnob === 'pause-used' ? 3 : 0
-        const derivedDelivered = Math.max(0, Math.min(baseTotal, (workingDaysElapsed - baseSkips - pausedDays) * mealsPerDelivery))
+        // A past closure mirrors what the crons leave behind: the delivery
+        // tick banked nothing on those days, and closure_tick pushed end_date
+        // out one CALENDAR day per closed delivery day, then forward to the
+        // next delivery day if that lands on a weekend (compute_subscription_end_date).
+        const isWorkingTs = (t: number) => { const dow = new Date(t).getUTCDay(); return !(dow === 0 || (weekType === '5DAYS' && dow === 6)) }
+        const pastClosureDates = params.closure === 'past' ? [nowMs - 3 * day, nowMs - 2 * day].filter(isWorkingTs).map(dateOnly) : []
+        const derivedDelivered = Math.max(0, Math.min(baseTotal, (workingDaysElapsed - baseSkips - pausedDays - pastClosureDates.length) * mealsPerDelivery))
+        const closureEndOff = (() => {
+            if (pastClosureDates.length === 0) return endOff
+            let t = nowMs + (endOff + pastClosureDates.length) * day
+            while (!isWorkingTs(t)) t += day
+            return Math.round((t - nowMs) / day)
+        })()
+        // The weekend-crossing case the live formula got wrong until
+        // 2026-09-13: three closed delivery days pushed end_date three
+        // CALENDAR days, Friday onto Monday — one delivery day back for three
+        // lost, with meals still owed past end_date. The fixture takes its
+        // end_date from the TS port, so it now shows the corrected walk.
+        const shortfall = params.closure === 'shortfall' ? (() => {
+            const sinceMonday = (new Date(nowMs).getUTCDay() + 6) % 7
+            const lastMon = params.anchor && /^\d{4}-\d{2}-\d{2}$/.test(params.anchor)
+                ? Date.parse(params.anchor + 'T08:00:00Z')
+                : nowMs - sinceMonday * day
+            const closures = [5, 4, 3].map(n => dateOnly(lastMon - n * day)) // Wed, Thu, Fri before it
+            const startIso = dateOnly(lastMon - 28 * day)
+            // closure_tick credits a day on the night it happens, so end_date only
+            // moves out as each closed day passes — the fixture mirrors that.
+            const closuresPassed = closures.filter(c => c < dateOnly(nowMs)).length
+            const endIso = isoDate(computeEndDate({ startDate: startIso, planKind: 'monthly', weekType: '5DAYS', closureDays: closuresPassed }))
+            let delivered = 0
+            for (let t = lastMon - 28 * day; dateOnly(t) < dateOnly(nowMs); t += day) {
+                const dow = new Date(t).getUTCDay()
+                if (dow === 0 || dow === 6 || closures.includes(dateOnly(t))) continue
+                delivered++
+            }
+            return { closures, startIso, endIso, delivered: Math.min(20, delivered) }
+        })() : null
         const previewSub = {
             ...PREVIEW_SUBSCRIPTION,
             ...planShape,
             delivered_meals: derivedDelivered,
             skipped_meals_count: baseSkips,
-            start_date: dateOnly(Date.now() - startOff * day),
-            end_date: dateOnly(Date.now() + endOff * day),
+            start_date: dateOnly(nowMs - startOff * day),
+            end_date: dateOnly(nowMs + closureEndOff * day),
             week_type: weekType,
             veg_days: vegDays,
-            skipped_dates: baseSkips > 0 && startOff > 5 ? [dateOnly(Date.now() - 5 * day)] : baseSkips > 0 ? [dateOnly(Date.now() - day)] : [],
+            skipped_dates: baseSkips > 0 && startOff > 5 ? [dateOnly(nowMs - 5 * day)] : baseSkips > 0 ? [dateOnly(nowMs - day)] : [],
             ...(params.fresh === '1' ? { total_meals: 6 } : {}),
             ...(subKnob === 'dayone' ? { delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [] } : {}),
-            ...(subKnob === 'paused' ? { status: 'Paused', has_paused_before: true, pause_date: dateOnly(Date.now() - 2 * day), paused_days: 2, paused_dates: [dateOnly(Date.now() - 2 * day), dateOnly(Date.now() - day)] } : {}),
-            ...(subKnob === 'skipped' ? { status: 'Skipped', last_skipped_date: todayAE, skipped_dates: [dateOnly(Date.now() - 5 * day), todayAE, dateOnly(Date.now() + 2 * day)], skipped_meals_count: 2 } : {}),
-            ...(subKnob === 'scheduled' ? { status: 'Scheduled', start_date: dateOnly(Date.now() + 5 * day), end_date: dateOnly(Date.now() + 35 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [] } : {}),
-            ...(subKnob === 'planned-pause' ? { planned_pause_start: dateOnly(Date.now() + 4 * day), has_paused_before: true } : {}),
-            ...(subKnob === 'pause-used' ? { has_paused_before: true, paused_days: 3, paused_dates: [dateOnly(Date.now() - 6 * day), dateOnly(Date.now() - 5 * day), dateOnly(Date.now() - 4 * day)] } : {}),
-            ...(subKnob === 'noskips' ? { skipped_meals_count: 3, skipped_dates: [dateOnly(Date.now() - 12 * day), dateOnly(Date.now() - 8 * day), dateOnly(Date.now() - 5 * day)] } : {}),
+            ...(subKnob === 'paused' ? { status: 'Paused', has_paused_before: true, pause_date: dateOnly(nowMs - 2 * day), paused_days: 2, paused_dates: [dateOnly(nowMs - 2 * day), dateOnly(nowMs - day)] } : {}),
+            ...(subKnob === 'skipped' ? { status: 'Skipped', last_skipped_date: todayAE, skipped_dates: [dateOnly(nowMs - 5 * day), todayAE, dateOnly(nowMs + 2 * day)], skipped_meals_count: 2 } : {}),
+            ...(subKnob === 'scheduled' ? { status: 'Scheduled', start_date: dateOnly(nowMs + 5 * day), end_date: dateOnly(nowMs + 35 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [] } : {}),
+            ...(subKnob === 'planned-pause' ? { planned_pause_start: dateOnly(nowMs + 4 * day), has_paused_before: true } : {}),
+            ...(subKnob === 'pause-used' ? { has_paused_before: true, paused_days: 3, paused_dates: [dateOnly(nowMs - 6 * day), dateOnly(nowMs - 5 * day), dateOnly(nowMs - 4 * day)] } : {}),
+            ...(subKnob === 'noskips' ? { skipped_meals_count: 3, skipped_dates: [dateOnly(nowMs - 12 * day), dateOnly(nowMs - 8 * day), dateOnly(nowMs - 5 * day)] } : {}),
             ...(subKnob === 'ended0' ? { delivered_meals: 24, skipped_meals_count: 0, skipped_dates: [] } : {}),
+            ...(shortfall ? { plan_name: 'Monthly Premium', total_meals: 20, delivered_meals: shortfall.delivered, skipped_meals_count: 0, skipped_dates: [], paused_days: 0, paused_dates: [], start_date: shortfall.startIso, end_date: shortfall.endIso, week_type: '5DAYS' as const } : {}),
         }
         const queuedSub = subKnob === 'queued' ? {
             ...PREVIEW_SUBSCRIPTION,
             id: 'preview-queued', plan_name: 'Monthly Max', status: 'Scheduled',
-            start_date: dateOnly(Date.now() + (endOff + 1) * day), end_date: dateOnly(Date.now() + (endOff + 31) * day),
+            start_date: dateOnly(nowMs + (endOff + 1) * day), end_date: dateOnly(nowMs + (endOff + 31) * day),
             total_meals: 48, delivered_meals: 0, skipped_meals_count: 0,
         } : null
         const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
@@ -168,7 +217,7 @@ export default async function DashboardPage({
             firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
             alreadyJoined: params.joined !== '0',
             waitlistCreditAed: params.joined !== '0' ? 15 : 0,
-            cycleStartedAt: dateOnly(Date.now() - 10 * day),
+            cycleStartedAt: dateOnly(nowMs - 10 * day),
             cycleEndedAt: null,
             lastDeliveryDay: null,
         } : params.reopened === '1' ? {
@@ -179,8 +228,8 @@ export default async function DashboardPage({
             firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
             alreadyJoined: true,
             waitlistCreditAed: 15,
-            cycleStartedAt: dateOnly(Date.now() - 30 * day),
-            cycleEndedAt: dateOnly(Date.now() - 1 * day),
+            cycleStartedAt: dateOnly(nowMs - 30 * day),
+            cycleEndedAt: dateOnly(nowMs - 1 * day),
             lastDeliveryDay: null,
         } : undefined
         const previewCustomer = {
@@ -210,16 +259,17 @@ export default async function DashboardPage({
                     // as the bug it was, the fixture was made returning so the
                     // survey looked right. Keep both shapes screenshot-able.
                     allSubscriptions={params.first === '1' ? [] : params.nosub === '1' ? [
-                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 },
-                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: dateOnly(Date.now() - 80 * day), end_date: dateOnly(Date.now() - 73 * day), total_meals: 6, delivered_meals: 6 },
-                    ] : params.fresh === '1' ? [previewSub] : [previewSub, { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(Date.now() - 70 * day), end_date: dateOnly(Date.now() - 40 * day), delivered_meals: 24 }]}
+                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(nowMs - 70 * day), end_date: dateOnly(nowMs - 40 * day), delivered_meals: 24 },
+                        { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-2', plan_name: 'Weekly Flex', status: 'Ended', start_date: dateOnly(nowMs - 80 * day), end_date: dateOnly(nowMs - 73 * day), total_meals: 6, delivered_meals: 6 },
+                    ] : params.fresh === '1' ? [previewSub] : [previewSub, { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(nowMs - 70 * day), end_date: dateOnly(nowMs - 40 * day), delivered_meals: 24 }]}
                     userEmail={PREVIEW_CUSTOMER.email}
                     monthlyWindow={previewWrap}
                     intakePause={previewPause}
                     previewState={params.state}
-                    closureDates={params.closure === '1' ? [dateOnly(Date.now() + day), dateOnly(Date.now() + 2 * day)]
-                        : params.closure === 'today' ? [dateOnly(Date.now()), dateOnly(Date.now() + day)]
-                        : []}
+                    closureDates={params.closure === '1' ? [dateOnly(nowMs + day), dateOnly(nowMs + 2 * day)]
+                        : params.closure === 'today' ? [dateOnly(nowMs), dateOnly(nowMs + day)]
+                        : shortfall ? shortfall.closures
+                        : pastClosureDates}
                     mostRecentOrder={params.checkout_success === 'true' ? { id: 'preview-order', plan: previewSub.plan_name, meals_count: previewSub.total_meals, price_per_meal: 27.5, created_at: new Date().toISOString() } : null}
                 />
             </Suspense>

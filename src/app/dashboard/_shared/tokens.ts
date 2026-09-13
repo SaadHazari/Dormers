@@ -19,6 +19,8 @@ export const OG3 = '#ffaa00'
 export const OG_DEEP = '#8c4214'
 export const NV  = '#091825'
 export const NV2 = '#1e3a4f'
+/** Dusk navy — the lit end of a closed-kitchen fill (NV → NV_DUSK, like OG → OG3). */
+export const NV_DUSK = '#3a5568'
 export const CR  = '#ede8da'
 
 // ── Typography ────────────────────────────────────────────────────────────────

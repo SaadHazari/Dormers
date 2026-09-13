@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Moon } from 'lucide-react'
+import { Moon, UtensilsCrossed } from 'lucide-react'
 import { OG, OG3, NV, BODY, S, TIER2, TIER_POP_TEXT, cleanPlanName } from './_shared/tokens'
 import { Eyebrow } from './_shared/Eyebrow'
 import { PlanGlyph } from './_shared/PlanGlyph'
@@ -11,7 +11,9 @@ import { btnStyle, BtnSpinner } from './_shared/buttons'
 import { useNavigation } from './_shared/useNavigation'
 import type { Subscription } from './_shared/types'
 import { groupPauseRanges, buildPauseLookup } from './_shared/pause-ranges'
+import { describeClosures } from './_shared/closure-legend'
 import { hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
+import { CLOSURE_FILL, MAKEUP_FILL } from './_shared/closure-legend'
 
 // ── Calendar-bar helpers ──────────────────────────────────────────────────────
 // The bar is a true date-pegged timeline: one pill per working day from
@@ -180,8 +182,8 @@ export function PlanProgress({
     )
     // Closure days inside the plan window. They share the pause visual, so
     // the legend has to name them — a customer couldn't tell one from a skip.
-    const closureCount = useMemo(
-        () => pillDays.filter(d => closureDateSet.has(isoOf(d))).length,
+    const closureIsos = useMemo(
+        () => pillDays.map(isoOf).filter(iso => closureDateSet.has(iso)),
         [pillDays, closureDateSet],
     )
     const pauseRanges = useMemo(
@@ -193,6 +195,11 @@ export function PlanProgress({
     // AE clock — ticks every 60s so the today pill flips at midnight (date
     // roll) and at 20:00 (pre-delivery → delivered) without a refresh.
     const [aeNow, setAENow] = useState(getAENow)
+    // "Kitchen closed 9–10 Sep · 2 days added" — dated, not counted.
+    const closureLegend = describeClosures(closureIsos, aeNow.iso, weekType)
+    // Closures still ahead get a notice in the card header the moment the
+    // admin schedules them, so nobody finds out on the night.
+    const upcomingClosure = describeClosures(closureIsos.filter(iso => iso >= aeNow.iso), aeNow.iso, weekType)
     useEffect(() => {
         const tick = () => {
             const next = getAENow()
@@ -265,6 +272,23 @@ export function PlanProgress({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                 <PlanGlyph planName={sub.plan_name} size={14} color={S.fg} />
                 <Eyebrow>{cleanPlanName(sub.plan_name)}</Eyebrow>
+                {upcomingClosure && (
+                    <span
+                        role="status"
+                        style={{
+                            marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8,
+                            padding: '7px 12px', borderRadius: 10,
+                            background: 'rgba(30,58,79,0.07)', border: '1px solid rgba(30,58,79,0.20)',
+                            fontFamily: BODY, fontSize: 12.5, fontWeight: 500, color: S.fg, lineHeight: 1.3,
+                        }}
+                    >
+                        <UtensilsCrossed size={13} strokeWidth={2.2} aria-hidden style={{ color: 'rgba(9,24,37,0.8)', flexShrink: 0 }} />
+                        <span>
+                            Kitchen closed <strong style={{ fontWeight: 800, fontFeatureSettings: '"tnum"' }}>{upcomingClosure.dates}</strong>
+                            <span style={{ color: S.fgMuted }}> · {upcomingClosure.added}</span>
+                        </span>
+                    </span>
+                )}
             </div>
 
             {/* 2 — Meals remaining */}
@@ -398,16 +422,23 @@ export function PlanProgress({
                     // all collapse into "plain gray pill" — their meaning
                     // surfaces via banners and text, not via more pill colors.
                     const isSkipHatch = state === 'skipped' || state === 'today-skipped'
-                    // Closure shares the pause visual (plain gray + faint
-                    // hatch) — "no delivery, day added" is the same story,
-                    // told apart by the tooltip. Keeps the 4-state palette.
-                    const isPausePill = state === 'paused' || state === 'closure'
+                    // Closure gets its own mark — navy running to dusk, the
+                    // blackout beside the orange. Distinct from a skip's
+                    // diagonal hatch (the customer's choice) and a pause's
+                    // faint one (their hold). Make-up days are white tickets
+                    // with a hairline edge: added, not yet anything.
+                    const isPausePill = state === 'paused'
+                    const isClosurePill = state === 'closure'
                     const isMakeupPill = state === 'makeup'
                     const backgroundColor =
                         state === 'delivered' || state === 'today-delivered'
                             ? OG
                             : isSkipHatch
                                 ? 'var(--ds-fg-tint)'
+                                : isClosurePill
+                                    ? CLOSURE_FILL.backgroundColor
+                                : isMakeupPill
+                                    ? MAKEUP_FILL.backgroundColor
                                 : isPausePill
                                     ? 'rgba(9,24,37,0.12)'
                                     : 'var(--ds-skeleton-base)'
@@ -416,6 +447,8 @@ export function PlanProgress({
                             ? `linear-gradient(180deg, ${OG} 0%, ${OG3} 100%)`
                             : isSkipHatch
                                 ? 'repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 5px)'
+                                : isClosurePill
+                                    ? CLOSURE_FILL.backgroundImage
                                 : isPausePill
                                     ? 'repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 2px, transparent 2px, transparent 5px)'
                                     : 'none'
@@ -532,7 +565,7 @@ export function PlanProgress({
                         case 'closure':
                             statusLabel = 'Kitchen closed'
                             dateCopy = dateLabel
-                            footnote = 'No delivery. A day is added to your plan.'
+                            footnote = isPast ? 'No delivery. A day was added to your plan.' : 'No delivery. A day will be added to your plan.'
                             statusColor = TIER_POP_TEXT.faint
                             break
                         case 'paused':
@@ -588,7 +621,7 @@ export function PlanProgress({
                                 minWidth: 3,
                                 height: 10,
                                 padding: 0,
-                                border: isMakeupPill ? '1px solid rgba(9,24,37,0.18)' : 'none',
+                                border: isMakeupPill ? MAKEUP_FILL.border : isClosurePill ? CLOSURE_FILL.border : 'none',
                                 borderRadius: 'var(--radius-pill)',
                                 backgroundColor,
                                 backgroundImage,
@@ -745,12 +778,13 @@ export function PlanProgress({
                         </span>
                     </>
                 )}
-                {closureCount > 0 && (
+                {closureLegend && (
                     <>
                         <span style={{ color: S.fgFaint }}>·</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: 'rgba(9,24,37,0.12)', backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 2px, transparent 2px, transparent 3px)', display: 'inline-block' }} />
-                            <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{closureCount}</strong> kitchen closed
+                            <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, ...CLOSURE_FILL, display: 'inline-block' }} />
+                            Kitchen closed <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{closureLegend.dates}</strong>
+                            <span style={{ color: S.fgFaint }}>· {closureLegend.added}</span>
                         </span>
                     </>
                 )}

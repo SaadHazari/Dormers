@@ -281,6 +281,10 @@ add('home-hero-closure-today', 'Kitchen closed today — hero and skip agree wit
   description: 'On a closure day the hero drops the dish and countdown for "Kitchen closed today", and Skip tonight is locked with a "Kitchen closed" chip; the day is added to the end of the plan.',
   conditions: 'closureDates includes today.', url: '/dashboard?preview=1&verified=1&far=1&closure=today', kind: 'page', clock: aeAt('12:00'),
 })
+add('home-hero-closure-past', 'Kitchen was closed earlier this cycle — legend names the dates', {
+  description: 'Two closure days already behind the customer: the tick banked nothing on them, end_date is already extended, and the legend reads "Kitchen closed 9–10 Sep · 2 days added" (mobile: "Closed 9–10 Sep") instead of "2 kitchen closed".',
+  conditions: 'closureDates 3 and 2 days ago; delivered_meals excludes them; end_date pushed out like closure_tick would.', url: '/dashboard?preview=1&verified=1&far=1&closure=past', kind: 'page', clock: aeAt('12:00'),
+})
 SS('3.4 · Paused, scheduled and planned pause')
 add('home-active-paused', 'Plan paused', {
   description: 'Paused plan: cream "Plan paused" hero, Resume plan as the primary action, paused days marked in the grid, end date tentative.',
@@ -565,6 +569,14 @@ add('menu-dish-detail', 'Dish detail (modal / sheet)', {
   description: 'Tapping a day opens the dish: photo, calories, protein, veg tag, spice level and description.',
   conditions: 'Any non-off day tapped.', url: '/dashboard/menu?preview=1&state=active', kind: 'sheet',
   actions: [{ type: 'click', selector: '.week-day-card[data-state="today"]', vp: 'desktop', settleMs: 900 }, { type: 'click', selector: 'button[aria-label^="Tonight:"]', vp: 'mobile', settleMs: 900 }],
+})
+add('menu-closure-today', 'Kitchen closed today on the menu', {
+  description: 'The Tonight spotlight drops the dinner ticket for a "Kitchen closed today" notice, and today\'s card wears the crossed-utensils "Kitchen closed" chip.',
+  conditions: 'closureDates includes today.', url: '/dashboard/menu?preview=1&state=active&closure=today', kind: 'page', clock: aeAt('12:00'),
+})
+add('menu-closure-ahead', 'Closure later this week on the menu', {
+  description: 'Upcoming closed days wear the "Kitchen closed" chip instead of "Upcoming"; tonight is unaffected.',
+  conditions: 'closureDates tomorrow + day after.', url: '/dashboard/menu?preview=1&state=active&closure=1', kind: 'page', clock: aeAt('12:00'),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
