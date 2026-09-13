@@ -19,7 +19,8 @@
     "check:slider-readout": "node scripts/check-slider-readout.mjs",
     "check:metric-strip-fit": "node scripts/check-metric-strip-fit.mjs",
     "check:waitlist-gate-fit": "node scripts/check-waitlist-gate-fit.mjs",
-    "check:greeting-row": "node scripts/check-greeting-row.mjs"
+    "check:greeting-row": "node scripts/check-greeting-row.mjs",
+    "check:reload-flash": "node scripts/check-reload-flash.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",

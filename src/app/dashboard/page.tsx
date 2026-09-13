@@ -243,7 +243,7 @@ export default async function DashboardPage({
             ...(params.zone === '0' ? { out_of_zone: true } : {}),
         }
         return (
-            <Suspense fallback={<Spinner />}>
+            <Suspense fallback={<DashboardLoading />}>
                 <ClientDashboard
                     // A finished onboarding has a verified WhatsApp number, so
                     // the brand-new-signup fixture must not show the profile
@@ -329,8 +329,13 @@ export default async function DashboardPage({
         lastDeliveryDay: intakeState.pauseScheduledFor,
     }
 
+    // This fallback paints on reload: the server can stream it before
+    // ClientDashboard is ready, and React keeps a revealed fallback up for
+    // ~300ms. It is the route skeleton so the wait looks like every other
+    // dashboard load — the full-height navy spinner that stood here read as
+    // a black box on phones. scripts/check-reload-flash.mjs watches for it.
     return (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<DashboardLoading />}>
             <ClientDashboard
                 customer={customer}
                 activeSubscription={activeSubscription}
@@ -345,13 +350,5 @@ export default async function DashboardPage({
                 creditRows={creditRows}
             />
         </Suspense>
-    )
-}
-
-function Spinner() {
-    return (
-        <div style={{ minHeight: '100vh', background: '#091825', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(245,127,32,0.3)', borderTopColor: '#f57f20', animation: 'spin 1s linear infinite' }} />
-        </div>
     )
 }

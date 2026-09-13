@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { WebVitalsReporter } from "@/ui-system/observability/web-vitals";
+import { StyledJsxRegistry } from "@/ui-system/styles/styled-jsx-registry";
 import {
   MARKETING_PATHS,
   MARKETING_THEME_KEY,
@@ -155,7 +156,10 @@ export default function RootLayout({
           enableSystem={false}
           themes={["dark", "light"]}
         >
-          {children}
+          {/* Puts every <style jsx> rule in the server HTML. Without it they
+              arrive after hydration and a phone paints the dashboard's desktop
+              rail and card tree first — see styled-jsx-registry.tsx. */}
+          <StyledJsxRegistry>{children}</StyledJsxRegistry>
         </ThemeProvider>
       </body>
     </html>
