@@ -4,13 +4,21 @@
  * new end_date in skip/pause modals (so the user sees the consequence
  * before clicking confirm). The DB-side `compute_subscription_end_date()`
  * Postgres function is the actual source of truth — this file must stay
- * in lockstep with it.
+ * in lockstep with it (mirrored 2026-09-13 in
+ * `supabase/migrations/20260913_end_date_walks_delivery_days.sql`).
  *
  * Source: see `before-we-focus-on-harmonic-quokka.md` for the full math
  * explanation. Summary:
  *
- *   end_date = S2 + (D − 1) + penalty + pause_days, then shifted forward
- *              if it lands on a non-delivery day.
+ *   end_date = S2 + (D − 1) + penalty, then walked forward one DELIVERY
+ *              day per pause/closure day, then shifted forward if it
+ *              lands on a non-delivery day.
+ *
+ *   Pause and closure days are counted by the nightly ticks on delivery
+ *   days only, so they must be paid back in delivery days. Until
+ *   2026-09-13 they were added as calendar days: a Friday end plus three
+ *   closed days landed on Monday — one delivery day back for three lost,
+ *   and the dashboard's Ending date sat two days short of the last meal.
  *
  *   • S2  = start_date, shifted forward to the next delivery day if
  *           start_date itself falls on a non-delivery day.
@@ -39,9 +47,9 @@ export interface ComputeEndDateInput {
   weekType: WeekType
   /** Number of skips taken so far this cycle. Each one extends D by 1. */
   skipCount?: number
-  /** Total calendar days spent paused this cycle. Pure calendar shift. */
+  /** Delivery days spent paused this cycle (what pause_tick counts). Each one pushes end_date out one delivery day. */
   pauseDays?: number
-  /** Company-wide closure days this cycle. Pure calendar shift, like pauseDays. */
+  /** Company-wide closure days on this plan's delivery days (what closure_tick counts). Same payback as pauseDays. */
   closureDays?: number
 }
 
@@ -149,10 +157,20 @@ export function computeEndDate(input: ComputeEndDateInput): Date {
   }
 
   const totalDays = x + penalty
-  const calculated = addDays(S2, totalDays + pauseDays + closureDays)
+  let calculated = addDays(S2, totalDays)
+
+  // Pay back every paused or closed delivery day with a delivery day:
+  // step forward one calendar day at a time, counting only days the
+  // kitchen would deliver on for this cadence.
+  let owed = pauseDays + closureDays
+  while (owed > 0) {
+    calculated = addDays(calculated, 1)
+    if (isDeliveryDay(dowMonStart(calculated), input.weekType)) owed--
+  }
 
   // If the calculated end falls on a non-delivery day, push forward to the
   // next working day so kitchen-ops always land on a delivery cadence.
+  // (A no-op once any day was paid back above; still needed for the base.)
   const endDow = dowMonStart(calculated)
   if (isDeliveryDay(endDow, input.weekType)) return calculated
   return addDays(calculated, endShiftDays(endDow, input.weekType))
