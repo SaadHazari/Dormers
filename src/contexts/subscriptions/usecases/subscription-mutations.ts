@@ -33,6 +33,7 @@ import { eventBus } from '@/shared/events/event-bus';
 // level; the import boundary here is the one place we acknowledge the wiring.
 import '@/contexts/notifications/usecases/subscribers';
 import { withOwnedSubscription } from './with-owned-subscription';
+import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -258,6 +259,14 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   const todayAeIso = new Date(Date.now() + AE_OFFSET_MS).toISOString().slice(0, 10);
   if (newStartDate < addDaysIso(todayAeIso, 1) || newStartDate > addDaysIso(todayAeIso, 31)) {
     return { error: 'Pick a date within the next 30 days.' };
+  }
+
+  // A start date on a closed night would open the dashboard on "Kitchen
+  // closed today" as day one and fire the start-day email into a shut
+  // kitchen. Checkout rolls such picks forward; here the customer chose the
+  // day on purpose, so say why it will not do.
+  if ((await getCompanyClosureDates()).includes(newStartDate)) {
+    return { error: 'The kitchen is closed that day — pick the next delivery day.' };
   }
 
   // Reject non-delivery-day picks for the sub's week_type. Without this, a
@@ -549,6 +558,14 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
   const targetD = new Date(dateIso + 'T00:00:00');
   if (!isWorkingDayForWeekType(targetD, wt)) {
     return { error: 'That isn\'t a delivery day for your plan — there\'s nothing to skip.' };
+  }
+
+  // A closed kitchen is already paid back by closure_tick; a skip on top
+  // would burn a credit for a night nothing was cooked (the tick then
+  // excludes the day as customer-skipped, so they would lose the credit AND
+  // the closure day). The picker greys these out; this is the server gate.
+  if ((await getCompanyClosureDates()).includes(dateIso)) {
+    return { error: 'The kitchen is closed that day — it\'s already added to the end of your plan, so there\'s nothing to skip.' };
   }
 
   // Already scheduled?

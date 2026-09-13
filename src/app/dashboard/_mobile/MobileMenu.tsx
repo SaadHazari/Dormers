@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } from 'lucide-react'
+import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils, UtensilsCrossed } from 'lucide-react'
 import type { WeekMeal, WeekDayState, NoDeliveryReason } from '../menu/MenuClient'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { spotlightStatusKind, spotlightStatusCopy } from '../_shared/menu-spotlight'
@@ -72,6 +72,8 @@ interface Props {
   /** Scheduled sub's start_date (status spotlight). */
   startsOn: string | null
   resumedAfterCutoff: boolean
+  /** Today is a company closure — nothing is cooked for anyone. */
+  closureToday?: boolean
   nextDeliveryLabel: string
   thisWeekCells: MobileMenuCell[]
   nextWeekCells: MobileMenuCell[]
@@ -85,7 +87,7 @@ const CREAM = 'rgba(245,240,232,0.88)'
 const CREAM_MUTED = 'rgba(245,240,232,0.72)'
 const CREAM_FAINT = 'rgba(245,240,232,0.45)'
 
-export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resumedAfterCutoff, nextDeliveryLabel, thisWeekCells, nextWeekCells, onRenew }: Props) {
+export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resumedAfterCutoff, closureToday = false, nextDeliveryLabel, thisWeekCells, nextWeekCells, onRenew }: Props) {
   const [sheetMeal, setSheetMeal] = useState<WeekMeal | null>(null)
 
   return (
@@ -109,6 +111,7 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resu
         subStatus={subStatus}
         dorm={dorm}
         resumedAfterCutoff={resumedAfterCutoff}
+        closureToday={closureToday}
         nextDeliveryLabel={nextDeliveryLabel}
         startsOn={startsOn}
         onOpen={() => todayMeal && setSheetMeal(todayMeal)}
@@ -172,11 +175,12 @@ function SpotlightNotice({ headline, children }: { headline: string; children: R
 }
 
 // ── Today spotlight ──────────────────────────────────────────────────────────
-function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliveryLabel, startsOn, onOpen, onExplore }: {
+function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, closureToday = false, nextDeliveryLabel, startsOn, onOpen, onExplore }: {
   meal: WeekMeal | null
   subStatus: string | null
   dorm: string | null
   resumedAfterCutoff: boolean
+  closureToday?: boolean
   nextDeliveryLabel: string
   /** Scheduled sub's start_date — the status card names the first delivery. */
   startsOn: string | null
@@ -199,6 +203,18 @@ function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, nextDeliver
         <div style={{ fontSize: 18, fontWeight: 800, color: S.fg }}>Sunday — no delivery</div>
         <div style={{ fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>Rest up. Next delivery Monday at 7 PM.</div>
       </div>
+    )
+  }
+
+  // Company closure — the kitchen is shut for everyone tonight (mirrors
+  // desktop: checked before status, since it is the truer reason today).
+  if (closureToday) {
+    return (
+      <SpotlightNotice headline="Kitchen closed today">
+        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>
+          No delivery tonight — the kitchen is closed. This day is added to the end of your plan, so nothing is lost.
+        </p>
+      </SpotlightNotice>
     )
   }
 
@@ -322,6 +338,7 @@ const REASON: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color
   'in-pause':       { Icon: Moon, label: 'Paused',          color: 'rgba(30,58,79,0.72)' },
   'plan-ends':      { Icon: Lock, label: 'Renew to unlock', color: 'rgba(90,84,72,0.82)' },
   'pre-start':      { Icon: Clock, label: 'Starts soon',     color: 'rgba(29,95,163,0.70)' },
+  'closure':        { Icon: UtensilsCrossed, label: 'Kitchen closed', color: 'rgba(9,24,37,0.80)' },
 }
 
 function stateChip(cell: MobileMenuCell): { Icon: typeof Moon; label: string; color: string } | null {

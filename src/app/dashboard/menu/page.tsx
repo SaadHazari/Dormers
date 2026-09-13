@@ -1,5 +1,5 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { getCustomer, getActiveSubscription, getQueuedSubscription } from '@/infra/supabase/subscriptions-repo'
+import { getCustomer, getActiveSubscription, getQueuedSubscription, getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import MenuClient from './MenuClient'
@@ -9,7 +9,7 @@ import MenuLoading from './loading'
 export default async function MenuPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string; state?: string; queued?: string; pref?: string; week?: string; loading?: string; error?: string }>
+  searchParams: Promise<{ preview?: string; state?: string; queued?: string; pref?: string; week?: string; closure?: string; loading?: string; error?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -44,6 +44,9 @@ export default async function MenuPage({
           activeSubscription={sub}
           userEmail="preview@dormers.ae"
           hasQueuedRenewal={params.queued === '1'}
+          // ?closure=today — the kitchen is closed TODAY; ?closure=1 — closed
+          // the next two days (mirrors the home page's knob).
+          closureDates={params.closure === 'today' ? [d(0), d(1)] : params.closure === '1' ? [d(1), d(2)] : []}
         />
       </Suspense>
     )
@@ -61,11 +64,12 @@ export default async function MenuPage({
   // (for the Now tray) and no longer needed here — LastWeekSection and
   // MonthlyWrapTrigger used to live on this page but moved into the tray.
   // See project_now_tray_architecture memory.
-  const [customer, activeSubscription, queuedSub, menuDishes] = await Promise.all([
+  const [customer, activeSubscription, queuedSub, menuDishes, closureDates] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getQueuedSubscription(user.id),
     getMenuDishes(),
+    getCompanyClosureDates(),
   ])
 
   return (
@@ -76,6 +80,7 @@ export default async function MenuPage({
         userEmail={user.email}
         hasQueuedRenewal={!!queuedSub}
         menuData={menuDishes}
+        closureDates={closureDates}
       />
     </Suspense>
   )

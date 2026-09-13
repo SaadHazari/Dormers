@@ -28,6 +28,11 @@ vi.mock('next/cache', () => ({
 // The seasonal-taper guard in changeStartDate reads the intake singleton.
 // intake.ts is 'server-only' and hits a service-role client, so it is mocked
 // at the boundary like every other infra dependency here.
+// The closure guard reads company_closures through the service-role client;
+// the tests below never schedule a closure, so an empty calendar is the truth.
+vi.mock('@/infra/supabase/subscriptions-repo', () => ({
+  getCompanyClosureDates: async () => [],
+}))
 vi.mock('@/infra/config/intake', () => ({
   getIntakeState: vi.fn(),
 }))

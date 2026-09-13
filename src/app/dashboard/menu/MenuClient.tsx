@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
+import { Truck, Moon, Utensils, UtensilsCrossed, Check, Sparkles, Clock, Lock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
 
 import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
@@ -259,11 +259,13 @@ function SpotlightNotice({ headline, children }: { headline: string; children: R
   )
 }
 
-function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, weekType = '6DAYS', startsOn = null, onOpenDish }: {
+function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, closureToday = false, weekType = '6DAYS', startsOn = null, onOpenDish }: {
   meal: WeekMeal | null
   dorm: string | null
   subStatus: string | null
   resumedAfterCutoff?: boolean
+  /** Today is a company closure — nothing is cooked for anyone. */
+  closureToday?: boolean
   weekType?: '5DAYS' | '6DAYS'
   /** Scheduled sub's start_date — the status card names the first delivery. */
   startsOn?: string | null
@@ -320,6 +322,19 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, wee
           Rest up. Next delivery {nextDelivery}, 7–8 PM.
         </div>
       </div>
+    )
+  }
+
+  // Company closure — the kitchen is shut for everyone tonight. Checked
+  // before status: a paused or scheduled customer is also not getting
+  // dinner, but "Kitchen closed" is the truer reason today.
+  if (closureToday) {
+    return (
+      <SpotlightNotice headline="Kitchen closed today">
+        <p style={NOTICE_BODY}>
+          No delivery tonight — the kitchen is closed. This day is added to the end of your plan, so nothing is lost.
+        </p>
+      </SpotlightNotice>
     )
   }
 
@@ -509,6 +524,7 @@ export type NoDeliveryReason =
   | 'in-pause'         // future day after planned_pause_start (open-ended)
   | 'plan-ends'        // future day past active sub's end_date AND no queued renewal
   | 'pre-start'        // any day before a Scheduled sub's start_date — nothing was cooked
+  | 'closure'          // company closure — the kitchen is shut; the day is added to the end of the plan
 function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, onClick }: {
   meal: WeekMeal
   dayLabel: string
@@ -711,6 +727,8 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
             // plan starts in five days that Monday and Tuesday were
             // "Delivered" and tonight's dish was theirs.
             'pre-start':      { Icon: Clock, label: 'Starts soon',      color: 'rgba(29,95,163,0.65)'  },
+            // The kitchen itself is shut — same mark the dashboard grid uses.
+            'closure':        { Icon: UtensilsCrossed, label: 'Kitchen closed', color: 'rgba(9,24,37,0.78)' },
           }
           if (noPlan) return null
           const stateConfig = noDeliveryReason
@@ -911,12 +929,16 @@ export default function MenuClient({
   activeSubscription,
   hasQueuedRenewal = false,
   menuData,
+  closureDates = [],
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
   userEmail?: string
   hasQueuedRenewal?: boolean
   menuData?: Dish[]
+  /** Company closure dates (YYYY-MM-DD) — the kitchen is shut, no dish is
+   *  promised, and the day card says so. */
+  closureDates?: string[]
 }) {
   // week_type: prefer the active sub's snapshot (canonical for this cycle).
   // Fall back to the customer's preference (relevant for users browsing
@@ -937,6 +959,8 @@ export default function MenuClient({
   // column `resume_cutoff_date` is set by resumeSubscription and stale by
   // tomorrow — compare against today's AE date (UTC+4) for correctness.
   const resumedAfterCutoff = activeSubscription?.resume_cutoff_date === todayAEIso
+  const closureSet = new Set(closureDates)
+  const closureToday = closureSet.has(todayAEIso)
 
   // Set-based lookup for the skip ledger so per-day classification is O(1).
   const skippedDateSet = new Set(activeSubscription?.skipped_dates ?? [])
@@ -1001,10 +1025,15 @@ export default function MenuClient({
     const inSkipLedger = skippedDateSet.has(meal.iso)
     if (dayState === 'today') {
       if (subIsSkippedToday || resumedAfterCutoff || inSkipLedger) return 'today-skipped'
+      if (closureSet.has(meal.iso)) return 'closure'
       return null
     }
     if (dayState === 'past' && inSkipLedger) return 'past-skipped'
     if (dayState === 'future' && inSkipLedger) return 'future-skipped'
+    // Company closure — after the skip ledger so a day the customer chose
+    // to skip keeps reading as their choice (the dashboard grid orders the
+    // two the same way).
+    if (closureSet.has(meal.iso)) return 'closure'
     return null
   }
 
@@ -1085,7 +1114,7 @@ export default function MenuClient({
         {/* ── Section 1: Today (full-width hero) ── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Eyebrow>{resumedAfterCutoff || spotlightStatusKind(activeSubscription?.status ?? null) ? 'Tonight' : "Today's delivery"}</Eyebrow>
+            <Eyebrow>{resumedAfterCutoff || closureToday || spotlightStatusKind(activeSubscription?.status ?? null) ? 'Tonight' : "Today's delivery"}</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
           <TodaySpotlight
@@ -1093,6 +1122,7 @@ export default function MenuClient({
             dorm={customer?.dorm_name ?? null}
             subStatus={activeSubscription?.status ?? null}
             resumedAfterCutoff={resumedAfterCutoff}
+            closureToday={closureToday}
             weekType={weekType}
             startsOn={activeSubscription?.start_date ?? null}
             onOpenDish={todayMeal ? () => setOpenMeal(todayMeal) : undefined}
@@ -1173,6 +1203,7 @@ export default function MenuClient({
           subStatus={activeSubscription?.status ?? null}
           startsOn={activeSubscription?.start_date ?? null}
           resumedAfterCutoff={resumedAfterCutoff}
+          closureToday={closureToday}
           nextDeliveryLabel={nextDeliveryLabel(weekType)}
           thisWeekCells={thisWeekCells}
           nextWeekCells={nextWeekCells}

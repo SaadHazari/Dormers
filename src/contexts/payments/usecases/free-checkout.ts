@@ -30,6 +30,8 @@ import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
 import { creditInviterOnConversion } from '@/contexts/referrals/usecases/credit-inviter'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { getIntakeState } from '@/infra/config/intake'
+import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
+import { firstOpenDeliveryDay } from '@/contexts/subscriptions/domain/open-delivery-day'
 import { seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon'
 
 /**
@@ -147,6 +149,9 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     if (isNaN(startDt.getTime())) startDt = new Date(todayMidnightUtc)
     startDt = nextDeliveryDay(startDt, weekType)
   }
+  // Never start on a night the kitchen is closed — roll to the first open
+  // delivery day, the same way a Sunday pick already rolls to Monday.
+  startDt = firstOpenDeliveryDay(startDt, weekType, new Set(await getCompanyClosureDates()))
   const status = startDt.getTime() > todayMidnightUtc.getTime()
     ? SUBSCRIPTION_STATUS.SCHEDULED
     : SUBSCRIPTION_STATUS.ACTIVE

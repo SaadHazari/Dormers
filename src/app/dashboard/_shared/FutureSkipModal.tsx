@@ -24,6 +24,10 @@ interface Props {
     isPending: boolean
     onConfirmSkip: (dateIso: string) => void
     onConfirmUnskip: (dateIso: string) => void
+    /** Company closure dates (YYYY-MM-DD). A closed night is already paid
+     *  back by closure_tick, so skipping it would burn a credit for nothing —
+     *  the picker greys those days out and names why. */
+    closureDates?: string[]
 }
 
 function isoOf(d: Date): string {
@@ -60,7 +64,7 @@ function formatLongDate(iso: string): string {
  */
 export function FutureSkipModal({
     open, onClose, mode, initialDate, sub, maxSkips, queuedSub, isPending,
-    onConfirmSkip, onConfirmUnskip,
+    onConfirmSkip, onConfirmUnskip, closureDates = [],
 }: Props) {
     const [selectedDate, setSelectedDate] = useState<string>(initialDate ?? '')
 
@@ -80,10 +84,11 @@ export function FutureSkipModal({
     // Make-up days are rendered as disabled chips so the customer can see
     // why their cycle's tail isn't selectable (otherwise the picker silently
     // ends earlier than they'd expect and they're left guessing).
-    const { pickable, makeupDays } = useMemo(() => {
+    const { pickable, makeupDays, closedDays } = useMemo(() => {
         if (mode !== 'pick-then-skip') {
-            return { pickable: [] as string[], makeupDays: [] as string[] }
+            return { pickable: [] as string[], makeupDays: [] as string[], closedDays: [] as string[] }
         }
+        const closureSet = new Set(closureDates)
         const weekType: '5DAYS' | '6DAYS' = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
         const todayIso = aeTodayIso()
         const tomorrow = new Date(todayIso + 'T00:00:00')
@@ -99,6 +104,7 @@ export function FutureSkipModal({
 
         const pickable: string[] = []
         const makeupDays: string[] = []
+        const closedDays: string[] = []
         const cursor = new Date(sub.start_date + 'T00:00:00')
         let position = 0
         while (cursor.getTime() <= end.getTime()) {
@@ -111,14 +117,15 @@ export function FutureSkipModal({
                     && !skippedSet.has(iso)
                     && !insidePlannedPause
                 if (eligible) {
-                    if (position <= totalDeliveries) pickable.push(iso)
+                    if (closureSet.has(iso)) closedDays.push(iso)
+                    else if (position <= totalDeliveries) pickable.push(iso)
                     else makeupDays.push(iso)
                 }
             }
             cursor.setDate(cursor.getDate() + 1)
         }
-        return { pickable, makeupDays }
-    }, [mode, sub.week_type, sub.end_date, sub.start_date, sub.total_meals, sub.skipped_dates, sub.plan_name, sub.planned_pause_start])
+        return { pickable, makeupDays, closedDays }
+    }, [mode, sub.week_type, sub.end_date, sub.start_date, sub.total_meals, sub.skipped_dates, sub.plan_name, sub.planned_pause_start, closureDates])
 
     const isUnskip = mode === 'confirm-unskip'
 
@@ -333,6 +340,33 @@ export function FutureSkipModal({
                                 </button>
                             )
                         })}
+                        {closedDays.map(iso => {
+                            const d = new Date(iso + 'T00:00:00')
+                            const label = d.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })
+                            return (
+                                <button
+                                    key={iso}
+                                    type="button"
+                                    disabled
+                                    title="Kitchen closed · already added to your plan"
+                                    aria-label={`${label} — kitchen closed, nothing to skip`}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: 8,
+                                        border: `1px dashed var(--ds-border)`,
+                                        background: 'transparent',
+                                        color: S.fgMuted,
+                                        fontFamily: BODY, fontSize: 12, fontWeight: 700,
+                                        cursor: 'not-allowed', whiteSpace: 'nowrap',
+                                        fontFeatureSettings: '"tnum"',
+                                        opacity: 0.7,
+                                        textDecoration: 'line-through',
+                                        textDecorationColor: 'rgba(9,24,37,0.35)',
+                                    }}
+                                >
+                                    {label}
+                                </button>
+                            )
+                        })}
                     </div>
                     {makeupDays.length > 0 && (
                         <div style={{
@@ -343,10 +377,19 @@ export function FutureSkipModal({
                             Greyed-out dates are make-up days — bonus catch-up meals at the tail of your cycle that replace earlier skips. They can&rsquo;t be skipped themselves.
                         </div>
                     )}
+                    {closedDays.length > 0 && (
+                        <div style={{
+                            marginTop: 8,
+                            fontFamily: BODY, fontSize: 11.5,
+                            color: S.fgMuted, lineHeight: 1.5,
+                        }}>
+                            Struck-through dates are days the kitchen is closed. Nothing is cooked, and each one is already added to the end of your plan — no skip needed.
+                        </div>
+                    )}
                 </div>
             )}
 
-            {mode === 'pick-then-skip' && pickable.length === 0 && makeupDays.length === 0 && (
+            {mode === 'pick-then-skip' && pickable.length === 0 && makeupDays.length === 0 && closedDays.length === 0 && (
                 <div style={{
                     marginTop: 18, padding: 14, borderRadius: 10,
                     background: 'var(--ds-skeleton-base)',

@@ -2535,6 +2535,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         isPending={isPending}
         onConfirmSkip={handleConfirmFutureSkip}
         onConfirmUnskip={handleConfirmFutureUnskip}
+        closureDates={closureDates}
       />
 
       {/* Plan-a-pause picker modal — opened from the existing Pause confirm

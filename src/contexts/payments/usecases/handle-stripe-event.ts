@@ -21,6 +21,8 @@ import * as Sentry from '@sentry/nextjs'
 import type { Stripe } from '@/infra/stripe/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
+import { firstOpenDeliveryDay } from '@/contexts/subscriptions/domain/open-delivery-day'
 import { resolvePlan, totalMealsFor, planKindOf } from '@/contexts/subscriptions/domain/plans'
 import { creditInviterOnConversion } from '@/contexts/referrals/usecases/credit-inviter'
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo'
@@ -160,6 +162,9 @@ async function handleCheckoutCompleted(
     // Shift to next delivery day in case of edge cases (e.g. trial picks a Sunday)
     startDate = nextDeliveryDay(startDate, weekType)
   }
+  // Never start on a night the kitchen is closed — roll to the first open
+  // delivery day, the same way a Sunday pick already rolls to Monday.
+  startDate = firstOpenDeliveryDay(startDate, weekType, new Set(await getCompanyClosureDates()))
 
   const status = startDate.getTime() > todayMidnightUtc.getTime()
     ? SUBSCRIPTION_STATUS.SCHEDULED

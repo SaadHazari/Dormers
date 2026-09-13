@@ -48,6 +48,16 @@ export async function POST(req: Request) {
   })
   const isSaturday = nowUAE.getDay() === 6
 
+  // ── Closed kitchen: nothing was meant to arrive, so nothing is missing ──
+  const { data: closedToday } = await createAdminSupabaseClient()
+    .from('company_closures')
+    .select('id')
+    .eq('closure_date', todayIso)
+    .maybeSingle()
+  if (closedToday) {
+    return NextResponse.json({ ok: true, pendingDorms: [], sent: false, reason: 'kitchen_closed' })
+  }
+
   // ── Find dorms with active subscriptions today ──────────────────────
   const dormCounts = await getDormCounts(todayIso, dayName, isSaturday)
   const dormsWithSubs = Object.keys(dormCounts).filter(
