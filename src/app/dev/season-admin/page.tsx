@@ -9,15 +9,59 @@
 // Query params:
 //   ?members=0     render the empty state instead of the populated table
 //   ?target=15     set the restart target (omit for "no target set")
+//   ?season=open|stopped|scheduled|stopped_scheduled   season planner state (default stopped)
 import { notFound } from 'next/navigation'
 import { AdminThemeProvider } from '@/app/admin/_components/AdminThemeProvider'
 import { SeasonClient } from '@/app/admin/season/SeasonClient'
 import type { IntakeSettingsRow, WaitlistMember } from '@/app/admin/season/page'
-import type { SeasonPageData } from '@/app/admin/season/season-data'
+import type { SeasonPageData, SeasonPlanRow } from '@/app/admin/season/season-data'
 
 export const dynamic = 'force-dynamic'
 
 const DAY = 86_400_000
+
+// Anchored to Monday 14 Sep 2026 so the projection reads the same every time.
+const FIXTURE_TODAY = '2026-09-14'
+
+function fixturePlan(p: Partial<SeasonPlanRow> & Pick<SeasonPlanRow, 'id' | 'customerName' | 'planName' | 'startDate' | 'endDate'>): SeasonPlanRow {
+  return {
+    customerId: `c-${p.id}`, status: 'Active', weekType: '6DAYS', mealsPerDay: 1, totalMeals: 24, deliveredMeals: 0,
+    creditedSkipDays: 0, bufferGrants: 0, skippedDates: [], plannedPauseStart: null, staffApproval: null,
+    lastDeliveryTickDate: '2026-09-12', dormName: 'Academic City', mealValue: { fils: 1800, exact: false },
+    ...p,
+  }
+}
+
+// One plan per disposition the planner has to show, with the wrap-up day on Wed 30 Sep:
+// runs past (6-day and 5-day, one with no price), starts after, customer paused,
+// staff approval pending, and a plan that finishes.
+const FIXTURE_PLANS: SeasonPlanRow[] = [
+  fixturePlan({ id: 'a', customerName: 'Omar Farouk', planName: 'Monthly Premium', startDate: '2026-09-07', endDate: '2026-10-03', deliveredMeals: 6, mealValue: { fils: 1800, exact: true } }),
+  fixturePlan({ id: 'b', customerName: 'Aisha Rahman', planName: 'Monthly Max', startDate: '2026-09-01', endDate: '2026-09-28', mealsPerDay: 2, totalMeals: 48, deliveredMeals: 22, dormName: 'Dubai Investment Park', mealValue: { fils: 1750, exact: false } }),
+  fixturePlan({ id: 'c', customerName: 'Priya Nair', planName: 'Monthly Premium', status: 'Paused', startDate: '2026-08-24', endDate: '2026-09-25', deliveredMeals: 10, lastDeliveryTickDate: '2026-09-05' }),
+  fixturePlan({ id: 'd', customerName: 'Yusuf Ali', planName: 'Weekly Flex', status: 'Scheduled', startDate: '2026-10-01', endDate: '2026-10-07', totalMeals: 6, lastDeliveryTickDate: null, mealValue: { fils: 1900, exact: false } }),
+  fixturePlan({ id: 'e', customerName: 'Chen Wei', planName: 'Monthly Premium', weekType: '5DAYS', startDate: '2026-09-07', endDate: '2026-10-02', totalMeals: 20, deliveredMeals: 5, lastDeliveryTickDate: '2026-09-11', dormName: null, mealValue: null }),
+  fixturePlan({ id: 'f', customerName: 'Layla Haddad', planName: 'Staff Monthly', status: 'Scheduled', startDate: '2026-09-28', endDate: '2026-10-24', staffApproval: 'pending', lastDeliveryTickDate: null, mealValue: null }),
+]
+
+const FIXTURE_SNAPSHOTS: Record<string, SeasonPageData['snapshot']> = {
+  open: { phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: false },
+  stopped: { phase: 'winding_down', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: true },
+  scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: false },
+  stopped_scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: true },
+}
+
+function fixtureSeason(key: string | undefined): SeasonPageData {
+  const snapshot = FIXTURE_SNAPSHOTS[key ?? 'stopped'] ?? FIXTURE_SNAPSHOTS.stopped
+  return {
+    snapshot,
+    salesStoppedAt: snapshot.salesStopped ? '2026-09-02T01:50:11Z' : null,
+    kitchenDailyCostAed: 500,
+    todayAe: FIXTURE_TODAY,
+    closureDates: ['2026-09-16'],
+    plans: FIXTURE_PLANS,
+  }
+}
 
 // Deliberately uneven: two dorms carrying most of the list, one person with no
 // dorm set, and one whose credit never minted. Those are the three things the
@@ -37,14 +81,15 @@ function fixtureMembers(): WaitlistMember[] {
 export default async function SeasonAdminPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ members?: string; target?: string }>
+  searchParams: Promise<{ members?: string; target?: string; season?: string }>
 }) {
   if (process.env.NODE_ENV === 'production') notFound()
   const params = await searchParams
   const target = params.target ? Number(params.target) : 15
+  const season = fixtureSeason(params.season)
 
   const settings: IntakeSettingsRow = {
-    paused: true,
+    paused: season.snapshot.salesStopped,
     headline: 'We are between semesters.',
     body: 'Dormers cooks when the dorms are full. We have paused new plans until enough of you are back on campus.',
     creditNonvegAed: 20,
@@ -54,18 +99,6 @@ export default async function SeasonAdminPreviewPage({
     pausedBy: 'admin@dormers.ae',
     pauseScheduledFor: null,
     reopenTarget: Number.isFinite(target) ? target : null,
-  }
-
-  // Minimal stand-in only: this harness exists for the waitlist panel, and
-  // Task 8 brings the season-planner fixtures. An empty, phase-open season
-  // is enough to keep SeasonClient's props satisfied here.
-  const season: SeasonPageData = {
-    snapshot: { phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: false },
-    salesStoppedAt: null,
-    kitchenDailyCostAed: 500,
-    todayAe: new Date().toISOString().slice(0, 10),
-    closureDates: [],
-    plans: [],
   }
 
   return (
