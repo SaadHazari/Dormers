@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
+import { ArrowRight, ChevronDown } from 'lucide-react'
 import { useIsLight } from '@/ui-system/hooks/useIsLight'
 import { glassTokens } from '@/ui-system/tokens/glass'
 import { EASE_STANDARD } from '@/ui-system/tokens/motion'
@@ -32,7 +32,7 @@ export default function MealSourcingComparison() {
   const isLight = useIsLight()
   const reduce = useReducedMotion()
   const router = useRouter()
-  const [, startNavTransition] = useTransition()
+  const [isNavPending, startNavTransition] = useTransition()
 
   const tokens = glassTokens(isLight, 'desktop')
   const { panel, inactiveText } = tokens
@@ -185,12 +185,25 @@ export default function MealSourcingComparison() {
                 {/* CTA — after the chart on mobile, bottom of left column on desktop */}
                 <div className="lg:col-start-1 lg:row-start-3 lg:self-start">
                   <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+                    {/* Arrow says "this goes somewhere" (the fill alone reads like
+                        the selected chip above); press dips on touch too, and the
+                        arrow's slot turns into the spinner while /login loads. */}
                     <button
                       type="button"
                       onClick={goSignup}
-                      className="w-full whitespace-nowrap rounded-full bg-gradient-to-r from-[#f57f20] to-[#ffaa00] px-7 py-3 text-[14px] font-bold text-white shadow-md shadow-[#f57f20]/30 outline-none transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-[#f57f20] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-100 sm:w-auto"
+                      disabled={isNavPending}
+                      aria-busy={isNavPending}
+                      className={`group flex w-full cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f57f20] to-[#ffaa00] px-7 py-3 text-[14px] font-bold text-white shadow-md shadow-[#f57f20]/30 outline-none transition duration-150 hover:shadow-lg hover:shadow-[#f57f20]/50 focus-visible:ring-2 focus-visible:ring-[#f57f20] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-progress sm:w-auto ${reduce ? '' : 'hover:scale-[1.03] active:scale-[0.97]'}`}
+                      style={{ opacity: isNavPending ? 0.8 : undefined }}
                     >
                       {COPY.ctaLabel}
+                      <span aria-hidden className="flex h-4 w-4 items-center justify-center">
+                        {isNavPending ? (
+                          <span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-white border-t-transparent" style={{ animation: 'spin 0.8s linear infinite' }} />
+                        ) : (
+                          <ArrowRight className={`h-4 w-4 transition-transform duration-200 ${reduce ? '' : 'group-hover:translate-x-1'}`} />
+                        )}
+                      </span>
                     </button>
                     <p className={`text-[12px] ${mutedText}`}>{COPY.ctaMicrocopy}</p>
                   </div>
