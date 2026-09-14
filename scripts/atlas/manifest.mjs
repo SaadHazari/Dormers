@@ -545,15 +545,27 @@ add('checkout-season-open-date', 'Season taper — clamped date picker', {
 S('7 · My Menu')
 SS('7.1 · Week views')
 const menu = (st, title, description, conditions, extra = '', o = {}) => add(`menu-${st.replace(/[^a-z0-9]/g, '-')}`, title, { description, conditions, url: `/dashboard/menu?preview=1&state=${st}${extra}`, kind: 'page', ...o })
-menu('nosub', 'No active plan', 'The menu for a customer without a plan: today\'s spotlight reads "No active plan"; the week grid is browsable.', 'activeSubscription null.')
+// States with days behind today (paused days, a mid-week start, an ended plan)
+// pin both the fixture (?now=) and the browser clock to this week's Thursday.
+const THURSDAY = nextDow(4)
+const thuNow = `&now=${dateOnly(Date.now() + 4 * 3600000 + THURSDAY * DAY)}`
+const thuClock = aeAt('12:00', THURSDAY)
+menu('nosub', 'No active plan', 'A customer who never had a plan: "No active plan" with Explore plans; the week is plain browsing — full colour, no labels, no "today" ring.', 'activeSubscription null, no ended plan.')
+menu('nosub', 'No plan yet — religious signup', 'The header reads "Mix · veg Mon, Wed" from the saved profile days, and those days show the veg dish.', 'No plan; Religious Preference with saved veg days.', '&pref=mix', { id: 'menu-nosub-mix' })
 menu('active', 'Active plan — this week and next', 'Today\'s spotlight with the live countdown and macros; this week\'s six cards (delivered / today / upcoming) and next week\'s preview strip.', 'Active sub.')
-menu('skipped', 'Skips in the week (past, today, future)', 'Yesterday skipped, tonight "Not tonight", and a future skip scheduled — each with the moon chip.', 'skipped_dates yesterday/today/+2, status Skipped.')
-menu('paused', 'Plan paused', 'Every remaining day reads "Paused"; the spotlight says no delivery today.', 'status Paused.')
-menu('planned-pause', 'Pause begins in two days', 'The pause-start day is marked "Pause begins", later days "Paused".', 'planned_pause_start +2d.')
-menu('plan-ends', 'Plan ends — days beyond are locked', 'Days after the end date go grey with a lock and "Renew to unlock"; tapping routes to Explore.', 'end_date +2d, no queued renewal.')
-menu('plan-ends', 'Plan ends — queued renewal covers the days', 'With a queued plan the same days stay normal "Upcoming".', 'end_date +2d, hasQueuedRenewal.', '&queued=1', { id: 'menu-plan-ends-queued' })
-menu('scheduled', 'Plan starts soon', 'A scheduled plan: spotlight reads "Plan starts soon".', 'status Scheduled.')
-menu('resumed', 'Resumed after the cutoff — no delivery tonight', 'Resuming after 2 PM: the spotlight becomes the "No delivery tonight" card with the next delivery.', 'resume_cutoff_date today.')
+menu('skipped', 'Skips in the week (past, tonight, future)', 'The top card becomes "Skipped tonight" and names the real next delivery; yesterday, tonight and the future skip are grey with their labels.', 'skipped_dates yesterday/today/+2, status Skipped.')
+menu('paused', 'Plan paused mid-week', 'Every day grey: the two paused days behind today read "Paused" (not "Delivered"), today onward "Paused" — next week too, past the end date. The card links to Resume.', 'status Paused since Tuesday, end_date +6d; Thursday.', thuNow, { clock: thuClock })
+menu('planned-pause', 'Pause begins in two days', 'The pause-start day is grey "Pause begins", later days grey "Paused"; tonight is still a normal dinner.', 'planned_pause_start +2d.')
+menu('plan-ends', 'Plan ends in two days', 'A "Your last dinner is …" line with Renew sits above the week; days after the last dinner go grey with a lock and "Renew to unlock", and tapping one routes to renew.', 'end_date +2d, no queued renewal.')
+menu('plan-ends', 'Plan ends — queued renewal covers the days', 'With a queued plan the same days stay normal "Upcoming" and no ending line shows.', 'end_date +2d, hasQueuedRenewal.', '&queued=1', { id: 'menu-plan-ends-queued' })
+menu('plan-ends', 'Plan ends — new plans paused for the season', 'Days after the plan are still grey, but without the lock ("After your plan"); the ending line carries the season note instead of Renew.', 'end_date +2d, intake paused.', '&gate=season', { id: 'menu-plan-ends-season' })
+menu('plan-ends', 'Plan ends — dorm out of zone', 'Renew is a grey pill with the out-of-zone reason; the days after the plan open the dish instead of routing to renew.', 'end_date +2d, out_of_zone.', '&gate=zone', { id: 'menu-plan-ends-zone' })
+menu('last-day', 'Last dinner tonight', 'Tonight\'s ticket adds "Last dinner of your Monthly Premium" with Renew; every day after tonight is grey and locked.', 'end_date today, no queued renewal.')
+menu('ended', 'Plan ended — returning customer', 'Two days after the last dinner: "Your plan has ended" with its date and Renew. Days of the old plan keep Delivered / Skipped, days after it stay grey ("Plan ended", locked ahead).', 'No live plan; last plan ended two days ago; Thursday.', thuNow, { clock: thuClock })
+menu('scheduled', 'Plan starts in five days', 'The top card names the start day; every day before it is grey "Starts soon", days from the start are normal.', 'status Scheduled, start +5d.')
+menu('held', 'Renewal waiting for approval', 'A staff renewal still Scheduled after its start date: "Almost there", no past date quoted, every day grey "Starts soon".', 'status Scheduled, start_date two days ago.')
+menu('midweek', 'Plan started yesterday', 'Days before the plan began read grey "Before your plan", not "Delivered".', 'start_date yesterday; Thursday.', thuNow, { clock: thuClock })
+menu('resumed', 'Resumed after the cutoff — no delivery tonight', '"No delivery tonight" names the first delivery; tonight reads "Not tonight" and the paused days behind it stay "Paused".', 'resume_cutoff_date today, paused Tue–Thu; Thursday.', thuNow, { clock: thuClock })
 menu('active', 'Sunday — rest day', 'Sunday spotlight: "Sunday — no delivery".', 'Sunday.', '', { id: 'menu-sunday', clock: aeAt('12:00', SUNDAY) })
 // The countdown span carries suppressHydrationWarning, so React keeps the SERVER's
 // text unless the client's own value CHANGES after mount — a static fake clock can
@@ -569,6 +581,11 @@ add('menu-dish-detail', 'Dish detail (modal / sheet)', {
   description: 'Tapping a day opens the dish: photo, calories, protein, veg tag, spice level and description.',
   conditions: 'Any non-off day tapped.', url: '/dashboard/menu?preview=1&state=active', kind: 'sheet',
   actions: [{ type: 'click', selector: '.week-day-card[data-state="today"]', vp: 'desktop', settleMs: 900 }, { type: 'click', selector: 'button[aria-label^="Tonight:"]', vp: 'mobile', settleMs: 900 }],
+})
+add('menu-dish-detail-paused', 'Dish detail on a paused day', {
+  description: 'Tapping a grey day opens the dish with a first line saying why it won\'t come ("You were paused this day.").',
+  conditions: 'Paused plan; a paused day tapped.', url: `/dashboard/menu?preview=1&state=paused${thuNow}`, kind: 'sheet', clock: thuClock,
+  actions: [{ type: 'click', selector: '.menu-desktop .week-day-card[data-state="in-pause"] >> nth=0', vp: 'desktop', settleMs: 900 }, { type: 'click', selector: '.menu-mobile button[data-reason="in-pause"] >> nth=0', vp: 'mobile', settleMs: 900 }],
 })
 add('menu-closure-today', 'Kitchen closed today on the menu', {
   description: 'The Tonight spotlight drops the dinner ticket for a "Kitchen closed today" notice, and today\'s card wears the crossed-utensils "Kitchen closed" chip.',

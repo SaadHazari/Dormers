@@ -3,10 +3,12 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils, UtensilsCrossed } from 'lucide-react'
-import type { WeekMeal, WeekDayState, NoDeliveryReason } from '../menu/MenuClient'
+import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } from 'lucide-react'
+import type { WeekMeal, WeekDayState } from '../menu/MenuClient'
+import type { NoDeliveryReason, RenewGate } from '../_shared/menu-day-status'
+import type { Spotlight } from '../_shared/menu-spotlight'
+import { reasonChip, GREY_CARD_BG, GREY_PHOTO_FILTER, type ReasonChip } from '../_shared/menu-reason-chip'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
-import { spotlightStatusKind, spotlightStatusCopy } from '../_shared/menu-spotlight'
 import {
   MobileColumn, HeroTitle, SectionTitle, MealTag, HeatBar, MobileSheet, solidNavyBtn,
   CARD, OG, NV, S, BODY, eyebrow,
@@ -21,8 +23,9 @@ import {
  *   countdown → macros → truncated description) → This week (2-across, today
  *   widened) → Next week peek → DishDetail bottom sheet on tap.
  *
- * All business logic (week build, no-delivery classification, plan-ends
- * routing) stays in MenuClient and arrives here as plain cell data + handlers.
+ * All business logic (week build, day status, which top card, renew gates)
+ * stays in MenuClient and the _shared/menu-* modules and arrives here as plain
+ * props, so the two trees can't tell a customer different things.
  */
 
 const SPICE_LABELS = ['', 'Mild', 'Medium', 'Hot']
@@ -60,25 +63,33 @@ export interface MobileMenuCell {
   dayLabel: string
   state: WeekDayState
   reason: NoDeliveryReason | null
-  /** No subscription: no state chip at all (see desktop WeekDayCard.noPlan). */
+  /** No plan, ever: no state chip and no "today" treatment (see desktop WeekDayCard.noPlan). */
   noPlan?: boolean
+  /** Why this dinner won't come — the first line of the dish sheet. */
+  note: string | null
 }
 
 interface Props {
   prefTag: 'Veg' | 'Non Veg' | 'Mix'
+  /** "Mon, Wed" for a religious customer, else null. */
+  vegDaysLabel: string | null
   todayMeal: WeekMeal | null
+  todayNote: string | null
   dorm: string | null
-  subStatus: string | null
-  /** Scheduled sub's start_date (status spotlight). */
-  startsOn: string | null
-  resumedAfterCutoff: boolean
-  /** Today is a company closure — nothing is cooked for anyone. */
-  closureToday?: boolean
-  nextDeliveryLabel: string
+  /** Which card tonight gets (_shared/menu-spotlight.ts). */
+  spotlight: Spotlight
+  /** Words for every card except the dinner ticket and the rest day. */
+  notice: { headline: string; body: string } | null
+  restCopy: { headline: string; body: string }
+  planName: string | null
+  /** A live pause — the paused card links to the Resume button on the dashboard. */
+  canResume: boolean
+  /** "tomorrow" / "Fri, 18 Sep" when the plan's last dinner is 1–7 days away. */
+  endingLabel: string | null
+  renew: RenewGate
   thisWeekCells: MobileMenuCell[]
   nextWeekCells: MobileMenuCell[]
-  /** Plan-ends cards route here (renew) instead of opening the dish sheet. */
-  onRenew: () => void
+  onNavigate: (href: string) => void
 }
 
 // Cream-on-dark ramp (matches MobileHome / TIER_POP_TEXT — kept literal so the
@@ -87,8 +98,16 @@ const CREAM = 'rgba(245,240,232,0.88)'
 const CREAM_MUTED = 'rgba(245,240,232,0.72)'
 const CREAM_FAINT = 'rgba(245,240,232,0.45)'
 
-export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resumedAfterCutoff, closureToday = false, nextDeliveryLabel, thisWeekCells, nextWeekCells, onRenew }: Props) {
-  const [sheetMeal, setSheetMeal] = useState<WeekMeal | null>(null)
+const PILL: CSSProperties = { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2, padding: '10px 16px', borderRadius: 999, border: 0, background: OG, color: '#fff', cursor: 'pointer', fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', touchAction: 'manipulation' }
+
+export function MobileMenu({ prefTag, vegDaysLabel, todayMeal, todayNote, dorm, spotlight, notice, restCopy, planName, canResume, endingLabel, renew, thisWeekCells, nextWeekCells, onNavigate }: Props) {
+  const [sheet, setSheet] = useState<{ meal: WeekMeal; note: string | null } | null>(null)
+  const renewHref = renew.kind === 'open' ? renew.href : null
+  // Days after the plan, while renewing is open, go straight to renew; every
+  // other card opens the dish sheet with its reason line.
+  const openCell = (c: MobileMenuCell) => c.reason === 'plan-ends' && renewHref
+    ? () => onNavigate(renewHref)
+    : () => setSheet({ meal: c.meal, note: c.note })
 
   return (
     <MobileColumn style={{ color: S.fg }}>
@@ -104,19 +123,38 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resu
         <span style={{ color: S.fgFaint }}>·</span>
         <span>7–8 PM · Sun off</span>
       </div>
+      {/* A religious customer's veg days get their own line — squeezed into the
+          row above they wrapped it and stranded the separator. */}
+      {vegDaysLabel && (
+        <div style={{ fontSize: 12.5, color: S.fgMuted, marginTop: -8 }}>
+          Veg on <strong style={{ fontWeight: 700, color: S.fgSub }}>{vegDaysLabel}</strong>
+        </div>
+      )}
 
       {/* ── Today spotlight ─────────────────────────────────────────────────── */}
       <TodaySpotlight
         meal={todayMeal}
-        subStatus={subStatus}
         dorm={dorm}
-        resumedAfterCutoff={resumedAfterCutoff}
-        closureToday={closureToday}
-        nextDeliveryLabel={nextDeliveryLabel}
-        startsOn={startsOn}
-        onOpen={() => todayMeal && setSheetMeal(todayMeal)}
-        onExplore={onRenew}
+        spotlight={spotlight}
+        notice={notice}
+        restCopy={restCopy}
+        canResume={canResume}
+        renew={renew}
+        onOpen={() => todayMeal && setSheet({ meal: todayMeal, note: todayNote })}
+        onNavigate={onNavigate}
       />
+
+      {/* ── End of the plan, nothing queued ─────────────────────────────────── */}
+      {spotlight.kind === 'dinner' && spotlight.lastDinner && (
+        <EndingStrip renew={renew} onNavigate={onNavigate}>
+          Last dinner of your <strong style={{ color: OG, fontWeight: 700 }}>{planName ?? 'plan'}</strong> tonight.
+        </EndingStrip>
+      )}
+      {endingLabel && (
+        <EndingStrip renew={renew} onNavigate={onNavigate}>
+          Your last dinner is <strong style={{ fontWeight: 700 }}>{endingLabel}</strong>.
+        </EndingStrip>
+      )}
 
       {/* ── This week (2-across, today widened) ─────────────────────────────── */}
       <SectionHeader label="This week" />
@@ -125,8 +163,9 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resu
           <DayCard
             key={i}
             cell={c}
-            wide={c.state === 'today' && c.reason === null && c.meal.tag !== 'Off'}
-            onClick={c.reason === 'plan-ends' ? onRenew : () => setSheetMeal(c.meal)}
+            renewOpen={renewHref !== null}
+            wide={c.state === 'today' && c.reason === null && c.meal.tag !== 'Off' && !c.noPlan}
+            onClick={openCell(c)}
           />
         ))}
       </div>
@@ -138,27 +177,51 @@ export function MobileMenu({ prefTag, todayMeal, dorm, subStatus, startsOn, resu
         style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', margin: '0 -14px', padding: '2px 14px 4px', WebkitOverflowScrolling: 'touch' }}
       >
         {nextWeekCells.map((c, i) => (
-          <PeekCard
-            key={i}
-            cell={c}
-            onClick={c.reason === 'plan-ends' ? onRenew : () => setSheetMeal(c.meal)}
-          />
+          <PeekCard key={i} cell={c} renewOpen={renewHref !== null} onClick={openCell(c)} />
         ))}
       </div>
 
       {/* ── Dish detail — bottom sheet on mobile (never opens on desktop: the
           mobile tree is display:none ≥768, so there's no clickable trigger). ── */}
       <MobileSheet
-        open={sheetMeal !== null}
-        onClose={() => setSheetMeal(null)}
+        open={sheet !== null}
+        onClose={() => setSheet(null)}
         ariaLabel="Dish details"
         footer={
-          <button type="button" onClick={() => setSheetMeal(null)} style={solidNavyBtn}>Got it</button>
+          <button type="button" onClick={() => setSheet(null)} style={solidNavyBtn}>Got it</button>
         }
       >
-        {sheetMeal && <DishDetail meal={sheetMeal} />}
+        {sheet && <DishDetail meal={sheet.meal} note={sheet.note} />}
       </MobileSheet>
     </MobileColumn>
+  )
+}
+
+// Renew, the way the dashboard's plan card does it: open → the same plan,
+// preselected; blocked → a grey pill with the reason under it; season → a note.
+function RenewAction({ renew, label = 'Renew →', onNavigate }: { renew: RenewGate; label?: string; onNavigate: (href: string) => void }) {
+  if (renew.kind === 'season') {
+    return <span style={{ fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>{renew.note}</span>
+  }
+  if (renew.kind === 'blocked') {
+    return (
+      <span style={{ alignSelf: 'flex-start', display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+        <span aria-disabled="true" style={{ ...PILL, marginTop: 0, background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)', cursor: 'not-allowed' }}>{label}</span>
+        <span style={{ fontSize: 11.5, color: S.fgMuted, lineHeight: 1.4 }}>{renew.reason}</span>
+      </span>
+    )
+  }
+  const href = renew.href
+  return <button type="button" onClick={() => onNavigate(href)} style={{ ...PILL, marginTop: 0 }}>{label}</button>
+}
+
+// Thin warm strip for the end of a plan — same words as the desktop line.
+function EndingStrip({ renew, onNavigate, children }: { renew: RenewGate; onNavigate: (href: string) => void; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', padding: '12px 14px', borderRadius: 16, background: 'rgba(245,127,32,0.07)', border: '1px solid rgba(245,127,32,0.22)' }}>
+      <span style={{ fontSize: 13, color: S.fg, lineHeight: 1.45 }}>{children}</span>
+      <RenewAction renew={renew} onNavigate={onNavigate} />
+    </div>
   )
 }
 
@@ -175,76 +238,55 @@ function SpotlightNotice({ headline, children }: { headline: string; children: R
 }
 
 // ── Today spotlight ──────────────────────────────────────────────────────────
-function TodaySpotlight({ meal, subStatus, dorm, resumedAfterCutoff, closureToday = false, nextDeliveryLabel, startsOn, onOpen, onExplore }: {
+function TodaySpotlight({ meal, dorm, spotlight, notice, restCopy, canResume, renew, onOpen, onNavigate }: {
   meal: WeekMeal | null
-  subStatus: string | null
   dorm: string | null
-  resumedAfterCutoff: boolean
-  closureToday?: boolean
-  nextDeliveryLabel: string
-  /** Scheduled sub's start_date — the status card names the first delivery. */
-  startsOn: string | null
+  spotlight: Spotlight
+  notice: { headline: string; body: string } | null
+  restCopy: { headline: string; body: string }
+  canResume: boolean
+  renew: RenewGate
   onOpen: () => void
-  /** No-plan status card's CTA (explore plans). */
-  onExplore: () => void
+  onNavigate: (href: string) => void
 }) {
-  const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
+  // Only the dinner ticket counts down; every other card is static.
+  const [ct, setCt] = useState(() => computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE))
   useEffect(() => {
-    setCt(computeCountdown(new Date(), subStatus))
-    const t = setInterval(() => setCt(computeCountdown(new Date(), subStatus)), 30_000)
+    setCt(computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE))
+    const t = setInterval(() => setCt(computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE)), 30_000)
     return () => clearInterval(t)
-  }, [subStatus])
+  }, [])
 
-  // Rest day (Sunday) — light card, nothing to anchor.
-  if (!meal) {
+  // Rest day (Sunday, or Saturday on a 5-day plan) — light card, nothing to anchor.
+  if (spotlight.kind === 'rest' || !meal) {
     return (
       <div style={{ ...CARD, padding: '34px 22px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <Moon size={26} strokeWidth={1.7} color={S.fgMuted} />
-        <div style={{ fontSize: 18, fontWeight: 800, color: S.fg }}>Sunday — no delivery</div>
-        <div style={{ fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>Rest up. Next delivery Monday at 7 PM.</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: S.fg }}>{restCopy.headline}</div>
+        <div style={{ fontSize: 13, color: S.fgMuted, lineHeight: 1.5 }}>{restCopy.body}</div>
       </div>
     )
   }
 
-  // Company closure — the kitchen is shut for everyone tonight (mirrors
-  // desktop: checked before status, since it is the truer reason today).
-  if (closureToday) {
+  // Nothing arrives tonight — same family, same words as the desktop card.
+  // The dark ticket (TONIGHT badge, macros, "View dish") used to render here
+  // and contradict the grey card right below it.
+  if (notice) {
+    const showDish = spotlight.kind !== 'closure' && spotlight.kind !== 'resumed-late'
     return (
-      <SpotlightNotice headline="Kitchen closed today">
-        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>
-          No delivery tonight — the kitchen is closed. This day is added to the end of your plan, so nothing is lost.
-        </p>
-      </SpotlightNotice>
-    )
-  }
-
-  // Resumed after the 2 PM kitchen cutoff — nothing prepped tonight.
-  if (resumedAfterCutoff) {
-    return (
-      <SpotlightNotice headline="No delivery tonight">
-        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>
-          You resumed after the 2 PM kitchen cutoff — your first delivery is <strong style={{ color: S.fg, fontWeight: 700 }}>{nextDeliveryLabel}</strong>, 7–8 PM. Tonight&rsquo;s slot moves to the end of your plan — nothing is lost.
-        </p>
-      </SpotlightNotice>
-    )
-  }
-
-  // Paused / scheduled / no plan — same family as the resumed card. The
-  // dark ticket (TONIGHT badge, macros, "View dish") used to render here and
-  // contradict the "Paused" chip on the card right below it.
-  const statusKind = spotlightStatusKind(subStatus)
-  if (statusKind) {
-    const copy = spotlightStatusCopy(statusKind, startsOn)
-    return (
-      <SpotlightNotice headline={copy.headline}>
-        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>{copy.body}</p>
-        <button type="button" onClick={onOpen} style={{ appearance: 'none', background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
-          On the menu tonight: <strong style={{ color: S.fg, fontWeight: 700 }}>{meal.dish}</strong> <span style={{ color: OG, fontWeight: 700, whiteSpace: 'nowrap' }}>View dish →</span>
-        </button>
-        {statusKind === 'none' && (
-          <button type="button" onClick={onExplore} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2, padding: '10px 16px', borderRadius: 999, border: 0, background: OG, color: '#fff', cursor: 'pointer', fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Explore plans →
+      <SpotlightNotice headline={notice.headline}>
+        <p style={{ margin: 0, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>{notice.body}</p>
+        {showDish && (
+          <button type="button" onClick={onOpen} style={{ appearance: 'none', background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: BODY, fontSize: 12.5, color: S.fgMuted, lineHeight: 1.5 }}>
+            On the menu tonight: <strong style={{ color: S.fg, fontWeight: 700 }}>{meal.dish}</strong> <span style={{ color: OG, fontWeight: 700, whiteSpace: 'nowrap' }}>View dish →</span>
           </button>
+        )}
+        {spotlight.kind === 'none' && (
+          <button type="button" onClick={() => onNavigate('/dashboard/explore-plans')} style={PILL}>Explore plans →</button>
+        )}
+        {spotlight.kind === 'ended' && <RenewAction renew={renew} label="Renew plan →" onNavigate={onNavigate} />}
+        {spotlight.kind === 'paused' && canResume && (
+          <button type="button" onClick={() => onNavigate('/dashboard')} style={PILL}>Resume plan →</button>
         )}
       </SpotlightNotice>
     )
@@ -329,55 +371,52 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-// ── Reason chip config (mirrors desktop noDeliveryConfig) ────────────────────
-const REASON: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color: string }> = {
-  'today-skipped':  { Icon: Moon, label: 'Not tonight',     color: 'rgba(140,110,60,0.78)' },
-  'past-skipped':   { Icon: Moon, label: 'Skipped',         color: 'rgba(140,110,60,0.78)' },
-  'future-skipped': { Icon: Moon, label: 'Skipped',         color: 'rgba(140,110,60,0.78)' },
-  'pause-start':    { Icon: Moon, label: 'Pause begins',    color: 'rgba(30,58,79,0.78)' },
-  'in-pause':       { Icon: Moon, label: 'Paused',          color: 'rgba(30,58,79,0.72)' },
-  'plan-ends':      { Icon: Lock, label: 'Renew to unlock', color: 'rgba(90,84,72,0.82)' },
-  'pre-start':      { Icon: Clock, label: 'Starts soon',     color: 'rgba(29,95,163,0.70)' },
-  'closure':        { Icon: UtensilsCrossed, label: 'Kitchen closed', color: 'rgba(9,24,37,0.80)' },
-}
-
-function stateChip(cell: MobileMenuCell): { Icon: typeof Moon; label: string; color: string } | null {
-  if (cell.reason) return REASON[cell.reason]
+function stateChip(cell: MobileMenuCell, renewOpen: boolean): ReasonChip | null {
+  if (cell.reason) return reasonChip(cell.reason, renewOpen)
   if (cell.noPlan) return null
   if (cell.state === 'past') return { Icon: Check, label: 'Delivered', color: 'rgba(29,138,48,0.80)' }
   if (cell.state === 'today') return { Icon: Sparkles, label: 'Today', color: OG }
   return { Icon: Clock, label: 'Upcoming', color: 'rgba(29,95,163,0.70)' }
 }
 
+// Lock badge over a grey photo — only while renewing unlocks the day.
+function LockBadge({ size }: { size: number }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(9,24,37,0.30)' }}>
+      <span style={{ width: size, height: size, borderRadius: '50%', background: 'rgba(245,240,232,0.92)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(9,24,37,0.3)' }}><Lock size={size * 0.44} strokeWidth={2.2} color={NV} /></span>
+    </div>
+  )
+}
+
 // ── Week day card (this-week grid) ───────────────────────────────────────────
-function DayCard({ cell, wide, onClick }: { cell: MobileMenuCell; wide: boolean; onClick: () => void }) {
+function DayCard({ cell, wide, renewOpen, onClick }: { cell: MobileMenuCell; wide: boolean; renewOpen: boolean; onClick: () => void }) {
   const { meal, dayLabel, reason } = cell
   const isOff = meal.tag === 'Off'
-  const isToday = cell.state === 'today' && reason === null && !isOff
-  const isPlanEnds = reason === 'plan-ends'
-  const chip = stateChip(cell)
+  const isToday = cell.state === 'today' && reason === null && !isOff && !cell.noPlan
+  // Grey = this dinner won't reach the customer (skipped, paused, closed, not
+  // started, after the plan). The lock only when renewing unlocks it right now.
+  const isGrey = reason !== null && !isOff
+  const isLocked = reason === 'plan-ends' && renewOpen
+  const chip = stateChip(cell, renewOpen)
 
   const card: CSSProperties = {
     ...CARD,
+    background: isGrey ? GREY_CARD_BG : CARD.background,
     gridColumn: wide ? '1 / -1' : undefined,
     padding: 0, overflow: 'hidden', textAlign: 'left', cursor: isOff ? 'default' : 'pointer',
     appearance: 'none', fontFamily: BODY, display: 'flex',
     flexDirection: wide ? 'row' : 'column',
-    border: isToday ? `1.5px solid rgba(245,127,32,0.45)` : (CARD.border as string),
+    border: isToday ? `1.5px solid rgba(245,127,32,0.45)` : isLocked ? '1px dashed rgba(9,24,37,0.18)' : (CARD.border as string),
     boxShadow: isToday ? '0 4px 18px -8px rgba(245,127,32,0.4), 0 1px 2px rgba(9,24,37,0.05)' : CARD.boxShadow,
-    opacity: isPlanEnds ? 0.82 : 1,
+    opacity: isLocked ? 0.82 : 1,
   }
 
   const photo = (
     <div style={{ position: 'relative', flexShrink: 0, width: wide ? 116 : '100%', aspectRatio: wide ? undefined : '16 / 10', alignSelf: 'stretch', background: 'linear-gradient(135deg, #3a2418, #1e3a4f)' }}>
       {meal.image && !isOff
-        ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 50vw, 200px" style={{ objectFit: 'cover', filter: isPlanEnds ? 'grayscale(1) brightness(0.92)' : undefined }} />
+        ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 50vw, 200px" style={{ objectFit: 'cover', filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
         : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{isOff ? <Moon size={20} color="#fff" /> : <Utensils size={20} color="#fff" />}</div>}
-      {isPlanEnds && meal.image && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(9,24,37,0.30)' }}>
-          <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(245,240,232,0.92)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(9,24,37,0.3)' }}><Lock size={14} strokeWidth={2.2} color={NV} /></span>
-        </div>
-      )}
+      {isLocked && meal.image && <LockBadge size={32} />}
     </div>
   )
 
@@ -390,56 +429,51 @@ function DayCard({ cell, wide, onClick }: { cell: MobileMenuCell; wide: boolean;
       <div style={{ fontSize: wide ? 14 : 13, fontWeight: 700, lineHeight: 1.25, color: S.fg, opacity: isOff ? 0.55 : 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as CSSProperties}>
         {meal.dish}{isToday && <span style={{ color: OG }}>.</span>}
       </div>
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+      {/* Diet tag on every dinner, labelled or not — desktop always showed it. */}
+      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, rowGap: 4, flexWrap: 'wrap' }}>
         {isOff
           ? <span style={{ fontSize: 11, color: S.fgFaint }}>Rest day</span>
           : chip
-            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: chip.color }}><chip.Icon size={11} strokeWidth={2.2} />{chip.label}</span>
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: chip.color, whiteSpace: 'nowrap' }}><chip.Icon size={11} strokeWidth={2.2} />{chip.label}</span>
             : <span />}
-        {!isOff && !reason && <MealTag kind={meal.tag} compact />}
+        {!isOff && <MealTag kind={meal.tag} compact />}
       </div>
     </div>
   )
 
   return (
-    <button type="button" onClick={isOff ? undefined : onClick} disabled={isOff} style={card}>
+    <button type="button" onClick={isOff ? undefined : onClick} disabled={isOff} data-reason={reason ?? undefined} style={card}>
       {photo}{body}
     </button>
   )
 }
 
 // ── Next-week peek card (narrow, horizontal scroll) ──────────────────────────
-function PeekCard({ cell, onClick }: { cell: MobileMenuCell; onClick: () => void }) {
+function PeekCard({ cell, renewOpen, onClick }: { cell: MobileMenuCell; renewOpen: boolean; onClick: () => void }) {
   const { meal, dayLabel, reason } = cell
   const isOff = meal.tag === 'Off'
-  const isPlanEnds = reason === 'plan-ends'
+  const isGrey = reason !== null && !isOff
+  const isLocked = reason === 'plan-ends' && renewOpen
   return (
     <button
       type="button"
       onClick={isOff ? undefined : onClick}
       disabled={isOff}
-      style={{ ...CARD, flex: '0 0 auto', width: 132, scrollSnapAlign: 'start', padding: 0, overflow: 'hidden', textAlign: 'left', cursor: isOff ? 'default' : 'pointer', appearance: 'none', fontFamily: BODY, opacity: isPlanEnds ? 0.82 : 1 }}
+      style={{ ...CARD, background: isGrey ? GREY_CARD_BG : CARD.background, flex: '0 0 auto', width: 132, scrollSnapAlign: 'start', padding: 0, overflow: 'hidden', textAlign: 'left', cursor: isOff ? 'default' : 'pointer', appearance: 'none', fontFamily: BODY, border: isLocked ? '1px dashed rgba(9,24,37,0.18)' : (CARD.border as string), opacity: isLocked ? 0.82 : 1 }}
     >
       <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', background: 'linear-gradient(135deg, #3a2418, #1e3a4f)' }}>
         {meal.image && !isOff
-          ? <Image src={meal.image} alt={meal.dish} fill sizes="132px" style={{ objectFit: 'cover', filter: isPlanEnds ? 'grayscale(1) brightness(0.92)' : undefined }} />
+          ? <Image src={meal.image} alt={meal.dish} fill sizes="132px" style={{ objectFit: 'cover', filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
           : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{isOff ? <Moon size={18} color="#fff" /> : <Utensils size={18} color="#fff" />}</div>}
-        {isPlanEnds && meal.image && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(9,24,37,0.30)' }}>
-            <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(245,240,232,0.92)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(9,24,37,0.3)' }}><Lock size={12} strokeWidth={2.2} color={NV} /></span>
-          </div>
-        )}
+        {isLocked && meal.image && <LockBadge size={26} />}
       </div>
       <div style={{ padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: S.fgSub }}>{dayLabel} · {meal.date}</span>
         <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: S.fg, opacity: isOff ? 0.55 : 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as CSSProperties}>{meal.dish}</span>
-        {/* Status chip — the rail dropped it while the This Week grid and the
-            desktop next-week row both carried one, so a paused customer saw
-            six full-colour dinners "arriving" next week with no word that they
-            won't. Only rendered when there is a reason; a plain upcoming day
-            keeps the rail quiet. */}
+        {/* Status chip only when there is a reason; a plain upcoming day keeps
+            the rail quiet. */}
         {reason && !isOff && (() => {
-          const chip = REASON[reason]
+          const chip = reasonChip(reason, renewOpen)
           return (
             <span style={{ marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: chip.color }}>
               <chip.Icon size={10} strokeWidth={2.2} />{chip.label}
@@ -452,12 +486,20 @@ function PeekCard({ cell, onClick }: { cell: MobileMenuCell; onClick: () => void
 }
 
 // ── Dish detail (sheet body) ─────────────────────────────────────────────────
-function DishDetail({ meal }: { meal: WeekMeal }) {
+function DishDetail({ meal, note }: { meal: WeekMeal; note: string | null }) {
   const macro: CSSProperties = { flex: 1, padding: '12px 14px', borderRadius: 12, background: 'var(--ds-surface2)', border: `1px solid ${S.border}` }
   const macroCap: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgMuted }
   const macroVal: CSSProperties = { marginTop: 5, fontSize: 24, fontWeight: 800, color: S.fg, fontFeatureSettings: '"tnum"', lineHeight: 1, letterSpacing: '-0.02em' }
   return (
     <div style={{ paddingTop: 4 }}>
+      {/* Why this dinner won't come — read before the photo sells it. */}
+      {note && (
+        // marginRight clears the sheet's close button, which sits over this row.
+        <div role="note" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 14, marginRight: 40, padding: '10px 12px', borderRadius: 12, background: 'var(--ds-surface2)', border: `1px solid ${S.border}`, fontSize: 13, color: S.fgSub, lineHeight: 1.5 }}>
+          <Moon size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 3 }} />
+          <span>{note}</span>
+        </div>
+      )}
       {meal.image && (
         <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 16, overflow: 'hidden', marginBottom: 16, background: 'var(--ds-skeleton-base)' }}>
           <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 100vw, 460px" style={{ objectFit: 'cover' }} />

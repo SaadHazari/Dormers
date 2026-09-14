@@ -5,18 +5,23 @@ import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Truck, Moon, Utensils, UtensilsCrossed, Check, Sparkles, Clock, Lock } from 'lucide-react'
+import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
 import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
 
 import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
-import { vegDayNumbersFor } from '@/contexts/subscriptions/domain/veg-day'
+import { vegDayNumbersFor, preferenceKindFor, resolveVegDayNames } from '@/contexts/subscriptions/domain/veg-day'
 import { HeatBar } from '../_shared/HeatBar'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { MobileMenu, type MobileMenuCell } from '../_mobile/MobileMenu'
 import { COMPACT } from '../_shared/breakpoints'
-import { spotlightStatusKind, spotlightStatusCopy } from '../_shared/menu-spotlight'
+import { spotlightFor, spotlightCopy, spotlightEyebrow, restDayCopy, type Spotlight } from '../_shared/menu-spotlight'
+import {
+  classifyMenuDay, dayPosition, noDeliveryNote, planEndingNotice, deliveryDayLabel, renewGateFor,
+  type MenuDayContext, type MenuPlan, type NoDeliveryReason, type RenewGate,
+} from '../_shared/menu-day-status'
+import { reasonChip, GREY_CARD_BG, GREY_PHOTO_FILTER } from '../_shared/menu-reason-chip'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -59,6 +64,12 @@ interface ActiveSubLike {
   // ISO end_date of the active sub. Used together with the queuedSub flag
   // to dim out-of-plan future days as "Plan ends" when no renewal is queued.
   end_date?: string | null
+  // AE wall dates the pause tick recorded (plus a late resume's own day).
+  // Past paused days read "Paused", not "Delivered".
+  paused_dates?: string[] | null
+  plan_name?: string | null
+  // The plan's own diet — wins over the customer's (veg-day.ts).
+  meal_preference_type?: string | null
 }
 
 export type WeekMeal = {
@@ -160,25 +171,15 @@ function todayMonIdx(): number {
   return d === 0 ? 6 : d - 1
 }
 
-// Next AE delivery day label — mirrors HeroToday's helper for the menu page.
-// "tomorrow evening" in the common case; short date string when the next slot
-// skips the weekend (Fri/Sat on 5DAYS, Sat on 6DAYS).
-function nextDeliveryLabel(weekType: '5DAYS' | '6DAYS'): string {
-  const aeShift = 4 * 60 * 60 * 1000
-  for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
-    const candidate = new Date(Date.now() + aeShift + daysAhead * 86_400_000)
-    const isoDow = candidate.getUTCDay() === 0 ? 7 : candidate.getUTCDay()
-    const isDelivery =
-      weekType === '5DAYS' ? (isoDow !== 6 && isoDow !== 7) : isoDow !== 7
-    if (!isDelivery) continue
-    if (daysAhead === 1) return 'tomorrow evening'
-    // candidate is already aeShifted to represent the Dubai calendar day —
-    // pin timeZone:'UTC' so SSR (UTC) and browser (Asia/Dubai) format the
-    // same string instead of re-shifting in the runtime's local timezone.
-    return `${candidate.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })} evening`
-  }
-  return 'your next delivery day'
+// The page's plan rows arrive loosely typed (select('*') and preview
+// fixtures). The day rules need a start and an end date to say anything, so
+// a row without them counts as no plan.
+function toMenuPlan(sub: ActiveSubLike | null | undefined): MenuPlan | null {
+  if (!sub?.start_date || !sub.end_date) return null
+  return { ...sub, status: sub.status ?? null, start_date: sub.start_date, end_date: sub.end_date }
 }
+
+const RENEW_OPEN_GATE = { intakePaused: false, outOfZone: false, profileIncomplete: false }
 
 // ── Today's delivery countdown ────────────────────────────────────────────────
 // Deliberately imprecise — see ClientDashboard.computeCountdown for rationale.
@@ -261,32 +262,50 @@ function SpotlightNotice({ headline, children }: { headline: string; children: R
   )
 }
 
-function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, closureToday = false, weekType = '6DAYS', startsOn = null, onOpenDish }: {
+const ENDING_LINE: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', marginBottom: 20, borderRadius: 'var(--radius-sm)', background: 'rgba(245,127,32,0.07)', border: '1px solid rgba(245,127,32,0.22)' }
+
+// Renew, the way the dashboard's plan card does it: open → the same plan,
+// preselected; blocked → a grey pill with the reason; season → a note.
+function RenewControl({ renew, label = 'Renew →', onDark = false }: { renew: RenewGate; label?: string; onDark?: boolean }) {
+  if (renew.kind === 'season') {
+    return <span style={{ fontFamily: BODY, fontSize: 12.5, lineHeight: 1.5, color: onDark ? TIER_POP_TEXT.muted : S.fgMuted, maxWidth: '48ch' }}>{renew.note}</span>
+  }
+  if (renew.kind === 'blocked') {
+    return (
+      <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span title={renew.reason} aria-disabled="true" style={{ ...NOTICE_CTA, marginTop: 0, background: 'var(--ds-fg-tint)', color: 'rgba(255,255,255,0.85)', cursor: 'not-allowed' }}>{label}</span>
+        <span style={{ fontFamily: BODY, fontSize: 12, color: onDark ? TIER_POP_TEXT.muted : S.fgMuted }}>{renew.reason}</span>
+      </span>
+    )
+  }
+  return <Link href={renew.href} style={{ ...NOTICE_CTA, marginTop: 0 }}>{label}</Link>
+}
+
+function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDish }: {
   meal: WeekMeal | null
   dorm: string | null
-  subStatus: string | null
-  resumedAfterCutoff?: boolean
-  /** Today is a company closure — nothing is cooked for anyone. */
-  closureToday?: boolean
-  weekType?: '5DAYS' | '6DAYS'
-  /** Scheduled sub's start_date — the status card names the first delivery. */
-  startsOn?: string | null
+  /** Which card tonight gets — decided in _shared/menu-spotlight.ts. */
+  spotlight: Spotlight
+  ctx: MenuDayContext
+  planName: string | null
+  renew: RenewGate
   /** Opens the dish modal from the status card's footnote. */
   onOpenDish?: () => void
 }) {
-  const [ct, setCt] = useState(() => computeCountdown(new Date(), subStatus))
+  // Only the dinner ticket counts down; every other card is static.
+  const [ct, setCt] = useState(() => computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE))
 
   useEffect(() => {
-    setCt(computeCountdown(new Date(), subStatus))
-    const t = setInterval(() => setCt(computeCountdown(new Date(), subStatus)), 30_000)
+    setCt(computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE))
+    const t = setInterval(() => setCt(computeCountdown(new Date(), SUBSCRIPTION_STATUS.ACTIVE)), 30_000)
     return () => clearInterval(t)
-  }, [subStatus])
+  }, [])
 
-  // Sunday or out-of-range — TIER1, not TIER_POP. TIER_POP is earned by
-  // having data worth anchoring; an empty rest-day slot has nothing to
-  // surface, so the card steps back to T1 (anchors the slot without
-  // overclaiming). Operational days (Mon–Sat) earn TIER_POP below.
-  if (!meal) {
+  // Rest day (Sunday, or Saturday on a 5-day plan) — TIER1, not TIER_POP: an
+  // empty slot has nothing to anchor. The next delivery it names is the real
+  // one, with skips, closures and pauses stepped over — or none at all.
+  if (spotlight.kind === 'rest' || !meal) {
+    const copy = restDayCopy(ctx)
     return (
       <div style={{
         ...TIER1,
@@ -295,86 +314,38 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, clo
         textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
       }}>
         <Moon size={28} strokeWidth={1.6} color={S.fgMuted} />
-        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2 }}>Sunday — no delivery</div>
-        <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>
-          Rest up. Next delivery Monday at 7 PM.
-        </div>
+        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2 }}>{copy.headline}</div>
+        <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>{copy.body}</div>
       </div>
     )
   }
 
-  // Non-Sunday rest day (e.g. Saturday on a 5-day plan). The meal slot is
-  // off, so there's no dish, no macros, and nothing en route — render the
-  // same rest-day treatment Sunday gets rather than the dish layout, which
-  // would otherwise show a phantom "Arriving in ~Nh" countdown (computeCountdown
-  // only short-circuits on Sunday) alongside a 0 kcal / 0 g strip and an empty
-  // photo panel.
-  if (meal.tag === 'Off') {
-    const nextDelivery = nextDeliveryLabel(weekType)
-    return (
-      <div style={{
-        ...TIER1,
-        background: '#faf2dd',
-        borderRadius: 'var(--radius-md)', padding: '56px 24px',
-        textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-      }}>
-        <Moon size={28} strokeWidth={1.6} color={S.fgMuted} />
-        <div style={{ fontFamily: BODY, fontSize: 20, fontWeight: 700, color: S.fg, lineHeight: 1.2 }}>No delivery — rest day</div>
-        <div style={{ fontFamily: BODY, fontSize: 13, color: S.fgMuted, lineHeight: 1.65 }}>
-          Rest up. Next delivery {nextDelivery}, 7–8 PM.
-        </div>
-      </div>
-    )
-  }
-
-  // Company closure — the kitchen is shut for everyone tonight. Checked
-  // before status: a paused or scheduled customer is also not getting
-  // dinner, but "Kitchen closed" is the truer reason today.
-  if (closureToday) {
-    return (
-      <SpotlightNotice headline="Kitchen closed today">
-        <p style={NOTICE_BODY}>
-          No delivery tonight — the kitchen is closed. This day is added to the end of your plan, so nothing is lost.
-        </p>
-      </SpotlightNotice>
-    )
-  }
-
-  // Resumed after kitchen cutoff (2 PM AE) — no meal was prepped tonight.
-  if (resumedAfterCutoff) {
-    const nextDelivery = nextDeliveryLabel(weekType)
-    return (
-      <SpotlightNotice headline="No delivery tonight">
-        <p style={NOTICE_BODY}>
-          You resumed after the 2 PM kitchen cutoff — your first delivery is <strong style={{ fontWeight: 700, color: S.fg }}>{nextDelivery}</strong>, 7–8 PM.
-        </p>
-        <p style={{ ...NOTICE_FOOT, opacity: 0.60 }}>
-          {"Tonight's meal slot has been moved to the end of your plan — nothing is lost."}
-        </p>
-      </SpotlightNotice>
-    )
-  }
-
-  // Paused / scheduled / no plan — nothing arrives tonight either, so the
-  // dinner ticket (TONIGHT eyebrow, macros) would claim the opposite of the
-  // grid card directly below it. Same card family as the resumed state; the
-  // dish is demoted to a footnote instead of headlining.
-  const statusKind = spotlightStatusKind(subStatus)
-  if (statusKind) {
-    const copy = spotlightStatusCopy(statusKind, startsOn)
+  // Nothing arrives tonight — kitchen closed, resumed late, skipped, paused,
+  // not started, ended or no plan. The dinner ticket (TONIGHT eyebrow, macros,
+  // countdown) would claim the opposite of the grey card below it, so the dish
+  // drops to a footnote.
+  if (spotlight.kind !== 'dinner') {
+    const copy = spotlightCopy(spotlight, ctx)
+    const showDish = spotlight.kind !== 'closure' && spotlight.kind !== 'resumed-late'
     return (
       <SpotlightNotice headline={copy.headline}>
         <p style={NOTICE_BODY}>{copy.body}</p>
-        <p style={{ ...NOTICE_FOOT, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span>On the menu tonight: <strong style={{ fontWeight: 700, color: S.fg }}>{meal.dish}</strong></span>
-          {onOpenDish && <button type="button" onClick={onOpenDish} style={NOTICE_LINK}>View dish →</button>}
-        </p>
-        {statusKind === 'none' && (
-          <Link href="/dashboard/explore-plans" style={NOTICE_CTA}>Explore plans →</Link>
+        {showDish && (
+          <p style={{ ...NOTICE_FOOT, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span>On the menu tonight: <strong style={{ fontWeight: 700, color: S.fg }}>{meal.dish}</strong></span>
+            {onOpenDish && <button type="button" onClick={onOpenDish} style={NOTICE_LINK}>View dish →</button>}
+          </p>
+        )}
+        {spotlight.kind === 'none' && <Link href="/dashboard/explore-plans" style={NOTICE_CTA}>Explore plans →</Link>}
+        {spotlight.kind === 'ended' && <RenewControl renew={renew} label="Renew plan →" />}
+        {spotlight.kind === 'paused' && ctx.plan?.status === SUBSCRIPTION_STATUS.PAUSED && (
+          <Link href="/dashboard" style={NOTICE_CTA}>Resume plan →</Link>
         )}
       </SpotlightNotice>
     )
   }
+
+  const lastDinner = spotlight.lastDinner
 
   return (
     <div className="today-spotlight" style={{
@@ -475,6 +446,16 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, clo
             </span>
           )}
         </div>
+
+        {/* Last dinner of the plan with nothing queued — the week below locks after tonight. */}
+        {lastDinner && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: BODY, fontSize: 13, color: TIER_POP_TEXT.primary, lineHeight: 1.5 }}>
+              Last dinner of your <strong style={{ color: OG, fontWeight: 700 }}>{planName ?? 'plan'}</strong>.
+            </span>
+            <RenewControl renew={renew} onDark />
+          </div>
+        )}
       </div>
 
       {/* ── Right: framed dish photo (padded inside the card, no edge bleed) ── */}
@@ -513,27 +494,16 @@ function TodaySpotlight({ meal, dorm, subStatus, resumedAfterCutoff = false, clo
 // half the visual weight so the eye reads "preview, not primary."
 export type WeekDayState = 'past' | 'today' | 'future'
 type WeekDayVariant = 'full' | 'preview'
-// Reasons a day card might show "no delivery" treatment. All visually
-// collapse into the same dim-card-with-moon-icon pattern; only the chip
-// label differs so the customer reads the cause at a glance. Same family
-// across past skips, today skips, future scheduled skips, and planned-
-// pause-affected days — Refactoring UI's constrained scale.
-export type NoDeliveryReason =
-  | 'today-skipped'    // status === 'Skipped' OR resumed-after-cutoff (today)
-  | 'past-skipped'     // past day, date is in skipped_dates ledger
-  | 'future-skipped'   // future day, scheduled via Plan a Skip
-  | 'pause-start'      // future day, customer's planned_pause_start date
-  | 'in-pause'         // future day after planned_pause_start (open-ended)
-  | 'plan-ends'        // future day past active sub's end_date AND no queued renewal
-  | 'pre-start'        // any day before a Scheduled sub's start_date — nothing was cooked
-  | 'closure'          // company closure — the kitchen is shut; the day is added to the end of the plan
-function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, onClick }: {
+// Why a day's dinner won't reach the customer: _shared/menu-day-status.ts.
+function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, renewOpen = false, onClick }: {
   meal: WeekMeal
   dayLabel: string
   /** No subscription at all: the calendar chips (Delivered / Today / Upcoming)
    *  would claim meals a plan-less customer never received, so the card
    *  shows dish and date only. */
   noPlan?: boolean
+  /** Renewing is possible right now — days after the plan wear the lock and route to renew. */
+  renewOpen?: boolean
   state: WeekDayState
   variant?: WeekDayVariant
   // When set, the card renders in its dim "no delivery" state with a
@@ -550,7 +520,8 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   // border / pulse / Sparkles chip). Past-day reasons override the
   // "Delivered" chip with the right reason label.
   const hasNoDelivery = noDeliveryReason !== null
-  const effectiveIsToday = isToday && !hasNoDelivery
+  // No plan at all: nothing is arriving tonight, so today gets no focal ring.
+  const effectiveIsToday = isToday && !hasNoDelivery && !noPlan
   // 'plan-ends' is a structurally different no-delivery state from
   // skip/pause — those are operational pauses inside an active plan, this
   // is "no plan is cooking this dish for you, full stop." Per Norman's
@@ -559,7 +530,14 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   // yours." Drives the grayscale image, dimmer surface, lock overlay, and
   // bespoke chip below — the card has to LOOK inactive, not just labeled
   // inactive.
-  const isPlanEnds = noDeliveryReason === 'plan-ends'
+  //
+  // Since 2026-09-14 every day whose dinner won't reach the customer goes grey
+  // — photo drained, surface dropped — so a paused or skipped week reads as
+  // inactive at a glance instead of six full-colour dinners with small labels.
+  // The lock stays for the one grey the customer can undo right now: days
+  // after the plan, while renewing is open.
+  const isGrey = hasNoDelivery
+  const isPlanEnds = noDeliveryReason === 'plan-ends' && renewOpen
 
   // Surface tier — preview cards sit on TIER3 (flat, near-flush with the
   // page) so they recede behind the TIER2 this-week cards. Today gets bumped
@@ -626,12 +604,12 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
         // hero verbatim. Energy without competing for the focal slot.
         background: isOff
           ? 'var(--ds-skeleton-base)'
-          : isPlanEnds
+          : isGrey
             // Cool, desaturated gray-tan that sits visibly BELOW active
             // cream cards in the elevation hierarchy. Active = warm cream,
-            // plan-ends = grayed-out cream — same temperature family but
+            // no dinner = grayed-out cream — same temperature family but
             // drained of life. Reads as "inactive" instantly.
-            ? 'rgba(225,220,210,0.62)'
+            ? GREY_CARD_BG
             : isPreview
               ? `
                   linear-gradient(180deg, rgba(245,127,32,0.13) 0%, rgba(245,127,32,0.055) 28%, rgba(245,127,32,0.018) 60%, rgba(245,127,32,0) 100%),
@@ -713,28 +691,10 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
           // muted-tan color so they read as a coherent "no meal" zone.
           // Pause reasons use a slightly cooler tone to differentiate from
           // skip reasons — Refactoring UI's hierarchy via subtle color shift.
-          const noDeliveryConfig: Record<NoDeliveryReason, { Icon: typeof Moon; label: string; color: string }> = {
-            'today-skipped':  { Icon: Moon, label: 'Not tonight',      color: 'rgba(140,110,60,0.70)' },
-            'past-skipped':   { Icon: Moon, label: 'Skipped',          color: 'rgba(140,110,60,0.70)' },
-            'future-skipped': { Icon: Moon, label: 'Skipped',          color: 'rgba(140,110,60,0.70)' },
-            'pause-start':    { Icon: Moon, label: 'Pause begins',     color: 'rgba(30,58,79,0.75)'   },
-            'in-pause':       { Icon: Moon, label: 'Paused',           color: 'rgba(30,58,79,0.70)'   },
-            // Lock icon + "Renew to unlock" — pairs with the lock overlay
-            // on the dish image. The chip closes the Gulf of Execution
-            // (tells the user the path forward) while the image grayscale
-            // closes the Gulf of Evaluation (shows the current state).
-            'plan-ends':      { Icon: Lock, label: 'Renew to unlock',  color: 'rgba(90,84,72,0.78)'   },
-            // Before a Scheduled plan begins. Without this branch the grid
-            // fell through to the calendar default and told a customer whose
-            // plan starts in five days that Monday and Tuesday were
-            // "Delivered" and tonight's dish was theirs.
-            'pre-start':      { Icon: Clock, label: 'Starts soon',      color: 'rgba(29,95,163,0.65)'  },
-            // The kitchen itself is shut — same mark the dashboard grid uses.
-            'closure':        { Icon: UtensilsCrossed, label: 'Kitchen closed', color: 'rgba(9,24,37,0.78)' },
-          }
+          // Label table shared with the mobile cards (_shared/menu-reason-chip.ts).
           if (noPlan) return null
           const stateConfig = noDeliveryReason
-            ? noDeliveryConfig[noDeliveryReason]
+            ? reasonChip(noDeliveryReason, renewOpen)
             : isPast
               ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
               : effectiveIsToday
@@ -795,7 +755,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
                 // "inactive food" before reading any chip. Brightness drop
                 // pushes it further toward the page background so it doesn't
                 // compete with the warm active cards above/around it.
-                filter: isPlanEnds ? 'grayscale(1) brightness(0.92)' : undefined,
+                filter: isGrey ? GREY_PHOTO_FILTER : undefined,
               }}
             />
           ) : (
@@ -867,7 +827,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
 }
 
 // ── Dish detail modal ─────────────────────────────────────────────────────────
-function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => void }) {
+function DishDetailModal({ meal, note = null, onClose }: { meal: WeekMeal; note?: string | null; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -888,6 +848,13 @@ function DishDetailModal({ meal, onClose }: { meal: WeekMeal; onClose: () => voi
         onClick={e => e.stopPropagation()}
         style={{ background: BG, borderRadius: 'var(--radius-md)', padding: 32, maxWidth: 560, width: '100%', border: '1px solid var(--ds-og-border)', boxShadow: 'var(--ds-shadow-modal)', maxHeight: '90vh', overflow: 'auto' }}
       >
+        {/* Why this dinner won't come — first thing read, before the photo sells it. */}
+        {note && (
+          <div role="note" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 14, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-surface2)', border: `1px solid ${S.border}`, fontFamily: BODY, fontSize: 13, color: S.fgSub, lineHeight: 1.5 }}>
+            <Moon size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 3 }} />
+            <span>{note}</span>
+          </div>
+        )}
         {meal.image && (
           <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 18, background: 'var(--ds-skeleton-base)' }}>
             <Image src={meal.image} alt={meal.dish} fill sizes="540px" style={{ objectFit: 'cover' }} />
@@ -932,6 +899,8 @@ export default function MenuClient({
   hasQueuedRenewal = false,
   menuData,
   closureDates = [],
+  endedPlan = null,
+  renewGate = RENEW_OPEN_GATE,
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
@@ -941,6 +910,10 @@ export default function MenuClient({
   /** Company closure dates (YYYY-MM-DD) — the kitchen is shut, no dish is
    *  promised, and the day card says so. */
   closureDates?: string[]
+  /** The most recent ended plan, when there is no live one (returning customer). */
+  endedPlan?: ActiveSubLike | null
+  /** Why renewing might be closed right now — the dashboard plan card's gates. */
+  renewGate?: { intakePaused: boolean; outOfZone: boolean; profileIncomplete: boolean }
 }) {
   // week_type: prefer the active sub's snapshot (canonical for this cycle).
   // Fall back to the customer's preference (relevant for users browsing
@@ -952,103 +925,45 @@ export default function MenuClient({
         ? customer.week_type
         : '6DAYS'
 
-  // Today's AE wall date — used both for the resume-after-cutoff check
-  // and for classifying each WeekDayCard's "today / past / future" state
-  // when comparing against ISO dates from skipped_dates / planned_pause_start.
+  // Today's AE wall date — every day on the page is past / today / future
+  // against it, the same clock the skip and pause ledgers are written in.
   const todayAEIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  // True when the customer resumed after the 2 PM kitchen cutoff today. The DB
-  // column `resume_cutoff_date` is set by resumeSubscription and stale by
-  // tomorrow — compare against today's AE date (UTC+4) for correctness.
-  const resumedAfterCutoff = activeSubscription?.resume_cutoff_date === todayAEIso
-  const closureSet = new Set(closureDates)
-  const closureToday = closureSet.has(todayAEIso)
+  // The plan the page reads days against. A returning customer whose last
+  // plan has ended keeps seeing the week the way they saw it the day before —
+  // days after the last dinner locked — rather than the plain browsing view a
+  // brand-new signup gets (Saad's call, 2026-09-14).
+  const plan = toMenuPlan(activeSubscription) ?? toMenuPlan(endedPlan)
+  const noPlan = !plan
+  const dayCtx: MenuDayContext = { plan, todayIso: todayAEIso, weekType, closureDates, hasQueuedRenewal }
+  const renew = renewGateFor({ planName: plan?.plan_name, ...renewGate })
+  const renewOpen = renew.kind === 'open'
+  const ending = planEndingNotice(dayCtx)
 
-  // Set-based lookup for the skip ledger so per-day classification is O(1).
-  const skippedDateSet = new Set(activeSubscription?.skipped_dates ?? [])
-  const plannedPauseStart = activeSubscription?.planned_pause_start ?? null
-  const subIsCurrentlyPaused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
-  const subIsSkippedToday    = activeSubscription?.status === SUBSCRIPTION_STATUS.SKIPPED
-
-  // Per-meal "no delivery" classifier — returns one of the five reasons
-  // (today-skipped / past-skipped / future-skipped / pause-start / in-pause)
-  // or null when the day is operationally normal. Precedence:
-  //   1. Currently paused → every future day (incl. today) is "in-pause"
-  //   2. Planned pause: start day vs in-range
-  //   3. Skipped (today vs past vs future based on the day's relative state)
-  // Off-days (Sunday / non-working) are caller-handled (already rendered as
-  // 'Off' tag); this function isn't asked about those.
-  function classifyNoDelivery(meal: WeekMeal, dayState: WeekDayState): NoDeliveryReason | null {
-    if (meal.tag === 'Off') return null
-
-    // Scheduled plan, day before its start — past, today and future alike.
-    // Mirrors the plan-ends branch below: the cycle hasn't begun, so no
-    // day before start_date can be "Delivered" or "Today".
-    if (
-      activeSubscription?.status === SUBSCRIPTION_STATUS.SCHEDULED
-      && activeSubscription.start_date
-      && meal.iso < activeSubscription.start_date
-    ) {
-      return 'pre-start'
-    }
-
-    // Plan ends, no queued renewal — future days past the active sub's
-    // end_date have nothing cooking for them. Show "Plan ends" instead of
-    // teasing dishes the customer won't actually receive. Takes precedence
-    // over the regular future/upcoming path; pause/skip checks below still
-    // can't reach here because they're operational reasons that only apply
-    // inside the active cycle (and pauses extend end_date, so they never
-    // overlap with this case in practice).
-    if (
-      dayState === 'future'
-      && !hasQueuedRenewal
-      && activeSubscription?.end_date
-      && meal.iso > activeSubscription.end_date
-    ) {
-      return 'plan-ends'
-    }
-
-    // Currently-paused sub: paint everything from today onward as "in-pause"
-    // so the customer sees a clear paused zone on the menu page.
-    if (subIsCurrentlyPaused && dayState !== 'past') {
-      return 'in-pause'
-    }
-
-    // Planned pause (open-ended). The cron flips status to Paused on the
-    // start date — but in the brief window before that, classification by
-    // date still gives the correct picture.
-    if (plannedPauseStart && meal.iso >= plannedPauseStart && dayState !== 'past') {
-      return meal.iso === plannedPauseStart ? 'pause-start' : 'in-pause'
-    }
-
-    // Skip ledger membership. Past skips show as "Skipped" (overriding the
-    // default "Delivered" chip), today's skip shows as "Not tonight" (or
-    // sub.status === Skipped which mirrors the same kitchen-ops state).
-    const inSkipLedger = skippedDateSet.has(meal.iso)
-    if (dayState === 'today') {
-      if (subIsSkippedToday || resumedAfterCutoff || inSkipLedger) return 'today-skipped'
-      if (closureSet.has(meal.iso)) return 'closure'
-      return null
-    }
-    if (dayState === 'past' && inSkipLedger) return 'past-skipped'
-    if (dayState === 'future' && inSkipLedger) return 'future-skipped'
-    // Company closure — after the skip ledger so a day the customer chose
-    // to skip keeps reading as their choice (the dashboard grid orders the
-    // two the same way).
-    if (closureSet.has(meal.iso)) return 'closure'
-    return null
+  // Off days (Sundays, Saturday on a 5-day plan) have no dinner to explain.
+  const reasonFor = (meal: WeekMeal): NoDeliveryReason | null =>
+    meal.tag === 'Off' ? null : classifyMenuDay(meal.iso, dayCtx)
+  const noteFor = (meal: WeekMeal): string | null => {
+    const reason = reasonFor(meal)
+    return reason ? noDeliveryNote(reason, meal.iso, dayCtx) : null
   }
 
   // Whole rows, not sub.veg_days: a religious signup with no plan yet still
-  // has their saved veg days on the customer.
-  const vegDayNumbers = vegDayNumbersFor({ customer, subscription: activeSubscription }, weekType)
+  // has their saved veg days on the customer, and a running plan's own diet
+  // and days win over a renewal that already rewrote the customer's. The
+  // ended plan is not passed: a returning customer's locked week shows what
+  // they would get if they renewed today.
+  const vegSources = { customer, subscription: activeSubscription }
+  const vegDayNumbers = vegDayNumbersFor(vegSources, weekType)
 
-  // Top-of-page meta tag — for religious mix, "Mix" beats either Veg / Non Veg
-  // because some days are veg, others aren't. For pure prefs, use the simple label.
-  const mpt = customer?.meal_preference_type?.toLowerCase() ?? ''
-  const isReligious = mpt.includes('religious')
-  const isVegPref   = mpt.includes('plant') || (mpt.includes('veg') && !mpt.includes('non'))
-  const prefTag: 'Veg' | 'Non Veg' | 'Mix' = isReligious ? 'Mix' : (isVegPref ? 'Veg' : 'Non Veg')
+  // Top-of-page meta tag — for religious mix, "Mix" plus the veg days, which
+  // were nowhere on the page. For pure prefs, the simple label.
+  const prefKind = preferenceKindFor(vegSources)
+  const prefTag: 'Veg' | 'Non Veg' | 'Mix' = prefKind === 'religious' ? 'Mix' : prefKind === 'veg' ? 'Veg' : 'Non Veg'
+  const vegNames = resolveVegDayNames(vegSources).map(d => d.toLowerCase())
+  const vegDaysLabel = prefKind === 'religious'
+    ? FULL_DAYS.slice(0, weekType === '5DAYS' ? 5 : 6).filter(d => vegNames.includes(d.toLowerCase())).map(d => d.slice(0, 3)).join(', ') || null
+    : null
   const FULL_MENU = buildFullMenu(vegDayNumbers, weekType, menuData)
   const thisWeek  = FULL_MENU[0]
   const nextWeek  = FULL_MENU[1]
@@ -1057,19 +972,19 @@ export default function MenuClient({
   // and todayMeal is null so TodaySpotlight shows the rest-day state.
   const thisTodayIdx = todayMonIdx()
   const todayMeal    = thisTodayIdx < 6 ? thisWeek.meals[thisTodayIdx] : null
+  const spotlight = spotlightFor(dayCtx, { todayIsOff: !todayMeal || todayMeal.tag === 'Off' })
 
   const [openMeal, setOpenMeal] = useState<WeekMeal | null>(null)
   const router = useRouter()
   const [, startNavTransition] = useTransition()
   const navTo = (href: string) => startNavTransition(() => router.push(href))
 
-  // Per-card click router. Plan-ends cards short-circuit the dish detail
-  // modal and route straight to the renew flow — the card's visual signals
-  // (grayscale image, lock overlay, "Renew to unlock" chip) already promise
-  // this destination, so the click pays off the promise. Subtle = the
-  // affordance is already there; we just rewire what it does.
+  // Per-card click router. Days after the plan, while renewing is open, route
+  // straight to renew — the lock and "Renew to unlock" already promise that.
+  // Every other card opens the dish, with a line saying why it won't come.
+  const renewHref = renew.kind === 'open' ? renew.href : null
   function clickFor(meal: WeekMeal, reason: NoDeliveryReason | null) {
-    if (reason === 'plan-ends') return () => navTo('/dashboard/explore-plans')
+    if (reason === 'plan-ends' && renewHref) return () => navTo(renewHref)
     return () => setOpenMeal(meal)
   }
 
@@ -1077,13 +992,13 @@ export default function MenuClient({
 
   // ── Mobile cell data — same classification the desktop grid uses, flattened
   //    to plain props for the presentational MobileMenu (≤768). ──
-  const thisWeekCells: MobileMenuCell[] = thisWeek.meals.slice(0, 6).map((meal, i) => {
-    const state: WeekDayState = i < thisTodayIdx ? 'past' : i === thisTodayIdx ? 'today' : 'future'
-    return { meal, dayLabel: DAY_ABBREVS[i], state, reason: classifyNoDelivery(meal, state), noPlan: !activeSubscription }
-  })
-  const nextWeekCells: MobileMenuCell[] = nextWeek.meals.slice(0, 6).map((meal, i) => ({
-    meal, dayLabel: DAY_ABBREVS[i], state: 'future' as WeekDayState, reason: classifyNoDelivery(meal, 'future'), noPlan: !activeSubscription,
-  }))
+  const toCell = (meal: WeekMeal, i: number, state: WeekDayState): MobileMenuCell => {
+    const reason = reasonFor(meal)
+    return { meal, dayLabel: DAY_ABBREVS[i], state, reason, noPlan, note: reason ? noDeliveryNote(reason, meal.iso, dayCtx) : null }
+  }
+  const thisWeekCells: MobileMenuCell[] = thisWeek.meals.slice(0, 6).map((meal, i) =>
+    toCell(meal, i, dayPosition(meal.iso, todayAEIso)))
+  const nextWeekCells: MobileMenuCell[] = nextWeek.meals.slice(0, 6).map((meal, i) => toCell(meal, i, 'future'))
 
   return (
     <>
@@ -1098,6 +1013,7 @@ export default function MenuClient({
           <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 14, color: S.fgMuted, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span>Your preference:</span>
             <MealTag kind={prefTag} />
+            {vegDaysLabel && <span style={{ color: S.fgSub, fontWeight: 600 }}>veg {vegDaysLabel}</span>}
             {/* Change link routes the customer to Profile, where the
                 Edit-Preferences modal queues changes for the next plan
                 while the current cycle keeps cooking as before. No mid-
@@ -1114,20 +1030,29 @@ export default function MenuClient({
         {/* ── Section 1: Today (full-width hero) ── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Eyebrow>{resumedAfterCutoff || closureToday || spotlightStatusKind(activeSubscription?.status ?? null) ? 'Tonight' : "Today's delivery"}</Eyebrow>
+            <Eyebrow>{spotlightEyebrow(spotlight)}</Eyebrow>
             <div style={{ flex: 1, height: 1, background: S.border }} />
           </div>
           <TodaySpotlight
             meal={todayMeal}
             dorm={customer?.dorm_name ?? null}
-            subStatus={activeSubscription?.status ?? null}
-            resumedAfterCutoff={resumedAfterCutoff}
-            closureToday={closureToday}
-            weekType={weekType}
-            startsOn={activeSubscription?.start_date ?? null}
+            spotlight={spotlight}
+            ctx={dayCtx}
+            planName={plan?.plan_name ?? null}
+            renew={renew}
             onOpenDish={todayMeal ? () => setOpenMeal(todayMeal) : undefined}
           />
         </section>
+
+        {/* ── Last-dinner line: the week below locks after it ── */}
+        {ending && (
+          <div className="menu-ending-line" style={ENDING_LINE}>
+            <span style={{ fontFamily: BODY, fontSize: 13.5, color: S.fg, lineHeight: 1.5 }}>
+              Your last dinner is <strong style={{ fontWeight: 700 }}>{deliveryDayLabel(ending.lastDinnerIso, todayAEIso)}</strong>.
+            </span>
+            <RenewControl renew={renew} />
+          </div>
+        )}
 
         {/* ── Section 2: This week (6-cell grid) ── */}
         <section style={{ marginBottom: 32 }}>
@@ -1137,11 +1062,10 @@ export default function MenuClient({
           </div>
           <div className="this-week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {thisWeek.meals.slice(0, 6).map((meal, i) => {
-              const state: WeekDayState =
-                i < thisTodayIdx  ? 'past'
-                : i === thisTodayIdx ? 'today'
-                : 'future'
-              const noDeliveryReason = classifyNoDelivery(meal, state)
+              // By date, not by column: on a Sunday "This week" is the week
+              // ahead, and counting columns marked all six dinners "Delivered".
+              const state: WeekDayState = dayPosition(meal.iso, todayAEIso)
+              const noDeliveryReason = reasonFor(meal)
               return (
                 <WeekDayCard
                   key={i}
@@ -1149,7 +1073,8 @@ export default function MenuClient({
                   dayLabel={DAY_ABBREVS[i]}
                   state={state}
                   noDeliveryReason={noDeliveryReason}
-                  noPlan={!activeSubscription}
+                  noPlan={noPlan}
+                  renewOpen={renewOpen}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
@@ -1169,7 +1094,7 @@ export default function MenuClient({
               hierarchy work; the surface + size changes finish it. */}
           <div className="menu-week-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
             {nextWeek.meals.slice(0, 6).map((meal, i) => {
-              const noDeliveryReason = classifyNoDelivery(meal, 'future')
+              const noDeliveryReason = reasonFor(meal)
               return (
                 <WeekDayCard
                   key={i}
@@ -1178,7 +1103,8 @@ export default function MenuClient({
                   state="future"
                   variant="preview"
                   noDeliveryReason={noDeliveryReason}
-                  noPlan={!activeSubscription}
+                  noPlan={noPlan}
+                  renewOpen={renewOpen}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
@@ -1188,7 +1114,7 @@ export default function MenuClient({
 
         {/* ── Dish detail modal ── */}
         <AnimatePresence>
-          {openMeal && <DishDetailModal meal={openMeal} onClose={() => setOpenMeal(null)} />}
+          {openMeal && <DishDetailModal meal={openMeal} note={noteFor(openMeal)} onClose={() => setOpenMeal(null)} />}
         </AnimatePresence>
 
       </div>
@@ -1198,16 +1124,20 @@ export default function MenuClient({
       <div className="menu-mobile">
         <MobileMenu
           prefTag={prefTag}
+          vegDaysLabel={vegDaysLabel}
           todayMeal={todayMeal}
+          todayNote={todayMeal ? noteFor(todayMeal) : null}
           dorm={customer?.dorm_name ?? null}
-          subStatus={activeSubscription?.status ?? null}
-          startsOn={activeSubscription?.start_date ?? null}
-          resumedAfterCutoff={resumedAfterCutoff}
-          closureToday={closureToday}
-          nextDeliveryLabel={nextDeliveryLabel(weekType)}
+          spotlight={spotlight}
+          notice={spotlight.kind === 'dinner' || spotlight.kind === 'rest' ? null : spotlightCopy(spotlight, dayCtx)}
+          restCopy={restDayCopy(dayCtx)}
+          planName={plan?.plan_name ?? null}
+          canResume={plan?.status === SUBSCRIPTION_STATUS.PAUSED}
+          endingLabel={ending ? deliveryDayLabel(ending.lastDinnerIso, todayAEIso) : null}
+          renew={renew}
           thisWeekCells={thisWeekCells}
           nextWeekCells={nextWeekCells}
-          onRenew={() => navTo('/dashboard/explore-plans')}
+          onNavigate={navTo}
         />
       </div>
 
