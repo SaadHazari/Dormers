@@ -9,7 +9,7 @@
 // Query params:
 //   ?members=0     render the empty state instead of the populated table
 //   ?target=15     set the restart target (omit for "no target set")
-//   ?season=open|stopped|scheduled|stopped_scheduled   season planner state (default stopped)
+//   ?season=open|stopped|scheduled|stopped_scheduled|passed|drift   season planner state (default stopped)
 import { notFound } from 'next/navigation'
 import { AdminThemeProvider } from '@/app/admin/_components/AdminThemeProvider'
 import { SeasonClient } from '@/app/admin/season/SeasonClient'
@@ -49,12 +49,25 @@ const FIXTURE_SNAPSHOTS: Record<string, SeasonPageData['snapshot']> = {
   stopped: { phase: 'winding_down', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: true },
   scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: false },
   stopped_scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: true },
+  // Wrap-up day already behind today: only Clear should remain (no move, no
+  // stop/resume sales, and end_today is hidden by SEASON_BREAK_RELEASE_LIVE).
+  passed: { phase: 'winding_down', wrapUpDay: '2026-09-12', closeDay: '2026-09-14', bufferDays: 1, salesStopped: true },
 }
 
+// intake_settings.paused deliberately disagreeing with the season's own
+// salesStopped, the way the old Season page could leave it (F3's
+// seasonDriftMessage). Reuses the `stopped` snapshot itself, not a copy of
+// its values, so the two states can never drift apart from each other.
+const DRIFT_KEY = 'drift'
+
 function fixtureSeason(key: string | undefined): SeasonPageData {
-  const snapshot = FIXTURE_SNAPSHOTS[key ?? 'stopped'] ?? FIXTURE_SNAPSHOTS.stopped
+  const resolvedKey = key ?? 'stopped'
+  const snapshotKey = resolvedKey === DRIFT_KEY ? 'stopped' : resolvedKey
+  const snapshot = FIXTURE_SNAPSHOTS[snapshotKey] ?? FIXTURE_SNAPSHOTS.stopped
+  const paused = resolvedKey === DRIFT_KEY ? false : snapshot.salesStopped
   return {
     snapshot,
+    paused,
     salesStoppedAt: snapshot.salesStopped ? '2026-09-02T01:50:11Z' : null,
     kitchenDailyCostAed: 500,
     todayAe: FIXTURE_TODAY,
@@ -89,7 +102,7 @@ export default async function SeasonAdminPreviewPage({
   const season = fixtureSeason(params.season)
 
   const settings: IntakeSettingsRow = {
-    paused: season.snapshot.salesStopped,
+    paused: season.paused,
     headline: 'We are between semesters.',
     body: 'Dormers cooks when the dorms are full. We have paused new plans until enough of you are back on campus.',
     creditNonvegAed: 20,

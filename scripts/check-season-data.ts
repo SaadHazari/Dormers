@@ -15,6 +15,7 @@ async function main() {
   console.log(JSON.stringify({
     today: data.todayAe,
     snapshot: data.snapshot,
+    paused: data.paused,
     salesStoppedAt: data.salesStoppedAt,
     plans: data.plans.length,
     lastMealOnTheBooks: lastMealOnTheBooks(books),

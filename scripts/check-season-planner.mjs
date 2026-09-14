@@ -65,18 +65,26 @@ async function launchChromium() {
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
 const SHOT_DIR = process.env.SHOT_DIR ?? null
 
+// end_today never appears: SEASON_BREAK_RELEASE_LIVE is false until Plan C
+// ships the break tick, so visibleSeasonActions() always hides that button.
 const EXPECT = {
-  open: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today'], absent: ['Resume sales', 'Clear the wrap-up day'] },
-  stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
-  scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Stop sales now', 'Clear the wrap-up day', 'End the season today'], absent: ['Resume sales'] },
-  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], absent: ['Stop sales now'] },
+  open: { title: 'Open', controls: ['Schedule', 'Stop sales now'], absent: ['Resume sales', 'Clear the wrap-up day', 'End the season today'] },
+  stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season'], absent: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'] },
+  scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Stop sales now', 'Clear the wrap-up day'], absent: ['Resume sales', 'End the season today'] },
+  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Resume sales', 'Clear the wrap-up day'], absent: ['Stop sales now', 'End the season today'] },
+  // Wrap-up day already behind today: only Clear survives allowedSeasonActions.
+  passed: { title: 'Winding down to Sat 12 Sep', controls: ['Clear the wrap-up day'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Resume sales and end the season', 'End the season today'] },
+  // Same snapshot as `stopped`; only intake_settings.paused disagrees, which
+  // is what should light up the season-drift banner.
+  drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season'], absent: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'] },
 }
+const WIDTHS = [1280, 390]
 
 const failures = []
 const browser = await launchChromium()
 try {
   for (const [state, expect] of Object.entries(EXPECT)) {
-    for (const width of [1280, 390]) {
+    for (const width of WIDTHS) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } })
       try {
         const errors = []
@@ -89,13 +97,26 @@ try {
         // SeasonClient's separate "Open" KPI badge (season-data.ts's
         // waitlist status) can render the same word and would otherwise let
         // a broken SeasonPlanner title go unnoticed for the open state.
+        // The banner's innerText is the title on its own line followed by
+        // the status body text (separate block-level divs), and the day
+        // labels are now stable (F4's formatShortDay), so the first line can
+        // be matched exactly instead of just checking the title is a substring
+        // somewhere in the whole banner.
         const statusEl = page.getByTestId('season-status')
         if (await statusEl.count() === 0) {
           failures.push(`${label}: missing the season-status banner (data-testid="season-status")`)
         } else {
           const statusText = await statusEl.innerText()
-          if (!statusText.includes(expect.title)) failures.push(`${label}: missing status "${expect.title}"`)
+          const titleLine = statusText.split('\n')[0]
+          if (titleLine !== expect.title) failures.push(`${label}: status title "${titleLine}", expected "${expect.title}"`)
         }
+
+        // The drift banner (data-testid="season-drift") warns when
+        // intake_settings.paused disagrees with the season's own
+        // salesStopped (F3). Only the `drift` fixture state sets that up.
+        const driftCount = await page.getByTestId('season-drift').count()
+        if (state === 'drift' && driftCount === 0) failures.push(`${label}: missing the season-drift banner`)
+        if (state !== 'drift' && driftCount > 0) failures.push(`${label}: unexpected season-drift banner`)
 
         const body = await page.locator('body').innerText()
         // Case-insensitive: the Fact/KitchenCalendarList labels are styled
@@ -129,4 +150,5 @@ if (failures.length) {
   console.error(`check-season-planner: ${failures.length} failure(s)\n- ${failures.join('\n- ')}`)
   process.exit(1)
 }
-console.log('check-season-planner: 8 renders OK')
+const renderCount = Object.keys(EXPECT).length * WIDTHS.length
+console.log(`check-season-planner: ${renderCount} renders OK`)
