@@ -74,36 +74,56 @@ const EXPECT = {
 
 const failures = []
 const browser = await launchChromium()
-for (const [state, expect] of Object.entries(EXPECT)) {
-  for (const width of [1280, 390]) {
-    const page = await browser.newPage({ viewport: { width, height: 1000 } })
-    const errors = []
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
-    await page.goto(`${BASE}/dev/season-admin?season=${state}`, { waitUntil: 'networkidle' })
-    const label = `${state} @${width}`
-    const body = await page.locator('body').innerText()
-    // Case-insensitive: the Fact/KitchenCalendarList labels are styled with
-    // Tailwind's `uppercase` (the admin eyebrow-label convention), and
-    // Playwright's innerText() renders CSS text-transform, not the source
-    // case. A case-sensitive check would fail on a correctly rendered page.
-    const bodyLower = body.toLowerCase()
-    if (!bodyLower.includes(expect.title.toLowerCase())) failures.push(`${label}: missing status "${expect.title}"`)
-    if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
-    if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
-    for (const c of expect.controls) {
-      if (await page.getByRole('button', { name: c, exact: true }).count() === 0) failures.push(`${label}: missing button "${c}"`)
+try {
+  for (const [state, expect] of Object.entries(EXPECT)) {
+    for (const width of [1280, 390]) {
+      const page = await browser.newPage({ viewport: { width, height: 1000 } })
+      try {
+        const errors = []
+        page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
+        await page.goto(`${BASE}/dev/season-admin?season=${state}`, { waitUntil: 'networkidle' })
+        const label = `${state} @${width}`
+
+        // The status title is read from SeasonPlanner's own status banner
+        // (data-testid="season-status"), not from the whole page's text —
+        // SeasonClient's separate "Open" KPI badge (season-data.ts's
+        // waitlist status) can render the same word and would otherwise let
+        // a broken SeasonPlanner title go unnoticed for the open state.
+        const statusEl = page.getByTestId('season-status')
+        if (await statusEl.count() === 0) {
+          failures.push(`${label}: missing the season-status banner (data-testid="season-status")`)
+        } else {
+          const statusText = await statusEl.innerText()
+          if (!statusText.includes(expect.title)) failures.push(`${label}: missing status "${expect.title}"`)
+        }
+
+        const body = await page.locator('body').innerText()
+        // Case-insensitive: the Fact/KitchenCalendarList labels are styled
+        // with Tailwind's `uppercase` (the admin eyebrow-label convention),
+        // and Playwright's innerText() renders CSS text-transform, not the
+        // source case. A case-sensitive check would fail on a correctly
+        // rendered page.
+        const bodyLower = body.toLowerCase()
+        if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
+        if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
+        for (const c of expect.controls) {
+          if (await page.getByRole('button', { name: c, exact: true }).count() === 0) failures.push(`${label}: missing button "${c}"`)
+        }
+        for (const c of expect.absent) {
+          if (await page.getByRole('button', { name: c, exact: true }).count() > 0) failures.push(`${label}: unexpected button "${c}"`)
+        }
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        if (overflow > 1) failures.push(`${label}: page scrolls sideways by ${overflow}px`)
+        if (errors.length) failures.push(`${label}: console errors: ${errors.join(' | ')}`)
+        if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-${state}-${width}.png`, fullPage: true })
+      } finally {
+        await page.close()
+      }
     }
-    for (const c of expect.absent) {
-      if (await page.getByRole('button', { name: c, exact: true }).count() > 0) failures.push(`${label}: unexpected button "${c}"`)
-    }
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-    if (overflow > 1) failures.push(`${label}: page scrolls sideways by ${overflow}px`)
-    if (errors.length) failures.push(`${label}: console errors: ${errors.join(' | ')}`)
-    if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-${state}-${width}.png`, fullPage: true })
-    await page.close()
   }
+} finally {
+  await browser.close()
 }
-await browser.close()
 
 if (failures.length) {
   console.error(`check-season-planner: ${failures.length} failure(s)\n- ${failures.join('\n- ')}`)

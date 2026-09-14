@@ -278,7 +278,7 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
 
     return (
         <div className={`mt-6 rounded-xl border p-5 ${t.card}`}>
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${status.tone}`}>
+            <div data-testid="season-status" className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${status.tone}`}>
                 <CalendarClock size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
                 <div>
                     <div className="text-[14px] font-black">{status.title}</div>
