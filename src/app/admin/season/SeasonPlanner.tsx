@@ -13,7 +13,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarClock, Pause, Play, Power, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Pause, Play, Power, XCircle } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
@@ -29,12 +29,20 @@ import type { SeasonPageData, SeasonPlanRow } from './season-data'
 import {
     addDaysIso,
     closeDayFor,
+    formatShortDay,
     todayAeIso,
     validateSeasonEnd,
     DEFAULT_BUFFER_DAYS,
     MAX_BUFFER_DAYS,
 } from '@/contexts/season/domain/season-dates'
-import { allowedSeasonActions, type SeasonAction, type SeasonSnapshot } from '@/contexts/season/domain/season-phase'
+import {
+    allowedSeasonActions,
+    visibleSeasonActions,
+    seasonDriftMessage,
+    type SeasonAction,
+    type SeasonSnapshot,
+} from '@/contexts/season/domain/season-phase'
+import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
 import {
     projectPlan,
     lastMealOnTheBooks,
@@ -68,11 +76,7 @@ const DISPOSITION_ORDER: Record<Disposition, number> = {
     finishes: 4,
 }
 
-export function prettyDay(iso: string): string {
-    return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
-        weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
-    })
-}
+export const prettyDay = formatShortDay
 
 function plural(n: number, one: string, many: string): string {
     return `${n} ${n === 1 ? one : many}`
@@ -120,20 +124,27 @@ function exposureText(view: SeasonView): string {
 
 function confirmCopy(
     kind: ConfirmKind,
-    c: { wrap: string; buffer: number; snapshot: SeasonSnapshot; view: SeasonView; endTodayView: SeasonView },
+    c: { wrap: string; buffer: number; snapshot: SeasonSnapshot; view: SeasonView; endTodayView: SeasonView; books: SeasonView },
 ): { title: string; body: string[]; cta: string; danger: boolean } {
     if (kind === 'schedule' || kind === 'move') {
         const s = c.view.summary.byDisposition
         const summary = c.view.summary
+        const booksSummary = c.books.summary
         return {
             title: kind === 'schedule' ? 'Schedule the season end?' : 'Move the season end?',
             body: [
                 `Wrap-up day ${prettyDay(c.wrap)}, buffer ${plural(c.buffer, 'delivery day', 'delivery days')}, close day ${prettyDay(closeDayFor(c.wrap, c.buffer))}. The break starts the night after the close day.`,
                 `${plural(s.finishes, 'plan finishes', 'plans finish')}, ${plural(s.runs_past, 'plan runs', 'plans run')} past the wrap-up day, ${plural(s.starts_after, 'plan starts', 'plans start')} after it, and ${plural(s.customer_paused, 'customer pause waits', 'customer pauses wait')} for next semester.`,
-                summary.mealsAfterWrapUp > 0
-                    ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} left after the wrap-up day: ${exposureText(c.view)} to keep for next semester or refund.`
-                    : 'No meals are left after the wrap-up day.',
-                `The kitchen cooks ${plural(summary.kitchenDays, 'more day', 'more days')} (${formatAed(summary.kitchenCostAed * 100)}).`,
+                SEASON_BREAK_RELEASE_LIVE
+                    ? (summary.mealsAfterWrapUp > 0
+                        ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} left after the wrap-up day: ${exposureText(c.view)} to keep for next semester or refund.`
+                        : 'No meals are left after the wrap-up day.')
+                    : (summary.mealsAfterWrapUp > 0
+                        ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} due after the wrap-up day (${exposureText(c.view)}). For now they keep delivering. Holding or refunding them arrives with the season break.`
+                        : 'No meals are left after the wrap-up day.'),
+                SEASON_BREAK_RELEASE_LIVE
+                    ? `The kitchen cooks ${plural(summary.kitchenDays, 'more day', 'more days')} (${formatAed(summary.kitchenCostAed * 100)}).`
+                    : `Until the season break goes live the kitchen cooks for every plan on the books (${booksSummary.kitchenDays} days, ${formatAed(booksSummary.kitchenCostAed * 100)}). With it, this wrap-up day would make it ${summary.kitchenDays} days (${formatAed(summary.kitchenCostAed * 100)}).`,
                 `From now on, new plans must finish by ${prettyDay(c.wrap)}.`,
             ],
             cta: kind === 'schedule' ? 'Yes, schedule it' : 'Yes, move it',
@@ -194,7 +205,7 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
     const router = useRouter()
     const { snapshot, todayAe } = data
     const closures = useMemo(() => new Set(data.closureDates), [data.closureDates])
-    const actions = allowedSeasonActions(snapshot, todayAe)
+    const actions = visibleSeasonActions(allowedSeasonActions(snapshot, todayAe), SEASON_BREAK_RELEASE_LIVE)
     const canSchedule = actions.includes('schedule')
     const canMove = actions.includes('move')
     const editing = canSchedule || canMove
@@ -202,7 +213,12 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
     const books = useMemo(() => buildView(data, closures, null, null), [data, closures])
     const lastOnBooks = useMemo(() => lastMealOnTheBooks([...books.projections.values()]), [books])
 
-    const [wrapDraft, setWrapDraft] = useState(snapshot.wrapUpDay ?? lastOnBooks?.date ?? addDaysIso(todayAe, 1))
+    // The default draft is never a day that's already invalid: the last meal
+    // on the books can be today or earlier (a plan that's already finishing),
+    // so the draft falls back to tomorrow whenever that meal isn't later.
+    const tomorrow = addDaysIso(todayAe, 1)
+    const defaultWrapDraft = lastOnBooks && lastOnBooks.date > tomorrow ? lastOnBooks.date : tomorrow
+    const [wrapDraft, setWrapDraft] = useState(snapshot.wrapUpDay ?? defaultWrapDraft)
     const [bufferDraft, setBufferDraft] = useState(snapshot.wrapUpDay ? snapshot.bufferDays : DEFAULT_BUFFER_DAYS)
     const draftError = editing ? validateSeasonEnd({ wrapUpDay: wrapDraft, bufferDays: bufferDraft, todayAe }) : null
     const draftChanged = wrapDraft !== snapshot.wrapUpDay || bufferDraft !== snapshot.bufferDays
@@ -255,6 +271,7 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
         })
     }
 
+    const driftMessage = seasonDriftMessage(data.paused, snapshot)
     const salesStoppedOn = data.salesStoppedAt ? prettyDay(todayAeIso(Date.parse(data.salesStoppedAt))) : null
     const status =
         snapshot.phase === 'open'
@@ -270,14 +287,20 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
             : {
                 tone: `${t.accentBg} ${t.accent}`,
                 title: `Winding down to ${prettyDay(snapshot.wrapUpDay)}`,
-                text: `Regular dinners stop after ${prettyDay(snapshot.wrapUpDay)}. Close day ${prettyDay(snapshot.closeDay ?? snapshot.wrapUpDay)}, and the break starts the night after. ${snapshot.salesStopped ? 'Sales are stopped.' : 'New plans must finish by the wrap-up day.'}`,
+                text: `Regular dinners stop after ${prettyDay(snapshot.wrapUpDay)}. Close day ${prettyDay(snapshot.closeDay ?? snapshot.wrapUpDay)}, and the break starts the night after. ${snapshot.salesStopped ? 'Sales are stopped.' : 'New plans must finish by the wrap-up day.'}${SEASON_BREAK_RELEASE_LIVE ? '' : ' For now the kitchen keeps cooking for plans with meals after the wrap-up day, and nothing is held. That changes when the season break goes live.'}`,
             }
 
     const summary = view.summary
-    const copy = confirm ? confirmCopy(confirm, { wrap: wrapDraft, buffer: bufferDraft, snapshot, view, endTodayView }) : null
+    const copy = confirm ? confirmCopy(confirm, { wrap: wrapDraft, buffer: bufferDraft, snapshot, view, endTodayView, books }) : null
 
     return (
         <div className={`mt-6 rounded-xl border p-5 ${t.card}`}>
+            {driftMessage && (
+                <div data-testid="season-drift" role="alert" className={`flex items-start gap-3 px-4 py-3 rounded-xl border mb-3 ${t.warningBg} ${t.warning}`}>
+                    <AlertTriangle size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
+                    <div className="text-[12px] font-semibold max-w-[72ch]">{driftMessage}</div>
+                </div>
+            )}
             <div data-testid="season-status" className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${status.tone}`}>
                 <CalendarClock size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
                 <div>
@@ -296,14 +319,22 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                 <Fact
                     t={t}
                     label="Kitchen days left"
-                    value={String(summary.kitchenDays)}
-                    detail={`${formatAed(summary.kitchenCostAed * 100)} at ${formatAed(data.kitchenDailyCostAed * 100)} a day`}
+                    value={String(SEASON_BREAK_RELEASE_LIVE ? summary.kitchenDays : books.calendar.length)}
+                    detail={
+                        SEASON_BREAK_RELEASE_LIVE
+                            ? `${formatAed(summary.kitchenCostAed * 100)} at ${formatAed(data.kitchenDailyCostAed * 100)} a day`
+                            : `${formatAed(books.summary.kitchenCostAed * 100)} at ${formatAed(data.kitchenDailyCostAed * 100)} a day${shownWrap ? `. With the season break live, this wrap-up day would make it ${summary.kitchenDays} days.` : ''}`
+                    }
                 />
                 <Fact
                     t={t}
                     label="Meals after the wrap-up day"
                     value={String(summary.mealsAfterWrapUp)}
-                    detail={summary.mealsAfterWrapUp > 0 ? `${exposureText(view)} to keep or refund` : 'Nothing to hold'}
+                    detail={
+                        summary.mealsAfterWrapUp > 0
+                            ? `${exposureText(view)}${SEASON_BREAK_RELEASE_LIVE ? ' to keep or refund' : ' still delivering for now'}`
+                            : 'Nothing to hold'
+                    }
                 />
             </div>
 
@@ -347,7 +378,11 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                     </div>
                     <p className={`text-[12px] font-medium mt-2 max-w-[72ch] ${draftError ? t.danger : t.muted}`}>
                         {draftError
-                            ?? `Close day ${prettyDay(closeDayFor(wrapDraft, bufferDraft))}. The buffer only cooks make-up meals from skips and is never sold.${kitchenDaysSaved > 0 ? ` Against the last meal on the books this saves ${plural(kitchenDaysSaved, 'kitchen day', 'kitchen days')} (${formatAed(kitchenDaysSaved * data.kitchenDailyCostAed * 100)}).` : ''}`}
+                            ?? `Close day ${prettyDay(closeDayFor(wrapDraft, bufferDraft))}. The buffer only cooks make-up meals from skips and is never sold.${kitchenDaysSaved > 0
+                                ? (SEASON_BREAK_RELEASE_LIVE
+                                    ? ` Against the last meal on the books this saves ${plural(kitchenDaysSaved, 'kitchen day', 'kitchen days')} (${formatAed(kitchenDaysSaved * data.kitchenDailyCostAed * 100)}).`
+                                    : ` With the season break live, this would save ${kitchenDaysSaved} kitchen days (${formatAed(kitchenDaysSaved * data.kitchenDailyCostAed * 100)}) against the last meal on the books.`)
+                                : ''}`}
                     </p>
                 </div>
             )}

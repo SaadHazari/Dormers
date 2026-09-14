@@ -190,7 +190,7 @@ export function SeasonClient({ settings, members, season }: Props) {
                     so nobody waits for a restart that was never going to happen
                     on its own. */}
                 <div className={`mt-2 text-[11px] font-medium ${t.faint}`}>
-                    The target is a marker only. Hitting it does not reopen intake — you still press Resume.
+                    The target is a marker only. Reaching it does not reopen sales.
                 </div>
 
                 {dormSplit.length > 0 && (
@@ -213,7 +213,7 @@ export function SeasonClient({ settings, members, season }: Props) {
                         <div className={`text-[11px] font-medium mt-1 ${t.faint}`}>
                             {settings.paused
                                 ? 'The list fills as people reach a plan page and tap Save my spot.'
-                                : 'Intake is open, so there is nothing to save a spot for. Pause it first.'}
+                                : 'Sales are open, so there is nothing to save a spot for.'}
                         </div>
                     </div>
                 ) : (
