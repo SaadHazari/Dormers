@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Tailwind v4 dropped the pointer cursor on buttons, so clickable buttons showed
+   a plain arrow. Base layer, so a button's own cursor-* class still wins. */
+@layer base {
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 
 :root {
   --background: #ffffff;
