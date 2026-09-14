@@ -66,6 +66,7 @@ interface SubRow {
   customer_id: string
   week_type: string
   skipped_dates: string[] | null
+  veg_days: string[] | null
 }
 
 export async function getDailyLabels(): Promise<DailyLabels> {
@@ -81,7 +82,7 @@ export async function getDailyLabels(): Promise<DailyLabels> {
   const sb = createAdminSupabaseClient()
   const [subsRes, customersRes] = await Promise.all([
     sb.from('subscriptions')
-      .select('id, customer_id, week_type, skipped_dates')
+      .select('id, customer_id, week_type, skipped_dates, veg_days')
       .eq('status', 'Active')
       .lte('start_date', dateIso)
       .gte('end_date', dateIso),
@@ -118,7 +119,7 @@ export async function getDailyLabels(): Promise<DailyLabels> {
     const cust = customers.get(sub.customer_id)
     if (!cust) continue
 
-    const isVegToday = isVegOnDayName(cust.meal_preference_type, cust.veg_days, dayName)
+    const isVegToday = isVegOnDayName({ customer: cust, subscription: sub }, dayName)
 
     const dish = isVegToday ? vegDish : nonVegDish
     if (!dish) continue

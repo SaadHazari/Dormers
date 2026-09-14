@@ -40,7 +40,9 @@ export default async function MenuPage({
     return (
       <Suspense>
         <MenuClient
-          customer={{ id: 'preview', cid: 'YUG6750', name: 'Saad Hazari', email: 'preview@dormers.ae', meal_preference_type: mealPref, dorm_name: 'YUGO', created_at: new Date().toISOString(), week_type: weekType }}
+          // veg_days lives on the customer too, so state=nosub&pref=mix is a
+          // religious signup who hasn't bought a plan yet.
+          customer={{ id: 'preview', cid: 'YUG6750', name: 'Saad Hazari', email: 'preview@dormers.ae', meal_preference_type: mealPref, veg_days: isMix ? ['Monday', 'Wednesday'] : null, dorm_name: 'YUGO', created_at: new Date().toISOString(), week_type: weekType }}
           activeSubscription={sub}
           userEmail="preview@dormers.ae"
           hasQueuedRenewal={params.queued === '1'}

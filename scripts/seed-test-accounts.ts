@@ -770,7 +770,9 @@ function fixtureOpsImpact(today: Date): { veg: number; nonVeg: number; dayName: 
     if (spec.weekType === '5DAYS' && isSaturday) continue
     const d = derive(spec, index, today)
     if (d.skippedDates.includes(todayIso) || d.pausedDates.includes(todayIso)) continue
-    if (isVegOnDayName(spec.preference, spec.vegDays, dayName)) veg++
+    // The seed writes vegDays to both the customer and the plan.
+    const rows = { customer: { meal_preference_type: spec.preference, veg_days: spec.vegDays }, subscription: { veg_days: spec.vegDays } }
+    if (isVegOnDayName(rows, dayName)) veg++
     else nonVeg++
   }
   return { veg, nonVeg, dayName }

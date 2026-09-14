@@ -5,6 +5,7 @@ import { Suspense } from 'react'
 import SupportClient from './SupportClient'
 import SupportLoading from './loading'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
+import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
 interface Sub {
@@ -155,10 +156,13 @@ export default async function SupportPage({
     ?? allSubscriptions.find(s => s.status === 'Skipped')
     ?? allSubscriptions.find(s => s.status === 'Paused')
   const queuedSub = allSubscriptions.find(s => s.status === 'Scheduled')
-  // Same CMS source + same UAE-day math as the kitchen labels, so the bot
-  // describes the dish the kitchen actually delivers tonight.
+  // Same CMS source, UAE-day math and veg-day rule as the kitchen labels, so
+  // the bot describes the dish the kitchen actually delivers tonight — a
+  // religious-mix customer gets the veg dish on their veg days.
   const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000)
-  const todayDish = await findDishForDateWithOverrides(aeNow, customer?.meal_preference_type === 'Veg')
+  const aeDayName = aeNow.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+  const vegTonight = isVegOnDayName({ customer, subscription: activeSub }, aeDayName)
+  const todayDish = await findDishForDateWithOverrides(aeNow, vegTonight)
   const customerContext = buildCustomerContext(customer, activeSub, queuedSub, totalDelivered, todayDish)
 
   return (

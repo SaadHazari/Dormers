@@ -1,8 +1,9 @@
 /**
  * Tests for getKitchenCounts — the critical behavior is FAIL LOUD: a DB read
  * error must surface `unavailable: true`, never a believable 0/0. Also covers
- * the core counting + skip rules. The Supabase client + veg-day helper are
- * mocked so the test is deterministic and offline.
+ * the core counting + skip rules. The Supabase client is mocked so the test is
+ * deterministic and offline; the veg-day resolver is real, so the kitchen's
+ * count is proven against the same rule the customer's menu uses.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -14,10 +15,6 @@ const { fromMock, captureErrorMock } = vi.hoisted(() => ({
 
 vi.mock('@/infra/supabase/admin-client', () => ({
   createAdminSupabaseClient: () => ({ from: fromMock }),
-}))
-// Deterministic stub: a customer is "veg today" iff their preference is 'veg'.
-vi.mock('@/contexts/subscriptions/domain/veg-day', () => ({
-  isVegOnDayName: (pref: string | null) => pref === 'veg',
 }))
 vi.mock('@/infra/logging/capture-error', () => ({ captureError: captureErrorMock }))
 
@@ -105,5 +102,19 @@ describe('getKitchenCounts — counting', () => {
     )
     const r = await getKitchenCounts('2026-06-22', 'Monday', false)
     expect(r).toEqual({ vegCount: 0, nonVegCount: 0, unavailable: false })
+  })
+
+  it("cooks a religious plan's own veg days, not the next plan's saved picks", async () => {
+    // A renewal checkout already rewrote customers.veg_days to Thursday; the
+    // running plan was bought with Monday.
+    const religious = (dayName: string, iso: string) => {
+      setup(
+        { data: [{ id: 's1', customer_id: 'c1', week_type: '6DAYS', skipped_dates: [], paused_dates: [], veg_days: ['Monday'] }], error: null },
+        { data: [{ id: 'c1', meal_preference_type: 'Religious Preference', veg_days: ['Thursday'] }], error: null },
+      )
+      return getKitchenCounts(iso, dayName, false)
+    }
+    expect(await religious('Monday', '2026-06-22')).toEqual({ vegCount: 1, nonVegCount: 0, unavailable: false })
+    expect(await religious('Thursday', '2026-06-25')).toEqual({ vegCount: 0, nonVegCount: 1, unavailable: false })
   })
 })

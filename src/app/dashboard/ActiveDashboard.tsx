@@ -875,13 +875,13 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }
 
   // Per-day veg/non-veg map. For Veg/NonVeg pref it's all-or-nothing; for
-  // religious-mix it's the customer's checkout-chosen day set, snapshotted on
-  // the active sub. Stale day names (e.g. 'Saturday' on a now-5DAYS plan)
-  // are silently dropped by vegDayNumbersFor.
+  // religious-mix it's the day set snapshotted on the active sub, falling back
+  // to the customer's saved days. Stale day names (e.g. 'Saturday' on a
+  // now-5DAYS plan) are silently dropped by vegDayNumbersFor.
   const subWeekType: WeekType = (sub.week_type === '5DAYS' || sub.week_type === '6DAYS') ? sub.week_type : '6DAYS'
   const vegDayNumbers = useMemo(
-    () => vegDayNumbersFor(customer?.meal_preference_type, sub.veg_days, subWeekType),
-    [customer?.meal_preference_type, sub.veg_days, subWeekType]
+    () => vegDayNumbersFor({ customer, subscription: sub }, subWeekType),
+    [customer, sub, subWeekType]
   )
   const { menu: weekMenu } = useMemo(
     () => buildCurrentWeekMenu(vegDayNumbers, subWeekType, new Date(), menuData),

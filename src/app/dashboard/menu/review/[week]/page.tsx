@@ -159,8 +159,7 @@ export default async function ReviewPage({
     const weekType: WeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
     const meals = mealsForReviewWeek({
         weekStart: target.start,
-        mealPreference: customer?.meal_preference_type,
-        vegDays: sub.veg_days,
+        vegDaySources: { customer, subscription: sub },
         weekType,
         skippedDates: sub.skipped_dates,
         pausedDates: sub.paused_dates,
@@ -221,23 +220,21 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
  */
 function mealsForReviewWeek({
     weekStart,
-    mealPreference,
-    vegDays,
+    vegDaySources,
     weekType,
     skippedDates,
     pausedDates,
     allDishes,
 }: {
     weekStart: Date
-    mealPreference: string | null | undefined
-    vegDays: string[] | null | undefined
+    vegDaySources: import('@/contexts/subscriptions/domain/veg-day').VegDaySources
     weekType: WeekType
     skippedDates: string[] | null | undefined
     pausedDates: string[] | null | undefined
     allDishes: import('@/contexts/menu/domain/catalog-data').Dish[]
 }): WeeklyReviewMeal[] {
     const menuWeek = getMenuWeek(weekStart)
-    const vegDayNumbers = vegDayNumbersFor(mealPreference, vegDays, weekType)
+    const vegDayNumbers = vegDayNumbersFor(vegDaySources, weekType)
     const totalDays = weekType === '5DAYS' ? 5 : 6
     const skippedSet = new Set(skippedDates ?? [])
     const pausedSet = new Set(pausedDates ?? [])

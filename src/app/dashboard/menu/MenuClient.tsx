@@ -26,6 +26,8 @@ interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null
   meal_preference_type?: string | null; dorm_name?: string | null; created_at: string
   week_type?: '5DAYS' | '6DAYS' | null
+  // Saved religious-mix veg days — the menu's only source before a first plan.
+  veg_days?: string[] | null
 }
 
 interface ActiveSubLike {
@@ -1037,11 +1039,9 @@ export default function MenuClient({
     return null
   }
 
-  const vegDayNumbers = vegDayNumbersFor(
-    customer?.meal_preference_type,
-    activeSubscription?.veg_days,
-    weekType,
-  )
+  // Whole rows, not sub.veg_days: a religious signup with no plan yet still
+  // has their saved veg days on the customer.
+  const vegDayNumbers = vegDayNumbersFor({ customer, subscription: activeSubscription }, weekType)
 
   // Top-of-page meta tag — for religious mix, "Mix" beats either Veg / Non Veg
   // because some days are veg, others aren't. For pure prefs, use the simple label.

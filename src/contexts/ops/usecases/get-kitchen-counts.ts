@@ -24,7 +24,7 @@ export async function getKitchenCounts(
   // (Sentry) and flag unavailable, never coalesce to a believable 0/0.
   const subsRes = await sb
     .from('subscriptions')
-    .select('id, customer_id, week_type, skipped_dates, paused_dates')
+    .select('id, customer_id, week_type, skipped_dates, paused_dates, veg_days')
     .in('status', ['Active', 'Paused', 'Skipped'])
   if (subsRes.error) {
     captureError(subsRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
@@ -37,6 +37,7 @@ export async function getKitchenCounts(
     week_type: string | null
     skipped_dates: string[] | null
     paused_dates: string[] | null
+    veg_days: string[] | null
   }>
 
   // Capacity (Phase 7 / L6): fetch only the customers who actually have an
@@ -52,14 +53,14 @@ export async function getKitchenCounts(
 
   const customerMap = new Map<
     string,
-    { pref: string | null; vegDays: string[] | null }
+    { meal_preference_type: string | null; veg_days: string[] | null }
   >()
   for (const c of (customersRes.data ?? []) as Array<{
     id: string
     meal_preference_type: string | null
     veg_days: string[] | null
   }>) {
-    customerMap.set(c.id, { pref: c.meal_preference_type, vegDays: c.veg_days })
+    customerMap.set(c.id, c)
   }
 
   let vegCount = 0
@@ -76,7 +77,7 @@ export async function getKitchenCounts(
     const cust = customerMap.get(sub.customer_id)
     if (!cust) continue
 
-    if (isVegOnDayName(cust.pref, cust.vegDays, dayName)) {
+    if (isVegOnDayName({ customer: cust, subscription: sub }, dayName)) {
       vegCount++
     } else {
       nonVegCount++

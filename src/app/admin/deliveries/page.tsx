@@ -18,7 +18,7 @@ export default async function DeliveriesPage() {
     const sb = createAdminSupabaseClient()
 
     const activeSubsRes = await sb.from('subscriptions')
-        .select('id, customer_id, plan_name, status, meals_per_day, total_meals, delivered_meals, week_type, start_date, end_date, skipped_dates, paused_dates')
+        .select('id, customer_id, plan_name, status, meals_per_day, total_meals, delivered_meals, week_type, start_date, end_date, skipped_dates, paused_dates, veg_days')
         .in('status', ['Active', 'Paused', 'Skipped'])
         .order('start_date', { ascending: false })
 
@@ -43,7 +43,10 @@ export default async function DeliveriesPage() {
             customer_name: cust?.name ?? null,
             dorm_name: cust?.dorm ?? null,
             meal_preference: cust?.pref ?? null,
-            veg_today: isVegOnDayName(cust?.pref, cust?.vegDays, dayName),
+            veg_today: isVegOnDayName({
+                customer: { meal_preference_type: cust?.pref, veg_days: cust?.vegDays },
+                subscription: { veg_days: s.veg_days as string[] | null },
+            }, dayName),
             whatsapp_number: cust?.phone ?? null,
             plan_name: s.plan_name as string,
             status: s.status as string,
