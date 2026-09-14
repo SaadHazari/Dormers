@@ -121,16 +121,17 @@ Three phases: `open`, `winding_down`, `break`. Every transition is one SQL funct
 | From | Event | Guard | To | Side effects |
 |---|---|---|---|---|
 | open | Admin schedules the season end (W, buffer) | W is a future date within 370 days | winding_down | Stamp `cycle_started_at`; store W, buffer, K; project plans (§6); reconcile skips (§7.2); queue scheduling notices for 10:00 AE tomorrow; admin summary |
-| winding_down | Admin moves W or the buffer | New W is tomorrow or later | winding_down | Re-project; reconcile skips; re-queue notices whose facts changed; admin summary with the change in kitchen days, held meals and refund exposure |
+| winding_down | Admin moves W or the buffer | The current W is still ahead, and the new W is tomorrow or later | winding_down | Re-project; reconcile skips; re-queue notices whose facts changed; admin summary with the change in kitchen days, held meals and refund exposure |
 | winding_down | Admin clears the season end | None | open | Cancel unsent scheduling notices; keep credits already issued; admin summary |
-| winding_down | Admin stops sales now | None | winding_down | `sales_stopped_at = now()`; every purchase refused; kitchen unchanged |
+| winding_down | Admin stops sales now | W is still ahead (once W passes, the nightly tick has already stopped sales) | winding_down | `sales_stopped_at = now()`; every purchase refused; kitchen unchanged |
 | winding_down | Break tick, first AE day after K | phase = winding_down and K < today | break | Begin-break procedure (§8) |
 | open | Admin ends the season today | Typed confirm that names the plans to be held and the refund exposure | winding_down, K = today | W = K = today, buffer 0, sales stopped; tonight's deliveries run; the break tick starts the break at 00:15 |
 | break | Admin reopens | None | open | Stamp `cycle_ended_at`; holds move to `ready` (§6.3); clear W and K; offer the reopening notice; admin reminder if it is not sent within 2 hours |
 | any | Invariant checks (hourly in winding_down and break) | None | unchanged | Admin alert on any breach (§11.7) |
 
 The old "Pause now" button is replaced by "End the season today" (open) and "Stop sales now"
-(winding_down). There is no path to a break that skips the begin-break procedure.
+(winding_down). There is no path to a break that skips the begin-break procedure. After W has passed,
+the dates can still change by clearing the wrap-up day and scheduling a new one.
 
 ### 5.1 Storage
 
