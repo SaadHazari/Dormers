@@ -92,6 +92,39 @@ describe('getIntakeState', () => {
     const state = await getIntakeState()
     expect(state.pauseScheduledFor).toBeNull()
   })
+
+  it('reads the season phase and dates', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { ...ROW, season_phase: 'winding_down', wrap_up_day: '2026-10-03', buffer_delivery_days: 1, close_day: '2026-10-05', sales_stopped_at: null },
+      error: null,
+    })
+    const state = await getIntakeState()
+    expect(state.phase).toBe('winding_down')
+    expect(state.wrapUpDay).toBe('2026-10-03')
+    expect(state.bufferDays).toBe(1)
+    expect(state.closeDay).toBe('2026-10-05')
+    expect(state.salesStopped).toBe(false)
+  })
+
+  it('reports sales stopped when the row carries a stop time', async () => {
+    maybeSingleMock.mockResolvedValue({ data: { ...ROW, season_phase: 'winding_down', sales_stopped_at: '2026-09-02T01:50:11Z' }, error: null })
+    expect((await getIntakeState()).salesStopped).toBe(true)
+  })
+
+  it('treats an unknown phase as open', async () => {
+    maybeSingleMock.mockResolvedValue({ data: { ...ROW, season_phase: 'closed-ish' }, error: null })
+    expect((await getIntakeState()).phase).toBe('open')
+  })
+
+  it('fails open on the season too', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: { message: 'db down' } })
+    const state = await getIntakeState()
+    expect(state.phase).toBe('open')
+    expect(state.wrapUpDay).toBeNull()
+    expect(state.closeDay).toBeNull()
+    expect(state.salesStopped).toBe(false)
+    expect(state.bufferDays).toBe(1)
+  })
 })
 
 describe('creditAedFor', () => {
@@ -105,6 +138,11 @@ describe('creditAedFor', () => {
     cycleStartedAt: null,
     cycleEndedAt: null,
     pauseScheduledFor: null,
+    phase: 'open' as const,
+    wrapUpDay: null,
+    bufferDays: 1,
+    closeDay: null,
+    salesStopped: false,
   }
 
   it('gives the non-veg amount to a Non Veg customer', () => {

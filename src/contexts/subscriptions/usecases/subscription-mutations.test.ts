@@ -116,6 +116,11 @@ function intakeState(pauseScheduledFor: string | null) {
     creditNonvegAed: 20, creditVegAed: 15, creditReligiousAed: 20,
     cycleStartedAt: null, cycleEndedAt: null,
     pauseScheduledFor,
+    phase: pauseScheduledFor ? ('winding_down' as const) : ('open' as const),
+    wrapUpDay: pauseScheduledFor,
+    bufferDays: 0,
+    closeDay: pauseScheduledFor,
+    salesStopped: false,
   }
 }
 

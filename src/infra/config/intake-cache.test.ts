@@ -58,4 +58,12 @@ describe('an admin write is never answered from the old row', () => {
     // contradict what the operator just did.
     expect(read('src/app/admin/staff/actions.ts')).toContain('getIntakeState({ fresh: true })')
   })
+
+  it('every season transition drops it', () => {
+    const transitions = read('src/contexts/season/usecases/season-transitions.ts')
+    const rpcs = transitions.split('.rpc(').length - 1
+    const invalidations = transitions.split('invalidateIntakeCache()').length - 1
+    expect(rpcs).toBeGreaterThan(0)
+    expect(invalidations).toBe(rpcs)
+  })
 })

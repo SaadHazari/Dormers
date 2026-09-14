@@ -8,15 +8,17 @@ import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
 import {
-    setIntakePaused,
     updateIntakeCopy,
     updateIntakeCredits,
-    scheduleIntakePause,
-    clearScheduledIntakePause,
+    scheduleSeasonEndAction,
+    clearSeasonEndAction,
+    stopSeasonSalesAction,
+    resumeSeasonSalesAction,
     setReopenTarget,
 } from './actions'
 import type { IntakeSettingsRow, WaitlistMember } from './page'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
+import { DEFAULT_BUFFER_DAYS } from '@/contexts/season/domain/season-dates'
 import { OG, OG_DEEP, BODY } from '@/app/dashboard/_shared/tokens'
 import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 
@@ -79,7 +81,7 @@ export function SeasonClient({ settings, members, overhangCount }: Props) {
     function handleResume() {
         setToggleError(null)
         startToggle(async () => {
-            const result = await setIntakePaused(false)
+            const result = await resumeSeasonSalesAction()
             if ('error' in result) { setToggleError(result.error); return }
             router.refresh()
         })
@@ -88,7 +90,7 @@ export function SeasonClient({ settings, members, overhangCount }: Props) {
     function handleConfirmPause() {
         setToggleError(null)
         startToggle(async () => {
-            const result = await setIntakePaused(true)
+            const result = await stopSeasonSalesAction()
             if ('error' in result) { setToggleError(result.error); return }
             setConfirmOpen(false)
             router.refresh()
@@ -115,7 +117,7 @@ export function SeasonClient({ settings, members, overhangCount }: Props) {
     function handleConfirmSchedule() {
         setScheduleError(null)
         startSchedule(async () => {
-            const result = await scheduleIntakePause(dateDraft)
+            const result = await scheduleSeasonEndAction(dateDraft, DEFAULT_BUFFER_DAYS)
             if ('error' in result) { setScheduleError(result.error); return }
             setScheduleConfirmOpen(false)
             router.refresh()
@@ -125,7 +127,7 @@ export function SeasonClient({ settings, members, overhangCount }: Props) {
     function handleConfirmClear() {
         setScheduleError(null)
         startSchedule(async () => {
-            const result = await clearScheduledIntakePause()
+            const result = await clearSeasonEndAction()
             if ('error' in result) { setScheduleError(result.error); return }
             setClearConfirmOpen(false)
             setDateDraft('')

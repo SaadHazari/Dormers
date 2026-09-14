@@ -1,5 +1,6 @@
 import 'server-only'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import type { SeasonPhase } from '@/contexts/season/domain/season-phase'
 
 /**
  * Seasonal intake pause — the operator switch that stops all new plan
@@ -38,6 +39,16 @@ export interface IntakeState {
   /** Date (YYYY-MM-DD) a future pause is scheduled to take effect, or null
    *  if none is scheduled. */
   pauseScheduledFor: string | null
+  /** Season phase (spec §5). Fails open to 'open'. */
+  phase: SeasonPhase
+  /** W, the wrap-up day, or null when none is set. */
+  wrapUpDay: string | null
+  /** Buffer delivery days between W and the close day. */
+  bufferDays: number
+  /** K, the close day, or null when no wrap-up day is set. */
+  closeDay: string | null
+  /** True when sales were stopped (manually, or by passing W). */
+  salesStopped: boolean
 }
 
 /** Used when the row is missing or unreadable. Intake stays open. */
@@ -51,6 +62,11 @@ const FAIL_OPEN: IntakeState = {
   cycleStartedAt: null,
   cycleEndedAt: null,
   pauseScheduledFor: null,
+  phase: 'open',
+  wrapUpDay: null,
+  bufferDays: 1,
+  closeDay: null,
+  salesStopped: false,
 }
 
 let cache: { state: IntakeState; at: number } | null = null
@@ -88,7 +104,7 @@ export async function getIntakeState(opts?: { fresh?: boolean }): Promise<Intake
     const sb = createAdminSupabaseClient()
     const { data, error } = await sb
       .from('intake_settings')
-      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, cycle_started_at, cycle_ended_at, pause_scheduled_for')
+      .select('paused, headline, body, credit_nonveg_aed, credit_veg_aed, credit_religious_aed, cycle_started_at, cycle_ended_at, pause_scheduled_for, season_phase, wrap_up_day, buffer_delivery_days, close_day, sales_stopped_at')
       .maybeSingle()
     if (error) throw error
     if (!data) return FAIL_OPEN
@@ -104,6 +120,11 @@ export async function getIntakeState(opts?: { fresh?: boolean }): Promise<Intake
       cycleStartedAt: row.cycle_started_at == null ? null : String(row.cycle_started_at),
       cycleEndedAt: row.cycle_ended_at == null ? null : String(row.cycle_ended_at),
       pauseScheduledFor: row.pause_scheduled_for == null ? null : String(row.pause_scheduled_for),
+      phase: row.season_phase === 'winding_down' || row.season_phase === 'break' ? row.season_phase : 'open',
+      wrapUpDay: row.wrap_up_day == null ? null : String(row.wrap_up_day),
+      bufferDays: row.buffer_delivery_days == null ? FAIL_OPEN.bufferDays : Number(row.buffer_delivery_days),
+      closeDay: row.close_day == null ? null : String(row.close_day),
+      salesStopped: row.sales_stopped_at != null,
     }
     cache = { state, at: Date.now() }
     return state
