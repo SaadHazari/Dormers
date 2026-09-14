@@ -391,14 +391,17 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                             <p key={line} className={`text-[13px] font-medium leading-relaxed ${t.body}`}>{line}</p>
                         ))}
                         {confirm === 'end_today' && (
-                            <input
-                                id="season-end-today-phrase"
-                                value={phrase}
-                                onChange={(e) => setPhrase(e.target.value)}
-                                placeholder={END_TODAY_PHRASE}
-                                autoComplete="off"
-                                className={`mt-1 rounded-lg border px-3 py-2 text-[13px] font-semibold ${t.input} ${t.inputFocus}`}
-                            />
+                            <label className="flex flex-col gap-1.5 mt-1" htmlFor="season-end-today-phrase">
+                                <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>Confirmation phrase</span>
+                                <input
+                                    id="season-end-today-phrase"
+                                    value={phrase}
+                                    onChange={(e) => setPhrase(e.target.value)}
+                                    placeholder={END_TODAY_PHRASE}
+                                    autoComplete="off"
+                                    className={`rounded-lg border px-3 py-2 text-[13px] font-semibold ${t.input} ${t.inputFocus}`}
+                                />
+                            </label>
                         )}
                         {error && <p className={`text-[12px] font-bold ${t.danger}`}>{error}</p>}
                     </div>
