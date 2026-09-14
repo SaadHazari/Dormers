@@ -1,0 +1,48 @@
+import { describe, it, expect } from 'vitest'
+import { addDaysIso, isoDow, isDeliveryDayIso, closeDayFor, validateSeasonEnd, todayAeIso } from './season-dates'
+
+// Calendar anchors (checked): 2026-09-14 is a Monday, 2026-10-03 a Saturday,
+// 2026-10-04 a Sunday, 2026-10-05 a Monday.
+describe('season-dates', () => {
+  it('adds days across a month boundary', () => {
+    expect(addDaysIso('2026-09-30', 1)).toBe('2026-10-01')
+    expect(addDaysIso('2026-10-01', -1)).toBe('2026-09-30')
+  })
+
+  it('reads the ISO weekday', () => {
+    expect(isoDow('2026-09-14')).toBe(1)
+    expect(isoDow('2026-10-03')).toBe(6)
+    expect(isoDow('2026-10-04')).toBe(7)
+  })
+
+  it('knows delivery days for both cadences', () => {
+    expect(isDeliveryDayIso('2026-10-03', '6DAYS')).toBe(true)
+    expect(isDeliveryDayIso('2026-10-03', '5DAYS')).toBe(false)
+    expect(isDeliveryDayIso('2026-10-04', '6DAYS')).toBe(false)
+  })
+
+  it('close day skips Sunday and counts delivery days', () => {
+    expect(closeDayFor('2026-10-03', 0)).toBe('2026-10-03')
+    expect(closeDayFor('2026-10-03', 1)).toBe('2026-10-05')
+    expect(closeDayFor('2026-09-28', 1)).toBe('2026-09-29')
+    expect(closeDayFor('2026-10-02', 2)).toBe('2026-10-05')
+  })
+
+  it('validates the wrap-up day and buffer', () => {
+    const todayAe = '2026-09-14'
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 1, todayAe })).toBeNull()
+    expect(validateSeasonEnd({ wrapUpDay: '', bufferDays: 1, todayAe })).toBe('Pick a wrap-up day first.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-02-30', bufferDays: 1, todayAe })).toBe('That date does not exist. Check the day and month.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-09-14', bufferDays: 1, todayAe })).toBe('The wrap-up day has to be tomorrow or later.')
+    expect(validateSeasonEnd({ wrapUpDay: '2027-10-01', bufferDays: 1, todayAe })).toBe('Pick a wrap-up day within the next year.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-04', bufferDays: 1, todayAe })).toBe('Pick a delivery day. Sunday is not one.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 4, todayAe })).toBe('The buffer must be 0 to 3 delivery days.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 1.5, todayAe })).toBe('The buffer must be 0 to 3 delivery days.')
+  })
+
+  it('reads today on the Dubai calendar', () => {
+    // 2026-09-14T21:30Z is 01:30 on 15 Sep in Dubai.
+    expect(todayAeIso(Date.parse('2026-09-14T21:30:00Z'))).toBe('2026-09-15')
+    expect(todayAeIso(Date.parse('2026-09-14T19:30:00Z'))).toBe('2026-09-14')
+  })
+})
