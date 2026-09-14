@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   classifyMenuDay,
+  lastDinnerIso,
   nextDeliveryIso,
   noDeliveryNote,
   planEndingNotice,
@@ -196,6 +197,25 @@ describe('the plan-ending line', () => {
   })
 })
 
+describe('the last dinner marker', () => {
+  it('sits on the end date of a delivering plan with nothing queued', () => {
+    expect(lastDinnerIso(ctx(plan({ end_date: FRI })))).toBe(FRI)
+    expect(lastDinnerIso(ctx(plan({ status: 'Skipped', end_date: FRI })))).toBe(FRI)
+  })
+
+  it('stays on the one day a finished plan ended', () => {
+    expect(lastDinnerIso(ctx(plan({ status: 'Ended', start_date: '2026-08-18', end_date: TUE })))).toBe(TUE)
+  })
+
+  it('is absent when another plan follows or the end date is still going to move', () => {
+    expect(lastDinnerIso(ctx(plan({ end_date: FRI }), { hasQueuedRenewal: true }))).toBeNull()
+    expect(lastDinnerIso(ctx(plan({ status: 'Paused', end_date: FRI })))).toBeNull()
+    expect(lastDinnerIso(ctx(plan({ planned_pause_start: NEXT_MON, end_date: NEXT_TUE })))).toBeNull()
+    expect(lastDinnerIso(ctx(plan({ status: 'Scheduled', start_date: NEXT_MON, end_date: NEXT_TUE })))).toBeNull()
+    expect(lastDinnerIso(ctx(null))).toBeNull()
+  })
+})
+
 describe('the Renew control', () => {
   const base = { planName: 'Monthly Premium', intakePaused: false, outOfZone: false, profileIncomplete: false }
 
@@ -221,6 +241,20 @@ describe('the note on a dish that will not come', () => {
     expect(noDeliveryNote('future-skipped', NEXT_MON, ctx(plan()))).toMatch(/skip/i)
     expect(noDeliveryNote('today-skipped', THU, ctx(plan({ resume_cutoff_date: THU })))).toMatch(/2 PM/)
     expect(noDeliveryNote('before-plan', MON, ctx(plan({ start_date: WED })))).toMatch(/before your plan/i)
+  })
+
+  it('explains the semester break on a day after the plan, and what happens next', () => {
+    const note = noDeliveryNote('plan-ends', NEXT_MON, ctx(plan({ end_date: FRI })), { kind: 'season', note: '' })
+    expect(note).toMatch(/semester break/i)
+    expect(note).toMatch(/last dinner is Fri, 18 Sep/)
+    expect(note).toMatch(/message you/i)
+    const ended = noDeliveryNote('plan-ends', NEXT_MON, ctx(plan({ status: 'Ended', start_date: '2026-08-18', end_date: TUE })), { kind: 'season', note: '' })
+    expect(ended).toMatch(/last dinner was Tue, 15 Sep/)
+  })
+
+  it('says what is holding a renewal back', () => {
+    const note = noDeliveryNote('plan-ends', NEXT_MON, ctx(plan({ end_date: FRI })), { kind: 'blocked', reason: 'Complete your profile first' })
+    expect(note).toMatch(/complete your profile first/i)
   })
 
   it('does not promise a plan extension to someone without a live plan', () => {
