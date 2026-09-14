@@ -13,6 +13,7 @@ import { notFound } from 'next/navigation'
 import { AdminThemeProvider } from '@/app/admin/_components/AdminThemeProvider'
 import { SeasonClient } from '@/app/admin/season/SeasonClient'
 import type { IntakeSettingsRow, WaitlistMember } from '@/app/admin/season/page'
+import type { SeasonPageData } from '@/app/admin/season/season-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,13 +56,25 @@ export default async function SeasonAdminPreviewPage({
     reopenTarget: Number.isFinite(target) ? target : null,
   }
 
+  // Minimal stand-in only: this harness exists for the waitlist panel, and
+  // Task 8 brings the season-planner fixtures. An empty, phase-open season
+  // is enough to keep SeasonClient's props satisfied here.
+  const season: SeasonPageData = {
+    snapshot: { phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: false },
+    salesStoppedAt: null,
+    kitchenDailyCostAed: 500,
+    todayAe: new Date().toISOString().slice(0, 10),
+    closureDates: [],
+    plans: [],
+  }
+
   return (
     <AdminThemeProvider>
       <div className="p-6">
         <SeasonClient
           settings={settings}
           members={params.members === '0' ? [] : fixtureMembers()}
-          overhangCount={0}
+          season={season}
         />
       </div>
     </AdminThemeProvider>

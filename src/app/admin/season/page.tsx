@@ -1,5 +1,7 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { SeasonClient } from './SeasonClient'
+import { loadSeasonPageData } from './season-data'
+import { todayAeIso } from '@/contexts/season/domain/season-dates'
 
 export const metadata = { title: 'Season — Dormers Admin' }
 export const dynamic = 'force-dynamic'
@@ -82,21 +84,6 @@ export default async function SeasonPage() {
         reopenTarget: row?.reopen_target == null ? null : Number(row.reopen_target),
     }
 
-    // Journeys that already run past the scheduled last delivery day. The
-    // taper only stops NEW sales, so these are the customers who were
-    // already on the books when the date was set — they ride to completion,
-    // and the owner deserves to know how many are in that tail. Only worth a
-    // round trip when a date is actually scheduled.
-    let overhangCount = 0
-    if (settings.pauseScheduledFor) {
-        const { count } = await sb
-            .from('subscriptions')
-            .select('id', { count: 'exact', head: true })
-            .gt('end_date', settings.pauseScheduledFor)
-            .in('status', ['Active', 'Paused', 'Skipped', 'Scheduled'])
-        overhangCount = count ?? 0
-    }
-
     // The early-access list for the CURRENT cycle only.
     //
     // The old KPI counted every intake_waitlist row ever written, across all
@@ -106,13 +93,16 @@ export default async function SeasonPage() {
     // cycle_started_at = intake_settings.cycle_started_at. So the page could
     // read 12 while a send went to 3. Scoping here makes the number on screen
     // the number of people a reopen message will land on.
-    const members = await fetchWaitlistMembers(sb, cycleStartedAt)
+    const [members, season] = await Promise.all([
+        fetchWaitlistMembers(sb, cycleStartedAt),
+        loadSeasonPageData(todayAeIso(), sb),
+    ])
 
     return (
         <SeasonClient
             settings={settings}
             members={members}
-            overhangCount={overhangCount}
+            season={season}
         />
     )
 }
