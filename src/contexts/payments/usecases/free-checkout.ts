@@ -202,6 +202,10 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
       has_paused_before: false,
       skipped_meals_count: 0,
       veg_days: vegDaysList,
+      // The plan's own diet — the same value the customer patch below makes
+      // canonical. A renewal's customer patch lands while the current plan
+      // still runs; veg-day.ts reads each plan's diet off the plan.
+      meal_preference_type: customerRow?.pending_meal_preference_type ?? preference,
     })
     .select()
     .single()

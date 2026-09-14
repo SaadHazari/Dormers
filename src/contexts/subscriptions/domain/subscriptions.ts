@@ -40,6 +40,7 @@ export interface Subscription {
   week_type: SubscriptionWeekType             // CHECK: '5DAYS' | '6DAYS'
   start_date_changed_at: string | null        // ISO timestamp
   veg_days: string[] | null                   // religious-mix only
+  meal_preference_type: string | null         // the plan's own diet (2026-09-14); null on older rows
   resume_cutoff_date: string | null           // YYYY-MM-DD
   skipped_dates: string[]                     // YYYY-MM-DD[], default []
   planned_pause_start: string | null          // YYYY-MM-DD

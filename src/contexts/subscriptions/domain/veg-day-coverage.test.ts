@@ -74,6 +74,23 @@ describe('veg-day resolver coverage', () => {
     expect(offenders).toEqual([])
   })
 
+  // The plan's own diet (subscriptions.meal_preference_type, 2026-09-14) only
+  // wins when the row handed to veg-day.ts carries it. A plan row fetched with
+  // its veg_days but not its diet silently falls back to the customer's — the
+  // renewal flip that column exists to stop.
+  it("every plan row handed to veg-day.ts carries the plan's diet", () => {
+    const offenders: string[] = []
+    for (const f of files.filter((f) => f.text.includes(RESOLVER_IMPORT))) {
+      for (const m of f.text.matchAll(/from\('subscriptions'\)\s*\.select\(\s*'([^']*)'/g)) {
+        if (m[1].includes('veg_days') && !m[1].includes('meal_preference_type')) offenders.push(`${f.rel}: select('${m[1]}')`)
+      }
+      for (const m of f.text.matchAll(/subscription:\s*\{[^}]*veg_days[^}]*\}/g)) {
+        if (!m[0].includes('meal_preference_type')) offenders.push(`${f.rel}: ${m[0]}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
   it('every exemption still exists and still picks a dish by veg flag', () => {
     for (const rel of Object.keys(NOT_PER_CUSTOMER)) {
       expect(existsSync(join(ROOT, rel)), rel).toBe(true)

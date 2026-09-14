@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   WORKING_DAY_NAMES,
   isVegOnDayName,
+  preferenceKindFor,
   resolveVegDayNames,
   vegDayNumbersFor,
   type VegDaySources,
@@ -62,6 +63,39 @@ describe('veg days for plain preferences', () => {
   })
 })
 
+describe('the plan being delivered decides the diet', () => {
+  // A renewal checkout rewrites customers.meal_preference_type to the NEXT
+  // plan's diet the moment it is paid, while this plan still has dinners left.
+  it('keeps a religious plan religious after the customer renews as Non Veg', () => {
+    const src: VegDaySources = {
+      customer: { meal_preference_type: 'Non Veg', veg_days: null },
+      subscription: { meal_preference_type: 'Religious Preference', veg_days: ['Monday', 'Friday'] },
+    }
+    expect([...vegDayNumbersFor(src, '5DAYS')]).toEqual([0, 4])
+    expect(isVegOnDayName(src, 'Friday')).toBe(true)
+    expect(preferenceKindFor(src)).toBe('religious')
+  })
+
+  it('keeps a Non Veg plan non-veg after the customer renews as Veg', () => {
+    const src: VegDaySources = {
+      customer: { meal_preference_type: 'Veg', veg_days: null },
+      subscription: { meal_preference_type: 'Non Veg', veg_days: null },
+    }
+    expect(vegDayNumbersFor(src, '6DAYS').size).toBe(0)
+    expect(isVegOnDayName(src, 'Monday')).toBe(false)
+    expect(preferenceKindFor(src)).toBe('nonveg')
+  })
+
+  it("uses the customer's diet for a plan row that has none (older rows)", () => {
+    const src: VegDaySources = {
+      customer: { meal_preference_type: 'Veg', veg_days: null },
+      subscription: { meal_preference_type: null, veg_days: null },
+    }
+    expect(vegDayNumbersFor(src, '6DAYS').size).toBe(6)
+    expect(preferenceKindFor(src)).toBe('veg')
+  })
+})
+
 describe('the customer menu and the kitchen agree', () => {
   // vegDayNumbersFor feeds the dashboard and menu; isVegOnDayName feeds labels,
   // the delivery queue and kitchen counts. Same rows in, same answer out.
@@ -72,7 +106,8 @@ describe('the customer menu and the kitchen agree', () => {
     for (const custDays of daySets) {
       cases.push({ customer: { meal_preference_type, veg_days: custDays }, subscription: null })
       for (const subDays of daySets)
-        cases.push({ customer: { meal_preference_type, veg_days: custDays }, subscription: { veg_days: subDays } })
+        for (const subPref of [undefined, null, ...prefs])
+          cases.push({ customer: { meal_preference_type, veg_days: custDays }, subscription: { veg_days: subDays, meal_preference_type: subPref } })
     }
 
   it.each(['5DAYS', '6DAYS'] as const)('on every working day of a %s week', (weekType) => {

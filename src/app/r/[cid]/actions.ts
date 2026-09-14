@@ -757,6 +757,7 @@ export async function claimGift(payload: {
         has_paused_before:    false,
         skipped_meals_count:  0,
         veg_days:             null,
+        meal_preference_type: payload.preference,
       })
 
     if (subErr) {

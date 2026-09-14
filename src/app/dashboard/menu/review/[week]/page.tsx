@@ -99,7 +99,7 @@ export default async function ReviewPage({
     const [{ data: sub }, customer] = await Promise.all([
         supabase
             .from('subscriptions')
-            .select('id, start_date, plan_name, week_type, veg_days, skipped_dates, paused_dates')
+            .select('id, start_date, plan_name, week_type, veg_days, meal_preference_type, skipped_dates, paused_dates')
             .eq('customer_id', user.id)
             .in('status', [...LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS.SCHEDULED])
             .order('start_date', { ascending: true })

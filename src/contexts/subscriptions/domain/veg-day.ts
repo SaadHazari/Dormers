@@ -26,7 +26,8 @@ export type WorkingDayName = (typeof WORKING_DAY_NAMES)[number]
  */
 export interface VegDaySources {
   customer: { meal_preference_type?: string | null; veg_days?: string[] | null } | null | undefined
-  subscription: { veg_days?: string[] | null } | null | undefined
+  /** `meal_preference_type` is the plan's own diet, written at purchase (2026-09-14). */
+  subscription: { veg_days?: string[] | null; meal_preference_type?: string | null } | null | undefined
 }
 
 /**
@@ -44,6 +45,16 @@ function preferenceKind(mealPref: string | null | undefined): 'religious' | 'veg
   if (pref.includes('religious')) return 'religious'
   if (pref.includes('plant') || (pref.includes('veg') && !pref.includes('non'))) return 'veg'
   return 'nonveg'
+}
+
+/**
+ * The diet in force: the plan's own, else the customer's. A renewal checkout
+ * rewrites customers.meal_preference_type to the NEXT plan's diet the moment
+ * it is paid, while this plan still has dinners left — so once a plan carries
+ * a diet, that one wins. Same rule as the veg days below.
+ */
+export function preferenceKindFor({ customer, subscription }: VegDaySources): 'religious' | 'veg' | 'nonveg' {
+  return preferenceKind(subscription?.meal_preference_type ?? customer?.meal_preference_type)
 }
 
 /**
@@ -65,7 +76,7 @@ export function resolveVegDayNames({ customer, subscription }: VegDaySources): s
  * Day names compare case-insensitively ('Monday' … 'Saturday').
  */
 export function isVegOnDayName(sources: VegDaySources, dayName: string): boolean {
-  const kind = preferenceKind(sources.customer?.meal_preference_type)
+  const kind = preferenceKindFor(sources)
   if (kind !== 'religious') return kind === 'veg'
   const day = dayName.toLowerCase()
   return resolveVegDayNames(sources).some(d => d.toLowerCase() === day)
@@ -85,7 +96,7 @@ export function isVegOnDayName(sources: VegDaySources, dayName: string): boolean
  */
 export function vegDayNumbersFor(sources: VegDaySources, weekType: WeekType): Set<number> {
   const working = workingDayNumbers(weekType)
-  const kind = preferenceKind(sources.customer?.meal_preference_type)
+  const kind = preferenceKindFor(sources)
   if (kind === 'veg') return working
   if (kind === 'nonveg') return new Set()
   const result = new Set<number>()

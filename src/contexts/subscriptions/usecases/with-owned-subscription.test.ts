@@ -49,6 +49,7 @@ const fakeSubscription: Subscription = {
   week_type: '6DAYS',
   start_date_changed_at: null,
   veg_days: null,
+  meal_preference_type: null,
   resume_cutoff_date: null,
   skipped_dates: [],
   planned_pause_start: null,

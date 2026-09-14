@@ -204,6 +204,10 @@ async function handleCheckoutCompleted(
         start_date: isoDate(startDate),
         end_date: isoDate(endDate),
         week_type: weekType,
+        // The plan's own diet — the same value the customer patch below makes
+        // canonical. On a renewal that patch lands while the current plan still
+        // runs; veg-day.ts reads each plan's diet off the plan.
+        meal_preference_type: customerRow?.pending_meal_preference_type ?? preference,
         meals_per_day: meals_per_day,
         total_meals: total_meals,
         delivered_meals: 0,

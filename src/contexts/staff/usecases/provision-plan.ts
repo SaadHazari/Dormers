@@ -102,6 +102,7 @@ export async function provisionStaffFreePlan(userId: string): Promise<ProvisionR
         has_paused_before: false,
         skipped_meals_count: 0,
         veg_days: isReligious && (customer?.veg_days?.length ?? 0) > 0 ? customer?.veg_days : null,
+        meal_preference_type: customer?.meal_preference_type ?? null,
     }).select('id, created_at').single()
 
     if (subErr || !created) {

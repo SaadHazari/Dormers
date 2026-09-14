@@ -24,7 +24,7 @@ export async function getKitchenCounts(
   // (Sentry) and flag unavailable, never coalesce to a believable 0/0.
   const subsRes = await sb
     .from('subscriptions')
-    .select('id, customer_id, week_type, skipped_dates, paused_dates, veg_days')
+    .select('id, customer_id, week_type, skipped_dates, paused_dates, veg_days, meal_preference_type')
     .in('status', ['Active', 'Paused', 'Skipped'])
   if (subsRes.error) {
     captureError(subsRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
@@ -38,6 +38,7 @@ export async function getKitchenCounts(
     skipped_dates: string[] | null
     paused_dates: string[] | null
     veg_days: string[] | null
+    meal_preference_type: string | null
   }>
 
   // Capacity (Phase 7 / L6): fetch only the customers who actually have an
