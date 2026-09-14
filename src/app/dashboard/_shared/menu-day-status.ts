@@ -162,6 +162,21 @@ export function planEndingNotice(ctx: MenuDayContext): { lastDinnerIso: string; 
 }
 
 /**
+ * The one day that says "Last dinner": the plan's end date, once that date is
+ * settled — the plan is delivering or finished, no pause is scheduled to push
+ * it out, and no renewal carries on after it. The days after a finished plan
+ * never repeat it; there was only one end date.
+ */
+export function lastDinnerIso(ctx: MenuDayContext): string | null {
+  const p = ctx.plan
+  if (!p || ctx.hasQueuedRenewal || p.planned_pause_start) return null
+  const settled = p.status === SUBSCRIPTION_STATUS.ACTIVE
+    || p.status === SUBSCRIPTION_STATUS.SKIPPED
+    || p.status === SUBSCRIPTION_STATUS.ENDED
+  return settled ? p.end_date : null
+}
+
+/**
  * What the menu's Renew controls do. Same gates, same words and same link as
  * the dashboard's plan card (PlanProgress): the season pause hides renewing
  * altogether, an out-of-zone dorm or an unfinished profile greys it out.
@@ -177,7 +192,7 @@ export function renewGateFor(opts: {
   outOfZone: boolean
   profileIncomplete: boolean
 }): RenewGate {
-  if (opts.intakePaused) return { kind: 'season', note: "New plans are paused for the season — we'll message you when they reopen." }
+  if (opts.intakePaused) return { kind: 'season', note: "New plans are closed over the semester break — we'll message you when they reopen." }
   if (opts.outOfZone) return { kind: 'blocked', reason: 'Outside delivery radius — message us on WhatsApp' }
   if (opts.profileIncomplete) return { kind: 'blocked', reason: 'Complete your profile first' }
   return {
@@ -186,8 +201,12 @@ export function renewGateFor(opts: {
   }
 }
 
-/** One sentence on the dish sheet saying why this dinner won't come. */
-export function noDeliveryNote(reason: NoDeliveryReason, iso: string, ctx: MenuDayContext): string {
+/**
+ * The line on the dish sheet saying why this dinner won't come. `renew` tells
+ * the days after the plan apart: semester break (why, and what happens next),
+ * renewal on hold (what's holding it), or simply renewable.
+ */
+export function noDeliveryNote(reason: NoDeliveryReason, iso: string, ctx: MenuDayContext, renew?: RenewGate): string {
   const p = ctx.plan
   switch (reason) {
     case 'today-skipped':
@@ -217,6 +236,13 @@ export function noDeliveryNote(reason: NoDeliveryReason, iso: string, ctx: MenuD
     case 'after-end':
       return 'Your plan had ended by this day.'
     case 'plan-ends':
+      if (renew?.kind === 'season' && p) {
+        const tense = p.end_date < ctx.todayIso ? 'was' : 'is'
+        return `Dormers is on its semester break, so new plans are closed and this dinner isn't cooked for you. Your plan's last dinner ${tense} ${formatMenuDate(p.end_date)}. We'll message you as soon as plans reopen.`
+      }
+      if (renew?.kind === 'blocked') {
+        return `This day comes after your plan's last dinner. Renewing unlocks it, but renewal is on hold: ${renew.reason}.`
+      }
       return "This day comes after your plan's last dinner."
   }
 }

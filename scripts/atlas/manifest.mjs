@@ -556,12 +556,12 @@ menu('active', 'Active plan — this week and next', 'Today\'s spotlight with th
 menu('skipped', 'Skips in the week (past, tonight, future)', 'The top card becomes "Skipped tonight" and names the real next delivery; yesterday, tonight and the future skip are grey with their labels.', 'skipped_dates yesterday/today/+2, status Skipped.')
 menu('paused', 'Plan paused mid-week', 'Every day grey: the two paused days behind today read "Paused" (not "Delivered"), today onward "Paused" — next week too, past the end date. The card links to Resume.', 'status Paused since Tuesday, end_date +6d; Thursday.', thuNow, { clock: thuClock })
 menu('planned-pause', 'Pause begins in two days', 'The pause-start day is grey "Pause begins", later days grey "Paused"; tonight is still a normal dinner.', 'planned_pause_start +2d.')
-menu('plan-ends', 'Plan ends in two days', 'A "Your last dinner is …" line with Renew sits above the week; days after the last dinner go grey with a lock and "Renew to unlock", and tapping one routes to renew.', 'end_date +2d, no queued renewal.')
+menu('plan-ends', 'Plan ends in two days', 'A "Your last dinner is …" line with Renew sits above the week and that one day\'s card reads "Last dinner"; days after it go grey with a lock and "Renew to unlock", and tapping one routes to renew.', 'end_date +2d, no queued renewal.')
 menu('plan-ends', 'Plan ends — queued renewal covers the days', 'With a queued plan the same days stay normal "Upcoming" and no ending line shows.', 'end_date +2d, hasQueuedRenewal.', '&queued=1', { id: 'menu-plan-ends-queued' })
-menu('plan-ends', 'Plan ends — new plans paused for the season', 'Days after the plan are still grey, but without the lock ("After your plan"); the ending line carries the season note instead of Renew.', 'end_date +2d, intake paused.', '&gate=season', { id: 'menu-plan-ends-season' })
-menu('plan-ends', 'Plan ends — dorm out of zone', 'Renew is a grey pill with the out-of-zone reason; the days after the plan open the dish instead of routing to renew.', 'end_date +2d, out_of_zone.', '&gate=zone', { id: 'menu-plan-ends-zone' })
+menu('plan-ends', 'Plan ends during the semester break', 'Days after the plan are grey "Semester break" without the lock; the ending line carries the semester-break note instead of Renew, and tapping a day explains why and what happens next.', 'end_date +2d, intake paused.', '&gate=season', { id: 'menu-plan-ends-season' })
+menu('plan-ends', 'Plan ends — dorm out of zone', 'Renew is a grey pill with the out-of-zone reason; days after the plan keep the lock and "Renew to unlock", but tapping one opens the dish with what is holding renewal back.', 'end_date +2d, out_of_zone.', '&gate=zone', { id: 'menu-plan-ends-zone' })
 menu('last-day', 'Last dinner tonight', 'Tonight\'s ticket adds "Last dinner of your Monthly Premium" with Renew; every day after tonight is grey and locked.', 'end_date today, no queued renewal.')
-menu('ended', 'Plan ended — returning customer', 'Two days after the last dinner: "Your plan has ended" with its date and Renew. Days of the old plan keep Delivered / Skipped, days after it stay grey ("Plan ended", locked ahead).', 'No live plan; last plan ended two days ago; Thursday.', thuNow, { clock: thuClock })
+menu('ended', 'Plan ended — returning customer', 'Two days after the last dinner: "Your plan has ended" with its date and Renew. Days of the old plan keep Delivered / Skipped and only its end date reads "Last dinner"; the days since are grey "No plan", the days ahead locked.', 'No live plan; last plan ended two days ago; Thursday.', thuNow, { clock: thuClock })
 menu('scheduled', 'Plan starts in five days', 'The top card names the start day; every day before it is grey "Starts soon", days from the start are normal.', 'status Scheduled, start +5d.')
 menu('held', 'Renewal waiting for approval', 'A staff renewal still Scheduled after its start date: "Almost there", no past date quoted, every day grey "Starts soon".', 'status Scheduled, start_date two days ago.')
 menu('midweek', 'Plan started yesterday', 'Days before the plan began read grey "Before your plan", not "Delivered".', 'start_date yesterday; Thursday.', thuNow, { clock: thuClock })
@@ -586,6 +586,11 @@ add('menu-dish-detail-paused', 'Dish detail on a paused day', {
   description: 'Tapping a grey day opens the dish with a first line saying why it won\'t come ("You were paused this day.").',
   conditions: 'Paused plan; a paused day tapped.', url: `/dashboard/menu?preview=1&state=paused${thuNow}`, kind: 'sheet', clock: thuClock,
   actions: [{ type: 'click', selector: '.menu-desktop .week-day-card[data-state="in-pause"] >> nth=0', vp: 'desktop', settleMs: 900 }, { type: 'click', selector: '.menu-mobile button[data-reason="in-pause"] >> nth=0', vp: 'mobile', settleMs: 900 }],
+})
+add('menu-dish-detail-season', 'Dish detail on a semester-break day', {
+  description: 'Tapping a day after the plan during the semester break opens the dish with why it won\'t come and what happens next.',
+  conditions: 'Plan ends in two days, intake paused; a day after the plan tapped.', url: '/dashboard/menu?preview=1&state=plan-ends&gate=season', kind: 'sheet',
+  actions: [{ type: 'click', selector: '.menu-desktop .week-day-card[data-state="plan-ends"] >> nth=0', vp: 'desktop', settleMs: 900 }, { type: 'click', selector: '.menu-mobile button[data-reason="plan-ends"] >> nth=0', vp: 'mobile', settleMs: 900 }],
 })
 add('menu-closure-today', 'Kitchen closed today on the menu', {
   description: 'The Tonight spotlight drops the dinner ticket for a "Kitchen closed today" notice, and today\'s card wears the crossed-utensils "Kitchen closed" chip.',

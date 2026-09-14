@@ -18,10 +18,10 @@ import { MobileMenu, type MobileMenuCell } from '../_mobile/MobileMenu'
 import { COMPACT } from '../_shared/breakpoints'
 import { spotlightFor, spotlightCopy, spotlightEyebrow, restDayCopy, type Spotlight } from '../_shared/menu-spotlight'
 import {
-  classifyMenuDay, dayPosition, noDeliveryNote, planEndingNotice, deliveryDayLabel, renewGateFor,
+  classifyMenuDay, dayPosition, lastDinnerIso, noDeliveryNote, planEndingNotice, deliveryDayLabel, renewGateFor,
   type MenuDayContext, type MenuPlan, type NoDeliveryReason, type RenewGate,
 } from '../_shared/menu-day-status'
-import { reasonChip, GREY_CARD_BG, GREY_PHOTO_FILTER } from '../_shared/menu-reason-chip'
+import { reasonChip, lastDinnerChip, GREY_CARD_BG, GREY_PHOTO_FILTER } from '../_shared/menu-reason-chip'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -495,15 +495,17 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
 export type WeekDayState = 'past' | 'today' | 'future'
 type WeekDayVariant = 'full' | 'preview'
 // Why a day's dinner won't reach the customer: _shared/menu-day-status.ts.
-function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, renewOpen = false, onClick }: {
+function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, renewKind = 'open', isLastDinner = false, onClick }: {
   meal: WeekMeal
   dayLabel: string
   /** No subscription at all: the calendar chips (Delivered / Today / Upcoming)
    *  would claim meals a plan-less customer never received, so the card
    *  shows dish and date only. */
   noPlan?: boolean
-  /** Renewing is possible right now — days after the plan wear the lock and route to renew. */
-  renewOpen?: boolean
+  /** Whether renewing unlocks the days after the plan — 'season' makes them "Semester break", no lock. */
+  renewKind?: RenewGate['kind']
+  /** The plan's end date: the one card that says "Last dinner". */
+  isLastDinner?: boolean
   state: WeekDayState
   variant?: WeekDayVariant
   // When set, the card renders in its dim "no delivery" state with a
@@ -534,10 +536,10 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   // Since 2026-09-14 every day whose dinner won't reach the customer goes grey
   // — photo drained, surface dropped — so a paused or skipped week reads as
   // inactive at a glance instead of six full-colour dinners with small labels.
-  // The lock stays for the one grey the customer can undo right now: days
-  // after the plan, while renewing is open.
+  // The lock stays for the one grey a renewal undoes: days after the plan —
+  // except over the semester break, when new plans are closed.
   const isGrey = hasNoDelivery
-  const isPlanEnds = noDeliveryReason === 'plan-ends' && renewOpen
+  const isPlanEnds = noDeliveryReason === 'plan-ends' && renewKind !== 'season'
 
   // Surface tier — preview cards sit on TIER3 (flat, near-flush with the
   // page) so they recede behind the TIER2 this-week cards. Today gets bumped
@@ -694,8 +696,10 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
           // Label table shared with the mobile cards (_shared/menu-reason-chip.ts).
           if (noPlan) return null
           const stateConfig = noDeliveryReason
-            ? reasonChip(noDeliveryReason, renewOpen)
-            : isPast
+            ? reasonChip(noDeliveryReason, renewKind)
+            : isLastDinner
+              ? lastDinnerChip(state)
+              : isPast
               ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
               : effectiveIsToday
               ? { Icon: Sparkles, label: 'Today',     color: OG }
@@ -937,15 +941,15 @@ export default function MenuClient({
   const noPlan = !plan
   const dayCtx: MenuDayContext = { plan, todayIso: todayAEIso, weekType, closureDates, hasQueuedRenewal }
   const renew = renewGateFor({ planName: plan?.plan_name, ...renewGate })
-  const renewOpen = renew.kind === 'open'
   const ending = planEndingNotice(dayCtx)
+  const lastDinner = lastDinnerIso(dayCtx)
 
   // Off days (Sundays, Saturday on a 5-day plan) have no dinner to explain.
   const reasonFor = (meal: WeekMeal): NoDeliveryReason | null =>
     meal.tag === 'Off' ? null : classifyMenuDay(meal.iso, dayCtx)
   const noteFor = (meal: WeekMeal): string | null => {
     const reason = reasonFor(meal)
-    return reason ? noDeliveryNote(reason, meal.iso, dayCtx) : null
+    return reason ? noDeliveryNote(reason, meal.iso, dayCtx, renew) : null
   }
 
   // Whole rows, not sub.veg_days: a religious signup with no plan yet still
@@ -994,7 +998,7 @@ export default function MenuClient({
   //    to plain props for the presentational MobileMenu (≤768). ──
   const toCell = (meal: WeekMeal, i: number, state: WeekDayState): MobileMenuCell => {
     const reason = reasonFor(meal)
-    return { meal, dayLabel: DAY_ABBREVS[i], state, reason, noPlan, note: reason ? noDeliveryNote(reason, meal.iso, dayCtx) : null }
+    return { meal, dayLabel: DAY_ABBREVS[i], state, reason, noPlan, lastDinner: reason === null && meal.iso === lastDinner, note: noteFor(meal) }
   }
   const thisWeekCells: MobileMenuCell[] = thisWeek.meals.slice(0, 6).map((meal, i) =>
     toCell(meal, i, dayPosition(meal.iso, todayAEIso)))
@@ -1074,7 +1078,8 @@ export default function MenuClient({
                   state={state}
                   noDeliveryReason={noDeliveryReason}
                   noPlan={noPlan}
-                  renewOpen={renewOpen}
+                  renewKind={renew.kind}
+                  isLastDinner={noDeliveryReason === null && meal.iso === lastDinner}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )
@@ -1104,7 +1109,8 @@ export default function MenuClient({
                   variant="preview"
                   noDeliveryReason={noDeliveryReason}
                   noPlan={noPlan}
-                  renewOpen={renewOpen}
+                  renewKind={renew.kind}
+                  isLastDinner={noDeliveryReason === null && meal.iso === lastDinner}
                   onClick={clickFor(meal, noDeliveryReason)}
                 />
               )

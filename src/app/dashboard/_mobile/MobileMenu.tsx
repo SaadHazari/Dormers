@@ -7,7 +7,7 @@ import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } fro
 import type { WeekMeal, WeekDayState } from '../menu/MenuClient'
 import type { NoDeliveryReason, RenewGate } from '../_shared/menu-day-status'
 import type { Spotlight } from '../_shared/menu-spotlight'
-import { reasonChip, GREY_CARD_BG, GREY_PHOTO_FILTER, type ReasonChip } from '../_shared/menu-reason-chip'
+import { reasonChip, lastDinnerChip, GREY_CARD_BG, GREY_PHOTO_FILTER, type ReasonChip } from '../_shared/menu-reason-chip'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import {
   MobileColumn, HeroTitle, SectionTitle, MealTag, HeatBar, MobileSheet, solidNavyBtn,
@@ -67,6 +67,8 @@ export interface MobileMenuCell {
   noPlan?: boolean
   /** Why this dinner won't come — the first line of the dish sheet. */
   note: string | null
+  /** The plan's end date: the one card that says "Last dinner". */
+  lastDinner?: boolean
 }
 
 interface Props {
@@ -163,7 +165,7 @@ export function MobileMenu({ prefTag, vegDaysLabel, todayMeal, todayNote, dorm, 
           <DayCard
             key={i}
             cell={c}
-            renewOpen={renewHref !== null}
+            renewKind={renew.kind}
             wide={c.state === 'today' && c.reason === null && c.meal.tag !== 'Off' && !c.noPlan}
             onClick={openCell(c)}
           />
@@ -177,7 +179,7 @@ export function MobileMenu({ prefTag, vegDaysLabel, todayMeal, todayNote, dorm, 
         style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', margin: '0 -14px', padding: '2px 14px 4px', WebkitOverflowScrolling: 'touch' }}
       >
         {nextWeekCells.map((c, i) => (
-          <PeekCard key={i} cell={c} renewOpen={renewHref !== null} onClick={openCell(c)} />
+          <PeekCard key={i} cell={c} renewKind={renew.kind} onClick={openCell(c)} />
         ))}
       </div>
 
@@ -371,9 +373,10 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-function stateChip(cell: MobileMenuCell, renewOpen: boolean): ReasonChip | null {
-  if (cell.reason) return reasonChip(cell.reason, renewOpen)
+function stateChip(cell: MobileMenuCell, renewKind: RenewGate['kind']): ReasonChip | null {
+  if (cell.reason) return reasonChip(cell.reason, renewKind)
   if (cell.noPlan) return null
+  if (cell.lastDinner) return lastDinnerChip(cell.state)
   if (cell.state === 'past') return { Icon: Check, label: 'Delivered', color: 'rgba(29,138,48,0.80)' }
   if (cell.state === 'today') return { Icon: Sparkles, label: 'Today', color: OG }
   return { Icon: Clock, label: 'Upcoming', color: 'rgba(29,95,163,0.70)' }
@@ -389,15 +392,16 @@ function LockBadge({ size }: { size: number }) {
 }
 
 // ── Week day card (this-week grid) ───────────────────────────────────────────
-function DayCard({ cell, wide, renewOpen, onClick }: { cell: MobileMenuCell; wide: boolean; renewOpen: boolean; onClick: () => void }) {
+function DayCard({ cell, wide, renewKind, onClick }: { cell: MobileMenuCell; wide: boolean; renewKind: RenewGate['kind']; onClick: () => void }) {
   const { meal, dayLabel, reason } = cell
   const isOff = meal.tag === 'Off'
   const isToday = cell.state === 'today' && reason === null && !isOff && !cell.noPlan
   // Grey = this dinner won't reach the customer (skipped, paused, closed, not
-  // started, after the plan). The lock only when renewing unlocks it right now.
+  // started, after the plan). The lock on days after the plan, except over the
+  // semester break, when new plans are closed.
   const isGrey = reason !== null && !isOff
-  const isLocked = reason === 'plan-ends' && renewOpen
-  const chip = stateChip(cell, renewOpen)
+  const isLocked = reason === 'plan-ends' && renewKind !== 'season'
+  const chip = stateChip(cell, renewKind)
 
   const card: CSSProperties = {
     ...CARD,
@@ -449,11 +453,11 @@ function DayCard({ cell, wide, renewOpen, onClick }: { cell: MobileMenuCell; wid
 }
 
 // ── Next-week peek card (narrow, horizontal scroll) ──────────────────────────
-function PeekCard({ cell, renewOpen, onClick }: { cell: MobileMenuCell; renewOpen: boolean; onClick: () => void }) {
+function PeekCard({ cell, renewKind, onClick }: { cell: MobileMenuCell; renewKind: RenewGate['kind']; onClick: () => void }) {
   const { meal, dayLabel, reason } = cell
   const isOff = meal.tag === 'Off'
   const isGrey = reason !== null && !isOff
-  const isLocked = reason === 'plan-ends' && renewOpen
+  const isLocked = reason === 'plan-ends' && renewKind !== 'season'
   return (
     <button
       type="button"
@@ -470,10 +474,10 @@ function PeekCard({ cell, renewOpen, onClick }: { cell: MobileMenuCell; renewOpe
       <div style={{ padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: S.fgSub }}>{dayLabel} · {meal.date}</span>
         <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: S.fg, opacity: isOff ? 0.55 : 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as CSSProperties}>{meal.dish}</span>
-        {/* Status chip only when there is a reason; a plain upcoming day keeps
-            the rail quiet. */}
-        {reason && !isOff && (() => {
-          const chip = reasonChip(reason, renewOpen)
+        {/* Status chip only when there is a reason or it's the last dinner; a
+            plain upcoming day keeps the rail quiet. */}
+        {!isOff && (reason || cell.lastDinner) && (() => {
+          const chip = reason ? reasonChip(reason, renewKind) : lastDinnerChip(cell.state)
           return (
             <span style={{ marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: chip.color }}>
               <chip.Icon size={10} strokeWidth={2.2} />{chip.label}
