@@ -27,7 +27,15 @@ export function mealValueOf(order: OrderMoney): MealValue {
   return null
 }
 
+/** Groups the integer part with commas (1234 -> 1,234); leaves any decimal part alone. */
+function withThousands(numStr: string): string {
+  const [whole, fraction] = numStr.split('.')
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`
+}
+
 export function formatAed(fils: number): string {
   const whole = fils % 100 === 0
-  return `AED ${whole ? String(fils / 100) : (fils / 100).toFixed(2)}`
+  const amount = whole ? String(fils / 100) : (fils / 100).toFixed(2)
+  return `AED ${withThousands(amount)}`
 }

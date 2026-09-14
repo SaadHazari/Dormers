@@ -24,6 +24,10 @@ export interface SeasonPlanRow extends ProjectionPlan {
 
 export interface SeasonPageData {
   snapshot: SeasonSnapshot
+  /** intake_settings.paused, read separately from the phase/salesStopped snapshot
+   *  so the planner can warn when the two disagree (season-phase.ts's
+   *  seasonDriftMessage) instead of silently trusting one of them. */
+  paused: boolean
   salesStoppedAt: string | null
   kitchenDailyCostAed: number
   todayAe: string
@@ -66,7 +70,7 @@ type OrderRow = {
 export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient = createAdminSupabaseClient()): Promise<SeasonPageData> {
   const [settingsRes, subsRes, closuresRes] = await Promise.all([
     sb.from('intake_settings')
-      .select('season_phase, wrap_up_day, buffer_delivery_days, close_day, sales_stopped_at, kitchen_daily_cost_aed')
+      .select('season_phase, wrap_up_day, buffer_delivery_days, close_day, sales_stopped_at, kitchen_daily_cost_aed, paused')
       .maybeSingle(),
     sb.from('subscriptions')
       .select('id, customer_id, plan_name, status, start_date, end_date, week_type, meals_per_day, total_meals, delivered_meals, credited_skip_days, season_buffer_grants, skipped_dates, planned_pause_start, staff_approval, last_delivery_tick_date')
@@ -146,6 +150,7 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
 
   return {
     snapshot,
+    paused: settings.paused === true,
     salesStoppedAt: settings.sales_stopped_at == null ? null : String(settings.sales_stopped_at),
     kitchenDailyCostAed: settings.kitchen_daily_cost_aed == null ? 500 : Number(settings.kitchen_daily_cost_aed),
     todayAe,

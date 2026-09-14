@@ -65,3 +65,18 @@ export function validateSeasonEnd(input: { wrapUpDay: string; bufferDays: number
 export function todayAeIso(nowMs: number = Date.now()): string {
   return new Date(nowMs + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
+
+const SHORT_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * A stable "Sat 3 Oct" label built from fixed tables, never
+ * `toLocaleDateString` — that reads the host's ICU locale data, which can
+ * differ (or be missing) between a developer's machine, CI and production.
+ */
+export function formatShortDay(iso: string): string {
+  const [, monthStr, dayStr] = iso.split('-')
+  const weekday = SHORT_WEEKDAYS[isoDow(iso) - 1]
+  const month = SHORT_MONTHS[Number(monthStr) - 1]
+  return `${weekday} ${Number(dayStr)} ${month}`
+}

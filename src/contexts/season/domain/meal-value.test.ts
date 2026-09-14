@@ -30,4 +30,10 @@ describe('formatAed', () => {
     expect(formatAed(1850)).toBe('AED 18.50')
     expect(formatAed(0)).toBe('AED 0')
   })
+
+  it('groups whole AED with thousands separators', () => {
+    expect(formatAed(700000)).toBe('AED 7,000')
+    expect(formatAed(123450)).toBe('AED 1,234.50')
+    expect(formatAed(100000000)).toBe('AED 1,000,000')
+  })
 })

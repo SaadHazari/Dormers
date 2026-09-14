@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addDaysIso, isoDow, isDeliveryDayIso, closeDayFor, validateSeasonEnd, todayAeIso } from './season-dates'
+import { addDaysIso, isoDow, isDeliveryDayIso, closeDayFor, validateSeasonEnd, todayAeIso, formatShortDay } from './season-dates'
 
 // Calendar anchors (checked): 2026-09-14 is a Monday, 2026-10-03 a Saturday,
 // 2026-10-04 a Sunday, 2026-10-05 a Monday.
@@ -44,5 +44,12 @@ describe('season-dates', () => {
     // 2026-09-14T21:30Z is 01:30 on 15 Sep in Dubai.
     expect(todayAeIso(Date.parse('2026-09-14T21:30:00Z'))).toBe('2026-09-15')
     expect(todayAeIso(Date.parse('2026-09-14T19:30:00Z'))).toBe('2026-09-14')
+  })
+
+  it('formats a stable short day label from fixed tables, not the host locale', () => {
+    expect(formatShortDay('2026-10-03')).toBe('Sat 3 Oct')
+    expect(formatShortDay('2026-09-30')).toBe('Wed 30 Sep')
+    expect(formatShortDay('2026-01-01')).toBe('Thu 1 Jan')
+    expect(formatShortDay('2026-12-25')).toBe('Fri 25 Dec')
   })
 })

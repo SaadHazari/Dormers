@@ -25,7 +25,7 @@ function fakeClient(tables: Record<string, Result>): SeasonDataClient {
   } as unknown as SeasonDataClient
 }
 
-const SETTINGS = { season_phase: 'winding_down', wrap_up_day: '2026-10-03', buffer_delivery_days: 1, close_day: '2026-10-05', sales_stopped_at: null, kitchen_daily_cost_aed: '500' }
+const SETTINGS = { season_phase: 'winding_down', wrap_up_day: '2026-10-03', buffer_delivery_days: 1, close_day: '2026-10-05', sales_stopped_at: null, kitchen_daily_cost_aed: '500', paused: true }
 const SUB = {
   id: 's1', customer_id: 'c1', plan_name: 'Monthly Premium', status: 'Active', start_date: '2026-09-07', end_date: '2026-10-03',
   week_type: '6DAYS', meals_per_day: 1, total_meals: 24, delivered_meals: 6, credited_skip_days: 0, season_buffer_grants: 0,
@@ -47,6 +47,7 @@ describe('loadSeasonPageData', () => {
     }))
 
     expect(data.snapshot).toEqual({ phase: 'winding_down', wrapUpDay: '2026-10-03', closeDay: '2026-10-05', bufferDays: 1, salesStopped: false })
+    expect(data.paused).toBe(true)
     expect(data.kitchenDailyCostAed).toBe(500)
     expect(data.todayAe).toBe('2026-09-14')
     expect(data.closureDates).toEqual(['2026-09-30'])
@@ -58,6 +59,7 @@ describe('loadSeasonPageData', () => {
   it('treats a missing settings row as open', async () => {
     const data = await loadSeasonPageData('2026-09-14', fakeClient({ intake_settings: { data: null, error: null } }))
     expect(data.snapshot).toEqual({ phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: false })
+    expect(data.paused).toBe(false)
     expect(data.plans).toEqual([])
   })
 
