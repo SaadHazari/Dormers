@@ -25,6 +25,28 @@ export function getMenuWeek(date?: Date): Week {
   return WEEK_NAMES[((weeksElapsed % 4) + 4) % 4];
 }
 
+/**
+ * CSS object-position for a dish photo shown in a box of `boxAspect`
+ * (width / height) with object-fit: cover. Keeps the bowl's rim clear of the
+ * top edge by `headroom` (a fraction of the image height, room for the date
+ * stamp) and shows the whole bowl when the box is tall enough; when it is
+ * not, the base of the bowl gives way, never the food. Photos are square, so
+ * only the vertical position matters.
+ */
+export function dishObjectPosition(frame: [number, number] | null | undefined, boxAspect: number, headroom = 0.075): string | undefined {
+  if (!frame) return undefined;
+  const [top, bottom] = frame;
+  const shown = 1 / boxAspect;            // fraction of the square image the box shows
+  if (shown >= 1) return undefined;
+  const minHeadroom = 0.035;
+  let start = top - headroom;
+  if (start + shown < bottom) {
+    start = bottom - shown <= top - minHeadroom ? bottom - shown : top - minHeadroom;
+  }
+  start = Math.max(0, Math.min(1 - shown, start));
+  return `50% ${Math.round((start / (1 - shown)) * 100)}%`;
+}
+
 export function findDishForDate(date: Date, isVeg: boolean): Dish | null {
   const jsDow = date.getUTCDay();
   if (jsDow === 0) return null;
@@ -41,6 +63,14 @@ export interface Dish {
   week: Week;
   description: string;
   image: string | StaticImageData;
+  /**
+   * Where the bowl sits in the photo: [top, bottom] as fractions of the
+   * image height, measured from the studio backdrop (scripts/measure-dish-frames.mjs).
+   * The photos are square and the bowl is not always centred, so a cropped
+   * box positions the photo from this instead of the centre — see
+   * dishObjectPosition.
+   */
+  frame?: [number, number];
   isVeg: boolean;
   dayOfWeek: number;
   spiceLevel: SpiceLevel;
@@ -61,6 +91,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Tender, creamy grilled chicken marinated in rich spices, served with tangy yellow basmati rice.",
     "image": "/images/Week1/nonveg1/ChickenAfghan.jpg",
+    "frame": [0.311, 0.913],
     "isVeg": false,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -108,6 +139,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Tender, creamy grilled cottage cheese marinated in rich spices, served with tangy Middle Eastern basmati rice.",
     "image": "/images/Week1/Veg/Paneer_Afghani_w__Yellow_rice.jpg",
+    "frame": [0.244, 0.878],
     "isVeg": true,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -155,6 +187,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Juicy, spiced chicken with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
     "image": "/images/Week1/nonveg1/DormersChicken.jpg",
+    "frame": [0.209, 0.920],
     "isVeg": false,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -202,6 +235,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Juicy, spiced cottage cheese with a signature marinade, paired perfectly with aromatic cumin-flavored basmati rice.",
     "image": "/images/Week1/Veg/Dormers_Paneer_Zeera_Rice.jpg",
+    "frame": [0.220, 0.848],
     "isVeg": true,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -249,6 +283,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Mild coconut chicken stew, gently spiced and fragrant, served with warm naan for dipping.",
     "image": "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg",
+    "frame": [0.252, 0.883],
     "isVeg": false,
     "dayOfWeek": 2,
     "spiceLevel": 1,
@@ -291,6 +326,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Spiced cauliflower and potato, slow-simmered with tomatoes and spices, served with warm tandoor bread.",
     "image": "/images/Week2/Veg/Dum_aaloo_2.jpg",
+    "frame": [0.257, 0.876],
     "isVeg": true,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -332,6 +368,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Tender meatballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
     "image": "/images/Week1/nonveg1/MeatballsMashe.jpg",
+    "frame": [0.252, 0.917],
     "isVeg": false,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -379,6 +416,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Tender plantballs smothered in a rich mushroom sauce, served with creamy mashed potatoes.",
     "image": "/images/Week1/Veg/Veg_Kofta_Mashed_Potato_Mushroom_sauce.jpg",
+    "frame": [0.239, 0.889],
     "isVeg": true,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -426,6 +464,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
     "image": "/images/Week1/nonveg1/ChickenBiryani.jpg",
+    "frame": [0.248, 0.859],
     "isVeg": false,
     "dayOfWeek": 4,
     "spiceLevel": 2,
@@ -472,6 +511,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "A fragrant and flavorful rice dish layered with spiced vegetables, chickpeas, aromatic basmati rice, and a blend of traditional spices.",
     "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "frame": [0.181, 0.844],
     "isVeg": true,
     "dayOfWeek": 4,
     "spiceLevel": 2,
@@ -513,6 +553,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "Grilled spiced chicken skewers, smoky and juicy, served with cooling mint dip and naan.",
     "image": "/images/Week2/NonVeg/Dormer's_Kebab.jpg",
+    "frame": [0.220, 0.891],
     "isVeg": false,
     "dayOfWeek": 5,
     "spiceLevel": 2,
@@ -555,6 +596,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week1",
     "description": "A flavorful curry of tender paneer, fresh green peas, and aromatic fenugreek leaves in a spiced, creamy gravy, served with warm tandoor bread.",
     "image": "/images/Week2/Veg/Methi_Matar_paneer.jpg",
+    "frame": [0.250, 0.906],
     "isVeg": true,
     "dayOfWeek": 5,
     "spiceLevel": 1,
@@ -603,6 +645,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Tender beef strips in a rich, creamy mushroom sauce, served alongside fragrant, buttery rice pilaf.",
     "image": "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
+    "frame": [0.228, 0.894],
     "isVeg": false,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -650,6 +693,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Rich and creamy lentils cooked in aromatic spices, served with fragrant cumin-flavored basmati rice.",
     "image": "/images/Week2/Veg/Dal_Nawabi_w__zeera_rice.jpg",
+    "frame": [0.244, 0.909],
     "isVeg": true,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -691,6 +735,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Creamy, coconut-infused rice paired with crispy, golden fried chicken for a perfect blend of flavors.",
     "image": "/images/Week2/NonVeg/African_coconut_rice_with_fried_chicken.jpg",
+    "frame": [0.272, 0.911],
     "isVeg": false,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -739,6 +784,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Al dente penne in a fresh tomato-basil pomodoro, finished with olive oil and parmesan.",
     "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "frame": [0.190, 0.851],
     "isVeg": true,
     "dayOfWeek": 1,
     "spiceLevel": 1,
@@ -786,6 +832,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Hearty, slow-cooked chicken stew in a rich Peanut sauce, served with indian flatbread.",
     "image": "/images/Week2/NonVeg/African_Peanut_Chicken_Stew_2.jpg",
+    "frame": [0.252, 0.883],
     "isVeg": false,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -834,6 +881,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Slow-cooked baby potatoes in a spiced yogurt gravy, paired with flavorful lentils and soft Indian flatbread.",
     "image": "/images/Week2/Veg/Dum_aaloo_2.jpg",
+    "frame": [0.257, 0.876],
     "isVeg": true,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -881,6 +929,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Juicy, marinated chicken simmered in a creamy, spiced tomato gravy, served with fluffy peas & carrots rice.",
     "image": "/images/Week2/NonVeg/Butter_chicken_peas_carrot_rice.jpg",
+    "frame": [0.206, 0.857],
     "isVeg": false,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -928,6 +977,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Soft paneer cubes simmered in a rich, buttery tomato gravy, served with fragrant cumin-infused basmati rice.",
     "image": "/images/Week2/Veg/Butter_paneer.jpg",
+    "frame": [0.241, 0.880],
     "isVeg": true,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -975,6 +1025,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Creamy white-sauce penne tossed with tender chicken, finished with parmesan and cracked pepper.",
     "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "frame": [0.190, 0.851],
     "isVeg": false,
     "dayOfWeek": 4,
     "spiceLevel": 1,
@@ -1017,6 +1068,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Classic Italian pasta tossed in a fresh, tangy white sauce with garlic, basil and olive oil.",
     "image": "/images/Week2/Veg/Penne_pomodoro.jpg",
+    "frame": [0.190, 0.851],
     "isVeg": true,
     "dayOfWeek": 4,
     "spiceLevel": 1,
@@ -1059,6 +1111,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Aromatic rice cooked with tender, spiced lamb, served with a refreshing side salad for a balanced meal.",
     "image": "/images/Week2/NonVeg/Lamb_Pilaf.jpg",
+    "frame": [0.228, 0.894],
     "isVeg": false,
     "dayOfWeek": 5,
     "spiceLevel": 1,
@@ -1105,6 +1158,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week2",
     "description": "Hearty red kidney beans cooked in a spiced tomato gravy, served over a bed of steamed basmati rice.",
     "image": "/images/Week2/Veg/Rajma_chawal.jpg",
+    "frame": [0.287, 0.898],
     "isVeg": true,
     "dayOfWeek": 5,
     "spiceLevel": 2,
@@ -1149,6 +1203,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Fragrant, spiced chicken cooked in a rich, creamy gravy, served with flavorful bagara rice.",
     "image": "/images/Week4/NonVeg/chicken_Korma_bagara_rice.jpg",
+    "frame": [0.224, 0.896],
     "isVeg": false,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -1196,6 +1251,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "A rich, spiced curry of potatoes and vegetables, served with flavorful bagara rice.",
     "image": "/images/Week4/Veg/Veg_aaloo_korma_bagara_Rice.jpg",
+    "frame": [0.235, 0.919],
     "isVeg": true,
     "dayOfWeek": 0,
     "spiceLevel": 1,
@@ -1243,6 +1299,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Stir-fried rice with tender chicken, fresh vegetables, and savory soy sauce, perfectly seasoned for a flavorful bite.",
     "image": "/images/Week1/nonveg1/ChickenFried.jpg",
+    "frame": [0.150, 0.844],
     "isVeg": false,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -1292,6 +1349,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Stir-fried rice with tender, fresh vegetables and savory soy sauce, perfectly seasoned for a flavorful bite.",
     "image": "/images/Week1/Veg/Veg_Fried_Rice.jpg",
+    "frame": [0.180, 0.856],
     "isVeg": true,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -1340,6 +1398,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Spiced minced meat cooked with potatoes, served with soft, tandoor naan.",
     "image": "/images/Week3/NonVeg/Aaloo_keema.jpg",
+    "frame": [0.200, 0.887],
     "isVeg": false,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -1387,6 +1446,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Grilled paneer tikka marinated in spices, served with flavorful lentils and soft, whole wheat roti.",
     "image": "/images/Week3/Veg/Paneer_tikka_W_Lemon_rice.jpg",
+    "frame": [0.206, 0.854],
     "isVeg": true,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -1434,6 +1494,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Creamy, tender chicken marinated in rich spices, paired with fragrant lemon-infused rice.",
     "image": "/images/Week3/NonVeg/Malai_tikka_Lemon_Rice.jpg",
+    "frame": [0.272, 0.885],
     "isVeg": false,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -1481,6 +1542,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Rich, creamy paneer curry simmered in a spiced tomato gravy, paired with fragrant lemon-infused rice.",
     "image": "/images/Week3/Veg/Paneer_lababdaar_W_Lemon_rice.jpg",
+    "frame": [0.252, 0.863],
     "isVeg": true,
     "dayOfWeek": 3,
     "spiceLevel": 1,
@@ -1528,6 +1590,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Classic spaghetti tossed in a rich, savory marinara sauce, topped with hearty Bolognese meat sauce.",
     "image": "/images/Week4/NonVeg/spaghetti_bolognese_2.jpg",
+    "frame": [0.274, 0.913],
     "isVeg": false,
     "dayOfWeek": 4,
     "spiceLevel": 1,
@@ -1575,6 +1638,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "Classic Italian spaghetti tossed in a fresh tomato sauce, topped with tender grilled paneer.",
     "image": "/images/Week4/Veg/spaghetti_bolognese_3.jpg",
+    "frame": [0.272, 0.900],
     "isVeg": true,
     "dayOfWeek": 4,
     "spiceLevel": 1,
@@ -1622,6 +1686,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "A fragrant and flavorful rice dish layered with tender, spiced chicken, aromatic basmati rice, and a blend of traditional spices.",
     "image": "/images/Week1/nonveg1/ChickenBiryani.jpg",
+    "frame": [0.248, 0.859],
     "isVeg": false,
     "dayOfWeek": 5,
     "spiceLevel": 2,
@@ -1668,6 +1733,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week3",
     "description": "A fragrant and flavorful rice dish layered with spiced vegetables, chickpeas, aromatic basmati rice, and a blend of traditional spices.",
     "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "frame": [0.181, 0.844],
     "isVeg": true,
     "dayOfWeek": 5,
     "spiceLevel": 2,
@@ -1709,6 +1775,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Herb-forward green kebab, pan-seared, paired with tangy chutney and delicate rumali roti.",
     "image": "/images/Week2/NonVeg/Dormer's_Kebab.jpg",
+    "frame": [0.220, 0.891],
     "isVeg": false,
     "dayOfWeek": 0,
     "spiceLevel": 2,
@@ -1756,6 +1823,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Tangy spiced chickpeas simmered with tamarind and spices, served with warm buttered naan.",
     "image": "/images/Week3/Veg/Rajma_aaloo.jpg",
+    "frame": [0.307, 0.917],
     "isVeg": true,
     "dayOfWeek": 0,
     "spiceLevel": 2,
@@ -1798,6 +1866,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Tangy Peri Peri chicken served alongside flavorful, spicy West African tomato-infused rice.",
     "image": "/images/Week1/nonveg1/PeriPeri.jpg",
+    "frame": [0.222, 0.878],
     "isVeg": false,
     "dayOfWeek": 1,
     "spiceLevel": 3,
@@ -1842,6 +1911,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Perfectly char grilled Veggies served alongside flavorful, spicy West African tomato-infused rice.",
     "image": "/images/Week1/Veg/Jolof_rice_grill_veggies_2.jpg",
+    "frame": [0.224, 0.885],
     "isVeg": true,
     "dayOfWeek": 1,
     "spiceLevel": 2,
@@ -1886,6 +1956,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Aromatic chicken slow cooked with spices and vegetables, served with fluffy Indian bread.",
     "image": "/images/Week3/NonVeg/Moroccan_chicken.jpg",
+    "frame": [0.191, 0.917],
     "isVeg": false,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -1932,6 +2003,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "A spicy, mashed vegetable curry served with buttered, soft buns for a comforting street food experience.",
     "image": "/images/Week4/Veg/Pav_Bhaji.jpg",
+    "frame": [0.220, 0.928],
     "isVeg": true,
     "dayOfWeek": 2,
     "spiceLevel": 2,
@@ -1979,6 +2051,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Aromatic vegetable biryani paired with Dormers' tender, spiced grilled chicken.",
     "image": "/images/Week4/NonVeg/Dormer_Chicken_Veg_Biryani.jpg",
+    "frame": [0.178, 0.844],
     "isVeg": false,
     "dayOfWeek": 3,
     "spiceLevel": 2,
@@ -2026,6 +2099,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Aromatic basmati rice cooked with mixed vegetables, served with tangy, Dormers' paneer curry.",
     "image": "/images/Week4/Veg/Dormers_Paneer_veg_Biryani.jpg",
+    "frame": [0.181, 0.844],
     "isVeg": true,
     "dayOfWeek": 3,
     "spiceLevel": 2,
@@ -2072,6 +2146,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Juicy grilled chicken served with rice, lettuce, and Dormers' signature white sauce and hot sauce.",
     "image": "/images/Week4/NonVeg/Dormers_Halal_guys_Bowl_correct3.jpg",
+    "frame": [0.270, 0.911],
     "isVeg": false,
     "dayOfWeek": 4,
     "spiceLevel": 2,
@@ -2120,6 +2195,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Hearty red kidney beans and potatoes cooked in a spiced tomato gravy, served with soft roti.",
     "image": "/images/Week3/Veg/Rajma_aaloo.jpg",
+    "frame": [0.307, 0.917],
     "isVeg": true,
     "dayOfWeek": 4,
     "spiceLevel": 2,
@@ -2167,6 +2243,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Tangy asian curry slow-cooked with tender chicken, served with flaky coconut rice for a rich and hearty food bowl.",
     "image": "/images/Week4/NonVeg/Thai_chicken_curry_w_cocnut_rice.jpg",
+    "frame": [0.291, 0.909],
     "isVeg": false,
     "dayOfWeek": 5,
     "spiceLevel": 2,
@@ -2216,6 +2293,7 @@ export const MENU_DATA: Dish[] = [
     "week": "week4",
     "description": "Stir-fried paneer and bell peppers cooked in a flavorful, spiced gravy, served with cumin-infused rice.",
     "image": "/images/Week3/Veg/Kadhai_Paneer_w_Rice.jpg",
+    "frame": [0.283, 0.904],
     "isVeg": true,
     "dayOfWeek": 5,
     "spiceLevel": 2,

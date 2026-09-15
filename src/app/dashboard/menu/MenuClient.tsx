@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import Image, { StaticImageData } from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Truck, Moon, Utensils, Check, Sparkles, Clock, Lock } from 'lucide-react'
-import { MENU_DATA, getMenuWeek, type Dish } from '@/contexts/menu/domain/catalog-data'
+import { Truck, Moon, Utensils, Check, Sparkles, Lock } from 'lucide-react'
+import { MENU_DATA, getMenuWeek, dishObjectPosition, type Dish } from '@/contexts/menu/domain/catalog-data'
 
-import { OG, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
+import { OG, OG_DEEP, CR, BG, BODY, S, TIER1, TIER2, TIER3, TIER_POP, TIER_POP_TEXT } from '../_shared/tokens'
 import { Eyebrow } from '../_shared/Eyebrow'
 import { MealTag } from '../_shared/MealTag'
 import { vegDayNumbersFor, preferenceKindFor, resolveVegDayNames } from '@/contexts/subscriptions/domain/veg-day'
@@ -83,6 +83,8 @@ export type WeekMeal = {
   cal: number
   protein: number
   image: string | StaticImageData | null
+  /** Where the bowl sits in the photo — see Dish.frame. Positions every cropped box. */
+  frame: [number, number] | null
 }
 
 // Eyebrow / MealTag / HeatBar moved to _shared/ — imported above.
@@ -157,6 +159,7 @@ function buildFullMenu(
         heat:  isOff ? 0 : dish?.spiceLevel ?? 1,
         cal, protein,
         image: isOff ? null : dish?.image ?? null,
+        frame: isOff ? null : dish?.frame ?? null,
       })
     }
     return { week: block.week, meals }
@@ -478,7 +481,7 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
               alt={meal.dish}
               fill
               sizes="(max-width: 900px) 100vw, 480px"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }}
             />
           )}
         </div>
@@ -498,9 +501,9 @@ type WeekDayVariant = 'full' | 'preview'
 function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason = null, noPlan = false, renewKind = 'open', isLastDinner = false, onClick }: {
   meal: WeekMeal
   dayLabel: string
-  /** No subscription at all: the calendar chips (Delivered / Today / Upcoming)
-   *  would claim meals a plan-less customer never received, so the card
-   *  shows dish and date only. */
+  /** No subscription at all: the calendar pills (Delivered / Tonight) would
+   *  claim meals a plan-less customer never received, so the card shows the
+   *  dish and the date only. */
   noPlan?: boolean
   /** Whether renewing unlocks the days after the plan — 'season' makes them "Semester break", no lock. */
   renewKind?: RenewGate['kind']
@@ -509,8 +512,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   state: WeekDayState
   variant?: WeekDayVariant
   // When set, the card renders in its dim "no delivery" state with a
-  // reason-specific label. Replaces the previous boolean `isSkippedTonight`
-  // — same default treatment, more granular reasons. Null = normal day.
+  // reason-specific label. Null = normal day.
   noDeliveryReason?: NoDeliveryReason | null
   onClick: () => void
 }) {
@@ -518,71 +520,62 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   const isToday   = state === 'today'
   const isPast    = state === 'past'
   const isPreview = variant === 'preview'
-  // Any no-delivery reason strips today's focal treatment (no orange
-  // border / pulse / Sparkles chip). Past-day reasons override the
-  // "Delivered" chip with the right reason label.
+  const isVeg     = meal.tag === 'Veg'
+  // Any no-delivery reason strips tonight's focal treatment (no orange ring
+  // or pulse, no Tonight pill). Past-day reasons replace "Delivered".
   const hasNoDelivery = noDeliveryReason !== null
   // No plan at all: nothing is arriving tonight, so today gets no focal ring.
   const effectiveIsToday = isToday && !hasNoDelivery && !noPlan
-  // 'plan-ends' is a structurally different no-delivery state from
-  // skip/pause — those are operational pauses inside an active plan, this
-  // is "no plan is cooking this dish for you, full stop." Per Norman's
-  // Gulf of Evaluation: the system state must be visible at a glance, not
-  // hidden behind a tiny chip while the dish photo still says "this is
-  // yours." Drives the grayscale image, dimmer surface, lock overlay, and
-  // bespoke chip below — the card has to LOOK inactive, not just labeled
-  // inactive.
-  //
-  // Since 2026-09-14 every day whose dinner won't reach the customer goes grey
-  // — photo drained, surface dropped — so a paused or skipped week reads as
-  // inactive at a glance instead of six full-colour dinners with small labels.
-  // The lock stays for the one grey a renewal undoes: days after the plan —
-  // except over the semester break, when new plans are closed.
+  // Every day whose dinner won't reach the customer goes grey — photo
+  // drained, surface dropped — so a paused or skipped week reads as inactive
+  // at a glance. The lock stays for the one grey a renewal undoes: days after
+  // the plan — except over the semester break, when new plans are closed.
   const isGrey = hasNoDelivery
   const isPlanEnds = noDeliveryReason === 'plan-ends' && renewKind !== 'season'
 
   // Surface tier — preview cards sit on TIER3 (flat, near-flush with the
-  // page) so they recede behind the TIER2 this-week cards. Today gets bumped
-  // to TIER1 (matches HeroToday + TodaySpotlight) so it visibly lifts off the
-  // grid and reads as the focal moment of the row.
+  // page) so they recede behind the TIER2 this-week cards. Tonight is bumped
+  // to TIER1 (matches TodaySpotlight) so it lifts off the grid.
   const baseTier = effectiveIsToday ? TIER1 : hasNoDelivery ? TIER2 : isPreview ? TIER3 : TIER2
 
-  // Veg / non-veg "spine" — vertical 3px (2px in preview) edge stripe on the
-  // card's left side that lets the eye pre-attentively segment the grid into
-  // veg / non-veg without reading the footer chip. Edge-stripe geometry is
-  // intentionally different from today's perimeter ring, so the two cues
-  // coexist on different planes. Suppressed on today (focal moment owns the
-  // ornament) and off-day cards (no category). Colors come from MealTag's
-  // existing palette so the spine and the chip below it always agree:
-  //   veg → #1d8a30 (the leaf green already used by MealTag.Veg)
-  //   non-veg → #a35100 (MealTag's non-veg fg/ember; deliberately *not*
-  //     the bright OG orange, which is reserved for today's ring + the
-  //     period accent so the two oranges never compete on the same card)
-  const isVeg = meal.tag === 'Veg'
-  const showSpine = !effectiveIsToday && !hasNoDelivery && !isOff
-  const spineColor = isVeg ? '#1d8a30' : 'rgba(165,81,0,0.85)'
-  const spineWidth = isPreview ? 2 : 3
-  // Whisper hairline traced inside the photo's rounded corners — registers
-  // only when the eye lands on the food, halos it in its category color.
-  const imageRingColor = isVeg ? 'rgba(29,138,48,0.14)' : 'rgba(165,81,0,0.16)'
-
-  // Per-variant spacing + type. Preview keeps tighter spacing than full but
-  // brings the footer chips back so the card has enough body content to
-  // reach a proportional height (~1:1.4 aspect, near golden ratio).
-  const padImage       = isPreview ? '8px 8px 0'       : '10px 14px 0'
-  const padHeader      = isPreview ? '10px 10px 0'     : '12px 14px 0'
-  const padBody        = isPreview ? '8px 10px 10px'   : '10px 14px 14px'
-  const dishFontSize   = isPreview ? 12 : 13
-  // Both variants allow dish names to wrap to a second line. Preview cards
-  // gain a touch more height for long names like "Moroccan Chicken Tagine
-  // w/ Couscous", which keeps the card proportional rather than truncating.
-  const dishClampLines = 2
-  const dayFontSize    = isPreview ? 10 : 11
-  const dateFontSize   = isPreview ? 10 : 11
-  // Image aspect — full = 16:10 (consistent with TodaySpotlight + modal).
-  // Preview = 4:3, taller image, food-forward, helps the card reach a
-  // natural portrait-leaning proportion at narrow widths.
+  // The card is built photo first: the photo runs edge to edge and is clipped
+  // by the card's own corners, so there is no mat to keep concentric. On the
+  // photo sit two pills — the day-and-date stamp (the same frosted pill the
+  // mobile hero wears) and, only when it says something, the status. Below
+  // it, two lines: the dish as the headline and one meta line in words.
+  // Radius is card-local: this-week cards are twice the width of next-week
+  // cards, and one shared value read round on the small ones and square on
+  // the big ones.
+  const cardRadius     = isPreview ? 18 : 24
   const imageAspect    = isPreview ? '4 / 3' : '16 / 10'
+  const boxAspect      = isPreview ? 4 / 3 : 1.6
+  const pillInset      = isPreview ? 8 : 12
+  const pillFont       = isPreview ? 9.5 : 10.5
+  const pillPad        = isPreview ? '4px 8px' : '5px 10px'
+  const padBody        = isPreview ? '10px 12px 12px' : '14px 16px 16px'
+  const dishFontSize   = isPreview ? 12.5 : 16
+  const metaFontSize   = isPreview ? 11 : 12
+  const dishClampLines = 2
+  // Next-week pills are narrow: the stamp keeps the day and the number only.
+  const dayNumber = Number(meal.iso.slice(8, 10))
+
+  // Status — only when it tells the customer something: Delivered, Tonight,
+  // Last dinner, or why a dinner won't come. A plain card with a full-colour
+  // photo is a dinner that is coming; a row of "Upcoming" said nothing.
+  // No plan: no pill, since Delivered / Tonight would claim meals a plan-less
+  // customer never received. Label table shared with the mobile cards
+  // (_shared/menu-reason-chip.ts).
+  const status = (() => {
+    if (isOff || noPlan) return null
+    if (noDeliveryReason) return reasonChip(noDeliveryReason, renewKind)
+    if (isLastDinner) return lastDinnerChip(state)
+    if (isPast) return { Icon: Check, label: 'Delivered', color: 'rgba(29,138,48,0.80)' }
+    if (effectiveIsToday) return { Icon: Sparkles, label: 'Tonight', color: OG }
+    return null
+  })()
+  // Tonight is the one status that fills in brand orange; every other pill
+  // is cream with the status's own colour, so reasons stay in their families.
+  const statusFilled = status?.label === 'Tonight'
 
   return (
     <button
@@ -594,23 +587,12 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
       className="week-day-card"
       style={{
         ...baseTier,
-        // Body color: warm cream (#faf2dd) for all this-week (full) cards —
-        // pure white was harsh against the cream page background, the warm
-        // tone reads more pleasant. Off-day cards stay muted gray.
-        //
-        // Preview (next-week) cards get a top-down orange "spotlight" wash
-        // overlaid on white. The wash is concentrated at the top edge (where
-        // the day label + image header sit) and fades to clean by mid-card.
-        // Reads as anticipatory light from above — same brand vocabulary as
-        // the hero's edge wash, anchored top-down so it doesn't copy the
-        // hero verbatim. Energy without competing for the focal slot.
         background: isOff
           ? 'var(--ds-skeleton-base)'
           : isGrey
             // Cool, desaturated gray-tan that sits visibly BELOW active
-            // cream cards in the elevation hierarchy. Active = warm cream,
-            // no dinner = grayed-out cream — same temperature family but
-            // drained of life. Reads as "inactive" instantly.
+            // cream cards in the elevation hierarchy — same temperature
+            // family, drained of life.
             ? GREY_CARD_BG
             : isPreview
               ? `
@@ -625,203 +607,162 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
             : isPlanEnds
               ? '1px dashed rgba(9,24,37,0.18)'  // dashed → "incomplete", not a solid commitment
               : (baseTier.border as string),
-        // Plan-ends cards are non-affordances inside the active grid.
-        // Reduce opacity overall so the eye reads "dimmed" before parsing
-        // any specific element. 0.78 keeps text legible while the card
-        // clearly recedes.
         opacity: isPlanEnds ? 0.78 : 1,
-        // Today shadow stack (4 layers, painted top-to-bottom):
-        //   • orange glow halo (animated by .today-pulse below — opacity
-        //     breathes 0.14 ↔ 0.22 over 4s; this inline value is the resting
-        //     mid-point used when prefers-reduced-motion disables animation)
-        //   • static orange ring (4px ambient focus ring)
-        //   • TIER1 neutral lift
+        // Tonight's shadow stack: orange glow halo (breathes via .today-pulse
+        // below), static orange ring, TIER1 neutral lift.
         boxShadow: isOff
           ? 'none'
           : effectiveIsToday
             ? `0 8px 28px rgba(245,127,32,0.18), 0 0 0 4px rgba(245,127,32,0.10), ${TIER1.boxShadow}`
             : baseTier.boxShadow,
-        borderRadius: 'var(--radius-md)',
+        borderRadius: cardRadius,
         padding: 0,
         textAlign: 'left',
         cursor: isOff ? 'default' : 'pointer',
         display: 'flex', flexDirection: 'column',
         fontFamily: 'inherit', color: 'inherit',
         overflow: 'hidden', position: 'relative', width: '100%',
+        // Safari lets the hover zoom poke square corners out of a rounded
+        // overflow clip unless the card is its own stacking context.
+        isolation: 'isolate',
         transition: 'transform 220ms cubic-bezier(.22,1,.36,1), box-shadow 220ms, border-color 220ms',
       }}
     >
-      {/* Category spine — see comment above showSpine for rationale. Sits
-          inside the card's overflow:hidden + rounded corners so the stripe
-          gets clipped to the card's border radius automatically. */}
-      {showSpine && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: 0, top: 0, bottom: 0,
-            width: spineWidth,
-            background: spineColor,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-
-      {/* ── Cell header — three slots: day (left) · state cue (center) · date (right).
-            State is icon + label, colored by semantic family:
-              past   → green Check        "Delivered"
-              today  → orange Sparkles    "Today"
-              future → blue Clock         "Upcoming"
-            All low-saturation (0.65–0.75 opacity) so the cue reads as data,
-            not decoration. Off-day cells skip the state cue entirely. */}
-      <div style={{
-        padding: padHeader,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-      }}>
-        <div style={{
-          fontFamily: BODY, fontSize: dayFontSize, fontWeight: 700,
-          letterSpacing: '0.18em', textTransform: 'uppercase',
-          color: effectiveIsToday ? OG : isPast ? S.fgFaint : S.fgMuted,
+      {/* ── Photo, edge to edge — full = 16:10, preview = 4:3 (taller,
+            food-forward, so the narrow cards keep a portrait proportion).
+            The bowl is positioned from the dish's measured frame so its rim
+            stays clear of the top edge on every photo. ── */}
+      <div
+        className="week-day-thumb"
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: imageAspect,
+          background: 'linear-gradient(135deg, #3a2418, #1e3a4f)',
+          overflow: 'hidden',
           flexShrink: 0,
+        }}
+      >
+        {meal.image && !isOff ? (
+          <Image
+            src={meal.image}
+            alt={meal.dish}
+            fill
+            sizes="(max-width: 600px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            style={{
+              objectFit: 'cover',
+              objectPosition: dishObjectPosition(meal.frame, boxAspect),
+              transition: 'transform 320ms cubic-bezier(.22,1,.36,1)',
+              // The single strongest "this isn't yours" signal: grayscale
+              // strips the appetizing colour from the dish.
+              filter: isGrey ? GREY_PHOTO_FILTER : undefined,
+            }}
+          />
+        ) : (
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.55,
+          }}>
+            {isOff
+              ? <Moon size={isPreview ? 18 : 22} strokeWidth={1.6} color={CR} />
+              : <Utensils size={isPreview ? 18 : 22} strokeWidth={1.6} color={CR} />}
+          </div>
+        )}
+
+        {/* Lock overlay — only when plan-ends. Pairs with the "Renew to
+            unlock" pill so the icon and the label reinforce each other. */}
+        {isPlanEnds && meal.image && !isOff && (
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(9,24,37,0.30)',
+            pointerEvents: 'none',
+          }}>
+            <span style={{
+              width: isPreview ? 32 : 38, height: isPreview ? 32 : 38,
+              borderRadius: '50%',
+              background: 'rgba(245,240,232,0.92)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(9,24,37,0.30)',
+            }}>
+              <Lock size={isPreview ? 14 : 16} strokeWidth={2.2} color="#091825" />
+            </span>
+          </div>
+        )}
+
+        {/* Day-and-date stamp — one fact, one pill. */}
+        <span style={{
+          position: 'absolute', top: pillInset, left: pillInset,
+          display: 'inline-flex', alignItems: 'baseline', gap: 6,
+          padding: pillPad, borderRadius: 'var(--radius-pill)',
+          background: 'rgba(9,24,37,0.55)', color: '#fff',
+          fontFamily: BODY, fontSize: pillFont, fontWeight: 700,
+          letterSpacing: '0.16em', textTransform: 'uppercase', lineHeight: 1.2,
+          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          pointerEvents: 'none',
         }}>
           {dayLabel}
-        </div>
+          <span style={{ fontWeight: 500, opacity: 0.8, letterSpacing: '0.08em' }}>
+            {isPreview ? dayNumber : meal.date}
+          </span>
+        </span>
 
-        {!isOff && (() => {
-          // No-delivery reasons override the past/today/future chip with a
-          // reason-specific label. All share the Moon icon family +
-          // muted-tan color so they read as a coherent "no meal" zone.
-          // Pause reasons use a slightly cooler tone to differentiate from
-          // skip reasons — Refactoring UI's hierarchy via subtle color shift.
-          // Label table shared with the mobile cards (_shared/menu-reason-chip.ts).
-          if (noPlan) return null
-          const stateConfig = noDeliveryReason
-            ? reasonChip(noDeliveryReason, renewKind)
-            : isLastDinner
-              ? lastDinnerChip(state)
-              : isPast
-              ? { Icon: Check,    label: 'Delivered', color: 'rgba(29,138,48,0.75)' }
-              : effectiveIsToday
-              ? { Icon: Sparkles, label: 'Today',     color: OG }
-              : { Icon: Clock,    label: 'Upcoming',  color: 'rgba(29,95,163,0.65)' }
-          const { Icon, label, color } = stateConfig
-          const chipFont = isPreview ? 10 : 11
-          const chipIcon = isPreview ? 10 : 11
-          return (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              color, fontFamily: BODY,
-              fontSize: chipFont, fontWeight: 600,
-              minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
-            }}>
-              <Icon size={chipIcon} strokeWidth={2.2} />
-              {label}
-            </div>
-          )
-        })()}
-
-        <div style={{
-          fontFamily: BODY, fontSize: dateFontSize, fontWeight: 500,
-          color: S.fgFaint,
-          flexShrink: 0,
-        }}>
-          {meal.date}
-        </div>
+        {status && (
+          <span style={{
+            position: 'absolute', top: pillInset, right: pillInset,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: pillPad, borderRadius: 'var(--radius-pill)',
+            background: statusFilled ? OG : 'rgba(252,248,238,0.92)',
+            color: statusFilled ? '#fff' : status.color,
+            boxShadow: statusFilled ? 'none' : '0 1px 2px rgba(9,24,37,0.12)',
+            fontFamily: BODY, fontSize: pillFont, fontWeight: 700,
+            letterSpacing: '0.06em', lineHeight: 1.2, whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}>
+            <status.Icon size={pillFont} strokeWidth={2.2} />
+            {status.label}
+          </span>
+        )}
       </div>
 
-      {/* ── Image — full = 16:10, preview = 4:3 (taller, food-forward). The
-            variant-specific aspect lets preview cards reach a proportional
-            ~1:1.4 outer aspect without forcing min-heights. ── */}
-      <div style={{ padding: padImage }}>
-        <div
-          className="week-day-thumb"
-          style={{
-            position: 'relative',
-            width: '100%',
-            aspectRatio: imageAspect,
-            background: 'linear-gradient(135deg, #3a2418, #1e3a4f)',
-            overflow: 'hidden',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: showSpine ? `inset 0 0 0 1px ${imageRingColor}` : 'none',
-          }}
-        >
-          {meal.image && !isOff ? (
-            <Image
-              src={meal.image}
-              alt={meal.dish}
-              fill
-              sizes="(max-width: 600px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              style={{
-                objectFit: 'cover',
-                transition: 'transform 320ms cubic-bezier(.22,1,.36,1)',
-                // The single strongest "this isn't yours" signal: grayscale
-                // strips the appetizing colour from the dish. The eye reads
-                // "inactive food" before reading any chip. Brightness drop
-                // pushes it further toward the page background so it doesn't
-                // compete with the warm active cards above/around it.
-                filter: isGrey ? GREY_PHOTO_FILTER : undefined,
-              }}
-            />
-          ) : (
-            <div aria-hidden style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.55,
-            }}>
-              {isOff
-                ? <Moon size={isPreview ? 18 : 22} strokeWidth={1.6} color={CR} />
-                : <Utensils size={isPreview ? 18 : 22} strokeWidth={1.6} color={CR} />}
-            </div>
-          )}
-
-          {/* Lock overlay — only when plan-ends. Sits centered on the
-              grayscale photo with a soft dark backdrop. Pairs with the
-              "Renew to unlock" chip below so the icon and the chip
-              vocabulary reinforce each other (Norman: consistent signifiers
-              build the same mental model from two angles). */}
-          {isPlanEnds && meal.image && !isOff && (
-            <div aria-hidden style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(9,24,37,0.30)',
-              pointerEvents: 'none',
-            }}>
-              <span style={{
-                width: isPreview ? 32 : 38, height: isPreview ? 32 : 38,
-                borderRadius: '50%',
-                background: 'rgba(245,240,232,0.92)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(9,24,37,0.30)',
-              }}>
-                <Lock size={isPreview ? 14 : 16} strokeWidth={2.2} color="#091825" />
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Body — dish name + meal-tag + spice. Both variants show the
-            footer chips; preview just uses tighter spacing around them. ── */}
+      {/* ── Body — the dish is the headline; below it one line says the diet
+            and the spice in words, with the diet's mark so a mixed week still
+            segments at a glance. ── */}
       <div style={{ padding: padBody, display: 'flex', flexDirection: 'column', gap: isPreview ? 6 : 8, flex: 1 }}>
         <div style={{
           fontFamily: BODY, fontSize: dishFontSize, fontWeight: 700,
-          lineHeight: 1.2, color: S.fg, opacity: isOff ? 0.55 : 1,
+          lineHeight: 1.25, letterSpacing: isPreview ? undefined : '-0.01em',
+          color: S.fg, opacity: isOff ? 0.55 : 1,
           display: '-webkit-box', WebkitLineClamp: dishClampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         } as React.CSSProperties}>
-          {/* Period accent only on today — same brand signature used by
-              HeroToday and the page header (`My menu.`). Suppressed when
-              resumed-after-cutoff so the muted state reads cleanly. */}
-          {meal.dish}{effectiveIsToday && <span style={{ color: OG }}>.</span>}
+          {meal.dish}
         </div>
 
         {!isOff && (
           <div style={{
-            marginTop: 'auto',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-            fontFamily: BODY,
+            marginTop: 'auto', minWidth: 0,
+            display: 'flex', alignItems: 'center', gap: isPreview ? 6 : 8,
+            fontFamily: BODY, fontSize: metaFontSize, fontWeight: 600, color: S.fgSub,
+            whiteSpace: 'nowrap',
           }}>
-            <MealTag kind={meal.tag} compact />
+            {/* Diet word in its family colour (OG_DEEP for small orange text — OG
+                itself is under AA on cream) with MealTag's mark. */}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, color: isVeg ? 'var(--ds-success-fg)' : OG_DEEP }}>
+              <span aria-hidden style={{
+                width: 7, height: 7, borderRadius: 2, flexShrink: 0,
+                background: isVeg ? 'transparent' : OG,
+                boxShadow: isVeg ? 'inset 0 0 0 1.5px var(--ds-success-fg)' : 'none',
+              }} />
+              {isVeg ? 'Veg' : 'Non-veg'}
+            </span>
             {meal.heat > 0 && (
-              <HeatBar level={meal.heat} />
+              <>
+                <span aria-hidden style={{ color: 'var(--ds-fg-tint)' }}>·</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                  {SPICE_LABELS[meal.heat]}
+                  <HeatBar level={meal.heat} />
+                </span>
+              </>
             )}
           </div>
         )}
@@ -861,7 +802,7 @@ function DishDetailModal({ meal, note = null, onClose }: { meal: WeekMeal; note?
         )}
         {meal.image && (
           <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 18, background: 'var(--ds-skeleton-base)' }}>
-            <Image src={meal.image} alt={meal.dish} fill sizes="540px" style={{ objectFit: 'cover' }} />
+            <Image src={meal.image} alt={meal.dish} fill sizes="540px" style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }} />
           </div>
         )}
         <Eyebrow>{meal.day} · {meal.date}</Eyebrow>

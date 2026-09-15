@@ -3,8 +3,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Clock, Utensils } from 'lucide-react'
+import { Moon, Truck, Lock, ChevronRight, Check, Sparkles, Utensils } from 'lucide-react'
 import type { WeekMeal, WeekDayState } from '../menu/MenuClient'
+import { dishObjectPosition } from '@/contexts/menu/domain/catalog-data'
 import type { NoDeliveryReason, RenewGate } from '../_shared/menu-day-status'
 import type { Spotlight } from '../_shared/menu-spotlight'
 import { reasonChip, lastDinnerChip, GREY_CARD_BG, GREY_PHOTO_FILTER, type ReasonChip } from '../_shared/menu-reason-chip'
@@ -311,7 +312,7 @@ function TodaySpotlight({ meal, dorm, spotlight, notice, restCopy, canResume, re
       {/* Photo */}
       <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', background: 'linear-gradient(135deg, #3a2418, #1e3a4f)' }}>
         {meal.image
-          ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 100vw, 480px" style={{ objectFit: 'cover' }} />
+          ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 100vw, 480px" style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }} />
           : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}><Utensils size={28} color={CREAM_FAINT} /></div>}
         <span style={{ position: 'absolute', top: 14, left: 14, ...eyebrow, color: '#fff', letterSpacing: '0.18em', background: 'rgba(9,24,37,0.55)', padding: '5px 10px', borderRadius: 999, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}>
           Tonight
@@ -378,8 +379,10 @@ function stateChip(cell: MobileMenuCell, renewKind: RenewGate['kind']): ReasonCh
   if (cell.noPlan) return null
   if (cell.lastDinner) return lastDinnerChip(cell.state)
   if (cell.state === 'past') return { Icon: Check, label: 'Delivered', color: 'rgba(29,138,48,0.80)' }
-  if (cell.state === 'today') return { Icon: Sparkles, label: 'Today', color: OG }
-  return { Icon: Clock, label: 'Upcoming', color: 'rgba(29,95,163,0.70)' }
+  if (cell.state === 'today') return { Icon: Sparkles, label: 'Tonight', color: OG }
+  // A plain card is a dinner that is coming — same rule as the desktop grid,
+  // where a row of "Upcoming" said nothing.
+  return null
 }
 
 // Lock badge over a grey photo — only while renewing unlocks the day.
@@ -418,7 +421,7 @@ function DayCard({ cell, wide, renewKind, onClick }: { cell: MobileMenuCell; wid
   const photo = (
     <div style={{ position: 'relative', flexShrink: 0, width: wide ? 116 : '100%', aspectRatio: wide ? undefined : '16 / 10', alignSelf: 'stretch', background: 'linear-gradient(135deg, #3a2418, #1e3a4f)' }}>
       {meal.image && !isOff
-        ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 50vw, 200px" style={{ objectFit: 'cover', filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
+        ? <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 50vw, 200px" style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, wide ? 4 / 3 : 1.6), filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
         : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{isOff ? <Moon size={20} color="#fff" /> : <Utensils size={20} color="#fff" />}</div>}
       {isLocked && meal.image && <LockBadge size={32} />}
     </div>
@@ -467,7 +470,7 @@ function PeekCard({ cell, renewKind, onClick }: { cell: MobileMenuCell; renewKin
     >
       <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', background: 'linear-gradient(135deg, #3a2418, #1e3a4f)' }}>
         {meal.image && !isOff
-          ? <Image src={meal.image} alt={meal.dish} fill sizes="132px" style={{ objectFit: 'cover', filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
+          ? <Image src={meal.image} alt={meal.dish} fill sizes="132px" style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 4 / 3), filter: isGrey ? GREY_PHOTO_FILTER : undefined }} />
           : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{isOff ? <Moon size={18} color="#fff" /> : <Utensils size={18} color="#fff" />}</div>}
         {isLocked && meal.image && <LockBadge size={26} />}
       </div>
@@ -506,7 +509,7 @@ function DishDetail({ meal, note }: { meal: WeekMeal; note: string | null }) {
       )}
       {meal.image && (
         <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', borderRadius: 16, overflow: 'hidden', marginBottom: 16, background: 'var(--ds-skeleton-base)' }}>
-          <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 100vw, 460px" style={{ objectFit: 'cover' }} />
+          <Image src={meal.image} alt={meal.dish} fill sizes="(max-width: 768px) 100vw, 460px" style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }} />
         </div>
       )}
       <div style={{ ...eyebrow, color: S.fgMuted }}>{meal.day} · {meal.date}</div>
