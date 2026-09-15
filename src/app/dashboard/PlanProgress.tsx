@@ -172,6 +172,10 @@ export function PlanProgress({
         () => new Set(sub.skipped_dates ?? []),
         [sub.skipped_dates],
     )
+    const creditedDateSet = useMemo(
+        () => new Set(sub.credited_skip_dates ?? []),
+        [sub.credited_skip_dates],
+    )
     const pausedDateSet = useMemo(
         () => new Set(sub.paused_dates ?? []),
         [sub.paused_dates],
@@ -532,7 +536,9 @@ export function PlanProgress({
                         case 'skipped':
                             statusLabel = 'Skipped'
                             dateCopy = dateLabel
-                            footnote = 'Added 1 day to your cycle'
+                            footnote = creditedDateSet.has(pillIso)
+                                ? (isPast ? 'Value added to your wallet' : 'Value goes to your wallet')
+                                : 'Added 1 day to your cycle'
                             statusColor = 'rgba(245,240,232,0.55)'
                             break
                         case 'today-pre':
@@ -548,7 +554,7 @@ export function PlanProgress({
                         case 'today-skipped':
                             statusLabel = 'Today'
                             dateCopy = 'Skipped'
-                            footnote = 'Added 1 day to your cycle'
+                            footnote = creditedDateSet.has(pillIso) ? 'Value added to your wallet' : 'Added 1 day to your cycle'
                             statusColor = 'rgba(245,240,232,0.55)'
                             break
                         case 'remaining':

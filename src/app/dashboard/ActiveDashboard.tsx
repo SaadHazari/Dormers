@@ -38,6 +38,8 @@ import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthl
 import { cycleSavings as computeCycleSavings, lifetimeSavings as computeLifetimeSavings, perMealCost as computePerMealCost, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
 import { SeasonWrapUpChip } from './_shared/SeasonWrapUpChip'
 import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
+import { decideSkipOutcome, type SkipOutcome, type SkipSeen } from '@/contexts/season/domain/skip-outcome'
+import { seasonSkipSheet, seasonToastFor } from './_shared/season-skip-copy'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -534,9 +536,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     'plan-pause': 'Pause scheduled',
     'cancel-plan-pause': 'Planned pause cancelled',
   }
-  const notifyDone = (key: ActionKey) => {
+  const notifyDone = (key: ActionKey, message?: string) => {
     if (confirmTimer.current) clearTimeout(confirmTimer.current)
-    setConfirmMsg(CONFIRM_MESSAGES[key])
+    setConfirmMsg(message ?? CONFIRM_MESSAGES[key])
     confirmTimer.current = setTimeout(() => setConfirmMsg(null), 4800)
   }
   const dismissConfirm = () => {
@@ -566,7 +568,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       if (successTimer.current) clearTimeout(successTimer.current)
       setSuccessAction(actionKey)
       successTimer.current = setTimeout(() => setSuccessAction(null), 1400)
-      notifyDone(actionKey)
+      notifyDone(actionKey, seasonToastFor(result))
       if (actionKey === 'resume') {
         const isAfterCutoff = skipPastCutoff && !skipNoDelivery
         if (isAfterCutoff) {
@@ -608,7 +610,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     if (isOneTime || skipPastCutoff || skipNoDelivery || skipIsMakeupDay || skipQuota.left <= 0) return
     setShowSkipConfirm(true)
   }
-  const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id), 'skipped', 'skip') }
+  const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id, seasonSeen), 'skipped', 'skip') }
   const handlePauseRequest = () => {
     if (isPending || isScheduled) return
     // Already-scheduled planned pause: tapping the button opens the cancel
@@ -709,7 +711,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       if (successTimer.current) clearTimeout(successTimer.current)
       setSuccessAction(actionKey)
       successTimer.current = setTimeout(() => setSuccessAction(null), 1400)
-      notifyDone(actionKey)
+      notifyDone(actionKey, seasonToastFor(result))
       router.refresh()
       // Note: optimisticOp stays set until canonical data catches up. The
       // convergence effect below detects the match and clears it then.
@@ -717,7 +719,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }
   const handleConfirmFutureSkip = (date: string) => {
     setFutureSkipModal(null)
-    runFutureAction(() => skipFutureDate(sub.id, date), 'plan-skip', { kind: 'plan-skip', date })
+    runFutureAction(() => skipFutureDate(sub.id, date, seasonSeen), 'plan-skip', { kind: 'plan-skip', date })
   }
   const handleConfirmFutureUnskip = (date: string) => {
     setFutureSkipModal(null)
@@ -817,6 +819,30 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     planned_pause_start: effPlannedPauseStart,
     has_paused_before: effHasPausedBefore,
   }
+
+  // Season wind-down (spec §7.2): what one more skip does to this plan. The
+  // answer is the same for any date, because it depends on the plan's end.
+  const seasonSkipOutcome: SkipOutcome = season
+    ? decideSkipOutcome({
+        season: { phase: season.phase, wrapUpDay: season.wrapUpDay, closeDay: season.closeDay, bufferDays: season.bufferDays },
+        plan: {
+          endDate: effectiveSub.end_date,
+          weekType: effectiveSub.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
+          skippedDates: effectiveSub.skipped_dates ?? [],
+          bufferGrants: effectiveSub.season_buffer_grants ?? 0,
+        },
+        todayAe: todayAEIso,
+        closureDates: new Set(season.closureDates),
+        creditFils: season.skipCreditFils,
+      })
+    : { kind: 'normal' }
+  // Sent with the skip so the server refuses rather than doing something else.
+  const seasonSeen: SkipSeen = {
+    outcome: seasonSkipOutcome.kind,
+    creditFils: seasonSkipOutcome.kind === 'credited' ? seasonSkipOutcome.creditFils : null,
+  }
+  const sameDaySeasonSheet = seasonSkipSheet(seasonSkipOutcome, season?.wrapUpDay ?? null, true)
+  const futureSeasonSheet = seasonSkipSheet(seasonSkipOutcome, season?.wrapUpDay ?? null, false)
 
   // Skip allowance — `total: 0` means the plan doesn't include skips at all
   // (Trial, Welcome Meal). Used by QuickActions to render a count chip on the
@@ -1209,6 +1235,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     endIso: effectiveSub.end_date,
     weekType: effectiveSub.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
     skippedDates: effectiveSub.skipped_dates ?? [],
+    creditedSkipDates: effectiveSub.credited_skip_dates ?? [],
     pausedDates: effectiveSub.paused_dates ?? [],
     closureDates,
     todayIso: aeTodayIso,
@@ -2021,16 +2048,19 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           footer={
             <>
               <button
+                id="skip-tonight-cancel"
                 onClick={() => setShowSkipConfirm(false)}
                 style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--ds-border-strong)', background: 'var(--ds-surface2)', color: S.fg, fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
               >
                 Cancel
               </button>
               <button
+                id="skip-tonight-confirm"
                 onClick={handleSkipConfirm}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
+                disabled={!!sameDaySeasonSheet?.blocked}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', border: 'none', background: OG, color: '#fff', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: sameDaySeasonSheet?.blocked ? 'not-allowed' : 'pointer', opacity: sameDaySeasonSheet?.blocked ? 0.55 : 1, letterSpacing: '0.04em', boxShadow: '0 0 16px rgba(245,127,32,0.45)' }}
               >
-                Skip tonight
+                {sameDaySeasonSheet ? sameDaySeasonSheet.cta : 'Skip tonight'}
               </button>
             </>
           }
@@ -2047,7 +2077,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             Skip tonight&rsquo;s meal?
           </h2>
           <p style={{ marginTop: 10, marginBottom: 0, fontFamily: BODY, fontSize: 14, color: S.fgMuted, lineHeight: 1.6 }}>
-            You won&rsquo;t lose this meal — we&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.
+            {sameDaySeasonSheet
+              ? sameDaySeasonSheet.body
+              : <>You won&rsquo;t lose this meal. We&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.</>}
           </p>
 
           <div style={{
@@ -2062,10 +2094,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           }}>
             <div>
               <div style={{ fontFamily: BODY, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: S.fgSub }}>
-                End date
+                {sameDaySeasonSheet ? sameDaySeasonSheet.tileLabel : 'End date'}
               </div>
               <div style={{ marginTop: 4, fontFamily: BODY, fontSize: 16, fontWeight: 800, color: S.fg, fontFeatureSettings: '"tnum"' }}>
-                <span style={{ color: OG }}>+1 day</span>
+                <span style={{ color: OG }}>{sameDaySeasonSheet ? sameDaySeasonSheet.tileValue : '+1 day'}</span>
               </div>
             </div>
             {skipQuota.total > 0 && (
@@ -2542,7 +2574,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         onConfirmSkip={handleConfirmFutureSkip}
         onConfirmUnskip={handleConfirmFutureUnskip}
         closureDates={closureDates}
-      />
+        seasonSkip={futureSeasonSheet}
+          seasonCreditFils={season?.skipCreditFils ?? null}
+        />
 
       {/* Plan-a-pause picker modal — opened from the existing Pause confirm
           modal's "Pause from a future date instead →" link. */}

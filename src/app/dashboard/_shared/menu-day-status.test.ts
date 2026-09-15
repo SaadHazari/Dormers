@@ -262,3 +262,27 @@ describe('the note on a dish that will not come', () => {
     expect(noDeliveryNote('closure', FRI, ctx(plan(), { closureDates: [FRI] }))).toMatch(/end of your plan/i)
   })
 })
+
+describe('a skip that became wallet credit (season wind-down)', () => {
+  // TODAY is Thu 17 Sep; TUE is past, NEXT_MON is ahead.
+  const credited = plan({ skipped_dates: [TUE, THU, NEXT_MON], credited_skip_dates: [TUE, THU, NEXT_MON] })
+
+  it('is classified exactly like any skipped day', () => {
+    expect(classifyMenuDay(TUE, ctx(credited))).toBe('past-skipped')
+    expect(classifyMenuDay(THU, ctx(credited))).toBe('today-skipped')
+    expect(classifyMenuDay(NEXT_MON, ctx(credited))).toBe('future-skipped')
+  })
+
+  it('says the value went to the wallet instead of a make-up day', () => {
+    expect(noDeliveryNote('past-skipped', TUE, ctx(credited))).toBe('You skipped this day, and its value went to your wallet.')
+    expect(noDeliveryNote('today-skipped', THU, ctx(credited))).toBe("You skipped tonight. There was no delivery day left before the semester wraps up, so this meal's value went to your wallet.")
+    expect(noDeliveryNote('future-skipped', NEXT_MON, ctx(credited))).toBe("You've scheduled a skip for this day. There's no delivery day left before the semester wraps up to move it to, so its value goes to your wallet.")
+    for (const [reason, day] of [['past-skipped', TUE], ['today-skipped', THU], ['future-skipped', NEXT_MON]] as const) {
+      expect(noDeliveryNote(reason, day, ctx(credited))).not.toMatch(/end of your plan|[–—]/)
+    }
+  })
+
+  it('leaves a normal skip saying the day is added to the end of the plan', () => {
+    expect(noDeliveryNote('future-skipped', NEXT_MON, ctx(plan({ skipped_dates: [NEXT_MON] })))).toMatch(/end of your plan/)
+  })
+})

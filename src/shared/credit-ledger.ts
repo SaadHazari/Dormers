@@ -20,6 +20,7 @@ export interface CreditSourceInfo {
 
 const EXACT: Record<string, CreditSourceInfo> = {
   intake_waitlist:       { label: 'Season pause credit',  category: 'season' },
+  season_skip:           { label: 'Skipped meal credit',  category: 'season' },
   referral_conversion:   { label: 'Referral reward',      category: 'referral' },
   streak_chest:          { label: 'Dorm Wars reward',     category: 'reward' },
   tier_4_meals:          { label: 'Dorm Wars reward',     category: 'reward' },

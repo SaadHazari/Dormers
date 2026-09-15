@@ -30,7 +30,7 @@ const PREVIEW_SPLIT: CreditByPlan = {
 export default async function CreditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string; empty?: string; loading?: string }>
+  searchParams: Promise<{ preview?: string; empty?: string; loading?: string; season?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -38,7 +38,12 @@ export default async function CreditPage({
   if (isPreview) {
     if (params.loading === '1') return <CreditLoading />
     const empty = params.empty === '1'
-    return <CreditClient items={empty ? [] : PREVIEW_ITEMS} creditByPlan={empty ? {} : PREVIEW_SPLIT} />
+    // ?season=credited — a skip near the season end: one credit on the way, one ready.
+    const seasonItems: CreditItem[] = params.season === 'credited' ? [
+      { amount_aed: 19.8, eligible_plan_ids: null, source: 'season_skip', status: 'pending', created_at: '2026-09-14T08:00:00Z', meal_date: '2026-09-16' },
+      { amount_aed: 19.8, eligible_plan_ids: null, source: 'season_skip', status: 'approved', created_at: '2026-09-12T08:00:00Z', meal_date: '2026-09-12' },
+    ] : []
+    return <CreditClient items={empty ? [] : [...seasonItems, ...PREVIEW_ITEMS]} creditByPlan={empty ? {} : PREVIEW_SPLIT} />
   }
 
   const user = await getUserFromHeaders()
@@ -48,9 +53,10 @@ export default async function CreditPage({
   const [itemsResult, creditSplitByKebab] = await Promise.all([
     supabase
       .from('credits')
-      .select('amount_aed, eligible_plan_ids, source, status, created_at')
+      .select('amount_aed, eligible_plan_ids, source, status, created_at, meal_date')
       .eq('customer_id', user.id)
-      .in('status', ['approved', 'applied'])
+      // Pending rows are shown only for season skip credit, which says when it arrives.
+      .or('status.in.(approved,applied),and(status.eq.pending,source.eq.season_skip)')
       .order('created_at', { ascending: false })
       .limit(40),
     // The hero's Monthly scenario uses checkout's own per-plan math — the

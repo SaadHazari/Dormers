@@ -7,6 +7,11 @@ describe('classifyCreditSource', () => {
       .toEqual({ label: 'Season pause credit', category: 'season' })
   })
 
+  it('names skip credit from the season end as season money, not winnings', () => {
+    expect(classifyCreditSource('season_skip')).toEqual({ label: 'Skipped meal credit', category: 'season' })
+    expect(countsAsGameEarnings('season_skip')).toBe(false)
+  })
+
   it('names a referral conversion', () => {
     expect(classifyCreditSource('referral_conversion'))
       .toEqual({ label: 'Referral reward', category: 'referral' })

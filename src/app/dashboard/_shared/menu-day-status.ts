@@ -25,6 +25,8 @@ export interface MenuPlan {
   paused_dates?: string[] | null
   planned_pause_start?: string | null
   resume_cutoff_date?: string | null
+  /** Skipped days whose meal became wallet credit near the season end (spec §7.2). */
+  credited_skip_dates?: string[] | null
 }
 
 export interface MenuDayContext {
@@ -206,17 +208,27 @@ export function renewGateFor(opts: {
  * the days after the plan apart: semester break (why, and what happens next),
  * renewal on hold (what's holding it), or simply renewable.
  */
+/** A skipped day paid back as wallet credit, not with a make-up day. */
+function creditedOn(plan: MenuPlan | null, iso: string): boolean {
+  return (plan?.credited_skip_dates ?? []).includes(iso)
+}
+
 export function noDeliveryNote(reason: NoDeliveryReason, iso: string, ctx: MenuDayContext, renew?: RenewGate): string {
   const p = ctx.plan
   switch (reason) {
     case 'today-skipped':
-      return p?.resume_cutoff_date === ctx.todayIso
-        ? "You resumed after the 2 PM kitchen cutoff, so this dinner isn't coming tonight. The day moves to the end of your plan."
+      if (p?.resume_cutoff_date === ctx.todayIso) {
+        return "You resumed after the 2 PM kitchen cutoff, so this dinner isn't coming tonight. The day moves to the end of your plan."
+      }
+      return creditedOn(p, iso)
+        ? "You skipped tonight. There was no delivery day left before the semester wraps up, so this meal's value went to your wallet."
         : "You skipped tonight, so this dinner won't come to you. The day is added to the end of your plan."
     case 'past-skipped':
-      return 'You skipped this day.'
+      return creditedOn(p, iso) ? 'You skipped this day, and its value went to your wallet.' : 'You skipped this day.'
     case 'future-skipped':
-      return "You've scheduled a skip for this day, so this dinner won't come to you. The day is added to the end of your plan."
+      return creditedOn(p, iso)
+        ? "You've scheduled a skip for this day. There's no delivery day left before the semester wraps up to move it to, so its value goes to your wallet."
+        : "You've scheduled a skip for this day, so this dinner won't come to you. The day is added to the end of your plan."
     case 'pause-start':
       return "Your pause begins this day, so this dinner won't come to you."
     case 'in-pause':

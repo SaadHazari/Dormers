@@ -70,6 +70,8 @@ export interface MobileHomeData {
   endIso: string
   weekType: '5DAYS' | '6DAYS'
   skippedDates: string[]
+  /** Skipped days whose meal became wallet credit (season wind-down); a subset of skippedDates. */
+  creditedSkipDates: string[]
   pausedDates: string[]
   /** Company closure dates (YYYY-MM-DD). The delivery tick banks no meal on
    *  these days — cells must render "kitchen closed", never delivered-orange,
@@ -305,6 +307,7 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, season
   // Date-mapped calendar chips (desktop-faithful: delivered/today/skipped/
   // upcoming, with future cells clickable to skip / future skips to un-skip).
   const skipSet = new Set(data.skippedDates)
+  const creditedSet = new Set(data.creditedSkipDates)
   const pausedSet = new Set(data.pausedDates)
   const closureSet = new Set(data.closureDates ?? [])
   const mobilePauseRanges = groupPauseRanges(data.pausedDates, data.weekType, skipSet)
@@ -1116,10 +1119,12 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, season
           : inPlannedPause ? 'Pause planned'
           : 'Upcoming'
         const stateDetail =
-          isToday && cellInfo.state === 'skipped' ? 'Tonight’s dinner is skipped — 1 day added to your cycle.'
+          isToday && cellInfo.state === 'skipped' ? (creditedSet.has(cellInfo.iso) ? 'Tonight’s dinner is skipped. Its value went to your wallet.' : 'Tonight’s dinner is skipped, and 1 day is added to your cycle.')
           : isToday && cellInfo.state === 'delivered' ? 'Tonight’s dinner was delivered by 7–8 PM.'
           : isToday ? 'Dinner arrives tonight between 7–8 PM.'
-          : cellInfo.state === 'skipped' ? 'This meal was skipped — your end date extended by 1 day.'
+          : cellInfo.state === 'skipped' ? (creditedSet.has(cellInfo.iso)
+              ? (cellInfo.iso > data.todayIso ? 'This meal is skipped. Its value goes to your wallet the day after.' : 'This meal was skipped, and its value went to your wallet.')
+              : 'This meal was skipped, and your end date moved out by 1 day.')
           : cellInfo.state === 'paused' ? 'No delivery — plan was paused on this day.'
           : cellInfo.state === 'closure' ? 'No delivery — the kitchen is closed this day, so a day is added to your plan.'
           : cellInfo.state === 'delivered' ? 'Dinner was delivered by 7–8 PM.'

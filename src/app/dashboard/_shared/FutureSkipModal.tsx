@@ -6,6 +6,7 @@ import { BODY, OG, S, cleanPlanName } from './tokens'
 import { MobileSheet } from './MobileSheet'
 import type { Subscription } from './types'
 import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { creditedUnskipBody, type CreditedSkipCopy } from './season-skip-copy'
 
 export type FutureSkipMode = 'confirm-skip' | 'confirm-unskip' | 'pick-then-skip'
 
@@ -29,6 +30,10 @@ interface Props {
      *  back by closure_tick, so skipping it would burn a credit for nothing —
      *  the picker greys those days out and names why. */
     closureDates?: string[]
+    /** Season wind-down: credited-skip wording for a new skip; null keeps the make-up day wording. */
+    seasonSkip?: CreditedSkipCopy | null
+    /** Season wind-down: the credit a credited day's un-skip cancels, in fils. */
+    seasonCreditFils?: number | null
 }
 
 function isoOf(d: Date): string {
@@ -65,7 +70,7 @@ function formatLongDate(iso: string): string {
  */
 export function FutureSkipModal({
     open, onClose, mode, initialDate, sub, maxSkips, queuedSub, isPending,
-    onConfirmSkip, onConfirmUnskip, closureDates = [],
+    onConfirmSkip, onConfirmUnskip, closureDates = [], seasonSkip = null, seasonCreditFils = null,
 }: Props) {
     const [selectedDate, setSelectedDate] = useState<string>(initialDate ?? '')
 
@@ -157,19 +162,25 @@ export function FutureSkipModal({
             ? 'Plan a skip'
             : `Skip ${selectedDate ? formatLongDate(selectedDate) : 'this day'}?`
 
+    const creditedUnskip = isUnskip && !!selectedDate && (sub.credited_skip_dates ?? []).includes(selectedDate)
     const subline = isUnskip
-        ? 'Your meal for that day will be delivered. The make-up day at the end of your cycle will be removed.'
-        : 'You won’t get a meal that day. We’ll add a make-up day at the end of your cycle so you still get every meal you paid for.'
+        ? (creditedUnskip
+            ? creditedUnskipBody(seasonCreditFils)
+            : 'Your meal for that day will be delivered. The make-up day at the end of your cycle will be removed.')
+        : (seasonSkip
+            ? seasonSkip.body
+            : 'You won’t get a meal that day. We’ll add a make-up day at the end of your cycle so you still get every meal you paid for.')
 
     const skipsLeft = Math.max(0, maxSkips - skipsUsedFor(sub))
     // Short CTA label — the full date already lives in the headline, so a long
     // label here would wrap in the bottom-pinned band on a narrow phone.
     const ctaText = isUnskip
         ? 'Un-skip this day'
-        : (selectedDate ? 'Skip this day' : 'Pick a date')
+        : (selectedDate ? (seasonSkip ? seasonSkip.cta : 'Skip this day') : 'Pick a date')
+    const skipBlocked = !isUnskip && !!seasonSkip?.blocked
 
     const onConfirm = () => {
-        if (!selectedDate || isPending) return
+        if (!selectedDate || isPending || skipBlocked) return
         if (isUnskip) onConfirmUnskip(selectedDate)
         else onConfirmSkip(selectedDate)
     }
@@ -178,6 +189,7 @@ export function FutureSkipModal({
         <>
             <button
                 type="button"
+                id="future-skip-cancel"
                 onClick={onClose}
                 disabled={isPending}
                 style={{
@@ -193,15 +205,16 @@ export function FutureSkipModal({
             </button>
             <button
                 type="button"
+                id="future-skip-confirm"
                 onClick={onConfirm}
-                disabled={!selectedDate || isPending}
+                disabled={!selectedDate || isPending || skipBlocked}
                 style={{
                     padding: '12px 20px', borderRadius: 999,
                     background: OG, color: '#fff',
                     border: 'none',
                     fontFamily: BODY, fontSize: 13, fontWeight: 700,
-                    cursor: selectedDate && !isPending ? 'pointer' : 'not-allowed',
-                    opacity: selectedDate && !isPending ? 1 : 0.55,
+                    cursor: selectedDate && !isPending && !skipBlocked ? 'pointer' : 'not-allowed',
+                    opacity: selectedDate && !isPending && !skipBlocked ? 1 : 0.55,
                     boxShadow: '0 4px 16px rgba(245,127,32,0.30)',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     flex: '1 1 auto',

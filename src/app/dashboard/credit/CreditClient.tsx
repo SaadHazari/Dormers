@@ -10,6 +10,7 @@ import { MONTHLY_PLAN_IDS } from '@/contexts/subscriptions/domain/credit-eligibi
 import { PLAN_KEBAB, type PlanId } from '@/contexts/subscriptions/domain/pricing'
 import type { CreditByPlan } from '../_shared/types'
 import { MobileCredit } from '../_mobile/MobileCredit'
+import { creditRowAmount, creditRowDateLine } from './credit-rows'
 
 // Glass-over-cream surface — same S the history page rows use, so the two
 // record pages read as siblings.
@@ -25,8 +26,10 @@ export type CreditItem = {
   amount_aed: number
   eligible_plan_ids: string[] | null
   source: string | null
-  status: 'approved' | 'applied'
+  status: 'pending' | 'approved' | 'applied'
   created_at: string
+  /** Set on season skip credit: the skipped meal's date, which fixes when a pending row arrives. */
+  meal_date?: string | null
 }
 
 export const creditDateLabel = (iso: string) =>
@@ -71,6 +74,7 @@ export default function CreditClient({
 }) {
   const approved = items.filter(i => i.status === 'approved')
   const used = items.filter(i => i.status === 'applied')
+  const pending = items.filter(i => i.status === 'pending')
   const { outlook, monthlyBestAed } = creditScenarios(items, creditByPlan)
   const lead = outlook.chip
   const showMonthlyLine = lead != null && monthlyBestAed > lead.amountAed
@@ -188,6 +192,9 @@ export default function CreditClient({
         )}
 
         {/* ── Ledger — every credit with its origin in human words. ── */}
+        {pending.length > 0 && (
+          <LedgerGroup title="On the way" items={pending} />
+        )}
         {approved.length > 0 && (
           <LedgerGroup title="Available" items={approved} />
         )}
@@ -267,7 +274,7 @@ function LedgerGroup({ title, items, muted = false }: { title: string; items: Cr
                   )}
                 </div>
                 <div style={{ fontSize: 11, color: S.fgFaint, marginTop: 3, fontFeatureSettings: '"tnum"' }}>
-                  {creditDateLabel(item.created_at)}
+                  {creditRowDateLine(item, creditDateLabel)}
                 </div>
               </div>
               <div style={{
@@ -275,7 +282,7 @@ function LedgerGroup({ title, items, muted = false }: { title: string; items: Cr
                 color: muted ? S.fgMuted : 'var(--ds-fg)',
                 fontFeatureSettings: '"tnum"', flexShrink: 0,
               }}>
-                AED {Math.round(Number(item.amount_aed))}{muted ? ' used' : ''}
+                {creditRowAmount(item)}
               </div>
             </div>
           )

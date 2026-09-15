@@ -56,6 +56,9 @@ interface ActiveSubLike {
   // historical no-deliveries; future skips display as scheduled "off"
   // days. Matches the dashboard's calendar bar source-of-truth.
   skipped_dates?: string[] | null
+  // Skipped days paid back as wallet credit (season wind-down). Carried into
+  // MenuPlan so the day notes stop promising a make-up day.
+  credited_skip_dates?: string[] | null
   // AE wall date when a pre-scheduled pause should activate. Days from
   // this date onward render as "Paused" on the weekly grid. The start
   // day gets a "Pause begins" label so the customer can see exactly when

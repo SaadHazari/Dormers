@@ -20,7 +20,7 @@ export default async function MenuPage({
   if (isPreview) {
     // Dev-only state harness:
     //   ?state=nosub (default) | active | skipped | paused | planned-pause
-    //          | plan-ends | last-day | scheduled | held | resumed | midweek | ended
+    //          | plan-ends | last-day | scheduled | held | resumed | midweek | ended | credited
     //   &queued=1 (with plan-ends: days after end_date stay "Upcoming")
     //   &pref=veg|mix  &week=5  &closure=today|1
     //   &gate=season|zone|profile — why renewing is closed right now
@@ -54,6 +54,8 @@ export default async function MenuPage({
       : st === 'skipped' ? planRow({ status: 'Skipped', skipped_dates: [d(-1), d(0), d(2)] })
       // Paused two days ago, end date close: past days read "Paused" and next
       // week stays "Paused" rather than "Renew to unlock".
+      // Season wind-down: yesterday's skip and one two days out became wallet credit.
+      : st === 'credited' ? planRow({ skipped_dates: [d(-1), d(2)], credited_skip_dates: [d(-1), d(2)] })
       : st === 'paused' ? planRow({ status: 'Paused', paused_dates: [d(-2), d(-1)], end_date: d(6) })
       : st === 'planned-pause' ? planRow({ planned_pause_start: d(2) })
       : st === 'plan-ends' ? planRow({ end_date: d(2) })

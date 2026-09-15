@@ -8,6 +8,7 @@ import type { CreditByPlan } from '../_shared/types'
 import {
   creditScenarios, creditDateLabel, creditEligibilityTag, type CreditItem,
 } from '../credit/CreditClient'
+import { creditRowAmount, creditRowDateLine } from '../credit/credit-rows'
 
 const CREAM = 'rgba(245,240,232,0.92)'
 const CREAM_MUTED = 'rgba(245,240,232,0.65)'
@@ -22,6 +23,7 @@ const CREAM_MUTED = 'rgba(245,240,232,0.65)'
 export function MobileCredit({ items, creditByPlan = {} }: { items: CreditItem[]; creditByPlan?: CreditByPlan }) {
   const approved = items.filter(i => i.status === 'approved')
   const used = items.filter(i => i.status === 'applied')
+  const pending = items.filter(i => i.status === 'pending')
   const { outlook, monthlyBestAed } = creditScenarios(items, creditByPlan)
   const lead = outlook.chip
   const showMonthlyLine = lead != null && monthlyBestAed > lead.amountAed
@@ -94,6 +96,7 @@ export function MobileCredit({ items, creditByPlan = {} }: { items: CreditItem[]
         </section>
       )}
 
+      {pending.length > 0 && <MobileLedger title="On the way" items={pending} />}
       {approved.length > 0 && <MobileLedger title="Available" items={approved} />}
       {used.length > 0 && <MobileLedger title="Used" items={used} muted />}
     </MobileColumn>
@@ -138,11 +141,11 @@ function MobileLedger({ title, items, muted = false }: { title: string; items: C
                   )}
                 </div>
                 <div style={{ fontSize: 11, color: S.fgFaint, marginTop: 3, fontFeatureSettings: '"tnum"' }}>
-                  {creditDateLabel(item.created_at)}
+                  {creditRowDateLine(item, creditDateLabel)}
                 </div>
               </div>
               <div style={{ fontSize: 14.5, fontWeight: 800, color: muted ? S.fgMuted : S.fg, fontFeatureSettings: '"tnum"', flexShrink: 0 }}>
-                AED {Math.round(Number(item.amount_aed))}{muted ? ' used' : ''}
+                {creditRowAmount(item)}
               </div>
             </div>
           )
