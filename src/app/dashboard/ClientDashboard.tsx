@@ -19,6 +19,7 @@ import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
+import type { CustomerBreak } from '@/contexts/season/domain/customer-hold'
 import { SeasonScheduledNotice } from './_shared/SeasonScheduledNotice'
 import { seasonNoticeSeenKey } from './_shared/season-notice-copy'
 import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
@@ -90,6 +91,8 @@ interface Props {
   season?: CustomerSeason | null
   /** Preview only: word the season copy as if the break were live. Defaults to SEASON_BREAK_RELEASE_LIVE downstream. */
   seasonBreakLive?: boolean
+  /** A plan held over the semester break, or ready after reopening (spec §6.3). */
+  seasonBreak?: CustomerBreak | null
 }
 
 /**
@@ -101,7 +104,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive, seasonBreak = null }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -243,7 +246,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // credit amount is genuinely zero) has nothing to be told is "ready".
   // Once a wrap-up day is set, the season notice replaces this one (spec §2.2).
   const showPausingTakeover =
-    intakeTakeoverChecked && !pausingSeen && intakePause.paused && !!activeSubscription && !season
+    intakeTakeoverChecked && !pausingSeen && intakePause.paused && !!activeSubscription && !season && !seasonBreak
   const showReopenedTakeover =
     intakeTakeoverChecked && !reopenedSeen && !intakePause.paused &&
     intakePause.alreadyJoined && intakePause.waitlistCreditAed > 0
@@ -476,6 +479,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       creditRows={creditRows}
       season={season}
       seasonBreakLive={seasonBreakLive}
+      seasonBreak={seasonBreak}
     />
   )
 }

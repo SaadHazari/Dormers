@@ -42,6 +42,8 @@ import { decideSkipOutcome, type SkipOutcome, type SkipSeen } from '@/contexts/s
 import { seasonSkipSheet, seasonToastFor } from './_shared/season-skip-copy'
 import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
 import { seasonPauseLine } from './_shared/season-notice-copy'
+import { HeldPlanCard } from './_shared/HeldPlanCard'
+import type { CustomerBreak } from '@/contexts/season/domain/customer-hold'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -358,7 +360,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive = SEASON_BREAK_RELEASE_LIVE }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive = SEASON_BREAK_RELEASE_LIVE, seasonBreak = null }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -378,6 +380,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   season?: CustomerSeason | null
   /** Whether the season break is live; preview may override, production reads the release flag. */
   seasonBreakLive?: boolean
+  /** A plan held over the semester break, or ready after reopening (spec §6.3). */
+  seasonBreak?: CustomerBreak | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -1585,6 +1589,9 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         )}
 
         {season && <SeasonWrapUpChip wrapUpDay={season.wrapUpDay} />}
+        {seasonBreak && (
+          <HeldPlanCard hold={seasonBreak.hold} alreadyJoined={intakePause.alreadyJoined} creditAed={intakePause.creditAed} />
+        )}
 
         {/* End-of-cycle renew banner — visibility window scales with plan
             length so longer plans get a longer lead-time:
@@ -1945,6 +1952,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             ) : null}
             creditChip={<MobileCreditChip rows={creditRows} />}
             seasonChip={season ? <SeasonWrapUpChip wrapUpDay={season.wrapUpDay} /> : undefined}
+            heldCard={seasonBreak ? <HeldPlanCard hold={seasonBreak.hold} alreadyJoined={intakePause.alreadyJoined} creditAed={intakePause.creditAed} /> : undefined}
             planEndingBanner={showPlanEndingPausedBanner ? (
               <PlanEndingPausedBanner
                 daysRemaining={planEndDaysRemaining}

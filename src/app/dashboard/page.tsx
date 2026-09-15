@@ -18,6 +18,8 @@ import type { ProjectionPlan } from '@/contexts/season/domain/season-projection'
 import { closeDayFor, todayAeIso, addDaysIso } from '@/contexts/season/domain/season-dates'
 import { skipCreditFilsFor } from '@/contexts/season/domain/skip-outcome'
 import { loadOrderMoney } from '@/contexts/season/usecases/skip-season'
+import { buildCustomerBreak, type CustomerBreak } from '@/contexts/season/domain/customer-hold'
+import { getCustomerHold } from '@/infra/supabase/season-holds-repo'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -97,6 +99,10 @@ export default async function DashboardPage({
         //   ?season=grant     — wrap-up day on the plan's end: a skip now uses the buffer day
         //   ?season=credited  — as grant, buffer used: a skip now turns into credit; one future credited skip on the plan
         //   &release=1        — word the pause line and notices as if the break were live
+        //   ?season=held            — the break: plan held for next semester with AED 20 credit (held card, N8)
+        //   ?season=paused_break    — the break: a customer pause carried (card with Save my spot; &joined=1 once saved)
+        //   ?season=ready           — reopened: the held plan is ready, tap Resume
+        //   ?season=ready_scheduled — reopened: a held plan that had not started, pick a start date
         //   ?checkout_success=true — success takeover (with a fixture order)
         //   ?loading=1 / ?error=1 — route skeleton / error boundary
         // Dates are computed relative to today so the fixture never drifts
@@ -228,6 +234,41 @@ export default async function DashboardPage({
             // The skip fixtures are for the sheets, not the notice.
             return built && (seasonKnob === 'grant' || seasonKnob === 'credited') ? { ...built, notice: null } : built
         })() : null
+
+        // Season break fixtures (Plan C). The card and notices read a hold,
+        // never a status: a held plan is Paused (or Scheduled) with season_hold_id.
+        const breakKnob = seasonKnob === 'held' || seasonKnob === 'paused_break' || seasonKnob === 'ready' || seasonKnob === 'ready_scheduled'
+            ? seasonKnob : null
+        const previewHoldSub = breakKnob === 'ready_scheduled'
+            ? { ...seasonSub, status: 'Scheduled', start_date: dateOnly(nowMs - 20 * day), end_date: dateOnly(nowMs + 8 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [], season_hold_id: 'preview-hold' }
+            : breakKnob
+                ? { ...seasonSub, status: 'Paused', has_paused_before: true, pause_date: dateOnly(nowMs - 6 * day), season_hold_id: 'preview-hold' }
+                : seasonSub
+        const previewBreak: CustomerBreak | null = breakKnob ? {
+            phase: breakKnob === 'held' || breakKnob === 'paused_break' ? 'break' : 'open',
+            hold: {
+                id: 'preview-hold',
+                subscriptionId: String(previewHoldSub.id),
+                reason: breakKnob === 'paused_break' ? 'customer_pause' : 'season',
+                state: breakKnob === 'paused_break' ? 'paused_by_customer' : breakKnob === 'held' ? 'held' : 'ready',
+                heldMeals: breakKnob === 'ready_scheduled' ? 24 : breakKnob === 'paused_break' ? 8 : 9,
+                waitlistCreditFils: breakKnob === 'paused_break' ? null : 2000,
+                planName: String(previewHoldSub.plan_name),
+                planStatus: breakKnob === 'ready_scheduled' ? 'Scheduled' : 'Paused',
+            },
+        } : null
+        const previewBreakPause: IntakeGateState | undefined = previewBreak ? {
+            paused: previewBreak.phase === 'break',
+            headline: 'We are between semesters.',
+            body: 'Dormers cooks when the dorms are full. We have paused new plans until enough of you are back on campus.',
+            creditAed: 20,
+            firstName: firstNameFrom(PREVIEW_CUSTOMER.name),
+            alreadyJoined: params.joined === '1',
+            waitlistCreditAed: params.joined === '1' ? 20 : 0,
+            cycleStartedAt: dateOnly(nowMs - 30 * day),
+            cycleEndedAt: null,
+            lastDeliveryDay: null,
+        } : undefined
         const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
             eligible: params.wrap === 'open' || params.wrap === 'late',
             locked: params.wrap === 'locked',
@@ -283,7 +324,7 @@ export default async function DashboardPage({
                     // the brand-new-signup fixture must not show the profile
                     // gate the base fixture (unverified) does.
                     customer={previewCustomer}
-                    activeSubscription={params.nosub === '1' ? null : seasonSub}
+                    activeSubscription={params.nosub === '1' ? null : previewHoldSub}
                     queuedSubscription={queuedSub}
                     season={params.nosub === '1' ? null : previewSeason}
                     seasonBreakLive={params.release === '1' ? true : undefined}
@@ -300,7 +341,8 @@ export default async function DashboardPage({
                     ] : params.fresh === '1' ? [previewSub] : [previewSub, { ...PREVIEW_SUBSCRIPTION, id: 'prev-ended-1', status: 'Ended', start_date: dateOnly(nowMs - 70 * day), end_date: dateOnly(nowMs - 40 * day), delivered_meals: 24 }]}
                     userEmail={PREVIEW_CUSTOMER.email}
                     monthlyWindow={previewWrap}
-                    intakePause={previewPause}
+                    intakePause={previewBreakPause ?? previewPause}
+                    seasonBreak={params.nosub === '1' ? null : previewBreak}
                     previewState={params.state}
                     closureDates={params.closure === '1' ? [dateOnly(nowMs + day), dateOnly(nowMs + 2 * day)]
                         : params.closure === 'today' ? [dateOnly(nowMs), dateOnly(nowMs + day)]
@@ -368,6 +410,13 @@ export default async function DashboardPage({
         })
     }
 
+    // Held for next semester (spec §6.3): during the break, or ready after
+    // reopening until the customer restarts it.
+    const heldSource = activeSubscription?.season_hold_id
+        ? activeSubscription
+        : queuedSubscription?.season_hold_id ? queuedSubscription : null
+    const seasonBreak = buildCustomerBreak(intakeState.phase, await getCustomerHold(supabase, heldSource))
+
     const intakePause: IntakeGateState = {
         paused: intakeState.paused,
         headline: intakeState.headline,
@@ -401,6 +450,7 @@ export default async function DashboardPage({
                 menuData={menuDishes}
                 closureDates={closureDates}
                 intakePause={intakePause}
+                seasonBreak={seasonBreak}
                 creditRows={creditRows}
                 season={season}
             />
