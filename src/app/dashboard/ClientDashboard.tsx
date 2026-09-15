@@ -18,6 +18,7 @@ import type { Customer, Subscription, IntakeGateState } from './_shared/types'
 import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
+import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
 
 interface RecentOrder {
   id: string
@@ -82,6 +83,8 @@ interface Props {
   intakePause?: IntakeGateState
   /** Approved credit rows — feeds the mobile home credit chip. */
   creditRows?: CreditRow[]
+  /** Season end seen from this customer's plans (spec §7.2, N1, N3); null outside a wind-down. */
+  season?: CustomerSeason | null
 }
 
 /**
@@ -93,7 +96,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [] }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -430,6 +433,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       closureDates={closureDates}
       intakePause={intakePause}
       creditRows={creditRows}
+      season={season}
     />
   )
 }

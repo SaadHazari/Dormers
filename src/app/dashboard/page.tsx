@@ -13,6 +13,11 @@ import type { IntakeGateState } from './_shared/types'
 import { firstNameFrom } from './_shared/intake-join-outcome'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import DashboardLoading from './loading'
+import { buildCustomerSeason, projectionPlanFromRow, type CustomerSeason } from '@/contexts/season/domain/customer-season'
+import type { ProjectionPlan } from '@/contexts/season/domain/season-projection'
+import { closeDayFor, todayAeIso, addDaysIso } from '@/contexts/season/domain/season-dates'
+import { skipCreditFilsFor } from '@/contexts/season/domain/skip-outcome'
+import { loadOrderMoney } from '@/contexts/season/usecases/skip-season'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -54,7 +59,7 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, now?: string, anchor?: string, pref?: string, week?: string, checkout_success?: string, loading?: string, error?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, now?: string, anchor?: string, pref?: string, week?: string, checkout_success?: string, season?: string, loading?: string, error?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -87,6 +92,10 @@ export default async function DashboardPage({
         //                       the days before, during and after the closure
         //   ?pref=veg|mix — meal preference (mix = religious with veg days)
         //   ?week=5       — 5-day cadence
+        //   ?season=scheduled — wrap-up day 12 days out, the plan finishes before it (N1 notice, home chip)
+        //   ?season=paused    — pair with sub=paused: wrap-up day set, plan paused (N3 notice)
+        //   ?season=grant     — wrap-up day on the plan's end: a skip now uses the buffer day
+        //   ?season=credited  — as grant, buffer used: a skip now turns into credit; one future credited skip on the plan
         //   ?checkout_success=true — success takeover (with a fixture order)
         //   ?loading=1 / ?error=1 — route skeleton / error boundary
         // Dates are computed relative to today so the fixture never drifts
@@ -194,6 +203,30 @@ export default async function DashboardPage({
             start_date: dateOnly(nowMs + (endOff + 1) * day), end_date: dateOnly(nowMs + (endOff + 31) * day),
             total_meals: 48, delivered_meals: 0, skipped_meals_count: 0,
         } : null
+        const seasonKnob = params.season ?? ''
+        const inFuture = seasonKnob === 'credited' ? dateOnly(nowMs + 2 * day) : null
+        const seasonSub = seasonKnob === 'credited' && inFuture ? {
+            ...previewSub,
+            skipped_dates: [...(previewSub.skipped_dates ?? []), inFuture].sort(),
+            credited_skip_days: 1,
+            credited_skip_dates: [inFuture],
+            season_buffer_grants: 1,
+        } : seasonKnob === 'grant' ? { ...previewSub, season_buffer_grants: 0 } : previewSub
+        const notSunday = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 0 ? addDaysIso(iso, 1) : iso
+        const previewWrapUp = seasonKnob === 'scheduled' || seasonKnob === 'paused' ? notSunday(dateOnly(nowMs + 12 * day))
+            : seasonKnob === 'grant' || seasonKnob === 'credited' ? String(seasonSub.end_date).slice(0, 10)
+            : null
+        const previewSeason: CustomerSeason | null = previewWrapUp ? (() => {
+            const built = buildCustomerSeason({
+                intake: { phase: 'winding_down', wrapUpDay: previewWrapUp, closeDay: closeDayFor(previewWrapUp, 1), bufferDays: 1, cycleStartedAt: dateOnly(nowMs - day) },
+                plans: [projectionPlanFromRow({ ...seasonSub, customer_id: 'preview', meals_per_day: mealsPerDelivery })].filter((p): p is ProjectionPlan => p !== null),
+                skipCreditFils: 1980,
+                todayAe: todayAE,
+                closureDates: [],
+            })
+            // The skip fixtures are for the sheets, not the notice.
+            return built && (seasonKnob === 'grant' || seasonKnob === 'credited') ? { ...built, notice: null } : built
+        })() : null
         const previewWrap: MonthlyReviewWindow | undefined = params.wrap ? {
             eligible: params.wrap === 'open' || params.wrap === 'late',
             locked: params.wrap === 'locked',
@@ -249,8 +282,9 @@ export default async function DashboardPage({
                     // the brand-new-signup fixture must not show the profile
                     // gate the base fixture (unverified) does.
                     customer={previewCustomer}
-                    activeSubscription={params.nosub === '1' ? null : previewSub}
+                    activeSubscription={params.nosub === '1' ? null : seasonSub}
                     queuedSubscription={queuedSub}
+                    season={params.nosub === '1' ? null : previewSeason}
                     // No-sub previews default to a RETURNING customer (their
                     // semester plan just ended) — the renew path only renders
                     // for that shape. &first=1 is the brand-new signup: no
@@ -314,6 +348,24 @@ export default async function DashboardPage({
     // what joinIntakeWaitlist will actually mint), not the ledger balance;
     // alreadyJoined comes from the shared getWaitlistStatus helper so this
     // fact can't drift from the Now-tray's.
+    // The season end, seen from this customer's plans (spec §7.2, N1, N3).
+    // Null unless the season is winding down to a wrap-up day.
+    let season: CustomerSeason | null = null
+    if (intakeState.phase === 'winding_down' && intakeState.wrapUpDay && activeSubscription) {
+        const money = await loadOrderMoney(activeSubscription.id)
+        season = buildCustomerSeason({
+            intake: intakeState,
+            plans: [activeSubscription, queuedSubscription]
+                .map((row) => projectionPlanFromRow(row as Record<string, unknown> | null))
+                .filter((p): p is ProjectionPlan => p !== null),
+            skipCreditFils: money.ok
+                ? skipCreditFilsFor({ planName: activeSubscription.plan_name, mealsPerDay: activeSubscription.meals_per_day ?? null, order: money.order })
+                : null,
+            todayAe: todayAeIso(),
+            closureDates,
+        })
+    }
+
     const intakePause: IntakeGateState = {
         paused: intakeState.paused,
         headline: intakeState.headline,
@@ -348,6 +400,7 @@ export default async function DashboardPage({
                 closureDates={closureDates}
                 intakePause={intakePause}
                 creditRows={creditRows}
+                season={season}
             />
         </Suspense>
     )

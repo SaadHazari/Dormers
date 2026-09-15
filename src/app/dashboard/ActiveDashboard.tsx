@@ -36,6 +36,8 @@ import type { Customer, Subscription, MenuItem, MealState, WeekStatus, LocalStat
 import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import { cycleSavings as computeCycleSavings, lifetimeSavings as computeLifetimeSavings, perMealCost as computePerMealCost, formatSavedAmount } from '@/contexts/subscriptions/domain/savings'
+import { SeasonWrapUpChip } from './_shared/SeasonWrapUpChip'
+import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -352,7 +354,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [] }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -369,6 +371,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   /** Approved credit rows — the mobile home credit chip (sidebar chip's
    *  phone twin; desktop needs nothing here, the rail chip is always on). */
   creditRows?: CreditRow[]
+  season?: CustomerSeason | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -1549,6 +1552,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           />
         )}
 
+        {season && <SeasonWrapUpChip wrapUpDay={season.wrapUpDay} />}
+
         {/* End-of-cycle renew banner — visibility window scales with plan
             length so longer plans get a longer lead-time:
               · Monthly   → last 4 days  (4-day heads-up on a ~30-day cycle)
@@ -1907,6 +1912,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
               </div>
             ) : null}
             creditChip={<MobileCreditChip rows={creditRows} />}
+            seasonChip={season ? <SeasonWrapUpChip wrapUpDay={season.wrapUpDay} /> : undefined}
             planEndingBanner={showPlanEndingPausedBanner ? (
               <PlanEndingPausedBanner
                 daysRemaining={planEndDaysRemaining}

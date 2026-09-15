@@ -139,6 +139,8 @@ interface Props {
   /** Post-checkout order confirmation — persistent record of the just-bought
    *  plan (mobile had none; buyers only saw the 3s success flash). */
   orderBanner?: ReactNode
+  /** "Semester wraps up {W}" chip while the season winds down (spec N1). */
+  seasonChip?: ReactNode
   /** End-of-cycle renew nudge — rendered between the hero and the plan card. */
   renewBanner?: ReactNode
   /** @deprecated Owner removed the home credit chip (2026-08-19) — the
@@ -205,7 +207,7 @@ function isoOf(d: Date): string {
 type PillState = 'delivered' | 'today' | 'skipped' | 'upcoming' | 'makeup' | 'paused' | 'closure'
 interface Pill { iso: string; state: PillState; action: 'skip' | 'unskip' | 'info' | 'detail' | 'pause-info' | 'cell-info' | null; pauseRange?: PauseRange }
 
-export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
+export function MobileHome({ data, gateBanners, errorBanner, orderBanner, seasonChip, renewBanner, planEndingBanner, onSkip, isNavPending, onViewDish, onPlanSkip, onPause, onWrap, onSetBenchmark, onManageQueued, onPillSkip, onPillUnskip, resolveDish }: Props) {
   // Delivery-rounded (Monthly Max ships 2 meals/delivery) so "meals left" can
   // never show an un-deliverable odd number — mirrors desktop PlanProgress.
   const perDelivery = data.planName.includes('Monthly Max') ? 2 : 1
@@ -481,6 +483,7 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, renewB
       {gateBanners}
       {errorBanner}
       {orderBanner}
+      {seasonChip}
       {/* Ref wrapper = the sun-cap anchor (see the measure effect above).
           Rendered only when the banner exists so no empty flex-gap slot. */}
       {planEndingBanner != null && <div ref={planEndingRef}>{planEndingBanner}</div>}
