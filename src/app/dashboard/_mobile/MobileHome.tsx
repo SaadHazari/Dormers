@@ -619,6 +619,7 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, season
             {!data.heroClosure && (
             <button
               type="button"
+              data-testid="hero-skip"
               onClick={data.skip.disabled ? undefined : onSkip}
               disabled={data.skip.disabled}
               aria-disabled={data.skip.disabled}
@@ -957,6 +958,7 @@ export function MobileHome({ data, gateBanners, errorBanner, orderBanner, season
         <div style={{ flex: 1, minWidth: 0 }}>
           <button
             type="button"
+            data-testid="hero-pause"
             onClick={data.pause.disabled ? undefined : onPause}
             disabled={data.pause.disabled}
             aria-disabled={data.pause.disabled}

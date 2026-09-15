@@ -23,6 +23,7 @@
     "check:greeting-row": "node scripts/check-greeting-row.mjs",
     "check:reload-flash": "node scripts/check-reload-flash.mjs",
     "check:season-planner": "node scripts/check-season-planner.mjs",
+    "check:season-customer": "node scripts/check-season-customer.mjs",
     "check:season-data": "tsx --env-file=.env.local --conditions=react-server scripts/check-season-data.ts"
   },
   "dependencies": {
