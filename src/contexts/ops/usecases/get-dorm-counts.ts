@@ -1,23 +1,24 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+import { KITCHEN_SUB_COLUMNS, loadSeasonKitchenGate, plansCookingToday, type KitchenSubRow, type SeasonKitchenFacts } from './season-kitchen-gate'
 
 /**
  * Per-dorm meal count for today's rider pickup.
  *
- * Mirrors getKitchenCounts exactly — same parallel fetch, same filters
- * (5DAYS Saturday skip, skipped_dates, paused_dates) — but groups by
- * customers.dorm_name instead of summing veg/non-veg.
+ * Same rule as getKitchenCounts (spec G5): a plan counts only when the
+ * delivery tick will cook it tonight, and nothing counts during the break or
+ * after the close day. Grouped by customers.dorm_name: the rider carries every
+ * box (veg and non-veg) to the same dorm, one box per plan.
  *
- * The rider carries all boxes (veg + non-veg) to the same dorm — each
- * active subscription = 1 box regardless of meal preference.
+ * When the season cannot be read the rider keeps working on the normal rule:
+ * during the break no Active plan with meals left exists, so nothing extra is
+ * counted.
  *
  * Returns a plain Record (not a Map) so it can be passed across the
  * RSC/client boundary without serialization issues.
- *
- * @param todayIso  - "YYYY-MM-DD" in UAE wall time
- * @param dayName   - "Monday"…"Saturday" in UAE wall time
- * @param isSaturday - true when UAE wall-clock day is Saturday (5DAYS plans skip Saturday)
  */
 export type DormCountsRecord = Record<string, number>
+
+type SubRow = KitchenSubRow & { id: string; customer_id: string; paused_dates: string[] | null }
 
 export async function getDormCounts(
   todayIso: string,
@@ -25,23 +26,20 @@ export async function getDormCounts(
   isSaturday: boolean,
 ): Promise<DormCountsRecord> {
   // dayName is accepted for API symmetry with getKitchenCounts (caller passes it)
-  // but the rider count is veg-blind — no isVegOnDayName call needed
+  // but the rider count is veg-blind, so no isVegOnDayName call is needed.
   void dayName
 
-  const sb = createAdminSupabaseClient()
+  const read = await loadSeasonKitchenGate(todayIso)
+  const season: SeasonKitchenFacts = read.ok ? read : { ok: true, gate: 'normal', wrapUpDay: null, closeDay: null, closureDates: new Set<string>() }
+  if (season.gate === 'closed_for_break') return {}
 
+  const sb = createAdminSupabaseClient()
   const subsRes = await sb
     .from('subscriptions')
-    .select('id, customer_id, week_type, skipped_dates, paused_dates')
-    .in('status', ['Active', 'Paused', 'Skipped'])
+    .select(`id, customer_id, paused_dates, ${KITCHEN_SUB_COLUMNS}`)
+    .in('status', ['Active'])
 
-  const subs = (subsRes.data ?? []) as Array<{
-    id: string
-    customer_id: string
-    week_type: string | null
-    skipped_dates: string[] | null
-    paused_dates: string[] | null
-  }>
+  const subs = plansCookingToday((subsRes.data ?? []) as SubRow[], season, todayIso, isSaturday)
 
   // Capacity (Phase 7 / L6): fetch only the customers who actually have an
   // active subscription, not the entire (ever-growing) customers table.
@@ -51,25 +49,15 @@ export async function getDormCounts(
     : { data: [] as Array<{ id: string; dorm_name: string | null }> }
 
   const customerMap = new Map<string, string | null>()
-  for (const c of (customersRes.data ?? []) as Array<{
-    id: string
-    dorm_name: string | null
-  }>) {
+  for (const c of (customersRes.data ?? []) as Array<{ id: string; dorm_name: string | null }>) {
     customerMap.set(c.id, c.dorm_name)
   }
 
   const counts: DormCountsRecord = {}
 
   for (const sub of subs) {
-    // 5DAYS plans do not deliver on Saturday
-    if (sub.week_type === '5DAYS' && isSaturday) continue
-    // Skip if today is in skipped_dates
-    if ((sub.skipped_dates ?? []).includes(todayIso)) continue
-    // Skip if today is in paused_dates
-    if ((sub.paused_dates ?? []).includes(todayIso)) continue
-
     const dormName = customerMap.get(sub.customer_id)
-    // Customers without a known dorm have no delivery stop — skip them
+    // Customers without a known dorm have no delivery stop, so skip them
     if (!dormName) continue
 
     counts[dormName] = (counts[dormName] ?? 0) + 1

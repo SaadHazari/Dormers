@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { getDormCounts } from '@/contexts/ops/usecases/get-dorm-counts'
+import { loadSeasonKitchenGate, KITCHEN_CLOSED_FOR_BREAK } from '@/contexts/ops/usecases/season-kitchen-gate'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { dormShapeMap, deliveryDormNames } from '@/shared/dorm-registry'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
@@ -91,6 +92,21 @@ export default async function OpsPage({
         deliveryDateIso={todayIso}
         lastUpdated={lastUpdated}
         noDeliveryReason="Sunday, no deliveries"
+      />
+    )
+  }
+
+  // Spec G5: during the break (and after the close day) there is no run.
+  const season = await loadSeasonKitchenGate(todayIso)
+  if (season.ok && season.gate === 'closed_for_break') {
+    return (
+      <RiderClient
+        dormCounts={{}}
+        dormShapeMap={shapeMap}
+        opsTokenId={opsToken.id}
+        deliveryDateIso={todayIso}
+        lastUpdated={lastUpdated}
+        noDeliveryReason={KITCHEN_CLOSED_FOR_BREAK}
       />
     )
   }

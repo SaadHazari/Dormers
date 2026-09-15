@@ -4,6 +4,7 @@ import { validateOpsToken } from '@/contexts/ops/usecases/validate-token'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { getKitchenCounts } from '@/contexts/ops/usecases/get-kitchen-counts'
+import { KITCHEN_CLOSED_FOR_BREAK } from '@/contexts/ops/usecases/season-kitchen-gate'
 import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { dormShapeMap } from '@/shared/dorm-registry'
 import { captureError } from '@/infra/logging/capture-error'
@@ -97,6 +98,21 @@ export default async function KitchenPage({
     findDishForDateWithOverrides(aeNow, false),
     getKitchenCounts(todayIso, dayName, isSaturday),
   ])
+
+  // Spec G5: during the break (and after the close day) nothing is cooked.
+  if (counts.closedForBreak) {
+    return (
+      <KitchenClient
+        dishes={[]}
+        vegCount={0}
+        nonVegCount={0}
+        countsUnavailable={false}
+        isPast2pm={false}
+        lastUpdated={lastUpdated}
+        noDeliveryReason={KITCHEN_CLOSED_FOR_BREAK}
+      />
+    )
+  }
 
   // Packing-check context: dorm shapes for the blind per-shape count entry,
   // plus today's saved check (if any) so the state survives a reload.

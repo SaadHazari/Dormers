@@ -1,45 +1,61 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
 import { captureError } from '@/infra/logging/capture-error'
+import { KITCHEN_SUB_COLUMNS, loadSeasonKitchenGate, plansCookingToday, type KitchenSubRow } from './season-kitchen-gate'
 
 /**
  * Counts veg and non-veg meals for today's kitchen prep.
  *
- * Mirrors the admin deliveries page query exactly so the kitchen display
- * shows the same totals the admin sees. The caller (RSC) owns all UAE time
- * computation and passes pre-computed values here to keep this function pure.
+ * A plan counts only when the delivery tick will cook it tonight (spec G5):
+ * Active, not held for next semester, a delivery day, not a closure, not
+ * skipped, below the credited cap, no resume after the cutoff, and after the
+ * wrap-up day only with a buffer grant for today. Never by status alone.
+ * During the break, and after the close day, the kitchen reads zero with
+ * `closedForBreak: true`. The caller (RSC) owns all UAE time computation.
  *
- * @param todayIso  - "YYYY-MM-DD" in UAE wall time (used to filter skipped/paused dates)
+ * @param todayIso  - "YYYY-MM-DD" in UAE wall time
  * @param dayName   - "Monday"…"Saturday" in UAE wall time (used for isVegOnDayName)
  * @param isSaturday - true when UAE wall-clock day is Saturday (5DAYS plans skip Saturday)
  */
+export interface KitchenCounts {
+  vegCount: number
+  nonVegCount: number
+  unavailable: boolean
+  closedForBreak: boolean
+}
+
+type SubRow = KitchenSubRow & {
+  id: string
+  customer_id: string
+  paused_dates: string[] | null
+  veg_days: string[] | null
+  meal_preference_type: string | null
+}
+
 export async function getKitchenCounts(
   todayIso: string,
   dayName: string,
   isSaturday: boolean,
-): Promise<{ vegCount: number; nonVegCount: number; unavailable: boolean }> {
-  const sb = createAdminSupabaseClient()
+): Promise<KitchenCounts> {
+  const none = { vegCount: 0, nonVegCount: 0 }
 
-  // Release It! L5 (Phase 3): fail LOUD, not silent — a read error must surface
-  // (Sentry) and flag unavailable, never coalesce to a believable 0/0.
+  // Release It! L5 (Phase 3): fail LOUD, not silent. A season read error must
+  // surface as unavailable, never as a believable count.
+  const season = await loadSeasonKitchenGate(todayIso)
+  if (!season.ok) return { ...none, unavailable: true, closedForBreak: false }
+  if (season.gate === 'closed_for_break') return { ...none, unavailable: false, closedForBreak: true }
+
+  const sb = createAdminSupabaseClient()
   const subsRes = await sb
     .from('subscriptions')
-    .select('id, customer_id, week_type, skipped_dates, paused_dates, veg_days, meal_preference_type')
-    .in('status', ['Active', 'Paused', 'Skipped'])
+    .select(`id, customer_id, paused_dates, veg_days, meal_preference_type, ${KITCHEN_SUB_COLUMNS}`)
+    .in('status', ['Active'])
   if (subsRes.error) {
     captureError(subsRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
-    return { vegCount: 0, nonVegCount: 0, unavailable: true }
+    return { ...none, unavailable: true, closedForBreak: false }
   }
 
-  const subs = (subsRes.data ?? []) as Array<{
-    id: string
-    customer_id: string
-    week_type: string | null
-    skipped_dates: string[] | null
-    paused_dates: string[] | null
-    veg_days: string[] | null
-    meal_preference_type: string | null
-  }>
+  const subs = plansCookingToday((subsRes.data ?? []) as SubRow[], season, todayIso, isSaturday)
 
   // Capacity (Phase 7 / L6): fetch only the customers who actually have an
   // active subscription, not the entire (ever-growing) customers table.
@@ -49,18 +65,11 @@ export async function getKitchenCounts(
     : { data: [] as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null }>, error: null }
   if (customersRes.error) {
     captureError(customersRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
-    return { vegCount: 0, nonVegCount: 0, unavailable: true }
+    return { ...none, unavailable: true, closedForBreak: false }
   }
 
-  const customerMap = new Map<
-    string,
-    { meal_preference_type: string | null; veg_days: string[] | null }
-  >()
-  for (const c of (customersRes.data ?? []) as Array<{
-    id: string
-    meal_preference_type: string | null
-    veg_days: string[] | null
-  }>) {
+  const customerMap = new Map<string, { meal_preference_type: string | null; veg_days: string[] | null }>()
+  for (const c of (customersRes.data ?? []) as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null }>) {
     customerMap.set(c.id, c)
   }
 
@@ -68,13 +77,6 @@ export async function getKitchenCounts(
   let nonVegCount = 0
 
   for (const sub of subs) {
-    // 5DAYS plans do not deliver on Saturday
-    if (sub.week_type === '5DAYS' && isSaturday) continue
-    // Skip if today is in skipped_dates
-    if ((sub.skipped_dates ?? []).includes(todayIso)) continue
-    // Skip if today is in paused_dates
-    if ((sub.paused_dates ?? []).includes(todayIso)) continue
-
     const cust = customerMap.get(sub.customer_id)
     if (!cust) continue
 
@@ -85,5 +87,5 @@ export async function getKitchenCounts(
     }
   }
 
-  return { vegCount, nonVegCount, unavailable: false }
+  return { vegCount, nonVegCount, unavailable: false, closedForBreak: false }
 }
