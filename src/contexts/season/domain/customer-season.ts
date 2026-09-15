@@ -8,6 +8,7 @@
  */
 
 import { projectPlan, type Disposition, type ProjectionPlan, type ProjectionStatus } from './season-projection'
+import { refundableOrder, type RefundOrderMoney } from './season-refund'
 import type { SeasonPhase } from './season-phase'
 
 export type SeasonNoticeKind = 'finishes' | 'paused'
@@ -24,6 +25,8 @@ export interface CustomerSeason {
   lastDinner: string | null
   /** Credit one skipped delivery day of the primary plan would mint; 0 = not paid in cash, null = unknown. */
   skipCreditFils: number | null
+  /** The primary plan's order money when a refund could be built from it (spec §10.3), else null. */
+  refundOrder: RefundOrderMoney | null
   closureDates: string[]
 }
 
@@ -69,6 +72,7 @@ export function buildCustomerSeason(input: {
   intake: { phase: SeasonPhase; wrapUpDay: string | null; closeDay: string | null; bufferDays: number; cycleStartedAt: string | null }
   plans: readonly ProjectionPlan[]
   skipCreditFils: number | null
+  refundOrder?: RefundOrderMoney | null
   todayAe: string
   closureDates: readonly string[]
 }): CustomerSeason | null {
@@ -94,6 +98,7 @@ export function buildCustomerSeason(input: {
     notice: noticeFor(projections.map((p) => p.disposition)),
     lastDinner,
     skipCreditFils: input.skipCreditFils,
+    refundOrder: input.refundOrder && refundableOrder(input.refundOrder) ? input.refundOrder : null,
     closureDates: [...input.closureDates],
   }
 }

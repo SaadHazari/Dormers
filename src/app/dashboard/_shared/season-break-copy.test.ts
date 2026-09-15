@@ -4,7 +4,8 @@ import type { CustomerHold } from '@/contexts/season/domain/customer-hold'
 
 const hold = (over: Partial<CustomerHold> = {}): CustomerHold => ({
   id: 'hold-1', subscriptionId: 'sub-1', reason: 'season', state: 'held', heldMeals: 9,
-  waitlistCreditFils: 2000, planName: 'Monthly Premium', planStatus: 'Paused', ...over,
+  waitlistCreditFils: 2000, planName: 'Monthly Premium', planStatus: 'Paused',
+  refundOffer: null, refundRequested: null, refundDeclineReason: null, ...over,
 })
 
 describe('mealsPhrase', () => {
@@ -22,6 +23,9 @@ describe('heldCardCopy', () => {
       creditLine: 'AED 20 is in your wallet for your next Monthly plan.',
       joinLine: null,
       pickDate: false,
+      refundLine: null,
+      refundAction: null,
+      declineLine: null,
     })
   })
 
@@ -32,6 +36,9 @@ describe('heldCardCopy', () => {
       creditLine: null,
       joinLine: null,
       pickDate: false,
+      refundLine: null,
+      refundAction: null,
+      declineLine: null,
     })
   })
 
@@ -43,6 +50,9 @@ describe('heldCardCopy', () => {
       creditLine: null,
       joinLine: 'Save your spot for next semester and AED 15 goes to your wallet.',
       pickDate: false,
+      refundLine: null,
+      refundAction: null,
+      declineLine: null,
     })
     expect(heldCardCopy({ hold: paused, alreadyJoined: true, creditAed: 15 })).toMatchObject({
       creditLine: 'Your spot for next semester is saved.',
@@ -93,10 +103,13 @@ describe('resumeSplitCopy (spec §7.4, N7)', () => {
   })
 
   it('offers a refund only once refunds are live and an amount is known', () => {
-    expect(resumeSplitCopy({ split: d, refundsLive: false, refund: { amountFils: 16200 } }).lines.join(' ')).not.toMatch(/refund/i)
+    expect(resumeSplitCopy({ split: d, refundsLive: false, refund: { cashFils: 16200, creditFils: 0 } }).lines.join(' ')).not.toMatch(/refund/i)
     expect(resumeSplitCopy({ split: d, refundsLive: true, refund: null }).lines.join(' ')).not.toMatch(/refund/i)
-    expect(resumeSplitCopy({ split: d, refundsLive: true, refund: { amountFils: 16200 } }).lines.at(-1))
-      .toBe('You can ask for a refund for those 9 meals instead (AED 162).')
+    expect(resumeSplitCopy({ split: d, refundsLive: true, refund: { cashFils: 16200, creditFils: 0 } }).lines.at(-1))
+      .toBe('Once the break starts you can ask for a refund for those 9 meals instead (AED 162 back to your card).')
+    expect(resumeSplitCopy({ split: d, refundsLive: true, refund: { cashFils: 15000, creditFils: 1200 } }).lines.at(-1))
+      .toBe('Once the break starts you can ask for a refund for those 9 meals instead (AED 150 back to your card and AED 12 to your wallet).')
+    expect(resumeSplitCopy({ split: d, refundsLive: true, refund: { cashFils: 0, creditFils: 0 } }).lines.join(' ')).not.toMatch(/refund/i)
   })
 })
 
@@ -112,7 +125,7 @@ describe('breakResumeCopy (spec §7.5, N11)', () => {
 
   it('never uses a dash', () => {
     const texts = [
-      ...resumeSplitCopy({ split: { firstDinner: '2026-10-01', wrapUpDay: '2026-10-03', heldMeals: 9, creditAed: 20 }, refundsLive: true, refund: { amountFils: 16200 } }).lines,
+      ...resumeSplitCopy({ split: { firstDinner: '2026-10-01', wrapUpDay: '2026-10-03', heldMeals: 9, creditAed: 20 }, refundsLive: true, refund: { cashFils: 16200, creditFils: 0 } }).lines,
       ...breakResumeCopy({ alreadyJoined: false, creditAed: 15 }).lines,
     ]
     for (const t of texts) expect(t).not.toMatch(/[–—]/)

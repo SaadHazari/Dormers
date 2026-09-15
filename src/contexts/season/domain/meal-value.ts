@@ -13,6 +13,8 @@ export interface OrderMoney {
   pricePerMealAed: number | null
   /** Owner decision D7: test-mode payments are not money, so a `cs_test_` session is never trusted for the exact path. */
   stripeSessionId: string | null
+  /** The PaymentIntent a refund would go against (spec §10.3); absent for credit-only and older orders. */
+  stripePaymentId?: string | null
 }
 
 export type MealValue = { fils: number; exact: boolean } | null

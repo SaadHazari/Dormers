@@ -1,8 +1,10 @@
 /**
- * The break board's numbers (spec §11.3), pure so vitest covers them.
- * No refund figures: the refund flow is Plan D.
+ * The break board's numbers (spec §11.3), pure so vitest covers them,
+ * including the refund queue (spec §10.3: Approve and Decline on a request,
+ * Retry on a failure).
  */
 
+import { REFUND_STATE_LABEL, isRefundState } from '@/contexts/season/domain/season-refund'
 import type { SeasonHoldRow, SeasonPageData, SeasonPlanRow } from './season-data'
 
 export interface BreakBoardView {
@@ -16,6 +18,10 @@ export interface BreakBoardView {
   reopenTarget: number | null
   /** Active and below the credited cap: the delivery tick would cook them (a G10 breach). */
   cookingDuringBreak: SeasonPlanRow[]
+  /** Refunds asked for, in flight or failed: the owner's queue. */
+  refundQueue: SeasonHoldRow[]
+  /** Refunds that went through this season. */
+  refunded: SeasonHoldRow[]
 }
 
 const FINISHED = new Set(['released', 'refunded'])
@@ -45,7 +51,25 @@ export function breakBoardView(data: SeasonPageData): BreakBoardView {
     cookingDuringBreak: data.plans.filter(
       (p) => p.status === 'Active' && p.deliveredMeals < p.totalMeals - p.creditedSkipDays * p.mealsPerDay,
     ),
+    refundQueue: refundQueue(data.holds),
+    refunded: data.holds.filter((h) => h.state === 'refunded'),
   }
+}
+
+/** Requests first, then failures, then the ones Stripe is still processing; oldest request first. */
+export function refundQueue(holds: readonly SeasonHoldRow[]): SeasonHoldRow[] {
+  const rank: Record<string, number> = { refund_requested: 0, refund_failed: 1, refund_processing: 2 }
+  return holds
+    .filter((h) => h.state in rank)
+    .sort((a, b) => (rank[a.state] - rank[b.state]) || (a.refundRequestedAt ?? '').localeCompare(b.refundRequestedAt ?? ''))
+}
+
+/** Money the queue would move if every request were approved. */
+export function refundExposure(queue: readonly SeasonHoldRow[]): { cashFils: number; creditFils: number } {
+  return queue.reduce(
+    (sum, h) => ({ cashFils: sum.cashFils + (h.cashRefundFils ?? 0), creditFils: sum.creditFils + (h.creditShareFils ?? 0) }),
+    { cashFils: 0, creditFils: 0 },
+  )
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -56,6 +80,7 @@ const STATE_LABEL: Record<string, string> = {
 }
 
 export function holdStateLabel(state: string): string {
+  if (isRefundState(state)) return REFUND_STATE_LABEL[state]
   return STATE_LABEL[state] ?? state.replace(/_/g, ' ')
 }
 
@@ -65,5 +90,8 @@ export function reopenConfirmLines(view: BreakBoardView): string[] {
     'Sales open straight away.',
     `${n} held ${n === 1 ? 'plan becomes' : 'plans become'} ready. Each customer restarts by tapping Resume, or by picking a start date for a plan that had not started. Nothing restarts on its own.`,
     'Reopening sends no message to customers yet. Send the reopening broadcast yourself afterwards.',
+    ...(view.refundQueue.length > 0
+      ? [`${view.refundQueue.length} refund ${view.refundQueue.length === 1 ? 'request stays' : 'requests stay'} in the queue after reopening; approve or decline ${view.refundQueue.length === 1 ? 'it' : 'them'} from this page.`]
+      : []),
   ]
 }

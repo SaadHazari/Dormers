@@ -26,6 +26,9 @@ const EXPECT = {
   // The break board (plan C): only Reopen, and the kitchen-halt invariant.
   break: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Kitchen halt holding' },
   break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Active during the break' },
+  // Plan D (spec §10.3): the refund queue on the break board, and after reopening above the planner.
+  break_refund: { title: 'On the break', controls: ['Reopen', 'Approve', 'Decline', 'Retry'], absent: ['Schedule', 'End the season today'], invariant: 'Kitchen halt holding', texts: ['2 refund requests waiting for you', 'Refund requested', 'Refund failed', 'charge has already been refunded', 're_3Q2fixture'] },
+  open_refund: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today', 'Approve', 'Decline', 'Retry'], absent: ['Resume sales', 'Clear the wrap-up day'], texts: ['2 refund requests waiting for you'] },
 }
 const WIDTHS = [1280, 390]
 
@@ -81,10 +84,14 @@ try {
           }
           const invariantText = await page.getByTestId('season-invariant').innerText().catch(() => '')
           if (!invariantText.includes(expect.invariant)) failures.push(`${label}: invariant reads "${invariantText}", expected "${expect.invariant}"`)
-          if (/refund/i.test(body)) failures.push(`${label}: the break board mentions a refund`)
+          // Plan D: the board words refunds only where a hold offers or carries one.
+          if (!expect.texts && /refund request/i.test(body)) failures.push(`${label}: the break board shows a refund queue with nothing in it`)
         } else {
           if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
           if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
+        }
+        for (const text of expect.texts ?? []) {
+          if (!bodyLower.includes(text.toLowerCase())) failures.push(`${label}: missing "${text}"`)
         }
         for (const c of expect.controls) {
           if (await page.getByRole('button', { name: c, exact: true }).count() === 0) failures.push(`${label}: missing button "${c}"`)

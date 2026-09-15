@@ -22,7 +22,7 @@ export async function loadOrderMoney(subscriptionId: string): Promise<OrderMoney
   const sb = createAdminSupabaseClient()
   const { data, error } = await sb
     .from('orders')
-    .select('amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id')
+    .select('amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id, stripe_payment_id')
     .eq('subscription_id', subscriptionId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -35,6 +35,7 @@ export async function loadOrderMoney(subscriptionId: string): Promise<OrderMoney
     meals_count: number | null
     price_per_meal: number | string | null
     stripe_session_id: string | null
+    stripe_payment_id?: string | null
   }
   return {
     ok: true,
@@ -44,6 +45,7 @@ export async function loadOrderMoney(subscriptionId: string): Promise<OrderMoney
       mealsCount: row.meals_count,
       pricePerMealAed: row.price_per_meal == null ? null : Number(row.price_per_meal),
       stripeSessionId: row.stripe_session_id,
+      stripePaymentId: row.stripe_payment_id ?? null,
     },
   }
 }

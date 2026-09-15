@@ -5,19 +5,21 @@ import { BODY, OG, S } from './tokens'
 import { resumeSplitCopy } from './season-break-copy'
 import { SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
 import type { ResumeSplit } from '@/contexts/season/domain/resume-split'
+import type { RefundAmounts } from '@/contexts/season/domain/season-refund'
 
 interface Props {
   open: boolean
   split: ResumeSplit | null
+  /** What the held meals would return if the customer asks for a refund once the break starts (spec §10.3). */
+  refund: RefundAmounts | null
   onResume: () => void
   onStay: () => void
 }
 
 /** Spec §7.4 (N7): what resuming now means, before the customer confirms. */
-export function SeasonSplitSheet({ open, split, onResume, onStay }: Props) {
+export function SeasonSplitSheet({ open, split, refund, onResume, onStay }: Props) {
   if (!split) return null
-  // Plan D passes the refund amount here when it turns SEASON_REFUNDS_LIVE on.
-  const copy = resumeSplitCopy({ split, refundsLive: SEASON_REFUNDS_LIVE, refund: null })
+  const copy = resumeSplitCopy({ split, refundsLive: SEASON_REFUNDS_LIVE, refund })
   const button = { flex: 1, padding: '12px 0', borderRadius: 'var(--radius-sm)', fontFamily: BODY, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' } as const
 
   return (

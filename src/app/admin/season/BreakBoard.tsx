@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * The break board (spec §11.3), without refunds: Plan D adds the refund
- * amounts and Approve, Decline and Retry.
+ * The break board (spec §11.3): the kitchen halt, held plans, customer pauses,
+ * the refund queue (spec §10.3) and Reopen.
  */
 
 import { useMemo, useState, useTransition } from 'react'
@@ -15,6 +15,8 @@ import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 import { formatAed } from '@/contexts/season/domain/meal-value'
 import { formatShortDay } from '@/contexts/season/domain/season-dates'
 import { reopenSeasonAction } from './actions'
+import { RefundQueue } from './RefundQueue'
+import { SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
 import { breakBoardView, holdStateLabel, reopenConfirmLines } from './season-break-view'
 import type { SeasonHoldRow, SeasonPageData } from './season-data'
 
@@ -70,6 +72,8 @@ export function BreakBoard({ data }: { data: SeasonPageData }) {
         </div>
       </div>
 
+      <RefundQueue queue={view.refundQueue} />
+
       <div className="grid sm:grid-cols-3 gap-3 mt-4">
         <Fact t={t} label="Held for next semester" value={String(view.heldPlans.length)} detail={plural(view.heldMeals, 'meal', 'meals')} />
         <Fact t={t} label="Waitlist credit added" value={String(view.creditsMinted)} detail={formatAed(view.creditsMintedFils)} />
@@ -87,17 +91,38 @@ export function BreakBoard({ data }: { data: SeasonPageData }) {
           testId="season-held-plans"
           rows={view.heldPlans}
           empty="No plan is held."
-          columns={['Customer', 'Plan', 'Meals held', 'Meal value', 'State', 'Waitlist credit']}
+          columns={['Customer', 'Plan', 'Meals held', 'Meal value', 'State', 'Waitlist credit', 'Refund']}
           cells={(h) => [
             h.planName,
             plural(h.heldMeals, 'meal', 'meals'),
             h.mealValueFils != null ? formatAed(h.mealValueFils) : 'Not recorded',
             holdStateLabel(h.state),
             h.waitlistCreditFils != null ? formatAed(h.waitlistCreditFils) : 'None',
+            refundCell(h),
           ]}
           t={t}
         />
       </div>
+
+      {view.refunded.length > 0 && (
+        <div className="mt-5">
+          <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-2 ${t.muted}`}>Refunded this season</div>
+          <HoldsTable
+            testId="season-refunded"
+            rows={view.refunded}
+            empty="No refund has gone through."
+            columns={['Customer', 'Plan', 'Meals', 'To the card', 'To the wallet', 'Stripe refund']}
+            cells={(h) => [
+              h.planName,
+              plural(h.heldMeals, 'meal', 'meals'),
+              formatAed(h.cashRefundFils ?? 0),
+              formatAed(h.creditShareFils ?? 0),
+              h.stripeRefundId ?? 'Credit only',
+            ]}
+            t={t}
+          />
+        </div>
+      )}
 
       <div className="mt-5">
         <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-2 ${t.muted}`}>Customer pauses</div>
@@ -145,6 +170,16 @@ export function BreakBoard({ data }: { data: SeasonPageData }) {
       )}
     </div>
   )
+}
+
+/** What the customer can ask for, or what happened (spec §10.3). Words only until SEASON_REFUNDS_LIVE. */
+function refundCell(h: SeasonHoldRow): string {
+  if (!SEASON_REFUNDS_LIVE) return 'Not yet'
+  if (h.state === 'refunded') return `${formatAed(h.cashRefundFils ?? 0)} to the card${(h.creditShareFils ?? 0) > 0 ? `, ${formatAed(h.creditShareFils ?? 0)} to the wallet` : ''}${h.stripeRefundId ? ` (${h.stripeRefundId})` : ''}`
+  if (h.state === 'refund_requested' || h.state === 'refund_processing' || h.state === 'refund_failed') return `${formatAed(h.cashRefundFils ?? 0)} asked (see the queue above)`
+  if (h.refundOffer) return `Can ask for ${formatAed(h.refundOffer.cashFils)}${h.refundOffer.creditFils > 0 ? ` + ${formatAed(h.refundOffer.creditFils)} credit` : ''}`
+  if (h.reason !== 'season') return 'Not offered (customer pause)'
+  return h.mealValueFils == null ? 'Not offered (no recorded money)' : 'Not offered'
 }
 
 function Fact({ label, value, detail, t }: { label: string; value: string; detail: string; t: AdminTokens }) {

@@ -11,7 +11,7 @@ const plan = (p: Partial<SeasonPlanRow> & Pick<SeasonPlanRow, 'id'>): SeasonPlan
 
 const hold = (h: Partial<SeasonHoldRow> & Pick<SeasonHoldRow, 'id' | 'customerId'>): SeasonHoldRow => ({
   subscriptionId: `s-${h.id}`, customerName: 'Someone', planName: 'Monthly Premium', reason: 'season', state: 'held',
-  heldMeals: 9, mealValueFils: null, waitlistCreditId: null, waitlistCreditFils: null, ...h,
+  heldMeals: 9, mealValueFils: null, waitlistCreditId: null, waitlistCreditFils: null, refundOffer: null, cashRefundFils: null, creditShareFils: null, stripeRefundId: null, lastError: null, refundDeclineReason: null, refundRequestedAt: null, ...h,
 })
 
 const data = (over: Partial<SeasonPageData> = {}): SeasonPageData => ({
@@ -64,7 +64,8 @@ describe('labels and confirmation', () => {
     expect(holdStateLabel('paused_by_customer')).toBe('Paused by customer')
     expect(holdStateLabel('ready')).toBe('Ready')
     expect(holdStateLabel('released')).toBe('Restarted')
-    expect(holdStateLabel('refund_requested')).toBe('refund requested')
+    expect(holdStateLabel('refund_requested')).toBe('Refund requested')
+    expect(holdStateLabel('refund_failed')).toBe('Refund failed')
   })
 
   it('says what reopening does, promises no message and no refund', () => {

@@ -243,7 +243,9 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   const showSeasonNotice = seasonNoticeChecked && !seasonNoticeSeen && !!season?.notice && !!activeSubscription
 
   // The break started (spec N8, N9): once per hold, on the first visit.
-  const breakNoticeKey = seasonBreak && seasonBreak.phase === 'break' && seasonBreak.hold.state !== 'ready'
+  // Only the two states the notice has words for (breakNoticeCopy): a refund
+  // in flight is told on the card, never as a takeover.
+  const breakNoticeKey = seasonBreak && seasonBreak.phase === 'break' && (seasonBreak.hold.state === 'held' || seasonBreak.hold.state === 'paused_by_customer')
     ? breakNoticeSeenKey(seasonBreak.hold.id)
     : null
   const [breakNoticeChecked, setBreakNoticeChecked] = useState(false)

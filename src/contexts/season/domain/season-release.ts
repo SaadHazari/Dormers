@@ -8,7 +8,8 @@ export const SEASON_BREAK_RELEASE_LIVE = true
 
 /**
  * Whether customers can ask for a refund for held meals (spec D6, §10.3).
- * Plan D flips this when the owner-approved refund flow ships. Until then no
- * surface shows a refund option or promises one.
+ * Plan D turned this on with the owner-approved flow: request on the hold
+ * card, WhatsApp to the owner, Approve or Decline on the Season page, Stripe
+ * refund with a hold-scoped idempotency key (migration season_refunds).
  */
-export const SEASON_REFUNDS_LIVE = false
+export const SEASON_REFUNDS_LIVE = true

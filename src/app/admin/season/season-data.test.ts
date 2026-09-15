@@ -16,6 +16,7 @@ function fakeClient(tables: Record<string, Result>): SeasonDataClient {
         select: () => builder,
         in: () => builder,
         eq: () => builder,
+        or: () => builder,
         gte: () => builder,
         order: () => builder,
         maybeSingle: () => Promise.resolve(result),
@@ -88,11 +89,12 @@ describe('loadSeasonPageData', () => {
     expect(data.holds).toEqual([{
       id: 'h1', subscriptionId: 's1', customerId: 'c1', customerName: 'Omar Farouk', planName: 'Monthly Premium',
       reason: 'season', state: 'held', heldMeals: 9, mealValueFils: null, waitlistCreditId: 'cr1', waitlistCreditFils: 2000,
+      refundOffer: null, cashRefundFils: null, creditShareFils: null, stripeRefundId: null, lastError: null, refundDeclineReason: null, refundRequestedAt: null,
     }])
     expect(data.savedSpotCustomerIds).toEqual(['c1'])
   })
 
-  it('reads no holds outside the break', async () => {
+  it('reads no holds before a season has started', async () => {
     const data = await loadSeasonPageData('2026-09-14', fakeClient({
       intake_settings: { data: SETTINGS, error: null },
       subscriptions: { data: [SUB], error: null },
@@ -101,5 +103,21 @@ describe('loadSeasonPageData', () => {
     expect(data.holds).toEqual([])
     expect(data.savedSpotCustomerIds).toEqual([])
     expect(data.plans[0].seasonHoldId).toBeNull()
+  })
+
+  it('offers a refund on a held paid plan whose order carries real money, and reads a request in flight after reopening', async () => {
+    const data = await loadSeasonPageData('2026-10-20', fakeClient({
+      intake_settings: { data: { ...SETTINGS, season_phase: 'open', cycle_started_at: '2026-09-14T08:00:00Z' }, error: null },
+      subscriptions: { data: [{ ...SUB, status: 'Paused', season_hold_id: 'h1' }], error: null },
+      season_holds: { data: [
+        { id: 'h1', subscription_id: 's1', customer_id: 'c1', reason: 'season', state: 'ready', held_meals: 9, meal_value_fils: 2050, waitlist_credit_id: null, order_id: 'o1' },
+        { id: 'h2', subscription_id: 's9', customer_id: 'c1', reason: 'season', state: 'refund_requested', held_meals: 4, meal_value_fils: 2050, waitlist_credit_id: null, order_id: 'o1', cash_refund_fils: 7800, credit_share_fils: 400, refund_requested_at: '2026-10-19T10:00:00Z' },
+      ], error: null },
+      customers: { data: [{ id: 'c1', name: 'Omar Farouk', dorm_name: null }], error: null },
+      orders: { data: [{ id: 'o1', subscription_id: 's1', amount_paid_fils: 39000, credit_applied_fils: 2000, meals_count: 20, price_per_meal: '22', stripe_session_id: 'cs_live_x', stripe_payment_id: 'pi_1', created_at: '2026-09-06T10:00:00Z' }], error: null },
+      company_closures: { data: [], error: null },
+    }))
+    expect(data.holds[0]).toMatchObject({ id: 'h1', state: 'ready', refundOffer: { cashFils: 17550, creditFils: 900 } })
+    expect(data.holds[1]).toMatchObject({ id: 'h2', state: 'refund_requested', refundOffer: null, cashRefundFils: 7800, creditShareFils: 400, planName: 'Plan' })
   })
 })

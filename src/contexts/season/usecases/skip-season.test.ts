@@ -41,9 +41,9 @@ describe('loadOrderMoney', () => {
     tables.orders = { data: ORDER, error: null }
     expect(await loadOrderMoney('sub-1')).toEqual({
       ok: true,
-      order: { amountPaidFils: 22000, creditAppliedFils: 0, mealsCount: 20, pricePerMealAed: 22, stripeSessionId: 'cs_test_x' },
+      order: { amountPaidFils: 22000, creditAppliedFils: 0, mealsCount: 20, pricePerMealAed: 22, stripeSessionId: 'cs_test_x', stripePaymentId: null },
     })
-    expect(selects).toEqual([['orders', 'amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id']])
+    expect(selects).toEqual([['orders', 'amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id, stripe_payment_id']])
   })
 
   it('reports a failed read as a failure, and no order as null', async () => {

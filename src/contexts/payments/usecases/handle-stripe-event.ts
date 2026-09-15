@@ -825,7 +825,7 @@ async function handleChargeRefunded(
   }
   const { data: orderRow } = await supabaseAdmin
     .from('orders')
-    .select('id, customer_id, invoice_status')
+    .select('id, customer_id, invoice_status, refund_reason')
     .eq('stripe_payment_id', paymentIntentId)
     .maybeSingle()
   if (!orderRow) {
@@ -854,8 +854,14 @@ async function handleChargeRefunded(
   //     partial cash refund. Ops can manually add a credit row if a
   //     proportional adjustment is intended.
   const isFullRefund = charge.amount_refunded >= charge.amount
+  // A season refund (spec §10.3) already returned the credit share as its own
+  // row and ended the plan, so neither the credit restore nor the "still
+  // Active" alert applies. The invoice status and the customer's message do.
+  const seasonRefund = orderRow.refund_reason === 'season_hold'
   let restoredCount = 0
-  if (isFullRefund) {
+  if (isFullRefund && seasonRefund) {
+    console.log(`↩️  Full refund on order ${orderRow.id} is a season refund; credits and plan already settled`)
+  } else if (isFullRefund) {
     const { count, error: restoreErr } = await supabaseAdmin
       .from('credits')
       .update(
@@ -891,7 +897,7 @@ async function handleChargeRefunded(
   // On full refund, alert ops that the subscription needs manual review.
   // We don't auto-end here because some full refunds are operational
   // goodwill (re-issue + refund) where the sub should keep running.
-  if (isFullRefund) {
+  if (isFullRefund && !seasonRefund) {
     void notifyAdmin(
       `Full REFUND on order ${orderRow.id} (customer ${orderRow.customer_id}). ` +
       `Credits restored (${restoredCount} rows). ⚠️ Subscription is still Active — ` +

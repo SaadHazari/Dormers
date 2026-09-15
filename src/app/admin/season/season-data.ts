@@ -13,6 +13,8 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import type { SeasonPhase, SeasonSnapshot } from '@/contexts/season/domain/season-phase'
 import type { ProjectionPlan, ProjectionStatus } from '@/contexts/season/domain/season-projection'
 import { mealValueOf, type MealValue } from '@/contexts/season/domain/meal-value'
+import { SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
+import { seasonRefundOffer, type RefundAmounts, type RefundOrderMoney } from '@/contexts/season/domain/season-refund'
 
 export type SeasonDataClient = Pick<ReturnType<typeof createAdminSupabaseClient>, 'from'>
 
@@ -36,6 +38,15 @@ export interface SeasonHoldRow {
   mealValueFils: number | null
   waitlistCreditId: string | null
   waitlistCreditFils: number | null
+  /** Spec §10.3: what a refund would return now (held or ready, paid plan, real money), else null. */
+  refundOffer: RefundAmounts | null
+  /** The amounts stored on the hold by a request, approval or refund. */
+  cashRefundFils: number | null
+  creditShareFils: number | null
+  stripeRefundId: string | null
+  lastError: string | null
+  refundDeclineReason: string | null
+  refundRequestedAt: string | null
 }
 
 export interface SeasonPageData {
@@ -51,9 +62,9 @@ export interface SeasonPageData {
   plans: SeasonPlanRow[]
   cycleStartedAt: string | null
   reopenTarget: number | null
-  /** This season's holds; read only during the break. */
+  /** This season's holds, plus any hold with a refund in flight from an earlier one; read whenever a season has started. */
   holds: SeasonHoldRow[]
-  /** Customers with a waitlist row this season; read only during the break. */
+  /** Customers with a waitlist row this season; read whenever a season has started. */
   savedSpotCustomerIds: string[]
 }
 
@@ -91,6 +102,22 @@ type HoldRow = {
   held_meals: number | null
   meal_value_fils: number | null
   waitlist_credit_id: string | null
+  order_id?: string | null
+  cash_refund_fils?: number | null
+  credit_share_fils?: number | null
+  stripe_refund_id?: string | null
+  last_error?: string | null
+  refund_decline_reason?: string | null
+  refund_requested_at?: string | null
+}
+
+type HoldOrderRow = {
+  id: string
+  amount_paid_fils: number | null
+  credit_applied_fils: number | null
+  meals_count: number | null
+  stripe_payment_id: string | null
+  stripe_session_id: string | null
 }
 
 type OrderRow = {
@@ -129,14 +156,15 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
   }
   const cycleStartedAt = settings.cycle_started_at == null ? null : String(settings.cycle_started_at)
 
-  // The break board's facts: this season's holds and who saved a spot.
+  // The break board's facts: this season's holds (and a refund still in
+  // flight from an earlier one, which outlives the reopening) and who saved a spot.
   let holdRows: HoldRow[] = []
   let savedSpotCustomerIds: string[] = []
-  if (phase === 'break' && cycleStartedAt) {
+  if (cycleStartedAt) {
     const [holdsRes, waitlistRes] = await Promise.all([
       sb.from('season_holds')
-        .select('id, subscription_id, customer_id, reason, state, held_meals, meal_value_fils, waitlist_credit_id')
-        .eq('cycle_started_at', cycleStartedAt),
+        .select('id, subscription_id, customer_id, reason, state, held_meals, meal_value_fils, waitlist_credit_id, order_id, cash_refund_fils, credit_share_fils, stripe_refund_id, last_error, refund_decline_reason, refund_requested_at')
+        .or(`cycle_started_at.eq.${cycleStartedAt},state.in.(refund_requested,refund_processing,refund_failed)`),
       sb.from('intake_waitlist').select('customer_id').eq('cycle_started_at', cycleStartedAt),
     ])
     if (holdsRes.error) throw new Error(`Season holds read failed: ${holdsRes.error.message}`)
@@ -150,7 +178,9 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
   const subIds = subs.map((r) => r.id)
   const creditIds = [...new Set(holdRows.map((h) => h.waitlist_credit_id).filter((id): id is string => !!id))]
 
-  const [customersRes, ordersRes, creditsRes] = await Promise.all([
+  const holdOrderIds = [...new Set(holdRows.map((h) => h.order_id).filter((id): id is string => !!id))]
+
+  const [customersRes, ordersRes, creditsRes, holdOrdersRes] = await Promise.all([
     sb.from('customers').select('id, name, dorm_name').in('id', customerIds.length ? customerIds : [NO_ID]),
     sb.from('orders')
       .select('subscription_id, amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id, created_at')
@@ -159,10 +189,23 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
     creditIds.length
       ? sb.from('credits').select('id, amount_aed').in('id', creditIds)
       : Promise.resolve({ data: [] as Array<{ id: string; amount_aed: number | string }>, error: null }),
+    holdOrderIds.length
+      ? sb.from('orders').select('id, amount_paid_fils, credit_applied_fils, meals_count, stripe_payment_id, stripe_session_id').in('id', holdOrderIds)
+      : Promise.resolve({ data: [] as HoldOrderRow[], error: null }),
   ])
   if (customersRes.error) throw new Error(`Season customers read failed: ${customersRes.error.message}`)
   if (ordersRes.error) throw new Error(`Season orders read failed: ${ordersRes.error.message}`)
   if (creditsRes.error) throw new Error(`Season credits read failed: ${creditsRes.error.message}`)
+  if (holdOrdersRes.error) throw new Error(`Season hold orders read failed: ${holdOrdersRes.error.message}`)
+  const holdOrders = new Map<string, RefundOrderMoney>(
+    ((holdOrdersRes.data ?? []) as HoldOrderRow[]).map((o) => [o.id, {
+      amountPaidFils: o.amount_paid_fils,
+      creditAppliedFils: o.credit_applied_fils,
+      mealsCount: o.meals_count,
+      stripePaymentId: o.stripe_payment_id,
+      stripeSessionId: o.stripe_session_id,
+    }]),
+  )
   const creditFils = new Map(
     ((creditsRes.data ?? []) as Array<{ id: string; amount_aed: number | string }>).map((c) => [c.id, Math.round(Number(c.amount_aed) * 100)]),
   )
@@ -213,19 +256,36 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
   })
 
   const planNames = new Map(subs.map((r) => [r.id, r.plan_name]))
-  const holds: SeasonHoldRow[] = holdRows.map((h) => ({
-    id: h.id,
-    subscriptionId: h.subscription_id,
-    customerId: h.customer_id,
-    customerName: customers.get(h.customer_id)?.name?.trim() || 'Unnamed',
-    planName: planNames.get(h.subscription_id) ?? 'Plan',
-    reason: h.reason === 'customer_pause' ? 'customer_pause' : 'season',
-    state: h.state,
-    heldMeals: h.held_meals ?? 0,
-    mealValueFils: h.meal_value_fils,
-    waitlistCreditId: h.waitlist_credit_id,
-    waitlistCreditFils: h.waitlist_credit_id ? creditFils.get(h.waitlist_credit_id) ?? null : null,
-  }))
+  const holds: SeasonHoldRow[] = holdRows.map((h) => {
+    const reason = h.reason === 'customer_pause' ? 'customer_pause' : 'season'
+    const planName = planNames.get(h.subscription_id) ?? 'Plan'
+    const heldMeals = h.held_meals ?? 0
+    return {
+      id: h.id,
+      subscriptionId: h.subscription_id,
+      customerId: h.customer_id,
+      customerName: customers.get(h.customer_id)?.name?.trim() || 'Unnamed',
+      planName,
+      reason,
+      state: h.state,
+      heldMeals,
+      mealValueFils: h.meal_value_fils,
+      waitlistCreditId: h.waitlist_credit_id,
+      waitlistCreditFils: h.waitlist_credit_id ? creditFils.get(h.waitlist_credit_id) ?? null : null,
+      refundOffer: seasonRefundOffer({
+        refundsLive: SEASON_REFUNDS_LIVE,
+        hold: { reason, state: h.state, heldMeals, mealValueFils: h.meal_value_fils },
+        planName,
+        order: h.order_id ? holdOrders.get(h.order_id) ?? null : null,
+      }),
+      cashRefundFils: h.cash_refund_fils ?? null,
+      creditShareFils: h.credit_share_fils ?? null,
+      stripeRefundId: h.stripe_refund_id ?? null,
+      lastError: h.last_error ?? null,
+      refundDeclineReason: h.refund_decline_reason ?? null,
+      refundRequestedAt: h.refund_requested_at ?? null,
+    }
+  })
 
   return {
     snapshot,

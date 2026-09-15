@@ -20,6 +20,8 @@ import { skipCreditFilsFor } from '@/contexts/season/domain/skip-outcome'
 import { loadOrderMoney } from '@/contexts/season/usecases/skip-season'
 import { buildCustomerBreak, type CustomerBreak } from '@/contexts/season/domain/customer-hold'
 import { getCustomerHold } from '@/infra/supabase/season-holds-repo'
+import { SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
+import { isUnpaidPlanName } from '@/contexts/season/domain/season-refund'
 
 // Tint the browser chrome / top status-bar orange to match the canopy. NOTE: on iOS
 // this single value also tints the bottom chrome, and the top+bottom safe-areas are
@@ -104,6 +106,10 @@ export default async function DashboardPage({
         //   ?season=paused_break    — the break: a customer pause carried (card with Save my spot; &joined=1 once saved)
         //   ?season=ready           — reopened: the held plan is ready, tap Resume
         //   ?season=ready_scheduled — reopened: a held plan that had not started, pick a start date
+        //   ?season=refund_offered  — the break: a held paid plan that can ask for a refund (spec §10.3)
+        //   ?season=refund_requested — the break: the refund request is in, cancel is offered (N13)
+        //   ?season=refund_declined — the break: the owner declined with a reason, the offer stands (N13b)
+        //   ?season=ready_refund    — reopened: ready, and a refund can still be asked for
         //   ?checkout_success=true — success takeover (with a fixture order)
         //   ?loading=1 / ?error=1 — route skeleton / error boundary
         // Dates are computed relative to today so the fixture never drifts
@@ -230,6 +236,7 @@ export default async function DashboardPage({
                 intake: { phase: 'winding_down', wrapUpDay: previewWrapUp, closeDay: closeDayFor(previewWrapUp, 1), bufferDays: 1, cycleStartedAt: dateOnly(nowMs - day) },
                 plans: [projectionPlanFromRow({ ...seasonSub, customer_id: 'preview', meals_per_day: mealsPerDelivery })].filter((p): p is ProjectionPlan => p !== null),
                 skipCreditFils: 1980,
+                refundOrder: seasonKnob === 'runs_past' ? { amountPaidFils: 39000, creditAppliedFils: 2000, mealsCount: 20, stripePaymentId: 'pi_preview', stripeSessionId: 'cs_live_preview' } : null,
                 todayAe: todayAE,
                 closureDates: [],
             })
@@ -239,24 +246,32 @@ export default async function DashboardPage({
 
         // Season break fixtures (Plan C). The card and notices read a hold,
         // never a status: a held plan is Paused (or Scheduled) with season_hold_id.
-        const breakKnob = seasonKnob === 'held' || seasonKnob === 'paused_break' || seasonKnob === 'ready' || seasonKnob === 'ready_scheduled'
-            ? seasonKnob : null
+        const BREAK_KNOBS = ['held', 'paused_break', 'ready', 'ready_scheduled', 'refund_offered', 'refund_requested', 'refund_declined', 'ready_refund'] as const
+        const breakKnob = (BREAK_KNOBS as readonly string[]).includes(seasonKnob) ? seasonKnob as (typeof BREAK_KNOBS)[number] : null
+        const refundKnob = breakKnob === 'refund_offered' || breakKnob === 'refund_requested' || breakKnob === 'refund_declined' || breakKnob === 'ready_refund'
+        const previewRefundOffer = refundKnob && breakKnob !== 'refund_requested' ? { cashFils: 16200, creditFils: 900 } : null
         const previewHoldSub = breakKnob === 'ready_scheduled'
             ? { ...seasonSub, status: 'Scheduled', start_date: dateOnly(nowMs - 20 * day), end_date: dateOnly(nowMs + 8 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [], season_hold_id: 'preview-hold' }
             : breakKnob
                 ? { ...seasonSub, status: 'Paused', has_paused_before: true, pause_date: dateOnly(nowMs - 6 * day), season_hold_id: 'preview-hold' }
                 : seasonSub
         const previewBreak: CustomerBreak | null = breakKnob ? {
-            phase: breakKnob === 'held' || breakKnob === 'paused_break' ? 'break' : 'open',
+            phase: breakKnob === 'ready' || breakKnob === 'ready_scheduled' || breakKnob === 'ready_refund' ? 'open' : 'break',
             hold: {
                 id: 'preview-hold',
                 subscriptionId: String(previewHoldSub.id),
                 reason: breakKnob === 'paused_break' ? 'customer_pause' : 'season',
-                state: breakKnob === 'paused_break' ? 'paused_by_customer' : breakKnob === 'held' ? 'held' : 'ready',
+                state: breakKnob === 'paused_break' ? 'paused_by_customer'
+                    : breakKnob === 'refund_requested' ? 'refund_requested'
+                    : breakKnob === 'ready' || breakKnob === 'ready_scheduled' || breakKnob === 'ready_refund' ? 'ready'
+                    : 'held',
                 heldMeals: breakKnob === 'ready_scheduled' ? 24 : breakKnob === 'paused_break' ? 8 : 9,
                 waitlistCreditFils: breakKnob === 'paused_break' ? null : 2000,
                 planName: String(previewHoldSub.plan_name),
                 planStatus: breakKnob === 'ready_scheduled' ? 'Scheduled' : 'Paused',
+                refundOffer: previewRefundOffer,
+                refundRequested: breakKnob === 'refund_requested' ? { cashFils: 16200, creditFils: 900 } : null,
+                refundDeclineReason: breakKnob === 'refund_declined' ? 'The card on this order has expired. Message us on WhatsApp and we will sort it out by transfer.' : null,
             },
         } : null
         const previewBreakPause: IntakeGateState | undefined = previewBreak ? {
@@ -406,6 +421,9 @@ export default async function DashboardPage({
                 .filter((p): p is ProjectionPlan => p !== null),
             skipCreditFils: money.ok
                 ? skipCreditFilsFor({ planName: activeSubscription.plan_name, mealsPerDay: activeSubscription.meals_per_day ?? null, order: money.order })
+                : null,
+            refundOrder: money.ok && money.order && SEASON_REFUNDS_LIVE && !isUnpaidPlanName(activeSubscription.plan_name)
+                ? { ...money.order, stripePaymentId: money.order.stripePaymentId ?? null }
                 : null,
             todayAe: todayAeIso(),
             closureDates,

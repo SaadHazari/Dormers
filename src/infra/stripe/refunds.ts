@@ -34,3 +34,18 @@ export async function refundPaymentFils(
   )
   return refund.id
 }
+
+/**
+ * What Stripe would still refund on a PaymentIntent, in fils: the amount it
+ * received less what has already been refunded (a support refund issued by
+ * hand, say). Season refunds are capped at this before any state changes
+ * (spec §10.3). Throws when Stripe cannot be read; callers refuse rather
+ * than guess.
+ */
+export async function refundableFils(paymentIntentId: string): Promise<number> {
+  const stripe = stripeClient()
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] })
+  const charge = intent.latest_charge
+  const refunded = charge && typeof charge !== 'string' ? charge.amount_refunded ?? 0 : 0
+  return Math.max(0, (intent.amount_received ?? 0) - refunded)
+}

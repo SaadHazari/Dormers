@@ -92,8 +92,35 @@ const STATES = [
     url: '/dashboard?preview=1&verified=1&sub=paused&paused=1&joined=0&season=runs_past',
     expect: [],
     tap: 'button[aria-label="Resume plan"], [data-testid="hero-pause"]',
-    after: ['Resume your plan?', 'will be kept for next semester, with AED 15 in your wallet.'],
-    absent_after: ['refund'],
+    // Plan D: the runs_past fixture carries live order money, so the sheet names the refund the break will offer.
+    after: ['Resume your plan?', 'will be kept for next semester, with AED 15 in your wallet.', 'Once the break starts you can ask for a refund for those', 'back to your card'],
+  },
+  // Plan D (spec §10.3): the refund offer on the held card, the request in flight, and a decline.
+  {
+    id: 'refund-offered',
+    url: '/dashboard?preview=1&verified=1&season=refund_offered',
+    expect: ["If you'd rather have your money back, you can ask for a refund for them from your home page (AED 162 back to your card and AED 9 to your wallet)."],
+    taps: ['#season-break-notice-dismiss', '[data-testid="held-plan-refund"]'],
+    after: ['You can ask for a refund for these 9 meals instead: AED 162 back to your card and AED 9 to your wallet.', 'Ask for a refund?', 'Yes, ask for a refund', 'Keep my meals'],
+  },
+  {
+    id: 'refund-requested',
+    url: '/dashboard?preview=1&verified=1&season=refund_requested',
+    // No break notice for a request in flight: the card carries the state.
+    expect: ['Refund requested for your 9 meals.', "Refund requested. We'll confirm on WhatsApp. (AED 162 back to your card and AED 9 to your wallet)", 'Cancel request'],
+    absent: ['Ask for a refund'],
+  },
+  {
+    id: 'refund-declined',
+    url: '/dashboard?preview=1&verified=1&season=refund_declined',
+    expect: [],
+    tap: '#season-break-notice-dismiss',
+    after: ['About your refund request: The card on this order has expired.', 'Ask for a refund'],
+  },
+  {
+    id: 'ready-refund',
+    url: '/dashboard?preview=1&verified=1&season=ready_refund',
+    expect: ["We're back. Your 9 meals are ready.", 'You can ask for a refund for these 9 meals instead', 'Ask for a refund'],
   },
   {
     id: 'menu-held',

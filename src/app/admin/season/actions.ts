@@ -15,6 +15,7 @@ import {
     reopenSeason,
     type SeasonTransitionResult,
 } from '@/contexts/season/usecases/season-transitions'
+import { approveSeasonRefund, declineSeasonRefund, type SeasonRefundAdminResult } from '@/contexts/season/usecases/season-refund-admin'
 
 // intake_settings is a single-row table enforced by `id boolean primary key
 // default true` plus `constraint intake_settings_singleton check (id)` — the
@@ -67,6 +68,21 @@ export async function endSeasonTodayAction(): Promise<SeasonTransitionResult> {
 export async function reopenSeasonAction(): Promise<SeasonTransitionResult> {
     const user = await requireAdmin()
     const result = await reopenSeason(user.email)
+    revalidatePath('/admin/season')
+    return result
+}
+
+/** Spec §10.3: approve a refund request, or retry one Stripe refused. */
+export async function approveSeasonRefundAction(holdId: string): Promise<SeasonRefundAdminResult> {
+    const user = await requireAdmin()
+    const result = await approveSeasonRefund(user.email, holdId)
+    revalidatePath('/admin/season')
+    return result
+}
+
+export async function declineSeasonRefundAction(holdId: string, reason: string): Promise<SeasonRefundAdminResult> {
+    const user = await requireAdmin()
+    const result = await declineSeasonRefund(user.email, holdId, reason)
     revalidatePath('/admin/season')
     return result
 }

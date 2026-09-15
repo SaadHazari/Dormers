@@ -47,6 +47,7 @@ import type { CustomerBreak } from '@/contexts/season/domain/customer-hold'
 import { SeasonSplitSheet } from './_shared/SeasonSplitSheet'
 import { BreakResumeSheet } from './_shared/BreakResumeSheet'
 import { resumeSplitFor } from '@/contexts/season/domain/resume-split'
+import { seasonRefundAmounts } from '@/contexts/season/domain/season-refund'
 import { projectionPlanFromRow } from '@/contexts/season/domain/customer-season'
 import { todayAeIso as seasonTodayAeIso } from '@/contexts/season/domain/season-dates'
 
@@ -2224,6 +2225,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         <SeasonSplitSheet
           open={showResumeSplit}
           split={resumeSplit}
+          refund={resumeSplit && season ? seasonRefundAmounts(resumeSplit.heldMeals, season.refundOrder) : null}
           onStay={() => setShowResumeSplit(false)}
           onResume={() => { setShowResumeSplit(false); continueResume() }}
         />

@@ -18,6 +18,8 @@ import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
 import { BreakBoard } from './BreakBoard'
+import { RefundQueue } from './RefundQueue'
+import { refundQueue } from './season-break-view'
 import {
     scheduleSeasonEndAction,
     moveSeasonEndAction,
@@ -306,8 +308,13 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
     // above has already run, so this early return keeps the hook order stable.
     if (snapshot.phase === 'break') return <BreakBoard data={data} />
 
+    // A refund asked for during the break outlives the reopening (spec §6.3):
+    // the queue stays on the page until the owner has answered every request.
+    const pendingRefunds = refundQueue(data.holds)
+
     return (
         <div className={`mt-6 rounded-xl border p-5 ${t.card}`}>
+            {pendingRefunds.length > 0 && <div className="mb-3"><RefundQueue queue={pendingRefunds} /></div>}
             {driftMessage && (
                 <div data-testid="season-drift" role="alert" className={`flex items-start gap-3 px-4 py-3 rounded-xl border mb-3 ${t.warningBg} ${t.warning}`}>
                     <AlertTriangle size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
