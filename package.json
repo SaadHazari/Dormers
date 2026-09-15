@@ -14,6 +14,7 @@
     "check:cold-start": "node scripts/check-cold-start.mjs",
     "check:whatsapp-template": "node scripts/check-whatsapp-template.mjs",
     "check:delivered-drift": "tsx scripts/audit-delivered-drift.ts",
+    "backfill:order-money": "tsx --env-file=.env.local scripts/backfill-order-money.ts",
     "prep:box-reference": "tsx scripts/prep-box-reference.ts",
     "check:burger-clearance": "node scripts/check-burger-clearance.mjs",
     "check:slider-readout": "node scripts/check-slider-readout.mjs",

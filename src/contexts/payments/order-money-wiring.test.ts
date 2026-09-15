@@ -47,3 +47,20 @@ describe('free checkout records order money', () => {
     expect(src).toMatch(/if \(creditUsed === null\) \{[\s\S]*?Order money NOT recorded/)
   })
 })
+
+describe('the backfill counts credit and reports Stripe failures safely', () => {
+  it('counts credit through the same reader as the webhook and free checkout', () => {
+    const src = read('scripts/backfill-order-money.ts')
+    expect(src).toContain("import { loadCreditUsedFils } from '../src/infra/supabase/credit-usage-repo'")
+    expect(src.match(/loadCreditUsedFils\(sb, \{/g)).toHaveLength(2)
+  })
+
+  it('refuses a live key in .env.local before anything else, and never prints a Stripe error message', () => {
+    const src = read('scripts/backfill-order-money.ts')
+    const guard = src.indexOf('envFileDefinesLiveKey(existsSync(ENV_FILE)')
+    expect(guard).toBeGreaterThan(-1)
+    expect(guard).toBeLessThan(src.indexOf('createClient(url, serviceKey'))
+    expect(src).toContain('return { unresolvable: stripeErrorSummary(err) }')
+    expect(src).not.toContain('(err as Error).message')
+  })
+})
