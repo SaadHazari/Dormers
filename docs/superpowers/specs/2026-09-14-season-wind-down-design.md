@@ -1,7 +1,7 @@
 # Season wind-down and break: design
 
-**Date:** 2026-09-14
-**Status:** Draft for owner review
+**Date:** 2026-09-14 (Plan C corrections 2026-09-15)
+**Status:** Approved by the owner; Plans A to C built
 **Builds on:** `2026-08-15-seasonal-intake-pause-design.md` (intake switch, waitlist credit),
 `plans/2026-08-18-scheduled-pause-taper.md` (last delivery day, sales taper),
 `plans/2026-08-18-broadcast-composer.md` (reopening notice).
@@ -109,8 +109,10 @@ Verified 2026-09-14 against the live Dormers-Ohio database and the repo.
   `handleChargeRefunded` restores applied credits on a full refund, alerts the admin that the plan
   is still active, and sends `refund_processed` on WhatsApp and email.
 - Plan-ended messages go out at 00:45 AE; renew reminders at 18:00 AE, 2 to 3 days before the end.
-- **Live on 2026-09-14:** sales paused since 2 Sep with no last delivery day set. 2 plans are still
-  delivering (ending Fri 18 Sep and Mon 28 Sep) and 1 customer-paused plan (end date 25 Sep if resumed).
+- **Live on 2026-09-15:** sales paused since 2 Sep with no wrap-up day set. 2 plans are still
+  delivering: a Monthly Premium to Mon 28 Sep, and a Staff Monthly whose stored end date (Fri 18 Sep)
+  is stale: it shows 8 of 20 delivered, and the delivery tick cooks by meals, so its real last dinner
+  is Wed 30 Sep. 1 customer-paused plan has 8 meals left.
 
 ---
 
@@ -126,12 +128,12 @@ Three phases: `open`, `winding_down`, `break`. Every transition is one SQL funct
 | winding_down | Admin clears the season end | None | open | Cancel unsent scheduling notices; keep credits already issued; admin summary |
 | winding_down | Admin stops sales now | W is still ahead (once W passes, the nightly tick has already stopped sales) | winding_down | `sales_stopped_at = now()`; every purchase refused; kitchen unchanged |
 | winding_down | Break tick, first AE day after K | phase = winding_down and K < today | break | Begin-break procedure (§8) |
-| open | Admin ends the season today | Typed confirm that names the plans to be held and the refund exposure | winding_down, K = today | W = K = today, buffer 0, sales stopped; reconcile skips (§7.2); tonight's deliveries run; the break tick starts the break at 00:15. Lands with the break (P3): the action stays hidden until then |
+| open or winding_down with W today or later | Admin ends the season today | Typed confirm that names the plans to be held and the refund exposure | winding_down, K = today | W = K = today, buffer 0, sales stopped; reconcile skips (§7.2); tonight's deliveries run; the break tick starts the break at 00:20. Refused once W has passed (SQL and the page): moving W back to today would reopen the kitchen that night. Clear the wrap-up day and reschedule instead |
 | break | Admin reopens | None | open | Stamp `cycle_ended_at`; holds move to `ready` (§6.3); clear W and K; offer the reopening notice; admin reminder if it is not sent within 2 hours |
 | any | Invariant checks (hourly in winding_down and break) | None | unchanged | Admin alert on any breach (§11.7) |
 
-The old "Pause now" button is replaced by "End the season today" (open) and "Stop sales now"
-(winding_down). There is no path to a break that skips the begin-break procedure. After W has passed,
+The old "Pause now" button is replaced by "End the season today" (open, or winding down while W
+has not passed) and "Stop sales now" (winding_down). There is no path to a break that skips the begin-break procedure. After W has passed,
 the dates can still change by clearing the wrap-up day and scheduling a new one.
 
 ### 5.1 Storage
@@ -171,8 +173,15 @@ task. Until it is set, the break never starts, which is today's behaviour.
 
 A pure TypeScript module (`src/contexts/season/domain/season-projection.ts`) and its SQL twin
 (`season_project_plans(p_wrap_up date, p_close date)`) classify every live plan (Active, Skipped,
-Paused, Scheduled). Tests keep the two in lockstep the same way `end-date.ts` is kept in lockstep
-with `compute_subscription_end_date`.
+Paused, Scheduled). Twenty shared fixtures keep the two in lockstep (`npm run season:lockstep-sql`
+runs them against live).
+
+**The projection walks the meals left, not the end date.** The delivery tick cooks every Active plan
+on each delivery day until its meals are done and never reads `end_date`, so a closure or a skip
+still ahead pushes the last dinner out, a resume after the 2 PM cutoff waits a day, and a plan whose
+end date has passed with meals left keeps cooking until the break holds it. A planned pause on or
+before the close day makes the plan `customer_paused`, because the status tick pauses it before the
+break. A buffer day already behind the plan used one grant slot, cooked or not.
 
 | Disposition | Condition | What happens when the break starts |
 |---|---|---|
@@ -310,9 +319,9 @@ It sends `season_spot_saved` on WhatsApp and email (§12).
 
 ## 8. Begin-break procedure
 
-`season_begin_break()` runs from `season_break_tick` at 00:15 AE, replacing
-`intake_scheduled_pause_tick`. That is after the final night's 20:00 deliveries and before the 00:30
-status tick. It runs in one transaction and can be run again safely.
+`season_begin_break()` runs from `season_break_tick` at 00:20 AE, replacing
+`intake_scheduled_pause_tick` (whose sales-close and legacy paths it keeps). That is after the final
+night's 20:00 deliveries, clear of the closure tick at 00:15, and before the 00:30 status tick. It runs in one transaction and can be run again safely.
 
 1. Lock the `intake_settings` row. Stop unless the phase is `winding_down` and K is before today (AE).
 2. Run the projection with W and K.
@@ -328,10 +337,13 @@ status tick. It runs in one transaction and can be run again safely.
 8. Close pending notifications that promise a meal after K (for example `meal_resumed_confirm`),
    using the existing `cancelled:superseded` convention.
 9. Set phase `break`, `paused = true`, `break_started_at = now()`.
-10. Insert `season_notices` rows (§12.3) with `send_after = 10:00 AE today`, and the admin summary.
+10. The admin summary on WhatsApp. The `season_notices` rows (§12.3) arrive with Plan E; until
+    then N8 and N9 are in-app only.
 
-If any step fails, the whole transaction rolls back. The tick runs again at 00:45 and 01:15. If the
-phase is still `winding_down` at 01:30 AE with K in the past, the admin is alerted.
+If any step fails, the whole transaction rolls back. The tick runs again at 00:50 and 01:20. If the
+phase is still `winding_down` at 01:30 AE with K in the past, the admin is alerted. A held plan's
+`planned_pause_start` is cleared (its pause credit stays spent); an admin pause counts as a customer
+pause, because the row does not record who paused.
 
 ---
 
@@ -344,9 +356,9 @@ Defence in depth: each guard on its own would stop a wrong meal or a wrong charg
 | G1 | Delivery tick | `subscription_delivery_tick` | Return early when phase = break, the same way it does on a closure. While winding down and after W, deliver only plans holding a buffer grant for today. Never deliver a plan with `season_hold_id`. Cap: `delivered_meals < total_meals − credited_skip_days × meals_per_day`. |
 | G2 | Status guard | New `trg_subscriptions_season_guard`, BEFORE UPDATE | During the break, refuse any change of `status` to Active unless the transaction set `dormers.season_release = on`. Only the release and refund functions set it. Raises `SEASON_BREAK`; server actions turn it into the §7.5 copy. |
 | G3 | Arrival guard | New AFTER INSERT trigger on `subscriptions` | During the break, a new Active or Scheduled plan is held on arrival: status Scheduled, hold with reason `season`, admin alert. This covers a sale that slipped through a fail-open read and a checkout opened before the break but paid during it. Money is never taken without a plan the customer can see. |
-| G4 | Status tick | `subscription_status_tick` | Do not promote a Scheduled plan with `season_hold_id`. Do not activate planned pauses during the break. End a plan when `delivered_meals + credited_skip_days × meals_per_day >= total_meals` and `end_date` has passed. |
+| G4 | Status tick | `subscription_status_tick` | Do not promote a Scheduled plan with `season_hold_id`. During the break promote nothing (a promotion would trip G2 and roll the whole tick back), activate no planned pause, and end a Skipped plan whose meals are done instead of reviving it. End a plan when `delivered_meals + credited_skip_days × meals_per_day >= total_meals` and `end_date` has passed. |
 | G5 | Kitchen and dorm counts | `get-kitchen-counts.ts`, `get-dorm-counts.ts` | During the break return zero with `closedForBreak: true`; the kitchen screen reads "Kitchen closed for the semester break". Always drop plans with `season_hold_id`. After W, count only today's buffer grants. |
-| G6 | 8 PM failsafe | `ops_failsafe_send_tick` | Quiet during the break, and on buffer days with no grants. |
+| G6 | 8 PM failsafe | `ops_failsafe_send_tick` | Quiet during the break, and after W when no Active, unheld plan below its credited cap cooks a buffer grant today (tonight's recorded delivery counted back in). `dispatch_start_day_emails_tick` sends nothing during the break and never for a held plan. |
 | G7 | Renew reminder | `dispatch_renew_nudges_tick`, `renew-nudge-send` | Skip during the break. While winding down, send `season_last_dinners` instead when no Monthly or Weekly plan can follow this one before W. |
 | G8 | Plan-ended notice | `resolveEndedNotice` | Season version when phase = break, or when winding down and no Monthly or Weekly plan can follow. |
 | G9 | Resume actions | `resumeSubscription`, `adminResumeSub` | Read the phase fresh (`getIntakeState({ fresh: true })`) and refuse during the break; G2 backs this up. |
@@ -643,8 +655,8 @@ migration files are stale for several of them.
 9. Triggers: `trg_subscriptions_season_guard` (G2) and the arrival trigger (G3).
 10. `customer_notifications`: kind check and dispatcher CASE branches for the 8 new kinds plus
     `intake_reopened` and `intake_back_open`.
-11. Cron: `season_break_tick` replaces `intake_scheduled_pause_00_15_ae` at 20:15 UTC, with retries
-    at 20:45 and 21:15 UTC; `season_skip_credit_tick` 20:40 UTC; `season_admin_digest_tick` 14:00
+11. Cron: `season_break_tick` replaces `intake_scheduled_pause_00_15_ae` at 20:20 UTC, with retries
+    at 20:50 and 21:20 UTC (clear of the closure tick at 20:15); `season_skip_credit_tick` 20:40 UTC; `season_admin_digest_tick` 14:00
     UTC; `dispatch_season_notices_tick` every 5 minutes; `season_invariants_tick` hourly.
 
 ### 13.2 New modules
@@ -733,7 +745,7 @@ The other six finish by Sat 3 Oct with nothing unusual.
 | Customer plans a pause on a plan that runs past W | Allowed, with the §7.3 line; the plan becomes `customer_paused` |
 | Closure day added while winding down | §11.4 warning. A closure before W that pushes a plan past W makes it `runs_past`; closure days after K change nothing |
 | Credited skip on a plan with a queued renewal | A credited skip does not move `end_date`, so the queued start does not shift |
-| Queued renewal behind a held plan | Its own `starts_after` hold, its own refund amount, "Refund both" |
+| Queued renewal behind a held plan | Its own `starts_after` hold, its own refund amount, "Refund both". It is released together with the held plan when the customer taps Resume, because a start-date change is refused while the plan in front is paused |
 | Refund and Resume tapped at the same moment | The hold's compare-and-set lets one win; the other gets "Your plan changed. Refresh and try again." |
 | Stripe refund succeeds but the database write fails | The idempotency key makes the retry return the same refund; G10 flags `refund_processing` older than 30 minutes |
 | PaymentIntent already partly refunded by support | The cash refund is capped at what is still refundable |
@@ -741,7 +753,7 @@ The other six finish by Sat 3 Oct with nothing unusual.
 | Staff plan runs past W | Held with no credit and no refund (X5); staff wording from `staff-season-copy.ts`; admin alert |
 | Welcome meal due after W | Held; delivered after reopening on the date the customer picks |
 | Checkout opened before the schedule, paid after it, starting after W | The webhook provisions it (no taper check there, by design); the projection marks it `starts_after`; the digest flags it; held at the break with a full refund option |
-| A sale gets through during the break | G3 holds it on arrival and alerts the admin |
+| A sale gets through during the break | G3 holds it on arrival and alerts the admin; no waitlist credit is minted automatically (owner, 2026-09-15) |
 | The settings read fails during the break | Sales paths fail open as today; G2 and G3 run in SQL and still stop cooking and hold any arrival |
 | Customer changes meal preference during the break | Credit already minted stays; later mints use the new preference |
 | Customer holds credit from an earlier season | Included in N15 and N18; the reopen audience counts unspent credit from any season |
@@ -794,8 +806,9 @@ Each phase ships on its own through the Production branch (`git push origin main
 
 ### 17.2 This season
 
-Live today: sales stopped since 2 Sep with no wrap-up day. 2 plans deliver until Fri 18 Sep and
-Mon 28 Sep, and 1 plan is customer-paused. Nothing stops that customer resuming in October and
+Live on 2026-09-15: sales stopped since 2 Sep with no wrap-up day. The paid Monthly Premium delivers
+until Mon 28 Sep, the Staff Monthly until Wed 30 Sep (12 meals left, stale end date), and 1 plan is
+customer-paused. Nothing stops that customer resuming in October and
 opening the kitchen for their remaining meals.
 
 - **Before Mon 28 Sep:** P1, P2 and P3. Set W = Mon 28 Sep with buffer 1, so K = Tue 29 Sep. The
