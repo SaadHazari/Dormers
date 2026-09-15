@@ -3,15 +3,14 @@ import 'server-only'
 /**
  * The season side of the customer skip actions (spec §7.2).
  *
- * Reads the season fresh (a skip moves money, so a 30-second-old cache is not
- * good enough), the company closures and the order's money, and calls the SQL
+ * Reads the season fresh and strictly (a skip moves money, so neither a
+ * 30-second-old cache nor a fail-open default is good enough), the company
+ * closures and the order's money, and calls the SQL
  * functions that own every credited-skip and buffer-grant write. The customer's
  * id always comes from withOwnedSubscription, never from the client.
  */
 
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { getIntakeState } from '@/infra/config/intake'
-import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
 import type { OrderMoney } from '../domain/meal-value'
 import { skipCreditFilsFor, type SkipSeason } from '../domain/skip-outcome'
 import { friendlySkipError } from '../domain/season-skip-errors'
@@ -54,24 +53,64 @@ export interface SkipSeasonContext {
   closureDates: ReadonlySet<string>
   /** Credit for one skipped delivery day; null when unknown or not winding down. */
   creditFils: number | null
+  /** The order could not be read: a credited skip is refused, never treated as worth nothing. */
+  creditReadFailed: boolean
 }
 
-export async function loadSkipSeasonContext(sub: { id: string; plan_name: string; meals_per_day: number | null }): Promise<SkipSeasonContext> {
-  const intake = await getIntakeState({ fresh: true })
-  const season: SkipSeason = {
-    phase: intake.phase,
-    wrapUpDay: intake.wrapUpDay,
-    closeDay: intake.closeDay,
-    bufferDays: intake.bufferDays,
-  }
-  if (season.phase !== 'winding_down' || !season.wrapUpDay) {
-    return { season, closureDates: new Set(), creditFils: null }
-  }
-  const [closures, money] = await Promise.all([getCompanyClosureDates(), loadOrderMoney(sub.id)])
+export type SkipSeasonContextRead = { ok: true; context: SkipSeasonContext } | { ok: false }
+
+/**
+ * The season row, read strictly. getIntakeState fails open so a settings blip
+ * never blocks a sale; a skip moves money and kitchen days, so here a failed
+ * read is a failed read (spec §5.1). Not exported: only the skip step needs it.
+ */
+async function readSeasonStrict(): Promise<SkipSeason | null> {
+  const sb = createAdminSupabaseClient()
+  const { data, error } = await sb
+    .from('intake_settings')
+    .select('season_phase, wrap_up_day, close_day, buffer_delivery_days')
+    .maybeSingle()
+  if (error || !data) return null
+  const row = data as Record<string, unknown>
   return {
-    season,
-    closureDates: new Set(closures),
-    creditFils: money.ok ? skipCreditFilsFor({ planName: sub.plan_name, mealsPerDay: sub.meals_per_day, order: money.order }) : null,
+    phase: row.season_phase === 'winding_down' || row.season_phase === 'break' ? row.season_phase : 'open',
+    wrapUpDay: row.wrap_up_day == null ? null : String(row.wrap_up_day),
+    closeDay: row.close_day == null ? null : String(row.close_day),
+    bufferDays: row.buffer_delivery_days == null ? 1 : Number(row.buffer_delivery_days),
+  }
+}
+
+/** Every company closure, read strictly (getCompanyClosureDates returns [] on error). */
+async function readClosuresStrict(): Promise<string[] | null> {
+  const sb = createAdminSupabaseClient()
+  const { data, error } = await sb.from('company_closures').select('closure_date')
+  if (error) return null
+  return ((data ?? []) as Array<{ closure_date: unknown }>).map((r) => String(r.closure_date).slice(0, 10))
+}
+
+/**
+ * Everything the skip step needs, or `{ ok: false }` when the season or the
+ * closures could not be read. A failed read refuses the skip whatever the
+ * season turns out to be: a wind-down skip that fell back to a plain skip
+ * would cost the customer a paid meal and promise a make-up day the kitchen
+ * will not cook.
+ */
+export async function loadSkipSeasonContext(sub: { id: string; plan_name: string; meals_per_day: number | null }): Promise<SkipSeasonContextRead> {
+  const season = await readSeasonStrict()
+  if (!season) return { ok: false }
+  if (season.phase !== 'winding_down' || !season.wrapUpDay) {
+    return { ok: true, context: { season, closureDates: new Set(), creditFils: null, creditReadFailed: false } }
+  }
+  const [closures, money] = await Promise.all([readClosuresStrict(), loadOrderMoney(sub.id)])
+  if (!closures) return { ok: false }
+  return {
+    ok: true,
+    context: {
+      season,
+      closureDates: new Set(closures),
+      creditFils: money.ok ? skipCreditFilsFor({ planName: sub.plan_name, mealsPerDay: sub.meals_per_day, order: money.order }) : null,
+      creditReadFailed: !money.ok,
+    },
   }
 }
 

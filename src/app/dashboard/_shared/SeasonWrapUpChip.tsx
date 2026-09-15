@@ -8,7 +8,8 @@ import { seasonChipLabel } from './season-notice-copy'
 export function SeasonWrapUpChip({ wrapUpDay }: { wrapUpDay: string }) {
   return (
     <div
-      id="season-wrap-up-chip"
+      // Desktop and mobile trees mount together, so an id would appear twice.
+      data-testid="season-wrap-up-chip"
       role="note"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start',

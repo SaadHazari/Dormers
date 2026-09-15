@@ -36,7 +36,7 @@ import { withOwnedSubscription } from './with-owned-subscription';
 import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo';
 import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions';
 import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SeasonSkipNotice, type SkipSeason, type SkipSeen } from '@/contexts/season/domain/skip-outcome';
-import { SKIP_CHANGED_COPY, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
+import { SKIP_CHANGED_COPY, SKIP_ERROR_FALLBACK, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
 import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext } from '@/contexts/season/usecases/skip-season';
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices';
 
@@ -108,6 +108,7 @@ export async function pauseSubscription(subscriptionId: string) {
     })
     .eq('id', subscriptionId)
     .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
+    .eq('credited_skip_days', subscription.credited_skip_days)
     .select('id');
 
   if (updateError) return { error: 'Failed to pause subscription.' };
@@ -406,7 +407,8 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
 
 type SeasonSkipStep =
   | { ok: false; error: string }
-  | { ok: true; kind: 'normal' | 'grant'; season: SkipSeason }
+  | { ok: true; kind: 'normal'; season: SkipSeason }
+  | { ok: true; kind: 'grant'; season: SkipSeason; makeUpDay: string }
   | { ok: true; kind: 'credited'; season: SkipSeason; notice: SeasonSkipNotice };
 
 /**
@@ -429,7 +431,11 @@ async function seasonSkipStep(input: {
   skipCap: number
 }): Promise<SeasonSkipStep> {
   const { subscription } = input;
-  const ctx = await loadSkipSeasonContext(subscription);
+  // A failed season or closures read refuses the skip even when the season is
+  // really open: fail open for sales, never for the kitchen or money (spec §5.1).
+  const read = await loadSkipSeasonContext(subscription);
+  if (!read.ok) return { ok: false, error: SKIP_ERROR_FALLBACK };
+  const ctx = read.context;
   const outcome = decideSkipOutcome({
     season: ctx.season,
     plan: {
@@ -442,6 +448,8 @@ async function seasonSkipStep(input: {
     closureDates: ctx.closureDates,
     creditFils: ctx.creditFils,
   });
+  // An unreadable order is a failed read, not a meal worth nothing.
+  if (outcome.kind === 'credited' && ctx.creditReadFailed) return { ok: false, error: SKIP_ERROR_FALLBACK };
   // The customer's sheet showed an outcome; if the fresh answer differs, they
   // refresh rather than get a different result than they confirmed.
   if (skipSeenMismatch(outcome, input.seen)) return { ok: false, error: SKIP_CHANGED_COPY };
@@ -459,7 +467,7 @@ async function seasonSkipStep(input: {
     expectedCreditFils: outcome.kind === 'credited' ? outcome.creditFils : null,
   });
   if (!applied.ok) return { ok: false, error: applied.error };
-  if (applied.outcome === 'grant') return { ok: true, kind: 'grant', season: ctx.season };
+  if (applied.outcome === 'grant') return { ok: true, kind: 'grant', season: ctx.season, makeUpDay: applied.makeUpDay };
 
   await announceSeasonSkipCredited([
     { subscriptionId: subscription.id, customerId: input.customerId, mealDates: [input.mealDate], creditFils: applied.creditFils, source: 'customer_skip' },
@@ -532,7 +540,9 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
   const nextSkippedDates = [...(subscription.skipped_dates ?? []), todayAEIso]
 
   if (step.kind === 'normal') {
-    // Flip Active → Skipped. The CAS on status stops a double tap counting twice.
+    // Flip Active → Skipped. The CAS on status stops a double tap counting
+    // twice; the CAS on the skip count stops this write from overwriting a
+    // reconcile that converted skips underneath it (season §7.2).
     const { data: skipRows, error: updateError } = await auth.supabase
       .from('subscriptions')
       .update({
@@ -543,11 +553,12 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
       })
       .eq('id', subscriptionId)
       .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
+      .eq('skipped_meals_count', subscription.skipped_meals_count)
       .select('id');
 
     if (updateError) return { error: 'Failed to skip meal.' };
     if (!skipRows || skipRows.length === 0) {
-      return { error: 'Skip didn\'t take. Refresh and try again, or message us on WhatsApp.' };
+      return { error: SKIP_CHANGED_COPY };
     }
   }
 
@@ -564,12 +575,14 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
       payload: { meal_date: todayAEIso },
     });
   }
+  // A grant skip already moved the plan's end to its make-up day in SQL; the
+  // row loaded before the write still carries the old end.
   const resumeOnIso = nextEligibleDeliveryDay({
     fromAeDateIso: todayAEIso,
     weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
     skippedDates:  nextSkippedDates,
     pausedDates:   subscription.paused_dates ?? [],
-    subEndDateIso: subscription.end_date,
+    subEndDateIso: step.kind === 'grant' && step.makeUpDay > subscription.end_date ? step.makeUpDay : subscription.end_date,
   });
   const grantsAfter = (subscription.season_buffer_grants ?? 0) + (step.kind === 'grant' ? 1 : 0);
   if (resumeOnIso && mayPromiseMealOn(resumeOnIso, step.season, grantsAfter)) {
@@ -677,6 +690,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
       })
       .eq('id', subscriptionId)
       .eq('skipped_meals_count', subscription.skipped_meals_count)
+      .eq('credited_skip_days', subscription.credited_skip_days)
       .select('id');
 
     if (updateError) return { error: 'Failed to schedule skip.' };
@@ -763,6 +777,7 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
     })
     .eq('id', subscriptionId)
     .eq('skipped_meals_count', subscription.skipped_meals_count)
+    .eq('credited_skip_days', subscription.credited_skip_days)
     .select('id');
 
   if (updateError) return { error: 'Failed to un-skip.' };
@@ -873,6 +888,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
     .eq('id', subscriptionId)
     .eq('has_paused_before', false)
     .eq('skipped_meals_count', subscription.skipped_meals_count)
+    .eq('credited_skip_days', subscription.credited_skip_days)
     .is('planned_pause_start', null)
     .select('id');
 

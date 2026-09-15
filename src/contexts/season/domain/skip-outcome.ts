@@ -130,7 +130,9 @@ export function decideSkipOutcome(input: {
  */
 export function skipCreditFilsFor(input: { planName: string; mealsPerDay: number | null; order: OrderMoney | null }): number | null {
   const id = resolvePlan(input.planName)?.id
-  if (id === 'staff-monthly' || id === 'welcome-gift') return 0
+  // SQL season_skip_credit_fils exempts by name with ILIKE; match it whatever the casing.
+  const lower = input.planName.toLowerCase()
+  if (id === 'staff-monthly' || id === 'welcome-gift' || lower.includes('staff monthly') || lower.includes('welcome meal')) return 0
   if (!input.order) return 0
   const value = mealValueOf(input.order)
   if (!value) return null

@@ -103,6 +103,11 @@ describe('skipCreditFilsFor', () => {
     expect(skipCreditFilsFor({ planName: 'Monthly Premium', mealsPerDay: 1, order: order() })).toBe(1980)
   })
 
+  it('exempts staff and welcome plans by name whatever the casing, like SQL ILIKE', () => {
+    expect(skipCreditFilsFor({ planName: 'staff monthly', mealsPerDay: 1, order: order() })).toBe(0)
+    expect(skipCreditFilsFor({ planName: 'WELCOME MEAL', mealsPerDay: 1, order: order() })).toBe(0)
+  })
+
   it('counts every meal of a delivery day', () => {
     expect(skipCreditFilsFor({ planName: 'Monthly Max', mealsPerDay: 2, order: order({ mealsCount: 48, pricePerMealAed: 17.5 }) })).toBe(3150)
   })
