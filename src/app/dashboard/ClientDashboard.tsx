@@ -19,6 +19,9 @@ import { INTAKE_NOT_PAUSED } from './_shared/types'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
+import { SeasonScheduledNotice } from './_shared/SeasonScheduledNotice'
+import { seasonNoticeSeenKey } from './_shared/season-notice-copy'
+import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
 
 interface RecentOrder {
   id: string
@@ -85,6 +88,8 @@ interface Props {
   creditRows?: CreditRow[]
   /** Season end seen from this customer's plans (spec §7.2, N1, N3); null outside a wind-down. */
   season?: CustomerSeason | null
+  /** Preview only: word the season copy as if the break were live. Defaults to SEASON_BREAK_RELEASE_LIVE downstream. */
+  seasonBreakLive?: boolean
 }
 
 /**
@@ -96,7 +101,7 @@ interface Props {
  * Renewal cancels (active sub + checkout_canceled) strip the param so the user
  * lands back on their existing dashboard rather than the empty-state picker.
  */
-export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null }: Props) {
+export default function ClientDashboard({ customer, activeSubscription, allSubscriptions, queuedSubscription = null, userEmail, monthlyWindow = EMPTY_MONTHLY_WINDOW, mostRecentOrder = null, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive }: Props) {
   const router           = useRouter()
   const searchParams     = useSearchParams()
   const checkoutSuccess  = searchParams.get('checkout_success')  === 'true'
@@ -211,12 +216,34 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     router.push('/dashboard/plan')
   }
 
+  // Season end scheduled (spec N1, N3): once per season and wrap-up day.
+  // Pessimistic init, same reasoning as the intake takeovers above.
+  const seasonNoticeKey = season ? seasonNoticeSeenKey(season.cycleStartedAt, season.wrapUpDay) : null
+  const [seasonNoticeChecked, setSeasonNoticeChecked] = useState(false)
+  const [seasonNoticeSeen, setSeasonNoticeSeen] = useState(true)
+  useEffect(() => {
+    try {
+      setSeasonNoticeSeen(seasonNoticeKey == null ? true : !!window.localStorage.getItem(seasonNoticeKey))
+    } catch {
+      setSeasonNoticeSeen(true)
+    }
+    setSeasonNoticeChecked(true)
+  }, [seasonNoticeKey])
+  const dismissSeasonNotice = () => {
+    try {
+      if (seasonNoticeKey) window.localStorage.setItem(seasonNoticeKey, '1')
+    } catch { /* storage disabled: treat as seen */ }
+    setSeasonNoticeSeen(true)
+  }
+  const showSeasonNotice = seasonNoticeChecked && !seasonNoticeSeen && !!season?.notice && !!activeSubscription
+
   // pausing: only a customer with a live plan gets the reassurance moment.
   // reopened: only someone who joined the early-access list AND still holds
   // unspent credit — a joined customer who already redeemed it (or whose
   // credit amount is genuinely zero) has nothing to be told is "ready".
+  // Once a wrap-up day is set, the season notice replaces this one (spec §2.2).
   const showPausingTakeover =
-    intakeTakeoverChecked && !pausingSeen && intakePause.paused && !!activeSubscription
+    intakeTakeoverChecked && !pausingSeen && intakePause.paused && !!activeSubscription && !season
   const showReopenedTakeover =
     intakeTakeoverChecked && !reopenedSeen && !intakePause.paused &&
     intakePause.alreadyJoined && intakePause.waitlistCreditAed > 0
@@ -318,6 +345,20 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // race because paused customers can't reach checkout in the first place)
   // and before every other branch, since like CheckoutSuccessTakeover it
   // fully replaces the view rather than layering on top of it.
+  if (showSeasonNotice && season?.notice) {
+    return (
+      <SeasonScheduledNotice
+        kind={season.notice}
+        wrapUpDay={season.wrapUpDay}
+        lastDinner={season.lastDinner}
+        breakLive={seasonBreakLive ?? SEASON_BREAK_RELEASE_LIVE}
+        creditAed={intakePause.creditAed}
+        alreadyJoined={intakePause.alreadyJoined}
+        onDismiss={dismissSeasonNotice}
+      />
+    )
+  }
+
   if (showPausingTakeover) {
     return (
       <IntakePauseTakeover
@@ -434,6 +475,7 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
       intakePause={intakePause}
       creditRows={creditRows}
       season={season}
+      seasonBreakLive={seasonBreakLive}
     />
   )
 }

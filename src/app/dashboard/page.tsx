@@ -59,7 +59,7 @@ const PREVIEW_SUBSCRIPTION = {
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, now?: string, anchor?: string, pref?: string, week?: string, checkout_success?: string, season?: string, loading?: string, error?: string }>
+    searchParams: Promise<{ preview?: string, wrap?: string, paused?: string, fresh?: string, nosub?: string, first?: string, joined?: string, far?: string, reopened?: string, state?: string, sub?: string, verified?: string, benchmark?: string, zone?: string, closure?: string, now?: string, anchor?: string, pref?: string, week?: string, checkout_success?: string, season?: string, release?: string, loading?: string, error?: string }>
 }) {
     const params = await searchParams
     const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -96,6 +96,7 @@ export default async function DashboardPage({
         //   ?season=paused    — pair with sub=paused: wrap-up day set, plan paused (N3 notice)
         //   ?season=grant     — wrap-up day on the plan's end: a skip now uses the buffer day
         //   ?season=credited  — as grant, buffer used: a skip now turns into credit; one future credited skip on the plan
+        //   &release=1        — word the pause line and notices as if the break were live
         //   ?checkout_success=true — success takeover (with a fixture order)
         //   ?loading=1 / ?error=1 — route skeleton / error boundary
         // Dates are computed relative to today so the fixture never drifts
@@ -285,6 +286,7 @@ export default async function DashboardPage({
                     activeSubscription={params.nosub === '1' ? null : seasonSub}
                     queuedSubscription={queuedSub}
                     season={params.nosub === '1' ? null : previewSeason}
+                    seasonBreakLive={params.release === '1' ? true : undefined}
                     // No-sub previews default to a RETURNING customer (their
                     // semester plan just ended) — the renew path only renders
                     // for that shape. &first=1 is the brand-new signup: no

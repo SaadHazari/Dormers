@@ -13,6 +13,8 @@ interface Props {
     queuedSub?: Subscription | null
     isPending: boolean
     onConfirm: (startDateIso: string) => void
+    /** Season wind-down line (spec §7.3), or null outside a wind-down. */
+    seasonLine?: string | null
 }
 
 function isoOf(d: Date): string {
@@ -48,7 +50,7 @@ function formatLongDate(iso: string): string {
  * tappable above Safari's toolbar (the old centered-overflow layout buried it).
  */
 export function PlanPauseModal({
-    open, onClose, sub, queuedSub, isPending, onConfirm,
+    open, onClose, sub, queuedSub, isPending, onConfirm, seasonLine = null,
 }: Props) {
     const [selectedDate, setSelectedDate] = useState<string>('')
 
@@ -196,6 +198,11 @@ export function PlanPauseModal({
             <div style={{ marginTop: 10, fontFamily: BODY, fontSize: 13.5, color: S.fgMuted, lineHeight: 1.55 }}>
                 Pick when your pause begins. You&apos;ll <strong style={{ color: S.fg, fontWeight: 700 }}>manually resume</strong> when you&apos;re back — each paused day extends your cycle by one.
             </div>
+            {seasonLine && (
+                <div id="season-pause-line-planned" style={{ marginTop: 10, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg, lineHeight: 1.55 }}>
+                    {seasonLine}
+                </div>
+            )}
 
             {queuedWarning && (
                 <div style={{

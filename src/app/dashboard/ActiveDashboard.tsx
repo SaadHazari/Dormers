@@ -40,6 +40,8 @@ import { SeasonWrapUpChip } from './_shared/SeasonWrapUpChip'
 import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
 import { decideSkipOutcome, type SkipOutcome, type SkipSeen } from '@/contexts/season/domain/skip-outcome'
 import { seasonSkipSheet, seasonToastFor } from './_shared/season-skip-copy'
+import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
+import { seasonPauseLine } from './_shared/season-notice-copy'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -356,7 +358,7 @@ function ResumeWelcomeOverlay({ phase, firstName, prefersReducedMotion, nextDeli
  *
  * Was 363 inline LOC in ClientDashboard.tsx.
  */
-export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null }: {
+export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, queuedSub = null, profileGate = [], outOfZone = false, justCheckedOut = false, monthlyWindow = EMPTY_MONTHLY_WINDOW, previewState, menuData, closureDates = [], intakePause = INTAKE_NOT_PAUSED, creditRows = [], season = null, seasonBreakLive = SEASON_BREAK_RELEASE_LIVE }: {
   sub: Subscription; customer: Customer | null; userEmail: string; allSubscriptions: Subscription[]
   queuedSub?: Subscription | null
   profileGate?: string[]
@@ -374,6 +376,8 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
    *  phone twin; desktop needs nothing here, the rail chip is always on). */
   creditRows?: CreditRow[]
   season?: CustomerSeason | null
+  /** Whether the season break is live; preview may override, production reads the release flag. */
+  seasonBreakLive?: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -843,6 +847,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   }
   const sameDaySeasonSheet = seasonSkipSheet(seasonSkipOutcome, season?.wrapUpDay ?? null, true)
   const futureSeasonSheet = seasonSkipSheet(seasonSkipOutcome, season?.wrapUpDay ?? null, false)
+  const seasonPauseText = season ? seasonPauseLine(season.wrapUpDay, seasonBreakLive) : null
 
   // Skip allowance — `total: 0` means the plan doesn't include skips at all
   // (Trial, Welcome Meal). Used by QuickActions to render a count chip on the
@@ -2205,6 +2210,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
           <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--ds-og-wash)', border: '1px solid var(--ds-og-border)', fontFamily: BODY, fontSize: 12, color: OG_DEEP, lineHeight: 1.5 }}>
             Pauses available: <strong>1 of 1</strong>
           </div>
+          {seasonPauseText && (
+            <div id="season-pause-line" style={{ marginTop: 12, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg, lineHeight: 1.55 }}>
+              {seasonPauseText}
+            </div>
+          )}
           {/* Pause-later affordance — opens the PlanPauseModal so customers
               can schedule the pause for a future date instead of pausing
               immediately. Same credit, just a different start moment. */}
@@ -2275,6 +2285,12 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
                 </strong>.
                 While paused, that start date shifts forward by one delivery day for each day you stay paused.
               </div>
+
+              {seasonPauseText && (
+                <div id="season-pause-line-queued" style={{ marginTop: 12, fontFamily: BODY, fontSize: 13, fontWeight: 600, color: S.fg, lineHeight: 1.55 }}>
+                  {seasonPauseText}
+                </div>
+              )}
 
               {/* Two-column impact summary */}
               <div style={{
@@ -2587,6 +2603,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
         queuedSub={queuedSub}
         isPending={isPending}
         onConfirm={handleConfirmPlanPause}
+        seasonLine={seasonPauseText}
       />
 
       {/* Savings benchmark capture — opens from the StatRow empty-state tile.
