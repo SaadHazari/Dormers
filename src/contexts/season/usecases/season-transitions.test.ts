@@ -1,18 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { rpcMock, invalidateMock, auditMock, announceMock } = vi.hoisted(() => ({
+const { rpcMock, invalidateMock, auditMock, announceMock, reopenNoticeMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
   invalidateMock: vi.fn(),
   auditMock: vi.fn(),
   announceMock: vi.fn(),
+  reopenNoticeMock: vi.fn(),
 }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/infra/supabase/admin-client', () => ({ createAdminSupabaseClient: () => ({ rpc: rpcMock }) }))
 vi.mock('@/infra/config/intake', () => ({ invalidateIntakeCache: invalidateMock }))
 vi.mock('@/contexts/admin/usecases/audit', () => ({ logAdminAction: auditMock }))
 vi.mock('./season-skip-notices', () => ({ announceSeasonSkipCredited: announceMock }))
+vi.mock('./season-reopen-notices', () => ({ announceSeasonReopened: reopenNoticeMock }))
 
-import { scheduleSeasonEnd, moveSeasonEnd, clearSeasonEnd, stopSeasonSales, resumeSeasonSales, endSeasonToday } from './season-transitions'
+import { scheduleSeasonEnd, moveSeasonEnd, clearSeasonEnd, stopSeasonSales, resumeSeasonSales, endSeasonToday, reopenSeason } from './season-transitions'
 
 const ADMIN = 'admin@dormers.ae'
 
@@ -21,6 +23,7 @@ beforeEach(() => {
   invalidateMock.mockReset()
   auditMock.mockReset()
   announceMock.mockReset()
+  reopenNoticeMock.mockReset()
   vi.useFakeTimers()
   // 12:00 in Dubai on Monday 14 Sep 2026.
   vi.setSystemTime(new Date('2026-09-14T08:00:00Z'))
@@ -93,6 +96,36 @@ describe('season transitions', () => {
     expect(auditMock).toHaveBeenCalledTimes(1)
     expect(errorSpy).toHaveBeenCalled()
     errorSpy.mockRestore()
+  })
+
+  it('reopens through SQL, audits, and hands the ready holds to the reopening hook', async () => {
+    rpcMock.mockResolvedValue({ data: { phase: 'open', ready_holds: 3, ready_customer_pauses: 1 }, error: null })
+    expect(await reopenSeason(ADMIN)).toEqual({ ok: true })
+    expect(rpcMock).toHaveBeenCalledWith('season_reopen', { p_actor: ADMIN })
+    expect(invalidateMock).toHaveBeenCalledTimes(1)
+    expect(auditMock).toHaveBeenCalledWith(ADMIN, 'season_reopened', 'intake_settings', 'singleton', {
+      state: { phase: 'open', ready_holds: 3, ready_customer_pauses: 1 },
+    })
+    expect(reopenNoticeMock).toHaveBeenCalledWith({ readyHolds: 3, readyCustomerPauses: 1 })
+  })
+
+  it('a refused reopen audits nothing and announces nothing', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'SEASON_BAD_PHASE: cannot reopen from open' } })
+    expect(await reopenSeason(ADMIN)).toEqual({ error: 'The season changed while you were looking. Refresh the page and try again.' })
+    expect(auditMock).not.toHaveBeenCalled()
+    expect(reopenNoticeMock).not.toHaveBeenCalled()
+  })
+
+  it('ending the season today hands its reconciled skips to the credit notice hook', async () => {
+    rpcMock.mockResolvedValue({
+      data: { phase: 'winding_down', reconciled: [{ subscription_id: 's1', customer_id: 'c1', meal_dates: ['2026-09-16'], credit_fils: 1980, skipped_no_value: 0 }] },
+      error: null,
+    })
+    expect(await endSeasonToday(ADMIN)).toEqual({ ok: true })
+    expect(announceMock).toHaveBeenCalledWith([
+      { subscriptionId: 's1', customerId: 'c1', mealDates: ['2026-09-16'], creditFils: 1980, source: 'reconciled' },
+    ])
+    expect(reopenNoticeMock).not.toHaveBeenCalled()
   })
 
   it('does not call the hook when nothing was reconciled', async () => {

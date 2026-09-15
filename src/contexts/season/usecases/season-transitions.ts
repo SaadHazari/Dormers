@@ -18,6 +18,8 @@ import { todayAeIso, validateSeasonEnd } from '../domain/season-dates'
 import { friendlySeasonError } from '../domain/season-errors'
 import { receiptsFromTransition } from '../domain/season-skip-receipt'
 import { announceSeasonSkipCredited } from './season-skip-notices'
+import { reopenSummaryFrom } from '../domain/season-reopen'
+import { announceSeasonReopened } from './season-reopen-notices'
 
 export type SeasonTransitionResult = { ok: true } | { error: string }
 
@@ -28,12 +30,14 @@ type SeasonFunction =
   | 'season_stop_sales'
   | 'season_resume_sales'
   | 'season_end_today'
+  | 'season_reopen'
 
 async function runSeasonTransition(
   adminEmail: string,
   fn: SeasonFunction,
   args: Record<string, unknown>,
   auditAction: string,
+  onDone?: (state: unknown) => Promise<void>,
 ): Promise<SeasonTransitionResult> {
   const sb = createAdminSupabaseClient()
   const { data, error } = await sb.rpc(fn, { ...args, p_actor: adminEmail })
@@ -53,6 +57,7 @@ async function runSeasonTransition(
       console.error('season transition: credited-skip notices failed', { fn, count: receipts.length, err })
     }
   }
+  if (onDone) await onDone(data)
   return { ok: true }
 }
 
@@ -82,4 +87,10 @@ export async function resumeSeasonSales(adminEmail: string): Promise<SeasonTrans
 
 export async function endSeasonToday(adminEmail: string): Promise<SeasonTransitionResult> {
   return runSeasonTransition(adminEmail, 'season_end_today', {}, 'season_ended_today')
+}
+
+/** break → open (spec §5): holds become ready; reopening notices are Plan F. */
+export async function reopenSeason(adminEmail: string): Promise<SeasonTransitionResult> {
+  return runSeasonTransition(adminEmail, 'season_reopen', {}, 'season_reopened', (state) =>
+    announceSeasonReopened(reopenSummaryFrom(state)))
 }

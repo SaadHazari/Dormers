@@ -12,6 +12,7 @@ import {
     stopSeasonSales,
     resumeSeasonSales,
     endSeasonToday,
+    reopenSeason,
     type SeasonTransitionResult,
 } from '@/contexts/season/usecases/season-transitions'
 
@@ -59,6 +60,13 @@ export async function resumeSeasonSalesAction(): Promise<SeasonTransitionResult>
 export async function endSeasonTodayAction(): Promise<SeasonTransitionResult> {
     const user = await requireAdmin()
     const result = await endSeasonToday(user.email)
+    revalidatePath('/admin/season')
+    return result
+}
+
+export async function reopenSeasonAction(): Promise<SeasonTransitionResult> {
+    const user = await requireAdmin()
+    const result = await reopenSeason(user.email)
     revalidatePath('/admin/season')
     return result
 }
