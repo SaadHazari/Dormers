@@ -552,12 +552,12 @@ const thuNow = `&now=${dateOnly(Date.now() + 4 * 3600000 + THURSDAY * DAY)}`
 const thuClock = aeAt('12:00', THURSDAY)
 menu('nosub', 'No active plan', 'A customer who never had a plan: "No active plan" with Explore plans; the week is plain browsing — full colour, no labels, no "today" ring.', 'activeSubscription null, no ended plan.')
 menu('nosub', 'No plan yet — religious signup', 'The header reads "Mix · veg Mon, Wed" from the saved profile days, and those days show the veg dish.', 'No plan; Religious Preference with saved veg days.', '&pref=mix', { id: 'menu-nosub-mix' })
-menu('active', 'Active plan — this week and next', 'Today\'s spotlight with the live countdown and macros; this week\'s six cards (delivered / today / upcoming) and next week\'s preview strip.', 'Active sub.')
+menu('active', 'Active plan — this week and next', 'Today\'s spotlight with the live countdown and macros; this week\'s six cards (edge-to-edge photo, day·date stamp, Delivered / Tonight pills, dish headline, "Non-veg · Medium" meta) and next week\'s preview strip. Plain cards are dinners that are coming: no "Upcoming" pill.', 'Active sub.')
 menu('skipped', 'Skips in the week (past, tonight, future)', 'The top card becomes "Skipped tonight" and names the real next delivery; yesterday, tonight and the future skip are grey with their labels.', 'skipped_dates yesterday/today/+2, status Skipped.')
 menu('paused', 'Plan paused mid-week', 'Every day grey: the two paused days behind today read "Paused" (not "Delivered"), today onward "Paused" — next week too, past the end date. The card links to Resume.', 'status Paused since Tuesday, end_date +6d; Thursday.', thuNow, { clock: thuClock })
 menu('planned-pause', 'Pause begins in two days', 'The pause-start day is grey "Pause begins", later days grey "Paused"; tonight is still a normal dinner.', 'planned_pause_start +2d.')
 menu('plan-ends', 'Plan ends in two days', 'A "Your last dinner is …" line with Renew sits above the week and that one day\'s card reads "Last dinner"; days after it go grey with a lock and "Renew to unlock", and tapping one routes to renew.', 'end_date +2d, no queued renewal.')
-menu('plan-ends', 'Plan ends — queued renewal covers the days', 'With a queued plan the same days stay normal "Upcoming" and no ending line shows.', 'end_date +2d, hasQueuedRenewal.', '&queued=1', { id: 'menu-plan-ends-queued' })
+menu('plan-ends', 'Plan ends — queued renewal covers the days', 'With a queued plan the same days stay normal dinners and no ending line shows.', 'end_date +2d, hasQueuedRenewal.', '&queued=1', { id: 'menu-plan-ends-queued' })
 menu('plan-ends', 'Plan ends during the semester break', 'Days after the plan are grey "Semester break" without the lock; the ending line carries the semester-break note instead of Renew, and tapping a day explains why and what happens next.', 'end_date +2d, intake paused.', '&gate=season', { id: 'menu-plan-ends-season' })
 menu('plan-ends', 'Plan ends — dorm out of zone', 'Renew is a grey pill with the out-of-zone reason; days after the plan keep the lock and "Renew to unlock", but tapping one opens the dish with what is holding renewal back.', 'end_date +2d, out_of_zone.', '&gate=zone', { id: 'menu-plan-ends-zone' })
 menu('last-day', 'Last dinner tonight', 'Tonight\'s ticket adds "Last dinner of your Monthly Premium" with Renew; every day after tonight is grey and locked.', 'end_date today, no queued renewal.')
@@ -573,7 +573,7 @@ menu('active', 'Sunday — rest day', 'Sunday spotlight: "Sunday — no delivery
 // The jump stays under IdleRefreshToast's 30-min threshold, or "You've been away"
 // covers a card.
 menu('active', 'Delivered today (evening)', 'After 8 PM the countdown reads "Delivered today".', '20:07 AE (clock lands at 19:52, then jumps 15 min so the countdown re-renders).', '', { id: 'menu-delivered', clock: aeAt('19:52'), actions: [{ type: 'clockForward', ms: 900000, settleMs: 1200 }] })
-menu('active', 'Vegetarian menu', 'Veg dishes across the week with green spines.', 'Veg preference.', '&pref=veg', { id: 'menu-veg' })
+menu('active', 'Vegetarian menu', 'Veg dishes across the week: the meta line reads "Veg" in green with the hollow mark.', 'Veg preference.', '&pref=veg', { id: 'menu-veg' })
 menu('active', 'Religious mix (Mon/Wed veg)', 'Mixed week: veg on Monday and Wednesday, non-veg elsewhere; MIX tag in the header.', 'Religious Preference.', '&pref=mix', { id: 'menu-mix' })
 menu('active', '5-day plan — Saturday off', 'Saturday renders as an off day.', 'week_type 5DAYS.', '&week=5', { id: 'menu-5days' })
 SS('7.2 · Dish detail')
@@ -597,7 +597,7 @@ add('menu-closure-today', 'Kitchen closed today on the menu', {
   conditions: 'closureDates includes today.', url: '/dashboard/menu?preview=1&state=active&closure=today', kind: 'page', clock: aeAt('12:00'),
 })
 add('menu-closure-ahead', 'Closure later this week on the menu', {
-  description: 'Upcoming closed days wear the "Kitchen closed" chip instead of "Upcoming"; tonight is unaffected.',
+  description: 'Upcoming closed days wear the "Kitchen closed" chip; tonight is unaffected.',
   conditions: 'closureDates tomorrow + day after.', url: '/dashboard/menu?preview=1&state=active&closure=1', kind: 'page', clock: aeAt('12:00'),
 })
 
