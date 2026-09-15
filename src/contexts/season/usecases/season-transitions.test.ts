@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { rpcMock, invalidateMock, auditMock } = vi.hoisted(() => ({
+const { rpcMock, invalidateMock, auditMock, announceMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
   invalidateMock: vi.fn(),
   auditMock: vi.fn(),
+  announceMock: vi.fn(),
 }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/infra/supabase/admin-client', () => ({ createAdminSupabaseClient: () => ({ rpc: rpcMock }) }))
 vi.mock('@/infra/config/intake', () => ({ invalidateIntakeCache: invalidateMock }))
 vi.mock('@/contexts/admin/usecases/audit', () => ({ logAdminAction: auditMock }))
+vi.mock('./season-skip-notices', () => ({ announceSeasonSkipCredited: announceMock }))
 
 import { scheduleSeasonEnd, moveSeasonEnd, clearSeasonEnd, stopSeasonSales, resumeSeasonSales, endSeasonToday } from './season-transitions'
 
@@ -18,6 +20,7 @@ beforeEach(() => {
   rpcMock.mockReset()
   invalidateMock.mockReset()
   auditMock.mockReset()
+  announceMock.mockReset()
   vi.useFakeTimers()
   // 12:00 in Dubai on Monday 14 Sep 2026.
   vi.setSystemTime(new Date('2026-09-14T08:00:00Z'))
@@ -66,5 +69,22 @@ describe('season transitions', () => {
     expect(auditMock.mock.calls.map((c) => c[1])).toEqual([
       'season_end_moved', 'season_end_cleared', 'season_sales_stopped', 'season_sales_resumed', 'season_ended_today',
     ])
+  })
+
+  it('hands skips turned into credit to the notice hook', async () => {
+    rpcMock.mockResolvedValue({
+      data: { phase: 'winding_down', reconciled: [{ subscription_id: 's1', customer_id: 'c1', meal_dates: ['2026-09-16'], credit_fils: 1980, skipped_no_value: 0 }] },
+      error: null,
+    })
+    expect(await scheduleSeasonEnd(ADMIN, '2026-10-03', 1)).toEqual({ ok: true })
+    expect(announceMock).toHaveBeenCalledWith([
+      { subscriptionId: 's1', customerId: 'c1', mealDates: ['2026-09-16'], creditFils: 1980, source: 'reconciled' },
+    ])
+  })
+
+  it('does not call the hook when nothing was reconciled', async () => {
+    rpcMock.mockResolvedValue({ data: { phase: 'winding_down', reconciled: [] }, error: null })
+    await moveSeasonEnd(ADMIN, '2026-10-05', 0)
+    expect(announceMock).not.toHaveBeenCalled()
   })
 })

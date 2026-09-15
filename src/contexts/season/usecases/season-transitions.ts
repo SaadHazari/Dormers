@@ -16,6 +16,8 @@ import { invalidateIntakeCache } from '@/infra/config/intake'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { todayAeIso, validateSeasonEnd } from '../domain/season-dates'
 import { friendlySeasonError } from '../domain/season-errors'
+import { receiptsFromTransition } from '../domain/season-skip-receipt'
+import { announceSeasonSkipCredited } from './season-skip-notices'
 
 export type SeasonTransitionResult = { ok: true } | { error: string }
 
@@ -39,6 +41,10 @@ async function runSeasonTransition(
   invalidateIntakeCache()
   if (error) return { error: friendlySeasonError(error.message) }
   await logAdminAction(adminEmail, auditAction, 'intake_settings', 'singleton', { ...args, state: data })
+  // Scheduling or moving the wrap-up day turns skips whose make-up meal now
+  // lands after it into wallet credit (spec §7.2 reconciliation).
+  const receipts = receiptsFromTransition(data)
+  if (receipts.length > 0) await announceSeasonSkipCredited(receipts)
   return { ok: true }
 }
 
