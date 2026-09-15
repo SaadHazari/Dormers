@@ -53,3 +53,12 @@ describe('season-dates', () => {
     expect(formatShortDay('2026-12-25')).toBe('Fri 25 Dec')
   })
 })
+
+describe('nextTenAmAe (spec §12.1)', () => {
+  it('is today at 10:00 Dubai before that, tomorrow after', async () => {
+    const { nextTenAmAe } = await import('./season-dates')
+    expect(nextTenAmAe(new Date('2026-10-06T05:59:00Z')).toISOString()).toBe('2026-10-06T06:00:00.000Z')
+    expect(nextTenAmAe(new Date('2026-10-06T06:00:00Z')).toISOString()).toBe('2026-10-07T06:00:00.000Z')
+    expect(nextTenAmAe(new Date('2026-10-06T21:30:00Z')).toISOString()).toBe('2026-10-07T06:00:00.000Z')
+  })
+})

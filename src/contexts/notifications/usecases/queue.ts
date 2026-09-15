@@ -43,6 +43,17 @@ export type CustomerNotificationKind =
     // seasonWhatsAppReady, which fails closed for exactly that reason.
     | 'intake_ended_credit'
     | 'intake_ended_offer'
+    // Season wind-down (spec §12.4). Queued only behind
+    // WHATSAPP_SEASON_TEMPLATES_ENABLED, which fails closed until the eight
+    // templates are approved at Meta and their tpl_<kind> secrets exist.
+    | 'season_plan_runs_past'
+    | 'season_last_dinners'
+    | 'season_skip_credited'
+    | 'season_plan_held'
+    | 'season_pause_carries'
+    | 'season_spot_saved'
+    | 'season_plan_ready'
+    | 'season_credit_waiting'
 
 /**
  * Queue a WhatsApp notification for a customer.

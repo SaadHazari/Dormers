@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { rpcMock, invalidateMock, auditMock, announceMock, reopenNoticeMock } = vi.hoisted(() => ({
+const { rpcMock, invalidateMock, auditMock, announceMock, reopenNoticeMock, scheduleNoticeMock, clearNoticeMock } = vi.hoisted(() => ({
+  scheduleNoticeMock: vi.fn(),
+  clearNoticeMock: vi.fn(),
   rpcMock: vi.fn(),
   invalidateMock: vi.fn(),
   auditMock: vi.fn(),
@@ -13,6 +15,7 @@ vi.mock('@/infra/config/intake', () => ({ invalidateIntakeCache: invalidateMock 
 vi.mock('@/contexts/admin/usecases/audit', () => ({ logAdminAction: auditMock }))
 vi.mock('./season-skip-notices', () => ({ announceSeasonSkipCredited: announceMock }))
 vi.mock('./season-reopen-notices', () => ({ announceSeasonReopened: reopenNoticeMock }))
+vi.mock('./season-schedule-notices', () => ({ afterScheduleChange: scheduleNoticeMock, afterScheduleCleared: clearNoticeMock }))
 
 import { scheduleSeasonEnd, moveSeasonEnd, clearSeasonEnd, stopSeasonSales, resumeSeasonSales, endSeasonToday, reopenSeason } from './season-transitions'
 
@@ -72,6 +75,9 @@ describe('season transitions', () => {
     expect(auditMock.mock.calls.map((c) => c[1])).toEqual([
       'season_end_moved', 'season_end_cleared', 'season_sales_stopped', 'season_sales_resumed', 'season_ended_today',
     ])
+    // Plan E: the schedule hooks queue N2 and tell the owner, after the audit.
+    expect(scheduleNoticeMock).toHaveBeenCalledWith('moved')
+    expect(clearNoticeMock).toHaveBeenCalledTimes(1)
   })
 
   it('hands skips turned into credit to the notice hook', async () => {

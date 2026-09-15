@@ -85,3 +85,13 @@ export function formatShortDay(iso: string): string {
   const month = SHORT_MONTHS[Number(monthStr) - 1]
   return `${weekday} ${Number(dayStr)} ${month}`
 }
+
+/** The next 10:00 in Dubai strictly after `now` (spec §12.1); twin of SQL _season_next_ten_am. */
+export function nextTenAmAe(now: Date = new Date()): Date {
+  const ae = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+  const day = ae.toISOString().slice(0, 10)
+  const todayTen = new Date(`${day}T10:00:00+04:00`)
+  if (todayTen.getTime() > now.getTime()) return todayTen
+  const next = new Date(todayTen.getTime() + 24 * 60 * 60 * 1000)
+  return next
+}

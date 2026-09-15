@@ -20,6 +20,7 @@ import { cycleSavings, type SubscriptionForSavings, type CustomerForSavings } fr
 import { runSubscriptionEndedForCustomer } from '@/contexts/notifications/usecases/subscription-ended-fanout'
 import { resolveEndedNotice } from '@/contexts/notifications/domain/pause-suppression'
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { noPlanCanFollow } from '@/contexts/subscriptions/domain/intake-cycle'
 import { getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { timingSafeCompare } from '@/shared/crypto'
 
@@ -114,12 +115,23 @@ export async function POST(req: Request) {
   // paused"), so a hiccup here degrades to the normal send rather than
   // silencing a customer.
   const intakeState = await getIntakeState()
-  // The wallet read only matters while paused — skip the two queries otherwise.
-  const unspentCreditAed = intakeState.paused
+  // Spec G8 (Plan E): the season version also applies during the break and
+  // while winding down when no Monthly or Weekly plan can follow before the
+  // wrap-up day; renewal checkout would refuse or taper them anyway.
+  const seasonEnded = intakeState.paused || intakeState.phase === 'break' || (intakeState.phase === 'winding_down' && !!intakeState.wrapUpDay
+    && noPlanCanFollow({
+      salesStopped: intakeState.paused,
+      paused: intakeState.paused,
+      wrapUpDay: intakeState.wrapUpDay,
+      lastLiveEndDate: sub.end_date,
+      weekType: sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
+    }))
+  // The wallet read only matters for the season version — skip the two queries otherwise.
+  const unspentCreditAed = seasonEnded
     ? (await getWaitlistStatus(supabase, customer.id, intakeState.cycleStartedAt)).unspentCreditAed
     : 0
   const notice = resolveEndedNotice({
-    paused: intakeState.paused,
+    paused: seasonEnded,
     unspentCreditAed,
     offerAed: creditAedFor(intakeState, customer.meal_preference_type),
     // Turn on ONLY once both season templates are approved at Meta AND their

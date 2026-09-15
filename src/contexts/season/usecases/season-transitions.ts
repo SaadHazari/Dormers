@@ -20,6 +20,7 @@ import { receiptsFromTransition } from '../domain/season-skip-receipt'
 import { announceSeasonSkipCredited } from './season-skip-notices'
 import { reopenSummaryFrom } from '../domain/season-reopen'
 import { announceSeasonReopened } from './season-reopen-notices'
+import { afterScheduleChange, afterScheduleCleared } from './season-schedule-notices'
 
 export type SeasonTransitionResult = { ok: true } | { error: string }
 
@@ -64,17 +65,19 @@ async function runSeasonTransition(
 export async function scheduleSeasonEnd(adminEmail: string, wrapUpDay: string, bufferDays: number): Promise<SeasonTransitionResult> {
   const invalid = validateSeasonEnd({ wrapUpDay, bufferDays, todayAe: todayAeIso() })
   if (invalid) return { error: invalid }
-  return runSeasonTransition(adminEmail, 'season_schedule_end', { p_wrap_up: wrapUpDay, p_buffer: bufferDays }, 'season_end_scheduled')
+  return runSeasonTransition(adminEmail, 'season_schedule_end', { p_wrap_up: wrapUpDay, p_buffer: bufferDays }, 'season_end_scheduled', () =>
+    afterScheduleChange('scheduled'))
 }
 
 export async function moveSeasonEnd(adminEmail: string, wrapUpDay: string, bufferDays: number): Promise<SeasonTransitionResult> {
   const invalid = validateSeasonEnd({ wrapUpDay, bufferDays, todayAe: todayAeIso() })
   if (invalid) return { error: invalid }
-  return runSeasonTransition(adminEmail, 'season_move_end', { p_wrap_up: wrapUpDay, p_buffer: bufferDays }, 'season_end_moved')
+  return runSeasonTransition(adminEmail, 'season_move_end', { p_wrap_up: wrapUpDay, p_buffer: bufferDays }, 'season_end_moved', () =>
+    afterScheduleChange('moved'))
 }
 
 export async function clearSeasonEnd(adminEmail: string): Promise<SeasonTransitionResult> {
-  return runSeasonTransition(adminEmail, 'season_clear_end', {}, 'season_end_cleared')
+  return runSeasonTransition(adminEmail, 'season_clear_end', {}, 'season_end_cleared', () => afterScheduleCleared())
 }
 
 export async function stopSeasonSales(adminEmail: string): Promise<SeasonTransitionResult> {

@@ -2,6 +2,10 @@
 
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
+import { sendSeasonEmail } from '@/infra/zeptomail/client'
+import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
+import { seasonWhatsAppEnabled } from '@/contexts/season/usecases/season-skip-notices'
+import { aedText, firstNameOf, WALLET_URL } from '@/contexts/season/domain/season-messages'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE, SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
 import { resolveJoinCycle, noPlanCanFollow, PLAN_CAN_FOLLOW_MESSAGE } from '../domain/intake-cycle'
@@ -58,6 +62,35 @@ async function findCycleCredit(
  * with 23505 too, so we re-read and report the real amount instead of
  * claiming a second one was created.
  */
+/**
+ * N12 (spec §12.2): the spot is saved, immediately, on both channels. Email is
+ * code-only HTML; WhatsApp waits for WHATSAPP_SEASON_TEMPLATES_ENABLED. Never
+ * throws into the join: the spot and the credit are already saved.
+ */
+async function announceSpotSaved(sb: AdminSupabaseClient, userId: string, creditAed: number): Promise<void> {
+  try {
+    const { data } = await sb.from('customers').select('name, email').eq('id', userId).maybeSingle()
+    const c = (data ?? null) as { name?: string | null; email?: string | null } | null
+    const firstName = firstNameOf(c?.name)
+    if (c?.email) {
+      await sendSeasonEmail({
+        toEmail: c.email,
+        firstName,
+        subject: 'Your spot is saved',
+        bodyText:
+          `Your spot is saved. AED ${aedText(creditAed)} is in your Credit Wallet for your first Monthly plan when we reopen, and it does not expire.\n\n` +
+          "We'll message you the day the kitchen is back.",
+        cta: { label: 'See my wallet', url: WALLET_URL },
+      })
+    }
+    if (seasonWhatsAppEnabled() && creditAed > 0) {
+      await queueCustomerNotification(userId, 'season_spot_saved', new Date(), { credit_aed: aedText(creditAed) })
+    }
+  } catch (err) {
+    console.error('season_spot_saved notice failed (spot and credit are saved)', err)
+  }
+}
+
 async function mintWaitlistCredit(
   sb: AdminSupabaseClient,
   customerId: string,
@@ -288,6 +321,7 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
 
   const waitlistId = (waitlistRow as { id: string }).id
   const minted = await mintWaitlistCredit(sb, user.id, waitlistId, creditAed)
+  if (minted) void announceSpotSaved(sb, user.id, minted.amountAed)
   if (!minted) {
     // The spot is saved either way. An admin can reconcile a missing credit
     // from the waitlist row, which is better than failing the customer's tap.

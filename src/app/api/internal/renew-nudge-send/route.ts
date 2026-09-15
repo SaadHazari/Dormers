@@ -17,7 +17,9 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { cycleSavings, type SubscriptionForSavings, type CustomerForSavings } from '@/contexts/subscriptions/domain/savings'
 import { runRenewNudgeForCustomer } from '@/contexts/notifications/usecases/renew-nudge-fanout'
-import { getIntakeState } from '@/infra/config/intake'
+import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { noPlanCanFollow } from '@/contexts/subscriptions/domain/intake-cycle'
+import { nextTenAmAe } from '@/contexts/season/domain/season-dates'
 import { timingSafeCompare } from '@/shared/crypto'
 
 const RENEW_LINK = 'https://dormers.ae/dashboard/plan?renew=1'
@@ -72,8 +74,8 @@ export async function POST(req: Request) {
   // repo migration. getIntakeState fails open — a settings-read problem
   // resolves to "not paused" and the nudge goes out as normal.
   const intakeState = await getIntakeState()
-  if (intakeState.paused) {
-    return NextResponse.json({ ok: true, subscription_id: subId, skipped: 'intake_paused' })
+  if (intakeState.phase === 'break') {
+    return NextResponse.json({ ok: true, subscription_id: subId, skipped: 'season_break' })
   }
 
   const supabase = createAdminSupabaseClient()
@@ -85,6 +87,41 @@ export async function POST(req: Request) {
     .maybeSingle()
   if (!sub) {
     return NextResponse.json({ error: 'subscription_not_found' }, { status: 404 })
+  }
+
+  // Spec G7 (Plan E): while the season winds down, a plan no new plan can
+  // follow before the wrap-up day is not nudged to renew; it gets the last
+  // dinners notice (N4) through the season outbox at 10:00 instead. Sales
+  // stopped means nothing can follow either.
+  const seasonEnding = intakeState.paused || (intakeState.phase === 'winding_down' && !!intakeState.wrapUpDay
+    && noPlanCanFollow({
+      salesStopped: intakeState.paused,
+      paused: intakeState.paused,
+      wrapUpDay: intakeState.wrapUpDay,
+      lastLiveEndDate: sub.end_date,
+      weekType: sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
+    }))
+  if (seasonEnding) {
+    if (!intakeState.wrapUpDay || !intakeState.cycleStartedAt) {
+      return NextResponse.json({ ok: true, subscription_id: subId, skipped: 'intake_paused' })
+    }
+    const { data: customerPref } = await supabase.from('customers').select('meal_preference_type').eq('id', sub.customer_id).maybeSingle()
+    const { data: queued, error } = await supabase.rpc('season_queue_notice', {
+      p_kind: 'season_last_dinners',
+      p_customer_id: sub.customer_id,
+      p_subject_id: sub.id,
+      p_cycle: intakeState.cycleStartedAt,
+      p_fact_key: '',
+      p_send_after: nextTenAmAe().toISOString(),
+      p_payload: {
+        plan_name: sub.plan_name,
+        last_dinner: sub.end_date,
+        wrap_up_day: intakeState.wrapUpDay,
+        offer_aed: creditAedFor(intakeState, (customerPref as { meal_preference_type?: string } | null)?.meal_preference_type),
+      },
+    })
+    if (error) return NextResponse.json({ error: 'season_queue_failed', detail: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, subscription_id: subId, season_last_dinners: queued === true ? 'queued' : 'already_queued' })
   }
 
   const { data: customer } = await supabase
