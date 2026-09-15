@@ -63,4 +63,10 @@ describe('the backfill counts credit and reports Stripe failures safely', () => 
     expect(src).toContain('return { unresolvable: stripeErrorSummary(err) }')
     expect(src).not.toContain('(err as Error).message')
   })
+
+  it('counts a write only when the order row really changed', () => {
+    const src = read('scripts/backfill-order-money.ts')
+    expect(src).toContain("{ count: 'exact' }")
+    expect(src).toContain('count === 1')
+  })
 })

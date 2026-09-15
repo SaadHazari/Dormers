@@ -172,12 +172,17 @@ async function main() {
       continue
     }
     if (WRITE) {
-      const { error } = await sb.from('orders').update(money).eq('id', order.id).is('amount_paid_fils', null)
+      const { error, count } = await sb.from('orders').update(money, { count: 'exact' }).eq('id', order.id).is('amount_paid_fils', null)
       if (error) {
         report.push({ ...base, result: 'write failed', detail: error.message })
         continue
       }
-      written++
+      if (count === 1) {
+        written++
+      } else {
+        report.push({ ...base, result: 'skipped', detail: 'already recorded' })
+        continue
+      }
     }
     report.push({ ...base, result: WRITE ? 'written' : 'would write', detail: `card ${money.amount_paid_fils} fils, credit ${money.credit_applied_fils} fils` })
   }
