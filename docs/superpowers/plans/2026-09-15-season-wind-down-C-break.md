@@ -103,11 +103,11 @@ The TypeScript twin is `deliveryTickCooks` and `kitchenCountsPlan` in `season-ki
 | Create `src/contexts/season/domain/season-projection.fixtures.ts`, `season-projection.lockstep.test.ts` | Shared fixtures for the TypeScript and SQL projection |
 | Modify `src/contexts/season/domain/customer-season.ts` (+ test), `src/app/admin/season/season-data.ts` (+ test) | Map `resume_cutoff_date`; the break board's data (Task 14) |
 | Create `scripts/season-projection-lockstep.ts`; modify `package.json` | Print the lockstep `DO` block |
-| Create `supabase/migrations/20260916_season_project_plans.sql` | `_season_buffer_slots_used`, `_season_buffer_cooks`, `_season_projection_result`, `_season_project_plan`, `season_project_plans` |
-| Create `supabase/migrations/20260916_season_kitchen_guards.sql` | G1 delivery tick, G4 status tick, G6 failsafe |
-| Create `supabase/migrations/20260916_season_status_triggers.sql` | G2 `trg_subscriptions_season_guard`, G3 `trg_subscriptions_season_arrival` |
-| Create `supabase/migrations/20260916_season_begin_break.sql` | `season_begin_break`, `season_break_tick`, `season_invariants_tick` |
-| Create `supabase/migrations/20260916_season_reopen_release.sql` | `season_reopen`, `season_release_hold`, `season_end_today` reconciling skips |
+| Create `supabase/migrations/20260915125204_season_project_plans.sql` | `_season_buffer_slots_used`, `_season_buffer_cooks`, `_season_projection_result`, `_season_project_plan`, `season_project_plans` |
+| Create `supabase/migrations/20260915125421_season_kitchen_guards.sql` | G1 delivery tick, G4 status tick, G6 failsafe |
+| Create `supabase/migrations/20260915125614_season_status_triggers.sql` | G2 `trg_subscriptions_season_guard`, G3 `trg_subscriptions_season_arrival` |
+| Create `supabase/migrations/20260915125858_season_begin_break.sql` | `season_begin_break`, `season_break_tick`, `season_invariants_tick` |
+| Create `supabase/migrations/20260915130119_season_reopen_release.sql` | `season_reopen`, `season_release_hold`, `season_end_today` reconciling skips |
 | Create `supabase/migrations/20260916_season_break_cron.sql` | Cron switch |
 | Create `src/contexts/season/domain/season-break-errors.ts` (+ test) | Break and release copy, error mapping |
 | Create `src/contexts/season/usecases/release-hold.ts` (+ test) | `releaseSeasonHold` |
@@ -306,7 +306,7 @@ describe('kitchenCountsPlan', () => {
 /**
  * Shared fixtures for the season projection. The TypeScript projection
  * (season-projection.ts) must return `expected` for each one, and the SQL
- * twin (_season_project_plan in supabase/migrations/20260916_season_project_plans.sql)
+ * twin (_season_project_plan in supabase/migrations/20260915125204_season_project_plans.sql)
  * must return the same: scripts/season-projection-lockstep.ts checks it on live.
  *
  * Anchors: Mon 28 Sep 2026 is today unless a fixture says otherwise. Sun 4 Oct
@@ -585,8 +585,8 @@ Expected: FAIL. `./season-kitchen` cannot be resolved; the projection still walk
  *
  * Pure and client-importable. Mirrors what the nightly SQL runs:
  * _season_buffer_slots_used and _season_buffer_cooks
- * (supabase/migrations/20260916_season_project_plans.sql) and the delivery
- * tick's own conditions (20260916_season_kitchen_guards.sql). "Does this plan
+ * (supabase/migrations/20260915125204_season_project_plans.sql) and the delivery
+ * tick's own conditions (20260915125421_season_kitchen_guards.sql). "Does this plan
  * cook on day D" is never decided by status alone: a plan whose last meal was
  * credited today still reads Skipped or Active for a night.
  */
@@ -827,7 +827,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 2: The SQL projection twin, checked in lockstep on live
 
 **Files:**
-- Create: `supabase/migrations/20260916_season_project_plans.sql`
+- Create: `supabase/migrations/20260915125204_season_project_plans.sql`
 - Create: `scripts/season-projection-lockstep.ts`
 - Modify: `package.json`
 
@@ -845,7 +845,7 @@ Additive: no existing function changes and nothing calls these until Task 3. Saf
 
 - [ ] **Step 1: Write the migration file**
 
-`supabase/migrations/20260916_season_project_plans.sql`:
+`supabase/migrations/20260915125204_season_project_plans.sql`:
 
 ```sql
 -- ============================================================================
@@ -1186,7 +1186,7 @@ Expected: one `finishes` row per live Active or Scheduled plan and one `customer
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260916_season_project_plans.sql scripts/season-projection-lockstep.ts package.json
+git add supabase/migrations/20260915125204_season_project_plans.sql scripts/season-projection-lockstep.ts package.json
 git commit -m "feat(season): the SQL projection walks the meals left, checked against the TypeScript fixtures on live
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1196,7 +1196,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 3: The nightly ticks stop cooking after the wrap-up day (G1, G4, G6)
 
 **Files:**
-- Create: `supabase/migrations/20260916_season_kitchen_guards.sql`
+- Create: `supabase/migrations/20260915125421_season_kitchen_guards.sql`
 
 **Interfaces:**
 - Consumes: Task 2 `_season_buffer_cooks`; live `intake_settings.season_phase / wrap_up_day / close_day`; `subscriptions.season_hold_id`, `season_buffer_grants`, `credited_skip_days`.
@@ -1216,14 +1216,14 @@ select pg_get_functiondef('public.ops_failsafe_send_tick'::regproc);
 ```
 
 Expected, after normalising (Global Constraints):
-- `subscription_delivery_tick` and `subscription_status_tick` equal the bodies in `supabase/migrations/20260915_season_credited_skip_ticks.sql` (Plan B Task 5, live as migration `20260915043100 season_credited_skip_ticks`, repo commit 12bfd3e), including the two `-- Plan B` lines in each and the `comped_meal_ledger` insert with no `ON CONFLICT`.
+- `subscription_delivery_tick` and `subscription_status_tick` equal the bodies in `supabase/migrations/20260915043100_season_credited_skip_ticks.sql` (Plan B Task 5, live as migration `20260915043100 season_credited_skip_ticks`, repo commit 12bfd3e), including the two `-- Plan B` lines in each and the `comped_meal_ledger` insert with no `ON CONFLICT`.
 - `ops_failsafe_send_tick` equals the body below without the lines marked `-- Plan C`.
 
 A difference in logic stops the task: report it. The file in Step 2 is those live bodies with only the `-- Plan C` lines added; if live has moved on in a way that is only formatting, keep the live text and add the same `-- Plan C` lines to it.
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260916_season_kitchen_guards.sql`:
+`supabase/migrations/20260915125421_season_kitchen_guards.sql`:
 
 ```sql
 -- ============================================================================
@@ -1586,7 +1586,7 @@ Expected: the intake row as the owner left it; 0 holds; the plans as before the 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260916_season_kitchen_guards.sql
+git add supabase/migrations/20260915125421_season_kitchen_guards.sql
 git commit -m "feat(season): the nightly ticks cook nothing after the season and never restart a held plan
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1596,7 +1596,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 4: Nothing restarts during the break, and a sale during it is held (G2, G3)
 
 **Files:**
-- Create: `supabase/migrations/20260916_season_status_triggers.sql`
+- Create: `supabase/migrations/20260915125614_season_status_triggers.sql`
 
 **Interfaces:**
 - Consumes: live `season_holds` (unique `season_holds_one_per_plan_per_season`), `intake_settings`, `send_admin_whatsapp_alert(p_message text, p_button_text text)`.
@@ -1616,7 +1616,7 @@ Expected: `trg_subscriptions_recompute_end_date`, `trg_subscriptions_set_origina
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260916_season_status_triggers.sql`:
+`supabase/migrations/20260915125614_season_status_triggers.sql`:
 
 ```sql
 -- ============================================================================
@@ -1809,7 +1809,7 @@ Expected: the phase as the owner left it; 0 holds; `trg_subscriptions_season_arr
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260916_season_status_triggers.sql
+git add supabase/migrations/20260915125614_season_status_triggers.sql
 git commit -m "feat(season): no plan restarts during the break, and a plan sold during it is held on arrival
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1819,7 +1819,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 5: The break begins (begin-break, break tick, two invariant alerts)
 
 **Files:**
-- Create: `supabase/migrations/20260916_season_begin_break.sql`
+- Create: `supabase/migrations/20260915125858_season_begin_break.sql`
 
 **Interfaces:**
 - Consumes: Task 4 triggers (the break must not trip G2: begin-break only sets plans to Paused); live `intake_waitlist` (unique `intake_waitlist_customer_cycle_key`), `credits` (unique partial index `credits_one_per_intake_waitlist_row`), `customers.meal_preference_type`, `intake_settings.credit_*_aed`, `expense_category_for_plan(text)`, `send_admin_whatsapp_alert`, `customer_notifications`.
@@ -1848,11 +1848,11 @@ select pg_get_functiondef('public.intake_scheduled_pause_tick'::regproc);
 select jobname, schedule, command, active from cron.job where jobname = 'intake_scheduled_pause_00_15_ae';
 ```
 
-Expected: the body in `supabase/migrations/20260914_season_transitions.sql` (Plan A) and one active job `15 20 * * *`. `season_break_tick` below carries both of its paths unchanged (sales close after W; the legacy `pause_scheduled_for` path) and adds the break. The old function is left in place; Task 15 moves the cron job.
+Expected: the body in `supabase/migrations/20260914173723_season_transitions.sql` (Plan A) and one active job `15 20 * * *`. `season_break_tick` below carries both of its paths unchanged (sales close after W; the legacy `pause_scheduled_for` path) and adds the break. The old function is left in place; Task 15 moves the cron job.
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260916_season_begin_break.sql`:
+`supabase/migrations/20260915125858_season_begin_break.sql`:
 
 ```sql
 -- ============================================================================
@@ -2338,7 +2338,7 @@ Expected: the row as the owner left it with `break_started_at` null; 0 holds; 0 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260916_season_begin_break.sql
+git add supabase/migrations/20260915125858_season_begin_break.sql
 git commit -m "feat(season): the break holds every plan with meals left, credits paid holds and closes the kitchen
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -2348,7 +2348,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 6: Reopen, release a hold, and end today with skips reconciled (live SQL)
 
 **Files:**
-- Create: `supabase/migrations/20260916_season_reopen_release.sql`
+- Create: `supabase/migrations/20260915130119_season_reopen_release.sql`
 
 **Interfaces:**
 - Consumes: Task 4 G2 (release sets `dormers.season_release`); Task 5 holds; Plan A `_season_state(intake_settings)`; Plan B `season_reconcile_skips(date, date, integer)`.
@@ -2371,11 +2371,11 @@ select pg_get_functiondef('public.season_end_today'::regproc);
 select pg_get_functiondef('public.season_reconcile_skips'::regproc) is not null as reconcile_live;
 ```
 
-Expected: the body in `supabase/migrations/20260914_season_transitions.sql` (checked 2026-09-15) and `reconcile_live = true`. A difference in logic stops the task.
+Expected: the body in `supabase/migrations/20260914173723_season_transitions.sql` (checked 2026-09-15) and `reconcile_live = true`. A difference in logic stops the task.
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260916_season_reopen_release.sql`:
+`supabase/migrations/20260915130119_season_reopen_release.sql`:
 
 ```sql
 -- ============================================================================
@@ -2711,7 +2711,7 @@ Expected: the row as the owner left it (on 2026-09-15 `cycle_ended_at` is `2026-
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260916_season_reopen_release.sql
+git add supabase/migrations/20260915130119_season_reopen_release.sql
 git commit -m "feat(season): reopen makes held plans ready, Resume or a start date releases them, end today reconciles skips
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"

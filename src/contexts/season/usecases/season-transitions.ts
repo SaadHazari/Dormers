@@ -3,7 +3,7 @@ import 'server-only'
 /**
  * Season transitions, server side (spec §5).
  *
- * The SQL functions from supabase/migrations/20260914_season_transitions.sql
+ * The SQL functions from supabase/migrations/20260914173723_season_transitions.sql
  * are the authority: they lock the settings row, check the guard and keep the
  * legacy paused / pause_scheduled_for columns in step. This module validates
  * dates first (so the admin gets a precise sentence), calls the function,

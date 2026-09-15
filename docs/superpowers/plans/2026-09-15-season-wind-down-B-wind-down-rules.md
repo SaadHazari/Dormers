@@ -70,10 +70,10 @@ Confirmed by reading: Plan A's `season_schedule_end`, `season_move_end` and `sea
 | Create `src/app/dashboard/skip-allowance-wiring.test.ts` | Every skip button and count (plan bar pills, home quota, mobile calendar, skip sheet, plan page) counts credited skips |
 | Modify `src/contexts/subscriptions/domain/subscriptions.ts` | `credited_skip_days`, `credited_skip_dates`, `season_buffer_grants` on `Subscription` |
 | Modify `src/app/dashboard/_shared/types.ts` | The same fields (optional) plus `meals_per_day` on the dashboard `Subscription` |
-| Create `supabase/migrations/20260915_season_credited_skip_ticks.sql` | `credited_skip_dates` column; status and delivery ticks count credited skips |
-| Create `supabase/migrations/20260915_season_skip_functions.sql` | `season_projected_end`, `season_make_up_day`, `season_skip_credit_fils`, `season_skip`, `season_unskip` |
-| Create `supabase/migrations/20260915_season_skip_credit_tick.sql` | `season_skip_credit_tick` and its cron job |
-| Create `supabase/migrations/20260915_season_reconcile_skips.sql` | `season_reconcile_skips`; `season_schedule_end` and `season_move_end` call it |
+| Create `supabase/migrations/20260915043100_season_credited_skip_ticks.sql` | `credited_skip_dates` column; status and delivery ticks count credited skips |
+| Create `supabase/migrations/20260915043834_season_skip_functions.sql` | `season_projected_end`, `season_make_up_day`, `season_skip_credit_fils`, `season_skip`, `season_unskip` |
+| Create `supabase/migrations/20260915044446_season_skip_credit_tick.sql` | `season_skip_credit_tick` and its cron job |
+| Create `supabase/migrations/20260915082710_season_reconcile_skips.sql` | `season_reconcile_skips`; `season_schedule_end` and `season_move_end` call it |
 | Modify `src/app/admin/_components/cron-registry.ts` | Registry entry for the credit tick |
 | Create `src/contexts/season/domain/season-skip-receipt.ts` (+ test) | Receipt type and the parser for reconciliation results |
 | Create `src/contexts/season/usecases/season-skip-notices.ts` | `announceSeasonSkipCredited`, the Plan E hook |
@@ -296,7 +296,7 @@ Expected: FAIL with "Failed to resolve import './skip-outcome'".
  * the server action decides again on fresh data, and SQL season_skip recomputes
  * it under a row lock. projectedEndDate / makeUpDayFor mirror
  * season_projected_end / season_make_up_day in
- * supabase/migrations/20260915_season_skip_functions.sql.
+ * supabase/migrations/20260915043834_season_skip_functions.sql.
  */
 
 import { addDaysIso, isDeliveryDayIso, type SeasonWeekType } from './season-dates'
@@ -1619,7 +1619,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 5: Credited skip dates, and the ticks count credited skips (live SQL)
 
 **Files:**
-- Create: `supabase/migrations/20260915_season_credited_skip_ticks.sql`
+- Create: `supabase/migrations/20260915043100_season_credited_skip_ticks.sql`
 
 **Interfaces:**
 - Consumes: live `subscriptions.credited_skip_days` (Plan A), `public.ae_today()`, `public.is_delivery_day(date, text)`, `public.is_company_closure(date)`.
@@ -1645,7 +1645,7 @@ Expected: the status tick has five steps and step 5 reads `AND delivered_meals >
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260915_season_credited_skip_ticks.sql`:
+`supabase/migrations/20260915043100_season_credited_skip_ticks.sql`:
 
 ```sql
 -- ============================================================================
@@ -1861,7 +1861,7 @@ Expected: `ARRAY | NO | '{}'::date[]`; `customer_can_write = false`; `live_plans
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260915_season_credited_skip_ticks.sql
+git add supabase/migrations/20260915043100_season_credited_skip_ticks.sql
 git commit -m "feat(season): plans with credited skips end on time and never cook a credited meal
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1872,7 +1872,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 6: Season skip functions (live SQL)
 
 **Files:**
-- Create: `supabase/migrations/20260915_season_skip_functions.sql`
+- Create: `supabase/migrations/20260915043834_season_skip_functions.sql`
 
 **Interfaces:**
 - Consumes: Task 5 column; Tasks 3 and 4 order money (`orders.amount_paid_fils`, `credit_applied_fils`, backfilled before this runs); Plan A `public.season_close_day(date, integer)`, `intake_settings.season_phase / wrap_up_day / close_day / buffer_delivery_days`; the unique index `credits_one_season_skip_per_meal`.
@@ -1897,7 +1897,7 @@ Expected: no functions; the index is `UNIQUE ... (subscription_id, meal_date) WH
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260915_season_skip_functions.sql`:
+`supabase/migrations/20260915043834_season_skip_functions.sql`:
 
 ```sql
 -- ============================================================================
@@ -2398,7 +2398,7 @@ Expected: `false | false | true`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260915_season_skip_functions.sql
+git add supabase/migrations/20260915043834_season_skip_functions.sql
 git commit -m "feat(season): SQL writes credited skips and buffer grants, and checks the season and amount first
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -2409,7 +2409,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 7: Release pending skip credit nightly (live SQL, cron, registry)
 
 **Files:**
-- Create: `supabase/migrations/20260915_season_skip_credit_tick.sql`
+- Create: `supabase/migrations/20260915044446_season_skip_credit_tick.sql`
 - Modify: `src/app/admin/_components/cron-registry.ts`
 
 **Interfaces:**
@@ -2418,7 +2418,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the migration file**
 
-`supabase/migrations/20260915_season_skip_credit_tick.sql`:
+`supabase/migrations/20260915044446_season_skip_credit_tick.sql`:
 
 ```sql
 -- ============================================================================
@@ -2534,7 +2534,7 @@ Expected: no type errors; tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260915_season_skip_credit_tick.sql src/app/admin/_components/cron-registry.ts
+git add supabase/migrations/20260915044446_season_skip_credit_tick.sql src/app/admin/_components/cron-registry.ts
 git commit -m "feat(season): credit from a future season skip lands in the wallet the night after the meal
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -2545,7 +2545,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 8: Reconcile skips when the wrap-up day is set or moved
 
 **Files:**
-- Create: `supabase/migrations/20260915_season_reconcile_skips.sql`
+- Create: `supabase/migrations/20260915082710_season_reconcile_skips.sql`
 - Create: `src/contexts/season/domain/season-skip-receipt.ts`
 - Test: `src/contexts/season/domain/season-skip-receipt.test.ts`
 - Create: `src/contexts/season/usecases/season-skip-notices.ts`
@@ -2570,7 +2570,7 @@ select pg_get_functiondef('public.season_schedule_end'::regproc);
 select pg_get_functiondef('public.season_move_end'::regproc);
 ```
 
-Compare each body with the Plan A mirror `supabase/migrations/20260914_season_transitions.sql` after normalising the formatting `pg_get_functiondef` changes: collapse every run of whitespace (line breaks included) to one space, and read `SET search_path TO 'public'` as `SET search_path = public` and `$function$` as `$$`. Expected: identical after normalising (checked 2026-09-15). Only a difference in logic (a guard, a column, a value or a statement) stops the task; report it. The Step 6 bodies below are the live text with the `-- Plan B` lines added.
+Compare each body with the Plan A mirror `supabase/migrations/20260914173723_season_transitions.sql` after normalising the formatting `pg_get_functiondef` changes: collapse every run of whitespace (line breaks included) to one space, and read `SET search_path TO 'public'` as `SET search_path = public` and `$function$` as `$$`. Expected: identical after normalising (checked 2026-09-15). Only a difference in logic (a guard, a column, a value or a statement) stops the task; report it. The Step 6 bodies below are the live text with the `-- Plan B` lines added.
 
 - [ ] **Step 2: Write the failing TypeScript tests**
 
@@ -2738,7 +2738,7 @@ Expected: PASS.
 
 - [ ] **Step 6: Write the migration file**
 
-`supabase/migrations/20260915_season_reconcile_skips.sql`:
+`supabase/migrations/20260915082710_season_reconcile_skips.sql`:
 
 ```sql
 -- ============================================================================
@@ -3001,7 +3001,7 @@ Expected: `winding_down | null | null` (unless the owner has scheduled a wrap-up
 - [ ] **Step 9: Commit**
 
 ```bash
-git add supabase/migrations/20260915_season_reconcile_skips.sql src/contexts/season/domain/season-skip-receipt.ts src/contexts/season/domain/season-skip-receipt.test.ts src/contexts/season/usecases/season-skip-notices.ts src/contexts/season/usecases/season-transitions.ts src/contexts/season/usecases/season-transitions.test.ts
+git add supabase/migrations/20260915082710_season_reconcile_skips.sql src/contexts/season/domain/season-skip-receipt.ts src/contexts/season/domain/season-skip-receipt.test.ts src/contexts/season/usecases/season-skip-notices.ts src/contexts/season/usecases/season-transitions.ts src/contexts/season/usecases/season-transitions.test.ts
 git commit -m "feat(season): setting or moving the wrap-up day turns stranded make-up meals into credit
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"

@@ -42,6 +42,7 @@ vi.mock('@/contexts/season/usecases/skip-season', () => ({
   loadSkipSeasonContext: vi.fn(),
   applySeasonSkip: vi.fn(),
   applySeasonUnskip: vi.fn(),
+  trimSeasonBufferGrants: vi.fn(),
 }))
 vi.mock('@/contexts/season/usecases/season-skip-notices', () => ({
   announceSeasonSkipCredited: vi.fn(),
@@ -54,7 +55,7 @@ import { changeStartDate, unskipFutureDate, skipMeal, skipFutureDate, planPause,
 import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold'
 import { BREAK_RESUME_COPY, BREAK_START_DATE_COPY } from '@/contexts/season/domain/season-break-errors'
 import { eventBus } from '@/shared/events/event-bus'
-import { loadSkipSeasonContext, applySeasonSkip, applySeasonUnskip } from '@/contexts/season/usecases/skip-season'
+import { loadSkipSeasonContext, applySeasonSkip, applySeasonUnskip, trimSeasonBufferGrants } from '@/contexts/season/usecases/skip-season'
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices'
 import { SKIP_CHANGED_COPY, SKIP_ERROR_FALLBACK, SKIP_NO_VALUE_COPY } from '@/contexts/season/domain/season-skip-errors'
 import { requireUser } from '@/contexts/identity/usecases/require-user'
@@ -543,6 +544,30 @@ describe('season wind-down skips', () => {
     })
     expect(await planPause('sub-1', '2026-09-21')).toEqual({ success: true })
     expect(plan.calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['has_paused_before', false], ['skipped_meals_count', 0], ['credited_skip_days', 1]])
+  })
+
+  it('a planned pause that cancels a skip trims a buffer grant, and leaves it alone otherwise', async () => {
+    const trimMock = vi.mocked(trimSeasonBufferGrants)
+    trimMock.mockResolvedValue({ ok: true, grants: 0 })
+
+    // The Wed 23 Sep skip falls inside a pause from Mon 21 Sep: it is cancelled, so the grant it used is trimmed.
+    requireUserMock.mockResolvedValue(authedUser(recordingChain({ data: [{ id: 'sub-1' }], error: null }).chain))
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({ skipped_dates: ['2026-09-23'], skipped_meals_count: 1, season_buffer_grants: 1, end_date: '2026-10-05' }),
+    })
+    expect(await planPause('sub-1', '2026-09-21')).toEqual({ success: true })
+    expect(trimMock).toHaveBeenCalledWith({ subscriptionId: 'sub-1' })
+
+    // A skip before the pause stays, so nothing is trimmed.
+    trimMock.mockClear()
+    requireUserMock.mockResolvedValue(authedUser(recordingChain({ data: [{ id: 'sub-1' }], error: null }).chain))
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({ skipped_dates: ['2026-09-16'], skipped_meals_count: 1, season_buffer_grants: 1, end_date: '2026-10-05' }),
+    })
+    expect(await planPause('sub-1', '2026-09-21')).toEqual({ success: true })
+    expect(trimMock).not.toHaveBeenCalled()
   })
 
   it('a future credited skip leaves its credit pending', async () => {

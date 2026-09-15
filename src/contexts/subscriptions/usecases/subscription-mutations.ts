@@ -37,10 +37,11 @@ import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo';
 import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions';
 import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SeasonSkipNotice, type SkipSeason, type SkipSeen } from '@/contexts/season/domain/skip-outcome';
 import { SKIP_CHANGED_COPY, SKIP_ERROR_FALLBACK, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
-import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext } from '@/contexts/season/usecases/skip-season';
+import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext, trimSeasonBufferGrants } from '@/contexts/season/usecases/skip-season';
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices';
 import { BREAK_RESUME_COPY, BREAK_START_DATE_COPY, isSeasonBreakError } from '@/contexts/season/domain/season-break-errors';
 import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold';
+import { captureError } from '@/infra/logging/capture-error';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -945,6 +946,14 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
   if (updateError) return { error: 'Failed to schedule pause.' };
   if (!rows || rows.length === 0) {
     return { error: 'Couldn\'t schedule the pause — please refresh and try again.' };
+  }
+
+  // A cancelled skip may have been the one that used the season buffer; its
+  // grant goes with it (review fix A3). Non-fatal: the pause is committed and
+  // the trim is idempotent.
+  if (cancelledSkipsCount > 0 && (subscription.season_buffer_grants ?? 0) > 0) {
+    const trimmed = await trimSeasonBufferGrants({ subscriptionId });
+    if (!trimmed.ok) captureError(new Error(trimmed.error), { area: 'season', op: 'planPause.trimBufferGrants', subscriptionId });
   }
 
   // ── WhatsApp confirmation ──────────────────────────────────────────────

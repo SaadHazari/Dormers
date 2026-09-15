@@ -3,8 +3,8 @@
 -- balanced (spec docs/superpowers/specs/2026-09-14-season-wind-down-design.md
 -- §7.2, X6, D7).
 --
--- Replaces season_reconcile_skips from `20260915_season_reconcile_skips.sql`
--- and season_unskip from `20260915_season_skip_guards.sql`.
+-- Replaces season_reconcile_skips from `20260915082710_season_reconcile_skips.sql`
+-- and season_unskip from `20260915080428_season_skip_guards.sql`.
 --
 -- Why. The first reconcile converted n skips to credit without looking at
 -- where the skipped dates sat. Lowering skipped_meals_count by n pulls
@@ -300,7 +300,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.season_reconcile_skips(date, date, integer) FROM public, anon, authenticated;
 
 -- ----------------------------------------------------------------------------
--- season_unskip: the live body from `20260915_season_skip_guards.sql`, with the
+-- season_unskip: the live body from `20260915080428_season_skip_guards.sql`, with the
 -- intake_settings FOR SHARE read moved ahead of the plan lock.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.season_unskip(p_customer_id uuid, p_subscription_id uuid, p_meal_date date)

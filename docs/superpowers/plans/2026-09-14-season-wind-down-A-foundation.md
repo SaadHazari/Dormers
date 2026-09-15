@@ -32,8 +32,8 @@
 | Create `src/contexts/season/domain/season-projection.ts` | Remaining delivery dates, disposition per plan, last meal on the books, kitchen calendar |
 | Create `src/contexts/season/domain/meal-value.ts` | Meal value from order money, with a pre-discount estimate fallback |
 | Tests beside each: `*.test.ts` | vitest |
-| Create `supabase/migrations/20260914_season_wind_down_foundation.sql` | Mirror of the live additive schema migration |
-| Create `supabase/migrations/20260914_season_transitions.sql` | Mirror of the live transition functions and the interim scheduled-pause tick |
+| Create `supabase/migrations/20260914173304_season_wind_down_foundation.sql` | Mirror of the live additive schema migration |
+| Create `supabase/migrations/20260914173723_season_transitions.sql` | Mirror of the live transition functions and the interim scheduled-pause tick |
 | Create `src/contexts/season/usecases/season-transitions.ts` | Server-side wrappers: call RPC, audit, invalidate intake cache |
 | Modify `src/infra/config/intake.ts` | `IntakeState` gains `phase`, `wrapUpDay`, `bufferDays`, `closeDay`, `salesStopped` |
 | Modify `src/infra/config/intake-cache.test.ts` | Cover the new fields |
@@ -819,7 +819,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 4: Foundation schema (live, additive)
 
 **Files:**
-- Create: `supabase/migrations/20260914_season_wind_down_foundation.sql`
+- Create: `supabase/migrations/20260914173304_season_wind_down_foundation.sql`
 
 **Interfaces:**
 - Produces (live database):
@@ -851,7 +851,7 @@ Expected: `paused = true`, `has_paused_at = true`, `pause_scheduled_for = null`,
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260914_season_wind_down_foundation.sql`:
+`supabase/migrations/20260914173304_season_wind_down_foundation.sql`:
 
 ```sql
 -- ============================================================================
@@ -1031,7 +1031,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260914_season_wind_down_foundation.sql
+git add supabase/migrations/20260914173304_season_wind_down_foundation.sql
 git commit -m "feat(season): season columns, season_holds, and money columns on orders and credits
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1042,7 +1042,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 5: Season transition functions (live SQL)
 
 **Files:**
-- Create: `supabase/migrations/20260914_season_transitions.sql`
+- Create: `supabase/migrations/20260914173723_season_transitions.sql`
 
 **Interfaces:**
 - Consumes: the columns from Task 4 (`season_phase`, `wrap_up_day`, `buffer_delivery_days`, `close_day`, `sales_stopped_at`), existing `public.ae_today()`.
@@ -1070,7 +1070,7 @@ Expected: the body that flips `paused`, stamps `paused_by = 'schedule'` and `cyc
 
 - [ ] **Step 2: Write the migration file**
 
-`supabase/migrations/20260914_season_transitions.sql`:
+`supabase/migrations/20260914173723_season_transitions.sql`:
 
 ```sql
 -- ============================================================================
@@ -1540,7 +1540,7 @@ Expected: `winding_down | true | null | null | true`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260914_season_transitions.sql
+git add supabase/migrations/20260914173723_season_transitions.sql
 git commit -m "feat(season): SQL owns every season change, and passing the wrap-up day keeps the season
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1770,7 +1770,7 @@ import 'server-only'
 /**
  * Season transitions, server side (spec §5).
  *
- * The SQL functions from supabase/migrations/20260914_season_transitions.sql
+ * The SQL functions from supabase/migrations/20260914173723_season_transitions.sql
  * are the authority: they lock the settings row, check the guard and keep the
  * legacy paused / pause_scheduled_for columns in step. This module validates
  * dates first (so the admin gets a precise sentence), calls the function,

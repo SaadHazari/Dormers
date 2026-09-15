@@ -162,3 +162,18 @@ export async function applySeasonUnskip(input: {
   if (error) return { ok: false, error: friendlySkipError(error.message) }
   return { ok: true, kind: (data as { kind?: string } | null)?.kind === 'credited' ? 'credited' : 'normal' }
 }
+
+/**
+ * Drop buffer grants whose skip is gone (review fix A3). planPause cancels the
+ * future skips inside the pause window through the user client; when one of
+ * them was the skip that used the buffer, its grant would otherwise keep a
+ * buffer day cooking for a meal the plan no longer owes there. Runs after the
+ * pause is committed, so a failure here leaves the pause in place and only
+ * the trim to redo; the RPC is idempotent.
+ */
+export async function trimSeasonBufferGrants(input: { subscriptionId: string }): Promise<{ ok: true; grants: number } | { ok: false; error: string }> {
+  const sb = createAdminSupabaseClient()
+  const { data, error } = await sb.rpc('season_trim_buffer_grants', { p_subscription_id: input.subscriptionId })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, grants: Number(data ?? 0) }
+}

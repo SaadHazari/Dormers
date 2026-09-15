@@ -1,7 +1,7 @@
 /**
  * Shared fixtures for the season projection. The TypeScript projection
  * (season-projection.ts) must return `expected` for each one, and the SQL
- * twin (_season_project_plan in supabase/migrations/20260916_season_project_plans.sql)
+ * twin (_season_project_plan in supabase/migrations/20260915125204_season_project_plans.sql)
  * must return the same: scripts/season-projection-lockstep.ts checks it on live.
  *
  * Anchors: Mon 28 Sep 2026 is today unless a fixture says otherwise. Sun 4 Oct

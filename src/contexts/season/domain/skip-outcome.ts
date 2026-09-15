@@ -11,7 +11,7 @@
  * the server action decides again on fresh data, and SQL season_skip recomputes
  * it under a row lock. projectedEndDate / makeUpDayFor mirror
  * season_projected_end / season_make_up_day in
- * supabase/migrations/20260915_season_skip_functions.sql.
+ * supabase/migrations/20260915043834_season_skip_functions.sql.
  */
 
 import { addDaysIso, effectiveCloseDay, isDeliveryDayIso, type SeasonWeekType } from './season-dates'

@@ -14,7 +14,15 @@
 
 BEGIN;
 
-SELECT cron.unschedule('intake_scheduled_pause_00_15_ae');
+-- The old starter goes only if it is still there: a missing job must not
+-- abort the schedule below (review note E1). Live had it on 2026-09-15.
+DO $$
+BEGIN
+  PERFORM cron.unschedule('intake_scheduled_pause_00_15_ae');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'intake_scheduled_pause_00_15_ae was not scheduled: %', SQLERRM;
+END;
+$$;
 SELECT cron.schedule('season_break_tick', '20,50 20 * * *', 'SELECT public.season_break_tick();');
 SELECT cron.schedule('season_break_tick_last_retry', '20 21 * * *', 'SELECT public.season_break_tick();');
 SELECT cron.schedule('season_invariants_tick', '30 * * * *', 'SELECT public.season_invariants_tick();');

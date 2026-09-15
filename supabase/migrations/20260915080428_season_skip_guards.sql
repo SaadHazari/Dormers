@@ -3,8 +3,8 @@
 -- match the SQL and TypeScript fallback credit figure
 -- (spec docs/superpowers/specs/2026-09-14-season-wind-down-design.md §7.2, §10.1, D7).
 --
--- Replaces four functions from `20260915_season_skip_functions.sql` and
--- `20260915_season_skip_credit_tick.sql`:
+-- Replaces four functions from `20260915043834_season_skip_functions.sql` and
+-- `20260915044446_season_skip_credit_tick.sql`:
 --
 -- season_skip_credit_fils: a Stripe test-mode order (`cs_test_%`) is never
 -- trusted for the exact (card + wallet) path, even when amount_paid_fils and

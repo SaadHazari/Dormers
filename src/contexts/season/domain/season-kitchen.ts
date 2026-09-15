@@ -3,8 +3,8 @@
  *
  * Pure and client-importable. Mirrors what the nightly SQL runs:
  * _season_buffer_slots_used and _season_buffer_cooks
- * (supabase/migrations/20260916_season_project_plans.sql) and the delivery
- * tick's own conditions (20260916_season_kitchen_guards.sql). "Does this plan
+ * (supabase/migrations/20260915125204_season_project_plans.sql) and the delivery
+ * tick's own conditions (20260915125421_season_kitchen_guards.sql). "Does this plan
  * cook on day D" is never decided by status alone: a plan whose last meal was
  * credited today still reads Skipped or Active for a night.
  */
