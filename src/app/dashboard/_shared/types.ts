@@ -110,6 +110,9 @@ export interface Subscription {
   credited_skip_days?: number | null
   credited_skip_dates?: string[] | null
   season_buffer_grants?: number | null
+  // Held for next semester (season §6.3): set by the break, cleared when the
+  // customer restarts the plan after reopening.
+  season_hold_id?: string | null
   meals_per_day?: number | null
 }
 

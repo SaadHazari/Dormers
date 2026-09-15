@@ -52,6 +52,7 @@ export interface Subscription {
   credited_skip_days: number                  // default 0 — skips turned into wallet credit (season §7.2)
   credited_skip_dates: string[]               // YYYY-MM-DD[], default [] — which skipped_dates were credited
   season_buffer_grants: number                // default 0 — make-up meals allowed on a buffer day (season §6.2)
+  season_hold_id?: string | null              // set while the plan is held for next semester (season §6.3)
 }
 
 /**

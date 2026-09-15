@@ -46,8 +46,13 @@ vi.mock('@/contexts/season/usecases/skip-season', () => ({
 vi.mock('@/contexts/season/usecases/season-skip-notices', () => ({
   announceSeasonSkipCredited: vi.fn(),
 }))
+vi.mock('@/contexts/season/usecases/release-hold', () => ({
+  releaseSeasonHold: vi.fn(),
+}))
 
-import { changeStartDate, unskipFutureDate, skipMeal, skipFutureDate, planPause, pauseSubscription } from './subscription-mutations'
+import { changeStartDate, unskipFutureDate, skipMeal, skipFutureDate, planPause, pauseSubscription, resumeSubscription } from './subscription-mutations'
+import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold'
+import { BREAK_RESUME_COPY, BREAK_START_DATE_COPY } from '@/contexts/season/domain/season-break-errors'
 import { eventBus } from '@/shared/events/event-bus'
 import { loadSkipSeasonContext, applySeasonSkip, applySeasonUnskip } from '@/contexts/season/usecases/skip-season'
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices'
@@ -606,5 +611,93 @@ describe('season wind-down skips', () => {
     expect(await pauseSubscription('sub-1')).toEqual({
       error: 'Your skip on Tue 22 Sep is turning into wallet credit. Undo that skip first, then pause.',
     })
+  })
+})
+
+// ── The season break (spec §7.5, §7.6, G9) ────────────────────────────────
+// Anchors: 10:00 Dubai on Mon 12 Oct 2026. Mon 19 Oct is a delivery day inside
+// the change window.
+
+describe('resume and start date around the season break', () => {
+  const releaseMock = vi.mocked(releaseSeasonHold)
+  const emitMock = vi.mocked(eventBus.emit)
+  const phase = (p: 'open' | 'winding_down' | 'break') => ({ ...intakeState(null), phase: p })
+  const heldPaused = (over: Partial<Subscription> = {}) => fakeSub({
+    status: 'Paused', pause_date: '2026-10-01T10:00:00Z', has_paused_before: true, season_hold_id: 'hold-1', ...over,
+  })
+
+  beforeEach(() => {
+    releaseMock.mockReset()
+    emitMock.mockClear()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-12T06:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('refuses a resume during the break, reading the phase fresh', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: heldPaused() })
+    getIntakeStateMock.mockResolvedValue(phase('break'))
+
+    expect(await resumeSubscription('sub-1')).toEqual({ error: BREAK_RESUME_COPY, seasonBreak: true })
+    expect(getIntakeStateMock).toHaveBeenCalledWith({ fresh: true })
+    expect(releaseMock).not.toHaveBeenCalled()
+  })
+
+  it('after reopening, Resume releases the held plan through SQL and confirms it', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: heldPaused() })
+    getIntakeStateMock.mockResolvedValue(phase('open'))
+    releaseMock.mockResolvedValue({ ok: true, status: 'Active', followers: 0 })
+
+    expect(await resumeSubscription('sub-1')).toEqual({ success: true })
+    expect(releaseMock).toHaveBeenCalledWith({ customerId: 'user-1', subscriptionId: 'sub-1', startDate: null, resumeCutoff: false })
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'plan_resumed_confirm', payload: { resume_date: '2026-10-12' },
+    }))
+  })
+
+  it('a restart the database refuses reads as the break copy', async () => {
+    requireUserMock.mockResolvedValue(authedUser(supabaseChain({ data: null, error: { message: 'SEASON_BREAK: plan sub-1 cannot restart during the semester break' } })))
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: heldPaused({ season_hold_id: null }) })
+    getIntakeStateMock.mockResolvedValue(phase('open'))
+
+    expect(await resumeSubscription('sub-1')).toEqual({ error: BREAK_RESUME_COPY, seasonBreak: true })
+  })
+
+  it('refuses a start date change during the break', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: fakeSub({ status: 'Scheduled', start_date: '2026-10-20', season_hold_id: 'hold-2' }) })
+    getIntakeStateMock.mockResolvedValue(phase('break'))
+
+    expect(await changeStartDate('sub-1', '2026-10-19')).toEqual({ error: BREAK_START_DATE_COPY })
+    expect(releaseMock).not.toHaveBeenCalled()
+  })
+
+  it('after reopening, a held Scheduled plan picks its date without using the allowance', async () => {
+    requireUserMock.mockResolvedValue(authedUser(supabaseChain({ data: null, error: null })))
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: fakeSub({ status: 'Scheduled', start_date: '2026-10-05', start_date_changed_at: '2026-09-20T10:00:00Z', season_hold_id: 'hold-2' }),
+    })
+    getIntakeStateMock.mockResolvedValue(phase('open'))
+    releaseMock.mockResolvedValue({ ok: true, status: 'Scheduled', followers: 0 })
+
+    expect(await changeStartDate('sub-1', '2026-10-19')).toEqual({ success: true })
+    expect(releaseMock).toHaveBeenCalledWith({ customerId: 'user-1', subscriptionId: 'sub-1', startDate: '2026-10-19', resumeCutoff: false })
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'plan_start_date_changed_confirm', payload: { start_date: '2026-10-19' },
+    }))
+  })
+
+  it('a plan that is not held still gets one change only', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: fakeSub({ status: 'Scheduled', start_date: '2026-10-05', start_date_changed_at: '2026-09-20T10:00:00Z', season_hold_id: null }),
+    })
+    getIntakeStateMock.mockResolvedValue(phase('open'))
+
+    expect(await changeStartDate('sub-1', '2026-10-19')).toEqual({ error: 'You can only change the start date once per plan.' })
   })
 })

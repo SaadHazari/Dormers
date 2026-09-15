@@ -39,6 +39,8 @@ import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SeasonSkipN
 import { SKIP_CHANGED_COPY, SKIP_ERROR_FALLBACK, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
 import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext } from '@/contexts/season/usecases/skip-season';
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices';
+import { BREAK_RESUME_COPY, BREAK_START_DATE_COPY, isSeasonBreakError } from '@/contexts/season/domain/season-break-errors';
+import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -151,6 +153,13 @@ export async function pauseSubscription(subscriptionId: string) {
 
 export async function resumeSubscription(subscriptionId: string) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
+  // ── Season break (spec §7.5, G9) ─────────────────────────────────────────
+  // Read fresh: a plan must never restart into a closed kitchen because of a
+  // 30-second-old cache. trg_subscriptions_season_guard refuses it too.
+  const seasonNow = await getIntakeState({ fresh: true });
+  if (seasonNow.phase === 'break') {
+    return { error: BREAK_RESUME_COPY, seasonBreak: true as const };
+  }
   // Same-day resume lock. Mirrors the UI gate in QuickActions so a client
   // bypass can't create kitchen ambiguity on the day of pause. AE wall-time
   // conversion happens here so the rule itself stays pure + testable.
@@ -176,6 +185,23 @@ export async function resumeSubscription(subscriptionId: string) {
     wt === '6DAYS' ? aeIsoDow !== 7
                    : aeIsoDow !== 6 && aeIsoDow !== 7;
   const setResumeCutoff = aeHour >= 14 && isDeliveryToday;
+
+  // A plan held for next semester restarts through SQL (spec X1): the hold is
+  // released in the same transaction, and a queued renewal held behind it follows.
+  if (subscription.season_hold_id) {
+    const released = await releaseSeasonHold({ customerId: auth.user.id, subscriptionId, startDate: null, resumeCutoff: setResumeCutoff });
+    if (!released.ok) {
+      return released.seasonBreak ? { error: released.error, seasonBreak: true as const } : { error: released.error };
+    }
+    await eventBus.emit('subscription.notification-due', {
+      customerId: auth.user.id,
+      kind: 'plan_resumed_confirm',
+      scheduledFor: new Date(),
+      payload: { resume_date: todayAE },
+    });
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
+  }
 
   // Apply Resume. paused_days is NOT touched — the subscription_pause_tick
   // cron has already been incrementing it by 1 for every midnight crossed
@@ -206,7 +232,11 @@ export async function resumeSubscription(subscriptionId: string) {
     .eq('status', SUBSCRIPTION_STATUS.PAUSED)
     .select('id');
 
-  if (updateError) return { error: 'Failed to resume subscription.' };
+  if (updateError) {
+    return isSeasonBreakError(updateError.message)
+      ? { error: BREAK_RESUME_COPY, seasonBreak: true as const }
+      : { error: 'Failed to resume subscription.' };
+  }
   if (!resumeRows || resumeRows.length === 0) {
     return { error: 'Resume didn\'t take. Refresh and try again, or message us on WhatsApp.' };
   }
@@ -248,7 +278,10 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // Per state-machine spec: each Scheduled sub gets one date change. After
   // that the button is disabled in the UI; this server-side check is the
   // authoritative gate.
-  if (subscription.start_date_changed_at) {
+  // A plan held for next semester picks its start date after reopening, and
+  // that change does not use the once-per-plan allowance (spec §7.6).
+  const heldForNextSemester = !!subscription.season_hold_id;
+  if (subscription.start_date_changed_at && !heldForNextSemester) {
     return { error: 'You can only change the start date once per plan.' };
   }
 
@@ -310,7 +343,11 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // getIntakeState fails open (pauseScheduledFor is null on a settings-read
   // blip), so a settings outage lets the reschedule through rather than
   // freezing a legitimate date change.
-  const intakeForChange = await getIntakeState();
+  const intakeForChange = await getIntakeState({ fresh: true });
+  // ── Season break (spec §7.6) ────────────────────────────────────────────
+  if (intakeForChange.phase === 'break') {
+    return { error: BREAK_START_DATE_COPY };
+  }
   if (intakeForChange.pauseScheduledFor) {
     // Unresolvable plan names fall back to the LONGEST journey — the
     // tightest clamp — so an unknown label fails safe (refuse) rather than
@@ -365,6 +402,19 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
     return {
       error: `Your current plan runs until ${primary.end_date}. Pick a date after that.`,
     };
+  }
+
+  if (heldForNextSemester) {
+    const released = await releaseSeasonHold({ customerId: auth.user.id, subscriptionId, startDate: newStartDate, resumeCutoff: false });
+    if (!released.ok) return { error: released.seasonBreak ? BREAK_START_DATE_COPY : released.error };
+    await eventBus.emit('subscription.notification-due', {
+      customerId: auth.user.id,
+      kind: 'plan_start_date_changed_confirm',
+      scheduledFor: new Date(),
+      payload: { start_date: newStartDate },
+    });
+    revalidatePath('/dashboard', 'layout');
+    return { success: true };
   }
 
   // Note: end_date is recomputed automatically by the

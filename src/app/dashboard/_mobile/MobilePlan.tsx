@@ -203,7 +203,7 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
   const hasPlannedPause = !!plannedPauseStart && !isPaused
   const todayAEIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const futureSkipCount = (sub.skipped_dates ?? []).filter(d => d > todayAEIso).length
-  const dateChangeUsed = !!sub.start_date_changed_at
+  const dateChangeUsed = !!sub.start_date_changed_at && !sub.season_hold_id
 
   return (
     <>
@@ -390,7 +390,7 @@ function ChangeStartSheet({ sub, open, onClose, lastDeliveryDay = null }: { sub:
 function QueuedCard({ sub, primaryIsPaused, lastDeliveryDay = null }: { sub: Subscription; primaryIsPaused: boolean; lastDeliveryDay?: string | null }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
-  const dateChangeUsed = !!sub.start_date_changed_at
+  const dateChangeUsed = !!sub.start_date_changed_at && !sub.season_hold_id
   // Tentative while the primary is paused — locked until resume (server gates too).
   const dateLocked = dateChangeUsed || !!primaryIsPaused
   const cancelHref = whatsAppHref(`Hi! I'd like to cancel my upcoming ${cleanPlanName(sub.plan_name)} subscription scheduled to start ${fmt(sub.start_date)}.`)

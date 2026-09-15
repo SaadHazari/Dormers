@@ -6,6 +6,9 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { captureError } from '@/infra/logging/capture-error'
 import { eventBus } from '@/shared/events/event-bus'
+import { getIntakeState } from '@/infra/config/intake'
+import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold'
+import { ADMIN_BREAK_RESUME_COPY, isSeasonBreakError } from '@/contexts/season/domain/season-break-errors'
 // Side-effect import — registers the notifications subscriber so the
 // notification-due/-cancel emits below actually queue WhatsApp messages.
 // Mirrors subscription-mutations.ts.
@@ -334,12 +337,17 @@ export async function adminResumeSub(subscriptionId: string): Promise<Result> {
 
     const { data: sub } = await sb
         .from('subscriptions')
-        .select('id, customer_id, status, week_type, paused_dates')
+        .select('id, customer_id, status, week_type, paused_dates, season_hold_id')
         .eq('id', subscriptionId)
         .maybeSingle()
 
     if (!sub) return { ok: false, message: 'Subscription not found' }
     if (sub.status !== 'Paused') return { ok: false, message: `Cannot resume — status is ${sub.status}` }
+
+    // Spec §11.5, G9: an admin resume follows the customer's rules. Read the
+    // phase fresh; the database refuses a restart during the break too.
+    const season = await getIntakeState({ fresh: true })
+    if (season.phase === 'break') return { ok: false, message: ADMIN_BREAK_RESUME_COPY }
 
     // Post-cutoff resume on a delivery day: the sub flips Active before
     // delivery_tick fires at 20:00 AE, which would count a meal the kitchen
@@ -353,6 +361,27 @@ export async function adminResumeSub(subscriptionId: string): Promise<Result> {
     const wt = (sub.week_type as string) ?? '6DAYS'
     const isDeliveryToday = wt === '6DAYS' ? aeIsoDow !== 7 : aeIsoDow !== 6 && aeIsoDow !== 7
     const setResumeCutoff = aeHour >= 14 && isDeliveryToday
+
+    // A plan held for next semester restarts through SQL, for its owner.
+    if (sub.season_hold_id) {
+        const released = await releaseSeasonHold({
+            customerId: sub.customer_id as string,
+            subscriptionId,
+            startDate: null,
+            resumeCutoff: setResumeCutoff,
+        })
+        if (!released.ok) return { ok: false, message: released.seasonBreak ? ADMIN_BREAK_RESUME_COPY : released.error }
+        await eventBus.emit('subscription.notification-due', {
+            customerId: sub.customer_id as string,
+            kind: 'plan_resumed_confirm',
+            scheduledFor: new Date(),
+            payload: { resume_date: todayAE },
+        })
+        await logAdminAction(admin.email, 'resume_subscription', 'subscription', subscriptionId, { season_hold_released: true })
+        revalidatePath(`/admin/customers/${sub.customer_id}`)
+        revalidatePath('/admin/customers')
+        return { ok: true, message: 'Held plan restarted. The customer is notified on WhatsApp.' }
+    }
     const existingPaused = (sub.paused_dates as string[] | null) ?? []
     const nextPausedDates = setResumeCutoff && !existingPaused.includes(todayAE)
         ? [...existingPaused, todayAE]
@@ -371,7 +400,7 @@ export async function adminResumeSub(subscriptionId: string): Promise<Result> {
 
     if (error) {
         console.error('adminResumeSub failed:', error)
-        return { ok: false, message: error.message }
+        return { ok: false, message: isSeasonBreakError(error.message) ? ADMIN_BREAK_RESUME_COPY : error.message }
     }
     if (!rows || rows.length === 0) {
         return { ok: false, message: 'Resume didn\'t take — the subscription changed underneath. Refresh and retry.' }

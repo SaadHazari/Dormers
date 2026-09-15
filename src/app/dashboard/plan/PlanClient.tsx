@@ -475,7 +475,7 @@ function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRene
             </Tooltip>
           )
         ) : startsInFuture ? (() => {
-          const dateChangeUsed = !!sub.start_date_changed_at
+          const dateChangeUsed = !!sub.start_date_changed_at && !sub.season_hold_id
           return (
             <Tooltip fit="inline" label={dateChangeUsed
               ? "You can only change the start date once."
@@ -583,7 +583,7 @@ function QueuedSubCallout({ sub, primaryIsPaused = false, lastDeliveryDay = null
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const daysToStart = Math.max(0, Math.ceil((new Date(sub.start_date).getTime() - Date.now()) / 86400000))
-  const dateChangeUsed = !!sub.start_date_changed_at
+  const dateChangeUsed = !!sub.start_date_changed_at && !sub.season_hold_id
   // While the primary is paused the start date is tentative (it shifts as
   // the pause stretches), so spending the once-only change on it is the
   // wrong outcome. Locked until resume; the server action gates the same.
