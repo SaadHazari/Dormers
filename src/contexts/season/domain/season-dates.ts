@@ -45,6 +45,11 @@ export function closeDayFor(wrapUpDay: string, bufferDays: number): string {
   return day
 }
 
+/** K as the kitchen reads it: never before W, and W itself when no close day is stored. */
+export function effectiveCloseDay(wrapUpDay: string, closeDay: string | null | undefined): string {
+  return closeDay && closeDay > wrapUpDay ? closeDay : wrapUpDay
+}
+
 /** Returns the admin-facing reason the chosen dates cannot be scheduled, or null. */
 export function validateSeasonEnd(input: { wrapUpDay: string; bufferDays: number; todayAe: string }): string | null {
   const { wrapUpDay, bufferDays, todayAe } = input

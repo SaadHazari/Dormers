@@ -14,7 +14,7 @@
  * supabase/migrations/20260915_season_skip_functions.sql.
  */
 
-import { addDaysIso, isDeliveryDayIso, type SeasonWeekType } from './season-dates'
+import { addDaysIso, effectiveCloseDay, isDeliveryDayIso, type SeasonWeekType } from './season-dates'
 import type { SeasonPhase } from './season-phase'
 import { mealValueOf, type OrderMoney } from './meal-value'
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
@@ -108,7 +108,7 @@ export function decideSkipOutcome(input: {
   const { season, plan } = input
   if (season.phase !== 'winding_down' || !season.wrapUpDay) return { kind: 'normal' }
   const wrapUp = season.wrapUpDay
-  const close = season.closeDay && season.closeDay > wrapUp ? season.closeDay : wrapUp
+  const close = effectiveCloseDay(wrapUp, season.closeDay)
   const makeUpDay = makeUpDayFor({
     endDate: plan.endDate,
     weekType: plan.weekType,

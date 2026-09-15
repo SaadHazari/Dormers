@@ -54,6 +54,7 @@ export function projectionPlanFromRow(row: Record<string, unknown> | null | unde
     plannedPauseStart: day(row.planned_pause_start),
     staffApproval: row.staff_approval == null ? null : String(row.staff_approval),
     lastDeliveryTickDate: day(row.last_delivery_tick_date),
+    resumeCutoffDate: day(row.resume_cutoff_date),
   }
 }
 

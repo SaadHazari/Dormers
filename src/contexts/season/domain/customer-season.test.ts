@@ -21,7 +21,8 @@ describe('buildCustomerSeason', () => {
   })
 
   it('tells a customer whose plan finishes in time (N1) and names the last dinner', () => {
-    const season = build([plan({ endDate: '2026-10-02' })])
+    // 16 meals left from Mon 14 Sep, with a closure on Wed 16 Sep, end on Fri 2 Oct.
+    const season = build([plan({ endDate: '2026-10-02', deliveredMeals: 8 })])
     expect(season).toMatchObject({ wrapUpDay: '2026-10-03', closeDay: '2026-10-05', notice: 'finishes', lastDinner: '2026-10-02', skipCreditFils: 1980, closureDates: ['2026-09-16'] })
   })
 
@@ -63,7 +64,7 @@ describe('projectionPlanFromRow', () => {
       id: 'p1', customerId: 'c1', planName: 'Monthly Max', status: 'Skipped',
       startDate: '2026-09-07', endDate: '2026-10-03', weekType: '5DAYS',
       mealsPerDay: 2, totalMeals: 40, deliveredMeals: 10, creditedSkipDays: 1, bufferGrants: 1,
-      skippedDates: ['2026-09-14'], plannedPauseStart: null, staffApproval: null, lastDeliveryTickDate: '2026-09-11',
+      skippedDates: ['2026-09-14'], plannedPauseStart: null, staffApproval: null, lastDeliveryTickDate: '2026-09-11', resumeCutoffDate: null,
     })
   })
 

@@ -6,7 +6,8 @@
  * plan C must return the same answers for the same inputs.
  */
 
-import { addDaysIso, isDeliveryDayIso, type SeasonWeekType } from './season-dates'
+import { addDaysIso, effectiveCloseDay, isDeliveryDayIso, type SeasonWeekType } from './season-dates'
+import { bufferSlotsUsed } from './season-kitchen'
 
 export type Disposition = 'finishes' | 'customer_paused' | 'runs_past' | 'starts_after' | 'staff_pending'
 export type ProjectionStatus = 'Active' | 'Skipped' | 'Paused' | 'Scheduled'
@@ -28,6 +29,8 @@ export interface ProjectionPlan {
   plannedPauseStart: string | null
   staffApproval: string | null
   lastDeliveryTickDate: string | null
+  /** Set when the customer resumed after the 2 PM cutoff: that day is not cooked. */
+  resumeCutoffDate?: string | null
 }
 
 export interface ProjectionContext {
@@ -67,19 +70,38 @@ export interface SeasonSummary {
 // A plan cannot legitimately run longer than this; it bounds the walk, it is not a rule.
 const MAX_WALK_DAYS = 400
 
+/** total − delivered − credited skip days × meals per day, never below 0 (the delivery tick's cap). */
+export function mealsLeftFor(plan: Pick<ProjectionPlan, 'totalMeals' | 'deliveredMeals' | 'creditedSkipDays' | 'mealsPerDay'>): number {
+  return Math.max(0, plan.totalMeals - plan.deliveredMeals - plan.creditedSkipDays * plan.mealsPerDay)
+}
+
+/** The first day nothing has been cooked for yet. */
+export function walkStartFor(plan: ProjectionPlan, todayAe: string): string {
+  let from = plan.startDate > todayAe ? plan.startDate : todayAe
+  // Tonight's delivery already recorded: today is no longer remaining.
+  if (plan.lastDeliveryTickDate && plan.lastDeliveryTickDate >= from) from = addDaysIso(plan.lastDeliveryTickDate, 1)
+  // Resumed after the 2 PM cutoff: the delivery tick skips that day.
+  if (plan.resumeCutoffDate && plan.resumeCutoffDate === from) from = addDaysIso(from, 1)
+  return from
+}
+
+/**
+ * The dinners still to cook, by meals, not by end date: the delivery tick
+ * cooks every Active plan on each delivery day until its meals are done and
+ * never reads end_date. So closures and skips still ahead push the last
+ * dinner out, and a plan whose end date has passed with meals left keeps
+ * cooking (spec §8 step 4 holds it at the break). Lockstep with SQL
+ * _season_project_plan.
+ */
 export function remainingDeliveryDates(
   plan: ProjectionPlan,
   ctx: Pick<ProjectionContext, 'todayAe' | 'closureDates'>,
 ): string[] {
-  let from = plan.startDate > ctx.todayAe ? plan.startDate : ctx.todayAe
-  // Tonight's delivery already recorded: today is no longer remaining.
-  if (plan.lastDeliveryTickDate && plan.lastDeliveryTickDate >= from) {
-    from = addDaysIso(plan.lastDeliveryTickDate, 1)
-  }
+  const needed = Math.ceil(mealsLeftFor(plan) / Math.max(1, plan.mealsPerDay))
   const skipped = new Set(plan.skippedDates)
   const out: string[] = []
-  let day = from
-  for (let i = 0; i < MAX_WALK_DAYS && day <= plan.endDate; i++, day = addDaysIso(day, 1)) {
+  let day = walkStartFor(plan, ctx.todayAe)
+  for (let i = 0; i < MAX_WALK_DAYS && out.length < needed; i++, day = addDaysIso(day, 1)) {
     if (!isDeliveryDayIso(day, plan.weekType)) continue
     if (ctx.closureDates.has(day) || skipped.has(day)) continue
     out.push(day)
@@ -88,7 +110,7 @@ export function remainingDeliveryDates(
 }
 
 export function projectPlan(plan: ProjectionPlan, ctx: ProjectionContext): PlanProjection {
-  const mealsLeft = Math.max(0, plan.totalMeals - plan.deliveredMeals - plan.creditedSkipDays * plan.mealsPerDay)
+  const mealsLeft = mealsLeftFor(plan)
   const result = (
     disposition: Disposition,
     cookDates: string[],
@@ -110,17 +132,34 @@ export function projectPlan(plan: ProjectionPlan, ctx: ProjectionContext): PlanP
   const wrapUp = ctx.wrapUpDay
   const all = remainingDeliveryDates(plan, ctx)
 
-  if (plan.plannedPauseStart && (!wrapUp || plan.plannedPauseStart <= wrapUp)) {
-    const pauseStart = plan.plannedPauseStart
-    return result('customer_paused', all.filter((d) => d < pauseStart && (!wrapUp || d <= wrapUp)), 0, 0)
+  if (!wrapUp) {
+    if (plan.plannedPauseStart) {
+      const pauseStart = plan.plannedPauseStart
+      return result('customer_paused', all.filter((d) => d < pauseStart), 0, 0)
+    }
+    return result('finishes', all, 0, 0)
   }
 
-  if (!wrapUp) return result('finishes', all, 0, 0)
-
-  const close = ctx.closeDay && ctx.closeDay > wrapUp ? ctx.closeDay : wrapUp
+  const close = effectiveCloseDay(wrapUp, ctx.closeDay)
   const regular = all.filter((d) => d <= wrapUp)
   const afterWrapUp = all.filter((d) => d > wrapUp)
-  const granted = afterWrapUp.filter((d) => d <= close).slice(0, Math.max(0, plan.bufferGrants))
+  // A buffer day already behind the plan used a grant slot, cooked or not.
+  const slotsUsed = bufferSlotsUsed({
+    wrapUpDay: wrapUp,
+    beforeDay: walkStartFor(plan, ctx.todayAe),
+    weekType: plan.weekType,
+    skippedDates: plan.skippedDates,
+    closureDates: ctx.closureDates,
+  })
+  const granted = afterWrapUp.filter((d) => d <= close).slice(0, Math.max(0, plan.bufferGrants - slotsUsed))
+
+  // A planned pause on or before the close day: the status tick pauses the
+  // plan before the break, so the break holds it as a customer pause.
+  if (plan.plannedPauseStart && plan.plannedPauseStart <= close) {
+    const pauseStart = plan.plannedPauseStart
+    return result('customer_paused', [...regular, ...granted].filter((d) => d < pauseStart), 0, 0)
+  }
+
   const notCooked = afterWrapUp.length - granted.length
 
   if (plan.status === 'Scheduled' && plan.startDate > wrapUp && granted.length === 0) {

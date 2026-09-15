@@ -56,6 +56,7 @@ type SubRow = {
   planned_pause_start: string | null
   staff_approval: string | null
   last_delivery_tick_date: string | null
+  resume_cutoff_date?: string | null
 }
 
 type OrderRow = {
@@ -74,7 +75,7 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
       .select('season_phase, wrap_up_day, buffer_delivery_days, close_day, sales_stopped_at, kitchen_daily_cost_aed, paused')
       .maybeSingle(),
     sb.from('subscriptions')
-      .select('id, customer_id, plan_name, status, start_date, end_date, week_type, meals_per_day, total_meals, delivered_meals, credited_skip_days, season_buffer_grants, skipped_dates, planned_pause_start, staff_approval, last_delivery_tick_date')
+      .select('id, customer_id, plan_name, status, start_date, end_date, week_type, meals_per_day, total_meals, delivered_meals, credited_skip_days, season_buffer_grants, skipped_dates, planned_pause_start, staff_approval, last_delivery_tick_date, resume_cutoff_date')
       .in('status', LIVE_STATUSES),
     sb.from('company_closures').select('closure_date').gte('closure_date', todayAe),
   ])
@@ -136,6 +137,7 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
       plannedPauseStart: r.planned_pause_start,
       staffApproval: r.staff_approval,
       lastDeliveryTickDate: r.last_delivery_tick_date,
+      resumeCutoffDate: r.resume_cutoff_date ?? null,
       customerName: customer?.name?.trim() || 'Unnamed',
       dormName: customer?.dorm_name ?? null,
       mealValue: order

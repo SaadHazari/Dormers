@@ -3,6 +3,7 @@ import {
   remainingDeliveryDates, projectPlan, lastMealOnTheBooks, kitchenCalendar, summarizeSeason,
   type ProjectionPlan, type ProjectionContext,
 } from './season-projection'
+import { projectedEndDate } from './skip-outcome'
 
 // Anchors: Mon 2026-09-14 is "today". Sundays: 20 Sep, 27 Sep, 4 Oct.
 // A Monday-to-Saturday Monthly Premium that started Mon 7 Sep has 6 meals
@@ -28,20 +29,37 @@ describe('remainingDeliveryDates', () => {
   })
 
   it('drops today once tonight\'s delivery is recorded', () => {
-    const dates = remainingDeliveryDates(plan({ lastDeliveryTickDate: '2026-09-14' }), ctx())
+    const dates = remainingDeliveryDates(plan({ lastDeliveryTickDate: '2026-09-14', deliveredMeals: 7 }), ctx())
     expect(dates[0]).toBe('2026-09-15')
     expect(dates).toHaveLength(17)
   })
 
-  it('drops skipped days and company closures', () => {
+  it('drops skipped days and company closures, and still cooks every meal left', () => {
+    // The kitchen cooks by meals: a skip and a closure still ahead push the
+    // last dinner two delivery days past the stored end date.
     const dates = remainingDeliveryDates(plan({ skippedDates: ['2026-09-16'] }), ctx({ closureDates: new Set(['2026-09-17']) }))
     expect(dates).not.toContain('2026-09-16')
     expect(dates).not.toContain('2026-09-17')
-    expect(dates).toHaveLength(16)
+    expect(dates).toHaveLength(18)
+    expect(dates.at(-1)).toBe('2026-10-06')
+  })
+
+  it('ends where Plan B projectedEndDate says when the end date matches the meals', () => {
+    // 18 meals left from Mon 14 Sep, a closure on Wed 30 Sep still ahead.
+    const closures = new Set(['2026-09-30'])
+    const walked = remainingDeliveryDates(plan(), ctx({ closureDates: closures }))
+    expect(walked.at(-1)).toBe('2026-10-05')
+    expect(walked.at(-1)).toBe(projectedEndDate({ endDate: '2026-10-03', weekType: '6DAYS', todayAe: '2026-09-14', closureDates: closures, skippedDates: [] }))
+  })
+
+  it('waits a day after a resume past the 2 PM cutoff', () => {
+    const dates = remainingDeliveryDates(plan({ resumeCutoffDate: '2026-09-14' }), ctx())
+    expect(dates[0]).toBe('2026-09-15')
+    expect(dates).toHaveLength(18)
   })
 
   it('starts on the start date for a plan that has not begun', () => {
-    const dates = remainingDeliveryDates(plan({ status: 'Scheduled', startDate: '2026-09-21', endDate: '2026-09-26', lastDeliveryTickDate: null }), ctx())
+    const dates = remainingDeliveryDates(plan({ status: 'Scheduled', startDate: '2026-09-21', endDate: '2026-09-26', totalMeals: 6, deliveredMeals: 0, lastDeliveryTickDate: null }), ctx())
     expect(dates).toEqual(['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26'])
   })
 })
@@ -75,13 +93,13 @@ describe('projectPlan', () => {
   })
 
   it('a buffer grant lets a make-up dinner cook on the buffer day', () => {
-    const p = projectPlan(plan({ endDate: '2026-10-05', bufferGrants: 1 }), ctx({ wrapUpDay: '2026-10-03', closeDay: '2026-10-05' }))
+    const p = projectPlan(plan({ endDate: '2026-10-05', deliveredMeals: 5, bufferGrants: 1 }), ctx({ wrapUpDay: '2026-10-03', closeDay: '2026-10-05' }))
     expect(p.disposition).toBe('finishes')
     expect(p.lastDinner).toBe('2026-10-05')
   })
 
   it('a buffer grant never cooks after the close day', () => {
-    const p = projectPlan(plan({ endDate: '2026-10-06', bufferGrants: 1 }), ctx({ wrapUpDay: '2026-10-03', closeDay: '2026-10-05' }))
+    const p = projectPlan(plan({ endDate: '2026-10-06', deliveredMeals: 4, bufferGrants: 1 }), ctx({ wrapUpDay: '2026-10-03', closeDay: '2026-10-05' }))
     expect(p.disposition).toBe('runs_past')
     expect(p.mealsAfterWrapUp).toBe(1)
     expect(p.lastDinner).toBe('2026-10-05')
