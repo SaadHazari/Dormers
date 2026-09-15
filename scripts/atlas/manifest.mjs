@@ -396,6 +396,53 @@ add('home-dialog-renew-details', 'Renew banner expanded (details)', {
   description: 'The renew banner\'s chevron reveals the renewal explanation and start-date rule.', conditions: 'Renew banner visible.',
   url: '/dashboard?preview=1&verified=1', kind: 'page', actions: [{ type: 'click', selector: 'button[aria-label="Show renewal details"]', settleMs: 600 }],
 })
+SS('4.3b · Season wind-down and the break')
+// Preview knobs from src/app/dashboard/page.tsx (?season=...). The once-only
+// notices are keyed per hold; the ack keys below skip them so the card shows.
+const breakAckKey = 'dormers:season-break-notice-ack:preview-hold'
+const readyAckKey = 'dormers:season-ready-notice-ack:preview-hold'
+add('home-season-scheduled', 'Season end scheduled — N1 notice', {
+  description: 'The wrap-up day is set and the plan finishes before it: the once-only notice says every paid meal still arrives.', conditions: 'season=scheduled.',
+  url: '/dashboard?preview=1&verified=1&season=scheduled', kind: 'takeover',
+})
+add('home-season-split', 'Resume while winding down — the split sheet (N7)', {
+  description: 'A paused plan whose meals run past the wrap-up day: Resume shows the dinners until the wrap-up day, the meals kept for next semester, and the refund the break will offer.', conditions: 'sub=paused, season=runs_past.',
+  url: '/dashboard?preview=1&verified=1&sub=paused&paused=1&joined=0&season=runs_past', kind: 'sheet',
+  actions: [{ type: 'click', selector: 'button[aria-label="Resume plan"]', vp: 'desktop', settleMs: 800 }, { type: 'click', selector: '[data-testid="hero-pause"]', vp: 'mobile', settleMs: 800 }],
+})
+add('home-season-break-notice', 'The break starts — N8 notice', {
+  description: 'Once per hold: the kitchen is closed, the last meals are kept, the credit is in the wallet.', conditions: 'season=held.',
+  url: '/dashboard?preview=1&verified=1&season=held', kind: 'takeover',
+})
+add('home-season-held-card', 'Held plan card', {
+  description: 'The plan held for next semester on home, with its credit line.', conditions: 'season=held, notice seen.',
+  url: '/dashboard?preview=1&verified=1&season=held', kind: 'page', storage: { local: { [breakAckKey]: '1' } },
+})
+add('home-season-paused-break', 'Customer pause carried into the break', {
+  description: 'A customer-paused plan on the break: the card offers Save my spot; Resume opens the refusal sheet.', conditions: 'season=paused_break.',
+  url: '/dashboard?preview=1&verified=1&season=paused_break', kind: 'page', storage: { local: { [breakAckKey]: '1' } },
+})
+add('home-season-refund-offered', 'Held plan with a refund on offer', {
+  description: 'A paid plan held with real money behind it: the card names the refund and the confirm step (spec §10.3).', conditions: 'season=refund_offered.',
+  url: '/dashboard?preview=1&verified=1&season=refund_offered', kind: 'sheet', storage: { local: { [breakAckKey]: '1' } },
+  actions: [{ type: 'click', selector: '[data-testid="held-plan-refund"]', settleMs: 600 }],
+})
+add('home-season-refund-requested', 'Refund requested', {
+  description: 'The request is in: the amounts, the WhatsApp promise, and Cancel request.', conditions: 'season=refund_requested.',
+  url: '/dashboard?preview=1&verified=1&season=refund_requested', kind: 'page',
+})
+add('home-season-refund-declined', 'Refund declined by the owner', {
+  description: 'The owner declined with a reason; the card shows it and the offer stands.', conditions: 'season=refund_declined.',
+  url: '/dashboard?preview=1&verified=1&season=refund_declined', kind: 'page', storage: { local: { [breakAckKey]: '1' } },
+})
+add('home-season-ready-notice', 'Reopened — your meals are ready (N17)', {
+  description: 'Once per hold after reopening: the kitchen is open again and the held meals are ready.', conditions: 'season=ready.',
+  url: '/dashboard?preview=1&verified=1&season=ready', kind: 'takeover',
+})
+add('home-season-ready-card', 'Ready plan card', {
+  description: 'After the notice: tap Resume, or pick a start date for a plan that had not started.', conditions: 'season=ready_scheduled, notice seen.',
+  url: '/dashboard?preview=1&verified=1&season=ready_scheduled', kind: 'page', storage: { local: { [readyAckKey]: '1' } },
+})
 SS('4.4 · Mobile-only sheets')
 add('home-sheet-dish-delivered', 'Delivered day — dish sheet (mobile)', {
   description: 'Tapping a delivered (orange) pill on the mobile progress card opens the dish that was served that day.',
