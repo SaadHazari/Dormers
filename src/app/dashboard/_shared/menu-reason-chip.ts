@@ -34,6 +34,7 @@ export function reasonChip(reason: NoDeliveryReason, renewKind: RenewGate['kind'
     // Days after a finished plan, up to today. The plan ended once — on its
     // last dinner's card — so these don't repeat "Plan ended".
     case 'after-end':      return { Icon: Moon, label: 'No plan', color: PLAN }
+    case 'season-held':    return { Icon: Moon, label: 'Kept for you', color: PAUSE }
     case 'plan-ends':      return renewKind === 'season'
       ? { Icon: Moon, label: 'Semester break', color: PAUSE }
       : { Icon: Lock, label: 'Renew to unlock', color: PLAN }

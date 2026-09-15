@@ -22,6 +22,7 @@ import {
   type MenuDayContext, type MenuPlan, type NoDeliveryReason, type RenewGate,
 } from '../_shared/menu-day-status'
 import { reasonChip, lastDinnerChip, GREY_CARD_BG, GREY_PHOTO_FILTER } from '../_shared/menu-reason-chip'
+import type { SeasonPhase } from '@/contexts/season/domain/season-phase'
 
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
@@ -59,6 +60,8 @@ interface ActiveSubLike {
   // Skipped days paid back as wallet credit (season wind-down). Carried into
   // MenuPlan so the day notes stop promising a make-up day.
   credited_skip_dates?: string[] | null
+  // Held for next semester (spec §6.3): carried into MenuPlan for the held-day note.
+  season_hold_id?: string | null
   // AE wall date when a pre-scheduled pause should activate. Days from
   // this date onward render as "Paused" on the weekly grid. The start
   // day gets a "Pause begins" label so the customer can see exactly when
@@ -849,6 +852,7 @@ export default function MenuClient({
   closureDates = [],
   endedPlan = null,
   renewGate = RENEW_OPEN_GATE,
+  seasonPhase = 'open',
 }: {
   customer: Customer | null
   activeSubscription?: ActiveSubLike | null
@@ -862,6 +866,8 @@ export default function MenuClient({
   endedPlan?: ActiveSubLike | null
   /** Why renewing might be closed right now — the dashboard plan card's gates. */
   renewGate?: { intakePaused: boolean; outOfZone: boolean; profileIncomplete: boolean }
+  /** The season phase, for the held-day note (spec §6.3). */
+  seasonPhase?: SeasonPhase
 }) {
   // week_type: prefer the active sub's snapshot (canonical for this cycle).
   // Fall back to the customer's preference (relevant for users browsing
@@ -883,7 +889,7 @@ export default function MenuClient({
   // brand-new signup gets (Saad's call, 2026-09-14).
   const plan = toMenuPlan(activeSubscription) ?? toMenuPlan(endedPlan)
   const noPlan = !plan
-  const dayCtx: MenuDayContext = { plan, todayIso: todayAEIso, weekType, closureDates, hasQueuedRenewal }
+  const dayCtx: MenuDayContext = { plan, todayIso: todayAEIso, weekType, closureDates, hasQueuedRenewal, seasonPhase }
   const renew = renewGateFor({ planName: plan?.plan_name, ...renewGate })
   const ending = planEndingNotice(dayCtx)
   const lastDinner = lastDinnerIso(dayCtx)

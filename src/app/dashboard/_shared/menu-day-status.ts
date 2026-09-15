@@ -10,6 +10,7 @@
 // locked cards turned back into full-colour dinners. The order below mirrors
 // the dashboard's plan bar (PlanProgress) so the two never disagree about a day.
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
+import type { SeasonPhase } from '@/contexts/season/domain/season-phase'
 
 export type WeekType = '5DAYS' | '6DAYS'
 export type DayPosition = 'past' | 'today' | 'future'
@@ -27,6 +28,8 @@ export interface MenuPlan {
   resume_cutoff_date?: string | null
   /** Skipped days whose meal became wallet credit near the season end (spec §7.2). */
   credited_skip_dates?: string[] | null
+  /** Set while the plan is held for next semester (spec §6.3). */
+  season_hold_id?: string | null
 }
 
 export interface MenuDayContext {
@@ -37,6 +40,8 @@ export interface MenuDayContext {
   closureDates: readonly string[]
   /** A Scheduled renewal is queued behind the live plan. */
   hasQueuedRenewal: boolean
+  /** The season phase: a held day reads differently during the break and after reopening. */
+  seasonPhase?: SeasonPhase
 }
 
 export type NoDeliveryReason =
@@ -50,6 +55,7 @@ export type NoDeliveryReason =
   | 'before-plan'     // before a started plan's first day
   | 'after-end'       // today or earlier, after the plan's last dinner
   | 'plan-ends'       // a future day after the last dinner, nothing queued — renewing unlocks it
+  | 'season-held'     // held for next semester: today and every later day, until the customer restarts
 
 const DAY_MS = 86_400_000
 
@@ -97,6 +103,10 @@ export function classifyMenuDay(iso: string, ctx: MenuDayContext): NoDeliveryRea
   const { plan, todayIso } = ctx
   if (!plan) return null
   const pos = dayPosition(iso, todayIso)
+
+  // Held for next semester (spec §6.3): nothing is cooked from today on until
+  // the customer restarts the plan. Past days keep what really happened.
+  if (plan.season_hold_id && pos !== 'past') return 'season-held'
 
   if (plan.status === SUBSCRIPTION_STATUS.SCHEDULED) {
     // Once start_date has come and the row is still Scheduled, it is a renewal
@@ -247,6 +257,11 @@ export function noDeliveryNote(reason: NoDeliveryReason, iso: string, ctx: MenuD
       return 'This day was before your plan started.'
     case 'after-end':
       return 'Your plan had ended by this day.'
+    case 'season-held':
+      if (ctx.seasonPhase === 'break') return 'The kitchen is closed between semesters. Your meals are kept for you, so nothing is lost.'
+      return p?.status === SUBSCRIPTION_STATUS.SCHEDULED
+        ? 'Your meals are ready. Pick your start date on your plan page and your dinners begin.'
+        : 'Your meals are ready. Resume your plan and this dinner comes to you.'
     case 'plan-ends':
       if (renew?.kind === 'season' && p) {
         const tense = p.end_date < ctx.todayIso ? 'was' : 'is'
