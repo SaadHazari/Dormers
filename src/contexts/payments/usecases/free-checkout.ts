@@ -26,6 +26,8 @@ import {
 } from '@/contexts/subscriptions/domain/subscription-status'
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
+import { orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'
 import { createAndSendCompedInvoice } from '@/infra/zoho/invoices'
 import { creditInviterOnConversion } from '@/contexts/referrals/usecases/credit-inviter'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
@@ -213,6 +215,16 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     throw new Error(`free-checkout: subscription insert failed: ${subError?.message}`)
   }
 
+  // ── Order money (season spec §10.1, D7) ────────────────────────────────
+  // No card charge; the wallet credit really consumed: full rows whole, the
+  // split row only by its used part. When the credit rows cannot be read,
+  // neither column is written (ops is told once the order exists).
+  const creditUsed = await loadCreditUsedFils(supabaseAdmin, {
+    fullRowIds: appliedCreditIdsFull,
+    splitUseFils: splitCredit?.useFils ?? null,
+  })
+  const orderMoney = creditUsed === null ? null : orderMoneyColumns({ cardChargeFils: 0, creditUsedFils: creditUsed })
+
   // ── Order insert (no Stripe IDs, payment_method=credit) ────────────────
   // Synthetic order_number so the UNIQUE constraint on stripe_session_id /
   // order_number doesn't collide with future free checkouts. Prefix `free:`
@@ -232,6 +244,7 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
       meal_preference: vegDaysList ? `${preference} (${vegDaysList.join(',')})` : preference,
       meals_count: total_meals,
       price_per_meal: pricePerMeal,
+      ...(orderMoney ?? {}),
       invoice_status: INVOICE_STATUS.PAID,
       payment_method: 'credit',
       stripe_session_id: syntheticOrderNumber,
@@ -246,6 +259,14 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
     throw new Error(`free-checkout: order insert failed: ${orderError?.message}`)
   }
   const orderId = orderData.id as string
+  if (creditUsed === null) {
+    console.error(`free-checkout order ${orderId}: credit rows unreadable, order money left unrecorded`)
+    void notifyAdmin(
+      `Order money NOT recorded for free-checkout order ${orderId} (user ${userId}): the credit rows it used could not be read, ` +
+      `so both money columns stay empty. Season skip credit for this plan falls back to 90% of list price until they are filled.`,
+      orderId,
+    )
+  }
 
   // ── Credit flip (reserved → applied) + split-row handling ──────────────
   // Same shape as the webhook's credit flip, just keyed on reservation_token

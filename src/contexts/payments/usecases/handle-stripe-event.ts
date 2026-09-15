@@ -33,6 +33,8 @@ import {
 } from '@/contexts/subscriptions/domain/subscription-status'
 import { computeEndDate, isoDate, type WeekType } from '@/contexts/subscriptions/domain/end-date'
 import { runPostPaymentFanout } from '@/contexts/payments/usecases/post-payment-fanout'
+import { orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { sendRefundProcessedEmail } from '@/infra/zeptomail/client'
@@ -527,6 +529,45 @@ async function handleCheckoutCompleted(
         )
       }
     }
+  }
+
+  // ── Order money (season spec §10.1, D7) ───────────────────────────────
+  // What the customer paid for this order: the card charge plus the wallet
+  // credit it really consumed (full rows whole, the split row by its used
+  // part). A season skip credit is worth exactly this share of one meal.
+  // Recorded in test and live mode alike, once: a Stripe retry keeps the
+  // first value. When the credit rows cannot be read, neither column is
+  // written: a partial figure would under-credit every later skip.
+  const creditUsed = await loadCreditUsedFils(supabaseAdmin, {
+    fullRowIds,
+    splitUseFils: splitToProcess?.useFils ?? null,
+  })
+  const orderMoney = creditUsed === null
+    ? null
+    : orderMoneyColumns({ cardChargeFils: session.amount_total, creditUsedFils: creditUsed })
+  if (creditUsed === null) {
+    console.error(`order ${orderId}: credit rows unreadable, order money left unrecorded`)
+    void notifyAdmin(
+      `Order money NOT recorded for order ${orderId} (session ${session.id}): the credit rows it used could not be read, ` +
+      `so both money columns stay empty. Season skip credit for this plan falls back to 90% of list price until they are filled.`,
+      orderId,
+    )
+  } else if (orderMoney) {
+    const { error: moneyErr } = await supabaseAdmin
+      .from('orders')
+      .update(orderMoney)
+      .eq('id', orderId)
+      .is('amount_paid_fils', null)
+    if (moneyErr) {
+      console.error('order money write failed (non-fatal):', moneyErr)
+      void notifyAdmin(
+        `Order money write FAILED for order ${orderId} (session ${session.id}): ${moneyErr.message}. ` +
+        `Season skip credit for this plan falls back to 90% of list price until npm run backfill:order-money fixes it.`,
+        orderId,
+      )
+    }
+  } else {
+    console.warn(`session ${session.id} has no amount_total; order ${orderId} money left unrecorded`)
   }
 
   // 3. Update Customer Profile with the latest data + drain any pending

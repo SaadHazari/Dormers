@@ -23,6 +23,14 @@ describe('handle-stripe-event.ts — all failure paths alert ops', () => {
     expect(src).toContain('Split credit REMAINDER insert failed')
   })
 
+  it('order money write failure alerts ops', () => {
+    expect(src).toContain('Order money write FAILED')
+  })
+
+  it('unreadable order credit rows alert ops', () => {
+    expect(src).toContain('Order money NOT recorded')
+  })
+
   it('customer profile patch failure alerts ops', () => {
     expect(src).toContain('Customer profile patch FAILED')
   })
@@ -129,5 +137,13 @@ describe('start-day email failure alerts ops', () => {
   const src = read('src/app/api/internal/start-day-email-send/route.ts')
   it('fires notifyAdmin when email send fails', () => {
     expect(src).toContain('Start-day email FAILED')
+  })
+})
+
+describe('free-checkout.ts: order money failure alerts ops', () => {
+  const src = read('src/contexts/payments/usecases/free-checkout.ts')
+
+  it('unreadable order credit rows alert ops', () => {
+    expect(src).toContain('Order money NOT recorded')
   })
 })
