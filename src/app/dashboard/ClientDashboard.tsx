@@ -21,6 +21,8 @@ import type { Dish } from '@/contexts/menu/domain/catalog-data'
 import type { CustomerSeason } from '@/contexts/season/domain/customer-season'
 import type { CustomerBreak } from '@/contexts/season/domain/customer-hold'
 import { SeasonScheduledNotice } from './_shared/SeasonScheduledNotice'
+import { SeasonBreakNotice } from './_shared/SeasonBreakNotice'
+import { breakNoticeSeenKey } from './_shared/season-break-copy'
 import { seasonNoticeSeenKey } from './_shared/season-notice-copy'
 import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
 
@@ -240,6 +242,28 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   }
   const showSeasonNotice = seasonNoticeChecked && !seasonNoticeSeen && !!season?.notice && !!activeSubscription
 
+  // The break started (spec N8, N9): once per hold, on the first visit.
+  const breakNoticeKey = seasonBreak && seasonBreak.phase === 'break' && seasonBreak.hold.state !== 'ready'
+    ? breakNoticeSeenKey(seasonBreak.hold.id)
+    : null
+  const [breakNoticeChecked, setBreakNoticeChecked] = useState(false)
+  const [breakNoticeSeen, setBreakNoticeSeen] = useState(true)
+  useEffect(() => {
+    try {
+      setBreakNoticeSeen(breakNoticeKey == null ? true : !!window.localStorage.getItem(breakNoticeKey))
+    } catch {
+      setBreakNoticeSeen(true)
+    }
+    setBreakNoticeChecked(true)
+  }, [breakNoticeKey])
+  const dismissBreakNotice = () => {
+    try {
+      if (breakNoticeKey) window.localStorage.setItem(breakNoticeKey, '1')
+    } catch { /* storage disabled: treat as seen */ }
+    setBreakNoticeSeen(true)
+  }
+  const showBreakNotice = breakNoticeChecked && !breakNoticeSeen && !!breakNoticeKey
+
   // pausing: only a customer with a live plan gets the reassurance moment.
   // reopened: only someone who joined the early-access list AND still holds
   // unspent credit — a joined customer who already redeemed it (or whose
@@ -348,6 +372,16 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // race because paused customers can't reach checkout in the first place)
   // and before every other branch, since like CheckoutSuccessTakeover it
   // fully replaces the view rather than layering on top of it.
+  if (showBreakNotice && seasonBreak) {
+    return (
+      <SeasonBreakNotice
+        hold={seasonBreak.hold}
+        alreadyJoined={intakePause.alreadyJoined}
+        creditAed={intakePause.creditAed}
+        onDismiss={dismissBreakNotice}
+      />
+    )
+  }
   if (showSeasonNotice && season?.notice) {
     return (
       <SeasonScheduledNotice
