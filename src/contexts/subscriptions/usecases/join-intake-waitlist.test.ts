@@ -3,7 +3,7 @@
  * pick the amount from the customer's meal preference.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const {
   getIntakeStateMock,
@@ -14,6 +14,7 @@ const {
   existingCreditMock,
   customerMock,
   userMock,
+  subsMock,
 } = vi.hoisted(() => ({
   getIntakeStateMock: vi.fn(),
   insertWaitlistMock: vi.fn(),
@@ -25,6 +26,7 @@ const {
   existingCreditMock: vi.fn(),
   customerMock: vi.fn(),
   userMock: vi.fn(),
+  subsMock: vi.fn(),
 }))
 
 vi.mock('server-only', () => ({}))
@@ -33,9 +35,11 @@ vi.mock('@/infra/config/intake', async () => {
   return { getIntakeState: getIntakeStateMock, creditAedFor: actual.creditAedFor }
 })
 vi.mock('@/utils/supabase/auth', () => ({ getUserFromHeaders: userMock }))
+vi.mock('@/infra/supabase/subscriptions-repo', () => ({ getCompanyClosureDates: async () => [] }))
 vi.mock('@/infra/supabase/admin-client', () => ({
   createAdminSupabaseClient: () => ({
     from: (table: string) => {
+      if (table === 'subscriptions') return { select: () => ({ eq: () => ({ in: subsMock }) }) }
       if (table === 'customers') return { select: () => ({ eq: () => ({ maybeSingle: customerMock }) }) }
       if (table === 'credits') {
         return {
@@ -61,6 +65,7 @@ vi.mock('@/infra/supabase/admin-client', () => ({
 
 import { joinIntakeWaitlist } from './join-intake-waitlist'
 import { SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
+import { PLAN_CAN_FOLLOW_MESSAGE } from '../domain/intake-cycle'
 
 const STATE = {
   paused: true, headline: '', body: '',
@@ -221,5 +226,50 @@ describe('joinIntakeWaitlist', () => {
     expect(res.alreadyJoined).toBe(false)
     expect(res.creditAed).toBe(20)
     expect(insertWaitlistArgsMock).toHaveBeenCalledWith({ customer_id: 'u1', cycle_started_at: newCycle })
+  })
+})
+
+describe('saving a spot while the season winds down (spec §7.7, §2.2)', () => {
+  // 12:00 Dubai on Mon 14 Sep 2026; wrap-up day Sat 3 Oct, sales still open.
+  const WIND_DOWN = { ...STATE, paused: false, phase: 'winding_down', wrapUpDay: '2026-10-03', closeDay: '2026-10-05', bufferDays: 1, salesStopped: false }
+  const planRow = (over: Record<string, unknown> = {}) => ({
+    id: 'p1', customer_id: 'u1', plan_name: 'Monthly Premium', status: 'Active',
+    start_date: '2026-08-24', end_date: '2026-09-19', week_type: '6DAYS', meals_per_day: 1,
+    total_meals: 24, delivered_meals: 18, credited_skip_days: 0, season_buffer_grants: 0, skipped_dates: [],
+    planned_pause_start: null, staff_approval: null, last_delivery_tick_date: '2026-09-12', ...over,
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T08:00:00Z'))
+    getIntakeStateMock.mockResolvedValue(WIND_DOWN)
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg', week_type: '6DAYS' }, error: null })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('refuses a customer whose plan finishes and can still be followed', async () => {
+    // The plan ends Sat 19 Sep; a Weekly Flex from Mon 21 Sep still ends by Sat 3 Oct.
+    subsMock.mockResolvedValue({ data: [planRow()], error: null })
+    expect(await joinIntakeWaitlist()).toEqual({ ok: false, alreadyJoined: false, creditAed: 0, message: PLAN_CAN_FOLLOW_MESSAGE })
+    expect(insertWaitlistMock).not.toHaveBeenCalled()
+  })
+
+  it('lets a paused customer save a spot', async () => {
+    subsMock.mockResolvedValue({ data: [planRow({ status: 'Paused' })], error: null })
+    const result = await joinIntakeWaitlist()
+    expect(result.ok).toBe(true)
+    expect(insertWaitlistArgsMock).toHaveBeenCalledWith({ customer_id: 'u1', cycle_started_at: STATE.cycleStartedAt })
+  })
+
+  it('lets a customer with no live plan save a spot once sales are stopped', async () => {
+    getIntakeStateMock.mockResolvedValue({ ...WIND_DOWN, salesStopped: true })
+    subsMock.mockResolvedValue({ data: [], error: null })
+    expect((await joinIntakeWaitlist()).ok).toBe(true)
+  })
+
+  it('never saves a spot on a guess when the plans cannot be read', async () => {
+    subsMock.mockResolvedValue({ data: null, error: { message: 'db down' } })
+    expect(await joinIntakeWaitlist()).toEqual({ ok: false, alreadyJoined: false, creditAed: 0, message: 'We could not save your spot right now. Please try again shortly.' })
+    expect(insertWaitlistMock).not.toHaveBeenCalled()
   })
 })

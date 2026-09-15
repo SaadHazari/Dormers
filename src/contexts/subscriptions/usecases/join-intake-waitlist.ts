@@ -4,7 +4,12 @@ import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE, SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
-import { resolveJoinCycle } from '../domain/intake-cycle'
+import { resolveJoinCycle, noPlanCanFollow, PLAN_CAN_FOLLOW_MESSAGE } from '../domain/intake-cycle'
+import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
+import { projectPlan, type Disposition, type ProjectionPlan } from '@/contexts/season/domain/season-projection'
+import { projectionPlanFromRow } from '@/contexts/season/domain/customer-season'
+import { todayAeIso } from '@/contexts/season/domain/season-dates'
+import type { IntakeState } from '@/infra/config/intake'
 
 export interface JoinWaitlistResult {
   ok: boolean
@@ -132,6 +137,45 @@ async function stampCreditId(
  * visible balance during the wait is the whole mechanic. It is restricted
  * to monthly plans and does not expire.
  */
+type SeasonJoinFacts = { dispositions?: Disposition[]; noPlanCanFollow?: boolean }
+
+/**
+ * The customer's plans read against the wrap-up day (spec §7.7, §2.2). Empty
+ * outside a wind-down with a wrap-up day, where the old rule stands. Null when
+ * the plans cannot be read: a spot, and its credit, is never saved on a guess.
+ */
+async function seasonJoinFacts(sb: AdminSupabaseClient, userId: string, intake: IntakeState): Promise<SeasonJoinFacts | null> {
+  if (intake.phase !== 'winding_down' || !intake.wrapUpDay || !intake.closeDay) return {}
+  const [subsRes, customerRes, closures] = await Promise.all([
+    sb.from('subscriptions')
+      .select('id, customer_id, plan_name, status, start_date, end_date, week_type, meals_per_day, total_meals, delivered_meals, credited_skip_days, season_buffer_grants, skipped_dates, planned_pause_start, staff_approval, last_delivery_tick_date')
+      .eq('customer_id', userId)
+      .in('status', ['Active', 'Skipped', 'Paused', 'Scheduled']),
+    sb.from('customers').select('week_type').eq('id', userId).maybeSingle(),
+    getCompanyClosureDates(),
+  ])
+  if (subsRes.error) return null
+
+  const plans = ((subsRes.data ?? []) as Record<string, unknown>[])
+    .map((row) => projectionPlanFromRow(row))
+    .filter((p): p is ProjectionPlan => p !== null)
+  const ctx = { todayAe: todayAeIso(), closureDates: new Set(closures), wrapUpDay: intake.wrapUpDay, closeDay: intake.closeDay }
+  let lastLiveEndDate: string | null = null
+  for (const p of plans) if (lastLiveEndDate === null || p.endDate > lastLiveEndDate) lastLiveEndDate = p.endDate
+  const weekType = (customerRes.data as { week_type?: string } | null)?.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
+
+  return {
+    dispositions: plans.map((p) => projectPlan(p, ctx).disposition),
+    noPlanCanFollow: noPlanCanFollow({
+      salesStopped: intake.salesStopped,
+      paused: intake.paused,
+      wrapUpDay: intake.wrapUpDay,
+      lastLiveEndDate,
+      weekType,
+    }),
+  }
+}
+
 export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
   const none = { ok: false, alreadyJoined: false, creditAed: 0 }
 
@@ -139,17 +183,28 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
   if (!user) return { ...none, message: 'Please sign in first.' }
 
   const intake = await getIntakeState()
-  const cycle = resolveJoinCycle(intake)
+  const sb = createAdminSupabaseClient()
+  const facts = await seasonJoinFacts(sb, user.id, intake)
+  if (facts === null) {
+    return { ...none, message: 'We could not save your spot right now. Please try again shortly.' }
+  }
+  const cycle = resolveJoinCycle({
+    paused: intake.paused,
+    cycleStartedAt: intake.cycleStartedAt,
+    phase: intake.phase,
+    wrapUpDay: intake.wrapUpDay,
+    ...facts,
+  })
   if (!cycle.ok) {
     return {
       ...none,
       message: cycle.reason === 'not_paused'
         ? 'Plans are open. No need to save a spot.'
-        : 'We could not save your spot right now. Please try again shortly.',
+        : cycle.reason === 'plan_can_follow'
+          ? PLAN_CAN_FOLLOW_MESSAGE
+          : 'We could not save your spot right now. Please try again shortly.',
     }
   }
-
-  const sb = createAdminSupabaseClient()
 
   const { data: customer } = await sb
     .from('customers')
