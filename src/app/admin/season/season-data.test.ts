@@ -15,6 +15,7 @@ function fakeClient(tables: Record<string, Result>): SeasonDataClient {
       const builder = {
         select: () => builder,
         in: () => builder,
+        eq: () => builder,
         gte: () => builder,
         order: () => builder,
         maybeSingle: () => Promise.resolve(result),
@@ -68,5 +69,37 @@ describe('loadSeasonPageData', () => {
       intake_settings: { data: SETTINGS, error: null },
       subscriptions: { data: null, error: { message: 'permission denied' } },
     }))).rejects.toThrow('Season plans read failed: permission denied')
+  })
+
+  it('during the break reads this season\'s holds, their credits, and who saved a spot', async () => {
+    const data = await loadSeasonPageData('2026-10-07', fakeClient({
+      intake_settings: { data: { ...SETTINGS, season_phase: 'break', cycle_started_at: '2026-09-14T08:00:00Z', reopen_target: 15 }, error: null },
+      subscriptions: { data: [{ ...SUB, status: 'Paused', season_hold_id: 'h1' }], error: null },
+      season_holds: { data: [{ id: 'h1', subscription_id: 's1', customer_id: 'c1', reason: 'season', state: 'held', held_meals: 9, meal_value_fils: null, waitlist_credit_id: 'cr1' }], error: null },
+      intake_waitlist: { data: [{ customer_id: 'c1' }], error: null },
+      credits: { data: [{ id: 'cr1', amount_aed: '20' }], error: null },
+      customers: { data: [{ id: 'c1', name: 'Omar Farouk', dorm_name: 'Academic City' }], error: null },
+      orders: { data: [], error: null },
+      company_closures: { data: [], error: null },
+    }))
+    expect(data.cycleStartedAt).toBe('2026-09-14T08:00:00Z')
+    expect(data.reopenTarget).toBe(15)
+    expect(data.plans[0].seasonHoldId).toBe('h1')
+    expect(data.holds).toEqual([{
+      id: 'h1', subscriptionId: 's1', customerId: 'c1', customerName: 'Omar Farouk', planName: 'Monthly Premium',
+      reason: 'season', state: 'held', heldMeals: 9, mealValueFils: null, waitlistCreditId: 'cr1', waitlistCreditFils: 2000,
+    }])
+    expect(data.savedSpotCustomerIds).toEqual(['c1'])
+  })
+
+  it('reads no holds outside the break', async () => {
+    const data = await loadSeasonPageData('2026-09-14', fakeClient({
+      intake_settings: { data: SETTINGS, error: null },
+      subscriptions: { data: [SUB], error: null },
+      season_holds: { data: [{ id: 'h1' }], error: null },
+    }))
+    expect(data.holds).toEqual([])
+    expect(data.savedSpotCustomerIds).toEqual([])
+    expect(data.plans[0].seasonHoldId).toBeNull()
   })
 })

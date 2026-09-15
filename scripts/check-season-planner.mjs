@@ -23,6 +23,9 @@ const EXPECT = {
   // Same snapshot as `stopped`; only intake_settings.paused disagrees, which
   // is what should light up the season-drift banner.
   drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season'], absent: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'] },
+  // The break board (plan C): only Reopen, and the kitchen-halt invariant.
+  break: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Kitchen halt holding' },
+  break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Active during the break' },
 }
 const WIDTHS = [1280, 390]
 
@@ -71,8 +74,18 @@ try {
         // source case. A case-sensitive check would fail on a correctly
         // rendered page.
         const bodyLower = body.toLowerCase()
-        if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
-        if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
+        if (expect.invariant) {
+          // The break board has no planner: it shows holds and the invariant.
+          for (const id of ['season-invariant', 'season-held-plans', 'season-customer-pauses']) {
+            if (await page.getByTestId(id).count() === 0) failures.push(`${label}: missing ${id}`)
+          }
+          const invariantText = await page.getByTestId('season-invariant').innerText().catch(() => '')
+          if (!invariantText.includes(expect.invariant)) failures.push(`${label}: invariant reads "${invariantText}", expected "${expect.invariant}"`)
+          if (/refund/i.test(body)) failures.push(`${label}: the break board mentions a refund`)
+        } else {
+          if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
+          if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
+        }
         for (const c of expect.controls) {
           if (await page.getByRole('button', { name: c, exact: true }).count() === 0) failures.push(`${label}: missing button "${c}"`)
         }

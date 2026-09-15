@@ -9,12 +9,12 @@
 // Query params:
 //   ?members=0     render the empty state instead of the populated table
 //   ?target=15     set the restart target (omit for "no target set")
-//   ?season=open|stopped|scheduled|stopped_scheduled|passed|drift   season planner state (default stopped)
+//   ?season=open|stopped|scheduled|stopped_scheduled|passed|drift|break|break_alert   season planner state (default stopped)
 import { notFound } from 'next/navigation'
 import { AdminThemeProvider } from '@/app/admin/_components/AdminThemeProvider'
 import { SeasonClient } from '@/app/admin/season/SeasonClient'
 import type { IntakeSettingsRow, WaitlistMember } from '@/app/admin/season/page'
-import type { SeasonPageData, SeasonPlanRow } from '@/app/admin/season/season-data'
+import type { SeasonHoldRow, SeasonPageData, SeasonPlanRow } from '@/app/admin/season/season-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +27,7 @@ function fixturePlan(p: Partial<SeasonPlanRow> & Pick<SeasonPlanRow, 'id' | 'cus
   return {
     customerId: `c-${p.id}`, status: 'Active', weekType: '6DAYS', mealsPerDay: 1, totalMeals: 24, deliveredMeals: 0,
     creditedSkipDays: 0, bufferGrants: 0, skippedDates: [], plannedPauseStart: null, staffApproval: null,
-    lastDeliveryTickDate: '2026-09-12', dormName: 'Academic City', mealValue: { fils: 1800, exact: false },
+    lastDeliveryTickDate: '2026-09-12', dormName: 'Academic City', mealValue: { fils: 1800, exact: false }, seasonHoldId: null,
     ...p,
   }
 }
@@ -52,6 +52,7 @@ const FIXTURE_SNAPSHOTS: Record<string, SeasonPageData['snapshot']> = {
   // Wrap-up day already behind today: only Clear should remain (no move, no
   // stop/resume sales, and end_today is hidden by SEASON_BREAK_RELEASE_LIVE).
   passed: { phase: 'winding_down', wrapUpDay: '2026-09-12', closeDay: '2026-09-14', bufferDays: 1, salesStopped: true },
+  break: { phase: 'break', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: true },
 }
 
 // intake_settings.paused deliberately disagreeing with the season's own
@@ -60,9 +61,30 @@ const FIXTURE_SNAPSHOTS: Record<string, SeasonPageData['snapshot']> = {
 // its values, so the two states can never drift apart from each other.
 const DRIFT_KEY = 'drift'
 
+// The break (spec §11.3): a paid plan held with its credit, a queued Weekly
+// held with it, a customer pause that has not saved a spot, and a staff
+// renewal left pending. break_alert adds a plan still Active, the G10 breach.
+const BREAK_KEYS = new Set(['break', 'break_alert'])
+
+const FIXTURE_BREAK_PLANS: SeasonPlanRow[] = [
+  fixturePlan({ id: 'a', customerName: 'Omar Farouk', planName: 'Monthly Premium', status: 'Paused', startDate: '2026-09-07', endDate: '2026-10-10', deliveredMeals: 15, seasonHoldId: 'h-a', mealValue: { fils: 1800, exact: true } }),
+  fixturePlan({ id: 'd', customerName: 'Omar Farouk', planName: 'Weekly Flex', status: 'Scheduled', startDate: '2026-10-12', endDate: '2026-10-17', totalMeals: 6, lastDeliveryTickDate: null, seasonHoldId: 'h-d', mealValue: { fils: 1900, exact: false } }),
+  fixturePlan({ id: 'c', customerName: 'Priya Nair', planName: 'Monthly Premium', status: 'Paused', startDate: '2026-08-24', endDate: '2026-10-20', deliveredMeals: 10, lastDeliveryTickDate: '2026-09-05', seasonHoldId: 'h-c' }),
+  fixturePlan({ id: 'f', customerName: 'Layla Haddad', planName: 'Staff Monthly', status: 'Scheduled', startDate: '2026-10-05', endDate: '2026-10-30', staffApproval: 'pending', lastDeliveryTickDate: null, mealValue: null }),
+]
+
+const FIXTURE_BREAK_ALERT_PLAN = fixturePlan({ id: 'g', customerName: 'Chen Wei', planName: 'Monthly Premium', status: 'Active', startDate: '2026-09-07', endDate: '2026-10-02', deliveredMeals: 18, mealValue: null })
+
+const FIXTURE_HOLDS: SeasonHoldRow[] = [
+  { id: 'h-a', subscriptionId: 'a', customerId: 'c-a', customerName: 'Omar Farouk', planName: 'Monthly Premium', reason: 'season', state: 'held', heldMeals: 9, mealValueFils: 1800, waitlistCreditId: 'cr-a', waitlistCreditFils: 2000 },
+  { id: 'h-d', subscriptionId: 'd', customerId: 'c-a', customerName: 'Omar Farouk', planName: 'Weekly Flex', reason: 'season', state: 'held', heldMeals: 6, mealValueFils: null, waitlistCreditId: 'cr-a', waitlistCreditFils: 2000 },
+  { id: 'h-c', subscriptionId: 'c', customerId: 'c-c', customerName: 'Priya Nair', planName: 'Monthly Premium', reason: 'customer_pause', state: 'paused_by_customer', heldMeals: 14, mealValueFils: null, waitlistCreditId: null, waitlistCreditFils: null },
+]
+
 function fixtureSeason(key: string | undefined): SeasonPageData {
   const resolvedKey = key ?? 'stopped'
-  const snapshotKey = resolvedKey === DRIFT_KEY ? 'stopped' : resolvedKey
+  const onBreak = BREAK_KEYS.has(resolvedKey)
+  const snapshotKey = resolvedKey === DRIFT_KEY ? 'stopped' : onBreak ? 'break' : resolvedKey
   const snapshot = FIXTURE_SNAPSHOTS[snapshotKey] ?? FIXTURE_SNAPSHOTS.stopped
   const paused = resolvedKey === DRIFT_KEY ? false : snapshot.salesStopped
   return {
@@ -70,9 +92,15 @@ function fixtureSeason(key: string | undefined): SeasonPageData {
     paused,
     salesStoppedAt: snapshot.salesStopped ? '2026-09-02T01:50:11Z' : null,
     kitchenDailyCostAed: 500,
-    todayAe: FIXTURE_TODAY,
-    closureDates: ['2026-09-16'],
-    plans: FIXTURE_PLANS,
+    todayAe: onBreak ? '2026-10-07' : FIXTURE_TODAY,
+    closureDates: onBreak ? [] : ['2026-09-16'],
+    plans: onBreak
+      ? (resolvedKey === 'break_alert' ? [...FIXTURE_BREAK_PLANS, FIXTURE_BREAK_ALERT_PLAN] : FIXTURE_BREAK_PLANS)
+      : FIXTURE_PLANS,
+    cycleStartedAt: '2026-09-14T08:00:00Z',
+    reopenTarget: 15,
+    holds: onBreak ? FIXTURE_HOLDS : [],
+    savedSpotCustomerIds: onBreak ? ['c-a'] : [],
   }
 }
 

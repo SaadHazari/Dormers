@@ -17,6 +17,7 @@ import { AlertTriangle, CalendarClock, Pause, Play, Power, XCircle } from 'lucid
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
+import { BreakBoard } from './BreakBoard'
 import {
     scheduleSeasonEndAction,
     moveSeasonEndAction,
@@ -292,6 +293,10 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
 
     const summary = view.summary
     const copy = confirm ? confirmCopy(confirm, { wrap: wrapDraft, buffer: bufferDraft, snapshot, view, endTodayView, books }) : null
+
+    // Spec §11.3: during the break the page is the break board. Every hook
+    // above has already run, so this early return keeps the hook order stable.
+    if (snapshot.phase === 'break') return <BreakBoard data={data} />
 
     return (
         <div className={`mt-6 rounded-xl border p-5 ${t.card}`}>
