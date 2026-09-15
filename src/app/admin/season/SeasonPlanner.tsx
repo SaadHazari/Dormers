@@ -146,8 +146,8 @@ function confirmCopy(
                         ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} due after the wrap-up day (${exposureText(c.view)}). For now they keep delivering. Holding or refunding them arrives with the season break.`
                         : 'No meals are left after the wrap-up day.'),
                 SEASON_BREAK_RELEASE_LIVE
-                    ? `The kitchen cooks ${plural(summary.kitchenDays, 'more day', 'more days')} (${formatAed(summary.kitchenCostAed * 100)}).`
-                    : `Until the season break goes live the kitchen cooks for every plan on the books (${booksSummary.kitchenDays} days, ${formatAed(booksSummary.kitchenCostAed * 100)}). With it, this wrap-up day would make it ${summary.kitchenDays} days (${formatAed(summary.kitchenCostAed * 100)}).`,
+                    ? `The kitchen cooks ${plural(summary.kitchenDays, 'more day', 'more days')}.`
+                    : `Until the season break goes live the kitchen cooks for every plan on the books (${booksSummary.kitchenDays} days). With it, this wrap-up day would make it ${summary.kitchenDays} days.`,
                 `From now on, new plans must finish by ${prettyDay(c.wrap)}.`,
             ],
             cta: kind === 'schedule' ? 'Yes, schedule it' : 'Yes, move it',
@@ -342,8 +342,8 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                     value={String(SEASON_BREAK_RELEASE_LIVE ? summary.kitchenDays : books.calendar.length)}
                     detail={
                         SEASON_BREAK_RELEASE_LIVE
-                            ? `${formatAed(summary.kitchenCostAed * 100)} at ${formatAed(data.kitchenDailyCostAed * 100)} a day`
-                            : `${formatAed(books.summary.kitchenCostAed * 100)} at ${formatAed(data.kitchenDailyCostAed * 100)} a day${shownWrap ? `. With the season break live, this wrap-up day would make it ${summary.kitchenDays} days.` : ''}`
+                            ? (shownWrap ? `Cooking through ${prettyDay(shownClose ?? shownWrap)}` : 'Until the last meal on the books')
+                            : `Every plan on the books${shownWrap ? `. With the season break live, this wrap-up day would make it ${summary.kitchenDays} days.` : ''}`
                     }
                 />
                 <Fact
@@ -400,8 +400,8 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                         {draftError
                             ?? `Close day ${prettyDay(closeDayFor(wrapDraft, bufferDraft))}. The buffer only cooks make-up meals from skips and is never sold.${kitchenDaysSaved > 0
                                 ? (SEASON_BREAK_RELEASE_LIVE
-                                    ? ` Against the last meal on the books this saves ${plural(kitchenDaysSaved, 'kitchen day', 'kitchen days')} (${formatAed(kitchenDaysSaved * data.kitchenDailyCostAed * 100)}).`
-                                    : ` With the season break live, this would save ${kitchenDaysSaved} kitchen days (${formatAed(kitchenDaysSaved * data.kitchenDailyCostAed * 100)}) against the last meal on the books.`)
+                                    ? ` Against the last meal on the books this saves ${plural(kitchenDaysSaved, 'kitchen day', 'kitchen days')}.`
+                                    : ` With the season break live, this would save ${kitchenDaysSaved} kitchen days against the last meal on the books.`)
                                 : ''}`}
                     </p>
                 </div>
