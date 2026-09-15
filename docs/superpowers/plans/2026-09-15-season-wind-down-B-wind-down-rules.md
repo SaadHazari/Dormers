@@ -20,9 +20,10 @@
 - **Meal value for a credited skip (decided 2026-09-15, spec D7):** what the customer paid for that meal: `floor((amount_paid_fils + credit_applied_fils) / meals_count) × meals_per_day` (card charge plus wallet credit used, over the meals in the order; a Monthly Max day is 2 meals). Only an order with no recorded money falls back to `floor(round(price_per_meal × 100) × 90 / 100) × meals_per_day` (90% of list price, since the Dorm Wars tier coupon takes at most 10%). Staff Monthly, Welcome Meal and plans with no order mint 0 (spec X5). An order with neither recorded money nor a price refuses the credited skip. TypeScript `skipCreditFilsFor` and SQL `season_skip_credit_fils` must agree; Task 6's rehearsal checks both paths.
 - **Stripe test mode (decided 2026-09-15, spec D7):** production runs Stripe in test mode for the pilot, and test payments are not money. The backfill (Task 4) leaves `cs_test_` orders and card orders without Stripe ids null, so their plans use the fallback. The webhook and free checkout (Task 3) still record both columns on every new order in either mode, so live payments carry exact amounts from the first one. On 2026-09-15 no live plan resolves: the Active Monthly Premium (list AED 22) credits 1980 fils a day, the Paused one (list AED 18) 1620.
 - **Order money first:** Tasks 3 and 4 run before credited skips can mint. Task 4's `--write` run happens before Task 8 is applied live and before Task 9's actions deploy.
-- **Stripe keys** come only from the process environment at run time (`STRIPE_LIVE_SECRET_KEY` for the backfill): never from `.env.local`, never printed, never written to a file.
-- **Messages:** a credited skip queues no WhatsApp. `meal_skipped_confirm`, `meal_skip_scheduled_confirm` and `meal_skip_cancelled_confirm` are never sent for it, and no `meal_resumed_confirm` is queued for a date after W unless the plan holds a buffer grant and the date is on or before K. Every credited skip, and every reconciliation, calls `announceSeasonSkipCredited(receipts)` in `src/contexts/season/usecases/season-skip-notices.ts`; Plan E wires `season_skip_credited` there.
-- **Live database first.** Before changing any existing SQL function, read its live body with `select pg_get_functiondef('public.<name>'::regproc);` through the Supabase connector and compare it to the body quoted in the task; if they differ, stop and report. Mirror every live migration verbatim into `supabase/migrations/20260915_<name>.sql`. Apply with `apply_migration` using the file content without `BEGIN;` / `COMMIT;`. Never re-apply an older file from `supabase/migrations/`.
+- **Deploy order:** Tasks 5 to 8 go live before Plan B's TypeScript deploys. From the moment Task 8 is applied until Plan B is deployed, no wrap-up day may be scheduled or moved (the owner has been told). Plan B deploys immediately after its final review.
+- **Stripe keys** come only from the process environment at run time (`STRIPE_LIVE_SECRET_KEY` for the backfill): never from `.env.local`, never printed, never written to a file. The backfill refuses to run while `.env.local` defines `STRIPE_LIVE_SECRET_KEY`, and reports a Stripe failure by `err.type` and `err.code` only, never `err.message`.
+- **Messages:** a credited skip sends no skip confirmation: `meal_skipped_confirm`, `meal_skip_scheduled_confirm` and `meal_skip_cancelled_confirm` are never sent for it. Every same-day skip, credited or not, queues `meal_resumed_confirm` for the next eligible delivery day only when that day is on or before W, or is on or before K while the plan holds a buffer grant (`mayPromiseMealOn`). Every credited skip, and every reconciliation, calls `announceSeasonSkipCredited(receipts)` in `src/contexts/season/usecases/season-skip-notices.ts`; Plan E wires `season_skip_credited` there.
+- **Live database first.** Before changing any existing SQL function, read its live body with `select pg_get_functiondef('public.<name>'::regproc);` through the Supabase connector and compare it to the body quoted in the task; if they differ in logic, stop and report. Formatting that `pg_get_functiondef` normalises (whitespace, `SET search_path TO 'public'` against `SET search_path = public`, `$function$` against `$$`) is not a difference. Mirror every live migration verbatim into `supabase/migrations/20260915_<name>.sql`. Apply with `apply_migration` using the file content without `BEGIN;` / `COMMIT;`. Never re-apply an older file from `supabase/migrations/`.
 - Every new SQL function is `SECURITY DEFINER`, `SET search_path = public`, with `REVOKE EXECUTE ... FROM public, anon, authenticated`. Customer server actions call them with `createAdminSupabaseClient()` and pass `auth.user.id` from `withOwnedSubscription`, never a client-supplied id. Every SQL refusal raises a message starting with a `SEASON_SKIP_` or `SEASON_UNSKIP_` code; the customer never sees raw text.
 - Why SQL for skip writes: `authenticated` has column-level UPDATE only on older `subscriptions` columns (not `credited_skip_days`, `credited_skip_dates`, `season_buffer_grants`) and RLS gives customers SELECT only on `credits`. One function per operation also makes the subscription update and the credit row atomic and lets SQL recheck the season and the amount under a row lock.
 - Every new customer surface has a preview fixture (`?preview=1&...`) on desktop and mobile, and every new or changed button carries a stable `id`.
@@ -59,12 +60,14 @@ Confirmed by reading: Plan A's `season_schedule_end`, `season_move_end` and `sea
 
 | File | Responsibility |
 |---|---|
-| Create `src/contexts/payments/domain/order-money.ts` (+ test) | Credit an order really used (split rows by their used part); backfill decision per order |
-| Modify `src/contexts/payments/usecases/handle-stripe-event.ts`, `src/contexts/payments/usecases/free-checkout.ts` | Record `amount_paid_fils` and `credit_applied_fils` on every new order |
-| Create `src/contexts/payments/order-money-wiring.test.ts`; modify `src/app/api/admin-notification-coverage.test.ts` | Both paths record money; a failed write alerts ops |
-| Create `scripts/backfill-order-money.ts`; modify `package.json` | Backfill live-plan orders: dry run by default, live-mode payments only |
+| Create `src/contexts/payments/domain/order-money.ts` (+ test) | Credit an order really used (split rows by their used part); backfill decision per order; `.env.local` live-key check; Stripe error summary |
+| Create `src/infra/supabase/credit-usage-repo.ts` (+ test) | `loadCreditUsedFils`: the one reader of the wallet credit an order really used, for the webhook, free checkout and the backfill; null when the rows cannot be read |
+| Modify `src/contexts/payments/usecases/handle-stripe-event.ts`, `src/contexts/payments/usecases/free-checkout.ts` | Record `amount_paid_fils` and `credit_applied_fils` on every new order; neither column, and an ops alert, when the credit rows cannot be read |
+| Create `src/contexts/payments/order-money-wiring.test.ts`; modify `src/app/api/admin-notification-coverage.test.ts` | Both paths and the backfill count credit through `loadCreditUsedFils`; unreadable credit rows and a failed write alert ops |
+| Create `scripts/backfill-order-money.ts`; modify `package.json` | Backfill live-plan orders: dry run by default, live-mode payments only; refuses a live key in `.env.local`; Stripe failures reported by type and code |
 | Create `src/contexts/season/domain/skip-outcome.ts` (+ test) | Projected end, make-up day, normal / grant / credited decision, skip credit amount, "may we promise a meal on this date", seen-outcome check |
 | Modify `src/contexts/subscriptions/domain/subscription-rules.ts` (+ test) | `skipsUsedFor`; `canSkip` counts credited skips (X3) |
+| Create `src/app/dashboard/skip-allowance-wiring.test.ts` | Every skip button and count (plan bar pills, home quota, mobile calendar, skip sheet, plan page) counts credited skips |
 | Modify `src/contexts/subscriptions/domain/subscriptions.ts` | `credited_skip_days`, `credited_skip_dates`, `season_buffer_grants` on `Subscription` |
 | Modify `src/app/dashboard/_shared/types.ts` | The same fields (optional) plus `meals_per_day` on the dashboard `Subscription` |
 | Create `supabase/migrations/20260915_season_credited_skip_ticks.sql` | `credited_skip_dates` column; status and delivery ticks count credited skips |
@@ -77,7 +80,7 @@ Confirmed by reading: Plan A's `season_schedule_end`, `season_move_end` and `sea
 | Modify `src/contexts/season/usecases/season-transitions.ts` (+ test) | Pass reconciliation receipts to the hook |
 | Create `src/contexts/season/domain/season-skip-errors.ts` (+ test) | Customer copy for refused season skips |
 | Create `src/contexts/season/usecases/skip-season.ts` | Fresh season context, order money, `season_skip` / `season_unskip` calls |
-| Modify `src/contexts/subscriptions/usecases/subscription-mutations.ts` (+ test) | Season-aware skip, future skip, un-skip; pause guards for credited skips |
+| Modify `src/contexts/subscriptions/usecases/subscription-mutations.ts` (+ test) | Season-aware skip, future skip, un-skip through one module-local `seasonSkipStep`; pause guards for credited skips |
 | Create `src/contexts/season/domain/customer-season.ts` (+ test) | The dashboard's season view for one customer |
 | Modify `src/app/dashboard/page.tsx`, `ClientDashboard.tsx`, `ActiveDashboard.tsx` | Thread the season view; preview knobs `season=` and `release=1` |
 | Create `src/app/dashboard/_shared/season-skip-copy.ts` (+ test) | Credited skip sheet, toast and un-skip copy |
@@ -92,6 +95,7 @@ Confirmed by reading: Plan A's `season_schedule_end`, `season_move_end` and `sea
 | Modify `src/app/dashboard/_shared/PlanPauseModal.tsx` | Pause line |
 | Create `src/app/dashboard/_shared/SeasonScheduledNotice.tsx`, `SeasonWrapUpChip.tsx` | N1 / N3 full-screen notice and the home chip |
 | Create `scripts/check-season-customer.mjs`; modify `package.json` | Rendered check of every Plan B preview state |
+| Create `scripts/lib/chromium.mjs`; modify `scripts/check-season-planner.mjs` (Plan A) | One `launchChromium()` shared by both rendered checks |
 
 ---
 
@@ -463,6 +467,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Modify: `src/contexts/subscriptions/usecases/subscription-mutations.ts` (the cap line in `skipMeal` only)
 - Modify: `src/contexts/subscriptions/usecases/subscription-mutations.test.ts`, `src/contexts/subscriptions/usecases/with-owned-subscription.test.ts` (fixtures only)
 - Modify: `src/app/dashboard/ActiveDashboard.tsx`, `src/app/dashboard/PlanProgress.tsx`, `src/app/dashboard/_shared/FutureSkipModal.tsx`, `src/app/dashboard/plan/PlanClient.tsx`, `src/app/dashboard/_mobile/MobilePlan.tsx`
+- Test: `src/app/dashboard/skip-allowance-wiring.test.ts` (create)
 
 **Interfaces:**
 - Consumes: nothing new.
@@ -500,10 +505,52 @@ describe('skipsUsedFor (spec X3: a credited skip uses a skip)', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+Create `src/app/dashboard/skip-allowance-wiring.test.ts`. The plan bar's pill skip is offered only while `hasCredits` is true, and the other surfaces show a skips-left count; all of them must count credited skips:
 
-Run: `npx vitest run src/contexts/subscriptions/domain/subscription-rules.test.ts`
-Expected: FAIL with "skipsUsedFor is not a function" (and the new `canSkip` case returns `{ ok: true }`).
+```ts
+/**
+ * Every surface that offers a skip, or counts the skips left, counts credited
+ * season skips against the allowance (spec X3). Source-level, like
+ * src/app/api/admin-notification-coverage.test.ts: these are client components
+ * and vitest runs in the node environment with no render harness.
+ */
+
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const ROOT = resolve(__dirname, '../../..')
+const read = (rel: string) => readFileSync(resolve(ROOT, rel), 'utf-8')
+
+describe('skip buttons count credited skips (spec X3)', () => {
+  it('the plan bar only offers a pill skip while skips are left, credited ones included', () => {
+    const src = read('src/app/dashboard/PlanProgress.tsx')
+    expect(src).toContain('const skippedDeliveries = skipsUsedFor(sub)')
+    expect(src).toContain('const hasCredits = (maxSkips - skippedDeliveries) > 0')
+    expect(src).not.toContain('sub.skipped_meals_count')
+  })
+
+  it('the home skip quota, the mobile calendar and the future skip sheet count credited skips', () => {
+    const active = read('src/app/dashboard/ActiveDashboard.tsx')
+    expect(active).toContain('left:  Math.max(0, skipTotal - skipsUsedFor(effectiveSub)),')
+    expect(active).toContain('skipped: skipsUsedFor(effectiveSub),')
+    // MobileHome offers a cell skip from data.skipped, which ActiveDashboard now fills with skipsUsedFor.
+    expect(read('src/app/dashboard/_mobile/MobileHome.tsx')).toContain('const hasCredits = data.maxSkips - data.skipped > 0')
+    expect(read('src/app/dashboard/_shared/FutureSkipModal.tsx')).toContain('const skipsLeft = Math.max(0, maxSkips - skipsUsedFor(sub))')
+  })
+
+  it('the plan page counts credited skips on desktop and mobile', () => {
+    for (const rel of ['src/app/dashboard/plan/PlanClient.tsx', 'src/app/dashboard/_mobile/MobilePlan.tsx']) {
+      expect(read(rel)).toContain('const skipsLeft = Math.max(0, skipAllowance - skipsUsedFor(sub))')
+    }
+  })
+})
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npx vitest run src/contexts/subscriptions/domain/subscription-rules.test.ts src/app/dashboard/skip-allowance-wiring.test.ts`
+Expected: FAIL with "skipsUsedFor is not a function" (and the new `canSkip` case returns `{ ok: true }`); all three wiring cases fail.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -560,10 +607,9 @@ and in `canSkip` replace `if (sub.skipped_meals_count >= maxSkips) {` with `if (
 - In `mobileData` replace `skipped: effectiveSub.skipped_meals_count,` with `skipped: skipsUsedFor(effectiveSub),`.
 
 `src/app/dashboard/PlanProgress.tsx`:
-- Add `import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'` with the other imports.
-- Replace `const untracedSkips = Math.max(0, skippedDeliveries - knownSkips)` with `const untracedSkips = Math.max(0, skipsUsedFor(sub) - knownSkips)`.
-- In the legend replace `{sub.skipped_meals_count > 0 && (` with `{skipsUsedFor(sub) > 0 && (` and `<strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.skipped_meals_count}</strong> skipped` with `<strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{skipsUsedFor(sub)}</strong> skipped`.
-- If `skippedDeliveries` has no other reader afterwards, `npm run lint` reports it unused: delete its declaration line.
+- Change `import { hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'` to `import { hasNotStartedYet, isHeldPastStartDate, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'`.
+- Replace `const skippedDeliveries = Math.max(0, sub.skipped_meals_count)` with `const skippedDeliveries = skipsUsedFor(sub)`. Both of its readers then count credited skips with no further edit: `const untracedSkips = Math.max(0, skippedDeliveries - knownSkips)` (credited dates are in `skipped_dates` too, so only normal skips without a date stay untraced) and `const hasCredits = (maxSkips - skippedDeliveries) > 0`, which decides whether a future pill offers a skip.
+- In the legend replace `{sub.skipped_meals_count > 0 && (` with `{skippedDeliveries > 0 && (` and `<strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.skipped_meals_count}</strong> skipped` with `<strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{skippedDeliveries}</strong> skipped`.
 
 `src/app/dashboard/_shared/FutureSkipModal.tsx`: add `import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'` and replace `const skipsLeft = Math.max(0, maxSkips - sub.skipped_meals_count)` with `const skipsLeft = Math.max(0, maxSkips - skipsUsedFor(sub))`.
 
@@ -571,8 +617,8 @@ and in `canSkip` replace `if (sub.skipped_meals_count >= maxSkips) {` with `if (
 
 - [ ] **Step 4: Run the tests, typecheck and lint**
 
-Run: `npx vitest run src/contexts/subscriptions`
-Expected: PASS.
+Run: `npx vitest run src/contexts/subscriptions src/app/dashboard/skip-allowance-wiring.test.ts`
+Expected: PASS, including the 3 wiring cases.
 Run: `npx tsc --noEmit -p .`
 Expected: no errors. If another file builds a domain `Subscription` literal, add the same three fixture lines there.
 Run: `npm run lint`
@@ -581,7 +627,7 @@ Expected: no new warnings or errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/contexts/subscriptions/domain/subscription-rules.ts src/contexts/subscriptions/domain/subscription-rules.test.ts src/contexts/subscriptions/domain/subscriptions.ts src/app/dashboard/_shared/types.ts src/contexts/subscriptions/usecases/subscription-mutations.ts src/contexts/subscriptions/usecases/subscription-mutations.test.ts src/contexts/subscriptions/usecases/with-owned-subscription.test.ts src/app/dashboard/ActiveDashboard.tsx src/app/dashboard/PlanProgress.tsx src/app/dashboard/_shared/FutureSkipModal.tsx src/app/dashboard/plan/PlanClient.tsx src/app/dashboard/_mobile/MobilePlan.tsx
+git add src/contexts/subscriptions/domain/subscription-rules.ts src/contexts/subscriptions/domain/subscription-rules.test.ts src/contexts/subscriptions/domain/subscriptions.ts src/app/dashboard/_shared/types.ts src/contexts/subscriptions/usecases/subscription-mutations.ts src/contexts/subscriptions/usecases/subscription-mutations.test.ts src/contexts/subscriptions/usecases/with-owned-subscription.test.ts src/app/dashboard/ActiveDashboard.tsx src/app/dashboard/PlanProgress.tsx src/app/dashboard/_shared/FutureSkipModal.tsx src/app/dashboard/plan/PlanClient.tsx src/app/dashboard/_mobile/MobilePlan.tsx src/app/dashboard/skip-allowance-wiring.test.ts
 git commit -m "feat(season): a skip turned into credit still counts against the plan's skips
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -593,6 +639,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src/contexts/payments/domain/order-money.ts`
 - Test: `src/contexts/payments/domain/order-money.test.ts`
+- Create: `src/infra/supabase/credit-usage-repo.ts`
+- Test: `src/infra/supabase/credit-usage-repo.test.ts`
 - Modify: `src/contexts/payments/usecases/handle-stripe-event.ts`
 - Modify: `src/contexts/payments/usecases/free-checkout.ts`
 - Create: `src/contexts/payments/order-money-wiring.test.ts`
@@ -601,11 +649,12 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: live `orders.amount_paid_fils`, `orders.credit_applied_fils` (Plan A); the webhook's `fullRowIds` / `splitToProcess` and free checkout's `appliedCreditIdsFull` / `splitCredit`.
 - Produces:
-  - `interface CreditRedemption { fullRowAmountsAed: ReadonlyArray<number | string>; splitUseFils: number | null }`
+  - `interface CreditRedemption { fullRowAmountsAed: ReadonlyArray<number | string>; splitUseFils: number | null }` (in `order-money.ts`)
   - `creditUsedFils(r: CreditRedemption): number`
   - `interface OrderMoneyColumns { amount_paid_fils: number; credit_applied_fils: number }`
   - `orderMoneyColumns(input: { cardChargeFils: number | null | undefined; creditUsedFils: number }): OrderMoneyColumns | null`
-  - Every order created after this deploys, Stripe (test or live mode) and credit-only, carries both columns.
+  - `interface CreditRowIds { fullRowIds: readonly string[]; splitUseFils: number | null }` and `loadCreditUsedFils(sb: SupabaseClient, rows: CreditRowIds): Promise<number | null>` in `src/infra/supabase/credit-usage-repo.ts`: the one reader of the wallet credit an order really used (full rows whole, the split row by its used part). It takes the Supabase client as an argument and imports nothing server-only, so the webhook, free checkout and the Task 4 backfill script (run with `tsx`, which resolves the `@/` alias from `tsconfig.json`) all import this module. Null when a credit row cannot be read.
+  - Every order created after this deploys, Stripe (test or live mode) and credit-only, carries both columns. When its credit rows cannot be read it carries neither, and ops is alerted: never a partial credit figure.
 
 How credit is consumed today (read before writing): the checkout route reserves rows from `synthesizePerSessionCoupon`, which walks approved credit FIFO into rows redeemed in full (`appliedCreditIdsFull`) and at most one boundary row used in part (`splitCredit.useFils`). The webhook (from session metadata, or the legacy fallback walk) and free checkout flip every full row and the boundary row to `applied` with `applied_to = order`, then insert the unused part of the boundary row as a new approved `<source>_split_remainder` row. So `sum(credits.applied_to = order)` over-counts a split: the credit actually used is the full rows' amounts plus `useFils`. It is also the credit part of the discount Stripe gave, so it counts even if a flip fails (ops is already alerted then).
 
@@ -667,7 +716,8 @@ Expected: FAIL with "Failed to resolve import './order-money'".
  * charge and the wallet credit it really consumed. A season skip credit is
  * worth exactly (card charge + credit used) ÷ meals in the order, so the
  * webhook, free checkout and the backfill script must count credit the same
- * way. Pure.
+ * way; all three read the rows through loadCreditUsedFils
+ * (src/infra/supabase/credit-usage-repo.ts), which sums them here. Pure.
  *
  * Credit consumed = every row redeemed in full + the used part of the one
  * boundary row that was split. The split row is flipped to 'applied' with its
@@ -707,15 +757,121 @@ export function orderMoneyColumns(input: { cardChargeFils: number | null | undef
 Run: `npx vitest run src/contexts/payments/domain/order-money.test.ts`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Write the failing wiring tests**
+- [ ] **Step 5: Write the failing credit reader test**
+
+`src/infra/supabase/credit-usage-repo.test.ts`:
+
+```ts
+import { describe, it, expect, vi } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { loadCreditUsedFils } from './credit-usage-repo'
+
+/** A client whose credits.select('id, amount_aed').in('id', ids) resolves to `result`. */
+function fakeSb(result: { data: unknown; error: unknown }) {
+  const inMock = vi.fn(async () => result)
+  const selectMock = vi.fn(() => ({ in: inMock }))
+  const fromMock = vi.fn(() => ({ select: selectMock }))
+  return { sb: { from: fromMock } as unknown as SupabaseClient, fromMock, inMock }
+}
+
+describe('loadCreditUsedFils', () => {
+  it('adds the rows redeemed in full to the used part of the split row', async () => {
+    const { sb, fromMock, inMock } = fakeSb({ data: [{ id: 'c1', amount_aed: 20 }, { id: 'c2', amount_aed: '15.50' }], error: null })
+    expect(await loadCreditUsedFils(sb, { fullRowIds: ['c1', 'c2'], splitUseFils: 1024 })).toBe(4574)
+    expect(fromMock).toHaveBeenCalledWith('credits')
+    expect(inMock).toHaveBeenCalledWith('id', ['c1', 'c2'])
+  })
+
+  it('reads nothing when no row was redeemed in full', async () => {
+    const { sb, fromMock } = fakeSb({ data: [], error: null })
+    expect(await loadCreditUsedFils(sb, { fullRowIds: [], splitUseFils: 1024 })).toBe(1024)
+    expect(await loadCreditUsedFils(sb, { fullRowIds: [], splitUseFils: null })).toBe(0)
+    expect(fromMock).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the credit rows cannot be read, so the caller records neither money column', async () => {
+    const { sb } = fakeSb({ data: null, error: { message: 'connection terminated' } })
+    expect(await loadCreditUsedFils(sb, { fullRowIds: ['c1'], splitUseFils: 1024 })).toBeNull()
+  })
+
+  it('returns null when a row is missing, rather than counting part of the credit', async () => {
+    const { sb } = fakeSb({ data: [{ id: 'c1', amount_aed: 20 }], error: null })
+    expect(await loadCreditUsedFils(sb, { fullRowIds: ['c1', 'c2'], splitUseFils: null })).toBeNull()
+  })
+
+  it('reads a repeated id once', async () => {
+    const { sb, inMock } = fakeSb({ data: [{ id: 'c1', amount_aed: 20 }], error: null })
+    expect(await loadCreditUsedFils(sb, { fullRowIds: ['c1', 'c1'], splitUseFils: null })).toBe(2000)
+    expect(inMock).toHaveBeenCalledWith('id', ['c1'])
+  })
+})
+```
+
+- [ ] **Step 6: Run the test to verify it fails**
+
+Run: `npx vitest run src/infra/supabase/credit-usage-repo.test.ts`
+Expected: FAIL with "Failed to resolve import './credit-usage-repo'".
+
+- [ ] **Step 7: Write the credit reader**
+
+`src/infra/supabase/credit-usage-repo.ts`:
+
+```ts
+/**
+ * The wallet credit an order really used, read from the credits table
+ * (season spec §10.1, D7). The one reader for the Stripe webhook, free
+ * checkout and scripts/backfill-order-money.ts, so all three count credit the
+ * same way: rows redeemed in full count whole, the split row only by its used
+ * part (creditUsedFils).
+ *
+ * Takes the Supabase client as an argument and imports nothing server-only,
+ * so the tsx backfill script can import it too.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { creditUsedFils } from '@/contexts/payments/domain/order-money'
+
+export interface CreditRowIds {
+  /** Credit rows the order redeemed in full. */
+  fullRowIds: readonly string[]
+  /** Fils used from the one split boundary row, or null when nothing was split. */
+  splitUseFils: number | null
+}
+
+/**
+ * Fils of wallet credit the order consumed, or null when any full row cannot
+ * be read (a read error, or fewer rows than ids). Null means the caller records
+ * no money at all: a partial figure would under-credit every later season skip.
+ */
+export async function loadCreditUsedFils(sb: SupabaseClient, rows: CreditRowIds): Promise<number | null> {
+  const ids = [...new Set(rows.fullRowIds)]
+  let fullRowAmountsAed: Array<number | string> = []
+  if (ids.length > 0) {
+    const { data, error } = await sb.from('credits').select('id, amount_aed').in('id', ids)
+    if (error || !data || data.length !== ids.length) return null
+    fullRowAmountsAed = (data as Array<{ amount_aed: number | string }>).map((r) => r.amount_aed)
+  }
+  return creditUsedFils({ fullRowAmountsAed, splitUseFils: rows.splitUseFils })
+}
+```
+
+- [ ] **Step 8: Run the test to verify it passes**
+
+Run: `npx vitest run src/infra/supabase/credit-usage-repo.test.ts`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 9: Write the failing wiring tests**
 
 `src/contexts/payments/order-money-wiring.test.ts`:
 
 ```ts
 /**
- * Both order-creating paths record what was paid (season spec §10.1, D7).
- * Source-level, like src/app/api/admin-notification-coverage.test.ts: the
- * handlers need Stripe, Supabase and Zoho to run end to end.
+ * Both order-creating paths record what was paid (season spec §10.1, D7),
+ * count credit through the one reader, and record neither money column when
+ * the credit rows cannot be read. Source-level, like
+ * src/app/api/admin-notification-coverage.test.ts: the handlers need Stripe,
+ * Supabase and Zoho to run end to end. The reader's own read-error behaviour
+ * is tested in src/infra/supabase/credit-usage-repo.test.ts.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -725,21 +881,37 @@ import { resolve } from 'node:path'
 const ROOT = resolve(__dirname, '../../..')
 const read = (rel: string) => readFileSync(resolve(ROOT, rel), 'utf-8')
 
-describe('order money is recorded on every new order', () => {
-  it('the Stripe webhook records the card charge and the credit used, split rows by their used part', () => {
+describe('the Stripe webhook records order money', () => {
+  it('records the card charge and the credit used, split rows by their used part, once', () => {
     const src = read('src/contexts/payments/usecases/handle-stripe-event.ts')
-    expect(src).toContain("from '@/contexts/payments/domain/order-money'")
-    expect(src).toContain('cardChargeFils: session.amount_total')
+    expect(src).toContain("import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'")
+    expect(src).toContain('loadCreditUsedFils(supabaseAdmin, {')
     expect(src).toContain('splitUseFils: splitToProcess?.useFils ?? null')
+    expect(src).toContain('orderMoneyColumns({ cardChargeFils: session.amount_total, creditUsedFils: creditUsed })')
     expect(src).toContain(".is('amount_paid_fils', null)")
   })
 
-  it('free checkout records no card charge and the credit used, split rows by their used part', () => {
+  it('writes neither column when the credit rows cannot be read, and tells ops', () => {
+    const src = read('src/contexts/payments/usecases/handle-stripe-event.ts')
+    expect(src).toContain('const orderMoney = creditUsed === null')
+    expect(src).toMatch(/if \(creditUsed === null\) \{[\s\S]*?Order money NOT recorded[\s\S]*?\} else if \(orderMoney\) \{/)
+  })
+})
+
+describe('free checkout records order money', () => {
+  it('records no card charge and the credit used, split rows by their used part', () => {
     const src = read('src/contexts/payments/usecases/free-checkout.ts')
-    expect(src).toContain("from '@/contexts/payments/domain/order-money'")
-    expect(src).toContain('cardChargeFils: 0')
+    expect(src).toContain("import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'")
+    expect(src).toContain('fullRowIds: appliedCreditIdsFull,')
     expect(src).toContain('splitUseFils: splitCredit?.useFils ?? null')
+    expect(src).toContain('orderMoneyColumns({ cardChargeFils: 0, creditUsedFils: creditUsed })')
     expect(src).toContain('...(orderMoney ?? {})')
+  })
+
+  it('writes neither column when the credit rows cannot be read, and tells ops', () => {
+    const src = read('src/contexts/payments/usecases/free-checkout.ts')
+    expect(src).toContain('const orderMoney = creditUsed === null ? null')
+    expect(src).toMatch(/if \(creditUsed === null\) \{[\s\S]*?Order money NOT recorded/)
   })
 })
 ```
@@ -750,19 +922,36 @@ In `src/app/api/admin-notification-coverage.test.ts`, inside `describe('handle-s
   it('order money write failure alerts ops', () => {
     expect(src).toContain('Order money write FAILED')
   })
+
+  it('unreadable order credit rows alert ops', () => {
+    expect(src).toContain('Order money NOT recorded')
+  })
+```
+
+and append at the end of the file:
+
+```ts
+describe('free-checkout.ts: order money failure alerts ops', () => {
+  const src = read('src/contexts/payments/usecases/free-checkout.ts')
+
+  it('unreadable order credit rows alert ops', () => {
+    expect(src).toContain('Order money NOT recorded')
+  })
+})
 ```
 
 Run: `npx vitest run src/contexts/payments/order-money-wiring.test.ts src/app/api/admin-notification-coverage.test.ts`
 Expected: FAIL on the new cases only.
 
-- [ ] **Step 6: Record the money in the webhook and in free checkout**
+- [ ] **Step 10: Record the money in the webhook and in free checkout**
 
 `src/contexts/payments/usecases/handle-stripe-event.ts`:
 
 (a) Add with the other imports:
 
 ```ts
-import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'
 ```
 
 (b) Directly above the comment `// 3. Update Customer Profile with the latest data + drain any pending` (after the split-row block closes), add:
@@ -770,33 +959,33 @@ import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/or
 ```ts
   // ── Order money (season spec §10.1, D7) ───────────────────────────────
   // What the customer paid for this order: the card charge plus the wallet
-  // credit it really consumed. Full rows count whole; a split row counts only
-  // its used part (the rest went back to the wallet as a remainder row). A
-  // season skip credit is worth exactly this share of one meal. Recorded in
-  // test and live mode alike. Written once: a Stripe retry keeps the first value.
-  let fullRowAmountsAed: Array<number | string> = []
-  if (fullRowIds.length > 0) {
-    const { data: fullRows } = await supabaseAdmin
-      .from('credits')
-      .select('amount_aed')
-      .in('id', fullRowIds)
-    fullRowAmountsAed = ((fullRows ?? []) as Array<{ amount_aed: number | string }>).map((r) => r.amount_aed)
-  }
-  const orderMoney = orderMoneyColumns({
-    cardChargeFils: session.amount_total,
-    creditUsedFils: creditUsedFils({
-      fullRowAmountsAed,
-      splitUseFils: splitToProcess?.useFils ?? null,
-    }),
+  // credit it really consumed (full rows whole, the split row by its used
+  // part). A season skip credit is worth exactly this share of one meal.
+  // Recorded in test and live mode alike, once: a Stripe retry keeps the
+  // first value. When the credit rows cannot be read, neither column is
+  // written: a partial figure would under-credit every later skip.
+  const creditUsed = await loadCreditUsedFils(supabaseAdmin, {
+    fullRowIds,
+    splitUseFils: splitToProcess?.useFils ?? null,
   })
-  if (orderMoney) {
+  const orderMoney = creditUsed === null
+    ? null
+    : orderMoneyColumns({ cardChargeFils: session.amount_total, creditUsedFils: creditUsed })
+  if (creditUsed === null) {
+    console.error(`order ${orderId}: credit rows unreadable, order money left unrecorded`)
+    void notifyAdmin(
+      `Order money NOT recorded for order ${orderId} (session ${session.id}): the credit rows it used could not be read, ` +
+      `so both money columns stay empty. Season skip credit for this plan falls back to 90% of list price until they are filled.`,
+      orderId,
+    )
+  } else if (orderMoney) {
     const { error: moneyErr } = await supabaseAdmin
       .from('orders')
       .update(orderMoney)
       .eq('id', orderId)
       .is('amount_paid_fils', null)
     if (moneyErr) {
-      console.error('⚠️  order money write failed (non-fatal):', moneyErr)
+      console.error('order money write failed (non-fatal):', moneyErr)
       void notifyAdmin(
         `Order money write FAILED for order ${orderId} (session ${session.id}): ${moneyErr.message}. ` +
         `Season skip credit for this plan falls back to 90% of list price until npm run backfill:order-money fixes it.`,
@@ -804,7 +993,7 @@ import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/or
       )
     }
   } else {
-    console.warn(`⚠️  session ${session.id} has no amount_total; order ${orderId} money left unrecorded`)
+    console.warn(`session ${session.id} has no amount_total; order ${orderId} money left unrecorded`)
   }
 ```
 
@@ -813,7 +1002,8 @@ import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/or
 (a) Add with the other imports:
 
 ```ts
-import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { orderMoneyColumns } from '@/contexts/payments/domain/order-money'
+import { loadCreditUsedFils } from '@/infra/supabase/credit-usage-repo'
 ```
 
 (b) Directly above the comment `// ── Order insert (no Stripe IDs, payment_method=credit) ────────────────`, add:
@@ -821,19 +1011,13 @@ import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/or
 ```ts
   // ── Order money (season spec §10.1, D7) ────────────────────────────────
   // No card charge; the wallet credit really consumed: full rows whole, the
-  // split row only by its used part.
-  let fullRowAmountsAed: Array<number | string> = []
-  if (appliedCreditIdsFull.length > 0) {
-    const { data: fullRows } = await supabaseAdmin
-      .from('credits')
-      .select('amount_aed')
-      .in('id', appliedCreditIdsFull)
-    fullRowAmountsAed = ((fullRows ?? []) as Array<{ amount_aed: number | string }>).map((r) => r.amount_aed)
-  }
-  const orderMoney = orderMoneyColumns({
-    cardChargeFils: 0,
-    creditUsedFils: creditUsedFils({ fullRowAmountsAed, splitUseFils: splitCredit?.useFils ?? null }),
+  // split row only by its used part. When the credit rows cannot be read,
+  // neither column is written (ops is told once the order exists).
+  const creditUsed = await loadCreditUsedFils(supabaseAdmin, {
+    fullRowIds: appliedCreditIdsFull,
+    splitUseFils: splitCredit?.useFils ?? null,
   })
+  const orderMoney = creditUsed === null ? null : orderMoneyColumns({ cardChargeFils: 0, creditUsedFils: creditUsed })
 ```
 
 (c) In the `orders` insert payload, add directly after `price_per_meal: pricePerMeal,`:
@@ -842,17 +1026,30 @@ import { creditUsedFils, orderMoneyColumns } from '@/contexts/payments/domain/or
       ...(orderMoney ?? {}),
 ```
 
-- [ ] **Step 7: Run the payment tests, typecheck and lint**
+(d) Directly after `const orderId = orderData.id as string`, add:
 
-Run: `npx vitest run src/contexts/payments src/app/api`
+```ts
+  if (creditUsed === null) {
+    console.error(`free-checkout order ${orderId}: credit rows unreadable, order money left unrecorded`)
+    void notifyAdmin(
+      `Order money NOT recorded for free-checkout order ${orderId} (user ${userId}): the credit rows it used could not be read, ` +
+      `so both money columns stay empty. Season skip credit for this plan falls back to 90% of list price until they are filled.`,
+      orderId,
+    )
+  }
+```
+
+- [ ] **Step 11: Run the payment tests, typecheck and lint**
+
+Run: `npx vitest run src/contexts/payments src/infra/supabase/credit-usage-repo.test.ts src/app/api`
 Expected: PASS, including the three existing tier audit files and the notification coverage file.
 Run: `npx tsc --noEmit -p .` and `npm run lint`
 Expected: clean.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
-git add src/contexts/payments/domain/order-money.ts src/contexts/payments/domain/order-money.test.ts src/contexts/payments/usecases/handle-stripe-event.ts src/contexts/payments/usecases/free-checkout.ts src/contexts/payments/order-money-wiring.test.ts src/app/api/admin-notification-coverage.test.ts
+git add src/contexts/payments/domain/order-money.ts src/contexts/payments/domain/order-money.test.ts src/infra/supabase/credit-usage-repo.ts src/infra/supabase/credit-usage-repo.test.ts src/contexts/payments/usecases/handle-stripe-event.ts src/contexts/payments/usecases/free-checkout.ts src/contexts/payments/order-money-wiring.test.ts src/app/api/admin-notification-coverage.test.ts
 git commit -m "feat(payments): every new order records the card charge and the wallet credit it really used
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -866,28 +1063,31 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Modify: `src/contexts/payments/domain/order-money.ts`
 - Test: `src/contexts/payments/domain/order-money.test.ts`
 - Create: `scripts/backfill-order-money.ts`
+- Modify: `src/contexts/payments/order-money-wiring.test.ts`
 - Modify: `package.json`
 
 **Interfaces:**
-- Consumes: Task 3 `creditUsedFils`, `orderMoneyColumns`, `OrderMoneyColumns`; `stripeClient()` and `type Stripe` from `src/infra/stripe/client.ts`.
+- Consumes: Task 3 `orderMoneyColumns`, `OrderMoneyColumns`, and `loadCreditUsedFils` from `src/infra/supabase/credit-usage-repo.ts`; `stripeClient()` and `type Stripe` from `src/infra/stripe/client.ts`.
 - Produces:
   - `redemptionFromMetadata(metadata: Record<string, string> | null | undefined): { fullRowIds: string[]; splitUseFils: number | null; hasCreditMetadata: boolean }`
   - `type OrderBackfillPlan = { kind: 'skip'; reason: string } | { kind: 'unresolvable'; reason: string } | { kind: 'credit_only' } | { kind: 'stripe_live'; sessionId: string | null; paymentIntentId: string | null }`
   - `planOrderBackfill(order: { paymentMethod: string | null; stripeSessionId: string | null; stripePaymentId: string | null; amountPaidFils: number | null; creditAppliedFils: number | null }): OrderBackfillPlan`
-  - `creditOnlyMoney(input: { appliedRowAmountsAed: ReadonlyArray<number | string>; splitRemainderNearby: boolean }): OrderMoneyColumns | null`
-  - `stripeOrderMoney(input: { amountReceivedFils: number | null; sessionAmountTotalFils: number | null; redemption: { fullRowAmountsAed: ReadonlyArray<number | string>; splitUseFils: number | null; hasCreditMetadata: boolean }; creditsAppliedToOrder: number }): OrderMoneyColumns | { unresolvable: string }`
+  - `creditOnlyMoney(input: { creditUsedFils: number | null; splitRemainderNearby: boolean }): OrderMoneyColumns | null`
+  - `stripeOrderMoney(input: { amountReceivedFils: number | null; sessionAmountTotalFils: number | null; hasCreditMetadata: boolean; creditUsedFils: number | null; creditsAppliedToOrder: number }): OrderMoneyColumns | { unresolvable: string }`
   - `isLiveStripeKey(key: string | undefined): boolean`
+  - `envFileDefinesLiveKey(envFileText: string | null): boolean`
+  - `stripeErrorSummary(err: unknown): string`
   - `npm run backfill:order-money` (dry run) and `npm run backfill:order-money -- --write`
 
 Rules (decided 2026-09-15):
 - Orders tied to Active, Paused, Skipped or Scheduled plans whose two money columns are not both set.
 - Stripe runs in test mode for the pilot, and test payments are not money: a `cs_test_` session, or a `payment_method = 'stripe'` order with no Stripe ids, is listed as unresolvable and left null, so its plan uses the 90% fallback. No test-mode key is used.
-- A `cs_live_` session, or an order with only a PaymentIntent id, is read from Stripe with a live key: card charge = PaymentIntent `amount_received`, or the session's `amount_total` when there is no intent. Refunds are never subtracted. Credit used = the session metadata's full rows (their `amount_aed` from `credits`) plus `split_credit_use_fils` (the Task 3 rule). A session with no credit metadata counts 0 credit only if no credit row points at the order; otherwise unresolvable. A PaymentIntent that live mode cannot find is unresolvable.
-- A credit-only order (`payment_method = 'credit'` or a `free:` session id) records 0 card charge and the sum of the credit rows applied to it, unless a `_split_remainder` row for the same customer was created within an hour of the order, in which case the used part cannot be read back and it is unresolvable.
+- A `cs_live_` session, or an order with only a PaymentIntent id, is read from Stripe with a live key: card charge = PaymentIntent `amount_received`, or the session's `amount_total` when there is no intent. Refunds are never subtracted. Credit used = `loadCreditUsedFils` (Task 3) over the session metadata's full rows and `split_credit_use_fils`. A session with no credit metadata counts 0 credit only if no credit row points at the order; otherwise unresolvable. Credit rows that cannot be read leave the order unresolvable. A PaymentIntent that live mode cannot find, or any other Stripe failure, is unresolvable and reported as `Stripe read failed (type …, code …)`: never the error's message, because Stripe's invalid-key message repeats part of the key.
+- A credit-only order (`payment_method = 'credit'` or a `free:` session id) records 0 card charge and `loadCreditUsedFils` over the credit rows applied to it, unless a `_split_remainder` row for the same customer was created within an hour of the order, in which case the used part cannot be read back and it is unresolvable.
 - Read-only against Stripe. Writes only the two columns, only where `amount_paid_fils` is still null, only with `--write`.
-- The live key comes from `STRIPE_LIVE_SECRET_KEY` in the process environment at run time: never from `.env.local` (whose `STRIPE_SECRET_KEY` is a rejected test key), never printed, never written to a file. It is only required when at least one order needs a live Stripe read.
+- The live key comes from `STRIPE_LIVE_SECRET_KEY` in the process environment at run time: never from `.env.local` (whose `STRIPE_SECRET_KEY` is a rejected test key), never printed, never written to a file. `npm run` loads `.env.local` for the Supabase credentials, so before anything else the script refuses to run, changing nothing, when `.env.local` defines `STRIPE_LIVE_SECRET_KEY` (it matches the variable name only). The `sk_live_` / `rk_live_` check on the key stays. The key is only required when at least one order needs a live Stripe read.
 
-Live data on 2026-09-15 (controller's read-only checks): the Active Monthly Premium's order is `cs_test_`; the Paused Monthly Premium's order has no Stripe ids; Staff Monthly has no order. The backfill resolves nothing today and every live plan uses the fallback.
+Live data on 2026-09-15 (controller's read-only checks): the Active Monthly Premium's order is `cs_test_`; the Paused Monthly Premium's order has no Stripe ids; Staff Monthly has no order. `.env.local` does not define `STRIPE_LIVE_SECRET_KEY`. The backfill resolves nothing today and every live plan uses the fallback.
 
 **Run it before credited skips can mint:** the `--write` run in Step 6 happens before Task 8 is applied live and before Task 9's actions deploy.
 
@@ -898,6 +1098,7 @@ Replace the import line of `src/contexts/payments/domain/order-money.test.ts` wi
 ```ts
 import {
   creditUsedFils, orderMoneyColumns, redemptionFromMetadata, planOrderBackfill, creditOnlyMoney, stripeOrderMoney, isLiveStripeKey,
+  envFileDefinesLiveKey, stripeErrorSummary,
 } from './order-money'
 ```
 
@@ -951,39 +1152,43 @@ describe('planOrderBackfill', () => {
 
 describe('creditOnlyMoney', () => {
   it('records no card charge and the credit applied to the order', () => {
-    expect(creditOnlyMoney({ appliedRowAmountsAed: [200, '232'], splitRemainderNearby: false })).toEqual({ amount_paid_fils: 0, credit_applied_fils: 43200 })
+    expect(creditOnlyMoney({ creditUsedFils: 43200, splitRemainderNearby: false })).toEqual({ amount_paid_fils: 0, credit_applied_fils: 43200 })
   })
 
-  it('gives up when a split remainder hides how much of a row was used', () => {
-    expect(creditOnlyMoney({ appliedRowAmountsAed: [5500], splitRemainderNearby: true })).toBeNull()
+  it('gives up when a split remainder hides how much of a row was used, or the rows could not be read', () => {
+    expect(creditOnlyMoney({ creditUsedFils: 550000, splitRemainderNearby: true })).toBeNull()
+    expect(creditOnlyMoney({ creditUsedFils: null, splitRemainderNearby: false })).toBeNull()
   })
 })
 
 describe('stripeOrderMoney', () => {
-  const redemption = (r: Partial<{ fullRowAmountsAed: Array<number | string>; splitUseFils: number | null; hasCreditMetadata: boolean }> = {}) => ({
-    fullRowAmountsAed: [], splitUseFils: null, hasCreditMetadata: true, ...r,
+  const input = (i: Partial<Parameters<typeof stripeOrderMoney>[0]> = {}) => ({
+    amountReceivedFils: 41200, sessionAmountTotalFils: 41200, hasCreditMetadata: true, creditUsedFils: 0, creditsAppliedToOrder: 0, ...i,
   })
 
   it('takes the amount the PaymentIntent received plus the credit used', () => {
-    expect(stripeOrderMoney({ amountReceivedFils: 41200, sessionAmountTotalFils: 41200, redemption: redemption({ fullRowAmountsAed: [20] }), creditsAppliedToOrder: 1 }))
+    expect(stripeOrderMoney(input({ creditUsedFils: 2000, creditsAppliedToOrder: 1 })))
       .toEqual({ amount_paid_fils: 41200, credit_applied_fils: 2000 })
   })
 
-  it('counts a split row by its used part', () => {
-    expect(stripeOrderMoney({ amountReceivedFils: 42176, sessionAmountTotalFils: null, redemption: redemption({ splitUseFils: 1024 }), creditsAppliedToOrder: 1 }))
-      .toEqual({ amount_paid_fils: 42176, credit_applied_fils: 1024 })
-  })
-
   it('falls back to the session total when there is no intent', () => {
-    expect(stripeOrderMoney({ amountReceivedFils: null, sessionAmountTotalFils: 43200, redemption: redemption({ hasCreditMetadata: false }), creditsAppliedToOrder: 0 }))
+    expect(stripeOrderMoney(input({ amountReceivedFils: null, sessionAmountTotalFils: 43200, hasCreditMetadata: false, creditUsedFils: null })))
       .toEqual({ amount_paid_fils: 43200, credit_applied_fils: 0 })
   })
 
-  it('gives up without an amount, or when credit was used but the session never said how', () => {
-    expect(stripeOrderMoney({ amountReceivedFils: null, sessionAmountTotalFils: null, redemption: redemption(), creditsAppliedToOrder: 0 }))
+  it('gives up without an amount', () => {
+    expect(stripeOrderMoney(input({ amountReceivedFils: null, sessionAmountTotalFils: null })))
       .toEqual({ unresolvable: 'Stripe has no amount for this order' })
-    expect(stripeOrderMoney({ amountReceivedFils: 43200, sessionAmountTotalFils: 43200, redemption: redemption({ hasCreditMetadata: false }), creditsAppliedToOrder: 2 }))
+  })
+
+  it('gives up when credit was used but the session never said how', () => {
+    expect(stripeOrderMoney(input({ hasCreditMetadata: false, creditUsedFils: null, creditsAppliedToOrder: 2 })))
       .toEqual({ unresolvable: 'credit was used but the session has no credit metadata' })
+  })
+
+  it('gives up when the credit rows could not be read', () => {
+    expect(stripeOrderMoney(input({ creditUsedFils: null, creditsAppliedToOrder: 1 })))
+      .toEqual({ unresolvable: 'the credit rows this order used could not be read' })
   })
 })
 
@@ -995,12 +1200,59 @@ describe('isLiveStripeKey', () => {
     expect(isLiveStripeKey(undefined)).toBe(false)
   })
 })
+
+describe('envFileDefinesLiveKey', () => {
+  it('finds the live key name in an env file, however the line is written', () => {
+    expect(envFileDefinesLiveKey('NEXT_PUBLIC_SUPABASE_URL=x\nSTRIPE_LIVE_SECRET_KEY=abc\n')).toBe(true)
+    expect(envFileDefinesLiveKey('export STRIPE_LIVE_SECRET_KEY = "abc"')).toBe(true)
+  })
+
+  it('ignores other keys, comments and a missing file', () => {
+    expect(envFileDefinesLiveKey('STRIPE_SECRET_KEY=abc\n# STRIPE_LIVE_SECRET_KEY=abc\nMY_STRIPE_LIVE_SECRET_KEY=abc')).toBe(false)
+    expect(envFileDefinesLiveKey(null)).toBe(false)
+  })
+})
+
+describe('stripeErrorSummary', () => {
+  it('reports only the type and code, never the message', () => {
+    const authErr = Object.assign(new Error('Invalid API Key provided: sk_live_****wxyz'), { type: 'StripeAuthenticationError' })
+    expect(stripeErrorSummary(authErr)).toBe('Stripe read failed (type StripeAuthenticationError, code none)')
+    expect(stripeErrorSummary(authErr)).not.toContain('sk_live_')
+    expect(stripeErrorSummary({ type: 'StripeInvalidRequestError', code: 'resource_missing', message: 'No such payment_intent' }))
+      .toBe('Stripe read failed (type StripeInvalidRequestError, code resource_missing)')
+  })
+
+  it('copes with a failure that is not a Stripe error', () => {
+    expect(stripeErrorSummary(null)).toBe('Stripe read failed (type unknown, code none)')
+  })
+})
+```
+
+Append to `src/contexts/payments/order-money-wiring.test.ts` (each case reads the script inside the test, so Task 3's cases keep running while the script does not exist yet):
+
+```ts
+describe('the backfill counts credit and reports Stripe failures safely', () => {
+  it('counts credit through the same reader as the webhook and free checkout', () => {
+    const src = read('scripts/backfill-order-money.ts')
+    expect(src).toContain("import { loadCreditUsedFils } from '../src/infra/supabase/credit-usage-repo'")
+    expect(src.match(/loadCreditUsedFils\(sb, \{/g)).toHaveLength(2)
+  })
+
+  it('refuses a live key in .env.local before anything else, and never prints a Stripe error message', () => {
+    const src = read('scripts/backfill-order-money.ts')
+    const guard = src.indexOf('envFileDefinesLiveKey(existsSync(ENV_FILE)')
+    expect(guard).toBeGreaterThan(-1)
+    expect(guard).toBeLessThan(src.indexOf('createClient(url, serviceKey'))
+    expect(src).toContain('return { unresolvable: stripeErrorSummary(err) }')
+    expect(src).not.toContain('(err as Error).message')
+  })
+})
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run src/contexts/payments/domain/order-money.test.ts`
-Expected: FAIL. `redemptionFromMetadata` and the other new names are not exported.
+Run: `npx vitest run src/contexts/payments/domain/order-money.test.ts src/contexts/payments/order-money-wiring.test.ts`
+Expected: FAIL. `redemptionFromMetadata` and the other new names are not exported, and the two backfill wiring cases cannot read `scripts/backfill-order-money.ts` yet. Task 3's four wiring cases still pass.
 
 - [ ] **Step 3: Write the decisions**
 
@@ -1052,47 +1304,71 @@ export function planOrderBackfill(order: {
   return { kind: 'unresolvable', reason: 'no Stripe session or payment id' }
 }
 
+/**
+ * A credit-only order: no card charge, and the credit its applied rows add up
+ * to (loadCreditUsedFils). Null when a split remainder hides how much of a row
+ * was used, or when the rows could not be read.
+ */
 export function creditOnlyMoney(input: {
-  appliedRowAmountsAed: ReadonlyArray<number | string>
+  creditUsedFils: number | null
   splitRemainderNearby: boolean
 }): OrderMoneyColumns | null {
-  if (input.splitRemainderNearby) return null
-  return orderMoneyColumns({
-    cardChargeFils: 0,
-    creditUsedFils: creditUsedFils({ fullRowAmountsAed: input.appliedRowAmountsAed, splitUseFils: null }),
-  })
+  if (input.splitRemainderNearby || input.creditUsedFils == null) return null
+  return orderMoneyColumns({ cardChargeFils: 0, creditUsedFils: input.creditUsedFils })
 }
 
 export function stripeOrderMoney(input: {
   amountReceivedFils: number | null
   sessionAmountTotalFils: number | null
-  redemption: { fullRowAmountsAed: ReadonlyArray<number | string>; splitUseFils: number | null; hasCreditMetadata: boolean }
+  hasCreditMetadata: boolean
+  /** From loadCreditUsedFils over the metadata's rows; only read when hasCreditMetadata. */
+  creditUsedFils: number | null
   creditsAppliedToOrder: number
 }): OrderMoneyColumns | { unresolvable: string } {
   // Refunds are never subtracted: they are handled by the refund flow.
   const card = input.amountReceivedFils ?? input.sessionAmountTotalFils
   if (card == null) return { unresolvable: 'Stripe has no amount for this order' }
-  if (!input.redemption.hasCreditMetadata && input.creditsAppliedToOrder > 0) {
+  let credit = 0
+  if (input.hasCreditMetadata) {
+    if (input.creditUsedFils == null) return { unresolvable: 'the credit rows this order used could not be read' }
+    credit = input.creditUsedFils
+  } else if (input.creditsAppliedToOrder > 0) {
     return { unresolvable: 'credit was used but the session has no credit metadata' }
   }
-  const money = orderMoneyColumns({
-    cardChargeFils: card,
-    creditUsedFils: input.redemption.hasCreditMetadata
-      ? creditUsedFils({ fullRowAmountsAed: input.redemption.fullRowAmountsAed, splitUseFils: input.redemption.splitUseFils })
-      : 0,
-  })
-  return money ?? { unresolvable: 'Stripe has no amount for this order' }
+  return orderMoneyColumns({ cardChargeFils: card, creditUsedFils: credit }) ?? { unresolvable: 'Stripe has no amount for this order' }
 }
 
 export function isLiveStripeKey(key: string | undefined): boolean {
   return !!key && /^(sk|rk)_live_/.test(key)
+}
+
+/**
+ * True when an env file assigns STRIPE_LIVE_SECRET_KEY. npm run loads
+ * .env.local into the process, so a live key written there would reach the
+ * backfill without anyone passing it; the script refuses instead. Matches the
+ * variable name only.
+ */
+export function envFileDefinesLiveKey(envFileText: string | null): boolean {
+  if (!envFileText) return false
+  return envFileText.split(/\r?\n/).some((line) => /^\s*(export\s+)?STRIPE_LIVE_SECRET_KEY\s*=/.test(line))
+}
+
+/**
+ * A Stripe failure reduced to its type and code. The message is never used:
+ * Stripe's invalid-key message repeats part of the key.
+ */
+export function stripeErrorSummary(err: unknown): string {
+  const e = (err ?? {}) as { type?: unknown; code?: unknown }
+  const type = typeof e.type === 'string' ? e.type : 'unknown'
+  const code = typeof e.code === 'string' ? e.code : 'none'
+  return `Stripe read failed (type ${type}, code ${code})`
 }
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/contexts/payments/domain/order-money.test.ts`
-Expected: PASS, 20 tests.
+Expected: PASS, 25 tests. (The two backfill wiring cases pass after Step 5.)
 
 - [ ] **Step 5: Write the script**
 
@@ -1115,16 +1391,31 @@ Expected: PASS, 20 tests.
  * the process environment, never from .env.local, never printed, never
  * written. For example:
  *   STRIPE_LIVE_SECRET_KEY="$(netlify env:get STRIPE_SECRET_KEY --context production)" npm run backfill:order-money
+ * npm run loads .env.local for the Supabase credentials (--env-file), so the
+ * script refuses to run while .env.local defines STRIPE_LIVE_SECRET_KEY. A
+ * Stripe failure is reported by its type and code only.
  *
- * Read-only against Stripe. Supabase credentials come from .env.local (--env-file).
+ * Read-only against Stripe. Credit used is counted by loadCreditUsedFils, the
+ * same reader the webhook and free checkout use.
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { stripeClient, type Stripe } from '../src/infra/stripe/client'
+import { loadCreditUsedFils } from '../src/infra/supabase/credit-usage-repo'
 import {
   planOrderBackfill, creditOnlyMoney, stripeOrderMoney, redemptionFromMetadata, isLiveStripeKey,
-  type OrderMoneyColumns,
+  envFileDefinesLiveKey, stripeErrorSummary, type OrderMoneyColumns,
 } from '../src/contexts/payments/domain/order-money'
+
+// Refuse before anything else: a live key in .env.local would arrive through
+// --env-file without anyone passing it. Only the variable name is checked.
+const ENV_FILE = resolve(process.cwd(), '.env.local')
+if (envFileDefinesLiveKey(existsSync(ENV_FILE) ? readFileSync(ENV_FILE, 'utf-8') : null)) {
+  console.error('.env.local defines STRIPE_LIVE_SECRET_KEY. Delete that line and pass the key in the process environment only. Nothing was changed.')
+  process.exit(1)
+}
 
 const WRITE = process.argv.includes('--write')
 const LIVE_STATUSES = ['Active', 'Paused', 'Skipped', 'Scheduled']
@@ -1154,40 +1445,40 @@ type OrderRow = {
 type ReportRow = { order: string | null; plan: string; status: string; result: string; detail: string }
 
 async function liveStripeMoney(stripe: Stripe, order: OrderRow, sessionId: string | null, paymentIntentId: string | null): Promise<OrderMoneyColumns | { unresolvable: string }> {
+  let session: Stripe.Checkout.Session | null = null
+  let intent: Stripe.PaymentIntent | null = null
   try {
-    const session = sessionId
+    session = sessionId
       ? await stripe.checkout.sessions.retrieve(sessionId)
       : paymentIntentId
         ? (await stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 })).data[0] ?? null
         : null
     const sessionIntent = session?.payment_intent
     const intentId = paymentIntentId ?? (typeof sessionIntent === 'string' ? sessionIntent : sessionIntent?.id ?? null)
-    const intent = intentId ? await stripe.paymentIntents.retrieve(intentId) : null
-
-    const redemption = redemptionFromMetadata(session?.metadata ?? null)
-    let fullRowAmountsAed: Array<number | string> = []
-    if (redemption.fullRowIds.length > 0) {
-      const { data, error } = await sb.from('credits').select('amount_aed').in('id', redemption.fullRowIds)
-      if (error) return { unresolvable: `credit read failed: ${error.message}` }
-      fullRowAmountsAed = (data ?? []).map((r) => r.amount_aed as number | string)
-    }
-    const { count, error: countErr } = await sb.from('credits').select('id', { count: 'exact', head: true }).eq('applied_to', order.id)
-    if (countErr) return { unresolvable: `credit read failed: ${countErr.message}` }
-
-    return stripeOrderMoney({
-      amountReceivedFils: intent?.amount_received ?? null,
-      sessionAmountTotalFils: session?.amount_total ?? null,
-      redemption: { fullRowAmountsAed, splitUseFils: redemption.splitUseFils, hasCreditMetadata: redemption.hasCreditMetadata },
-      creditsAppliedToOrder: count ?? 0,
-    })
+    intent = intentId ? await stripe.paymentIntents.retrieve(intentId) : null
   } catch (err) {
-    const code = (err as { code?: string }).code
-    return { unresolvable: code === 'resource_missing' ? 'not found in live mode' : `Stripe read failed: ${(err as Error).message}` }
+    // Type and code only: Stripe's invalid-key message repeats part of the key.
+    return { unresolvable: stripeErrorSummary(err) }
   }
+
+  const redemption = redemptionFromMetadata(session?.metadata ?? null)
+  const creditUsed = redemption.hasCreditMetadata
+    ? await loadCreditUsedFils(sb, { fullRowIds: redemption.fullRowIds, splitUseFils: redemption.splitUseFils })
+    : null
+  const { count, error: countErr } = await sb.from('credits').select('id', { count: 'exact', head: true }).eq('applied_to', order.id)
+  if (countErr) return { unresolvable: `credit read failed: ${countErr.message}` }
+
+  return stripeOrderMoney({
+    amountReceivedFils: intent?.amount_received ?? null,
+    sessionAmountTotalFils: session?.amount_total ?? null,
+    hasCreditMetadata: redemption.hasCreditMetadata,
+    creditUsedFils: creditUsed,
+    creditsAppliedToOrder: count ?? 0,
+  })
 }
 
 async function creditOnly(order: OrderRow): Promise<OrderMoneyColumns | { unresolvable: string }> {
-  const applied = await sb.from('credits').select('amount_aed').eq('applied_to', order.id)
+  const applied = await sb.from('credits').select('id').eq('applied_to', order.id)
   if (applied.error) return { unresolvable: `credit read failed: ${applied.error.message}` }
   const at = Date.parse(order.created_at)
   const remainders = await sb.from('credits').select('id')
@@ -1196,11 +1487,17 @@ async function creditOnly(order: OrderRow): Promise<OrderMoneyColumns | { unreso
     .gte('created_at', new Date(at - HOUR_MS).toISOString())
     .lte('created_at', new Date(at + HOUR_MS).toISOString())
   if (remainders.error) return { unresolvable: `credit read failed: ${remainders.error.message}` }
-  const money = creditOnlyMoney({
-    appliedRowAmountsAed: (applied.data ?? []).map((r) => r.amount_aed as number | string),
-    splitRemainderNearby: (remainders.data ?? []).length > 0,
-  })
-  return money ?? { unresolvable: 'a split credit hides how much of it this order used' }
+  const splitRemainderNearby = (remainders.data ?? []).length > 0
+  const creditUsed = splitRemainderNearby
+    ? null
+    : await loadCreditUsedFils(sb, { fullRowIds: (applied.data ?? []).map((r) => r.id as string), splitUseFils: null })
+  const money = creditOnlyMoney({ creditUsedFils: creditUsed, splitRemainderNearby })
+  if (money) return money
+  return {
+    unresolvable: splitRemainderNearby
+      ? 'a split credit hides how much of it this order used'
+      : 'the credit rows this order used could not be read',
+  }
 }
 
 async function main() {
@@ -1270,7 +1567,12 @@ async function main() {
   console.log(JSON.stringify({ mode: WRITE ? 'write' : 'dry-run', stripeLookups: stripe ? 'live' : 'none', written, rows: report }, null, 2))
 }
 
-main().catch((err) => { console.error(err instanceof Error ? err.message : err); process.exit(1) })
+main().catch((err) => {
+  // A Stripe failure is reduced to its type and code: its message can repeat part of the key.
+  const fromStripe = typeof (err as { type?: unknown } | null)?.type === 'string'
+  console.error(fromStripe ? stripeErrorSummary(err) : err instanceof Error ? err.message : String(err))
+  process.exit(1)
+})
 ```
 
 Add to `package.json` `scripts`, after `check:delivered-drift`:
@@ -1279,13 +1581,15 @@ Add to `package.json` `scripts`, after `check:delivered-drift`:
     "backfill:order-money": "tsx --env-file=.env.local scripts/backfill-order-money.ts",
 ```
 
+Run: `npx vitest run src/contexts/payments/order-money-wiring.test.ts`
+Expected: PASS, 6 tests.
 Run: `npx tsc --noEmit -p .` and `npm run lint`
 Expected: clean.
 
 - [ ] **Step 6: Dry run, then write**
 
 Run: `npm run backfill:order-money`
-Expected on the 2026-09-15 data: `"mode": "dry-run"`, `"stripeLookups": "none"`, `"written": 0`, and three rows: the Active Monthly Premium's order `unresolvable` / `Stripe test mode: test payments are not money`; the Paused Monthly Premium's order `unresolvable` / `no Stripe session or payment id`; Staff Monthly `no order` / `not paid in cash: skip credit is 0`. No Stripe key is needed. If a row reads `would write` or needs a live key, show the dry-run output to the owner before writing, and run it with `STRIPE_LIVE_SECRET_KEY="$(netlify env:get STRIPE_SECRET_KEY --context production)"` in front.
+Expected on the 2026-09-15 data: the run gets past the `.env.local` check (that file does not define `STRIPE_LIVE_SECRET_KEY`, so the guard does not trip on it), then `"mode": "dry-run"`, `"stripeLookups": "none"`, `"written": 0`, and three rows: the Active Monthly Premium's order `unresolvable` / `Stripe test mode: test payments are not money`; the Paused Monthly Premium's order `unresolvable` / `no Stripe session or payment id`; Staff Monthly `no order` / `not paid in cash: skip credit is 0`. No Stripe key is needed. If a row reads `would write` or needs a live key, show the dry-run output to the owner before writing, and run it with `STRIPE_LIVE_SECRET_KEY="$(netlify env:get STRIPE_SECRET_KEY --context production)"` in front. A Stripe failure then shows only as `Stripe read failed (type …, code …)`.
 
 Run: `npm run backfill:order-money -- --write` (with the same key prefix if the dry run needed one).
 Expected: the same rows, `"mode": "write"`, `written` equal to the dry run's `would write` count (0 today).
@@ -1304,7 +1608,7 @@ Expected: every written order shows both columns; the two test-mode or id-less o
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/contexts/payments/domain/order-money.ts src/contexts/payments/domain/order-money.test.ts scripts/backfill-order-money.ts package.json
+git add src/contexts/payments/domain/order-money.ts src/contexts/payments/domain/order-money.test.ts scripts/backfill-order-money.ts src/contexts/payments/order-money-wiring.test.ts package.json
 git commit -m "feat(payments): backfill what live plans' orders were paid, live-mode payments only
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -2257,7 +2561,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   - `receiptsFromTransition(state: unknown): SeasonSkipReceipt[]`
   - `announceSeasonSkipCredited(receipts: readonly SeasonSkipReceipt[]): Promise<void>` (the Plan E hook)
 
-Rule (spec §7.2 reconciliation, X6): for every Active or Skipped plan with no planned pause on or before W, count the plan's delivery days after W up to its projected end. Grants stay only while a delivery day on a buffer day needs them (never more than the buffer). Every other delivery day after W that a skip created is converted, latest skip dates first: `skipped_meals_count − n`, `credited_skip_days + n`, the dates join `credited_skip_dates`, and each date mints season-skip credit (approved for a past or same-day date, pending for a future one). Credits never turn back. A plan whose meal value is unknown keeps its skips and is reported with `skipped_no_value`. "End the season today" does not reconcile (spec §5 lists it only for schedule and move).
+Rule (spec §7.2 reconciliation, X6): for every Active or Skipped plan with no planned pause on or before W, count the plan's delivery days after W up to its projected end. Grants stay only while a delivery day on a buffer day needs them (never more than the buffer). Every other delivery day after W that a skip created is converted, latest skip dates first: `skipped_meals_count − n`, `credited_skip_days + n`, the dates join `credited_skip_dates`, and each date mints season-skip credit (approved for a past or same-day date, pending for a future one). Credits never turn back. A plan whose meal value is unknown keeps its skips and is reported with `skipped_no_value`. "End the season today" is not reconciled in this plan: spec §5 and §17.1 P3 reconcile skips on it too, and that lands in Plan C together with the action itself, which Plan A keeps hidden until the break is live (After Plan B, item 3).
 
 - [ ] **Step 1: Read the live transitions**
 
@@ -2266,7 +2570,7 @@ select pg_get_functiondef('public.season_schedule_end'::regproc);
 select pg_get_functiondef('public.season_move_end'::regproc);
 ```
 
-Expected: identical to the bodies in `supabase/migrations/20260914_season_transitions.sql` (Plan A). If they differ, stop and report.
+Compare each body with the Plan A mirror `supabase/migrations/20260914_season_transitions.sql` after normalising the formatting `pg_get_functiondef` changes: collapse every run of whitespace (line breaks included) to one space, and read `SET search_path TO 'public'` as `SET search_path = public` and `$function$` as `$$`. Expected: identical after normalising (checked 2026-09-15). Only a difference in logic (a guard, a column, a value or a statement) stops the task; report it. The Step 6 bodies below are the live text with the `-- Plan B` lines added.
 
 - [ ] **Step 2: Write the failing TypeScript tests**
 
@@ -2491,8 +2795,10 @@ BEGIN
       AND NOT (g.d::date = ANY(COALESCE(s.skipped_dates, '{}'::date[])));
 
     v_grants := LEAST(s.season_buffer_grants, GREATEST(p_buffer, 0), v_in_buffer);
+    -- DISTINCT: a date listed twice in skipped_dates is still one skipped meal,
+    -- and credited_skip_dates must stay exactly credited_skip_days long.
     v_candidates := ARRAY(
-      SELECT t.x FROM unnest(COALESCE(s.skipped_dates, '{}'::date[])) AS t(x)
+      SELECT DISTINCT t.x FROM unnest(COALESCE(s.skipped_dates, '{}'::date[])) AS t(x)
       WHERE NOT (t.x = ANY(s.credited_skip_dates))
       ORDER BY t.x DESC
     );
@@ -2648,23 +2954,25 @@ BEGIN
   UPDATE public.intake_settings SET season_phase = 'winding_down', wrap_up_day = NULL, close_day = NULL, pause_scheduled_for = NULL;
 
   -- Two skips taken before the schedule, one past and one future: the trigger
-  -- pushes the end date two delivery days past today's end.
-  UPDATE public.subscriptions SET skipped_meals_count = 2, skipped_dates = ARRAY[v_p1, v_f1],
+  -- pushes the end date two delivery days past today's end. The future date is
+  -- listed twice on purpose: reconciliation must count it once (SELECT DISTINCT
+  -- in v_candidates), or the credited_skip_dates check refuses the schedule.
+  UPDATE public.subscriptions SET skipped_meals_count = 2, skipped_dates = ARRAY[v_p1, v_f1, v_f1],
     credited_skip_days = 0, credited_skip_dates = '{}', season_buffer_grants = 0
   WHERE id = s.id RETURNING * INTO s;
   IF s.end_date <= v_w THEN RAISE EXCEPTION 'FAIL setup: end date did not move past %', v_w; END IF;
 
   v_state := public.season_schedule_end(v_w, 1, 'plan-b-rehearsal');
   SELECT * INTO s FROM public.subscriptions WHERE id = s.id;
-  IF s.skipped_meals_count <> 0 OR s.credited_skip_days <> 2 OR s.end_date <> v_w
-     OR jsonb_array_length(v_state->'reconciled') <> 1 THEN
+  IF s.skipped_meals_count <> 0 OR s.credited_skip_days <> 2 OR cardinality(s.credited_skip_dates) <> 2
+     OR s.end_date <> v_w OR jsonb_array_length(v_state->'reconciled') <> 1 THEN
     RAISE EXCEPTION 'FAIL schedule reconcile % %', v_state, row_to_json(s);
   END IF;
   IF (SELECT status FROM public.credits WHERE subscription_id = s.id AND meal_date = v_p1 AND source = 'season_skip') <> 'approved'
      OR (SELECT status FROM public.credits WHERE subscription_id = s.id AND meal_date = v_f1 AND source = 'season_skip') <> 'pending' THEN
     RAISE EXCEPTION 'FAIL reconcile credit statuses';
   END IF;
-  v_log := v_log || 'schedule reconciled ok; ';
+  v_log := v_log || 'schedule reconciled ok, repeated date counted once; ';
 
   -- Moving the wrap-up day later finds nothing to convert, and credit stays (X6).
   v_w2 := v_w + 1;
@@ -2681,7 +2989,7 @@ END;
 $$;
 ```
 
-Expected: an error `RECONCILE_OK: schedule reconciled ok; move found nothing ok;`. Then confirm live is untouched:
+Expected: an error `RECONCILE_OK: schedule reconciled ok, repeated date counted once; move found nothing ok;`. A `check_violation` on `subscriptions_credited_skip_dates_match` means `v_candidates` lost its `DISTINCT`. Then confirm live is untouched:
 
 ```sql
 select season_phase, wrap_up_day, close_day from public.intake_settings;
@@ -2722,15 +3030,18 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   - `type SeasonSkipApplied = { ok: true; outcome: 'grant'; makeUpDay: string } | { ok: true; outcome: 'credited'; creditFils: number; creditStatus: 'approved' | 'pending' | 'none' } | { ok: false; error: string }`
   - `applySeasonSkip(input: { customerId: string; subscriptionId: string; mealDate: string; sameDay: boolean; outcome: 'grant' | 'credited'; season: SkipSeason; skipCap: number; expectedCreditFils: number | null }): Promise<SeasonSkipApplied>`
   - `applySeasonUnskip(input: { customerId: string; subscriptionId: string; mealDate: string }): Promise<{ ok: true; kind: 'credited' | 'normal' } | { ok: false; error: string }>`
+  - Module-local in `subscription-mutations.ts`, not exported (a `'use server'` module exports only server actions): `type SeasonSkipStep = { ok: false; error: string } | { ok: true; kind: 'normal' | 'grant'; season: SkipSeason } | { ok: true; kind: 'credited'; season: SkipSeason; notice: SeasonSkipNotice }` and `seasonSkipStep(input: { customerId: string; subscription: Subscription; mealDate: string; sameDay: boolean; todayAe: string; seen: SkipSeen | undefined; skipCap: number }): Promise<SeasonSkipStep>`, the one season block both skip actions call.
   - Server actions: `skipMeal(subscriptionId: string, seen?: SkipSeen)` and `skipFutureDate(subscriptionId: string, dateIso: string, seen?: SkipSeen)` now resolve to `{ success: true; seasonSkip?: SeasonSkipNotice } | { error: string }`. `unskipFutureDate`, `planPause`, `pauseSubscription` keep their signatures.
 
 Behaviour:
 - Outside a wind-down with a wrap-up day, every action behaves exactly as today.
+- `seasonSkipStep` is the season half of both skip actions: fresh season context, the outcome, the seen check, the no-value refusal, the SQL write of a grant or a credited skip, and the announcement of a credited skip. Each action keeps its own validation, its normal-skip write and its messages.
 - `normal` outcome: today's write through `auth.supabase`, today's messages, except `meal_resumed_confirm` is not queued for a date `mayPromiseMealOn` refuses.
 - `grant` outcome: `season_skip` writes it; the customer gets the same messages as a normal skip.
-- `credited` outcome: refused unless the customer's sheet showed a credited skip with the same amount (`seen`), refused when the value is unknown, written by `season_skip`, no WhatsApp, `announceSeasonSkipCredited` called, and the result carries `seasonSkip` for the toast.
+- `credited` outcome: refused unless the customer's sheet showed a credited skip with the same amount (`seen`), refused when the value is unknown, written by `season_skip`, `announceSeasonSkipCredited` called, and the result carries `seasonSkip` for the toast. It sends no `meal_skipped_confirm` or `meal_skip_scheduled_confirm` (both promise a make-up day). A same-day credited skip still queues `meal_resumed_confirm` for the next eligible delivery day when `mayPromiseMealOn` allows it: on or before W, or a buffer day on or before K while the plan holds a grant (Global Constraints, Messages).
 - Un-skip of a credited date, or on a plan holding a buffer grant, goes through `season_unskip`; a credited un-skip sends no WhatsApp.
 - `planPause` and `pauseSubscription` refuse while a credited skip lies inside the pause, because the pause tick would extend the plan for that day and the credit would pay it back a second time.
+- The customer-facing refusals these steps rewrite in `skipMeal` and `skipFutureDate` lose their dashes (customer copy has none). No test asserts the old wording; `unskipFutureDate` and `QuickActions.tsx` strings are not rewritten and stay as they are.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2835,7 +3146,7 @@ describe('season wind-down skips', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it('a same-day skip with no make-up day left becomes credit, with no WhatsApp', async () => {
+  it('a same-day skip with no make-up day left becomes credit: no skip confirmation, but meals still resume tomorrow', async () => {
     requireUserMock.mockResolvedValue(authedUser())
     loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ season_buffer_grants: 1 }) })
     applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
@@ -2847,10 +3158,45 @@ describe('season wind-down skips', () => {
       customerId: 'user-1', subscriptionId: 'sub-1', mealDate: '2026-09-14', sameDay: true,
       outcome: 'credited', season: WIND_DOWN, skipCap: 3, expectedCreditFils: 1980,
     })
-    expect(kinds()).toEqual([])
+    // Tue 15 Sep is on or before the wrap-up day, so the kitchen really cooks it.
+    expect(kinds()).toEqual(['meal_resumed_confirm'])
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'meal_resumed_confirm', payload: { resume_date: '2026-09-15' },
+    }))
     expect(announceMock).toHaveBeenCalledWith([
       { subscriptionId: 'sub-1', customerId: 'user-1', mealDates: ['2026-09-14'], creditFils: 1980, source: 'customer_skip' },
     ])
+  })
+
+  it('a credited same-day skip queues no resume message for a day after the wrap-up day', async () => {
+    // 12:00 Dubai on Sat 3 Oct, the wrap-up day. This plan runs to Sat 10 Oct,
+    // so its next delivery day, Mon 5 Oct, is after the wrap-up day, and it
+    // holds no buffer grant.
+    vi.setSystemTime(new Date('2026-10-03T08:00:00Z'))
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ end_date: '2026-10-10' }) })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
+
+    expect(await skipMeal('sub-1', { outcome: 'credited', creditFils: 1980 })).toMatchObject({ success: true })
+    expect(kinds()).toEqual([])
+  })
+
+  it('a credited same-day skip queues the resume message for a buffer day the plan holds a grant for', async () => {
+    // 12:00 Dubai on Sat 3 Oct. An earlier skip took the grant for Mon 5 Oct,
+    // the close day, so the plan now ends then and that dinner is cooked.
+    vi.setSystemTime(new Date('2026-10-03T08:00:00Z'))
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({ end_date: '2026-10-05', skipped_meals_count: 1, skipped_dates: ['2026-09-30'], season_buffer_grants: 1 }),
+    })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
+
+    expect(await skipMeal('sub-1', { outcome: 'credited', creditFils: 1980 })).toMatchObject({ success: true })
+    expect(kinds()).toEqual(['meal_resumed_confirm'])
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'meal_resumed_confirm', payload: { resume_date: '2026-10-05' },
+    }))
   })
 
   it('refuses a credited skip the customer was not shown', async () => {
@@ -3104,7 +3450,8 @@ export async function applySeasonUnskip(input: {
 (a) Add under the existing imports:
 
 ```ts
-import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SkipSeen } from '@/contexts/season/domain/skip-outcome';
+import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions';
+import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SeasonSkipNotice, type SkipSeason, type SkipSeen } from '@/contexts/season/domain/skip-outcome';
 import { SKIP_CHANGED_COPY, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
 import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext } from '@/contexts/season/usecases/skip-season';
 import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices';
@@ -3128,7 +3475,81 @@ import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-sk
   if (creditedInPause.length > 0) return { error: creditedSkipBlocksPause(creditedInPause[0], true) };
 ```
 
-(d) Replace the whole `skipMeal` function (from `export async function skipMeal(subscriptionId: string) {` to its closing `}` before `// ── skipFutureDate`) with:
+(d) Directly above the `// ── skipMeal (same-day)` section comment, add the one season block both skip actions share:
+
+```ts
+// ── Season wind-down skip step (spec §7.2) ────────────────────────────────
+
+type SeasonSkipStep =
+  | { ok: false; error: string }
+  | { ok: true; kind: 'normal' | 'grant'; season: SkipSeason }
+  | { ok: true; kind: 'credited'; season: SkipSeason; notice: SeasonSkipNotice };
+
+/**
+ * The season half of skipMeal and skipFutureDate. Decides normal skip, buffer
+ * grant or credited skip on fresh data and refuses an outcome the customer's
+ * sheet did not show. Grants and credited skips are written here through SQL:
+ * they touch columns and rows the customer's client cannot write, and SQL
+ * rechecks the season and the amount under a row lock. A credited skip is
+ * announced here. A normal skip is left to the caller's own write, and every
+ * message stays with the caller. Not exported: a 'use server' module may only
+ * export server actions.
+ */
+async function seasonSkipStep(input: {
+  customerId: string
+  subscription: Subscription
+  mealDate: string
+  sameDay: boolean
+  todayAe: string
+  seen: SkipSeen | undefined
+  skipCap: number
+}): Promise<SeasonSkipStep> {
+  const { subscription } = input;
+  const ctx = await loadSkipSeasonContext(subscription);
+  const outcome = decideSkipOutcome({
+    season: ctx.season,
+    plan: {
+      endDate: subscription.end_date,
+      weekType: subscription.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
+      skippedDates: subscription.skipped_dates ?? [],
+      bufferGrants: subscription.season_buffer_grants ?? 0,
+    },
+    todayAe: input.todayAe,
+    closureDates: ctx.closureDates,
+    creditFils: ctx.creditFils,
+  });
+  // The customer's sheet showed an outcome; if the fresh answer differs, they
+  // refresh rather than get a different result than they confirmed.
+  if (skipSeenMismatch(outcome, input.seen)) return { ok: false, error: SKIP_CHANGED_COPY };
+  if (outcome.kind === 'normal') return { ok: true, kind: 'normal', season: ctx.season };
+  if (outcome.kind === 'credited' && outcome.creditFils == null) return { ok: false, error: SKIP_NO_VALUE_COPY };
+
+  const applied = await applySeasonSkip({
+    customerId: input.customerId,
+    subscriptionId: subscription.id,
+    mealDate: input.mealDate,
+    sameDay: input.sameDay,
+    outcome: outcome.kind,
+    season: ctx.season,
+    skipCap: input.skipCap,
+    expectedCreditFils: outcome.kind === 'credited' ? outcome.creditFils : null,
+  });
+  if (!applied.ok) return { ok: false, error: applied.error };
+  if (applied.outcome === 'grant') return { ok: true, kind: 'grant', season: ctx.season };
+
+  await announceSeasonSkipCredited([
+    { subscriptionId: subscription.id, customerId: input.customerId, mealDates: [input.mealDate], creditFils: applied.creditFils, source: 'customer_skip' },
+  ]);
+  return {
+    ok: true,
+    kind: 'credited',
+    season: ctx.season,
+    notice: { outcome: 'credited', creditFils: applied.creditFils, creditStatus: applied.creditStatus, mealDate: input.mealDate },
+  };
+}
+```
+
+(e) Replace the whole `skipMeal` function (from `export async function skipMeal(subscriptionId: string) {` to its closing `}` before `// ── skipFutureDate`) with the following. The make-up day refusal is rewritten, so it loses its dash:
 
 ```ts
 export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
@@ -3171,32 +3592,24 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
   const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
   const todayPosition = workingDayPosition(subscription.start_date, todayAEIso, wt);
   if (todayPosition > totalDeliveries) {
-    return { error: "Make-up days can't be skipped — they're extra days earned by earlier skips." };
+    return { error: "Make-up days can't be skipped. They're extra days earned by earlier skips." };
   }
 
-  // ── Season wind-down (spec §7.2) ────────────────────────────────────────
-  // Normal skip, buffer grant, or credited skip. The customer's sheet showed
-  // an outcome; if the fresh answer differs, they refresh rather than get a
-  // different result than they confirmed.
-  const seasonCtx = await loadSkipSeasonContext(subscription);
-  const outcome = decideSkipOutcome({
-    season: seasonCtx.season,
-    plan: {
-      endDate: subscription.end_date,
-      weekType: wt === '5DAYS' ? '5DAYS' : '6DAYS',
-      skippedDates: subscription.skipped_dates ?? [],
-      bufferGrants: subscription.season_buffer_grants ?? 0,
-    },
+  // ── Season wind-down (spec §7.2): normal skip, buffer grant or credited skip ──
+  const step = await seasonSkipStep({
+    customerId: auth.user.id,
+    subscription,
+    mealDate: todayAEIso,
+    sameDay: true,
     todayAe: todayAEIso,
-    closureDates: seasonCtx.closureDates,
-    creditFils: seasonCtx.creditFils,
+    seen,
+    skipCap: maxSkips,
   });
-  if (skipSeenMismatch(outcome, seen)) return { error: SKIP_CHANGED_COPY };
-  if (outcome.kind === 'credited' && outcome.creditFils == null) return { error: SKIP_NO_VALUE_COPY };
+  if (!step.ok) return { error: step.error };
 
   const nextSkippedDates = [...(subscription.skipped_dates ?? []), todayAEIso]
 
-  if (outcome.kind === 'normal') {
+  if (step.kind === 'normal') {
     // Flip Active → Skipped. The CAS on status stops a double tap counting twice.
     const { data: skipRows, error: updateError } = await auth.supabase
       .from('subscriptions')
@@ -3214,40 +3627,21 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
     if (!skipRows || skipRows.length === 0) {
       return { error: 'Skip didn\'t take. Refresh and try again, or message us on WhatsApp.' };
     }
-  } else {
-    // Grants and credited skips touch columns and rows the customer's client
-    // cannot write, so SQL does it, rechecking season and amount under a lock.
-    const applied = await applySeasonSkip({
-      customerId: auth.user.id,
-      subscriptionId,
-      mealDate: todayAEIso,
-      sameDay: true,
-      outcome: outcome.kind,
-      season: seasonCtx.season,
-      skipCap: maxSkips,
-      expectedCreditFils: outcome.kind === 'credited' ? outcome.creditFils : null,
-    });
-    if (!applied.ok) return { error: applied.error };
-    if (applied.outcome === 'credited') {
-      // No meal_skipped_confirm: it promises a make-up day that is not coming.
-      await announceSeasonSkipCredited([
-        { subscriptionId, customerId: auth.user.id, mealDates: [todayAEIso], creditFils: applied.creditFils, source: 'customer_skip' },
-      ]);
-      revalidatePath('/dashboard', 'layout');
-      return {
-        success: true as const,
-        seasonSkip: { outcome: 'credited' as const, creditFils: applied.creditFils, creditStatus: applied.creditStatus, mealDate: todayAEIso },
-      };
-    }
   }
 
-  // ── WhatsApp confirmations (normal skip and buffer grant) ────────────────
-  await eventBus.emit('subscription.notification-due', {
-    customerId: auth.user.id,
-    kind: 'meal_skipped_confirm',
-    scheduledFor: new Date(), // immediate
-    payload: { meal_date: todayAEIso },
-  });
+  // ── WhatsApp confirmations ──────────────────────────────────────────────
+  // meal_skipped_confirm promises a make-up day, so a credited skip never
+  // sends it. Every same-day skip still says when meals resume, but only for
+  // a day the kitchen really cooks: on or before the wrap-up day, or a buffer
+  // day this plan holds a grant for (mayPromiseMealOn).
+  if (step.kind !== 'credited') {
+    await eventBus.emit('subscription.notification-due', {
+      customerId: auth.user.id,
+      kind: 'meal_skipped_confirm',
+      scheduledFor: new Date(), // immediate
+      payload: { meal_date: todayAEIso },
+    });
+  }
   const resumeOnIso = nextEligibleDeliveryDay({
     fromAeDateIso: todayAEIso,
     weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
@@ -3255,8 +3649,8 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
     pausedDates:   subscription.paused_dates ?? [],
     subEndDateIso: subscription.end_date,
   });
-  const grantsAfter = (subscription.season_buffer_grants ?? 0) + (outcome.kind === 'grant' ? 1 : 0);
-  if (resumeOnIso && mayPromiseMealOn(resumeOnIso, seasonCtx.season, grantsAfter)) {
+  const grantsAfter = (subscription.season_buffer_grants ?? 0) + (step.kind === 'grant' ? 1 : 0);
+  if (resumeOnIso && mayPromiseMealOn(resumeOnIso, step.season, grantsAfter)) {
     await eventBus.emit('subscription.notification-due', {
       customerId: auth.user.id,
       kind: 'meal_resumed_confirm',
@@ -3266,12 +3660,14 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
   }
 
   revalidatePath('/dashboard', 'layout');
-  return { success: true as const };
+  return step.kind === 'credited'
+    ? { success: true as const, seasonSkip: step.notice }
+    : { success: true as const };
   }, 'subscription.skipped');
 }
 ```
 
-(e) Replace the whole `skipFutureDate` function (keep its doc comment above it) with:
+(f) Replace the whole `skipFutureDate` function (keep its doc comment above it) with the following. Its four rewritten refusals that carried a dash lose it:
 
 ```ts
 export async function skipFutureDate(subscriptionId: string, dateIso: string, seen?: SkipSeen) {
@@ -3296,12 +3692,12 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
   const wt = subscription.week_type ?? '6DAYS';
   const targetD = new Date(dateIso + 'T00:00:00');
   if (!isWorkingDayForWeekType(targetD, wt)) {
-    return { error: 'That isn\'t a delivery day for your plan — there\'s nothing to skip.' };
+    return { error: 'That isn\'t a delivery day for your plan, so there\'s nothing to skip.' };
   }
 
   // A closed kitchen is already paid back by closure_tick.
   if ((await getCompanyClosureDates()).includes(dateIso)) {
-    return { error: 'The kitchen is closed that day — it\'s already added to the end of your plan, so there\'s nothing to skip.' };
+    return { error: 'The kitchen is closed that day. It\'s already added to the end of your plan, so there\'s nothing to skip.' };
   }
 
   const existing: string[] = subscription.skipped_dates ?? [];
@@ -3313,31 +3709,31 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
   const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
   const targetPosition = workingDayPosition(subscription.start_date, dateIso, wt);
   if (targetPosition > totalDeliveries) {
-    return { error: 'Make-up days can\'t be skipped — they\'re already extra days earned by earlier skips.' };
+    return { error: 'Make-up days can\'t be skipped. They\'re already extra days earned by earlier skips.' };
   }
 
   if (subscription.planned_pause_start && dateIso >= subscription.planned_pause_start) {
-    return { error: 'That day is inside your planned pause — no need to skip. Cancel the planned pause first if you want to skip this day specifically.' };
+    return { error: 'That day is inside your planned pause, so there\'s no need to skip. Cancel the planned pause first if you want to skip this day specifically.' };
   }
 
-  // ── Season wind-down (spec §7.2) ────────────────────────────────────────
-  const seasonCtx = await loadSkipSeasonContext(subscription);
-  const outcome = decideSkipOutcome({
-    season: seasonCtx.season,
-    plan: {
-      endDate: subscription.end_date,
-      weekType: wt === '5DAYS' ? '5DAYS' : '6DAYS',
-      skippedDates: existing,
-      bufferGrants: subscription.season_buffer_grants ?? 0,
-    },
+  // ── Season wind-down (spec §7.2): normal skip, buffer grant or credited skip ──
+  const step = await seasonSkipStep({
+    customerId: auth.user.id,
+    subscription,
+    mealDate: dateIso,
+    sameDay: false,
     todayAe: todayIso,
-    closureDates: seasonCtx.closureDates,
-    creditFils: seasonCtx.creditFils,
+    seen,
+    skipCap: skipCapFor(subscription),
   });
-  if (skipSeenMismatch(outcome, seen)) return { error: SKIP_CHANGED_COPY };
-  if (outcome.kind === 'credited' && outcome.creditFils == null) return { error: SKIP_NO_VALUE_COPY };
+  if (!step.ok) return { error: step.error };
+  if (step.kind === 'credited') {
+    // No meal_skip_scheduled_confirm: it promises a make-up day that is not coming.
+    revalidatePath('/dashboard', 'layout');
+    return { success: true as const, seasonSkip: step.notice };
+  }
 
-  if (outcome.kind === 'normal') {
+  if (step.kind === 'normal') {
     // Append + increment. CAS on skipped_meals_count guards concurrent skips.
     const nextSkippedDates = [...existing, dateIso].sort();
     const { data: rows, error: updateError } = await auth.supabase
@@ -3352,29 +3748,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
 
     if (updateError) return { error: 'Failed to schedule skip.' };
     if (!rows || rows.length === 0) {
-      return { error: 'Couldn\'t schedule the skip — please refresh and try again.' };
-    }
-  } else {
-    const applied = await applySeasonSkip({
-      customerId: auth.user.id,
-      subscriptionId,
-      mealDate: dateIso,
-      sameDay: false,
-      outcome: outcome.kind,
-      season: seasonCtx.season,
-      skipCap: skipCapFor(subscription),
-      expectedCreditFils: outcome.kind === 'credited' ? outcome.creditFils : null,
-    });
-    if (!applied.ok) return { error: applied.error };
-    if (applied.outcome === 'credited') {
-      await announceSeasonSkipCredited([
-        { subscriptionId, customerId: auth.user.id, mealDates: [dateIso], creditFils: applied.creditFils, source: 'customer_skip' },
-      ]);
-      revalidatePath('/dashboard', 'layout');
-      return {
-        success: true as const,
-        seasonSkip: { outcome: 'credited' as const, creditFils: applied.creditFils, creditStatus: applied.creditStatus, mealDate: dateIso },
-      };
+      return { error: 'Couldn\'t schedule the skip. Please refresh and try again.' };
     }
   }
 
@@ -3392,7 +3766,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
 }
 ```
 
-(f) In `unskipFutureDate`, directly after
+(g) In `unskipFutureDate`, directly after
 
 ```ts
   if (!existing.includes(dateIso)) {
@@ -3425,9 +3799,9 @@ add:
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/contexts/season src/contexts/subscriptions`
-Expected: PASS, including the 7 new season wind-down skip tests and the untouched `unskipFutureDate` and `changeStartDate` cases.
-Run: `npx tsc --noEmit -p .`
-Expected: no errors.
+Expected: PASS, including the 9 new season wind-down skip tests and the untouched `unskipFutureDate` and `changeStartDate` cases.
+Run: `npx tsc --noEmit -p .` and `npm run lint`
+Expected: no errors. `seasonSkipStep` is used by both actions, so lint reports nothing unused.
 
 - [ ] **Step 6: Commit**
 
@@ -4154,12 +4528,12 @@ and in `handleConfirmFutureSkip` replace `skipFutureDate(sub.id, date)` with `sk
 (f) In the "Skip tonight's meal" `MobileSheet`:
 - Cancel button: add `id="skip-tonight-cancel"`.
 - Confirm button: add `id="skip-tonight-confirm"` and `disabled={!!sameDaySeasonSheet?.blocked}`; replace its text `Skip tonight` with `{sameDaySeasonSheet ? sameDaySeasonSheet.cta : 'Skip tonight'}`.
-- Replace the body paragraph's text `You won&rsquo;t lose this meal — we&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.` with:
+- Replace the body paragraph's text `You won&rsquo;t lose this meal — we&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.` with the following. The rewritten fallback sentence loses its dash (customer copy has none):
 
 ```tsx
             {sameDaySeasonSheet
               ? sameDaySeasonSheet.body
-              : <>You won&rsquo;t lose this meal — we&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.</>}
+              : <>You won&rsquo;t lose this meal. We&rsquo;ll add a make-up day at the end of your plan, so your end date just moves out by one delivery day.</>}
 ```
 
 - In the data row, replace the label text `End date` with `{sameDaySeasonSheet ? sameDaySeasonSheet.tileLabel : 'End date'}` and `<span style={{ color: OG }}>+1 day</span>` with `<span style={{ color: OG }}>{sameDaySeasonSheet ? sameDaySeasonSheet.tileValue : '+1 day'}</span>`.
@@ -4336,7 +4710,7 @@ and the same line of `case 'today-skipped':` with:
 with
 
 ```ts
-          isToday && cellInfo.state === 'skipped' ? (creditedSet.has(cellInfo.iso) ? 'Tonight’s dinner is skipped. Its value went to your wallet.' : 'Tonight’s dinner is skipped — 1 day added to your cycle.')
+          isToday && cellInfo.state === 'skipped' ? (creditedSet.has(cellInfo.iso) ? 'Tonight’s dinner is skipped. Its value went to your wallet.' : 'Tonight’s dinner is skipped, and 1 day is added to your cycle.')
 ```
 
 and
@@ -4350,8 +4724,10 @@ with
 ```ts
           : cellInfo.state === 'skipped' ? (creditedSet.has(cellInfo.iso)
               ? (cellInfo.iso > data.todayIso ? 'This meal is skipped. Its value goes to your wallet the day after.' : 'This meal was skipped, and its value went to your wallet.')
-              : 'This meal was skipped — your end date extended by 1 day.')
+              : 'This meal was skipped, and your end date moved out by 1 day.')
 ```
+
+Both rewritten non-credited strings lose their dash (customer copy has none). The other `stateDetail` strings are not touched.
 
 `src/app/dashboard/ActiveDashboard.tsx`: in `mobileData` add after `skippedDates: effectiveSub.skipped_dates ?? [],`:
 
@@ -5370,25 +5746,28 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 17: Final verification
 
 **Files:**
+- Create: `scripts/lib/chromium.mjs`
+- Modify: `scripts/check-season-planner.mjs` (Plan A, already in the repo)
 - Create: `scripts/check-season-customer.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
-- Consumes: every preview knob from Tasks 10 to 16; every rehearsal block from Tasks 5 to 8.
-- Produces: `npm run check:season-customer`.
+- Consumes: every preview knob from Tasks 10 to 16; Task 12's credited menu note `You skipped this day, and its value went to your wallet.` and its `state=credited` menu fixture; every rehearsal block from Tasks 5 to 8.
+- Produces:
+  - `launchChromium()` exported from `scripts/lib/chromium.mjs`: resolves an installed Chrome, puppeteer's cache or Playwright's, and returns Playwright's Chromium browser; exits the process when no Chrome is found. `scripts/check-season-planner.mjs` and `scripts/check-season-customer.mjs` both import it.
+  - `npm run check:season-customer`.
 
-- [ ] **Step 1: Write the rendered check**
+- [ ] **Step 1: Move the Chromium discovery into one module**
 
-`scripts/check-season-customer.mjs`:
+`scripts/lib/chromium.mjs` (the three functions move unchanged from `scripts/check-season-planner.mjs`; only `launchChromium` is exported):
 
 ```js
-#!/usr/bin/env node
 /**
- * Renders every Plan B customer preview state at desktop and phone width and
- * fails when the season copy is missing, promises a hold before the break is
- * live, the page scrolls sideways, or the console logs an error.
- * Needs the dev server: BASE_URL defaults to http://localhost:3000.
- * Screenshots go to SHOT_DIR when it is set.
+ * Chromium for the rendered checks (scripts/check-season-planner.mjs and
+ * scripts/check-season-customer.mjs), so both agree on where a browser lives.
+ * Any real Chrome will do: installed, puppeteer's cache, or Playwright's. It is
+ * driven by the playwright bundled with the global @playwright/cli unless
+ * PLAYWRIGHT_MODULE points at another copy.
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -5398,7 +5777,6 @@ import { execSync } from 'node:child_process'
 
 const require = createRequire(import.meta.url)
 
-// Chromium discovery, copied from scripts/check-season-planner.mjs so the checks agree.
 function findUnder(root, names) {
   if (!existsSync(root)) return null
   const stack = [root]
@@ -5415,6 +5793,7 @@ function findUnder(root, names) {
   return null
 }
 
+/** Any real Chrome will do: installed, puppeteer's cache, or Playwright's. */
 function resolveChrome() {
   const direct = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -5429,10 +5808,13 @@ function resolveChrome() {
       ['chrome-headless-shell', 'Chromium'])
 }
 
-async function launchChromium() {
+/** Launches Playwright's Chromium driver against whatever Chrome resolveChrome() finds; exits when there is none. */
+export async function launchChromium() {
   const executablePath = resolveChrome()
   if (!executablePath) {
-    console.error('No Chrome or Chromium found for playwright. Install once with: npx @puppeteer/browsers install chrome@stable')
+    console.error('✗ No Chrome/Chromium found for playwright.\n' +
+      '  Install once with:  npx @puppeteer/browsers install chrome@stable\n' +
+      '  (or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH to a Chrome binary).')
     process.exit(1)
   }
   const { chromium } = require(
@@ -5440,17 +5822,58 @@ async function launchChromium() {
   )
   return chromium.launch({ headless: true, executablePath })
 }
+```
+
+In `scripts/check-season-planner.mjs`, replace everything from `import { existsSync, readdirSync } from 'node:fs'` down to the closing `}` of `async function launchChromium()` with one line. That span is the five `node:` imports, `const require = createRequire(import.meta.url)`, the comment `// Chromium discovery, copied from scripts/check-waitlist-gate-fit.mjs's …`, and the functions `findUnder`, `resolveChrome` and `launchChromium`. The replacement line:
+
+```js
+import { launchChromium } from './lib/chromium.mjs'
+```
+
+Nothing else in that file uses the removed imports or `require`, and `const browser = await launchChromium()` stays as it is.
+
+Run: `node --check scripts/lib/chromium.mjs && node --check scripts/check-season-planner.mjs`
+Expected: no output (both parse).
+
+- [ ] **Step 2: Write the rendered check**
+
+`scripts/check-season-customer.mjs`:
+
+```js
+#!/usr/bin/env node
+/**
+ * Renders every Plan B customer preview state at desktop and phone width and
+ * fails when the season copy is missing, promises a hold before the break is
+ * live, the page scrolls sideways, or the console logs an error.
+ * Needs the dev server: BASE_URL defaults to http://localhost:3000.
+ * Screenshots go to SHOT_DIR when it is set.
+ */
+import { launchChromium } from './lib/chromium.mjs'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
 const SHOT_DIR = process.env.SHOT_DIR ?? null
 
+// expect / absent: text on the page after it loads. tap: a control pressed
+// next (its first visible match); after: text that must then be on the page.
+// clock: the browser's time, for a fixture pinned with &now= so the client
+// reads the same day as the server.
 const STATES = [
-  { id: 'n1', url: '/dashboard?preview=1&verified=1&season=scheduled', expect: ['Your meals keep coming.', 'The semester wraps up on'], dismiss: '#season-notice-dismiss', after: ['Semester wraps up'] },
+  { id: 'n1', url: '/dashboard?preview=1&verified=1&season=scheduled', expect: ['Your meals keep coming.', 'The semester wraps up on'], tap: '#season-notice-dismiss', after: ['Semester wraps up'] },
   { id: 'n3-interim', url: '/dashboard?preview=1&verified=1&sub=paused&season=paused&paused=1&joined=0', expect: ['Your plan stays paused until you resume it.', 'Save my spot'], absent: ["until we're back"] },
   { id: 'n3-live', url: '/dashboard?preview=1&verified=1&sub=paused&season=paused&paused=1&joined=0&release=1', expect: ["Still paused then? Your plan waits for you until we're back."] },
   { id: 'chip', url: '/dashboard?preview=1&verified=1&season=credited', expect: ['Semester wraps up'] },
   { id: 'wallet', url: '/dashboard/credit?preview=1&season=credited', expect: ['On the way', 'Skipped meal credit', 'Arrives Thu 17 Sep', 'AED 19.80'] },
-  { id: 'menu', url: '/dashboard/menu?preview=1&state=credited', expect: [] },
+  // Pinned to Thu 17 Sep 2026: the credited fixture's past skip is Wed 16 Sep.
+  // Its card (desktop data-state, mobile data-reason) opens the dish with the
+  // note Task 12 wrote for a past credited day.
+  {
+    id: 'menu',
+    url: '/dashboard/menu?preview=1&state=credited&now=2026-09-17',
+    clock: '2026-09-17T08:00:00Z',
+    expect: [],
+    tap: '[data-state="past-skipped"], [data-reason="past-skipped"]',
+    after: ['You skipped this day, and its value went to your wallet.'],
+  },
 ]
 
 const failures = []
@@ -5463,22 +5886,25 @@ try {
       page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
       const label = `${state.id} @${width}`
       try {
+        if (state.clock) await page.clock.install({ time: new Date(state.clock) })
         await page.goto(`${BASE}${state.url}`, { waitUntil: 'networkidle' })
         await page.waitForTimeout(600)
         const body = await page.locator('body').innerText()
         for (const text of state.expect) if (!body.includes(text)) failures.push(`${label}: missing "${text}"`)
         for (const text of state.absent ?? []) if (body.includes(text)) failures.push(`${label}: must not say "${text}"`)
         if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-customer-${state.id}-${width}.png`, fullPage: true })
-        if (state.dismiss) {
-          await page.locator(state.dismiss).click()
+        if (state.tap) {
+          await page.locator(`${state.tap} >> visible=true`).first().click()
           await page.waitForTimeout(400)
           const after = await page.locator('body').innerText()
-          for (const text of state.after ?? []) if (!after.includes(text)) failures.push(`${label}: after dismiss, missing "${text}"`)
+          for (const text of state.after ?? []) if (!after.includes(text)) failures.push(`${label}: after tapping ${state.tap}, missing "${text}"`)
           if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-customer-${state.id}-after-${width}.png`, fullPage: true })
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
         if (overflow > 1) failures.push(`${label}: page scrolls sideways by ${overflow}px`)
         if (errors.length) failures.push(`${label}: console errors: ${errors.join(' | ')}`)
+      } catch (err) {
+        failures.push(`${label}: ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`)
       } finally {
         await page.close()
       }
@@ -5501,22 +5927,22 @@ Add to `package.json` `scripts`, after `check:season-planner`:
     "check:season-customer": "node scripts/check-season-customer.mjs",
 ```
 
-- [ ] **Step 2: Run the whole suite, the typecheck and lint**
+- [ ] **Step 3: Run the whole suite, the typecheck and lint**
 
 Run: `npx vitest run`
 Expected: every test passes.
 Run: `npx tsc --noEmit -p .` and `npm run lint`
 Expected: clean.
 
-- [ ] **Step 3: Confirm §7.1 still holds**
+- [ ] **Step 4: Confirm §7.1 still holds**
 
 Run: `grep -n "pauseScheduledFor" src/app/api/checkout/route.ts src/contexts/payments/usecases/free-checkout.ts "src/app/r/[cid]/actions.ts" src/contexts/staff/domain/staff-intake-gate.ts src/contexts/subscriptions/usecases/subscription-mutations.ts`
 Expected: at least one match in each of the five files.
 
-- [ ] **Step 4: Re-run every live rehearsal**
+- [ ] **Step 5: Re-run every live rehearsal**
 
 Run, in order, the rehearsal `DO` blocks from Task 5 Step 4, Task 6 Step 4, Task 7 Step 3 and Task 8 Step 8.
-Expected: `CREDITED_TICKS_OK: ...`, `SEASON_SKIP_OK: ...`, `SKIP_CREDIT_TICK_OK: ...`, `RECONCILE_OK: ...`. A `REHEARSAL_SKIPPED` message must be reported with the live plan dates, not ignored.
+Expected: `CREDITED_TICKS_OK: ...`, `SEASON_SKIP_OK: ...`, `SKIP_CREDIT_TICK_OK: ...`, `RECONCILE_OK: schedule reconciled ok, repeated date counted once; move found nothing ok;`. A `REHEARSAL_SKIPPED` message must be reported with the live plan dates, not ignored.
 
 Then, read-only:
 
@@ -5532,22 +5958,28 @@ from public.subscriptions;
 select season_phase, wrap_up_day, close_day, paused from public.intake_settings;
 ```
 
-Expected: seven function names; one active `40 20 * * *` job; `mismatched = 0` (and `credited_plans`, `granted_plans` 0 unless a real customer has skipped since the deploy); the intake row as the owner left it.
+Expected: seven function names; one active `40 20 * * *` job; `mismatched = 0` (and `credited_plans`, `granted_plans` 0 unless a real customer has skipped since the deploy); the intake row as the owner left it (no wrap-up day scheduled or moved since Task 8, per Global Constraints, Deploy order).
 
 Run: `npm run backfill:order-money` (dry run).
 Expected: the same rows as Task 4 Step 6 and `"written": 0`, unless live-mode orders have appeared since.
 
-- [ ] **Step 5: Render every preview state**
+- [ ] **Step 6: Render every preview state, and the planner after the move**
 
 Start `npm run dev -- -p 3100` from the worktree root and wait until `http://localhost:3100/dashboard?preview=1` answers 200.
-Run: `BASE_URL=http://localhost:3100 SHOT_DIR=<an existing scratch directory> npm run check:season-customer`
-Expected: `check-season-customer: 12 renders OK`. Open the screenshots and confirm the notice, chip and wallet read as described in Tasks 10, 13 and 16 at both widths. Then repeat the manual sheet checks from Task 11 Step 6 and Task 15 Step 4 once more on the final build. Stop the server.
 
-- [ ] **Step 6: Commit**
+Run: `BASE_URL=http://localhost:3100 SHOT_DIR=<an existing scratch directory> npm run check:season-customer`
+Expected: `check-season-customer: 12 renders OK`. Open the screenshots and confirm the notice, chip and wallet read as described in Tasks 10, 13 and 16 at both widths, and that the two `season-customer-menu-after-*` shots show the credited note in the dish sheet.
+
+Run: `BASE_URL=http://localhost:3100 npm run check:season-planner`
+Expected: `check-season-planner: 12 renders OK`, the same result as before the Chromium discovery moved into `scripts/lib/chromium.mjs`.
+
+Then repeat the manual sheet checks from Task 11 Step 6 and Task 15 Step 4 once more on the final build. Stop the server.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add scripts/check-season-customer.mjs package.json
-git commit -m "test(season): a rendered check for every wind-down customer surface
+git add scripts/lib/chromium.mjs scripts/check-season-planner.mjs scripts/check-season-customer.mjs package.json
+git commit -m "test(season): a rendered check for every wind-down customer surface, sharing one Chromium launcher
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
@@ -5558,7 +5990,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 1. Final whole-branch review (subagent-driven-development).
 2. Merge into `main` alongside the other session's work, then deploy with `git push origin main:Production`.
-3. Plan C picks up: §7.4 resume split sheet, §7.5 break refusal with N11, §7.6 break start-date refusal, G1 to G6 and G9, and `season_project_plans` in SQL (lockstep with `projectPlan`; note that `projectPlan` walks to `end_date` without pushing it for closures still to come, while `projectedEndDate` in this plan does).
+3. Plan C picks up: §7.4 resume split sheet, §7.5 break refusal with N11, §7.6 break start-date refusal, G1 to G6 and G9, skip reconciliation on "End the season today" (spec §5 and §17.1 P3: `season_end_today` calls `season_reconcile_skips`, shipped with that action), and `season_project_plans` in SQL (lockstep with `projectPlan`; note that `projectPlan` walks to `end_date` without pushing it for closures still to come, while `projectedEndDate` in this plan does).
 4. Plan E wires `announceSeasonSkipCredited` to the `season_skip_credited` template and adds N2 and N12.
 5. Plan D keeps the refund flow; recording order money and the backfill moved into this plan (Tasks 3 and 4).
 6. After the deploy, the next checkout's order row, test or live mode, shows `amount_paid_fils` and `credit_applied_fils`. Re-run `npm run backfill:order-money` once live payments start.
