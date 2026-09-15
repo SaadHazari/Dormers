@@ -98,6 +98,7 @@ export default async function DashboardPage({
         //   ?season=paused    — pair with sub=paused: wrap-up day set, plan paused (N3 notice)
         //   ?season=grant     — wrap-up day on the plan's end: a skip now uses the buffer day
         //   ?season=credited  — as grant, buffer used: a skip now turns into credit; one future credited skip on the plan
+        //   ?season=runs_past  — pair with sub=paused: wrap-up day in 2 days, so Resume shows the split sheet (before the break is live add &release=1)
         //   &release=1        — word the pause line and notices as if the break were live
         //   ?season=held            — the break: plan held for next semester with AED 20 credit (held card, N8)
         //   ?season=paused_break    — the break: a customer pause carried (card with Save my spot; &joined=1 once saved)
@@ -222,6 +223,7 @@ export default async function DashboardPage({
         const notSunday = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 0 ? addDaysIso(iso, 1) : iso
         const previewWrapUp = seasonKnob === 'scheduled' || seasonKnob === 'paused' ? notSunday(dateOnly(nowMs + 12 * day))
             : seasonKnob === 'grant' || seasonKnob === 'credited' ? String(seasonSub.end_date).slice(0, 10)
+            : seasonKnob === 'runs_past' ? notSunday(dateOnly(nowMs + 2 * day))
             : null
         const previewSeason: CustomerSeason | null = previewWrapUp ? (() => {
             const built = buildCustomerSeason({
@@ -232,7 +234,7 @@ export default async function DashboardPage({
                 closureDates: [],
             })
             // The skip fixtures are for the sheets, not the notice.
-            return built && (seasonKnob === 'grant' || seasonKnob === 'credited') ? { ...built, notice: null } : built
+            return built && (seasonKnob === 'grant' || seasonKnob === 'credited' || seasonKnob === 'runs_past') ? { ...built, notice: null } : built
         })() : null
 
         // Season break fixtures (Plan C). The card and notices read a hold,

@@ -44,6 +44,11 @@ import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-relea
 import { seasonPauseLine } from './_shared/season-notice-copy'
 import { HeldPlanCard } from './_shared/HeldPlanCard'
 import type { CustomerBreak } from '@/contexts/season/domain/customer-hold'
+import { SeasonSplitSheet } from './_shared/SeasonSplitSheet'
+import { BreakResumeSheet } from './_shared/BreakResumeSheet'
+import { resumeSplitFor } from '@/contexts/season/domain/resume-split'
+import { projectionPlanFromRow } from '@/contexts/season/domain/customer-season'
+import { todayAeIso as seasonTodayAeIso } from '@/contexts/season/domain/season-dates'
 
 const EMPTY_MONTHLY_WINDOW: MonthlyReviewWindow = {
   eligible: false, locked: false, submitted: false,
@@ -430,6 +435,10 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [showPauseConfirm, setShowPauseConfirm] = useState(false)
   const [showResumeCutoffWarning, setShowResumeCutoffWarning] = useState(false)
+  // Season (spec §7.4, §7.5): the split before a resume while winding down,
+  // and the refusal during the break.
+  const [showResumeSplit, setShowResumeSplit] = useState(false)
+  const [showBreakResume, setShowBreakResume] = useState(false)
   const [showQueuedPauseWarning, setShowQueuedPauseWarning] = useState(false)
   // Future-skip / un-skip modal state. mode keys what UI variant renders;
   // date pre-fills for confirm modes (pill click), absent for picker mode
@@ -619,6 +628,29 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     setShowSkipConfirm(true)
   }
   const handleSkipConfirm  = () => { setShowSkipConfirm(false); act(() => skipMeal(sub.id, seasonSeen), 'skipped', 'skip') }
+  // Spec §7.4: while winding down, a resume whose dinners run past the wrap-up
+  // day shows the split first. Only once the break is live: it describes the hold.
+  const resumeSplit = season && seasonBreakLive && localState === 'paused'
+    ? resumeSplitFor({
+        plan: projectionPlanFromRow(sub as unknown as Record<string, unknown>),
+        wrapUpDay: season.wrapUpDay,
+        closeDay: season.closeDay,
+        todayAe: seasonTodayAeIso(),
+        aeHour: new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCHours(),
+        closureDates: season.closureDates,
+        creditAed: intakePause.creditAed,
+        alreadyJoined: intakePause.alreadyJoined,
+        paidInCash: season.skipCreditFils !== 0,
+      })
+    : null
+
+  // The resume itself, after any season sheet: past the 2 PM kitchen cutoff on
+  // a delivery day, warn first that tonight's meal is not coming.
+  const continueResume = () => {
+    if (skipPastCutoff && !skipNoDelivery) { setShowResumeCutoffWarning(true); return }
+    act(() => resumeSubscription(sub.id), 'active', 'resume')
+  }
+
   const handlePauseRequest = () => {
     if (isPending || isScheduled) return
     // Already-scheduled planned pause: tapping the button opens the cancel
@@ -636,8 +668,11 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
       // Past the 2 PM kitchen cutoff on a delivery day, resuming brings the plan
       // back but NOT tonight's meal. Surface a full-screen warning first so the
       // no-show is a choice, not a surprise — confirm routes to the real resume.
-      if (skipPastCutoff && !skipNoDelivery) { setShowResumeCutoffWarning(true); return }
-      act(() => resumeSubscription(sub.id), 'active', 'resume')
+      // Season: during the break Resume is refused with Save my spot (§7.5);
+      // while winding down a split that runs past the wrap-up day shows first (§7.4).
+      if (seasonBreak?.phase === 'break') { setShowBreakResume(true); return }
+      if (resumeSplit) { setShowResumeSplit(true); return }
+      continueResume()
     }
     else if (pausePastFinalDay) return
     // Already skipped today → an immediate pause would double-count tonight, so
@@ -2185,6 +2220,19 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
             </span>
           </div>
         </MobileSheet>
+
+        <SeasonSplitSheet
+          open={showResumeSplit}
+          split={resumeSplit}
+          onStay={() => setShowResumeSplit(false)}
+          onResume={() => { setShowResumeSplit(false); continueResume() }}
+        />
+        <BreakResumeSheet
+          open={showBreakResume}
+          alreadyJoined={intakePause.alreadyJoined}
+          creditAed={intakePause.creditAed}
+          onClose={() => setShowBreakResume(false)}
+        />
 
         {/* Pause confirmation modal — routed through MobileSheet. */}
         <MobileSheet
