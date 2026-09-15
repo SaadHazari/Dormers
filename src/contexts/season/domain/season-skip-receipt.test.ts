@@ -19,6 +19,27 @@ describe('receiptsFromTransition', () => {
     expect(receiptsFromTransition(state)).toEqual([])
   })
 
+  it('skips items that are null or not objects', () => {
+    const state = {
+      reconciled: [null, 7, 'x', { subscription_id: 'a', customer_id: 'c', meal_dates: ['2026-09-21'], credit_fils: 1980, skipped_no_value: 0 }],
+    }
+    expect(receiptsFromTransition(state)).toEqual([
+      { subscriptionId: 'a', customerId: 'c', mealDates: ['2026-09-21'], creditFils: 1980, source: 'reconciled' },
+    ])
+  })
+
+  it('ignores the extra keys the redesigned reconcile adds', () => {
+    const state = {
+      reconciled: [
+        { subscription_id: 'a', customer_id: 'c', meal_dates: ['2026-09-09', '2026-09-10'], credit_fils: 2200, skipped_no_value: 0, dropped_dates: ['2026-10-06'], credited_before: 1, credited_after: 2, conservation: 'checked' },
+        { subscription_id: 'b', customer_id: 'c', meal_dates: [], credit_fils: null, skipped_no_value: 0, grants_before: 1, grants_after: 0 },
+      ],
+    }
+    expect(receiptsFromTransition(state)).toEqual([
+      { subscriptionId: 'a', customerId: 'c', mealDates: ['2026-09-09', '2026-09-10'], creditFils: 2200, source: 'reconciled' },
+    ])
+  })
+
   it('returns nothing for a transition without reconciliation', () => {
     expect(receiptsFromTransition({ phase: 'open' })).toEqual([])
     expect(receiptsFromTransition(null)).toEqual([])

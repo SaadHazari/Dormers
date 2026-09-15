@@ -82,6 +82,19 @@ describe('season transitions', () => {
     ])
   })
 
+  it('still reports success when the notice hook throws, because the season already changed', async () => {
+    rpcMock.mockResolvedValue({
+      data: { phase: 'winding_down', reconciled: [{ subscription_id: 's1', customer_id: 'c1', meal_dates: ['2026-09-16'], credit_fils: 1980, skipped_no_value: 0 }] },
+      error: null,
+    })
+    announceMock.mockRejectedValueOnce(new Error('whatsapp down'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await scheduleSeasonEnd(ADMIN, '2026-10-03', 1)).toEqual({ ok: true })
+    expect(auditMock).toHaveBeenCalledTimes(1)
+    expect(errorSpy).toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
   it('does not call the hook when nothing was reconciled', async () => {
     rpcMock.mockResolvedValue({ data: { phase: 'winding_down', reconciled: [] }, error: null })
     await moveSeasonEnd(ADMIN, '2026-10-05', 0)

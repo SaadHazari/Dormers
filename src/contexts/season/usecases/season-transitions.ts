@@ -43,8 +43,16 @@ async function runSeasonTransition(
   await logAdminAction(adminEmail, auditAction, 'intake_settings', 'singleton', { ...args, state: data })
   // Scheduling or moving the wrap-up day turns skips whose make-up meal now
   // lands after it into wallet credit (spec §7.2 reconciliation).
+  // The season has already changed and been audited by now: a failing notice
+  // must never make the page say the schedule did not happen.
   const receipts = receiptsFromTransition(data)
-  if (receipts.length > 0) await announceSeasonSkipCredited(receipts)
+  if (receipts.length > 0) {
+    try {
+      await announceSeasonSkipCredited(receipts)
+    } catch (err) {
+      console.error('season transition: credited-skip notices failed', { fn, count: receipts.length, err })
+    }
+  }
   return { ok: true }
 }
 

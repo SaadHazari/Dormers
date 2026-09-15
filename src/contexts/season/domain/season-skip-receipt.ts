@@ -18,6 +18,7 @@ export function receiptsFromTransition(state: unknown): SeasonSkipReceipt[] {
   if (!Array.isArray(list)) return []
   const out: SeasonSkipReceipt[] = []
   for (const item of list) {
+    if (item === null || typeof item !== 'object') continue
     const row = item as { subscription_id?: unknown; customer_id?: unknown; meal_dates?: unknown; credit_fils?: unknown }
     if (typeof row.subscription_id !== 'string' || typeof row.customer_id !== 'string') continue
     if (!Array.isArray(row.meal_dates) || row.meal_dates.length === 0 || typeof row.credit_fils !== 'number') continue
