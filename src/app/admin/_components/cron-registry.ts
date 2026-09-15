@@ -43,6 +43,12 @@ export const JOB_INFO: Record<string, JobInfo> = {
         actionHref: '/admin/comms',
         actionLabel: 'Open Messages',
     },
+    season_skip_credit_tick: {
+        label: 'Skipped meal credit release (nightly)',
+        does: 'Moves credit from a skip near the season end into the wallet once the skipped day has passed.',
+        impact: 'Customers who skipped a meal near the season end are not getting their credit',
+        group: 'customer',
+    },
     dispatch_start_day_emails_9am_ae: {
         label: '"Starts today" email (9 AM)',
         does: 'Emails customers whose plan begins today, at 9 AM.',
