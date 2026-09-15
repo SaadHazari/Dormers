@@ -24,7 +24,7 @@ import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { journeyFits, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
 import { getIntakeState } from '@/infra/config/intake';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
-import { canPause, canPlanPause, canResume, canSkip, skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules';
+import { canPause, canPlanPause, canResume, canSkip, skipCapFor, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
 import { eventBus } from '@/shared/events/event-bus';
 // Side-effect import — registers the notifications subscriber that turns
@@ -434,7 +434,7 @@ export async function skipMeal(subscriptionId: string) {
   // this check enforces is the number the customer was shown.
   const maxSkips = skipCapFor(subscription);
 
-  if (subscription.skipped_meals_count >= maxSkips) {
+  if (skipsUsedFor(subscription) >= maxSkips) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
   }
 

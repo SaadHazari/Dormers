@@ -20,7 +20,7 @@ import { PlanEndingPausedBanner } from './_shared/PlanEndingPausedBanner'
 import { vegDayNumbersFor, type WeekType } from '@/contexts/subscriptions/domain/veg-day'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { resolvePlan, noPauseNote } from '@/contexts/subscriptions/domain/plans'
-import { skipCapFor, hasNotStartedYet } from '@/contexts/subscriptions/domain/subscription-rules'
+import { skipCapFor, skipsUsedFor, hasNotStartedYet } from '@/contexts/subscriptions/domain/subscription-rules'
 import { HeroToday } from './HeroToday'
 import { PlanProgress } from './PlanProgress'
 import { StatRow } from './StatRow'
@@ -833,7 +833,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
   const skipTotal = skipCapFor(effectiveSub)
   const skipQuota = {
     total: skipTotal,
-    left:  Math.max(0, skipTotal - effectiveSub.skipped_meals_count),
+    left:  Math.max(0, skipTotal - skipsUsedFor(effectiveSub)),
   }
   const rawName   = customer?.name ?? userEmail.split('@')[0]
   const firstName = rawName?.split(' ')[0] ?? 'there'
@@ -1190,7 +1190,7 @@ export function ActiveDashboard({ sub, customer, userEmail, allSubscriptions, qu
     planName: effectiveSub.plan_name,
     total: effectiveSub.total_meals,
     delivered: effectiveSub.delivered_meals,
-    skipped: effectiveSub.skipped_meals_count,
+    skipped: skipsUsedFor(effectiveSub),
     skipsPlanned: (effectiveSub.skipped_dates ?? []).some(d => d >= aeTodayIso),
     startLabel: fmtShort(effectiveSub.start_date),
     endLabel: fmtShort(effectiveSub.end_date),

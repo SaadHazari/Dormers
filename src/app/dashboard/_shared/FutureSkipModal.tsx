@@ -5,6 +5,7 @@ import { CalendarClock, RotateCcw, SkipForward } from 'lucide-react'
 import { BODY, OG, S, cleanPlanName } from './tokens'
 import { MobileSheet } from './MobileSheet'
 import type { Subscription } from './types'
+import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 
 export type FutureSkipMode = 'confirm-skip' | 'confirm-unskip' | 'pick-then-skip'
 
@@ -160,7 +161,7 @@ export function FutureSkipModal({
         ? 'Your meal for that day will be delivered. The make-up day at the end of your cycle will be removed.'
         : 'You won’t get a meal that day. We’ll add a make-up day at the end of your cycle so you still get every meal you paid for.'
 
-    const skipsLeft = Math.max(0, maxSkips - sub.skipped_meals_count)
+    const skipsLeft = Math.max(0, maxSkips - skipsUsedFor(sub))
     // Short CTA label — the full date already lives in the headline, so a long
     // label here would wrap in the bottom-pinned band on a narrow phone.
     const ctaText = isUnskip

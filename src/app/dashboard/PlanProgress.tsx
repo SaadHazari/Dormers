@@ -12,7 +12,7 @@ import { useNavigation } from './_shared/useNavigation'
 import type { Subscription } from './_shared/types'
 import { groupPauseRanges, buildPauseLookup } from './_shared/pause-ranges'
 import { describeClosures } from './_shared/closure-legend'
-import { hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
+import { hasNotStartedYet, isHeldPastStartDate, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import { CLOSURE_FILL, MAKEUP_FILL } from './_shared/closure-legend'
 
 // ── Calendar-bar helpers ──────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export function PlanProgress({
     // for. Stays constant. Pills at index >= totalDeliveries are make-up.
     const totalDeliveries = Math.max(1, Math.ceil(total / mealsPerDelivery))
     const deliveriesDone = Math.floor(sub.delivered_meals / mealsPerDelivery)
-    const skippedDeliveries = Math.max(0, sub.skipped_meals_count)
+    const skippedDeliveries = skipsUsedFor(sub)
 
     const weekType: WeekType = sub.week_type === '5DAYS' ? '5DAYS' : '6DAYS'
 
@@ -769,12 +769,12 @@ export function PlanProgress({
                     <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, background: OG, display: 'inline-block' }} />
                     <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.delivered_meals}</strong> delivered
                 </span>
-                {sub.skipped_meals_count > 0 && (
+                {skippedDeliveries > 0 && (
                     <>
                         <span style={{ color: S.fgFaint }}>·</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                             <span aria-hidden style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--ds-fg-tint)', display: 'inline-block' }} />
-                            <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{sub.skipped_meals_count}</strong> skipped
+                            <strong style={{ color: S.fg, fontFeatureSettings: '"tnum"' }}>{skippedDeliveries}</strong> skipped
                         </span>
                     </>
                 )}

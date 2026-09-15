@@ -104,6 +104,13 @@ export interface Subscription {
   // overrides a planned pause). has_paused_before is set to true the moment
   // this is written — the pause credit is consumed at plan-time.
   planned_pause_start?: string | null
+  // Season wind-down (spec §7.2). A credited skip uses a skip from the
+  // allowance but adds no make-up day; its date is in skipped_dates AND in
+  // credited_skip_dates. Optional because preview fixtures build subs by hand.
+  credited_skip_days?: number | null
+  credited_skip_dates?: string[] | null
+  season_buffer_grants?: number | null
+  meals_per_day?: number | null
 }
 
 export interface CustomerProfile {

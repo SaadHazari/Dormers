@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { canPause, canPlanPause, canSkip, canResume, skipCapFor, hasNotStartedYet, isHeldPastStartDate } from './subscription-rules'
+import { canPause, canPlanPause, canSkip, canResume, skipCapFor, skipsUsedFor, hasNotStartedYet, isHeldPastStartDate } from './subscription-rules'
 import { PLANS, noPauseNote } from './plans'
 import type { Subscription } from './subscriptions'
 
@@ -38,6 +38,9 @@ function fakeSub(overrides: Partial<Subscription> = {}): Subscription {
     paused_dates: [],
     start_email_sent_at: null,
     closure_days: 0,
+    credited_skip_days: 0,
+    credited_skip_dates: [],
+    season_buffer_grants: 0,
     ...overrides,
   }
 }
@@ -292,5 +295,20 @@ describe('hasNotStartedYet / isHeldPastStartDate', () => {
 
   it('treats the start date itself as started, not pending', () => {
     expect(hasNotStartedYet(fakeSub({ status: 'Active', start_date: '2026-09-02' }), NOW)).toBe(false)
+  })
+})
+
+describe('skipsUsedFor (spec X3: a credited skip uses a skip)', () => {
+  it('adds credited skips to skipped meals', () => {
+    expect(skipsUsedFor({ skipped_meals_count: 1, credited_skip_days: 2 })).toBe(3)
+    expect(skipsUsedFor({ skipped_meals_count: 2 })).toBe(2)
+    expect(skipsUsedFor({ skipped_meals_count: 0, credited_skip_days: null })).toBe(0)
+  })
+
+  it('canSkip refuses once skipped plus credited reaches the allowance', () => {
+    expect(canSkip(fakeSub({ skipped_meals_count: 1, credited_skip_days: 2, credited_skip_dates: ['2026-09-16', '2026-09-17'] })))
+      .toEqual({ ok: false, error: 'You\'ve used all 3 of your skips for this cycle.' })
+    expect(canSkip(fakeSub({ skipped_meals_count: 1, credited_skip_days: 1, credited_skip_dates: ['2026-09-16'] })))
+      .toEqual({ ok: true })
   })
 })

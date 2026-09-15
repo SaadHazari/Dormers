@@ -35,7 +35,7 @@ import { pricePerMeal, totalPrice, mealsForPlan, PLANS, PLAN_KEBAB, type PlanId,
 import { taperWindow, taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
-import { skipCapFor, hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
+import { skipCapFor, skipsUsedFor, hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
 import { MobilePlan } from '../_mobile/MobilePlan'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
@@ -311,7 +311,7 @@ function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRene
   const supportsPause = resolvePlan(sub.plan_name)?.canPause ?? false
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
   const skipAllowance = skipCapFor(sub)
-  const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
+  const skipsLeft = Math.max(0, skipAllowance - skipsUsedFor(sub))
   // Not '—'. A dash in the one cell that answers "can I pause?" is the same
   // silence as a disabled button with no reason; the row below carries the why.
   const pauseStatus = !supportsPause

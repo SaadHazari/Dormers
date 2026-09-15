@@ -19,7 +19,7 @@ import { SeasonEndingBanner } from '../_shared/SeasonEndingBanner'
 import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
-import { skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { skipCapFor, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
   eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
@@ -196,7 +196,7 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
   const supportsPause = resolvePlan(sub.plan_name)?.canPause ?? false
   const isPaused = sub.status === SUBSCRIPTION_STATUS.PAUSED
   const skipAllowance = skipCapFor(sub)
-  const skipsLeft = Math.max(0, skipAllowance - sub.skipped_meals_count)
+  const skipsLeft = Math.max(0, skipAllowance - skipsUsedFor(sub))
   // 'Not included', never '—' — see the same change in PlanClient.
   const pauseStatus = !supportsPause ? 'Not included' : isPaused ? 'In use' : sub.has_paused_before ? 'Used' : 'Available'
   const plannedPauseStart = sub.planned_pause_start ?? null

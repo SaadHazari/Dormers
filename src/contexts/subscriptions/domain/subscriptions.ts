@@ -49,6 +49,9 @@ export interface Subscription {
   paused_dates: string[]                      // YYYY-MM-DD[], default []
   start_email_sent_at: string | null          // ISO timestamp
   closure_days: number                        // default 0 — company-wide holiday extensions
+  credited_skip_days: number                  // default 0 — skips turned into wallet credit (season §7.2)
+  credited_skip_dates: string[]               // YYYY-MM-DD[], default [] — which skipped_dates were credited
+  season_buffer_grants: number                // default 0 — make-up meals allowed on a buffer day (season §6.2)
 }
 
 /**

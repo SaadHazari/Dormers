@@ -106,6 +106,15 @@ export function skipCapFor(sub: { plan_name: string; bonus_skips?: number | null
 }
 
 /**
+ * Skips this plan has used: meals skipped and made up, plus meals skipped and
+ * turned into wallet credit during a season wind-down (spec X3). "3 skips"
+ * keeps meaning 3 skips whichever way each one was paid back.
+ */
+export function skipsUsedFor(sub: { skipped_meals_count: number; credited_skip_days?: number | null }): number {
+  return Math.max(0, sub.skipped_meals_count) + Math.max(0, sub.credited_skip_days ?? 0)
+}
+
+/**
  * Can the user skip a meal on this subscription?
  *
  * Used by both skipMeal (same-day) and skipFutureDate. The skip-credit
@@ -120,7 +129,7 @@ export function canSkip(sub: Subscription): RuleResult {
     return fail('Skips can only be scheduled on an active subscription.')
   }
   const maxSkips = skipCapFor(sub)
-  if (sub.skipped_meals_count >= maxSkips) {
+  if (skipsUsedFor(sub) >= maxSkips) {
     return fail(`You've used all ${maxSkips} of your skips for this cycle.`)
   }
   return ok
