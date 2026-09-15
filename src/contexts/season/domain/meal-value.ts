@@ -22,12 +22,23 @@ export type MealValue = { fils: number; exact: boolean } | null
  * price_per_meal is a Postgres `numeric` (exact decimal), so its round can
  * land on the far side of a half-fils boundary from a naive `Math.round` on a
  * JS double (20.115 * 100 is 2011.4999999999998 as a double, but numeric
- * 2011.5, which numeric round takes up to 2012). Routing the multiply through
- * a fixed decimal string first removes the double's trailing noise before
- * rounding, matching Postgres.
+ * 2011.5, which numeric round takes up to 2012). Round on the decimal digits
+ * the number prints as, like Postgres round(numeric): half away from zero on
+ * the third decimal digit, not on the binary double.
  */
 export function aedToFils(aed: number): number {
-  return Math.round(Number((aed * 100).toFixed(6)))
+  if (!Number.isFinite(aed)) return NaN
+  const sign = aed < 0 ? -1 : 1
+  const abs = Math.abs(aed)
+  // Round on the decimal digits the number prints as, like Postgres round(numeric):
+  // half away from zero on the third decimal digit. toFixed would first round the
+  // binary double and can turn 0.024999999999999998 into 0.025.
+  let text = abs.toString()
+  if (text.includes('e')) text = abs.toFixed(20)
+  const [whole, fraction = ''] = text.split('.')
+  const digits = (fraction + '000').slice(0, 3)
+  const fils = Number(whole) * 100 + Number(digits.slice(0, 2))
+  return sign * (fils + (Number(digits[2]) >= 5 ? 1 : 0))
 }
 
 export function mealValueOf(order: OrderMoney): MealValue {

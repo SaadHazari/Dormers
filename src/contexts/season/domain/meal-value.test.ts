@@ -62,10 +62,15 @@ describe('aedToFils', () => {
   // 100)` on a JS double disagrees with Postgres numeric rounding at these
   // half-fils boundaries (20.115 * 100 is 2011.4999999999998 as a double).
   it.each([
+    [0.024999999999999998, 2],
+    [0.025, 3],
     [20.115, 2012],
     [17.416666666666668, 1742],
+    [5.620833333333334, 562],
     [21.5, 2150],
     [22, 2200],
+    [21.67, 2167],
+    [0, 0],
   ])('rounds %s AED to %i fils the way SQL numeric round does', (aed, fils) => {
     expect(aedToFils(aed)).toBe(fils)
   })
