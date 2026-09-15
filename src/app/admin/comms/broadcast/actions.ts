@@ -119,11 +119,24 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
         return { ok: false, message: `Could not snapshot the audience: ${confirmErr.message}` }
     }
 
+    // Plan F (spec N17): held plans are not in the reopen audience; they hear
+    // "your meals are ready" through the season outbox the moment the notice
+    // launches, and the launch is stamped so the two-hour reminder stays quiet.
+    let readyQueued = 0
+    if (isSeasonReopen) {
+        const { data: ready, error: readyErr } = await sb.rpc('season_queue_reopen_notices')
+        if (readyErr) console.error('season_queue_reopen_notices failed after the reopen launch:', readyErr.message)
+        readyQueued = Number((ready as { queued?: number } | null)?.queued ?? 0)
+    }
+
     await logAdminAction(admin.email, 'launch_broadcast', 'broadcast', created.id, {
-        kind: input.kind, audience: input.audience, recipients: count,
+        kind: input.kind, audience: input.audience, recipients: count, held_plans_told: readyQueued,
     })
     revalidatePath('/admin/comms/broadcast')
-    return { ok: true, id: created.id, count: count as number, message: `Broadcast queued to ${count} recipients.` }
+    return {
+        ok: true, id: created.id, count: count as number,
+        message: `Broadcast queued to ${count} recipients.${readyQueued > 0 ? ` ${readyQueued} held ${readyQueued === 1 ? 'plan hears' : 'plans hear'} their meals are ready.` : ''}`,
+    }
 }
 
 /**

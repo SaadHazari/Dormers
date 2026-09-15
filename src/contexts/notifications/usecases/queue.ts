@@ -54,6 +54,11 @@ export type CustomerNotificationKind =
     | 'season_spot_saved'
     | 'season_plan_ready'
     | 'season_credit_waiting'
+    // The reopening notice on WhatsApp (spec N15, N16), behind
+    // WHATSAPP_SEASON_REOPEN_ENABLED: approved at Meta, parameter names to be
+    // confirmed before tpl_intake_reopened / tpl_intake_back_open go in Vault.
+    | 'intake_reopened'
+    | 'intake_back_open'
 
 /**
  * Queue a WhatsApp notification for a customer.

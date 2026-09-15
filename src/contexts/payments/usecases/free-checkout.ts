@@ -427,6 +427,7 @@ export async function runFreeCheckout(input: FreeCheckoutInput): Promise<void> {
           mealsCount: total_meals,
           pricePerMeal,
           amountTotalAed,
+          creditUsedAed: creditUsed != null && creditUsed > 0 ? creditUsed / 100 : undefined,
           startDateIso: isoDate(startDt),
           sessionId: syntheticOrderNumber,
           paymentIntentId: '',

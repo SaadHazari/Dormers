@@ -61,4 +61,25 @@ describe('season messages are wired', () => {
     }
     expect(src).toContain("PERFORM public.season_queue_break_notices(v_cycle);  -- Plan E")
   })
+
+  it('the reopening notice tells held plans through the outbox and rides WhatsApp behind its own flag (N15 to N17)', () => {
+    const actions = read('src/app/admin/comms/broadcast/actions.ts')
+    expect(actions).toContain("sb.rpc('season_queue_reopen_notices')")
+    const send = read('src/app/api/internal/broadcast-send/route.ts')
+    expect(send).toContain("process.env.WHATSAPP_SEASON_REOPEN_ENABLED === 'true'")
+    expect(send).toContain("'intake_reopened', new Date(), { credit_aed: String(unspentCreditAed) }")
+    expect(send).toContain("'intake_back_open', new Date(), {}")
+    const migration = read('supabase/migrations/20260916_season_reopen_notices.sql')
+    expect(migration).toContain("and not exists (select 1 from public.season_holds h")
+    expect(migration).toContain("WHEN 'intake_reopened' THEN  -- Plan F")
+    expect(migration).toContain("'reopen_notice_not_sent'")
+  })
+
+  it('the receipt names the credit used (N19), omitted when there is none', () => {
+    const client = read('src/infra/zeptomail/client.ts')
+    expect(client).toContain("credit_used_aed: input.creditUsedAed.toFixed(2)")
+    for (const file of ['src/contexts/payments/usecases/handle-stripe-event.ts', 'src/contexts/payments/usecases/free-checkout.ts', 'src/app/api/internal/post-payment-retry/route.ts']) {
+      expect(read(file), file).toContain('creditUsedAed:')
+    }
+  })
 })

@@ -246,8 +246,10 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
   // Only the two states the notice has words for (breakNoticeCopy): a refund
   // in flight is told on the card, never as a takeover.
   const breakNoticeKey = seasonBreak && seasonBreak.phase === 'break' && (seasonBreak.hold.state === 'held' || seasonBreak.hold.state === 'paused_by_customer')
-    ? breakNoticeSeenKey(seasonBreak.hold.id)
-    : null
+    ? breakNoticeSeenKey(seasonBreak.hold.id, 'break')
+    : seasonBreak && seasonBreak.hold.state === 'ready'
+      ? breakNoticeSeenKey(seasonBreak.hold.id, 'ready')  // N17: once per hold after reopening
+      : null
   const [breakNoticeChecked, setBreakNoticeChecked] = useState(false)
   const [breakNoticeSeen, setBreakNoticeSeen] = useState(true)
   useEffect(() => {

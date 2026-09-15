@@ -166,9 +166,9 @@ describe('breakNoticeCopy (N8, N9)', () => {
     expect(breakNoticeCopy({ hold: paused, alreadyJoined: true, creditAed: 15 })?.joinLine).toBeNull()
   })
 
-  it('shows nothing for a ready hold, and never mentions a refund or uses a dash', () => {
-    expect(breakNoticeCopy({ hold: hold({ state: 'ready' }), alreadyJoined: false, creditAed: 20 })).toBeNull()
-    for (const h of [hold(), hold({ reason: 'customer_pause', state: 'paused_by_customer' })]) {
+  it('shows nothing for a refund in flight, and never mentions a refund or uses a dash unless the hold offers one', () => {
+    expect(breakNoticeCopy({ hold: hold({ state: 'refund_requested' }), alreadyJoined: false, creditAed: 20 })).toBeNull()
+    for (const h of [hold(), hold({ reason: 'customer_pause', state: 'paused_by_customer' }), hold({ state: 'ready' })]) {
       const c = breakNoticeCopy({ hold: h, alreadyJoined: false, creditAed: 20 })
       const text = [c?.headline, ...(c?.lines ?? []), c?.joinLine].filter(Boolean).join(' ')
       expect(text).not.toMatch(/refund/i)
@@ -178,5 +178,21 @@ describe('breakNoticeCopy (N8, N9)', () => {
 
   it('is seen once per hold', () => {
     expect(breakNoticeSeenKey('hold-1')).toBe('dormers:season-break-notice-ack:hold-1')
+  })
+
+  it('after reopening the notice says the meals are ready, once per hold (N17)', () => {
+    const ready = breakNoticeCopy({ hold: hold({ state: 'ready' }), alreadyJoined: true, creditAed: 20 })
+    expect(ready).toEqual({
+      headline: "We're back. Your meals are ready.",
+      lines: [
+        'The kitchen is open again, and your 9 meals of Monthly Premium are ready.',
+        "Tap Resume when you're ready, and your dinners start again. Nothing restarts on its own.",
+        'AED 20 is still in your wallet for your next Monthly plan.',
+      ],
+      joinLine: null,
+    })
+    expect(breakNoticeCopy({ hold: hold({ state: 'ready', planStatus: 'Scheduled', waitlistCreditFils: null }), alreadyJoined: true, creditAed: 20 })?.lines)
+      .toEqual(['The kitchen is open again, and your 9 meals of Monthly Premium are ready.', 'Pick your start date on your plan page to begin.'])
+    expect(breakNoticeSeenKey('h-1', 'ready')).not.toBe(breakNoticeSeenKey('h-1'))
   })
 })

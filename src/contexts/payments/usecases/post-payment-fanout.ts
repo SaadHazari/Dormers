@@ -44,6 +44,8 @@ export interface PostPaymentContext {
    * Default 0 = standard paid invoice path.
    */
   discountAed?: number
+  /** Wallet credit this order consumed (AED); the confirmation email names it (spec N19). */
+  creditUsedAed?: number
   startDateIso: string
   sessionId: string
   paymentIntentId: string
@@ -110,6 +112,7 @@ async function sendEmail(ctx: PostPaymentContext): Promise<void> {
     mealsCount: ctx.mealsCount,
     totalAed: ctx.amountTotalAed,
     orderNumber: ctx.sessionId,
+    creditUsedAed: ctx.creditUsedAed,
   })
   await markChannelDone(ctx, 'email_sent_at')
 }

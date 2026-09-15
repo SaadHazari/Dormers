@@ -161,10 +161,19 @@ export function breakNoticeCopy(input: { hold: CustomerHold; alreadyJoined: bool
       joinLine: input.alreadyJoined ? null : seasonJoinLine(input.creditAed),
     }
   }
+  // N17: the kitchen is back and the held meals are ready.
+  if (hold.state === 'ready') {
+    const lines = [
+      `The kitchen is open again, and your ${mealsPhrase(hold.heldMeals)} of ${hold.planName} ${hold.heldMeals === 1 ? 'is' : 'are'} ready.`,
+      hold.planStatus === 'Scheduled' ? 'Pick your start date on your plan page to begin.' : "Tap Resume when you're ready, and your dinners start again. Nothing restarts on its own.",
+    ]
+    if (hold.waitlistCreditFils) lines.push(`${formatAed(hold.waitlistCreditFils)} is still in your wallet for your next Monthly plan.`)
+    return { headline: "We're back. Your meals are ready.", lines, joinLine: null }
+  }
   return null
 }
 
-/** Once per hold: a new season creates a new hold, so the notice shows again. */
-export function breakNoticeSeenKey(holdId: string): string {
-  return `dormers:season-break-notice-ack:${holdId}`
+/** Once per hold and per moment: the break notice, then the ready notice after reopening. */
+export function breakNoticeSeenKey(holdId: string, moment: 'break' | 'ready' = 'break'): string {
+  return moment === 'ready' ? `dormers:season-ready-notice-ack:${holdId}` : `dormers:season-break-notice-ack:${holdId}`
 }

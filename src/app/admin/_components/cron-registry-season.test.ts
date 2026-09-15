@@ -14,6 +14,7 @@ describe('the Scheduled Jobs page and the season break', () => {
     expect(getJobInfo('season_admin_digest_tick').group).toBe('watchdog')
     expect(getJobInfo('season_admin_digest_tick_close_day').group).toBe('watchdog')
     expect(getJobInfo('dispatch_subscription_ended_0045_ae').label).toContain('10 AM')
+    expect(getJobInfo('season_reopen_followups_tick').group).toBe('customer')
     for (const job of ['season_admin_digest_tick', 'season_admin_digest_tick_close_day']) {
       expect(getJobInfo(job).does).not.toMatch(/AED|cost/i)
     }

@@ -149,6 +149,14 @@ export const JOB_INFO: Record<string, JobInfo> = {
         actionHref: '/admin/season',
         actionLabel: 'Open Season',
     },
+    season_reopen_followups_tick: {
+        label: 'After reopening (10 AM)',
+        does: 'Five days after you reopen, nudges credit holders who have not bought yet. Seven days after, tells you which held plans have not restarted and how much waitlist credit is still unspent.',
+        impact: 'Credit holders are not reminded and you do not hear what is still waiting after reopening',
+        group: 'customer',
+        actionHref: '/admin/season',
+        actionLabel: 'Open Season',
+    },
     season_invariants_tick: {
         label: 'Semester break watchdog (hourly)',
         does: 'Pings you when a plan is set to cook during the break, or the break has not started by 01:30 after the close day.',

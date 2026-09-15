@@ -76,16 +76,21 @@ const STATES = [
     tap: '#season-break-notice-dismiss',
     after: ['Your plan is paused, and the kitchen is closed between semesters.', 'Your spot for next semester is saved.'],
   },
+  // Plan F (N17): the reopening opens with a once-only "your meals are ready" notice, then the card.
   {
     id: 'ready',
     url: '/dashboard?preview=1&verified=1&season=ready',
-    expect: ["We're back. Your 9 meals are ready.", "Tap Resume when you're ready, and your dinners start again."],
-    absent: ['refund', 'Your meals are kept for next semester.'],
+    expect: ["We're back. Your meals are ready.", 'The kitchen is open again, and your 9 meals of Monthly Premium are ready.', 'AED 20 is still in your wallet for your next Monthly plan.'],
+    tap: '#season-break-notice-dismiss',
+    after: ["We're back. Your 9 meals are ready.", "Tap Resume when you're ready, and your dinners start again."],
+    absent_after: ['refund', 'Your meals are kept for next semester.'],
   },
   {
     id: 'ready-scheduled',
     url: '/dashboard?preview=1&verified=1&season=ready_scheduled',
-    expect: ['Pick your start date on your plan page to begin.', 'Pick my start date'],
+    expect: ['Pick your start date on your plan page to begin.'],
+    tap: '#season-break-notice-dismiss',
+    after: ['Pick your start date on your plan page to begin.', 'Pick my start date'],
   },
   {
     id: 'n7-split',
@@ -120,7 +125,9 @@ const STATES = [
   {
     id: 'ready-refund',
     url: '/dashboard?preview=1&verified=1&season=ready_refund',
-    expect: ["We're back. Your 9 meals are ready.", 'You can ask for a refund for these 9 meals instead', 'Ask for a refund'],
+    expect: [],
+    tap: '#season-break-notice-dismiss',
+    after: ["We're back. Your 9 meals are ready.", 'You can ask for a refund for these 9 meals instead', 'Ask for a refund'],
   },
   {
     id: 'menu-held',

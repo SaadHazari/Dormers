@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const { data: order } = await supabase
     .from('orders')
     .select(
-      'id, customer_id, subscription_id, plan, meals_count, price_per_meal, stripe_session_id, stripe_payment_id, created_at, payment_date',
+      'id, customer_id, subscription_id, plan, meals_count, price_per_meal, stripe_session_id, stripe_payment_id, created_at, payment_date, credit_applied_fils',
     )
     .eq('id', orderId)
     .maybeSingle()
@@ -95,6 +95,7 @@ export async function POST(req: Request) {
     mealsCount: Number(sub?.total_meals ?? order.meals_count ?? 0),
     pricePerMeal: Number(order.price_per_meal ?? 0),
     amountTotalAed,
+    creditUsedAed: Number(order.credit_applied_fils ?? 0) > 0 ? Number(order.credit_applied_fils) / 100 : undefined,
     startDateIso,
     sessionId: order.stripe_session_id ?? '',
     paymentIntentId: order.stripe_payment_id ?? '',

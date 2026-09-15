@@ -32,6 +32,7 @@ import { buildBroadcastEmailHtml, buildSeasonReopenMergeInfo, personalizeBroadca
 import { timingSafeCompare } from '@/shared/crypto'
 import { getIntakeState } from '@/infra/config/intake'
 import { getWaitlistStatusStrict } from '@/infra/supabase/subscriptions-repo'
+import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 
 const BATCH_SIZE = 25
 // Leaves a margin under maxDuration for the batch's setup/teardown queries
@@ -106,6 +107,22 @@ async function sendSeasonReopenTo(
     to: { email: row.email, name: row.first_name },
     mergeInfo,
   })
+
+  // Plan F (spec N15, N16): the same story on WhatsApp, once the two approved
+  // templates have their Vault secrets. Fails closed on the flag. A queue
+  // failure never fails the send: the email went, and the queue's own retry
+  // and alerting cover the rest.
+  if (process.env.WHATSAPP_SEASON_REOPEN_ENABLED === 'true') {
+    try {
+      if (unspentCreditAed > 0) {
+        await queueCustomerNotification(row.customer_id, 'intake_reopened', new Date(), { credit_aed: String(unspentCreditAed) })
+      } else {
+        await queueCustomerNotification(row.customer_id, 'intake_back_open', new Date(), {})
+      }
+    } catch (err) {
+      console.error(`sendSeasonReopenTo: WhatsApp queue failed for ${row.customer_id} (email sent):`, err)
+    }
+  }
 
   if (waitlistRow) {
     const { error: notifyError } = await sb.from('intake_waitlist')
