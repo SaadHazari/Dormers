@@ -41,6 +41,7 @@ Customers and the owner hear about each step at the moment it matters, on the ch
 | D4 | Before scheduling, the admin sees when the last meal on the books is delivered. The schedule adds one delivery day of buffer so a late skip can still be delivered. |
 | D5 | Money and kitchen operations are involved, so this is one explicit state machine with customer and admin notifications at every transition, and no kitchen day beyond the last meal plus the buffer. |
 | D6 | A refund for held meals waits for the owner's approval. The owner gets a WhatsApp the moment a customer asks, then approves or declines it. |
+| D7 | A credited skip is worth what the customer paid for that meal: (card charge + wallet credit used) ÷ meals in the order, × meals that day. Live orders are backfilled from Stripe before credited skips go live; an order that cannot be resolved falls back to 90% of its list price. While Stripe runs in test mode (pilot), test payments are not money and use the fallback. (Owner, 2026-09-15) |
 
 ### 2.2 Carried from the 2026-09-14 review (recommended, confirm in review)
 
@@ -125,7 +126,7 @@ Three phases: `open`, `winding_down`, `break`. Every transition is one SQL funct
 | winding_down | Admin clears the season end | None | open | Cancel unsent scheduling notices; keep credits already issued; admin summary |
 | winding_down | Admin stops sales now | W is still ahead (once W passes, the nightly tick has already stopped sales) | winding_down | `sales_stopped_at = now()`; every purchase refused; kitchen unchanged |
 | winding_down | Break tick, first AE day after K | phase = winding_down and K < today | break | Begin-break procedure (§8) |
-| open | Admin ends the season today | Typed confirm that names the plans to be held and the refund exposure | winding_down, K = today | W = K = today, buffer 0, sales stopped; tonight's deliveries run; the break tick starts the break at 00:15 |
+| open | Admin ends the season today | Typed confirm that names the plans to be held and the refund exposure | winding_down, K = today | W = K = today, buffer 0, sales stopped; reconcile skips (§7.2); tonight's deliveries run; the break tick starts the break at 00:15. Lands with the break (P3): the action stays hidden until then |
 | break | Admin reopens | None | open | Stamp `cycle_ended_at`; holds move to `ready` (§6.3); clear W and K; offer the reopening notice; admin reminder if it is not sent within 2 hours |
 | any | Invariant checks (hourly in winding_down and break) | None | unchanged | Admin alert on any breach (§11.7) |
 
@@ -265,7 +266,9 @@ buffer reduced to 0 turns existing grants into credit the same way. Credits neve
 ### 7.3 Pausing during the wind-down
 
 Allowed as today. The pause sheet adds one line: "The semester wraps up on {W}. If you're still
-paused then, your plan waits for you until we're back." Nothing is minted at this point.
+paused then, your plan waits for you until we're back." Nothing is minted at this point. A pause, now
+or planned, is refused while a credited skip lies inside it: the customer undoes that skip first,
+because the pause would extend the plan for a day the credit already pays back (owner, 2026-09-15).
 
 ### 7.4 Resuming during the wind-down
 
@@ -296,8 +299,9 @@ Allowed when:
 
 - the phase is `break`; or
 - the phase is `winding_down` and the customer's live plan is `customer_paused` or `runs_past`; or
-- the phase is `winding_down`, the customer has no live plan, and no Monthly or Weekly plan can
-  finish by W (`taperedMaxStart` is null for both).
+- the phase is `winding_down` and no Monthly or Weekly plan can follow the customer's last live plan
+  (or start now, when they have none) and still finish by W (`taperedMaxStart` is null for both);
+  stopped sales count as "cannot follow" (§2.2, owner 2026-09-15).
 
 `resolveJoinCycle` changes to this rule. It stays one join and one credit per customer per season.
 It sends `season_spot_saved` on WhatsApp and email (§12).
@@ -364,19 +368,30 @@ New `orders` columns, written by the Stripe webhook and by free checkout:
 
 `meal_value_fils = floor((amount_paid_fils + credit_applied_fils) / meals_count)`
 
-`price_per_meal` is the pre-discount rate. It is never used for credit or refunds.
+Wallet credit applied means what the order really consumed: rows redeemed in full plus the used part
+of a split row. The unused part is re-deposited as a `_split_remainder` row, so summing
+`credits.applied_to` over-counts.
 
-**Backfill.** A script with a dry-run mode fills both columns for orders tied to live plans, reading
-the PaymentIntent from Stripe and the rows in `credits.applied_to`. If an order cannot be resolved,
-its plan has no meal value: the refund button stays hidden, credited skips on that plan wait, and the
-admin is asked to enter the value on the Season page.
+`price_per_meal` is the pre-discount rate. It is never used for refunds, and for credit only as the
+fallback below.
+
+**Recording and backfill (P2, before credited skips go live).** The Stripe webhook and free checkout
+write both columns on every new order, in test and live mode. A script with a dry-run default fills
+both for orders tied to live plans, reading the live-mode PaymentIntent (`amount_received`, never net
+of refunds) or Checkout Session (`amount_total`) and the credit actually used. Stripe runs in test
+mode for the pilot and test payments are not money, so `cs_test_` orders and card orders without
+Stripe ids are left null.
+
+**Fallback.** An order with no recorded money has no exact meal value: its credited skips credit
+`floor(round(price_per_meal × 100) × 90 / 100)` per meal (90% of list price; the Dorm Wars tier coupon
+takes at most 10%), and its refund button stays hidden.
 
 ### 10.2 Credits
 
 | Source | Minted when | Amount | Usable on | Status |
 |---|---|---|---|---|
 | `intake_waitlist` (exists) | The customer saves a spot, or automatically for a paid `season` hold | By meal preference: AED 20 / 15 / 20 | Monthly plans | `approved` |
-| `season_skip` (new) | A credited skip | Meal value × meals per day | Any plan | `pending`, then `approved` once the meal date passes |
+| `season_skip` (new) | A credited skip | What the customer paid for that meal × meals that day (D7); 90% of list price per meal when the order's money is unrecorded (§10.1) | Any plan | `pending`, then `approved` once the meal date passes; a same-day skip is `approved` at once |
 | `season_refund_return` (new) | A refunded held plan that was partly paid with wallet credit | Held meals × credit share per meal | Any plan | `approved` |
 
 New `credits` columns: `subscription_id uuid`, `meal_date date`, with a unique partial index on
@@ -607,6 +622,8 @@ migration files are stale for several of them.
 
 1. `intake_settings`: the §5.1 columns, and the live-row takeover (§5.2).
 2. `subscriptions`: `credited_skip_days smallint not null default 0` (≥ 0),
+   `credited_skip_dates date[] not null default '{}'` (always `credited_skip_days` long: which skipped
+   dates were credited; needed because a credited skip on a plan worth nothing in cash mints no credit row),
    `season_buffer_grants smallint not null default 0` (≥ 0), `season_hold_id uuid` referencing `season_holds`.
 3. `season_holds`: `id`, `subscription_id`, `customer_id`, `order_id`, `cycle_started_at`,
    `reason` (`season` | `customer_pause`), `state` (§6.3), `held_meals`, `meal_value_fils`,
@@ -766,9 +783,9 @@ The other six finish by Sat 3 Oct with nothing unusual.
 |---|---|---|
 | P0 | Submit the 8 WhatsApp templates to Meta; draft the 6 emails | Nothing. Start first: Meta approval is the slowest step |
 | P1 | Data model, projection (TypeScript and SQL), live-row takeover, admin planner and wind-down board (read-only) | Nothing |
-| P2 | Wind-down rules: sales against W, credited skips and buffer grants, credit tick, resume split sheet, save-a-spot eligibility, N1 and N3 in-app | P1 |
-| P3 | Break: `season_break_tick`, holds, guards G1 to G6 and G9, held and paused cards, break refusal sheet, N8 to N11 in-app | P1, P2 |
-| P4 | Money: order columns and backfill, refund request with owner approval, webhook branch, ledger labels | P3 |
+| P2 | Wind-down rules: order money recorded on every new order and backfilled for live plans (first), sales against W, credited skips and buffer grants, credit tick, save-a-spot eligibility, N1 and N3 in-app | P1 |
+| P3 | Break: `season_break_tick`, holds, guards G1 to G6 and G9, held and paused cards, resume split sheet, break refusal sheet, N8 to N11 in-app, skip reconciliation on End the season today | P1, P2 |
+| P4 | Money: refund request with owner approval, webhook refund branch, ledger labels (order money recording and the backfill moved to P2) | P3 |
 | P5 | Messages: outbox and route, WhatsApp and email wiring, 10:00 sends, G7 and G8, admin notifications and digest | P0, P3 |
 | P6 | Reopen: holds to ready, reopening notice on both channels for every audience, N15 to N18, receipt credit line | P5 |
 | P7 | Invariants tick, break board, atlas fixtures, runbook | P3 |
