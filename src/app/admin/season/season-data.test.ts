@@ -39,9 +39,9 @@ describe('loadSeasonPageData', () => {
       subscriptions: { data: [SUB, { ...SUB, id: 's2', customer_id: 'c2', week_type: '5DAYS', status: 'Paused', meals_per_day: null, delivered_meals: null }], error: null },
       customers: { data: [{ id: 'c1', name: '  Omar Farouk ', dorm_name: 'Academic City' }, { id: 'c2', name: null, dorm_name: null }], error: null },
       orders: { data: [
-        { subscription_id: 's1', amount_paid_fils: 43200, credit_applied_fils: 0, meals_count: 24, price_per_meal: '19', created_at: '2026-09-06T10:00:00Z' },
-        { subscription_id: 's1', amount_paid_fils: 99999, credit_applied_fils: 0, meals_count: 24, price_per_meal: '19', created_at: '2026-08-01T10:00:00Z' },
-        { subscription_id: 's2', amount_paid_fils: null, credit_applied_fils: null, meals_count: 24, price_per_meal: '18', created_at: '2026-08-20T10:00:00Z' },
+        { subscription_id: 's1', amount_paid_fils: 43200, credit_applied_fils: 0, meals_count: 24, price_per_meal: '19', stripe_session_id: 'cs_live_x', created_at: '2026-09-06T10:00:00Z' },
+        { subscription_id: 's1', amount_paid_fils: 99999, credit_applied_fils: 0, meals_count: 24, price_per_meal: '19', stripe_session_id: 'cs_live_y', created_at: '2026-08-01T10:00:00Z' },
+        { subscription_id: 's2', amount_paid_fils: null, credit_applied_fils: null, meals_count: 24, price_per_meal: '18', stripe_session_id: null, created_at: '2026-08-20T10:00:00Z' },
       ], error: null },
       company_closures: { data: [{ closure_date: '2026-09-30' }], error: null },
     }))

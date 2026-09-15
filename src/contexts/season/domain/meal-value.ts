@@ -11,18 +11,34 @@ export interface OrderMoney {
   creditAppliedFils: number | null
   mealsCount: number | null
   pricePerMealAed: number | null
+  /** Owner decision D7: test-mode payments are not money, so a `cs_test_` session is never trusted for the exact path. */
+  stripeSessionId: string | null
 }
 
 export type MealValue = { fils: number; exact: boolean } | null
 
+/**
+ * AED to fils the way SQL's `round(price_per_meal::numeric * 100)` does.
+ * price_per_meal is a Postgres `numeric` (exact decimal), so its round can
+ * land on the far side of a half-fils boundary from a naive `Math.round` on a
+ * JS double (20.115 * 100 is 2011.4999999999998 as a double, but numeric
+ * 2011.5, which numeric round takes up to 2012). Routing the multiply through
+ * a fixed decimal string first removes the double's trailing noise before
+ * rounding, matching Postgres.
+ */
+export function aedToFils(aed: number): number {
+  return Math.round(Number((aed * 100).toFixed(6)))
+}
+
 export function mealValueOf(order: OrderMoney): MealValue {
   const meals = order.mealsCount ?? 0
   if (meals <= 0) return null
-  if (order.amountPaidFils != null && order.creditAppliedFils != null) {
+  const isTestMode = (order.stripeSessionId ?? '').startsWith('cs_test_')
+  if (order.amountPaidFils != null && order.creditAppliedFils != null && !isTestMode) {
     return { fils: Math.floor((order.amountPaidFils + order.creditAppliedFils) / meals), exact: true }
   }
   if (order.pricePerMealAed != null && order.pricePerMealAed > 0) {
-    return { fils: Math.round(order.pricePerMealAed * 100), exact: false }
+    return { fils: aedToFils(order.pricePerMealAed), exact: false }
   }
   return null
 }

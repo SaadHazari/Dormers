@@ -64,6 +64,7 @@ type OrderRow = {
   credit_applied_fils: number | null
   meals_count: number | null
   price_per_meal: number | string | null
+  stripe_session_id: string | null
   created_at: string
 }
 
@@ -99,7 +100,7 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
   const [customersRes, ordersRes] = await Promise.all([
     sb.from('customers').select('id, name, dorm_name').in('id', customerIds.length ? customerIds : [NO_ID]),
     sb.from('orders')
-      .select('subscription_id, amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, created_at')
+      .select('subscription_id, amount_paid_fils, credit_applied_fils, meals_count, price_per_meal, stripe_session_id, created_at')
       .in('subscription_id', subIds.length ? subIds : [NO_ID])
       .order('created_at', { ascending: false }),
   ])
@@ -143,6 +144,7 @@ export async function loadSeasonPageData(todayAe: string, sb: SeasonDataClient =
             creditAppliedFils: order.credit_applied_fils,
             mealsCount: order.meals_count,
             pricePerMealAed: order.price_per_meal == null ? null : Number(order.price_per_meal),
+            stripeSessionId: order.stripe_session_id,
           })
         : null,
     }

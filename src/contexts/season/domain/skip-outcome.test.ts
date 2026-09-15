@@ -83,8 +83,14 @@ describe('decideSkipOutcome', () => {
 })
 
 describe('skipCreditFilsFor', () => {
-  const order = (o: Partial<{ amountPaidFils: number | null; creditAppliedFils: number | null; mealsCount: number | null; pricePerMealAed: number | null }> = {}) => ({
-    amountPaidFils: null, creditAppliedFils: null, mealsCount: 24, pricePerMealAed: 22, ...o,
+  const order = (o: Partial<{
+    amountPaidFils: number | null
+    creditAppliedFils: number | null
+    mealsCount: number | null
+    pricePerMealAed: number | null
+    stripeSessionId: string | null
+  }> = {}) => ({
+    amountPaidFils: null, creditAppliedFils: null, mealsCount: 24, pricePerMealAed: 22, stripeSessionId: null, ...o,
   })
 
   it('credits what the customer paid for the meal: card plus wallet credit, over the meals, times the day', () => {
@@ -109,6 +115,53 @@ describe('skipCreditFilsFor', () => {
 
   it('does not know the value of an order with no meals', () => {
     expect(skipCreditFilsFor({ planName: 'Monthly Premium', mealsPerDay: 1, order: order({ mealsCount: 0 }) })).toBeNull()
+  })
+
+  describe('parity with the live season_skip_credit_fils SQL, read on 2026-09-15', () => {
+    it.each([
+      [
+        'list 22, no money',
+        { planName: 'Monthly Premium', mealsPerDay: 1, order: order({ pricePerMealAed: 22 }) },
+        1980,
+      ],
+      [
+        'list 20.115, no money',
+        { planName: 'Monthly Premium', mealsPerDay: 1, order: order({ pricePerMealAed: 20.115 }) },
+        1810,
+      ],
+      [
+        'list 17.416666666666668, meals_per_day 2, no money',
+        { planName: 'Monthly Premium', mealsPerDay: 2, order: order({ pricePerMealAed: 17.416666666666668 }) },
+        3134,
+      ],
+      [
+        'list 21.5, meals_per_day 2, 40 meals, no money',
+        { planName: 'Monthly Premium', mealsPerDay: 2, order: order({ pricePerMealAed: 21.5, mealsCount: 40 }) },
+        3870,
+      ],
+      [
+        'Monthly Max, 48 meals, meals_per_day 2, paid 96000 + credit 4000, cs_live_x',
+        { planName: 'Monthly Max', mealsPerDay: 2, order: order({ amountPaidFils: 96000, creditAppliedFils: 4000, mealsCount: 48, stripeSessionId: 'cs_live_x' }) },
+        4166,
+      ],
+      [
+        'list 22, 20 meals, paid 22000 + credit 0, cs_test_x (fallback, not 1100)',
+        { planName: 'Monthly Premium', mealsPerDay: 1, order: order({ amountPaidFils: 22000, creditAppliedFils: 0, mealsCount: 20, pricePerMealAed: 22, stripeSessionId: 'cs_test_x' }) },
+        1980,
+      ],
+      [
+        'list 22, 20 meals, paid 0 + credit 0, cs_test_x (fallback, not 0)',
+        { planName: 'Monthly Premium', mealsPerDay: 1, order: order({ amountPaidFils: 0, creditAppliedFils: 0, mealsCount: 20, pricePerMealAed: 22, stripeSessionId: 'cs_test_x' }) },
+        1980,
+      ],
+      [
+        'credit-only order (session null), paid 0 + credit 44000, 20 meals (exact)',
+        { planName: 'Monthly Premium', mealsPerDay: 1, order: order({ amountPaidFils: 0, creditAppliedFils: 44000, mealsCount: 20, stripeSessionId: null }) },
+        2200,
+      ],
+    ])('%s -> %i', (_label, input, expected) => {
+      expect(skipCreditFilsFor(input)).toBe(expected)
+    })
   })
 })
 
