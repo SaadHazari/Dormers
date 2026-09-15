@@ -34,6 +34,11 @@ import { eventBus } from '@/shared/events/event-bus';
 import '@/contexts/notifications/usecases/subscribers';
 import { withOwnedSubscription } from './with-owned-subscription';
 import { getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo';
+import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions';
+import { decideSkipOutcome, mayPromiseMealOn, skipSeenMismatch, type SeasonSkipNotice, type SkipSeason, type SkipSeen } from '@/contexts/season/domain/skip-outcome';
+import { SKIP_CHANGED_COPY, SKIP_NO_VALUE_COPY, creditedSkipBlocksPause } from '@/contexts/season/domain/season-skip-errors';
+import { applySeasonSkip, applySeasonUnskip, loadSkipSeasonContext } from '@/contexts/season/usecases/skip-season';
+import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices';
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -76,6 +81,11 @@ export async function pauseSubscription(subscriptionId: string) {
   // Validation — see subscription-rules.canPause for the full ruleset.
   const check = canPause(subscription, aeTodayIso());
   if (!check.ok) return { error: check.error };
+
+  // A credited skip still ahead would be paid back twice: by its credit and
+  // by the pause extending the plan for that day (season §7.2).
+  const creditedAhead = (subscription.credited_skip_dates ?? []).filter((d) => d > aeTodayIso()).sort();
+  if (creditedAhead.length > 0) return { error: creditedSkipBlocksPause(creditedAhead[0], false) };
 
   // Apply Pause. Note: paused_days is NOT touched here — the daily
   // subscription_pause_tick cron at 00:35 AE increments it by 1 for every
@@ -392,9 +402,79 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   }, 'subscription.start_date_changed');
 }
 
+// ── Season wind-down skip step (spec §7.2) ────────────────────────────────
+
+type SeasonSkipStep =
+  | { ok: false; error: string }
+  | { ok: true; kind: 'normal' | 'grant'; season: SkipSeason }
+  | { ok: true; kind: 'credited'; season: SkipSeason; notice: SeasonSkipNotice };
+
+/**
+ * The season half of skipMeal and skipFutureDate. Decides normal skip, buffer
+ * grant or credited skip on fresh data and refuses an outcome the customer's
+ * sheet did not show. Grants and credited skips are written here through SQL:
+ * they touch columns and rows the customer's client cannot write, and SQL
+ * rechecks the season and the amount under a row lock. A credited skip is
+ * announced here. A normal skip is left to the caller's own write, and every
+ * message stays with the caller. Not exported: a 'use server' module may only
+ * export server actions.
+ */
+async function seasonSkipStep(input: {
+  customerId: string
+  subscription: Subscription
+  mealDate: string
+  sameDay: boolean
+  todayAe: string
+  seen: SkipSeen | undefined
+  skipCap: number
+}): Promise<SeasonSkipStep> {
+  const { subscription } = input;
+  const ctx = await loadSkipSeasonContext(subscription);
+  const outcome = decideSkipOutcome({
+    season: ctx.season,
+    plan: {
+      endDate: subscription.end_date,
+      weekType: subscription.week_type === '5DAYS' ? '5DAYS' : '6DAYS',
+      skippedDates: subscription.skipped_dates ?? [],
+      bufferGrants: subscription.season_buffer_grants ?? 0,
+    },
+    todayAe: input.todayAe,
+    closureDates: ctx.closureDates,
+    creditFils: ctx.creditFils,
+  });
+  // The customer's sheet showed an outcome; if the fresh answer differs, they
+  // refresh rather than get a different result than they confirmed.
+  if (skipSeenMismatch(outcome, input.seen)) return { ok: false, error: SKIP_CHANGED_COPY };
+  if (outcome.kind === 'normal') return { ok: true, kind: 'normal', season: ctx.season };
+  if (outcome.kind === 'credited' && outcome.creditFils == null) return { ok: false, error: SKIP_NO_VALUE_COPY };
+
+  const applied = await applySeasonSkip({
+    customerId: input.customerId,
+    subscriptionId: subscription.id,
+    mealDate: input.mealDate,
+    sameDay: input.sameDay,
+    outcome: outcome.kind,
+    season: ctx.season,
+    skipCap: input.skipCap,
+    expectedCreditFils: outcome.kind === 'credited' ? outcome.creditFils : null,
+  });
+  if (!applied.ok) return { ok: false, error: applied.error };
+  if (applied.outcome === 'grant') return { ok: true, kind: 'grant', season: ctx.season };
+
+  await announceSeasonSkipCredited([
+    { subscriptionId: subscription.id, customerId: input.customerId, mealDates: [input.mealDate], creditFils: applied.creditFils, source: 'customer_skip' },
+  ]);
+  return {
+    ok: true,
+    kind: 'credited',
+    season: ctx.season,
+    notice: { outcome: 'credited', creditFils: applied.creditFils, creditStatus: applied.creditStatus, mealDate: input.mealDate },
+  };
+}
+
 // ── skipMeal (same-day) ───────────────────────────────────────────────────
 
-export async function skipMeal(subscriptionId: string) {
+export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
   // Skip is only meaningful from Active. Skipped subs can't be skipped again
   // today (already counted); Paused/Scheduled/Ended subs aren't delivering.
@@ -402,10 +482,7 @@ export async function skipMeal(subscriptionId: string) {
     return { error: 'Cannot skip a meal on an inactive or paused subscription.' };
   }
 
-  // Operations cutoff — kitchen prep starts well before 7 PM delivery, so a
-  // same-day skip is only honoured when requested before 14:00 Asia/Dubai.
-  // After 2 PM AE the customer must wait until tomorrow to skip the next day's
-  // meal. Server-side check, mirrored by a UI lockout in QuickActions.
+  // Operations cutoff: a same-day skip is only honoured before 14:00 Asia/Dubai.
   const SKIP_CUTOFF_HOUR_AE = 14;
   const aeNow = new Date(Date.now() + 4 * 60 * 60 * 1000); // shift UTC to AE wall time
   const aeHour = aeNow.getUTCHours();
@@ -413,10 +490,7 @@ export async function skipMeal(subscriptionId: string) {
     return { error: `Skip cutoff for today is 2 PM. Try again tomorrow morning.` };
   }
 
-  // Today must be a delivery day for this sub's week_type, otherwise the
-  // customer would burn a skip credit + push end_date for nothing.
-  // ISO dow: 1=Mon … 7=Sun. AE is UTC+4 — use AE wall date so the cutoff
-  // matches the customer's local calendar.
+  // Today must be a delivery day for this sub's week_type.
   const aeIsoDow = ((aeNow.getUTCDay() + 6) % 7) + 1;
   const wt = subscription.week_type ?? '6DAYS';
   // Subscriptions table CHECK enforces wt ∈ {5DAYS, 6DAYS}.
@@ -427,73 +501,69 @@ export async function skipMeal(subscriptionId: string) {
     return { error: 'Today isn\'t a delivery day for your plan, so there\'s nothing to skip.' };
   }
 
-  // Bonus skips from Dorm Wars cycle milestone 15 (awarded via
-  // increment_bonus_skips RPC) extend the plan's base skip cap. skipCapFor
-  // is the single definition of that sum, shared with canSkip and with every
-  // dashboard surface that renders a remaining-skips figure — so the number
-  // this check enforces is the number the customer was shown.
+  // skipCapFor is the single definition of the allowance; skipsUsedFor counts
+  // credited season skips against it too (spec X3).
   const maxSkips = skipCapFor(subscription);
-
   if (skipsUsedFor(subscription) >= maxSkips) {
     return { error: `You have reached the maximum allowed skips (${maxSkips}) for this subscription plan.` };
   }
 
-  // Make-up day guard — mirrors skipFutureDate's check. Skipping a make-up
-  // day would create a runaway loop (skip → end_date extends → new make-up
-  // day → skip again…). Make-up days are the extra days past the original
-  // delivery count, earned by earlier skips.
+  // Make-up day guard: skipping a make-up day would loop the extension.
   const todayAEIso = `${aeNow.getUTCFullYear()}-${String(aeNow.getUTCMonth() + 1).padStart(2, '0')}-${String(aeNow.getUTCDate()).padStart(2, '0')}`
   const mealsPerDelivery = subscription.meals_per_day ?? 1;
   const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
   const todayPosition = workingDayPosition(subscription.start_date, todayAEIso, wt);
   if (todayPosition > totalDeliveries) {
-    return { error: "Make-up days can't be skipped — they're extra days earned by earlier skips." };
+    return { error: "Make-up days can't be skipped. They're extra days earned by earlier skips." };
   }
+
+  // ── Season wind-down (spec §7.2): normal skip, buffer grant or credited skip ──
+  const step = await seasonSkipStep({
+    customerId: auth.user.id,
+    subscription,
+    mealDate: todayAEIso,
+    sameDay: true,
+    todayAe: todayAEIso,
+    seen,
+    skipCap: maxSkips,
+  });
+  if (!step.ok) return { error: step.error };
 
   const nextSkippedDates = [...(subscription.skipped_dates ?? []), todayAEIso]
 
-  // Promote skip to a real DB status — flips Active → Skipped. The
-  // subscription_status_tick cron at 00:05 AE auto-reverts to Active so
-  // tomorrow's delivery proceeds. The end_date trigger fires on the
-  // skipped_meals_count change and pushes end_date out by the formula.
-  // The .eq('status', Active) is a CAS guard against double-tap / concurrent
-  // skip racing past the in-memory check above. If status has flipped between
-  // the SELECT and this UPDATE, the WHERE matches zero rows and we surface
-  // a "didn't take" error rather than incrementing the count twice — and the
-  // append to skipped_dates is also guarded by the same CAS, so we never
-  // double-append for the same skip event.
-  const { data: skipRows, error: updateError } = await auth.supabase
-    .from('subscriptions')
-    .update({
-      status: SUBSCRIPTION_STATUS.SKIPPED,
-      skipped_meals_count: subscription.skipped_meals_count + 1,
-      last_skipped_date: new Date().toISOString(),
-      skipped_dates: nextSkippedDates,
-    })
-    .eq('id', subscriptionId)
-    .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
-    .select('id');
+  if (step.kind === 'normal') {
+    // Flip Active → Skipped. The CAS on status stops a double tap counting twice.
+    const { data: skipRows, error: updateError } = await auth.supabase
+      .from('subscriptions')
+      .update({
+        status: SUBSCRIPTION_STATUS.SKIPPED,
+        skipped_meals_count: subscription.skipped_meals_count + 1,
+        last_skipped_date: new Date().toISOString(),
+        skipped_dates: nextSkippedDates,
+      })
+      .eq('id', subscriptionId)
+      .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
+      .select('id');
 
-  if (updateError) return { error: 'Failed to skip meal.' };
-  if (!skipRows || skipRows.length === 0) {
-    return { error: 'Skip didn\'t take. Refresh and try again, or message us on WhatsApp.' };
+    if (updateError) return { error: 'Failed to skip meal.' };
+    if (!skipRows || skipRows.length === 0) {
+      return { error: 'Skip didn\'t take. Refresh and try again, or message us on WhatsApp.' };
+    }
   }
 
   // ── WhatsApp confirmations ──────────────────────────────────────────────
-  // Two notifications:
-  //   1. Immediate confirm — "your meal for today is skipped, carried forward"
-  //   2. Morning-after resume confirm — fires at 9 AM AE on the next eligible
-  //      delivery day. "Eligible" respects week_type, already-skipped/paused
-  //      dates, AND the sub end_date — we don't promise a meal that won't
-  //      come.
-  // Both are fire-and-forget; if either insert fails the user's skip still
-  // succeeded (the in-flight kitchen state is already correct).
-  await eventBus.emit('subscription.notification-due', {
-    customerId: auth.user.id,
-    kind: 'meal_skipped_confirm',
-    scheduledFor: new Date(), // immediate
-    payload: { meal_date: todayAEIso },
-  });
+  // meal_skipped_confirm promises a make-up day, so a credited skip never
+  // sends it. Every same-day skip still says when meals resume, but only for
+  // a day the kitchen really cooks: on or before the wrap-up day, or a buffer
+  // day this plan holds a grant for (mayPromiseMealOn).
+  if (step.kind !== 'credited') {
+    await eventBus.emit('subscription.notification-due', {
+      customerId: auth.user.id,
+      kind: 'meal_skipped_confirm',
+      scheduledFor: new Date(), // immediate
+      payload: { meal_date: todayAEIso },
+    });
+  }
   const resumeOnIso = nextEligibleDeliveryDay({
     fromAeDateIso: todayAEIso,
     weekType:      (wt as '5DAYS' | '6DAYS' | '7DAYS'),
@@ -501,7 +571,8 @@ export async function skipMeal(subscriptionId: string) {
     pausedDates:   subscription.paused_dates ?? [],
     subEndDateIso: subscription.end_date,
   });
-  if (resumeOnIso) {
+  const grantsAfter = (subscription.season_buffer_grants ?? 0) + (step.kind === 'grant' ? 1 : 0);
+  if (resumeOnIso && mayPromiseMealOn(resumeOnIso, step.season, grantsAfter)) {
     await eventBus.emit('subscription.notification-due', {
       customerId: auth.user.id,
       kind: 'meal_resumed_confirm',
@@ -511,7 +582,9 @@ export async function skipMeal(subscriptionId: string) {
   }
 
   revalidatePath('/dashboard', 'layout');
-  return { success: true };
+  return step.kind === 'credited'
+    ? { success: true as const, seasonSkip: step.notice }
+    : { success: true as const };
   }, 'subscription.skipped');
 }
 
@@ -530,10 +603,9 @@ export async function skipMeal(subscriptionId: string) {
  *   • skipFutureDate — strictly future dates, reversible via unskipFutureDate
  *                       until the day BEFORE the skip. Doesn't flip status now.
  */
-export async function skipFutureDate(subscriptionId: string, dateIso: string) {
+export async function skipFutureDate(subscriptionId: string, dateIso: string, seen?: SkipSeen) {
   return withOwnedSubscription(subscriptionId, async ({ auth, subscription }) => {
-  // Shared skip-eligibility (status + cap, including Dorm Wars bonus_skips).
-  // See subscription-rules.canSkip.
+  // Shared skip-eligibility (status + allowance, credited skips included).
   const eligible = canSkip(subscription);
   if (!eligible.ok) return { error: eligible.error };
 
@@ -541,91 +613,79 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
     return { error: 'Invalid date format.' };
   }
 
-  // Strictly future. Today's skip goes through the same-day skipMeal path
-  // (with the 2 PM cutoff). Keeps the two flows from stepping on each other.
   const todayIso = aeTodayIso();
   if (dateIso <= todayIso) {
     return { error: 'Pick a date in the future. Use the same-day skip button to skip today\'s meal.' };
   }
 
-  // Within the current cycle window
   if (dateIso > subscription.end_date) {
     return { error: 'Pick a date inside your current cycle.' };
   }
 
-  // Working day for this week_type
   const wt = subscription.week_type ?? '6DAYS';
   const targetD = new Date(dateIso + 'T00:00:00');
   if (!isWorkingDayForWeekType(targetD, wt)) {
-    return { error: 'That isn\'t a delivery day for your plan — there\'s nothing to skip.' };
+    return { error: 'That isn\'t a delivery day for your plan, so there\'s nothing to skip.' };
   }
 
-  // A closed kitchen is already paid back by closure_tick; a skip on top
-  // would burn a credit for a night nothing was cooked (the tick then
-  // excludes the day as customer-skipped, so they would lose the credit AND
-  // the closure day). The picker greys these out; this is the server gate.
+  // A closed kitchen is already paid back by closure_tick.
   if ((await getCompanyClosureDates()).includes(dateIso)) {
-    return { error: 'The kitchen is closed that day — it\'s already added to the end of your plan, so there\'s nothing to skip.' };
+    return { error: 'The kitchen is closed that day. It\'s already added to the end of your plan, so there\'s nothing to skip.' };
   }
 
-  // Already scheduled?
   const existing: string[] = subscription.skipped_dates ?? [];
   if (existing.includes(dateIso)) {
     return { error: 'You\'ve already scheduled a skip for that day.' };
   }
 
-  // Make-up day check. The cycle's "intrinsic" length is totalDeliveries
-  // working days from start; anything past that is a make-up day earned by
-  // earlier skips. Disallowing make-up skips prevents a runaway extension
-  // loop (skip make-up → cycle extends → more make-up days → skip again…).
   const mealsPerDelivery = subscription.meals_per_day ?? 1;
   const totalDeliveries = Math.max(1, Math.ceil(subscription.total_meals / mealsPerDelivery));
   const targetPosition = workingDayPosition(subscription.start_date, dateIso, wt);
   if (targetPosition > totalDeliveries) {
-    return { error: 'Make-up days can\'t be skipped — they\'re already extra days earned by earlier skips.' };
+    return { error: 'Make-up days can\'t be skipped. They\'re already extra days earned by earlier skips.' };
   }
 
-  // Block skips inside (or on) a planned pause window. Variant B is open-
-  // ended (no end date), so EVERY day from planned_pause_start onwards is
-  // covered by the pause. Skipping inside that window would burn a credit
-  // for no delivery — the pause already covers that day. Customer should
-  // cancel the planned pause first if they want to skip a specific day in
-  // the would-be pause range.
   if (subscription.planned_pause_start && dateIso >= subscription.planned_pause_start) {
-    return { error: 'That day is inside your planned pause — no need to skip. Cancel the planned pause first if you want to skip this day specifically.' };
+    return { error: 'That day is inside your planned pause, so there\'s no need to skip. Cancel the planned pause first if you want to skip this day specifically.' };
   }
 
-  // Note on queued renewals: this used to reject, but the DB trigger
-  // `trg_subscriptions_shift_queued_scheduled` (which fires on
-  // skipped_meals_count changes) automatically shifts the queued sub's
-  // start_date forward when end_date moves. The customer sees the
-  // cascade explained via a banner in the FutureSkipModal — we let
-  // the action proceed and trust the trigger to keep the dates clean.
-
-  // Append + increment. CAS on skipped_meals_count guards against concurrent
-  // skip requests racing past the credit check above.
-  const nextSkippedDates = [...existing, dateIso].sort();
-  const { data: rows, error: updateError } = await auth.supabase
-    .from('subscriptions')
-    .update({
-      skipped_meals_count: subscription.skipped_meals_count + 1,
-      skipped_dates: nextSkippedDates,
-    })
-    .eq('id', subscriptionId)
-    .eq('skipped_meals_count', subscription.skipped_meals_count)
-    .select('id');
-
-  if (updateError) return { error: 'Failed to schedule skip.' };
-  if (!rows || rows.length === 0) {
-    return { error: 'Couldn\'t schedule the skip — please refresh and try again.' };
+  // ── Season wind-down (spec §7.2): normal skip, buffer grant or credited skip ──
+  const step = await seasonSkipStep({
+    customerId: auth.user.id,
+    subscription,
+    mealDate: dateIso,
+    sameDay: false,
+    todayAe: todayIso,
+    seen,
+    skipCap: skipCapFor(subscription),
+  });
+  if (!step.ok) return { error: step.error };
+  if (step.kind === 'credited') {
+    // No meal_skip_scheduled_confirm: it promises a make-up day that is not coming.
+    revalidatePath('/dashboard', 'layout');
+    return { success: true as const, seasonSkip: step.notice };
   }
 
-  // ── WhatsApp confirmation ──────────────────────────────────────────────
-  // Immediate "got it, will skip on X" receipt. Distinct from
-  // meal_skipped_confirm (which fires on the day itself, via skipMeal).
-  // The morning-of "today's meal is skipped" message is a separate
-  // lifecycle gap — not pre-queued here to avoid having to clean up
-  // pending rows on unskip / planPause-supersedes-skip races.
+  if (step.kind === 'normal') {
+    // Append + increment. CAS on skipped_meals_count guards concurrent skips.
+    const nextSkippedDates = [...existing, dateIso].sort();
+    const { data: rows, error: updateError } = await auth.supabase
+      .from('subscriptions')
+      .update({
+        skipped_meals_count: subscription.skipped_meals_count + 1,
+        skipped_dates: nextSkippedDates,
+      })
+      .eq('id', subscriptionId)
+      .eq('skipped_meals_count', subscription.skipped_meals_count)
+      .select('id');
+
+    if (updateError) return { error: 'Failed to schedule skip.' };
+    if (!rows || rows.length === 0) {
+      return { error: 'Couldn\'t schedule the skip. Please refresh and try again.' };
+    }
+  }
+
+  // ── WhatsApp confirmation (normal skip and buffer grant) ─────────────────
   await eventBus.emit('subscription.notification-due', {
     customerId: auth.user.id,
     kind: 'meal_skip_scheduled_confirm',
@@ -634,7 +694,7 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string) {
   });
 
   revalidatePath('/dashboard', 'layout');
-  return { success: true };
+  return { success: true as const };
   }, 'subscription.future_skip_scheduled');
 }
 
@@ -668,6 +728,28 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
   const existing: string[] = subscription.skipped_dates ?? [];
   if (!existing.includes(dateIso)) {
     return { error: 'That day isn\'t scheduled as a skip.' };
+  }
+
+  // Any credited skip or buffer grant ANYWHERE on this plan routes the undo
+  // through SQL, not just an undo of the credited date itself: contracting
+  // the plan by undoing an ordinary skip could strand a later credited date
+  // past the new end, and a grant must be released under the same row lock
+  // (Task 6 review).
+  const hasCreditedSkip = (subscription.credited_skip_dates ?? []).length > 0 || (subscription.credited_skip_days ?? 0) > 0;
+  const hasBufferGrant = (subscription.season_buffer_grants ?? 0) > 0;
+  if (hasCreditedSkip || hasBufferGrant) {
+    const undone = await applySeasonUnskip({ customerId: auth.user.id, subscriptionId, mealDate: dateIso });
+    if (!undone.ok) return { error: undone.error };
+    if (undone.kind === 'normal') {
+      await eventBus.emit('subscription.notification-due', {
+        customerId: auth.user.id,
+        kind: 'meal_skip_cancelled_confirm',
+        scheduledFor: new Date(),
+        payload: { meal_date: dateIso },
+      });
+    }
+    revalidatePath('/dashboard', 'layout');
+    return { success: true as const };
   }
 
   const nextSkippedDates = existing.filter((d: string) => d !== dateIso);
@@ -761,6 +843,11 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
   if (targetPosition > totalDeliveries) {
     return { error: 'Pauses can\'t start on a make-up day — those are extra days earned by earlier skips.' };
   }
+
+  // Credited skips are not refundable like normal ones: the credit is already
+  // promised. Ask the customer to undo the skip rather than paying it twice.
+  const creditedInPause = (subscription.credited_skip_dates ?? []).filter((d) => d >= startDateIso).sort();
+  if (creditedInPause.length > 0) return { error: creditedSkipBlocksPause(creditedInPause[0], true) };
 
   // Auto-cancel any scheduled future skips that fall inside the new pause
   // window. Skipping inside a pause is wasted credit (the pause covers

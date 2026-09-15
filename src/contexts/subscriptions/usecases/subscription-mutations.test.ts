@@ -13,7 +13,7 @@
  * readable as a self-contained spec of the mutation's contract.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@/contexts/identity/usecases/require-user', () => ({
   requireUser: vi.fn(),
@@ -36,8 +36,22 @@ vi.mock('@/infra/supabase/subscriptions-repo', () => ({
 vi.mock('@/infra/config/intake', () => ({
   getIntakeState: vi.fn(),
 }))
+vi.mock('@sentry/nextjs', () => ({ metrics: { count: vi.fn() } }))
+vi.mock('@/shared/events/event-bus', () => ({ eventBus: { emit: vi.fn(), on: vi.fn() } }))
+vi.mock('@/contexts/season/usecases/skip-season', () => ({
+  loadSkipSeasonContext: vi.fn(),
+  applySeasonSkip: vi.fn(),
+  applySeasonUnskip: vi.fn(),
+}))
+vi.mock('@/contexts/season/usecases/season-skip-notices', () => ({
+  announceSeasonSkipCredited: vi.fn(),
+}))
 
-import { changeStartDate, unskipFutureDate } from './subscription-mutations'
+import { changeStartDate, unskipFutureDate, skipMeal, skipFutureDate, planPause, pauseSubscription } from './subscription-mutations'
+import { eventBus } from '@/shared/events/event-bus'
+import { loadSkipSeasonContext, applySeasonSkip, applySeasonUnskip } from '@/contexts/season/usecases/skip-season'
+import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-skip-notices'
+import { SKIP_CHANGED_COPY } from '@/contexts/season/domain/season-skip-errors'
 import { requireUser } from '@/contexts/identity/usecases/require-user'
 import { getIntakeState } from '@/infra/config/intake'
 import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions'
@@ -287,5 +301,186 @@ describe('changeStartDate — paused primary', () => {
     const result = await changeStartDate('sub-1', start)
 
     expect(result).toEqual({ error: 'Your current plan is paused — the start date locks in when you resume. Change it then.' })
+  })
+})
+
+// ── Season wind-down skips (spec §7.2) ────────────────────────────────────
+// Anchors: 12:00 Dubai on Mon 14 Sep 2026. The plan runs Mon 7 Sep to Sat
+// 3 Oct (Monday to Saturday). Wrap-up day Sat 3 Oct, buffer 1, close day
+// Mon 5 Oct, so one more skip's make-up day is Mon 5 Oct.
+
+describe('season wind-down skips', () => {
+  const emitMock = vi.mocked(eventBus.emit)
+  const loadSeasonMock = vi.mocked(loadSkipSeasonContext)
+  const applySkipMock = vi.mocked(applySeasonSkip)
+  const applyUnskipMock = vi.mocked(applySeasonUnskip)
+  const announceMock = vi.mocked(announceSeasonSkipCredited)
+
+  const WIND_DOWN = { phase: 'winding_down' as const, wrapUpDay: '2026-10-03', closeDay: '2026-10-05', bufferDays: 1 }
+  const seasonSub = (overrides: Partial<Subscription> = {}) => fakeSub({
+    status: 'Active', plan_name: 'Monthly Premium', start_date: '2026-09-07', end_date: '2026-10-03',
+    week_type: '6DAYS', total_meals: 24, delivered_meals: 6, skipped_meals_count: 0, skipped_dates: [],
+    credited_skip_days: 0, credited_skip_dates: [], season_buffer_grants: 0, ...overrides,
+  })
+  const kinds = () => emitMock.mock.calls.map((c) => (c[1] as { kind?: string }).kind)
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-14T08:00:00Z'))
+    loadSeasonMock.mockResolvedValue({ season: WIND_DOWN, closureDates: new Set(), creditFils: 1980 })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('a same-day skip with no make-up day left becomes credit: no skip confirmation, but meals still resume tomorrow', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ season_buffer_grants: 1 }) })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
+
+    const result = await skipMeal('sub-1', { outcome: 'credited', creditFils: 1980 })
+
+    expect(result).toEqual({ success: true, seasonSkip: { outcome: 'credited', creditFils: 1980, creditStatus: 'approved', mealDate: '2026-09-14' } })
+    expect(applySkipMock).toHaveBeenCalledWith({
+      customerId: 'user-1', subscriptionId: 'sub-1', mealDate: '2026-09-14', sameDay: true,
+      outcome: 'credited', season: WIND_DOWN, skipCap: 3, expectedCreditFils: 1980,
+    })
+    // Tue 15 Sep is on or before the wrap-up day, so the kitchen really cooks it.
+    expect(kinds()).toEqual(['meal_resumed_confirm'])
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'meal_resumed_confirm', payload: { resume_date: '2026-09-15' },
+    }))
+    expect(announceMock).toHaveBeenCalledWith([
+      { subscriptionId: 'sub-1', customerId: 'user-1', mealDates: ['2026-09-14'], creditFils: 1980, source: 'customer_skip' },
+    ])
+  })
+
+  it('a credited same-day skip queues no resume message for a day after the wrap-up day', async () => {
+    // 12:00 Dubai on Sat 3 Oct, the wrap-up day. This plan runs to Sat 10 Oct,
+    // so its next delivery day, Mon 5 Oct, is after the wrap-up day, and it
+    // holds no buffer grant.
+    vi.setSystemTime(new Date('2026-10-03T08:00:00Z'))
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ end_date: '2026-10-10' }) })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
+
+    expect(await skipMeal('sub-1', { outcome: 'credited', creditFils: 1980 })).toMatchObject({ success: true })
+    expect(kinds()).toEqual([])
+  })
+
+  it('a credited same-day skip queues the resume message for a buffer day the plan holds a grant for', async () => {
+    // 12:00 Dubai on Sat 3 Oct. An earlier skip took the grant for Mon 5 Oct,
+    // the close day, so the plan now ends then and that dinner is cooked.
+    vi.setSystemTime(new Date('2026-10-03T08:00:00Z'))
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({ end_date: '2026-10-05', skipped_meals_count: 1, skipped_dates: ['2026-09-30'], season_buffer_grants: 1 }),
+    })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'approved' })
+
+    expect(await skipMeal('sub-1', { outcome: 'credited', creditFils: 1980 })).toMatchObject({ success: true })
+    expect(kinds()).toEqual(['meal_resumed_confirm'])
+    expect(emitMock).toHaveBeenCalledWith('subscription.notification-due', expect.objectContaining({
+      kind: 'meal_resumed_confirm', payload: { resume_date: '2026-10-05' },
+    }))
+  })
+
+  it('refuses a credited skip the customer was not shown', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ season_buffer_grants: 1 }) })
+
+    expect(await skipMeal('sub-1')).toEqual({ error: SKIP_CHANGED_COPY })
+    expect(await skipMeal('sub-1', { outcome: 'credited', creditFils: 1800 })).toEqual({ error: SKIP_CHANGED_COPY })
+    expect(applySkipMock).not.toHaveBeenCalled()
+  })
+
+  it('a skip that lands on the buffer day takes a grant and keeps the usual messages', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub() })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'grant', makeUpDay: '2026-10-05' })
+
+    const result = await skipMeal('sub-1', { outcome: 'grant', creditFils: null })
+
+    expect(result).toEqual({ success: true })
+    expect(applySkipMock).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'grant', expectedCreditFils: null }))
+    expect(kinds()).toEqual(['meal_skipped_confirm', 'meal_resumed_confirm'])
+    expect(announceMock).not.toHaveBeenCalled()
+  })
+
+  it('outside a wind-down the skip is written exactly as before', async () => {
+    requireUserMock.mockResolvedValue(authedUser(supabaseChain({ data: [{ id: 'sub-1' }], error: null })))
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub() })
+    loadSeasonMock.mockResolvedValue({ season: { phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1 }, closureDates: new Set(), creditFils: null })
+
+    expect(await skipMeal('sub-1')).toEqual({ success: true })
+    expect(applySkipMock).not.toHaveBeenCalled()
+    expect(kinds()).toEqual(['meal_skipped_confirm', 'meal_resumed_confirm'])
+  })
+
+  it('a future credited skip leaves its credit pending', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ season_buffer_grants: 1 }) })
+    applySkipMock.mockResolvedValue({ ok: true, outcome: 'credited', creditFils: 1980, creditStatus: 'pending' })
+
+    // Wed 16 Sep.
+    const result = await skipFutureDate('sub-1', '2026-09-16', { outcome: 'credited', creditFils: 1980 })
+
+    expect(result).toEqual({ success: true, seasonSkip: { outcome: 'credited', creditFils: 1980, creditStatus: 'pending', mealDate: '2026-09-16' } })
+    expect(applySkipMock).toHaveBeenCalledWith(expect.objectContaining({ mealDate: '2026-09-16', sameDay: false }))
+    expect(kinds()).toEqual([])
+  })
+
+  it('undoing a credited skip goes through SQL and sends nothing', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({ skipped_dates: ['2026-09-16'], credited_skip_days: 1, credited_skip_dates: ['2026-09-16'] }),
+    })
+    applyUnskipMock.mockResolvedValue({ ok: true, kind: 'credited' })
+
+    expect(await unskipFutureDate('sub-1', '2026-09-16')).toEqual({ success: true })
+    expect(applyUnskipMock).toHaveBeenCalledWith({ customerId: 'user-1', subscriptionId: 'sub-1', mealDate: '2026-09-16' })
+    expect(kinds()).toEqual([])
+  })
+
+  // Task 6's review broadened the undo routing: it is not enough for the
+  // date being undone to itself be credited. Any credited date or buffer
+  // grant ANYWHERE on the plan means undoing any skip needs SQL's row-locked
+  // recheck, because contracting the plan could strand a later credited date
+  // past the new end. Here the date being undone ('2026-09-16') is an
+  // ordinary skip; the credited date ('2026-09-30') is a different one.
+  it('undoing an ordinary skip still goes through SQL when the plan holds a credited date elsewhere, with no grant', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    loadOwnedSubscriptionMock.mockResolvedValue({
+      ok: true,
+      subscription: seasonSub({
+        skipped_dates: ['2026-09-16', '2026-09-30'],
+        credited_skip_days: 1,
+        credited_skip_dates: ['2026-09-30'],
+        season_buffer_grants: 0,
+      }),
+    })
+    applyUnskipMock.mockResolvedValue({ ok: true, kind: 'normal' })
+
+    const result = await unskipFutureDate('sub-1', '2026-09-16')
+
+    expect(result).toEqual({ success: true })
+    expect(applyUnskipMock).toHaveBeenCalledWith({ customerId: 'user-1', subscriptionId: 'sub-1', mealDate: '2026-09-16' })
+    // Not itself the credited date, so a normal-kind season undo still sends
+    // the usual cancellation receipt.
+    expect(kinds()).toEqual(['meal_skip_cancelled_confirm'])
+  })
+
+  it('a pause cannot swallow a credited skip', async () => {
+    requireUserMock.mockResolvedValue(authedUser())
+    const credited = seasonSub({ skipped_dates: ['2026-09-22'], credited_skip_days: 1, credited_skip_dates: ['2026-09-22'] })
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: credited })
+
+    // Planned pause from Mon 21 Sep would cover Tue 22 Sep.
+    expect(await planPause('sub-1', '2026-09-21')).toEqual({
+      error: 'Your skip on Tue 22 Sep is turning into wallet credit. Undo that skip first, then plan your pause.',
+    })
+    expect(await pauseSubscription('sub-1')).toEqual({
+      error: 'Your skip on Tue 22 Sep is turning into wallet credit. Undo that skip first, then pause.',
+    })
   })
 })

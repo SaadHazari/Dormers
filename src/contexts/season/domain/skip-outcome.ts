@@ -138,7 +138,10 @@ export function skipCreditFilsFor(input: { planName: string; mealsPerDay: number
   return perMeal * Math.max(1, input.mealsPerDay ?? 1)
 }
 
-/** May a message promise the customer a meal on this date? */
+/**
+ * May a message promise the customer a meal on this date?
+ * `bufferGrants` is the number of buffer grants this plan currently holds, not the season's buffer cap.
+ */
 export function mayPromiseMealOn(dateIso: string, season: SkipSeason, bufferGrants: number): boolean {
   if (season.phase !== 'winding_down' || !season.wrapUpDay) return true
   if (dateIso <= season.wrapUpDay) return true
