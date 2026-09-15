@@ -20,7 +20,7 @@ export default async function MenuPage({
   if (isPreview) {
     // Dev-only state harness:
     //   ?state=nosub (default) | active | skipped | paused | planned-pause
-    //          | plan-ends | last-day | scheduled | held | resumed | midweek | ended | credited
+    //          | plan-ends | last-day | scheduled | held | resumed | midweek | ended | credited | season-held | season-ready
     //   &queued=1 (with plan-ends: days after end_date stay "Upcoming")
     //   &pref=veg|mix  &week=5  &closure=today|1
     //   &gate=season|zone|profile — why renewing is closed right now
@@ -54,6 +54,8 @@ export default async function MenuPage({
       : st === 'skipped' ? planRow({ status: 'Skipped', skipped_dates: [d(-1), d(0), d(2)] })
       // Paused two days ago, end date close: past days read "Paused" and next
       // week stays "Paused" rather than "Renew to unlock".
+      // Held for next semester: during the break (season-held) and after reopening (season-ready).
+      : st === 'season-held' || st === 'season-ready' ? planRow({ status: 'Paused', paused_dates: [d(-2), d(-1)], season_hold_id: 'preview-hold' })
       // Season wind-down: yesterday's skip and one two days out became wallet credit.
       : st === 'credited' ? planRow({ skipped_dates: [d(-1), d(2)], credited_skip_dates: [d(-1), d(2)] })
       : st === 'paused' ? planRow({ status: 'Paused', paused_dates: [d(-2), d(-1)], end_date: d(6) })
@@ -80,6 +82,7 @@ export default async function MenuPage({
           // ?closure=today — the kitchen is closed TODAY; ?closure=1 — closed
           // the next two days (mirrors the home page's knob).
           closureDates={params.closure === 'today' ? [d(0), d(1)] : params.closure === '1' ? [d(1), d(2)] : []}
+          seasonPhase={st === 'season-held' ? 'break' : 'open'}
           renewGate={{ intakePaused: params.gate === 'season', outOfZone: params.gate === 'zone', profileIncomplete: params.gate === 'profile' }}
         />
       </Suspense>
@@ -134,6 +137,7 @@ export default async function MenuPage({
           outOfZone: !!customer?.out_of_zone,
           profileIncomplete: missingProfileFields(customer).length > 0,
         }}
+        seasonPhase={intake.phase}
       />
     </Suspense>
   )

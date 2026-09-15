@@ -99,7 +99,7 @@ export default async function DashboardPage({
         //   ?season=grant     — wrap-up day on the plan's end: a skip now uses the buffer day
         //   ?season=credited  — as grant, buffer used: a skip now turns into credit; one future credited skip on the plan
         //   ?season=runs_past  — pair with sub=paused: wrap-up day in 2 days, so Resume shows the split sheet (before the break is live add &release=1)
-        //   &release=1        — word the pause line and notices as if the break were live
+        //   &release=1 / &release=0 — word the season copy as if the break were live / not live
         //   ?season=held            — the break: plan held for next semester with AED 20 credit (held card, N8)
         //   ?season=paused_break    — the break: a customer pause carried (card with Save my spot; &joined=1 once saved)
         //   ?season=ready           — reopened: the held plan is ready, tap Resume
@@ -329,7 +329,7 @@ export default async function DashboardPage({
                     activeSubscription={params.nosub === '1' ? null : previewHoldSub}
                     queuedSubscription={queuedSub}
                     season={params.nosub === '1' ? null : previewSeason}
-                    seasonBreakLive={params.release === '1' ? true : undefined}
+                    seasonBreakLive={params.release === '1' ? true : params.release === '0' ? false : undefined}
                     // No-sub previews default to a RETURNING customer (their
                     // semester plan just ended) — the renew path only renders
                     // for that shape. &first=1 is the brand-new signup: no

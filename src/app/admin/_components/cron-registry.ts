@@ -109,6 +109,30 @@ export const JOB_INFO: Record<string, JobInfo> = {
         actionHref: '/admin/holidays',
         actionLabel: 'Open Holidays',
     },
+    season_break_tick: {
+        label: 'Semester break starter (00:20 and 00:50)',
+        does: 'Starts the semester break the night after the close day: keeps every plan with meals left for next semester and closes the kitchen.',
+        impact: 'The break has not started, so plans with meals left could restart and cook',
+        group: 'engine',
+        actionHref: '/admin/season',
+        actionLabel: 'Open Season',
+    },
+    season_break_tick_last_retry: {
+        label: 'Semester break starter, last try (01:20)',
+        does: 'Tries once more to start the semester break if the earlier runs did not.',
+        impact: 'The break has not started, so plans with meals left could restart and cook',
+        group: 'engine',
+        actionHref: '/admin/season',
+        actionLabel: 'Open Season',
+    },
+    season_invariants_tick: {
+        label: 'Semester break watchdog (hourly)',
+        does: 'Pings you when a plan is set to cook during the break, or the break has not started by 01:30 after the close day.',
+        impact: 'A plan cooking during the break, or a break that never started, could go unnoticed',
+        group: 'watchdog',
+        actionHref: '/admin/season',
+        actionLabel: 'Open Season',
+    },
 
     // ── Watchdogs ───────────────────────────────────────────────────────────
     notify_stale_fraud_queue_tick: {

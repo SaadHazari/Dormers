@@ -286,3 +286,33 @@ describe('a skip that became wallet credit (season wind-down)', () => {
     expect(noDeliveryNote('future-skipped', NEXT_MON, ctx(plan({ skipped_dates: [NEXT_MON] })))).toMatch(/end of your plan/)
   })
 })
+
+describe('a plan held for next semester (spec §6.3)', () => {
+  // TODAY is Thu 17 Sep; TUE and WED are past, FRI and NEXT_MON ahead.
+  const held = plan({ status: 'Paused', paused_dates: [TUE, WED], season_hold_id: 'hold-1' })
+
+  it('holds today and every later day, and leaves past days as they were', () => {
+    expect(classifyMenuDay(THU, ctx(held, { seasonPhase: 'break' }))).toBe('season-held')
+    expect(classifyMenuDay(NEXT_MON, ctx(held, { seasonPhase: 'break' }))).toBe('season-held')
+    expect(classifyMenuDay(TUE, ctx(held, { seasonPhase: 'break' }))).toBe('in-pause')
+  })
+
+  it('holds a plan that had not started, instead of "starts soon"', () => {
+    const scheduled = plan({ status: 'Scheduled', start_date: '2026-09-10', season_hold_id: 'hold-2' })
+    expect(classifyMenuDay(FRI, ctx(scheduled, { seasonPhase: 'break' }))).toBe('season-held')
+  })
+
+  it('says the meals are kept during the break, and ready after reopening', () => {
+    expect(noDeliveryNote('season-held', THU, ctx(held, { seasonPhase: 'break' })))
+      .toBe('The kitchen is closed between semesters. Your meals are kept for you, so nothing is lost.')
+    expect(noDeliveryNote('season-held', THU, ctx(held, { seasonPhase: 'open' })))
+      .toBe('Your meals are ready. Resume your plan and this dinner comes to you.')
+    expect(noDeliveryNote('season-held', FRI, ctx(plan({ status: 'Scheduled', season_hold_id: 'hold-2' }), { seasonPhase: 'open' })))
+      .toBe('Your meals are ready. Pick your start date on your plan page and your dinners begin.')
+  })
+
+  it('promises no next delivery while held, and a plan that is not held is unchanged', () => {
+    expect(nextDeliveryIso(ctx(held, { seasonPhase: 'break' }))).toBeNull()
+    expect(classifyMenuDay(THU, ctx(plan({ status: 'Paused', paused_dates: [TUE, WED] }), { seasonPhase: 'break' }))).toBe('in-pause')
+  })
+})

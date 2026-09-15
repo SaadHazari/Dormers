@@ -11,18 +11,18 @@ import { launchChromium } from './lib/chromium.mjs'
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
 const SHOT_DIR = process.env.SHOT_DIR ?? null
 
-// end_today never appears: SEASON_BREAK_RELEASE_LIVE is false until Plan C
-// ships the break tick, so visibleSeasonActions() always hides that button.
+// End the season today shows wherever allowedSeasonActions offers it: the break is live (plan C).
 const EXPECT = {
-  open: { title: 'Open', controls: ['Schedule', 'Stop sales now'], absent: ['Resume sales', 'Clear the wrap-up day', 'End the season today'] },
-  stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season'], absent: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'] },
-  scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Stop sales now', 'Clear the wrap-up day'], absent: ['Resume sales', 'End the season today'] },
-  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Resume sales', 'Clear the wrap-up day'], absent: ['Stop sales now', 'End the season today'] },
-  // Wrap-up day already behind today: only Clear survives allowedSeasonActions.
+  open: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today'], absent: ['Resume sales', 'Clear the wrap-up day'] },
+  stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
+  scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Stop sales now', 'Clear the wrap-up day', 'End the season today'], absent: ['Resume sales'] },
+  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], absent: ['Stop sales now'] },
+  // Wrap-up day already behind today: only Clear survives allowedSeasonActions;
+  // ending today would move the wrap-up day back and reopen the kitchen.
   passed: { title: 'Winding down to Sat 12 Sep', controls: ['Clear the wrap-up day'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Resume sales and end the season', 'End the season today'] },
   // Same snapshot as `stopped`; only intake_settings.paused disagrees, which
   // is what should light up the season-drift banner.
-  drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season'], absent: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'] },
+  drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
   // The break board (plan C): only Reopen, and the kitchen-halt invariant.
   break: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Kitchen halt holding' },
   break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Active during the break' },

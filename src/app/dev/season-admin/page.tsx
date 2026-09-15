@@ -49,8 +49,8 @@ const FIXTURE_SNAPSHOTS: Record<string, SeasonPageData['snapshot']> = {
   stopped: { phase: 'winding_down', wrapUpDay: null, closeDay: null, bufferDays: 1, salesStopped: true },
   scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: false },
   stopped_scheduled: { phase: 'winding_down', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: true },
-  // Wrap-up day already behind today: only Clear should remain (no move, no
-  // stop/resume sales, and end_today is hidden by SEASON_BREAK_RELEASE_LIVE).
+  // Wrap-up day already behind today: only Clear remains (no move, no stop or
+  // resume sales, and ending today would reopen the kitchen).
   passed: { phase: 'winding_down', wrapUpDay: '2026-09-12', closeDay: '2026-09-14', bufferDays: 1, salesStopped: true },
   break: { phase: 'break', wrapUpDay: '2026-09-30', closeDay: '2026-10-01', bufferDays: 1, salesStopped: true },
 }

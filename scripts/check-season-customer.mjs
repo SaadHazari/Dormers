@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Renders every Plan B customer preview state at desktop and phone width and
+ * Renders every Plan B and Plan C customer preview state at desktop and phone width and
  * fails when the season copy is missing, promises a hold before the break is
  * live, the page scrolls sideways, or the console logs an error.
  * Needs the dev server: BASE_URL defaults to http://localhost:3000.
@@ -17,7 +17,7 @@ const SHOT_DIR = process.env.SHOT_DIR ?? null
 // reads the same day as the server.
 const STATES = [
   { id: 'n1', url: '/dashboard?preview=1&verified=1&season=scheduled', expect: ['Your meals keep coming.', 'The semester wraps up on'], tap: '#season-notice-dismiss', after: ['Semester wraps up'] },
-  { id: 'n3-interim', url: '/dashboard?preview=1&verified=1&sub=paused&season=paused&paused=1&joined=0', expect: ['Your plan stays paused until you resume it.', 'Save my spot'], absent: ["until we're back", 'refund'] },
+  { id: 'n3-interim', url: '/dashboard?preview=1&verified=1&sub=paused&season=paused&paused=1&joined=0&release=0', expect: ['Your plan stays paused until you resume it.', 'Save my spot'], absent: ["until we're back", 'refund'] },
   { id: 'n3-live', url: '/dashboard?preview=1&verified=1&sub=paused&season=paused&paused=1&joined=0&release=1', expect: ["Still paused then? Your plan waits for you until we're back."] },
   { id: 'chip', url: '/dashboard?preview=1&verified=1&season=credited', expect: ['Semester wraps up'] },
   // The same-day skip sheet: the fixture is pinned to a delivery morning so the Skip action is live.
@@ -35,8 +35,8 @@ const STATES = [
     clock: '2026-09-17T06:00:00Z',
     expect: ['Semester wraps up'],
     tap: 'button[aria-label="Pause plan"], [data-testid="hero-pause"]',
-    after: ['The semester wraps up on'],
-    absent_after: ['waits for you'],
+    // The break is live, so the pause line also says the plan waits (spec §7.3).
+    after: ['The semester wraps up on', "If you're still paused then, your plan waits for you until we're back."],
   },
   { id: 'wallet', url: '/dashboard/credit?preview=1&season=credited', expect: ['On the way', 'Skipped meal credit', 'Arrives Thu 17 Sep', 'AED 19.80'] },
   // Pinned to Thu 17 Sep 2026: the credited fixture's past skip is Wed 16 Sep.
@@ -49,6 +49,58 @@ const STATES = [
     expect: [],
     tap: '[data-state="past-skipped"], [data-reason="past-skipped"]',
     after: ['You skipped this day, and its value went to your wallet.'],
+  },
+  // Plan C: the break. Each state is a fresh page, so the once-only notices
+  // show first and are dismissed by the first tap.
+  {
+    id: 'n8-held',
+    url: '/dashboard?preview=1&verified=1&season=held',
+    expect: ['Your meals are kept for next semester.', 'The kitchen is closed between semesters, so your last 9 meals of', 'is in your wallet too.'],
+    absent: ['refund'],
+    tap: '#season-break-notice-dismiss',
+    after: ['Your 9 meals are kept for next semester.', 'AED 20 is in your wallet for your next Monthly plan.'],
+    absent_after: ['refund'],
+  },
+  {
+    id: 'n11-break-refusal',
+    url: '/dashboard?preview=1&verified=1&season=paused_break',
+    expect: ['The kitchen is closed between semesters.', 'Save your spot for next semester and AED 20 goes to your wallet.'],
+    taps: ['#season-break-notice-dismiss', 'button[aria-label="Resume plan"], [data-testid="hero-pause"]'],
+    after: ["Your plan can resume once we're back."],
+    absent_after: ['refund'],
+  },
+  {
+    id: 'paused-card-joined',
+    url: '/dashboard?preview=1&verified=1&season=paused_break&joined=1',
+    expect: [],
+    tap: '#season-break-notice-dismiss',
+    after: ['Your plan is paused, and the kitchen is closed between semesters.', 'Your spot for next semester is saved.'],
+  },
+  {
+    id: 'ready',
+    url: '/dashboard?preview=1&verified=1&season=ready',
+    expect: ["We're back. Your 9 meals are ready.", "Tap Resume when you're ready, and your dinners start again."],
+    absent: ['refund', 'Your meals are kept for next semester.'],
+  },
+  {
+    id: 'ready-scheduled',
+    url: '/dashboard?preview=1&verified=1&season=ready_scheduled',
+    expect: ['Pick your start date on your plan page to begin.', 'Pick my start date'],
+  },
+  {
+    id: 'n7-split',
+    url: '/dashboard?preview=1&verified=1&sub=paused&paused=1&joined=0&season=runs_past',
+    expect: [],
+    tap: 'button[aria-label="Resume plan"], [data-testid="hero-pause"]',
+    after: ['Resume your plan?', 'will be kept for next semester, with AED 15 in your wallet.'],
+    absent_after: ['refund'],
+  },
+  {
+    id: 'menu-held',
+    url: '/dashboard/menu?preview=1&state=season-held',
+    expect: [],
+    tap: '[data-state="season-held"], [data-reason="season-held"]',
+    after: ['The kitchen is closed between semesters. Your meals are kept for you, so nothing is lost.'],
   },
 ]
 
@@ -76,12 +128,15 @@ try {
         for (const text of state.expect) if (!body.includes(text.toLowerCase())) failures.push(`${label}: missing "${text}"`)
         for (const text of state.absent ?? []) if (body.includes(text.toLowerCase())) failures.push(`${label}: must not say "${text}"`)
         if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-customer-${state.id}-${width}.png`, fullPage: true })
-        if (state.tap) {
-          await page.locator(`${state.tap} >> visible=true`).first().click()
-          await page.waitForTimeout(500)
+        const taps = state.taps ?? (state.tap ? [state.tap] : [])
+        if (taps.length > 0) {
+          for (const tap of taps) {
+            await page.locator(`${tap} >> visible=true`).first().click()
+            await page.waitForTimeout(500)
+          }
           const after = (await page.locator('body').innerText()).toLowerCase()
-          for (const text of state.after ?? []) if (!after.includes(text.toLowerCase())) failures.push(`${label}: after tapping ${state.tap}, missing "${text}"`)
-          for (const text of state.absent_after ?? []) if (after.includes(text.toLowerCase())) failures.push(`${label}: after tapping ${state.tap}, must not say "${text}"`)
+          for (const text of state.after ?? []) if (!after.includes(text.toLowerCase())) failures.push(`${label}: after tapping ${taps.join(' then ')}, missing "${text}"`)
+          for (const text of state.absent_after ?? []) if (after.includes(text.toLowerCase())) failures.push(`${label}: after tapping, must not say "${text}"`)
           if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/season-customer-${state.id}-after-${width}.png`, fullPage: true })
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)

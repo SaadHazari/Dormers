@@ -26,9 +26,14 @@ describe('allowedSeasonActions', () => {
       .toEqual(['move', 'clear', 'resume_sales', 'end_today'])
   })
 
-  it('winding down after the wrap-up day has passed: nothing to move, sales cannot resume', () => {
-    expect(allowedSeasonActions(snap({ phase: 'winding_down', wrapUpDay: '2026-09-12', closeDay: '2026-09-14', salesStopped: true }), today))
+  it('winding down on the wrap-up day itself: no move, but the season can still end today', () => {
+    expect(allowedSeasonActions(snap({ phase: 'winding_down', wrapUpDay: today, closeDay: today, salesStopped: true }), today))
       .toEqual(['clear', 'end_today'])
+  })
+
+  it('winding down after the wrap-up day has passed: nothing to move, sales cannot resume, and ending today would reopen the kitchen', () => {
+    expect(allowedSeasonActions(snap({ phase: 'winding_down', wrapUpDay: '2026-09-12', closeDay: '2026-09-14', salesStopped: true }), today))
+      .toEqual(['clear'])
   })
 
   it('break: reopen only', () => {

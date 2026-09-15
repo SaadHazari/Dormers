@@ -31,7 +31,9 @@ export function allowedSeasonActions(s: SeasonSnapshot, todayAe: string): Season
   if (wrapUpStillAhead) actions.push('move')
   actions.push('clear')
   if (wrapUpStillAhead) actions.push(s.salesStopped ? 'resume_sales' : 'stop_sales')
-  actions.push('end_today')
+  // Once the wrap-up day has passed, ending today would move it back to today
+  // and reopen the kitchen tonight; SQL refuses it too. Clear and reschedule.
+  if (s.wrapUpDay >= todayAe) actions.push('end_today')
   return actions
 }
 

@@ -43,7 +43,7 @@ import {
     type SeasonAction,
     type SeasonSnapshot,
 } from '@/contexts/season/domain/season-phase'
-import { SEASON_BREAK_RELEASE_LIVE } from '@/contexts/season/domain/season-release'
+import { SEASON_BREAK_RELEASE_LIVE, SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
 import {
     projectPlan,
     lastMealOnTheBooks,
@@ -125,7 +125,7 @@ function exposureText(view: SeasonView): string {
 
 function confirmCopy(
     kind: ConfirmKind,
-    c: { wrap: string; buffer: number; snapshot: SeasonSnapshot; view: SeasonView; endTodayView: SeasonView; books: SeasonView },
+    c: { wrap: string; buffer: number; snapshot: SeasonSnapshot; view: SeasonView; endTodayView: SeasonView; books: SeasonView; plans: readonly SeasonPlanRow[] },
 ): { title: string; body: string[]; cta: string; danger: boolean } {
     if (kind === 'schedule' || kind === 'move') {
         const s = c.view.summary.byDisposition
@@ -138,7 +138,7 @@ function confirmCopy(
                 `${plural(s.finishes, 'plan finishes', 'plans finish')}, ${plural(s.runs_past, 'plan runs', 'plans run')} past the wrap-up day, ${plural(s.starts_after, 'plan starts', 'plans start')} after it, and ${plural(s.customer_paused, 'customer pause waits', 'customer pauses wait')} for next semester.`,
                 SEASON_BREAK_RELEASE_LIVE
                     ? (summary.mealsAfterWrapUp > 0
-                        ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} left after the wrap-up day: ${exposureText(c.view)} to keep for next semester or refund.`
+                        ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} left after the wrap-up day: ${exposureText(c.view)} kept for next semester${SEASON_REFUNDS_LIVE ? ' or refunded' : ''}.`
                         : 'No meals are left after the wrap-up day.')
                     : (summary.mealsAfterWrapUp > 0
                         ? `${plural(summary.mealsAfterWrapUp, 'meal is', 'meals are')} due after the wrap-up day (${exposureText(c.view)}). For now they keep delivering. Holding or refunding them arrives with the season break.`
@@ -187,13 +187,21 @@ function confirmCopy(
     }
     const e = c.endTodayView.summary
     const heldPlans = e.byDisposition.runs_past + e.byDisposition.starts_after
+    const heldNames = c.plans
+        .filter((p) => {
+            const d = c.endTodayView.projections.get(p.id)?.disposition
+            return d === 'runs_past' || d === 'starts_after'
+        })
+        .map((p) => `${p.customerName} (${p.planName})`)
     return {
         title: 'End the season today?',
         body: [
-            'Tonight is the last kitchen night, and sales stop now.',
+            'Tonight is the last kitchen night, and sales stop now. The break starts at 00:20.',
             e.mealsAfterWrapUp > 0
-                ? `${plural(heldPlans, 'plan still has', 'plans still have')} ${plural(e.mealsAfterWrapUp, 'meal', 'meals')} after today: ${exposureText(c.endTodayView)} to keep or refund.`
+                ? `${plural(heldPlans, 'plan still has', 'plans still have')} ${plural(e.mealsAfterWrapUp, 'meal', 'meals')} after today: ${exposureText(c.endTodayView)} kept for next semester${SEASON_REFUNDS_LIVE ? ' or refunded' : ''}.`
                 : 'No plan has meals after today.',
+            ...(heldNames.length > 0 ? [`Kept for next semester: ${heldNames.join(', ')}.`] : []),
+            'Skips whose make-up day would fall after today become wallet credit.',
             `Type ${END_TODAY_PHRASE} to confirm.`,
         ],
         cta: 'End the season today',
@@ -292,7 +300,7 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
             }
 
     const summary = view.summary
-    const copy = confirm ? confirmCopy(confirm, { wrap: wrapDraft, buffer: bufferDraft, snapshot, view, endTodayView, books }) : null
+    const copy = confirm ? confirmCopy(confirm, { wrap: wrapDraft, buffer: bufferDraft, snapshot, view, endTodayView, books, plans: data.plans }) : null
 
     // Spec §11.3: during the break the page is the break board. Every hook
     // above has already run, so this early return keeps the hook order stable.
@@ -337,7 +345,7 @@ export function SeasonPlanner({ data }: { data: SeasonPageData }) {
                     value={String(summary.mealsAfterWrapUp)}
                     detail={
                         summary.mealsAfterWrapUp > 0
-                            ? `${exposureText(view)}${SEASON_BREAK_RELEASE_LIVE ? ' to keep or refund' : ' still delivering for now'}`
+                            ? `${exposureText(view)}${SEASON_BREAK_RELEASE_LIVE ? (SEASON_REFUNDS_LIVE ? ' to keep or refund' : ' kept for next semester') : ' still delivering for now'}`
                             : 'Nothing to hold'
                     }
                 />

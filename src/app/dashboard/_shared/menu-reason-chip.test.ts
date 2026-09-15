@@ -16,3 +16,10 @@ describe('the label on a grey menu day', () => {
     expect(reasonChip('after-end', 'open').label).toBe('No plan')
   })
 })
+
+describe('a day held for next semester', () => {
+  it('reads "Kept for you" whatever the renew gate', () => {
+    expect(reasonChip('season-held', 'season').label).toBe('Kept for you')
+    expect(reasonChip('season-held', 'open').label).toBe('Kept for you')
+  })
+})
