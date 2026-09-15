@@ -15,6 +15,7 @@ const PREVIEW_PLANS: EndedPlan[] = [
     total_meals: 24,
     delivered_meals: 22,
     skipped_meals_count: 2,
+    credited_skip_days: 0,
   },
   {
     id: 'preview-old-2',
@@ -25,6 +26,7 @@ const PREVIEW_PLANS: EndedPlan[] = [
     total_meals: 6,
     delivered_meals: 5,
     skipped_meals_count: 1,
+    credited_skip_days: 0,
   },
 ]
 
@@ -47,7 +49,7 @@ export default async function HistoryPage({
   const supabase = await createClient()
   const { data: ended } = await supabase
     .from('subscriptions')
-    .select('id, plan_name, status, start_date, end_date, total_meals, delivered_meals, skipped_meals_count')
+    .select('id, plan_name, status, start_date, end_date, total_meals, delivered_meals, skipped_meals_count, credited_skip_days')
     .eq('customer_id', user.id)
     .eq('status', SUBSCRIPTION_STATUS.ENDED)
     .order('end_date', { ascending: false })

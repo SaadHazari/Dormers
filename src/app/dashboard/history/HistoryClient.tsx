@@ -7,6 +7,7 @@ import { PlanGlyph } from '../_shared/PlanGlyph'
 import { fmt } from '../_shared/format'
 import { MobileHistory } from '../_mobile/MobileHistory'
 import { COMPACT } from '../_shared/breakpoints'
+import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 
 // Translucent-surface S — History rows sit over the BG_GRADIENT page wash
 // (set by the layout), so cards use a soft glass over the cream/navy panel.
@@ -27,6 +28,7 @@ export type EndedPlan = {
   total_meals: number
   delivered_meals: number
   skipped_meals_count: number
+  credited_skip_days?: number | null
 }
 
 export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
@@ -122,7 +124,7 @@ export default function HistoryClient({ plans }: { plans: EndedPlan[] }) {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                       <Stat label="Delivered" value={`${p.delivered_meals} / ${p.total_meals}`} />
-                      <Stat label="Skipped"   value={String(p.skipped_meals_count)} />
+                      <Stat label="Skipped"   value={String(skipsUsedFor(p))} />
                       <Stat label="Completion" value={`${completionPct}%`} accent />
                     </div>
                   </div>

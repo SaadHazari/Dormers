@@ -15,6 +15,7 @@ import { InterventionPanel } from './InterventionPanel'
 import { ReviewsTab } from './ReviewsTab'
 import { SendMessageButton } from './SendMessageModal'
 import type { CustomerReviews, AdminEmailLogEntry } from '@/infra/supabase/reviews-repo'
+import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 
 interface Props {
     customer: Record<string, unknown>
@@ -166,7 +167,7 @@ export function CustomerDetail({
                                     <div>Meals: <strong className={t.body}>{activeSub.delivered_meals as number}/{activeSub.total_meals as number}</strong></div>
                                     <div>Start: <strong className={t.body}>{activeSub.start_date as string}</strong></div>
                                     <div>End: <strong className={t.body}>{activeSub.end_date as string}</strong></div>
-                                    <div>Skips used: <strong className={t.body}>{activeSub.skipped_meals_count as number}</strong></div>
+                                    <div>Skips used: <strong className={t.body}>{skipsUsedFor({ skipped_meals_count: Number(activeSub.skipped_meals_count ?? 0), credited_skip_days: activeSub.credited_skip_days as number | null | undefined })}</strong></div>
                                     {(activeSub.bonus_skips as number) > 0 && (
                                         <div>Bonus skips: <strong className={t.body}>{activeSub.bonus_skips as number}</strong></div>
                                     )}
@@ -226,7 +227,7 @@ export function CustomerDetail({
                                 <div>Start: <strong className={t.body}>{sub.start_date as string}</strong></div>
                                 <div>End: <strong className={t.body}>{sub.end_date as string}</strong></div>
                                 <div>Meals: <strong className={t.body}>{sub.delivered_meals as number}/{sub.total_meals as number}</strong></div>
-                                <div>Skips: <strong className={t.body}>{sub.skipped_meals_count as number}</strong></div>
+                                <div>Skips: <strong className={t.body}>{skipsUsedFor({ skipped_meals_count: Number(sub.skipped_meals_count ?? 0), credited_skip_days: sub.credited_skip_days as number | null | undefined })}</strong></div>
                             </div>
                         </AdminCard>
                     ))}

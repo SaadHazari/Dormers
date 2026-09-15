@@ -6,6 +6,7 @@ import SupportClient from './SupportClient'
 import SupportLoading from './loading'
 import { findDishForDateWithOverrides } from '@/infra/supabase/menu-catalog'
 import { isVegOnDayName } from '@/contexts/subscriptions/domain/veg-day'
+import { skipsUsedFor, skipCapFor } from '@/contexts/subscriptions/domain/subscription-rules'
 import type { Dish } from '@/contexts/menu/domain/catalog-data'
 
 interface Sub {
@@ -18,6 +19,8 @@ interface Sub {
   week_type: string | null
   skipped_meals_count: number | null
   has_paused_before: boolean | null
+  credited_skip_days?: number | null
+  bonus_skips?: number | null
   [key: string]: unknown
 }
 
@@ -56,10 +59,8 @@ function buildCustomerContext(
     lines.push(`Meals this cycle: ${delivered} delivered of ${total} total`)
     lines.push(`Meals remaining: ${Math.max(0, total - delivered)}`)
     if (activeSub.week_type) lines.push(`Week type: ${activeSub.week_type === '5DAYS' ? '5-day (Mon–Fri)' : '6-day (Mon–Sat)'}`)
-    const skipsUsed = activeSub.skipped_meals_count ?? 0
-    const isMonthly = (activeSub.plan_name ?? '').includes('Monthly')
-    const isWeekly = (activeSub.plan_name ?? '').includes('Weekly')
-    const skipsAllowed = isMonthly ? 3 : isWeekly ? 1 : 0
+    const skipsUsed = skipsUsedFor({ skipped_meals_count: activeSub.skipped_meals_count ?? 0, credited_skip_days: activeSub.credited_skip_days })
+    const skipsAllowed = skipCapFor({ plan_name: activeSub.plan_name ?? '', bonus_skips: activeSub.bonus_skips })
     lines.push(`Skips: ${skipsUsed} used of ${skipsAllowed} allowed`)
 
     const mealsPerDel = (activeSub.plan_name ?? '').includes('Monthly Max') ? 2 : 1

@@ -8,6 +8,7 @@ import {
 } from './kit'
 import { fmt } from '../_shared/format'
 import type { EndedPlan } from '../history/HistoryClient'
+import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
 
 /**
  * MobileHistory — the height-optimised <768 subscription-history surface.
@@ -77,7 +78,7 @@ export function MobileHistory({ plans }: { plans: EndedPlan[] }) {
                   ariaLabel={`${cleanName} delivery summary`}
                   metrics={[
                     { label: 'Delivered',  value: `${p.delivered_meals}/${p.total_meals}` },
-                    { label: 'Skipped',    value: p.skipped_meals_count },
+                    { label: 'Skipped',    value: skipsUsedFor(p) },
                     { label: 'Completion', value: `${completionPct}%`, accent: true },
                   ]}
                 />

@@ -34,4 +34,20 @@ describe('skip buttons count credited skips (spec X3)', () => {
       expect(read(rel)).toContain('const skipsLeft = Math.max(0, skipAllowance - skipsUsedFor(sub))')
     }
   })
+
+  it('history, admin and the support assistant count credited skips too', () => {
+    const support = read('src/app/dashboard/support/page.tsx')
+    expect(support).toContain('skipsUsedFor(')
+    expect(support).toContain('skipCapFor(')
+    expect(support).not.toContain('isMonthly ? 3')
+
+    // history/page.tsx is a pure loader (no rendering) — it feeds
+    // credited_skip_days through to HistoryClient/MobileHistory, which do
+    // the skipsUsedFor arithmetic themselves.
+    expect(read('src/app/dashboard/history/page.tsx')).toContain('credited_skip_days')
+
+    expect(read('src/app/dashboard/history/HistoryClient.tsx')).toContain('skipsUsedFor(')
+    expect(read('src/app/dashboard/_mobile/MobileHistory.tsx')).toContain('skipsUsedFor(')
+    expect(read('src/app/admin/customers/[id]/CustomerDetail.tsx')).toContain('skipsUsedFor(')
+  })
 })
