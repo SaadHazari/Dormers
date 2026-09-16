@@ -1,6 +1,8 @@
 # The contact book
 
-**Status:** design, approved in outline 2026-09-16. Not built.
+**Status:** design, approved in outline 2026-09-16.
+**Phase A shipped** 2026-09-16 (`contacts`, `contact_imports`, the customers
+mirror, `admin_contact_search`, `/admin/contacts`). B, C and D not built.
 **Supersedes nothing.** Extends the broadcast subsystem
 (`supabase/migrations/20260818_broadcasts.sql`,
 `src/app/admin/comms/broadcast/`, `src/app/api/internal/broadcast-send/`).
@@ -110,7 +112,7 @@ create table public.contacts (
 );
 
 create unique index contacts_email_key on public.contacts (email) where email is not null;
-create unique index contacts_phone_key on public.contacts (phone_e164) where phone_e164 is not null;
+create index        contacts_phone_idx on public.contacts (phone_e164) where phone_e164 is not null;
 ```
 
 (`import_id`'s foreign key to `contact_imports` is added by a follow-up
@@ -119,11 +121,18 @@ order of creation.)
 
 ### Decisions worth defending
 
-**`email` and `phone_e164` are each uniquely indexed, but both nullable.** A
-Zoho row may have only an email; a referral may have only a phone. The check
-constraint says a contact must be reachable *somehow*. The partial unique
-indexes are what make import idempotent — re-running the same CSV changes
-nothing.
+**Email is the identity key. Phone is not** — corrected during phase A, by the
+live data. The first backfill uniquely indexed both and silently mirrored only
+52 of 73 customers: four share `+971545766707`, four more share
+`+966552426072`. Students lend each other phones and families share one, so a
+unique index on `phone_e164` does not describe a person, it loses people.
+Email held at 73 of 73 and is uniquely indexed.
+
+Both columns stay nullable — a Zoho row may have only an email, a referral
+only a phone — and the check constraint says a contact must be reachable
+*somehow*. The partial unique on email is what makes re-running an import a
+no-op; a phone-only row is deduped on phone at import time, and only when
+exactly one existing contact holds that number.
 
 **`source` records where we first met them and is never rewritten.** A Zoho
 contact who later signs up stays `zoho_import` with `customer_id` filled in.
@@ -171,8 +180,10 @@ tagged with it).
 Every `customers` row gets a contact. A trigger on insert and update keeps it
 current:
 
-- Match on `customer_id` first. If none, match on lowercased email, then on
-  `phone_e164`. If still none, insert.
+- Match on `customer_id` first. If none, match on lowercased email. If still
+  none, match on `phone_e164` — but only against a contact that has no email
+  of its own and no second contact sharing that number, since a shared number
+  identifies nobody.  If still none, insert.
 - On match, set `customer_id`, fill `name`/`phone`/`email` where the contact's
   are null, and **leave `source` alone**.
 - Never touch `email_status` or `whatsapp_status`. A customer who
@@ -391,7 +402,9 @@ which is Saad's to request and not a code dependency.
 Pure-module tests, matching how the rest of this codebase is tested:
 
 - **Dedupe and normalisation** — email lowercasing, E.164 coercion, the
-  bucket each CSV row falls into. Table-driven, one case per bucket.
+  bucket each CSV row falls into. Table-driven, one case per bucket. Must
+  include the shared-number case: two contacts on one phone is correct, not a
+  duplicate.
 - **Audience predicates** — mirrored from `priority.ts`'s filter tests, so the
   `waitlist_all` and `early_signup` audiences provably match the admin chips
   they are named after.
@@ -414,5 +427,5 @@ a number shown to a person that the system then does not honour.
 | A cold list burns the sending domain | Separate marketing identity; one-click unsubscribe; §5 |
 | WhatsApp marketing degrades the OTP number | The five guardrails in §6; accepted residual risk |
 | A two-year-old list is mostly dead addresses | Bounces flip `email_status`; first send should be a smaller segment, not `everyone` |
-| Import merges two different people | Match is on exact email or exact phone only — never on name |
+| Import merges two different people | Match is on exact email — never on name, and never on phone alone, which is shared |
 | Someone presses send twice | `broadcast_confirm` snapshots inside one transaction; unique `(broadcast_id, contact_id)` |
