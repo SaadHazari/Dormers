@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BellOff, Mail, MessageCircle, Search } from 'lucide-react'
+import { BellOff, Mail, MessageCircle, Search, Upload } from 'lucide-react'
 import type { ContactRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
@@ -101,9 +102,18 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
 
     return (
         <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>
-                Contacts
-            </h1>
+            <div className="flex items-start justify-between gap-3 mb-1">
+                <h1 className={`text-xl font-black tracking-tight ${t.heading}`}>
+                    Contacts
+                </h1>
+                <Link
+                    href="/admin/contacts/import"
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold ${t.accentBg} ${t.accent}`}
+                >
+                    <Upload size={13} strokeWidth={2.4} />
+                    Import
+                </Link>
+            </div>
             <p className={`text-[13px] font-medium mb-4 ${t.muted}`}>
                 {totalCount != null && totalCount > rows.length
                     ? `${rows.length} of ${totalCount} contacts loaded`

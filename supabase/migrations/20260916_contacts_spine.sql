@@ -81,12 +81,17 @@ create table if not exists public.contacts (
 -- share one. A unique index on phone_e164 silently dropped 21 of 73 people on
 -- the first backfill. Email held at 73 of 73.
 --
--- The partial unique on email is still what makes re-running an import a
--- no-op. A phone-only contact (a referral with no address) is deduped on
--- phone instead, and only when exactly one existing contact holds that number
--- — the same narrow rule upsert_customer_contact() applies below.
+-- The unique on email is what makes re-running an import a no-op. A phone-only
+-- contact (a referral with no address) is deduped on phone instead, and only
+-- when exactly one existing contact holds that number — the same narrow rule
+-- upsert_customer_contact() applies below.
+--
+-- NOT a partial index, even though it only ever constrains non-null emails:
+-- Postgres treats NULLs as distinct, so a plain unique already allows any
+-- number of phone-only contacts, AND `on conflict (email)` can infer a plain
+-- index but not a partial one. The import's chunked upsert depends on that.
 create unique index if not exists contacts_email_key
-  on public.contacts (email) where email is not null;
+  on public.contacts (email);
 create index if not exists contacts_phone_idx
   on public.contacts (phone_e164) where phone_e164 is not null;
 

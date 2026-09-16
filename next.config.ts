@@ -39,6 +39,13 @@ const nextConfig: NextConfig = {
       dynamic: 30,
       static: 180,
     },
+    // The contact-book import posts a parsed CSV to a server action. Two years
+    // of contacts is a few hundred KB of name/email/phone, which the 1MB
+    // default would reject as an opaque failure partway through an upload.
+    // The screen still caps the row count itself (MAX_IMPORT_ROWS).
+    serverActions: {
+      bodySizeLimit: '8mb',
+    },
   },
   // Document-Policy: js-profiling enables the browser's JS profiling API
   // that @sentry/nextjs browserProfilingIntegration depends on. Without

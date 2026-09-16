@@ -1,8 +1,10 @@
 # The contact book
 
 **Status:** design, approved in outline 2026-09-16.
-**Phase A shipped** 2026-09-16 (`contacts`, `contact_imports`, the customers
-mirror, `admin_contact_search`, `/admin/contacts`). B, C and D not built.
+**Phases A and B shipped** 2026-09-16 — the spine, the customers mirror,
+`admin_contact_search`, `/admin/contacts`, and the CSV import at
+`/admin/contacts/import`. C (broadcasts retarget + unsubscribe) and D
+(WhatsApp) not built.
 **Supersedes nothing.** Extends the broadcast subsystem
 (`supabase/migrations/20260818_broadcasts.sql`,
 `src/app/admin/comms/broadcast/`, `src/app/api/internal/broadcast-send/`).
@@ -359,8 +361,15 @@ Cancel and Retry failures work unchanged — they operate on
    the same file twice produces zero new rows the second time.
 
 Phone normalisation to E.164 assumes UAE (`+971`) when a number has no country
-code, because that is what the list is. A number that cannot be normalised is
-`invalid`, not silently stored.
+code, because that is what the list is; `00` is read as the international
+prefix, and a number that cannot be normalised is `invalid`, not silently
+stored. `shared/phone.ts` is deliberately lenient (it serves a half-typed OTP
+field), so the import wraps it with its own strictness.
+
+The CSV reader is ours rather than a dependency — one screen, one file format,
+and the awkward parts are a few lines each: Excel's BOM, Windows CRLF, a
+quoted `"Surname, Firstname"`, a doubled quote. Owning it means it can be
+tested against the files Zoho actually produces.
 
 ---
 
