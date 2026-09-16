@@ -85,13 +85,6 @@ describe('season messages are wired', () => {
     expect(migration).toContain("'reopen_notice_not_sent'")
   })
 
-  it('the receipt names the credit used (N19), omitted when there is none', () => {
-    const client = read('src/infra/zeptomail/client.ts')
-    expect(client).toContain("credit_used_aed: input.creditUsedAed.toFixed(2)")
-    for (const file of ['src/contexts/payments/usecases/handle-stripe-event.ts', 'src/contexts/payments/usecases/free-checkout.ts', 'src/app/api/internal/post-payment-retry/route.ts']) {
-      expect(read(file), file).toContain('creditUsedAed:')
-    }
-  })
 
   it('a pause carried into the break can ask for a refund, and lands back on the pause', () => {
     const sql = read('supabase/migrations/20260916_season_pause_refund.sql')

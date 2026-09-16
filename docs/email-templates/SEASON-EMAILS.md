@@ -59,36 +59,17 @@ TEST_TO_EMAIL=you@example.com npm run mail:season-test
 
 `season-plan-ended` and `season-reopen` are live templates and are unchanged.
 
-## One line to add to the order confirmation
-
-This is the ZeptoMail template named **`Day_one`**, subject "You're in,
-{{first_name}}", the email that goes out the moment someone buys. It is the
-one `ZEPTOMAIL_TPL_ORDER_CONFIRMATION` points at, which is why it is not
-called "order confirmation" in the list. Not the Zoho Books invoice or
-receipt, and not `start-day`, which goes on the first delivery day.
-
-It needs a line showing the wallet credit used on the order. The app already sends
-`credit_used_aed` and leaves it out when no credit was used, so the block is
-safe to add:
-
-```html
-{{#credit_used_aed}}
-<p style="margin:0 0 6px;font-size:15px;line-height:24px;">
-  Wallet credit used: <b>AED {{credit_used_aed}}</b>
-</p>
-{{/credit_used_aed}}
-```
-
 ## Zoho Books
 
 The invoice and receipt emails come from Zoho Books, not from here. The
 matching refund email is [ZOHO-REFUND-EMAIL.md](ZOHO-REFUND-EMAIL.md).
 
-Zoho already tells the truth about credit on its own: checkout stamps the
-discount on the Stripe session, the webhook passes it to Zoho, and the invoice
-shows the plan subtotal minus a discount line that nets to what was actually
-charged. So the credit line in `Day_one` is the friendly version of something
-the paperwork already says.
+Wallet credit needs nothing from us there either. Checkout stamps the discount
+on the Stripe session, the webhook passes it to Zoho, and the invoice shows the
+plan subtotal minus a discount line that nets to exactly what was charged. The
+receipt's Amount Paid is that same reduced figure. The owner decided on
+2026-09-16 that saying it a second time in an email would be noise, so the
+confirmation email (`Day_one`) carries no money at all, by design.
 
 ## The design
 
