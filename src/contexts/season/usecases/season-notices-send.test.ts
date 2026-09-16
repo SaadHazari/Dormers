@@ -29,7 +29,11 @@ describe('processSeasonNotices (spec §12.3)', () => {
   it('sends the email, queues the WhatsApp and stamps both channels', async () => {
     const { d, calls } = deps()
     expect(await processSeasonNotices(d)).toEqual({ claimed: 1, emailed: 1, whatsapp: 1, dropped: 0, failed: 0 })
-    expect(calls.email[0]).toMatchObject({ toEmail: 'o@example.com', firstName: 'Omar', subject: 'Your meals are kept for next semester' })
+    expect(calls.email[0]).toEqual({
+      toEmail: 'o@example.com', firstName: 'Omar',
+      envKey: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD',
+      mergeInfo: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' },
+    })
     expect(calls.whatsapp[0]).toEqual(['c-1', 'season_plan_held', { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' }])
     expect(calls.stamps).toEqual([
       ['n-1', { email_sent_at: '2026-10-06T06:00:00.000Z', last_error: null }],

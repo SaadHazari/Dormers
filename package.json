@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "check:cold-start": "node scripts/check-cold-start.mjs",
     "check:whatsapp-template": "node scripts/check-whatsapp-template.mjs",
+    "mail:season-test": "node --env-file=.env.local scripts/send-season-test-emails.mjs",
     "check:delivered-drift": "tsx scripts/audit-delivered-drift.ts",
     "backfill:order-money": "tsx --env-file=.env.local scripts/backfill-order-money.ts",
     "prep:box-reference": "tsx scripts/prep-box-reference.ts",

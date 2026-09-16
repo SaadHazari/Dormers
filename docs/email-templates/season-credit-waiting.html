@@ -1,0 +1,180 @@
+<!--
+  Dormers — "Your credit is still waiting".
+
+  Sent once, five days after the season reopens, to someone holding unspent
+  waitlist credit who has not started a plan yet (spec N18).
+
+  DESIGN: docs/email-templates/EMAIL-DESIGN.md. White card, 2px orange border,
+  Montserrat, tinted sub-containers, real dark mode, no emoji and no dashes.
+  The brand banner at the top was added 2026-09-16 at the owner's request.
+
+  ZeptoMail Mustache treats an empty string as TRUTHY. To hide an optional
+  block, OMIT its merge key entirely. Never send '' or '0'.
+
+  MERGE KEYS
+    first_name    required
+    credit_aed    required   e.g. "20"
+-->
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>AED {{credit_aed}} is waiting in your wallet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; padding:0; width:100% !important; }
+    img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
+    /* NO border-collapse reset: the collapsed model discards border-radius and
+       Gmail drops the card's perimeter border. Tables default to separate. */
+    a { text-decoration:none; }
+
+    @media (prefers-color-scheme: dark) {
+      .main-card { border:2px solid #f57f20 !important; background-color:#1a1a1a !important; }
+      .brand-banner { background-color:#231a11 !important; border-bottom:1px solid #3a2a1a !important; }
+      .text-content { color:#d9d9d9 !important; }
+      .strong-text { color:#fcfcfc !important; }
+      .sub-container-orange { background-color:#261a0d !important; border:1.2px solid #f57f20 !important; }
+      .sub-container-green { background-color:#0d1a10 !important; border:1.2px solid #2e7d32 !important; }
+      .sub-container-gray { background-color:#222222 !important; border:1.2px solid #444444 !important; }
+      .label-orange { color:#f57f20 !important; }
+      .label-green { color:#5aa860 !important; }
+      .label-gray { color:#aaaaaa !important; }
+      .divider { border-top:1px solid #333333 !important; }
+      .footer-text { color:#555555 !important; }
+      .muted-line { color:#aaaaaa !important; }
+    }
+
+    @media only screen and (max-width: 620px) {
+      .card-pad { padding:30px 22px !important; }
+      .banner-pad { padding:20px 22px !important; }
+      .h1 { font-size:24px !important; line-height:1.24 !important; }
+      .cta { display:block !important; text-align:center !important; }
+    }
+  </style>
+</head>
+
+<body style="margin:0; padding:0;">
+
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    Your credit from last semester is still sitting in your wallet.
+  </div>
+
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="padding:40px 10px;">
+    <tr>
+      <td align="center">
+
+        <table class="main-card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+          style="max-width:600px; background-color:#ffffff; border:2px solid #f57f20; border-radius:13px; overflow:hidden;">
+          <!-- Brand banner. Its own row at the top of the card with a divider
+               under it, the way the sign-in code email carries the mark
+               (owner, 2026-09-16). Live text beside the mark, so the email
+               still reads with images blocked. -->
+          <tr>
+            <td class="brand-banner banner-pad" align="center"
+              style="padding:24px 42px; background-color:#fffaf5; border-bottom:1px solid #f4e3d2;">
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td width="44" valign="middle">
+                    <img src="https://dormers.ae/email-mark.png" width="44" height="44" alt="Dormers"
+                      style="display:block; width:44px; height:44px;">
+                  </td>
+                  <td width="13" style="font-size:0; line-height:0;">&nbsp;</td>
+                  <td valign="middle">
+                    <div class="strong-text"
+                      style="font-size:19px; font-weight:800; letter-spacing:3px; color:#091825; line-height:1; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      DORMERS&rsquo;</div>
+                    <div class="label-orange"
+                      style="font-size:9px; font-weight:700; letter-spacing:1.9px; color:#8c4214; margin-top:6px; line-height:1; text-transform:uppercase; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Meals that don&rsquo;t suck</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="card-pad text-content"
+              style="padding:42px; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif; color:#5c6670; font-weight:500;">
+
+              <h1 class="h1 strong-text"
+                style="margin:0 0 16px 0; font-size:26px; line-height:1.22; font-weight:800; color:#091825; letter-spacing:-0.3px;">
+                AED {{credit_aed}} is still yours, {{first_name}}.
+              </h1>
+
+              <p style="margin:0 0 28px 0; font-size:16px; line-height:26px;">
+                We reopened a few days ago, and the credit from last semester is still sitting in your Credit Wallet.
+              </p>
+
+              <table class="sub-container-orange" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#fffaf5; border:1.2px solid #f57f20; border-radius:8px; margin-bottom:26px;">
+                <tr>
+                  <td style="padding:26px;">
+                    <p class="label-orange"
+                      style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8c4214;">
+                      How it works
+                    </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      It comes straight off your next monthly plan at checkout. Nothing to enter and nothing to claim, and it does not expire.
+                    </p>
+                    <a class="cta" href="https://dormers.ae/dashboard/plan"
+                      style="background-color:#f57f20; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Pick my plan
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table class="sub-container-green" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#f2faf3; border:1.2px solid #2e7d32; border-radius:8px; margin-bottom:42px;">
+                <tr>
+                  <td style="padding:26px;">
+                    <p class="label-green"
+                      style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#2e7d32;">
+                      Questions?
+                    </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      Not sure which plan suits you now? We are a tap away on WhatsApp, usually replying within an hour.
+                    </p>
+                    <a class="cta" href="https://wa.me/971504619384"
+                      style="background-color:#2e7d32; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Chat with Support
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table class="divider" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="border-top:1px solid #eeeeee;">
+                <tr>
+                  <td style="padding-top:26px; font-size:14px; line-height:22px;">
+                    Good to have you back,<br>
+                    <b class="strong-text" style="color:#091825; font-size:16px;">Team Dormers</b>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:42px;">
+                    <p class="muted-line" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#9a9a9a;">
+                      You are getting this because you have Dormers credit waiting.
+                    </p>
+                    <p class="footer-text"
+                      style="margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#b0b0b0;">
+                      Made in Dubai
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>

@@ -2,10 +2,10 @@
 
 import { getIntakeState, creditAedFor } from '@/infra/config/intake'
 import { getUserFromHeaders } from '@/utils/supabase/auth'
-import { sendSeasonEmail } from '@/infra/zeptomail/client'
+import { sendSeasonTemplateEmail } from '@/infra/zeptomail/client'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { seasonWhatsAppEnabled } from '@/contexts/season/usecases/season-skip-notices'
-import { aedText, firstNameOf, WALLET_URL } from '@/contexts/season/domain/season-messages'
+import { aedText, firstNameOf, seasonEmailTemplateFor } from '@/contexts/season/domain/season-messages'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { MONTHLY_PLAN_IDS, INTAKE_WAITLIST_SOURCE, SPOT_SAVED_NO_CREDIT_YET_MESSAGE } from '../domain/credit-eligibility'
 import { resolveJoinCycle, noPlanCanFollow, PLAN_CAN_FOLLOW_MESSAGE } from '../domain/intake-cycle'
@@ -73,15 +73,8 @@ async function announceSpotSaved(sb: AdminSupabaseClient, userId: string, credit
     const c = (data ?? null) as { name?: string | null; email?: string | null } | null
     const firstName = firstNameOf(c?.name)
     if (c?.email) {
-      await sendSeasonEmail({
-        toEmail: c.email,
-        firstName,
-        subject: 'Your spot is saved',
-        bodyText:
-          `Your spot is saved. AED ${aedText(creditAed)} is in your Credit Wallet for your first Monthly plan when we reopen, and it does not expire.\n\n` +
-          "We'll message you the day the kitchen is back.",
-        cta: { label: 'See my wallet', url: WALLET_URL },
-      })
+      const template = seasonEmailTemplateFor('season_spot_saved', { credit_aed: creditAed })
+      await sendSeasonTemplateEmail({ toEmail: c.email, firstName, envKey: template.envKey, mergeInfo: template.mergeInfo })
     }
     if (seasonWhatsAppEnabled() && creditAed > 0) {
       await queueCustomerNotification(userId, 'season_spot_saved', new Date(), { credit_aed: aedText(creditAed) })

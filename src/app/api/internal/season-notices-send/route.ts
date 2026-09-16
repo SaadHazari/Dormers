@@ -8,7 +8,7 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
-import { sendSeasonEmail } from '@/infra/zeptomail/client'
+import { sendSeasonTemplateEmail } from '@/infra/zeptomail/client'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { processSeasonNotices, type FactCheck, type SeasonNoticeRow } from '@/contexts/season/usecases/season-notices-send'
 import { timingSafeCompare } from '@/shared/crypto'
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       return (data as { name: string | null; email: string | null } | null) ?? null
     },
     checkFact: (row) => checkFact(sb, row),
-    sendEmail: (input) => sendSeasonEmail({ toEmail: input.toEmail, firstName: input.firstName, subject: input.subject, bodyText: input.bodyText, cta: input.cta }),
+    sendEmail: (input) => sendSeasonTemplateEmail(input),
     queueWhatsApp: (customerId, kind, payload) => queueCustomerNotification(customerId, kind, new Date(), payload),
     async stamp(id, patch) {
       const { error } = await sb.from('season_notices').update(patch).eq('id', id)

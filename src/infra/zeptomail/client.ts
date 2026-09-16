@@ -540,18 +540,10 @@ function escHtml(s: string): string {
  * Plain-text → HTML: blank lines split paragraphs, single newlines become
  * <br>, and the text is HTML-escaped so admin input can't inject markup.
  */
-function buildAdminCustomerEmailHtml(
-  firstName: string,
-  bodyText: string,
-  includeSupportBox: boolean,
-  cta?: { label: string; url: string },
-  eyebrow = 'A note from Dormers',
-): string {
+function buildAdminCustomerEmailHtml(firstName: string, bodyText: string, includeSupportBox: boolean): string {
   const paragraphs = bodyText.trim().split(/\n{2,}/).map(p =>
     `<p style="margin:0 0 18px;line-height:26px;"><span style="font-size:16px;">${escHtml(p).replace(/\n/g, '<br>')}</span></p>`,
-  ).join('') + (cta
-    ? `<p style="margin:6px 0 18px;"><a href="${escHtml(cta.url)}" style="background-color:#FF8C00;color:#ffffff;padding:13px 24px;text-decoration:none;font-size:14px;font-weight:700;border-radius:8px;display:inline-block;">${escHtml(cta.label)}</a></p>`
-    : '');
+  ).join('');
 
   const supportBox = includeSupportBox ? `
               <table width="100%" border="0" cellspacing="0" cellpadding="0" class="sub-container-green" style="background-color:#f2faf3;border:1.2px solid #2e7d32;border-radius:8px;margin:30px 0 0;">
@@ -580,7 +572,7 @@ function buildAdminCustomerEmailHtml(
               <tbody>
                 <tr>
                   <td class="text-content" style="padding: 42px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #757575; font-weight: 500;">
-                    <p style="margin:0 0 10px;text-transform:uppercase;"><span style="color:rgb(255,140,0);"><b><span style="font-size:13px;letter-spacing:1px;">${escHtml(eyebrow)}</span></b></span></p>
+                    <p style="margin:0 0 10px;text-transform:uppercase;"><span style="color:rgb(255,140,0);"><b><span style="font-size:13px;letter-spacing:1px;">A note from Dormers</span></b></span></p>
                     <h1 style="margin: 0 0 22px 0; font-size: 24px; line-height: 1.25; font-weight: 700; color: #757575;">Hi ${escHtml(firstName)},</h1>
                     ${paragraphs}${supportBox}
                     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-top: 1px solid #eeeeee; padding-top: 26px; margin-top: 30px;">
@@ -682,38 +674,25 @@ export async function sendBroadcastEmail(input: {
 }
 
 /**
- * A season notice email (spec §12.2, Plan E): code-only HTML in the Dormers
- * shell, with the customer's own dates and amounts in plain words and one
- * button. No ZeptoMail template to create or keep in sync; the copy lives in
- * src/contexts/season/domain/season-messages.ts and its tests.
+ * A season email (spec §12.2). One ZeptoMail template per moment, named in
+ * SEASON_EMAIL_TEMPLATES and written in docs/email-templates/season-*.html,
+ * so the owner tracks delivery per moment in the ZeptoMail dashboard.
+ *
+ * Throws when the template key is missing, rather than sending a half-built
+ * message: the caller records the failure and retries. first_name is added
+ * here because every season template takes it.
  */
-export async function sendSeasonEmail(input: {
+export async function sendSeasonTemplateEmail(input: {
   toEmail: string;
   firstName: string;
-  subject: string;
-  bodyText: string;
-  cta: { label: string; url: string } | null;
-  eyebrow?: string;
+  envKey: string;
+  mergeInfo: Record<string, string>;
 }): Promise<void> {
-  const token = process.env.ZEPTOMAIL_API_TOKEN;
-  const fromAddress = process.env.ZEPTOMAIL_FROM_ADDRESS;
-  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers';
-  if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
-  if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
-
-  const html = buildAdminCustomerEmailHtml(input.firstName, input.bodyText, true, input.cta ?? undefined, input.eyebrow ?? 'The semester at Dormers');
-
-  const res = await zeptoFetch(RAW_API_URL, {
-    method: 'POST',
-    headers: { Authorization: token, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      from: { address: fromAddress, name: fromName },
-      to: [{ email_address: { address: input.toEmail, name: input.firstName } }],
-      subject: input.subject,
-      htmlbody: html,
-    }),
-  }, { timeoutMs: SEND_TIMEOUT_MS });
-
-  const text = await res.text();
-  if (!res.ok) throw new Error(`ZeptoMail season email ${res.status}: ${text || res.statusText}`);
+  const templateKey = process.env[input.envKey];
+  if (!templateKey) throw new Error(`${input.envKey} is not set`);
+  await sendTemplate({
+    templateKey,
+    to: { email: input.toEmail, name: input.firstName },
+    mergeInfo: { first_name: input.firstName, ...input.mergeInfo },
+  });
 }

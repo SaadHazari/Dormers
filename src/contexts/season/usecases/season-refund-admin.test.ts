@@ -9,7 +9,7 @@ const m = vi.hoisted(() => ({
   audit: vi.fn(),
   queue: vi.fn(),
   refundEmail: vi.fn(),
-  adminEmail: vi.fn(),
+  seasonEmail: vi.fn(),
   capture: vi.fn(),
 }))
 vi.mock('server-only', () => ({}))
@@ -18,7 +18,7 @@ vi.mock('@/infra/stripe/refunds', () => ({ refundableFils: m.refundable, refundP
 vi.mock('@/infra/admin-alerts/notify', () => ({ notifyAdmin: m.notify }))
 vi.mock('@/contexts/admin/usecases/audit', () => ({ logAdminAction: m.audit }))
 vi.mock('@/contexts/notifications/usecases/queue', () => ({ queueCustomerNotification: m.queue }))
-vi.mock('@/infra/zeptomail/client', () => ({ sendRefundProcessedEmail: m.refundEmail, sendAdminCustomerEmail: m.adminEmail }))
+vi.mock('@/infra/zeptomail/client', () => ({ sendRefundProcessedEmail: m.refundEmail, sendSeasonTemplateEmail: m.seasonEmail }))
 vi.mock('@/infra/logging/capture-error', () => ({ captureError: m.capture }))
 
 import { approveSeasonRefund, declineSeasonRefund } from './season-refund-admin'
@@ -130,23 +130,23 @@ describe('declineSeasonRefund (spec §10.3 step 5, N13b)', () => {
 
   it('moves the hold back, emails the reason, and logs it', async () => {
     m.rpc.mockResolvedValue({ data: { subscription_id: 's-1', customer_id: 'c-1', plan_name: 'Monthly Premium', held_meals: 9, state: 'held' }, error: null })
-    m.adminEmail.mockResolvedValue(undefined)
+    m.seasonEmail.mockResolvedValue(undefined)
 
     const result = await declineSeasonRefund('saad@dormers.ae', 'h-1', ' The card on this order has expired. ')
 
     expect(result).toEqual({ ok: true, message: 'Declined. The customer sees your reason on their plan card and by email.' })
     expect(m.rpc).toHaveBeenCalledWith('season_decline_refund', { p_hold_id: 'h-1', p_actor: 'saad@dormers.ae', p_reason: 'The card on this order has expired.' })
-    expect(m.adminEmail).toHaveBeenCalledWith(expect.objectContaining({ toEmail: 'o@example.com', firstName: 'Omar', subject: 'About your refund request' }))
-    const body = (m.adminEmail.mock.calls[0][0] as { bodyText: string }).bodyText
-    expect(body).toContain('The card on this order has expired.')
-    expect(body).toContain("Your 9 meals stay kept for next semester, and you can restart your plan once we're back.")
-    expect(body).not.toMatch(/[–—]/)
+    expect(m.seasonEmail).toHaveBeenCalledWith({
+      toEmail: 'o@example.com', firstName: 'Omar',
+      envKey: 'ZEPTOMAIL_TPL_SEASON_REFUND_DECLINED',
+      mergeInfo: { plan_name: 'Monthly Premium', held_meals: '9', reason: 'The card on this order has expired.' },
+    })
     expect(m.audit).toHaveBeenCalledWith('saad@dormers.ae', 'season_refund_declined', 'season_hold', 'h-1', expect.objectContaining({ reason: 'The card on this order has expired.' }))
   })
 
   it('a failed email never undoes the decline', async () => {
     m.rpc.mockResolvedValue({ data: { subscription_id: 's-1', customer_id: 'c-1', plan_name: 'Monthly Premium', held_meals: 9, state: 'ready' }, error: null })
-    m.adminEmail.mockRejectedValue(new Error('zepto down'))
+    m.seasonEmail.mockRejectedValue(new Error('zepto down'))
     expect(await declineSeasonRefund('saad@dormers.ae', 'h-1', 'No.')).toMatchObject({ ok: true })
     expect(m.capture).toHaveBeenCalled()
   })

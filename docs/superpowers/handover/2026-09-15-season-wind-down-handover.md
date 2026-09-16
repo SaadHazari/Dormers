@@ -23,6 +23,7 @@ Two documents carry the day-to-day:
 | Plan E: messages (outbox, email, WhatsApp wiring, G7, G8, owner digest) | Shipped 2026-09-15 (`c686377`) |
 | Plan F: reopening (audience, N15 to N19, follow-ups) | Shipped 2026-09-15 (`adb404a`) |
 | Plan G: remaining invariants, alert dedupe, template pack, atlas, runbook | Shipped 2026-09-15 (this commit) |
+| Season email templates | **Waiting on the owner**: eight ZeptoMail templates to paste in, one per moment, then their keys in Netlify (`docs/email-templates/SEASON-EMAILS.md`) |
 | WhatsApp templates | **Waiting on the owner**: ten templates to create at Meta, Vault secrets, env flags (`docs/whatsapp-templates/season-templates.md`) |
 | Customers today | Production runs the full system. The live season row is sandbox state (see section 4) |
 
@@ -53,9 +54,16 @@ Owner decisions D1 to D7 and X1 to X7 are in spec §2. Added during the build:
 - **A refund is retried with the same Stripe idempotency key** (`refund:season:<hold>`),
   and a Stripe refund whose recording failed is kept on the hold, so Retry
   never pays twice.
-- **Season messages are code-only emails** in the Dormers shell, so nothing
-  waits on a ZeptoMail template. WhatsApp waits on Meta approval behind
-  fail-closed env flags.
+- **One ZeptoMail template per season moment** (owner, 2026-09-16), so
+  delivery is tracked per moment in the ZeptoMail dashboard. The eight
+  templates live in `docs/email-templates/season-*.html`; the app only picks
+  the template and fills in the numbers. A message whose template is not set
+  up yet retries every six hours rather than parking, and the owner is told
+  which ones are waiting. WhatsApp waits on Meta approval behind fail-closed
+  env flags.
+- **Every season email carries the brand banner** (owner, 2026-09-16): the
+  mark beside the wordmark on its own strip at the top of the card, the way
+  the sign-in code email does it.
 - **Standing invariant breaches repeat every six hours**, not every hour.
 - **A digest speaks only when something changed** since the last one; the
   facts it compares live in `intake_settings.season_digest_state`.
@@ -96,7 +104,8 @@ Owner decisions D1 to D7 and X1 to X7 are in spec §2. Added during the build:
   wrap-up day, no close day. Sandbox state per the owner; schedule W whenever
   the real season needs it.
 - 3 live plans (a paid Monthly Premium on a test-mode order, a Staff Monthly
-  with a stale end date, one customer-paused Monthly Premium), 0 holds,
+  that is a test account whose meal count and end date disagree harmlessly,
+  one customer-paused Monthly Premium), 0 holds,
   0 season notices, 0 season-skip credits, 16 approved waitlist credits from
   earlier cycles.
 - Every Stripe order is test mode, so credited skips use the 90% list-price
@@ -158,17 +167,19 @@ Owner decisions D1 to D7 and X1 to X7 are in spec §2. Added during the build:
 
 ## 6. What the owner still has to do
 
-1. **WhatsApp templates**: create the ten templates at Meta, add the Vault
+1. **Season email templates**: create the eight in ZeptoMail by pasting each
+   file, then put each template key in Netlify.
+   `docs/email-templates/SEASON-EMAILS.md` is the step by step, with the
+   subject lines and merge fields. `npm run mail:season-test` then sends one
+   of each to the owner's inbox, skipping any that are not set up yet.
+2. **WhatsApp templates**: create the ten templates at Meta, add the Vault
    secrets, switch on the env flags (`docs/whatsapp-templates/season-templates.md`).
    For `intake_reopened` and `intake_back_open`, confirm the variable names
    against the approved templates first.
-2. **Order confirmation email**: add a block to the ZeptoMail
-   `order_confirmation` template that renders `{{credit_used_aed}}` ("AED
-   {{credit_used_aed}} credit used"); the merge field is already sent and
-   omitted when there is no credit (N19).
-3. **Staff Monthly**: its end date is stale (18 Sep) while it has meals left
-   until Wed 30 Sep. The planner shows the real last dinner; decide whether
-   to end it, correct the counter, or let W cover it.
+3. **Order confirmation email**: add the `{{credit_used_aed}}` block to the
+   existing ZeptoMail `order_confirmation` template (the snippet is at the end
+   of `docs/email-templates/SEASON-EMAILS.md`). The merge field is already
+   sent and left out when no credit was used (N19).
 4. **Schedule W** when the real season needs it, from `/admin/season`.
 
 ## 7. Known warts (not blocking)

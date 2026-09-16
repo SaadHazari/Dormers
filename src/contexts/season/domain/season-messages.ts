@@ -1,7 +1,12 @@
 /**
- * Every season message to a customer (spec §12.2, §12.4): the email words and
- * the WhatsApp template parameters for each kind, from the facts stored on
- * the season_notices row at queue time. Pure, so vitest reads every line.
+ * Every season message to a customer (spec §12.2, §12.4): which ZeptoMail
+ * template a fact uses, and the merge fields it carries; the same for the
+ * WhatsApp templates. Pure, so vitest reads every line.
+ *
+ * The words live in ZeptoMail (docs/email-templates/season-*.html), one
+ * template per moment, so delivery is tracked per template in the ZeptoMail
+ * dashboard. Nothing here renders copy: this module decides which template
+ * and with what numbers.
  *
  * Rules (spec §12.1): plain words, no emoji, no dashes, the customer's own
  * dates and amounts. WhatsApp and email tell the same story.
@@ -9,6 +14,7 @@
 
 import { formatShortDay } from './season-dates'
 
+/** The kinds the season_notices outbox queues. */
 export type SeasonNoticeKind =
   | 'season_plan_runs_past'
   | 'season_last_dinners'
@@ -21,8 +27,8 @@ export const SEASON_NOTICE_KINDS: readonly SeasonNoticeKind[] = [
   'season_plan_runs_past', 'season_last_dinners', 'season_plan_held', 'season_pause_carries', 'season_plan_ready', 'season_credit_waiting',
 ]
 
-export const DASHBOARD_URL = 'https://dormers.ae/dashboard'
-export const WALLET_URL = 'https://dormers.ae/dashboard/credit'
+/** Outbox kinds plus the two sent the moment they happen. */
+export type SeasonEmailKind = SeasonNoticeKind | 'season_spot_saved' | 'season_refund_declined'
 
 export interface SeasonNoticePayload {
   plan_name?: string
@@ -31,12 +37,29 @@ export interface SeasonNoticePayload {
   held_meals?: number | string
   credit_aed?: number | string
   offer_aed?: number | string
+  /** The owner's own words on a declined refund (N13b). */
+  reason?: string
 }
 
-export interface SeasonEmail {
-  subject: string
-  bodyText: string
-  cta: { label: string; url: string } | null
+export interface SeasonEmailTemplate {
+  /** The template's name in ZeptoMail, matching its file in docs/email-templates/. */
+  name: string
+  /** The environment variable holding that template's ZeptoMail key. */
+  envKey: string
+  /** merge_info for the send. first_name is added by the sender. */
+  mergeInfo: Record<string, string>
+}
+
+/** One template per moment, so ZeptoMail reports delivery per moment. */
+export const SEASON_EMAIL_TEMPLATES: Record<SeasonEmailKind, { name: string; envKey: string }> = {
+  season_plan_runs_past: { name: 'season-plan-runs-past', envKey: 'ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST' },
+  season_last_dinners: { name: 'season-last-dinners', envKey: 'ZEPTOMAIL_TPL_SEASON_LAST_DINNERS' },
+  season_plan_held: { name: 'season-plan-held', envKey: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD' },
+  season_pause_carries: { name: 'season-pause-carries', envKey: 'ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES' },
+  season_plan_ready: { name: 'season-plan-ready', envKey: 'ZEPTOMAIL_TPL_SEASON_PLAN_READY' },
+  season_credit_waiting: { name: 'season-credit-waiting', envKey: 'ZEPTOMAIL_TPL_SEASON_CREDIT_WAITING' },
+  season_spot_saved: { name: 'season-spot-saved', envKey: 'ZEPTOMAIL_TPL_SEASON_SPOT_SAVED' },
+  season_refund_declined: { name: 'season-refund-declined', envKey: 'ZEPTOMAIL_TPL_SEASON_REFUND_DECLINED' },
 }
 
 /** "20" or "19.80": the way a customer reads an amount. */
@@ -46,75 +69,52 @@ export function aedText(value: number | string | null | undefined): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
 }
 
+export function firstNameOf(name: string | null | undefined): string {
+  return (name ?? '').trim().split(/\s+/)[0] || 'there'
+}
+
 function meals(n: number | string | undefined): string {
-  const count = Math.max(0, Number(n ?? 0))
-  return `${count} ${count === 1 ? 'meal' : 'meals'}`
+  return String(Math.max(0, Number(n ?? 0)))
 }
 
 function day(iso: string | null | undefined): string {
-  return iso ? formatShortDay(iso.slice(0, 10)) : 'the wrap-up day'
+  return iso ? formatShortDay(iso.slice(0, 10)) : ''
 }
 
-/** The email for one notice. Null when the kind has no email (none today). */
-export function seasonEmailFor(kind: SeasonNoticeKind, p: SeasonNoticePayload): SeasonEmail {
-  const credit = Number(p.credit_aed ?? 0)
-  const offer = Number(p.offer_aed ?? 0)
+/**
+ * An optional amount is left out entirely when it is zero: ZeptoMail's
+ * Mustache treats an empty string as true, so a key that is present at all
+ * renders its block (EMAIL-DESIGN.md, trap 2).
+ */
+function amount(key: string, value: number | string | undefined): Record<string, string> {
+  return Number(value ?? 0) > 0 ? { [key]: aedText(value) } : {}
+}
+
+/** The template and merge fields for one fact. */
+export function seasonEmailTemplateFor(kind: SeasonEmailKind, p: SeasonNoticePayload): SeasonEmailTemplate {
+  const template = SEASON_EMAIL_TEMPLATES[kind]
   const plan = p.plan_name || 'plan'
-  switch (kind) {
-    case 'season_plan_runs_past':
-      return {
-        subject: `The semester wraps up on ${day(p.wrap_up_day)}`,
-        bodyText:
-          `The semester wraps up on ${day(p.wrap_up_day)}, and your dinners keep coming until then.\n\n` +
-          `Your last ${meals(p.held_meals)} of ${plan} will be kept for next semester` +
-          (credit > 0 ? `, with AED ${aedText(credit)} in your wallet for your next Monthly plan.` : '.') +
-          ` If you'd rather have your money back, you can ask for a refund for those meals once the break starts, from your home page.`,
-        cta: { label: 'See my options', url: DASHBOARD_URL },
-      }
-    case 'season_last_dinners':
-      return {
-        subject: 'Your last dinners of the semester',
-        bodyText:
-          `Your ${plan} finishes on ${day(p.last_dinner)}. The semester wraps up on ${day(p.wrap_up_day)}, so no new plan fits in before the break.\n\n` +
-          (offer > 0
-            ? `Save your spot for next semester and AED ${aedText(offer)} goes to your wallet the moment you do. It does not expire, and we'll message you the day the kitchen is back.`
-            : `Save your spot for next semester and we'll message you the day the kitchen is back.`),
-        cta: { label: 'Save my spot', url: DASHBOARD_URL },
-      }
-    case 'season_plan_held':
-      return {
-        subject: 'Your meals are kept for next semester',
-        bodyText:
-          `The kitchen is closed between semesters, so your last ${meals(p.held_meals)} of ${plan} are kept for you.` +
-          (credit > 0 ? ` AED ${aedText(credit)} is in your wallet too.` : '') +
-          `\n\nWhen we're back, tap Resume and your dinners start again. If you'd rather have your money back, you can ask for a refund for those meals from your home page.`,
-        cta: { label: 'See my options', url: DASHBOARD_URL },
-      }
-    case 'season_pause_carries':
-      return {
-        subject: 'Your plan waits for you',
-        bodyText:
-          `Your ${plan} is still paused, and the kitchen is now closed between semesters. Your meals wait for you, so resume when we're back.` +
-          (offer > 0 ? `\n\nSave your spot for next semester now and AED ${aedText(offer)} goes to your wallet.` : ''),
-        cta: { label: 'Save my spot', url: DASHBOARD_URL },
-      }
-    case 'season_plan_ready':
-      return {
-        subject: "We're back. Your meals are ready",
-        bodyText:
-          `The kitchen is open again. Your ${meals(p.held_meals)} of ${plan} ${Number(p.held_meals ?? 0) === 1 ? 'is' : 'are'} ready.` +
-          (credit > 0 ? ` AED ${aedText(credit)} is still in your wallet for your next Monthly plan.` : '') +
-          `\n\nTap Resume on your home page when you're ready, and your dinners start again. Nothing restarts on its own.`,
-        cta: { label: 'Resume my plan', url: DASHBOARD_URL },
-      }
-    case 'season_credit_waiting':
-      return {
-        subject: `AED ${aedText(credit)} is waiting in your wallet`,
-        bodyText:
-          `We reopened a few days ago, and AED ${aedText(credit)} is still sitting in your wallet from last semester. It comes off your next Monthly plan at checkout and does not expire.`,
-        cta: { label: 'Pick my plan', url: 'https://dormers.ae/dashboard/plan' },
-      }
-  }
+  const mergeInfo = ((): Record<string, string> => {
+    switch (kind) {
+      case 'season_plan_runs_past':
+        return { wrap_up_day: day(p.wrap_up_day), held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
+      case 'season_last_dinners':
+        return { last_dinner: day(p.last_dinner), wrap_up_day: day(p.wrap_up_day), ...amount('offer_aed', p.offer_aed) }
+      case 'season_plan_held':
+        return { plan_name: plan, held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
+      case 'season_pause_carries':
+        return { plan_name: plan, ...amount('offer_aed', p.offer_aed) }
+      case 'season_plan_ready':
+        return { plan_name: plan, held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
+      case 'season_credit_waiting':
+        return { credit_aed: aedText(p.credit_aed) }
+      case 'season_spot_saved':
+        return { credit_aed: aedText(p.credit_aed) }
+      case 'season_refund_declined':
+        return { plan_name: plan, held_meals: meals(p.held_meals), reason: (p.reason ?? '').trim() }
+    }
+  })()
+  return { ...template, mergeInfo }
 }
 
 /**
@@ -124,15 +124,15 @@ export function seasonEmailFor(kind: SeasonNoticeKind, p: SeasonNoticePayload): 
 export function seasonWhatsAppPayload(kind: SeasonNoticeKind, p: SeasonNoticePayload): Record<string, string> {
   switch (kind) {
     case 'season_plan_runs_past':
-      return { wrap_up_day: p.wrap_up_day ?? '', held_meals: String(p.held_meals ?? 0), credit_aed: aedText(p.credit_aed) }
+      return { wrap_up_day: p.wrap_up_day ?? '', held_meals: meals(p.held_meals), credit_aed: aedText(p.credit_aed) }
     case 'season_last_dinners':
       return { last_dinner: p.last_dinner ?? '', wrap_up_day: p.wrap_up_day ?? '', offer_aed: aedText(p.offer_aed) }
     case 'season_plan_held':
-      return { plan_name: p.plan_name ?? 'plan', held_meals: String(p.held_meals ?? 0), credit_aed: aedText(p.credit_aed) }
+      return { plan_name: p.plan_name ?? 'plan', held_meals: meals(p.held_meals), credit_aed: aedText(p.credit_aed) }
     case 'season_pause_carries':
       return { plan_name: p.plan_name ?? 'plan', offer_aed: aedText(p.offer_aed) }
     case 'season_plan_ready':
-      return { held_meals: String(p.held_meals ?? 0), plan_name: p.plan_name ?? 'plan' }
+      return { held_meals: meals(p.held_meals), plan_name: p.plan_name ?? 'plan' }
     case 'season_credit_waiting':
       return { credit_aed: aedText(p.credit_aed) }
   }
@@ -144,8 +144,4 @@ export function seasonWhatsAppWanted(kind: SeasonNoticeKind, p: SeasonNoticePayl
   if (kind === 'season_last_dinners' || kind === 'season_pause_carries') return Number(p.offer_aed ?? 0) > 0
   if (kind === 'season_credit_waiting') return Number(p.credit_aed ?? 0) > 0
   return true
-}
-
-export function firstNameOf(name: string | null | undefined): string {
-  return (name ?? '').trim().split(/\s+/)[0] || 'there'
 }

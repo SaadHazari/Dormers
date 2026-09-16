@@ -118,6 +118,7 @@ order comes back as credit; the waitlist credit stays theirs.
 | Delivery after the close day / after W without a grant | The kitchen cooked when it should not have | Tell the developer; check the delivery tick |
 | Paid held plan without credit | The break did not mint a credit | Add it from the customer page; tell the developer |
 | Skipped-meal credit still pending | The credit tick did not release it | Scheduled Jobs, "season credit" job |
+| Season messages could not be sent yet | An email template is missing in ZeptoMail | Create it, see docs/email-templates/SEASON-EMAILS.md. Messages retry every six hours, so creating it releases them |
 | Refund requested / reminder | A customer is waiting | Season page: Approve or Decline |
 | Refund FAILED at Stripe / recording failed | Stripe or the database refused | Retry from the Season page; check Stripe |
 | Refund processing over 30 minutes | A refund is stuck | Check Stripe, then Retry |
@@ -150,6 +151,7 @@ Standing breaches repeat every six hours, not every hour.
 | `WHATSAPP_SEASON_TEMPLATES_ENABLED` | Netlify env | off | The eight season templates are approved and in Vault |
 | `WHATSAPP_SEASON_REOPEN_ENABLED` | Netlify env | off | `intake_reopened` and `intake_back_open` are in Vault |
 | `WHATSAPP_SEASON_ENDED_ENABLED` | Netlify env | off | `intake_ended_credit` and `intake_ended_offer` are in Vault |
+| The eight `ZEPTOMAIL_TPL_SEASON_*` keys | ZeptoMail, then Netlify env | not set | One per season email template you create (docs/email-templates/SEASON-EMAILS.md) |
 | `kitchen_daily_cost_aed` | intake_settings | 500 | Kitchen-facing only; never shown on the admin panel |
 
 ## 9. Money rules to remember

@@ -10,8 +10,8 @@ import 'server-only'
  * against fake rows. The route wires the real Supabase, ZeptoMail and queue.
  */
 
-import type { SeasonNoticeKind, SeasonEmail, SeasonNoticePayload } from '../domain/season-messages'
-import { seasonEmailFor, seasonWhatsAppPayload, seasonWhatsAppWanted, firstNameOf } from '../domain/season-messages'
+import type { SeasonNoticeKind, SeasonNoticePayload } from '../domain/season-messages'
+import { seasonEmailTemplateFor, seasonWhatsAppPayload, seasonWhatsAppWanted, firstNameOf } from '../domain/season-messages'
 
 export interface SeasonNoticeRow {
   id: string
@@ -30,7 +30,7 @@ export interface SeasonNoticeDeps {
   claim(limit: number): Promise<SeasonNoticeRow[]>
   customer(customerId: string): Promise<{ name: string | null; email: string | null } | null>
   checkFact(row: SeasonNoticeRow): Promise<FactCheck>
-  sendEmail(input: { toEmail: string; firstName: string } & SeasonEmail): Promise<void>
+  sendEmail(input: { toEmail: string; firstName: string; envKey: string; mergeInfo: Record<string, string> }): Promise<void>
   queueWhatsApp(customerId: string, kind: SeasonNoticeKind, payload: Record<string, string>): Promise<void>
   stamp(id: string, patch: { email_sent_at?: string; whatsapp_queued_at?: string; dropped_at?: string; drop_reason?: string; last_error?: string | null }): Promise<void>
   whatsappEnabled: boolean
@@ -67,7 +67,8 @@ export async function processSeasonNotices(deps: SeasonNoticeDeps, limit = 50): 
 
       if (!row.email_sent_at) {
         if (customer.email) {
-          await deps.sendEmail({ toEmail: customer.email, firstName, ...seasonEmailFor(row.kind, row.payload) })
+          const template = seasonEmailTemplateFor(row.kind, row.payload)
+          await deps.sendEmail({ toEmail: customer.email, firstName, envKey: template.envKey, mergeInfo: template.mergeInfo })
           out.emailed += 1
         }
         // No address is not a failure to retry: the WhatsApp still goes.

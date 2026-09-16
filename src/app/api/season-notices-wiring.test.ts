@@ -29,6 +29,16 @@ describe('season messages are wired', () => {
     expect(src).toContain('paused: seasonEnded,')
   })
 
+  it('every season email goes through its own ZeptoMail template', () => {
+    const route = read('src/app/api/internal/season-notices-send/route.ts')
+    expect(route).toContain('sendSeasonTemplateEmail')
+    const client = read('src/infra/zeptomail/client.ts')
+    expect(client).toContain('const templateKey = process.env[input.envKey];')
+    expect(client).toContain('if (!templateKey) throw new Error(`${input.envKey} is not set`);')
+    // The decline email is a template too, not the admin shell.
+    expect(read('src/contexts/season/usecases/season-refund-admin.ts')).toContain("seasonEmailTemplateFor('season_refund_declined'")
+  })
+
   it('the outbox route claims through the lease, re-checks every fact, and honours the WhatsApp flag', () => {
     const src = read('src/app/api/internal/season-notices-send/route.ts')
     expect(src).toContain("sb.rpc('season_notice_claim_batch', { p_limit: limit })")
@@ -42,7 +52,7 @@ describe('season messages are wired', () => {
   it('a saved spot is told on both channels, the WhatsApp behind the flag (N12)', () => {
     const src = read('src/contexts/subscriptions/usecases/join-intake-waitlist.ts')
     expect(src).toContain('void announceSpotSaved(sb, user.id, minted.amountAed)')
-    expect(src).toContain("subject: 'Your spot is saved'")
+    expect(src).toContain("seasonEmailTemplateFor('season_spot_saved'")
     expect(src).toContain("queueCustomerNotification(userId, 'season_spot_saved'")
     expect(src).toContain('seasonWhatsAppEnabled()')
   })

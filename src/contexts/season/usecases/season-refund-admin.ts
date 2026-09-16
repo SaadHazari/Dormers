@@ -22,9 +22,10 @@ import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
-import { sendAdminCustomerEmail, sendRefundProcessedEmail } from '@/infra/zeptomail/client'
+import { sendRefundProcessedEmail, sendSeasonTemplateEmail } from '@/infra/zeptomail/client'
 import { formatAed } from '../domain/meal-value'
 import { friendlyRefundError, seasonRefundIdempotencyKey } from '../domain/season-refund'
+import { seasonEmailTemplateFor } from '../domain/season-messages'
 
 export type SeasonRefundAdminResult = { ok: true; message: string } | { error: string }
 
@@ -138,19 +139,12 @@ export async function declineSeasonRefund(actorEmail: string, holdId: string, re
     const c = (customer ?? null) as { name?: string | null; email?: string | null } | null
     if (c?.email) {
       const firstName = (c.name ?? '').trim().split(/\s+/)[0] || 'there'
-      const meals = `${row.held_meals} ${row.held_meals === 1 ? 'meal' : 'meals'}`
-      await sendAdminCustomerEmail({
-        toEmail: c.email,
-        firstName,
-        subject: 'About your refund request',
-        bodyText:
-          `We looked at your refund request for your ${row.plan_name} and we can't process it this time.\n\n` +
-          `${clean}\n\n` +
-          `Your ${meals} ${row.held_meals === 1 ? 'stays' : 'stay'} kept for next semester, ` +
-          (row.state === 'ready' ? 'and you can restart your plan from your home page whenever you like.' : "and you can restart your plan once we're back.") +
-          ' If you want to talk it through, we are a message away on WhatsApp.',
-        includeSupportBox: true,
+      const template = seasonEmailTemplateFor('season_refund_declined', {
+        plan_name: row.plan_name,
+        held_meals: row.held_meals,
+        reason: clean,
       })
+      await sendSeasonTemplateEmail({ toEmail: c.email, firstName, envKey: template.envKey, mergeInfo: template.mergeInfo })
     }
   } catch (err) {
     captureError(err, { area: 'season', op: 'declineSeasonRefund.email', holdId })
