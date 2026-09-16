@@ -52,6 +52,6 @@ export function seasonDriftMessage(paused: boolean, snapshot: SeasonSnapshot): s
   if (snapshot.phase === 'break') return null
   if (paused === snapshot.salesStopped) return null
   return paused
-    ? 'The season settings disagree: new plans are blocked, but the season says sales are open. This happens when the old Season page was used. Press Stop sales now once to line them up.'
-    : 'The season settings disagree: new plans are on sale, but the season says sales are stopped. This happens when the old Season page was used. Press Resume sales once to line them up.'
+    ? 'Two settings disagree: customers cannot buy plans, but this page thinks new orders are open. Press Pause new orders once to fix it.'
+    : 'Two settings disagree: customers can buy plans, but this page thinks new orders are paused. Press Take new orders again once to fix it.'
 }

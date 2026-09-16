@@ -466,3 +466,63 @@ export async function whatsappPreflight(recipients: number): Promise<PreflightRe
         ratePerMessageAed: rate,
     }
 }
+
+// ── Audience counts, all at once ───────────────────────────────────────────
+
+export interface AudienceCount {
+    /** Who this send would reach with the current settings. */
+    count: number
+    /** WhatsApp only: how many of them explicitly opted in. */
+    optedIn: number
+    /** WhatsApp only: how many there are if people who never opted in are included. */
+    all: number
+}
+
+/**
+ * Every audience's count in one call, for the audience cards.
+ *
+ * The old composer counted one audience at a time behind a dropdown, so the
+ * only way to compare "Waitlist" with "2024 customers" was to pick one, wait,
+ * pick the other, and remember. Choosing by number needs all the numbers on
+ * screen at once.
+ *
+ * On WhatsApp each audience is counted twice — with and without people who
+ * never opted in — so a card can say "12 opted in, 787 more if you include
+ * everyone" instead of just showing a zero.
+ */
+export async function countAudiences(
+    audiences: string[],
+    channel: 'email' | 'whatsapp',
+    includeUnknown: boolean,
+    dormName?: string,
+): Promise<{ ok: boolean; counts: Record<string, AudienceCount>; message?: string }> {
+    await requireAdmin()
+
+    const sb = createAdminSupabaseClient()
+    const count = async (audience: string, withUnknown: boolean): Promise<number> => {
+        if (audience === 'dorm' && !dormName) return 0
+        const { count: n, error } = await sb.rpc('broadcast_audience', {
+            p_audience: audience,
+            p_dorm: audience === 'dorm' ? dormName : null,
+            p_channel: channel,
+            p_include_unknown: withUnknown,
+        }, { count: 'exact', head: true })
+        if (error) throw error
+        return n ?? 0
+    }
+
+    try {
+        const entries = await Promise.all(audiences.map(async a => {
+            if (channel === 'email') {
+                const n = await count(a, false)
+                return [a, { count: n, optedIn: n, all: n }] as const
+            }
+            const [optedIn, all] = await Promise.all([count(a, false), count(a, true)])
+            return [a, { count: includeUnknown ? all : optedIn, optedIn, all }] as const
+        }))
+        return { ok: true, counts: Object.fromEntries(entries) }
+    } catch (err) {
+        captureError(err as Error, { area: 'admin', op: 'countAudiences' })
+        return { ok: false, counts: {}, message: 'Could not count the audiences. Reload and try again.' }
+    }
+}

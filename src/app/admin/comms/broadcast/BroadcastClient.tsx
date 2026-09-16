@@ -1,878 +1,419 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertTriangle, Ban, Mail, MessageCircle, RefreshCw, Send } from 'lucide-react'
+import { ArrowRight, Mail, MessageCircle } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
-import { AdminModal } from '../../_components/AdminModal'
-import { AdminButton } from '../../_components/AdminButton'
-import { AdminBadge } from '../../_components/AdminBadge'
-import { buildBroadcastEmailHtml, reasonLineFor } from '@/infra/zeptomail/broadcast-shell'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '../../_components/stale-action'
 import {
-    previewAudience, launchBroadcast, getBroadcastProgress,
-    cancelBroadcast, retryBroadcastFailures,
-    syncWhatsAppTemplates, whatsappPreflight, type PreflightResult,
+    countAudiences, launchBroadcast, syncWhatsAppTemplates, whatsappPreflight,
+    type AudienceCount,
 } from './actions'
 import type { BroadcastRow, WhatsAppTemplateRow } from './page'
-import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
+import { assessReadiness, type Step } from './readiness'
+import { AUDIENCES, AUDIENCE_LABELS, type AudienceKey } from './parts/audiences'
+import { StepCard, type StepState } from './parts/StepCard'
+import { AudiencePicker } from './parts/AudiencePicker'
+import { MessageEmail } from './parts/MessageEmail'
+import { MessageWhatsApp, keyOf } from './parts/MessageWhatsApp'
+import { SendSlip, type NumberHealth } from './parts/SendSlip'
+import { Runs } from './parts/Runs'
+
+type Channel = 'email' | 'whatsapp'
+type Mode = 'custom' | 'season_reopen'
+
+const ORDER: Step[] = ['audience', 'message', 'send']
+const AUDIENCE_KEYS = AUDIENCES.map(a => a.key)
+const fmt = (n: number) => n.toLocaleString('en-US')
+
+/**
+ * Serializable stand-ins for the server calls, so /dev/broadcast can render the
+ * composer without an admin session. Never passed in production.
+ */
+export interface BroadcastFixtures {
+    counts: Record<Channel, Record<string, { optedIn: number; all: number }>>
+    health: NumberHealth
+}
 
 interface Props {
     broadcasts: BroadcastRow[]
     dorms: string[]
-    /** broadcast id to recipients parked after 3 failed attempts, from the server. */
     parked: Record<string, number>
-    /** Every template Meta knows about; only approved ones can be launched. */
     templates: WhatsAppTemplateRow[]
+    fixtures?: BroadcastFixtures
 }
 
-type Mode = 'custom' | 'season_reopen'
-type Progress = { ok: boolean; status: string; total: number; sent: number; failedParked: number }
-
-const SUBJECT_MAX = 200
-const BODY_MAX = 8000
-const POLL_MS = 3000
-
-// Grouped the way an admin thinks about them: the whole book first, then the
-// people in it. 'waitlist_all' and 'early_signup' are the same rules as the
-// chips of those names on /admin/customers, verified against them on live data.
-const AUDIENCES: Array<{ value: string; label: string }> = [
-    { value: 'everyone',          label: 'Everyone in the contact book' },
-    { value: 'customers',         label: 'Everyone with an account' },
-    { value: 'never_customers',   label: 'Never had an account' },
-    { value: 'imported',          label: 'Imported from Zoho' },
-    { value: 'active_plans',      label: 'Customers on a plan' },
-    { value: 'early_access',      label: 'Early access list (this pause)' },
-    { value: 'waitlist_all',      label: 'Waitlist' },
-    { value: 'early_signup',      label: 'Early signups' },
-    { value: 'ended_not_renewed', label: 'Ended and not renewed' },
-    { value: 'dorm',              label: 'One dorm' },
-]
-
-const AUDIENCE_LABELS: Record<string, string> = {
-    ...Object.fromEntries(AUDIENCES.map(a => [a.value, a.label])),
-    reopen: 'Reopening list',
-}
-
-export function BroadcastClient({ broadcasts, dorms, parked, templates }: Props) {
+/**
+ * Sending a broadcast, as three steps: who, what, send.
+ *
+ * Rebuilt from scratch on 2026-09-16 after the flat version proved unusable —
+ * two rows of look-alike pills, a dropdown that hid every count but one, and a
+ * consent switch buried behind a Send button that could never enable because
+ * the switch was off. Here one question is open at a time, every count is on
+ * screen, and the bar at the bottom always says what is stopping you and takes
+ * you to the step that fixes it.
+ */
+export function BroadcastClient({ broadcasts, dorms, parked, templates, fixtures }: Props) {
     const { t } = useAdminTheme()
     const router = useRouter()
     const preset = useSearchParams().get('preset')
 
-    // ── Composer ─────────────────────────────────────────────────────────
+    // ── The decisions ─────────────────────────────────────────────────────
+    const [channel, setChannel] = useState<Channel>(preset === 'reopen' ? 'email' : 'whatsapp')
     const [mode, setMode] = useState<Mode>(preset === 'reopen' ? 'season_reopen' : 'custom')
+    const [step, setStep] = useState<Step>('audience')
+
+    const [audience, setAudience] = useState<AudienceKey>('everyone')
+    const [dormName, setDormName] = useState(dorms[0] ?? '')
+    const [includeUnknown, setIncludeUnknown] = useState(false)
+
+    const [templateKey, setTemplateKey] = useState('')
+    const [values, setValues] = useState<Record<string, string>>({})
     const [subject, setSubject] = useState('')
     const [heading, setHeading] = useState('')
     const [body, setBody] = useState('')
     const [ctaLabel, setCtaLabel] = useState('')
     const [ctaUrl, setCtaUrl] = useState('')
-    const [customAudience, setCustomAudience] = useState('everyone')
-    const [dormName, setDormName] = useState(dorms[0] ?? '')
 
-    // ── Channel ──────────────────────────────────────────────────────────
-    const [channel, setChannel] = useState<'email' | 'whatsapp'>('email')
-    const [templateKey, setTemplateKey] = useState('')
-    const [templateValues, setTemplateValues] = useState<Record<string, string>>({})
-    // Contacts who never explicitly opted in to WhatsApp marketing. Off by
-    // default and only ever turned on by a person, in the confirm step.
-    const [includeUnknown, setIncludeUnknown] = useState(false)
-    const [syncing, setSyncing] = useState(false)
-    const [syncNote, setSyncNote] = useState<string | null>(null)
-    const [preflight, setPreflight] = useState<PreflightResult | null>(null)
+    // The reopening notice always goes to its own fixed list.
+    const effectiveAudience = channel === 'email' && mode === 'season_reopen' ? 'reopen' : audience
 
-    const approvedTemplates = useMemo(() => templates.filter(t => t.approved_at), [templates])
-    const template = approvedTemplates.find(t => `${t.name}|${t.language}` === templateKey) ?? null
-
-    const audience = mode === 'season_reopen' ? 'reopen' : customAudience
-
-    // ── Live recipient count ─────────────────────────────────────────────
-    const [count, setCount] = useState<number | null>(null)
+    // ── Counts, all at once ───────────────────────────────────────────────
+    const [counts, setCounts] = useState<Record<string, AudienceCount>>({})
+    const [countLoading, setCountLoading] = useState(true)
     const [countError, setCountError] = useState<string | null>(null)
-    const [countLoading, setCountLoading] = useState(false)
 
     useEffect(() => {
+        if (fixtures) {
+            const src = fixtures.counts[channel]
+            setCounts(Object.fromEntries(Object.entries(src).map(([k, v]) => [k, {
+                optedIn: v.optedIn, all: v.all, count: channel === 'whatsapp' && !includeUnknown ? v.optedIn : v.all,
+            }])))
+            setCountLoading(false)
+            return
+        }
         let stale = false
         setCountLoading(true)
         setCountError(null)
-        previewAudience(audience, audience === 'dorm' ? dormName : undefined, channel, includeUnknown).then(res => {
-            if (stale) return
-            setCountLoading(false)
-            if (!res.ok) { setCount(null); setCountError(res.message ?? 'Could not resolve the audience.'); return }
-            setCount(res.count)
-        }).catch(() => {
-            if (stale) return
-            setCountLoading(false)
-            setCount(null)
-            setCountError('Could not count the audience. Change the audience or reload.')
-        })
+        const keys = channel === 'email' && mode === 'season_reopen' ? ['reopen'] : AUDIENCE_KEYS
+        countAudiences(keys, channel, includeUnknown, dormName || undefined)
+            .then(res => {
+                if (stale) return
+                if (!res.ok) setCountError(res.message ?? 'Could not count the audiences.')
+                setCounts(res.counts)
+            })
+            .catch(err => {
+                if (stale) return
+                if (isStaleActionError(err)) { setCountError(STALE_ACTION_MESSAGE); setTimeout(() => location.reload(), 900); return }
+                setCountError('Could not count the audiences. Reload and try again.')
+            })
+            .finally(() => { if (!stale) setCountLoading(false) })
         return () => { stale = true }
-    }, [audience, dormName, channel, includeUnknown])
+    }, [channel, mode, includeUnknown, dormName, fixtures])
 
-    // ── Live preview ─────────────────────────────────────────────────────
-    const previewHtml = useMemo(() => buildBroadcastEmailHtml({
-        firstName: 'Ahmed',
-        heading: heading.trim() || 'Your heading goes here',
-        bodyText: body.trim() || 'Your message goes here. Leave a blank line between paragraphs.',
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: ctaUrl.trim() || undefined,
-        reasonLine: reasonLineFor(audience),
-    }), [heading, body, ctaLabel, ctaUrl, audience])
+    const current = counts[effectiveAudience]
+    const count = current?.count ?? 0
 
-    // ── Launch ───────────────────────────────────────────────────────────
-    const [confirmOpen, setConfirmOpen] = useState(false)
+    // ── Number health, WhatsApp only ──────────────────────────────────────
+    const [health, setHealth] = useState<NumberHealth | null>(null)
+    useEffect(() => {
+        if (channel !== 'whatsapp') return
+        if (fixtures) { setHealth(fixtures.health); return }
+        let stale = false
+        whatsappPreflight(0).then(r => {
+            if (stale) return
+            setHealth({
+                quality: r.qualityRating, verdict: r.verdict, remaining: r.remaining,
+                sentToday: r.sentLast24h, rate: r.ratePerMessageAed,
+            })
+        }).catch(() => { /* the send step says "…" until it arrives */ })
+        return () => { stale = true }
+    }, [channel, fixtures])
+
+    // ── Readiness ─────────────────────────────────────────────────────────
+    const template = useMemo(
+        () => templates.find(x => x.approved_at && x.category === 'MARKETING' && keyOf(x) === templateKey) ?? null,
+        [templates, templateKey],
+    )
+    const missingVariables = useMemo(
+        () => (template ? template.variables.filter(v => !(values[v] ?? '').trim()) : []),
+        [template, values],
+    )
+
+    const readiness = useMemo(() => assessReadiness({
+        channel, mode,
+        audienceCount: count,
+        countLoading,
+        includeUnknown,
+        optedInCount: current?.optedIn ?? 0,
+        templateChosen: Boolean(template),
+        missingVariables,
+        subject, heading, body,
+        remainingToday: health?.remaining ?? Number.POSITIVE_INFINITY,
+        quality: health?.verdict ?? 'ok',
+    }), [channel, mode, count, countLoading, includeUnknown, current, template, missingVariables, subject, heading, body, health])
+
+    const blockedAt = readiness.step
+    const here = ORDER.indexOf(step)
+    // Where the blocker sits relative to where you are decides everything the
+    // bar says. Behind you: go back and fix it. Right here: say what's missing.
+    // Ahead of you: this step is fine — that's just where Continue goes next.
+    const blockedBehind = blockedAt !== null && ORDER.indexOf(blockedAt) < here
+    const blockedHere = blockedAt === step
+    const stepState = (s: Step): StepState => {
+        if (s === step) return 'active'
+        return ORDER.indexOf(s) < ORDER.indexOf(step) ? 'done' : 'upcoming'
+    }
+    // A step can be left once nothing ON it or before it is blocking.
+    const canLeave = (s: Step) => !readiness.pending && (blockedAt === null || ORDER.indexOf(blockedAt) > ORDER.indexOf(s))
+
+    // ── Channel switch resets what no longer applies ──────────────────────
+    function switchChannel(next: Channel) {
+        if (next === channel) return
+        setChannel(next)
+        setMode('custom')
+        setIncludeUnknown(false)
+        setStep('audience')
+        setLaunchError(null)
+    }
+
+    // ── Sync templates ────────────────────────────────────────────────────
+    const [syncing, setSyncing] = useState(false)
+    const [syncNote, setSyncNote] = useState<string | null>(null)
+    async function handleSync() {
+        setSyncing(true)
+        try {
+            const res = await syncWhatsAppTemplates()
+            setSyncNote(res.message)
+            if (res.ok) router.refresh()
+        } catch (err) {
+            if (isStaleActionError(err)) { setSyncNote(STALE_ACTION_MESSAGE); setTimeout(() => location.reload(), 900); return }
+            setSyncNote('Could not reach Meta. Try again.')
+        } finally {
+            setSyncing(false)
+        }
+    }
+
+    // ── Send ──────────────────────────────────────────────────────────────
     const [confirmText, setConfirmText] = useState('')
     const [launchError, setLaunchError] = useState<string | null>(null)
-    const [notice, setNotice] = useState<string | null>(null)
     const [launching, startLaunch] = useTransition()
+    const [trackedId, setTrackedId] = useState<string | null>(
+        () => broadcasts.find(b => b.status === 'sending')?.id ?? null,
+    )
 
-    const readyToSend = mode === 'season_reopen'
-        ? (count ?? 0) > 0 && !countLoading
-        : channel === 'whatsapp'
-            ? Boolean(template) && (count ?? 0) > 0 && !countLoading
-            : Boolean(subject.trim() && heading.trim() && body.trim()) && (count ?? 0) > 0 && !countLoading
-
-    function openConfirm() {
-        setLaunchError(null)
-        setNotice(null)
-        setConfirmText('')
-        setConfirmOpen(true)
-        // The number's health is read now, not at page load: a rating that
-        // dropped while the composer was open is the one to decide against.
-        if (channel === 'whatsapp') {
-            setPreflight(null)
-            whatsappPreflight(count ?? 0).then(setPreflight).catch(() => setPreflight(null))
-        }
-    }
-
-    async function handleSyncTemplates() {
-        setSyncing(true)
-        const res = await syncWhatsAppTemplates()
-        setSyncing(false)
-        setSyncNote(res.message)
-        if (res.ok) router.refresh()
-    }
-
-    function handleLaunch() {
+    function handleSend() {
         setLaunchError(null)
         startLaunch(async () => {
-            const res = await launchBroadcast({
-                kind: mode,
-                channel,
-                subject,
-                heading,
-                body,
-                ctaLabel: ctaLabel.trim() || undefined,
-                ctaUrl: ctaUrl.trim() || undefined,
-                audience,
-                dormName: audience === 'dorm' ? dormName : undefined,
-                templateName: template?.name,
-                templateLanguage: template?.language,
-                templateVariables: templateValues,
-                includeUnknownConsent: includeUnknown,
-            })
-            if (!res.ok || !res.id) { setLaunchError(res.message); return }
-            setConfirmOpen(false)
-            setNotice(res.message)
-            setTrackedId(res.id)
-            setProgress({ ok: true, status: 'sending', total: res.count ?? 0, sent: 0, failedParked: 0 })
-            router.refresh()
-        })
-    }
-
-    // ── Progress tracking ────────────────────────────────────────────────
-    // One broadcast is watched at a time: whatever was just launched, or the
-    // most recent row still sending when the page loaded.
-    const [trackedId, setTrackedId] = useState<string | null>(
-        () => broadcasts.find(b => b.status === 'sending')?.id ?? null
-    )
-    const [progress, setProgress] = useState<Progress | null>(null)
-    const [pollNonce, setPollNonce] = useState(0)
-    const tracked = broadcasts.find(b => b.id === trackedId) ?? null
-
-    // router.refresh identity is stable, but pin it so the poll effect never
-    // restarts on an unrelated render and double-schedules itself.
-    const refresh = useRef(router.refresh)
-    refresh.current = router.refresh
-
-    useEffect(() => {
-        if (!trackedId) return
-        let stale = false
-        let timer: ReturnType<typeof setTimeout> | undefined
-
-        async function tick() {
-            const res = await getBroadcastProgress(trackedId as string)
-            if (stale) return
-            setProgress(res)
-            if (res.ok && res.status === 'sending') {
-                timer = setTimeout(tick, POLL_MS)
-            } else {
-                // The run settled: pull the history table back in step with it.
-                refresh.current()
+            try {
+                const res = await launchBroadcast({
+                    kind: mode,
+                    channel,
+                    subject, heading, body,
+                    ctaLabel: ctaLabel.trim() || undefined,
+                    ctaUrl: ctaUrl.trim() || undefined,
+                    audience: effectiveAudience,
+                    dormName: effectiveAudience === 'dorm' ? dormName : undefined,
+                    templateName: template?.name,
+                    templateLanguage: template?.language,
+                    templateVariables: values,
+                    includeUnknownConsent: includeUnknown,
+                })
+                if (!res.ok || !res.id) { setLaunchError(res.message); return }
+                setTrackedId(res.id)
+                setConfirmText('')
+                setStep('audience')
+                router.refresh()
+            } catch (err) {
+                if (isStaleActionError(err)) { setLaunchError(STALE_ACTION_MESSAGE); setTimeout(() => location.reload(), 900); return }
+                setLaunchError('Could not reach the server. Nothing was sent.')
             }
-        }
-        tick()
-
-        return () => { stale = true; if (timer) clearTimeout(timer) }
-    }, [trackedId, pollNonce])
-
-    // ── Cancel / retry ───────────────────────────────────────────────────
-    const [cancelOpen, setCancelOpen] = useState(false)
-    const [actionError, setActionError] = useState<string | null>(null)
-    const [actionNotice, setActionNotice] = useState<string | null>(null)
-    const [actionPending, startAction] = useTransition()
-
-    function handleCancel() {
-        setActionError(null)
-        setActionNotice(null)
-        startAction(async () => {
-            const res = await cancelBroadcast(trackedId as string)
-            if (!res.ok) { setActionError(res.message); return }
-            setCancelOpen(false)
-            setActionNotice(res.message)
-            setPollNonce(n => n + 1)
-            router.refresh()
         })
     }
 
-    const handleRetry = useCallback((id: string) => {
-        setActionError(null)
-        setActionNotice(null)
-        // Track it first, so the progress panel is on screen to carry whatever
-        // this retry has to say — including a failure message.
-        setTrackedId(id)
-        startAction(async () => {
-            const res = await retryBroadcastFailures(id)
-            if (!res.ok) { setActionError(res.message); return }
-            setActionNotice(res.message)
-            setPollNonce(n => n + 1)
-            router.refresh()
-        })
-    }, [router])
+    const onTrack = useCallback((id: string | null) => setTrackedId(id), [])
 
-    const liveParked = progress?.failedParked ?? 0
-    const trackedParked = trackedId ? (liveParked || parked[trackedId] || 0) : 0
-    const pct = progress && progress.total > 0
-        ? Math.min(100, Math.round((progress.sent / progress.total) * 100))
-        : 0
+    const audienceLabel = AUDIENCE_LABELS[effectiveAudience] + (effectiveAudience === 'dorm' && dormName ? ` · ${dormName}` : '')
+    const next = ORDER[ORDER.indexOf(step) + 1] as Step | undefined
 
     return (
-        <div>
-            <h1 className={`text-xl font-black tracking-tight mb-1 ${t.heading}`}>Broadcast</h1>
-            <p className={`text-[13px] font-medium mb-5 ${t.muted}`}>
-                One email to a whole audience. Every recipient is logged, and a send in flight can be stopped.
-            </p>
+        <div className="pb-32">
+            <header className="mb-6">
+                <h1 className={`text-[26px] font-black tracking-tight ${t.heading}`}>Send a broadcast</h1>
+                <p className={`text-[14px] font-medium mt-1 ${t.muted}`}>
+                    Who it goes to, what it says, then send. Every person is logged, and a send can be stopped.
+                </p>
+            </header>
 
-            {/* Channel. Email and WhatsApp are different enough that the
-                composer changes shape: WhatsApp cannot send free text at all,
-                only an approved template with its variables filled in. */}
-            <div className="flex gap-1.5 mb-3">
+            {/* The channel frames everything below it, so it is its own control
+                and not one more pill among many. */}
+            <div className={`inline-flex rounded-xl border p-1 mb-6 ${t.border} ${t.card}`} role="radiogroup" aria-label="Channel">
                 {([
-                    ['email', 'Email', <Mail key="m" size={12} strokeWidth={2.4} />],
-                    ['whatsapp', 'WhatsApp', <MessageCircle key="w" size={12} strokeWidth={2.4} />],
-                ] as const).map(([key, label, icon]) => (
-                    <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                            setChannel(key)
-                            // Leaving the reopening notice on WhatsApp would
-                            // silently send the wrong thing: it is a ZeptoMail
-                            // template and has no WhatsApp equivalent.
-                            if (key === 'whatsapp') setMode('custom')
-                            setIncludeUnknown(false)
-                            setNotice(null); setLaunchError(null)
-                        }}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase transition-colors border ${
-                            channel === key ? `${t.accentBg} ${t.accent}` : `${t.card} ${t.muted}`
-                        }`}
-                    >
-                        {icon}{label}
-                    </button>
-                ))}
+                    ['whatsapp', 'WhatsApp', MessageCircle, 'Offers and news'],
+                    ['email', 'Email', Mail, 'Account notices'],
+                ] as const).map(([key, label, Icon, sub]) => {
+                    const on = channel === key
+                    return (
+                        <button
+                            key={key}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            onClick={() => switchChannel(key)}
+                            className={`flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-left transition-colors ${
+                                on ? 'bg-[#f57f20] text-white' : `${t.muted} hover:bg-black/[0.03]`
+                            }`}
+                        >
+                            <Icon size={18} strokeWidth={2.2} />
+                            <span>
+                                <span className="block text-[14px] font-black leading-tight">{label}</span>
+                                <span className={`block text-[11px] font-bold leading-tight ${on ? 'text-white/80' : t.faint}`}>{sub}</span>
+                            </span>
+                        </button>
+                    )
+                })}
             </div>
 
-            {/* Mode toggle */}
-            <div className={`flex gap-1.5 mb-5 ${channel === 'whatsapp' ? 'hidden' : ''}`}>
-                {([
-                    ['custom', 'Custom email'],
-                    ['season_reopen', 'Season reopening notice'],
-                ] as const).map(([key, label]) => (
-                    <button
-                        key={key}
-                        type="button"
-                        onClick={() => { setMode(key); setNotice(null); setLaunchError(null) }}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase transition-colors border ${
-                            mode === key ? `${t.accentBg} ${t.accent}` : `${t.card} ${t.muted}`
-                        }`}
-                    >
-                        {label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-5 items-start">
-                {/* ── Composer column ───────────────────────────────────── */}
-                <div className="flex flex-col gap-5 min-w-0">
-                    {channel === 'whatsapp' && (
-                        <div className={`rounded-xl border p-5 ${t.card}`}>
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>The message</div>
-                                <button
-                                    type="button"
-                                    onClick={handleSyncTemplates}
-                                    disabled={syncing}
-                                    className={`text-[10px] font-bold tracking-[0.06em] uppercase ${t.accent} disabled:opacity-40`}
-                                >
-                                    {syncing ? 'Syncing…' : 'Sync from Meta'}
-                                </button>
-                            </div>
-                            {syncNote && <p className={`mt-2 text-[11px] font-medium ${t.muted}`}>{syncNote}</p>}
-
-                            <p className={`mt-3 text-[12px] font-medium leading-relaxed ${t.muted}`}>
-                                WhatsApp only carries templates Meta has approved. Pick one and fill its
-                                blanks — <code className={t.heading}>{'{{first_name}}'}</code> in any value becomes
-                                the person&apos;s name.
-                            </p>
-
-                            <Field label="Template" t={t}>
-                                <select
-                                    value={templateKey}
-                                    onChange={e => { setTemplateKey(e.target.value); setTemplateValues({}) }}
-                                    className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                >
-                                    <option value="">— pick an approved template —</option>
-                                    {approvedTemplates.map(tpl => (
-                                        <option key={`${tpl.name}|${tpl.language}`} value={`${tpl.name}|${tpl.language}`}>
-                                            {tpl.name} ({tpl.language}) · {tpl.category}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-
-                            {approvedTemplates.length === 0 && (
-                                <p className={`mt-2 text-[12px] font-bold ${t.danger}`}>
-                                    No approved templates yet. Create a Marketing template in Meta Business
-                                    Manager, wait for approval, then press Sync from Meta.
-                                </p>
-                            )}
-
-                            {template && (
-                                <>
-                                    <div className={`mt-4 rounded-lg border px-3 py-2.5 text-[13px] font-medium leading-relaxed ${t.border} ${t.body}`}>
-                                        {template.body_preview}
-                                    </div>
-                                    {template.variables.map(name => (
-                                        <Field key={name} label={`Value for ${template.named_params ? name : `{{${name}}}`}`} t={t}>
-                                            <input
-                                                type="text"
-                                                value={templateValues[name] ?? ''}
-                                                onChange={e => setTemplateValues(v => ({ ...v, [name]: e.target.value }))}
-                                                placeholder={name === 'first_name' || name === '1' ? '{{first_name}}' : 'What goes here'}
-                                                className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                            />
-                                        </Field>
-                                    ))}
-                                </>
-                            )}
-                        </div>
+            <div className="flex flex-col gap-3">
+                <StepCard
+                    n={1}
+                    title="Who gets it"
+                    state={stepState('audience')}
+                    summary={`${audienceLabel} · ${fmt(count)} ${count === 1 ? 'person' : 'people'}`}
+                    onEdit={() => setStep('audience')}
+                >
+                    {channel === 'email' && mode === 'season_reopen' ? (
+                        <p className={`text-[14px] font-medium ${t.body}`}>
+                            The reopening notice always goes to its own list: everyone holding waitlist credit,
+                            everyone who saved a spot, and past customers without a plan —{' '}
+                            <strong className={t.heading}>{countLoading ? '…' : fmt(count)} people</strong>.
+                        </p>
+                    ) : (
+                        <AudiencePicker
+                            channel={channel}
+                            selected={audience}
+                            onSelect={setAudience}
+                            counts={counts}
+                            loading={countLoading}
+                            includeUnknown={includeUnknown}
+                            onIncludeUnknown={setIncludeUnknown}
+                            dorms={dorms}
+                            dormName={dormName}
+                            onDorm={setDormName}
+                        />
                     )}
+                    {countError && <p className={`text-[13px] font-bold mt-4 ${t.danger}`}>{countError}</p>}
+                </StepCard>
 
-                    {channel === 'email' && mode === 'custom' && (
-                        <div className={`rounded-xl border p-5 ${t.card}`}>
-                            <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>The email</div>
-
-                            <Field label={`Subject (${subject.length}/${SUBJECT_MAX})`} t={t}>
-                                <input
-                                    type="text"
-                                    value={subject}
-                                    maxLength={SUBJECT_MAX}
-                                    onChange={e => setSubject(e.target.value)}
-                                    placeholder="What lands in the inbox list"
-                                    className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                />
-                            </Field>
-
-                            <Field label="Heading" t={t}>
-                                <input
-                                    type="text"
-                                    value={heading}
-                                    maxLength={200}
-                                    onChange={e => setHeading(e.target.value)}
-                                    placeholder="The big line at the top of the email"
-                                    className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                />
-                            </Field>
-
-                            <Field label={`Body (${body.length}/${BODY_MAX})`} t={t}>
-                                <textarea
-                                    value={body}
-                                    maxLength={BODY_MAX}
-                                    rows={9}
-                                    onChange={e => setBody(e.target.value)}
-                                    placeholder="Write the message here."
-                                    className={`w-full rounded-lg border px-3 py-2 text-[13px] font-medium leading-relaxed transition-colors resize-y ${t.input} ${t.inputFocus}`}
-                                />
-                            </Field>
-                            <p className={`text-[11px] font-medium mt-1.5 ${t.faint}`}>
-                                A blank line starts a new paragraph. Write {'{{first_name}}'} anywhere in the heading or body
-                                to drop in the customer first name. The preview fills it in as Ahmed.
-                            </p>
-
-                            <div className={`mt-4 pt-4 border-t ${t.border}`}>
-                                <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>Button (optional)</div>
-                                <div className="grid sm:grid-cols-2 gap-3 mt-3">
-                                    <label className="flex flex-col gap-1.5 min-w-0">
-                                        <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>Label</span>
-                                        <input
-                                            type="text"
-                                            value={ctaLabel}
-                                            maxLength={40}
-                                            onChange={e => setCtaLabel(e.target.value)}
-                                            placeholder="See the menu"
-                                            className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                        />
-                                    </label>
-                                    <label className="flex flex-col gap-1.5 min-w-0">
-                                        <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>Link</span>
-                                        <input
-                                            type="url"
-                                            value={ctaUrl}
-                                            onChange={e => setCtaUrl(e.target.value)}
-                                            placeholder="https://dormers.ae/menu"
-                                            className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                        />
-                                    </label>
-                                </div>
-                                <p className={`text-[11px] font-medium mt-1.5 ${t.faint}`}>
-                                    Leave both blank for no button. A button needs both, and the link must start with https.
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Audience */}
-                    <div className={`rounded-xl border p-5 ${t.card}`}>
-                        <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>Who gets it</div>
-
-                        {mode === 'custom' ? (
-                            <div className="grid sm:grid-cols-2 gap-3 mt-3">
-                                <label className="flex flex-col gap-1.5 min-w-0">
-                                    <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>Audience</span>
-                                    <select
-                                        value={customAudience}
-                                        onChange={e => setCustomAudience(e.target.value)}
-                                        className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                    >
-                                        {AUDIENCES.map(a => (
-                                            <option key={a.value} value={a.value}>{a.label}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                                {customAudience === 'dorm' && (
-                                    <label className="flex flex-col gap-1.5 min-w-0">
-                                        <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>Dorm</span>
-                                        <select
-                                            value={dormName}
-                                            onChange={e => setDormName(e.target.value)}
-                                            className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
-                                        >
-                                            {dorms.map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                    </label>
-                                )}
-                            </div>
-                        ) : (
-                            <p className={`text-[13px] font-medium leading-relaxed mt-3 ${t.body}`}>
-                                The early access list plus everyone whose plan ended and has not come back.
-                            </p>
-                        )}
-
-                        <div className={`mt-4 flex items-center gap-2 text-[13px] font-bold ${countError ? t.danger : t.heading}`}>
-                            {countError ? (
-                                <>
-                                    <AlertTriangle size={14} strokeWidth={2.4} />
-                                    <span>{countError}</span>
-                                </>
-                            ) : countLoading || count === null ? (
-                                <span className={t.faint}>Counting the audience.</span>
-                            ) : (
-                                <span className="tabular-nums">
-                                    Will reach {count} {count === 1 ? 'customer' : 'customers'}.
-                                </span>
-                            )}
-                        </div>
-
-                        {launchError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{launchError}</p>}
-                        {notice && !launchError && <p className={`mt-3 text-[12px] font-bold ${t.success}`}>{notice}</p>}
-
-                        <div className="mt-4">
-                            <AdminButton
-                                icon={<Send size={14} strokeWidth={2.5} />}
-                                onClick={openConfirm}
-                                disabled={!readyToSend || launching}
-                            >
-                                Review and Send
-                            </AdminButton>
-                        </div>
-                    </div>
-
-                    {/* Progress */}
-                    {trackedId && progress && (
-                        <div className={`rounded-xl border p-5 ${t.card}`}>
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>
-                                    {progress.status === 'sending' ? 'Sending now' : 'Last run'}
-                                </div>
-                                <StatusBadge status={progress.status} />
-                            </div>
-
-                            {tracked && (
-                                <div className={`text-[13px] font-bold mt-2 ${t.heading}`}>{tracked.subject}</div>
-                            )}
-
-                            <div className={`mt-3 h-2 rounded-full overflow-hidden ${t.tableHeader}`}>
-                                <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f9a962 0%, #f57f20 100%)' }}
-                                />
-                            </div>
-
-                            <div className={`mt-2 text-[12px] font-bold tabular-nums ${t.body}`}>
-                                {progress.sent} of {progress.total} sent
-                                {trackedParked > 0 && (
-                                    <span className={t.danger}>. {trackedParked} parked after 3 attempts</span>
-                                )}
-                            </div>
-
-                            {actionError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{actionError}</p>}
-                            {actionNotice && !actionError && <p className={`mt-3 text-[12px] font-bold ${t.success}`}>{actionNotice}</p>}
-
-                            <div className="flex flex-wrap gap-2.5 mt-4">
-                                {progress.status === 'sending' && (
-                                    <AdminButton
-                                        variant="danger"
-                                        icon={<Ban size={14} strokeWidth={2.5} />}
-                                        onClick={() => { setActionError(null); setCancelOpen(true) }}
-                                        disabled={actionPending}
-                                    >
-                                        Stop Sending
-                                    </AdminButton>
-                                )}
-                                {trackedParked > 0 && (
-                                    <AdminButton
-                                        variant="ghost"
-                                        icon={<RefreshCw size={14} strokeWidth={2.5} />}
-                                        onClick={() => handleRetry(trackedId)}
-                                        loading={actionPending}
-                                    >
-                                        Retry Failures
-                                    </AdminButton>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Preview column ────────────────────────────────────── */}
-                <div className="lg:sticky lg:top-5 self-start min-w-0">
-                    <div className={`text-[10px] font-black tracking-[0.12em] uppercase mb-2 ${t.faint}`}>
-                        {channel === 'whatsapp'
-                            ? 'What this sends'
-                            : mode === 'custom' ? 'Live preview. What lands in the inbox' : 'What this sends'}
-                    </div>
+                <StepCard
+                    n={2}
+                    title="What it says"
+                    state={stepState('message')}
+                    summary={channel === 'whatsapp'
+                        ? (template ? humanName(template.name) : 'No template')
+                        : mode === 'season_reopen' ? 'Season reopening notice' : (subject || 'Untitled')}
+                    onEdit={() => setStep('message')}
+                >
                     {channel === 'whatsapp' ? (
-                        <div className={`rounded-xl border p-5 ${t.card}`}>
-                            {template ? (
-                                <>
-                                    {/* The nearest thing to a live preview WhatsApp allows: the
-                                        approved body with the values filled in, for one made-up
-                                        recipient. Meta renders the real thing from the template. */}
-                                    <div className={`rounded-xl px-3.5 py-3 text-[13px] font-medium leading-relaxed ${t.accentBg} ${t.heading}`}>
-                                        {template.variables.reduce(
-                                            (text, name) => text.replace(
-                                                new RegExp(`\\{\\{\\s*${name}\\s*\\}\\}`, 'g'),
-                                                (templateValues[name] ?? `{{${name}}}`).replace(/\{\{\s*first_name\s*\}\}/g, 'Ahmed'),
-                                            ),
-                                            template.body_preview,
-                                        )}
-                                    </div>
-                                    <p className={`text-[12px] font-medium leading-relaxed mt-3 ${t.muted}`}>
-                                        {template.category} template, approved by Meta. The wording itself cannot be
-                                        edited here — changing it means submitting a new template and waiting for
-                                        approval.
-                                    </p>
-                                </>
-                            ) : (
-                                <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
-                                    Pick an approved template to see what this sends.
-                                </p>
-                            )}
-                        </div>
-                    ) : mode === 'custom' ? (
-                        // No background of our own: the email carries a dark-mode block, so
-                        // the frame's own canvas is what makes the preview match what a
-                        // recipient on this colour scheme actually sees.
-                        <iframe
-                            title="Email preview"
-                            srcDoc={previewHtml}
-                            className={`w-full h-[560px] lg:h-[calc(100vh-140px)] rounded-xl border ${t.border}`}
+                        <MessageWhatsApp
+                            templates={templates}
+                            selectedKey={templateKey}
+                            onSelect={k => { setTemplateKey(k); setValues({}) }}
+                            values={values}
+                            onValue={(n, v) => setValues(prev => ({ ...prev, [n]: v }))}
+                            onSync={handleSync}
+                            syncing={syncing}
+                            syncNote={syncNote}
                         />
                     ) : (
-                        <div className={`rounded-xl border p-5 ${t.card}`}>
-                            <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
-                                The season reopening template, rendered by ZeptoMail one version per customer. Credit
-                                holders see their amount and a Use my credit button. Everyone else sees the plain we are
-                                back version with Restart my plan.
-                            </p>
-                            <p className={`text-[12px] font-medium leading-relaxed mt-3 ${t.muted}`}>
-                                Nothing here is editable. The wording lives in the template so the credit block and the
-                                button label stay in step with what each customer actually has. Send yourself a test from
-                                ZeptoMail if you want to see the artwork before this goes out.
-                            </p>
-                        </div>
+                        <MessageEmail
+                            mode={mode} onMode={setMode}
+                            subject={subject} onSubject={setSubject}
+                            heading={heading} onHeading={setHeading}
+                            body={body} onBody={setBody}
+                            ctaLabel={ctaLabel} onCtaLabel={setCtaLabel}
+                            ctaUrl={ctaUrl} onCtaUrl={setCtaUrl}
+                            audience={effectiveAudience}
+                        />
                     )}
+                </StepCard>
+
+                <StepCard n={3} title="Send" state={stepState('send')}>
+                    <SendSlip
+                        channel={channel}
+                        audienceLabel={audienceLabel}
+                        count={count}
+                        health={channel === 'whatsapp' ? health : null}
+                        readiness={readiness}
+                        confirmText={confirmText}
+                        onConfirmText={setConfirmText}
+                        onSend={handleSend}
+                        sending={launching}
+                        error={launchError}
+                    />
+                </StepCard>
+            </div>
+
+            <div className="mt-10">
+                <Runs broadcasts={broadcasts} parked={parked} trackedId={trackedId} onTrack={onTrack} />
+            </div>
+
+            {/* ── The bar: always says where you stand ───────────────────────── */}
+            <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[110] px-4 pb-4 pointer-events-none">
+                <div className={`pointer-events-auto mx-auto max-w-4xl flex items-center gap-4 rounded-2xl border px-5 py-3.5 ${t.overlay}`}>
+                    <div className="shrink-0">
+                        <div className={`text-[22px] font-black tabular-nums leading-none ${t.heading}`}>
+                            {countLoading ? '…' : fmt(count)}
+                        </div>
+                        <div className={`text-[11px] font-bold mt-1 ${t.muted}`}>
+                            {channel === 'whatsapp' ? 'on WhatsApp' : 'by email'}
+                        </div>
+                    </div>
+
+                    <div className={`min-w-0 flex-1 border-l pl-4 ${t.border}`}>
+                        {readiness.pending ? (
+                            <p className={`text-[13px] font-medium ${t.muted}`}>Counting…</p>
+                        ) : blockedBehind || blockedHere ? (
+                            <>
+                                <p className={`text-[13px] font-bold truncate ${t.heading}`}>{readiness.blocker}</p>
+                                {readiness.fix && <p className={`text-[12px] font-medium truncate ${t.muted}`}>{readiness.fix}</p>}
+                            </>
+                        ) : readiness.ready && step === 'send' ? (
+                            <p className={`text-[13px] font-bold ${t.success}`}>Ready — type SEND above.</p>
+                        ) : (
+                            <p className={`text-[13px] font-bold ${t.success}`}>
+                                {step === 'audience' ? `${audienceLabel} — looks good.` : 'Message looks good.'}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="shrink-0">
+                        {blockedBehind && blockedAt ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep(blockedAt)}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold ${t.accentBg} ${t.accent} border`}
+                            >
+                                Fix it in step {ORDER.indexOf(blockedAt) + 1}
+                            </button>
+                        ) : next ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep(next)}
+                                disabled={!canLeave(step)}
+                                className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-bold bg-[#f57f20] text-white disabled:opacity-40 transition-opacity"
+                            >
+                                Continue <ArrowRight size={15} strokeWidth={2.5} />
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
             </div>
-
-            {/* ── History ───────────────────────────────────────────────── */}
-            <div className="mt-8">
-                <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-3 ${t.muted}`}>Recent broadcasts</div>
-
-                {broadcasts.length === 0 ? (
-                    <div className={`text-center py-12 text-sm font-semibold ${t.faint}`}>No broadcasts yet</div>
-                ) : (
-                    <>
-                        {/* Desktop table */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-[13px]">
-                                <thead>
-                                    <tr className={t.tableHeader}>
-                                        <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Subject</th>
-                                        <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Audience</th>
-                                        <th className="text-right px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Recipients</th>
-                                        <th className="text-center px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Status</th>
-                                        <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Sent by</th>
-                                        <th className="text-right px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">When</th>
-                                        <th className="text-right px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {broadcasts.map(b => {
-                                        const rowParked = b.id === trackedId ? trackedParked : (parked[b.id] ?? 0)
-                                        return (
-                                            <tr key={b.id} className={`${t.tableRow} ${b.id === trackedId ? t.tableRowSelected : ''} transition-colors`}>
-                                                <td className={`px-3 py-2.5 font-bold ${t.heading}`}>{b.subject}</td>
-                                                <td className={`px-3 py-2.5 ${t.body}`}>
-                                                    {AUDIENCE_LABELS[b.audience] ?? b.audience}
-                                                    {b.dorm_name ? ` (${b.dorm_name})` : ''}
-                                                </td>
-                                                <td className={`px-3 py-2.5 text-right tabular-nums ${t.body}`}>{b.recipient_count}</td>
-                                                <td className="px-3 py-2.5 text-center"><StatusBadge status={b.status} /></td>
-                                                <td className={`px-3 py-2.5 text-[11px] ${t.faint}`}>{b.created_by.split('@')[0]}</td>
-                                                <td className={`px-3 py-2.5 text-right tabular-nums text-[11px] ${t.faint}`}>{formatTime(b.created_at)}</td>
-                                                <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                                                    {rowParked > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRetry(b.id)}
-                                                            disabled={actionPending}
-                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase border transition-colors ${t.dangerBg} ${t.danger} disabled:opacity-50`}
-                                                        >
-                                                            <RefreshCw size={11} strokeWidth={2.5} />
-                                                            Retry {rowParked}
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile cards */}
-                        <div className="md:hidden flex flex-col gap-2">
-                            {broadcasts.map(b => {
-                                const rowParked = b.id === trackedId ? trackedParked : (parked[b.id] ?? 0)
-                                return (
-                                    <div key={b.id} className={`${t.card} rounded-xl p-3`}>
-                                        <div className="flex items-start justify-between gap-2 mb-1">
-                                            <span className={`text-[13px] font-bold ${t.heading}`}>{b.subject}</span>
-                                            <StatusBadge status={b.status} />
-                                        </div>
-                                        <div className={`text-[11px] ${t.faint}`}>
-                                            {AUDIENCE_LABELS[b.audience] ?? b.audience}
-                                            {b.dorm_name ? ` (${b.dorm_name})` : ''} · {b.recipient_count} recipients · {formatTime(b.created_at)}
-                                        </div>
-                                        {rowParked > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRetry(b.id)}
-                                                disabled={actionPending}
-                                                className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase border transition-colors ${t.dangerBg} ${t.danger} disabled:opacity-50`}
-                                            >
-                                                <RefreshCw size={11} strokeWidth={2.5} />
-                                                Retry {rowParked}
-                                            </button>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </>
-                )}
-            </div>
-
-            {/* ── Confirm send ──────────────────────────────────────────── */}
-            {confirmOpen && (
-                <AdminModal
-                    label="Confirm broadcast"
-                    maxW="max-w-[460px]"
-                    onBackdrop={() => { if (!launching) setConfirmOpen(false) }}
-                >
-                    <div className={`px-5 py-4 border-b ${t.border}`}>
-                        <div className={`text-[15px] font-black ${t.heading}`}>Send to {count ?? 0} {count === 1 ? 'person' : 'people'}?</div>
-                    </div>
-                    <div className="px-5 py-4">
-                        <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
-                            {channel === 'whatsapp'
-                                ? <>This WhatsApps <b className={t.heading}>{count ?? 0}</b> {count === 1 ? 'person' : 'people'} from the
-                                    same number the signup code comes from, and cannot be recalled once sent.</>
-                                : <>This emails <b className={t.heading}>{count ?? 0}</b> {count === 1 ? 'person' : 'people'} and cannot be
-                                    recalled once sent.</>}
-                            {' '}Type SEND to confirm.
-                        </p>
-
-                        {channel === 'whatsapp' && (
-                            <div className={`mt-3 rounded-lg border px-3 py-2.5 ${t.border}`}>
-                                {preflight === null ? (
-                                    <p className={`text-[12px] font-medium ${t.faint}`}>Checking the number…</p>
-                                ) : (
-                                    <>
-                                        <div className={`flex items-center justify-between gap-2 text-[12px] font-bold ${t.body}`}>
-                                            <span>Number health</span>
-                                            <AdminBadge variant={preflight.verdict === 'ok' ? 'active' : preflight.verdict === 'warn' ? 'warning' : 'rejected'}>
-                                                {preflight.qualityRating ?? 'unknown'}
-                                            </AdminBadge>
-                                        </div>
-                                        <div className={`mt-1.5 text-[12px] font-medium ${t.muted}`}>
-                                            {preflight.sentLast24h} sent in the last 24h · {preflight.remaining} left today
-                                        </div>
-                                        {/* The first thing in this admin panel where pressing a
-                                            button spends money per recipient. It should say so. */}
-                                        <div className={`mt-1 text-[12px] font-bold ${t.heading}`}>
-                                            About AED {preflight.estimatedCostAed.toFixed(2)} at AED {preflight.ratePerMessageAed} each
-                                        </div>
-                                        {preflight.verdict === 'block' && (
-                                            <p className={`mt-2 text-[12px] font-bold ${t.danger}`}>
-                                                The rating is RED. Sending now risks the number the signup flow depends on.
-                                            </p>
-                                        )}
-                                        {preflight.verdict === 'warn' && (
-                                            <p className={`mt-2 text-[12px] font-bold ${t.warning}`}>
-                                                Not a clean green. Consider a smaller group first.
-                                            </p>
-                                        )}
-                                    </>
-                                )}
-
-                                <label className="flex items-start gap-2 mt-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={includeUnknown}
-                                        onChange={e => setIncludeUnknown(e.target.checked)}
-                                        className="mt-0.5"
-                                    />
-                                    <span className={`text-[12px] font-medium leading-snug ${t.body}`}>
-                                        Also message people who never opted in to WhatsApp marketing.
-                                        <span className={`block ${t.faint}`}>
-                                            They gave us their number for orders and codes, not for news.
-                                            Anyone who replied STOP is never included. This choice is recorded.
-                                        </span>
-                                    </span>
-                                </label>
-                            </div>
-                        )}
-                        <input
-                            type="text"
-                            value={confirmText}
-                            autoFocus
-                            onChange={e => setConfirmText(e.target.value)}
-                            placeholder="SEND"
-                            aria-label="Type SEND to confirm"
-                            className={`w-full mt-3 rounded-lg border px-3 py-2 text-[13px] font-black tracking-[0.12em] uppercase transition-colors ${t.input} ${t.inputFocus}`}
-                        />
-                        {launchError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{launchError}</p>}
-                    </div>
-                    <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
-                        <AdminButton variant="ghost" onClick={() => setConfirmOpen(false)} disabled={launching}>
-                            Cancel
-                        </AdminButton>
-                        <AdminButton
-                            icon={<Send size={14} strokeWidth={2.5} />}
-                            onClick={handleLaunch}
-                            loading={launching}
-                            disabled={
-                                confirmText.trim() !== 'SEND'
-                                || (channel === 'whatsapp' && (preflight === null || preflight.verdict === 'block'))
-                            }
-                        >
-                            Send Now
-                        </AdminButton>
-                    </div>
-                </AdminModal>
-            )}
-
-            {/* ── Confirm stop ──────────────────────────────────────────── */}
-            {cancelOpen && (
-                <AdminModal
-                    label="Confirm stop"
-                    maxW="max-w-[440px]"
-                    onBackdrop={() => { if (!actionPending) setCancelOpen(false) }}
-                >
-                    <div className={`px-5 py-4 border-b ${t.border}`}>
-                        <div className={`text-[15px] font-black ${t.heading}`}>Stop this broadcast?</div>
-                    </div>
-                    <div className="px-5 py-4">
-                        <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
-                            Stops new sends within a few seconds. Already sent emails stay sent.
-                        </p>
-                        {actionError && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{actionError}</p>}
-                    </div>
-                    <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
-                        <AdminButton variant="ghost" onClick={() => setCancelOpen(false)} disabled={actionPending}>
-                            Keep Sending
-                        </AdminButton>
-                        <AdminButton variant="danger" icon={<Ban size={14} strokeWidth={2.5} />} onClick={handleCancel} loading={actionPending}>
-                            Yes, Stop It
-                        </AdminButton>
-                    </div>
-                </AdminModal>
-            )}
         </div>
     )
 }
 
-// ── Bits ─────────────────────────────────────────────────────────────────
-
-function Field({ label, t, children }: { label: string; t: AdminTokens; children: React.ReactNode }) {
-    return (
-        <label className="flex flex-col gap-1.5 mt-3">
-            <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${t.muted}`}>{label}</span>
-            {children}
-        </label>
-    )
-}
-
-function StatusBadge({ status }: { status: string }) {
-    if (status === 'sending') return <AdminBadge variant="pending">Sending</AdminBadge>
-    if (status === 'done') return <AdminBadge variant="approved">Done</AdminBadge>
-    if (status === 'cancelled') return <AdminBadge variant="rejected">Stopped</AdminBadge>
-    return <AdminBadge variant="neutral">{status}</AdminBadge>
-}
-
-function formatTime(iso: string): string {
-    return new Date(iso).toLocaleString('en-AE', {
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-        timeZone: 'Asia/Dubai',
-    })
+function humanName(s: string) {
+    const w = s.replace(/_/g, ' ')
+    return w.charAt(0).toUpperCase() + w.slice(1)
 }

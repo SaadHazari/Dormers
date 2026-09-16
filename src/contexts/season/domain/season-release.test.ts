@@ -23,6 +23,7 @@ describe('season release flags', () => {
       'src/app/dashboard/_shared/SeasonSplitSheet.tsx',
       'src/app/dashboard/_shared/BreakResumeSheet.tsx',
       'src/app/admin/season/RefundQueue.tsx',
+      'src/app/admin/season/NeedsYou.tsx',
       'src/app/admin/season/season-data.ts',
       'src/infra/supabase/season-holds-repo.ts',
     ]

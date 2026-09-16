@@ -30,12 +30,14 @@ credit worth what the customer paid for it.
 
 **Where:** `/admin/season`.
 
-1. Read "Last meal on the books" and the kitchen calendar. Every plan's real
-   last dinner comes from its meals left, not its end date.
-2. Pick the wrap-up day and the buffer, read the summary (plans that finish,
-   run past, start after, customer pauses, meals to hold, kitchen days) and
-   confirm. "Stop sales now" can come earlier, or "End the season today" when
-   W is today or later.
+1. Read the kitchen calendar: orange days cook, dashed days are meals that
+   would be held, navy is closed or the break. Every plan's real last dinner
+   comes from its meals left, not its end date.
+2. Tap the wrap-up day on the calendar, pick the make-up days (the buffer),
+   read the panel beside it (kitchen days, meals held and what they are worth)
+   and press Schedule. "Stop sales now" sits in the same panel and can come
+   earlier. "End the season today" is under **More moves** at the foot of the
+   page, offered when W is today or later.
 3. What happens next, on its own:
    - Sales are judged against W: a new plan must finish by it.
    - Skips whose make-up meal would land after W turn into credit; skips that
@@ -49,9 +51,10 @@ credit worth what the customer paid for it.
      closures). Two days before K: the final roster. On K at 20:30: tonight's
      meals.
    - Renewal reminders become "your last dinners" when no plan can follow.
-4. Moving W: "Save new dates". Clearing W: "Clear the wrap-up day" (the
-   kitchen then keeps cooking until the last plan ends). Once W has passed,
-   only Clear is offered; ending today would reopen the kitchen.
+4. Moving W: tap another day, then "Save new dates". Clearing W: "Clear the
+   wrap-up day" under More moves (the kitchen then keeps cooking until the
+   last plan ends). Once W has passed, only Clear is offered, in the panel;
+   ending today would reopen the kitchen.
 
 ## 3. The break
 
@@ -67,8 +70,11 @@ Starts at 00:20 Dubai the night after K (retries at 00:50 and 01:20). It:
   pause carried). Plans that finished on W or K get the season plan-ended
   message at 10:00.
 
-**The break board** replaces the planner: the kitchen-halt check, held plans,
-customer pauses, the refund queue, refunded plans, and Reopen.
+**On the break** the same page shows the calendar gone dark, a Reopen panel
+beside it (saved spots against the target, held plans, the kitchen-halt
+check), and held plans, refunded plans and customer pauses below. Anything
+waiting for you (refund requests, a plan still set to cook) sits in the
+amber **Needs you** list at the top.
 
 If the break has not started by 01:30 after K you get an URGENT WhatsApp:
 open Scheduled Jobs, look at "Semester break starter", and run it from there

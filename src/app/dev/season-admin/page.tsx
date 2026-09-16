@@ -12,6 +12,7 @@
 //   ?season=open|stopped|scheduled|stopped_scheduled|passed|drift|break|break_alert|break_refund|open_refund   season planner state (default stopped)
 import { notFound } from 'next/navigation'
 import { AdminThemeProvider } from '@/app/admin/_components/AdminThemeProvider'
+import { PreviewSurface } from './PreviewSurface'
 import { SeasonClient } from '@/app/admin/season/SeasonClient'
 import type { IntakeSettingsRow, WaitlistMember } from '@/app/admin/season/page'
 import type { SeasonHoldRow, SeasonPageData, SeasonPlanRow } from '@/app/admin/season/season-data'
@@ -154,13 +155,13 @@ export default async function SeasonAdminPreviewPage({
 
   return (
     <AdminThemeProvider>
-      <div className="p-6">
+      <PreviewSurface>
         <SeasonClient
           settings={settings}
           members={params.members === '0' ? [] : fixtureMembers()}
           season={season}
         />
-      </div>
+      </PreviewSurface>
     </AdminThemeProvider>
   )
 }

@@ -15,8 +15,9 @@ const SHOT_DIR = process.env.SHOT_DIR ?? null
 const EXPECT = {
   open: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today'], absent: ['Resume sales', 'Clear the wrap-up day'] },
   stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
-  scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Stop sales now', 'Clear the wrap-up day', 'End the season today'], absent: ['Resume sales'] },
-  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', controls: ['Save new dates', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], absent: ['Stop sales now'] },
+  // "Save new dates" appears once a different day is tapped (pickDay below).
+  scheduled: { title: 'Winding down to Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'], absent: ['Resume sales'] },
+  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Resume sales', 'Clear the wrap-up day', 'End the season today'], absent: ['Stop sales now'] },
   // Wrap-up day already behind today: only Clear survives allowedSeasonActions;
   // ending today would move the wrap-up day back and reopen the kitchen.
   passed: { title: 'Winding down to Sat 12 Sep', controls: ['Clear the wrap-up day'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Resume sales and end the season', 'End the season today'] },
@@ -25,7 +26,7 @@ const EXPECT = {
   drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
   // The break board (plan C): only Reopen, and the kitchen-halt invariant.
   break: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Kitchen halt holding' },
-  break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Active during the break' },
+  break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'would cook during the break' },
   // Plan D (spec §10.3): the refund queue on the break board, and after reopening above the planner.
   break_refund: { title: 'On the break', controls: ['Reopen', 'Approve', 'Decline', 'Retry'], absent: ['Schedule', 'End the season today'], invariant: 'Kitchen halt holding', texts: ['2 refund requests waiting for you', 'Refund requested', 'Refund failed', 'charge has already been refunded', 're_3Q2fixture'] },
   open_refund: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today', 'Approve', 'Decline', 'Retry'], absent: ['Resume sales', 'Clear the wrap-up day'], texts: ['2 refund requests waiting for you'] },
@@ -42,6 +43,9 @@ try {
         const errors = []
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
         await page.goto(`${BASE}/dev/season-admin?season=${state}`, { waitUntil: 'networkidle' })
+        // Clear and End today live in the closed "More moves" drawer; open it
+        // so the button checks below can see them.
+        for (const summary of await page.locator('details > summary').all()) await summary.click()
         const label = `${state} @${width}`
 
         // The status title is read from SeasonPlanner's own status banner
@@ -98,6 +102,12 @@ try {
         }
         for (const c of expect.absent) {
           if (await page.getByRole('button', { name: c, exact: true }).count() > 0) failures.push(`${label}: unexpected button "${c}"`)
+        }
+        // The calendar is the date control: tapping a day drafts the new end.
+        if (expect.pickDay) {
+          if (await page.getByRole('button', { name: 'Save new dates', exact: true }).count() > 0) failures.push(`${label}: "Save new dates" shows before anything changed`)
+          await page.locator(`button[aria-label^="${expect.pickDay}:"]`).click()
+          if (await page.getByRole('button', { name: 'Save new dates', exact: true }).count() === 0) failures.push(`${label}: tapping ${expect.pickDay} did not offer "Save new dates"`)
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
         if (overflow > 1) failures.push(`${label}: page scrolls sideways by ${overflow}px`)

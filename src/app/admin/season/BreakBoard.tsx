@@ -1,33 +1,28 @@
 'use client'
 
 /**
- * The break board (spec §11.3): the kitchen halt, held plans, customer pauses,
- * the refund queue (spec §10.3) and Reopen.
+ * The break (spec §11.3) as the Season page draws it: the Reopen panel beside
+ * the calendar, and the held plans, refunds and customer pauses below it. The
+ * refund queue itself lives in Needs you (spec §10.3).
  */
 
-import { useMemo, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, CalendarClock, CheckCircle2, Play } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
-import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
-import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 import { formatAed } from '@/contexts/season/domain/meal-value'
-import { formatShortDay } from '@/contexts/season/domain/season-dates'
+import { OG, OG_DEEP } from '@/app/dashboard/_shared/tokens'
 import { reopenSeasonAction } from './actions'
-import { RefundQueue } from './RefundQueue'
 import { SEASON_REFUNDS_LIVE } from '@/contexts/season/domain/season-release'
-import { breakBoardView, holdStateLabel, reopenConfirmLines } from './season-break-view'
-import type { SeasonHoldRow, SeasonPageData } from './season-data'
+import { holdStateLabel, reopenConfirmLines, type BreakBoardView } from './season-break-view'
+import type { SeasonHoldRow } from './season-data'
+import { Chip, ConfirmDialog, RowList, Section, plural } from './season-ui'
 
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`
-}
-
-export function BreakBoard({ data }: { data: SeasonPageData }) {
+/** `savedSpots` is the page's own saved-spots count, so the panel and the list never disagree. */
+export function ReopenPanel({ view, savedSpots }: { view: BreakBoardView; savedSpots: number }) {
   const { t } = useAdminTheme()
   const router = useRouter()
-  const view = useMemo(() => breakBoardView(data), [data])
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -42,132 +37,133 @@ export function BreakBoard({ data }: { data: SeasonPageData }) {
     })
   }
 
-  const lastKitchenDay = data.snapshot.closeDay ? formatShortDay(data.snapshot.closeDay) : null
-  const cooking = view.cookingDuringBreak
+  const target = view.reopenTarget
+  const pct = target && target > 0 ? Math.min(100, Math.round((savedSpots / target) * 100)) : null
 
   return (
-    <div className={`mt-6 rounded-xl border p-5 ${t.card}`}>
-      <div data-testid="season-status" className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${t.dangerBg} ${t.danger}`}>
-        <CalendarClock size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
-        <div>
-          <div className="text-[14px] font-black">On the break</div>
-          <div className={`text-[12px] font-medium mt-0.5 max-w-[72ch] ${t.body}`}>
-            {lastKitchenDay ? `The last kitchen day was ${lastKitchenDay}. ` : ''}No sales and no cooking until you reopen. Held plans restart only when their customers tap Resume or pick a start date.
+    <>
+      <div>
+        <div className={`text-[12px] font-bold ${t.muted}`}>Ready to reopen?</div>
+        <div className={`mt-1 text-[28px] font-black tracking-tight tabular-nums ${t.heading}`}>
+          {savedSpots}
+          <span className={`ml-1 text-[14px] font-bold ${t.muted}`}>{target != null ? `of ${target} saved spots` : 'saved spots'}</span>
+        </div>
+        {pct != null && (
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(128,128,128,0.2)]">
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${OG_DEEP} 0%, ${OG} 100%)` }} />
           </div>
-        </div>
+        )}
+        <dl className={`mt-4 flex flex-col gap-2 text-[13px] ${t.body}`}>
+          <Row term="Held plans" value={`${view.heldPlans.length} · ${plural(view.heldMeals, 'meal', 'meals')}`} />
+          <Row term="Ready when you reopen" value={plural(view.readyOnReopen, 'plan', 'plans')} />
+          <Row term="Waitlist credit added" value={`${view.creditsMinted} · ${formatAed(view.creditsMintedFils)}`} />
+        </dl>
       </div>
 
-      <div
-        data-testid="season-invariant"
-        role={cooking.length > 0 ? 'alert' : 'status'}
-        className={`flex items-start gap-3 px-4 py-3 rounded-xl border mt-3 ${cooking.length > 0 ? `${t.dangerBg} ${t.danger}` : `${t.successBg} ${t.success}`}`}
-      >
-        {cooking.length > 0
-          ? <AlertTriangle size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />
-          : <CheckCircle2 size={16} strokeWidth={2.2} className="mt-0.5 shrink-0" />}
-        <div className="text-[12px] font-semibold max-w-[72ch]">
-          {cooking.length === 0
-            ? 'Kitchen halt holding: no plan is set to cook during the break.'
-            : `${plural(cooking.length, 'plan is', 'plans are')} Active during the break and would cook: ${cooking.map((p) => `${p.customerName} (${p.planName})`).join(', ')}. Pause each one from its customer page.`}
-        </div>
-      </div>
+      {view.cookingDuringBreak.length === 0 && (
+        <p data-testid="season-invariant" role="status" className={`flex items-center gap-2 text-[12px] font-bold ${t.success}`}>
+          <CheckCircle2 size={14} strokeWidth={2.4} aria-hidden />
+          Kitchen halt holding: nothing will cook.
+        </p>
+      )}
 
-      <RefundQueue queue={view.refundQueue} />
+      <AdminButton id="season-reopen" className="w-full" onClick={() => { setError(null); setConfirming(true) }} disabled={pending}>
+        Reopen
+      </AdminButton>
+      {error && !confirming && <p role="alert" className={`text-[12px] font-bold ${t.danger}`}>{error}</p>}
 
-      <div className="grid sm:grid-cols-3 gap-3 mt-4">
-        <Fact t={t} label="Held for next semester" value={String(view.heldPlans.length)} detail={plural(view.heldMeals, 'meal', 'meals')} />
-        <Fact t={t} label="Waitlist credit added" value={String(view.creditsMinted)} detail={formatAed(view.creditsMintedFils)} />
-        <Fact
-          t={t}
-          label="Waitlist"
-          value={String(view.waitlistCount)}
-          detail={view.reopenTarget != null ? `Reopen target ${view.reopenTarget}` : 'No reopen target set'}
+      {confirming && (
+        <ConfirmDialog
+          title="Reopen for the new semester?"
+          lines={reopenConfirmLines(view)}
+          cta="Yes, reopen"
+          confirmId="season-reopen-confirm"
+          pending={pending}
+          error={error}
+          onCancel={() => setConfirming(false)}
+          onConfirm={reopen}
         />
-      </div>
+      )}
+    </>
+  )
+}
 
-      <div className="mt-5">
-        <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-2 ${t.muted}`}>Held plans</div>
-        <HoldsTable
+function Row({ term, value }: { term: string; value: string }) {
+  const { t } = useAdminTheme()
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className={t.muted}>{term}</dt>
+      <dd className={`text-right font-bold tabular-nums ${t.heading}`}>{value}</dd>
+    </div>
+  )
+}
+
+export function BreakLists({ view }: { view: BreakBoardView }) {
+  const { t } = useAdminTheme()
+  return (
+    <div className="flex flex-col gap-8">
+      <Section title="Held for next semester" count={view.heldPlans.length}>
+        <RowList
           testId="season-held-plans"
           rows={view.heldPlans}
           empty="No plan is held."
-          columns={['Customer', 'Plan', 'Meals held', 'Meal value', 'State', 'Waitlist credit', 'Refund']}
+          columns="minmax(0,1.2fr) minmax(0,1fr) 80px 96px minmax(0,1.3fr)"
+          headers={['Customer', 'Plan', 'Meals', 'Waitlist credit', 'Refund']}
           cells={(h) => [
-            h.planName,
-            plural(h.heldMeals, 'meal', 'meals'),
-            h.mealValueFils != null ? formatAed(h.mealValueFils) : 'Not recorded',
-            holdStateLabel(h.state),
-            h.waitlistCreditFils != null ? formatAed(h.waitlistCreditFils) : 'None',
-            refundCell(h),
+            <div key="c" className="flex flex-col items-start gap-1">
+              <span className={`font-bold ${t.heading}`}>{h.customerName}</span>
+              <Chip tone="held">{holdStateLabel(h.state)}</Chip>
+            </div>,
+            <div key="p" className={t.body}>
+              {h.planName}
+              <div className={`text-[12px] ${t.muted}`}>{h.mealValueFils != null ? `${formatAed(h.mealValueFils)} a meal` : 'No meal value'}</div>
+            </div>,
+            <span key="m" className={`tabular-nums ${t.body}`}>{plural(h.heldMeals, 'meal', 'meals')}</span>,
+            <span key="w" className={`tabular-nums ${h.waitlistCreditFils != null ? t.body : t.faint}`}>
+              <span className={`md:hidden text-[12px] ${t.muted}`}>Credit </span>
+              {h.waitlistCreditFils != null ? formatAed(h.waitlistCreditFils) : 'None'}
+            </span>,
+            <span key="r" className={`text-[12px] ${t.muted}`}>{refundCell(h)}</span>,
           ]}
-          t={t}
         />
-      </div>
+      </Section>
 
       {view.refunded.length > 0 && (
-        <div className="mt-5">
-          <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-2 ${t.muted}`}>Refunded this season</div>
-          <HoldsTable
+        <Section title="Refunded this season" count={view.refunded.length}>
+          <RowList
             testId="season-refunded"
             rows={view.refunded}
             empty="No refund has gone through."
-            columns={['Customer', 'Plan', 'Meals', 'To the card', 'To the wallet', 'Stripe refund']}
+            columns="minmax(0,1.2fr) minmax(0,1fr) 80px minmax(0,1.3fr)"
+            headers={['Customer', 'Plan', 'Meals', 'Paid back']}
             cells={(h) => [
-              h.planName,
-              plural(h.heldMeals, 'meal', 'meals'),
-              formatAed(h.cashRefundFils ?? 0),
-              formatAed(h.creditShareFils ?? 0),
-              h.stripeRefundId ?? 'Credit only',
+              <span key="c" className={`font-bold ${t.heading}`}>{h.customerName}</span>,
+              <span key="p" className={t.body}>{h.planName}</span>,
+              <span key="m" className={`tabular-nums ${t.body}`}>{plural(h.heldMeals, 'meal', 'meals')}</span>,
+              <span key="r" className={`text-[12px] tabular-nums ${t.body}`}>{refundCell(h)}</span>,
             ]}
-            t={t}
           />
-        </div>
+        </Section>
       )}
 
-      <div className="mt-5">
-        <div className={`text-[11px] font-black uppercase tracking-[0.1em] mb-2 ${t.muted}`}>Customer pauses</div>
-        <HoldsTable
+      <Section title="Customer pauses" count={view.customerPauses.length}>
+        <RowList
           testId="season-customer-pauses"
           rows={view.customerPauses}
           empty="No customer pause carried over."
-          columns={['Customer', 'Plan', 'Meals', 'State', 'Saved a spot']}
+          columns="minmax(0,1.2fr) minmax(0,1fr) 80px minmax(0,1.3fr)"
+          headers={['Customer', 'Plan', 'Meals', 'Saved a spot']}
           cells={(h) => [
-            h.planName,
-            plural(h.heldMeals, 'meal', 'meals'),
-            holdStateLabel(h.state),
-            (h as SeasonHoldRow & { savedSpot: boolean }).savedSpot ? 'Yes' : 'No',
+            <div key="c" className="flex flex-col items-start gap-1">
+              <span className={`font-bold ${t.heading}`}>{h.customerName}</span>
+              <Chip>{holdStateLabel(h.state)}</Chip>
+            </div>,
+            <span key="p" className={t.body}>{h.planName}</span>,
+            <span key="m" className={`tabular-nums ${t.body}`}>{plural(h.heldMeals, 'meal', 'meals')}</span>,
+            <span key="s" className={h.savedSpot ? t.success : t.muted}>{h.savedSpot ? 'Saved a spot' : 'No saved spot'}</span>,
           ]}
-          t={t}
         />
-      </div>
-
-      <div className={`mt-5 pt-4 border-t flex items-center gap-3 flex-wrap ${t.border}`}>
-        <AdminButton id="season-reopen" icon={<Play size={14} strokeWidth={2.5} />} onClick={() => { setError(null); setConfirming(true) }} disabled={pending}>
-          Reopen
-        </AdminButton>
-        <span className={`text-[12px] font-medium ${t.muted}`}>
-          {plural(view.readyOnReopen, 'plan becomes', 'plans become')} ready when you reopen.
-        </span>
-      </div>
-      {error && !confirming && <p className={`mt-3 text-[12px] font-bold ${t.danger}`}>{error}</p>}
-
-      {confirming && (
-        <AdminModal label="Reopen for the new semester?" maxW="max-w-[500px]" onBackdrop={() => { if (!pending) setConfirming(false) }}>
-          <div className={`px-5 py-4 border-b ${t.border}`}>
-            <div className={`text-[15px] font-black ${t.heading}`}>Reopen for the new semester?</div>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-2">
-            {reopenConfirmLines(view).map((line) => (
-              <p key={line} className={`text-[13px] font-medium leading-relaxed ${t.body}`}>{line}</p>
-            ))}
-            {error && <p className={`text-[12px] font-bold ${t.danger}`}>{error}</p>}
-          </div>
-          <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
-            <AdminButton variant="ghost" onClick={() => setConfirming(false)} disabled={pending}>Cancel</AdminButton>
-            <AdminButton id="season-reopen-confirm" onClick={reopen} loading={pending}>Yes, reopen</AdminButton>
-          </div>
-        </AdminModal>
-      )}
+      </Section>
     </div>
   )
 }
@@ -175,55 +171,9 @@ export function BreakBoard({ data }: { data: SeasonPageData }) {
 /** What the customer can ask for, or what happened (spec §10.3). Words only until SEASON_REFUNDS_LIVE. */
 function refundCell(h: SeasonHoldRow): string {
   if (!SEASON_REFUNDS_LIVE) return 'Not yet'
-  if (h.state === 'refunded') return `${formatAed(h.cashRefundFils ?? 0)} to the card${(h.creditShareFils ?? 0) > 0 ? `, ${formatAed(h.creditShareFils ?? 0)} to the wallet` : ''}${h.stripeRefundId ? ` (${h.stripeRefundId})` : ''}`
-  if (h.state === 'refund_requested' || h.state === 'refund_processing' || h.state === 'refund_failed') return `${formatAed(h.cashRefundFils ?? 0)} asked (see the queue above)`
+  if (h.state === 'refunded') return `${formatAed(h.cashRefundFils ?? 0)} to the card${(h.creditShareFils ?? 0) > 0 ? `, ${formatAed(h.creditShareFils ?? 0)} to the wallet` : ''}${h.stripeRefundId ? ` (${h.stripeRefundId})` : ' (credit only)'}`
+  if (h.state === 'refund_requested' || h.state === 'refund_processing' || h.state === 'refund_failed') return `${formatAed(h.cashRefundFils ?? 0)} asked, see Needs you`
   if (h.refundOffer) return `Can ask for ${formatAed(h.refundOffer.cashFils)}${h.refundOffer.creditFils > 0 ? ` + ${formatAed(h.refundOffer.creditFils)} credit` : ''}`
   if (h.reason !== 'season') return 'Not offered (customer pause)'
   return h.mealValueFils == null ? 'Not offered (no recorded money)' : 'Not offered'
-}
-
-function Fact({ label, value, detail, t }: { label: string; value: string; detail: string; t: AdminTokens }) {
-  return (
-    <div className={`rounded-xl border px-4 py-3 ${t.border}`}>
-      <div className={`text-[10px] font-black uppercase tracking-[0.1em] ${t.muted}`}>{label}</div>
-      <div className={`text-[20px] font-black mt-1 tabular-nums ${t.heading}`}>{value}</div>
-      <div className={`text-[12px] font-medium mt-0.5 ${t.muted}`}>{detail}</div>
-    </div>
-  )
-}
-
-function HoldsTable({ testId, rows, empty, columns, cells, t }: {
-  testId: string
-  rows: SeasonHoldRow[]
-  empty: string
-  columns: string[]
-  cells: (h: SeasonHoldRow) => string[]
-  t: AdminTokens
-}) {
-  if (rows.length === 0) {
-    return <p data-testid={testId} className={`text-[13px] font-medium ${t.muted}`}>{empty}</p>
-  }
-  return (
-    <div data-testid={testId} className={`rounded-xl border overflow-x-auto ${t.border}`}>
-      <table className="w-full text-[12px]">
-        <thead className={t.tableHeader}>
-          <tr>
-            {columns.map((h) => (
-              <th key={h} className="text-left font-black uppercase tracking-[0.06em] text-[10px] px-3 py-2 whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((h) => (
-            <tr key={h.id} className={t.tableRow}>
-              <td className={`px-3 py-2 font-bold ${t.heading}`}>{h.customerName}</td>
-              {cells(h).map((c, i) => (
-                <td key={i} className={`px-3 py-2 whitespace-nowrap tabular-nums ${t.body}`}>{c}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
 }
