@@ -184,7 +184,7 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
     }
 
     const navContent = (
-        <nav className="flex flex-col gap-1 py-3 px-2 overflow-y-auto flex-1">
+        <nav className="admin-scroll flex flex-col gap-1 py-3 px-2 overflow-y-auto flex-1">
             {/* Search trigger */}
             <button
                 type="button"
@@ -243,7 +243,7 @@ export default function AdminSidebar({ pendingReferrals, pendingLayer4, mobileOp
                 <div className={`flex items-center px-4 py-4 ${t.sidebarBorder.replace('border-r', 'border-b')}`}>
                     {logoLockup}
                 </div>
-                <div className={`flex-1 overflow-y-auto ${t.sidebarBorder}`}>
+                <div className={`admin-scroll flex-1 overflow-y-auto ${t.sidebarBorder}`}>
                     {navContent}
                 </div>
                 <div className={`${t.sidebarBorder} border-t`}>

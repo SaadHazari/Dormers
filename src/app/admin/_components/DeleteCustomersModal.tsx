@@ -8,6 +8,7 @@ import { AdminButton } from './AdminButton'
 import { AdminBadge } from './AdminBadge'
 import { describeImpact, planDeletion, type DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 import { deleteCustomers } from '../customers/delete-actions'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from './stale-action'
 
 /**
  * The screen between selecting people and destroying them.
@@ -22,7 +23,7 @@ export function DeleteCustomersModal({
 }: {
     rows: DeleteImpactRow[]
     onClose: () => void
-    onDone: (message: string) => void
+    onDone: (message: string, deletedIds: string[]) => void
 }) {
     const { t } = useAdminTheme()
     const plan = useMemo(() => planDeletion(rows), [rows])
@@ -39,9 +40,20 @@ export function DeleteCustomersModal({
     function handleDelete() {
         setError(null)
         startDelete(async () => {
-            const res = await deleteCustomers(plan.deletable.map(r => r.customer_id), waitlistAck)
-            if (!res.ok) { setError(res.message); return }
-            onDone(res.message)
+            try {
+                const res = await deleteCustomers(plan.deletable.map(r => r.customer_id), waitlistAck)
+                if (!res.ok) { setError(res.message); return }
+                onDone(res.message, res.deletedIds)
+            } catch (err) {
+                if (isStaleActionError(err)) {
+                    // The page is from an older deploy; retrying cannot help.
+                    setError(STALE_ACTION_MESSAGE)
+                    setTimeout(() => window.location.reload(), 900)
+                    return
+                }
+                console.error('deleteCustomers failed', err)
+                setError('Could not reach the server. Nothing was deleted. Try again.')
+            }
         })
     }
 

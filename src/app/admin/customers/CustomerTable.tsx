@@ -10,6 +10,7 @@ import { CUSTOMER_PAGE_SIZE, MAX_DELETE_BATCH } from './constants'
 import { loadMoreCustomers } from './actions'
 import { previewCustomerDeletion } from './delete-actions'
 import { DeleteCustomersModal } from '../_components/DeleteCustomersModal'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '../_components/stale-action'
 import type { DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 import {
     getAttention, matchesFilter, sortCustomers, todayDubai, waitlistNote,
@@ -101,6 +102,11 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
         } catch (err) {
             // Without this the button sat on "Checking…" for ever and the page
             // looked like it had ignored the click.
+            if (isStaleActionError(err)) {
+                setDeleteError(STALE_ACTION_MESSAGE)
+                setTimeout(() => window.location.reload(), 900)
+                return
+            }
             console.error('previewCustomerDeletion failed', err)
             setDeleteError('Could not reach the server. Check your connection and try again.')
         } finally {
@@ -497,13 +503,16 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                 <DeleteCustomersModal
                     rows={pendingRows}
                     onClose={() => setPendingRows(null)}
-                    onDone={message => {
+                    onDone={(message, deletedIds) => {
                         setPendingRows(null)
                         setSelected(new Set())
                         setDeleteNote(message)
-                        // The deleted rows are gone from the database but still
-                        // in this component's state, so re-fetch rather than
-                        // leaving ghosts in the list.
+                        // Drop them from OUR state. router.refresh() updates the
+                        // props, but `rows` was seeded from those props with
+                        // useState and never re-reads them — which is why the
+                        // deleted people used to sit there until a full reload.
+                        const gone = new Set(deletedIds)
+                        setRows(prev => prev.filter(r => !gone.has(r.id)))
                         router.refresh()
                     }}
                 />

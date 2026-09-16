@@ -7,6 +7,7 @@ import { CommandPaletteProvider, useCommandPalette, type PaletteCommand } from '
 import { CommandPalette } from './_components/CommandPalette'
 import { KeyboardShortcuts } from './_components/KeyboardShortcuts'
 import AdminSidebar from './AdminSidebar'
+import { StaleActionReloader } from './_components/StaleActionReloader'
 
 interface Props {
     pendingReferrals: number
@@ -61,7 +62,7 @@ export default function AdminShell({ pendingReferrals, pendingLayer4, children }
 }
 
 function ShellInner({ pendingReferrals, pendingLayer4, children }: Props) {
-    const { t } = useAdminTheme()
+    const { t, isLight } = useAdminTheme()
     const { register } = useCommandPalette()
     const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -71,13 +72,14 @@ function ShellInner({ pendingReferrals, pendingLayer4, children }: Props) {
 
     return (
         <div
-            className="admin-root min-h-screen"
+            className={`admin-root min-h-screen${isLight ? ' admin-light' : ''}`}
             style={{
                 backgroundColor: t.pageBg,
                 fontFamily: 'var(--font-montserrat), Arial, Helvetica, sans-serif',
                 transition: 'background-color 200ms ease',
             }}
         >
+            <StaleActionReloader />
             <AdminSidebar
                 pendingReferrals={pendingReferrals}
                 pendingLayer4={pendingLayer4}

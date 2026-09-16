@@ -11,6 +11,7 @@ import { CONTACT_PAGE_SIZE } from './constants'
 import { MAX_DELETE_BATCH } from '../customers/constants'
 import { loadMoreContacts } from './actions'
 import { deleteContacts } from '../customers/delete-actions'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '../_components/stale-action'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
 import {
@@ -91,9 +92,18 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
             setConfirmText('')
             setSelected(new Set())
             setNote(res.message)
+            // Same as the customers list: our own copy of the rows has to lose
+            // them, or they linger on screen until a reload.
+            const gone = new Set(res.deletedIds)
+            setRows(prev => prev.filter(r => !gone.has(r.id)))
             router.refresh()
         } catch (err) {
             // A thrown action used to leave the button spinning with nothing said.
+            if (isStaleActionError(err)) {
+                setError(STALE_ACTION_MESSAGE)
+                setTimeout(() => window.location.reload(), 900)
+                return
+            }
             console.error('deleteContacts failed', err)
             setError('Could not reach the server. Check your connection and try again.')
         } finally {
