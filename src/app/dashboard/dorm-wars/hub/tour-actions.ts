@@ -11,13 +11,14 @@
  */
 
 import { createClient } from '@/utils/supabase/server'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 
 export async function markDormWarsTourCompleted(): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'unauthenticated' }
 
-  const { error } = await supabase
+  const { error } = await createAdminSupabaseClient()
     .from('customers')
     .update({ dorm_wars_tour_completed_at: new Date().toISOString() })
     .eq('id', user.id)

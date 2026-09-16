@@ -126,7 +126,8 @@ export async function submitMonthlyReview(
     if (!payload.recommend) return { ok: false, error: 'Please answer the recommendation question.' }
 
     // Insert monthly_reviews row + capture id for the FK on the credit row.
-    const { data: reviewRow, error: insertError } = await supabase
+    // Customers cannot insert reviews directly (security fix 2026-09-16).
+    const { data: reviewRow, error: insertError } = await reviewCreditsAdmin()
         .from('monthly_reviews')
         .insert({
             customer_id:            user.id,

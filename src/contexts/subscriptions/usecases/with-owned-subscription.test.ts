@@ -21,8 +21,15 @@ vi.mock('@/contexts/identity/usecases/require-user', () => ({
 vi.mock('@/contexts/subscriptions/domain/subscriptions', () => ({
   loadOwnedSubscription: vi.fn(),
 }))
+const refund = vi.hoisted(() => ({ row: null as null | { id: string } }))
+vi.mock('@/infra/supabase/admin-client', () => ({
+  createAdminSupabaseClient: () => {
+    const chain = { from: () => chain, select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: refund.row, error: null }) }
+    return chain
+  },
+}))
 
-import { withOwnedSubscription } from './with-owned-subscription'
+import { withOwnedSubscription, REFUNDED_PLAN_COPY } from './with-owned-subscription'
 import { requireUser } from '@/contexts/identity/usecases/require-user'
 import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions'
 import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions'
@@ -136,5 +143,15 @@ describe('withOwnedSubscription', () => {
     const result = await withOwnedSubscription('sub-1', async () => ({ error: 'Validation failed' }))
 
     expect(result).toEqual({ error: 'Validation failed' })
+  })
+
+  it('refuses a refunded plan before the body runs', async () => {
+    requireUserMock.mockResolvedValue({ ok: true, supabase: {} as never, user: { id: 'user-1' } as never })
+    loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: fakeSubscription })
+    refund.row = { id: 'r-1' }
+    const body = vi.fn(async () => ({ success: true as const }))
+    expect(await withOwnedSubscription('sub-1', body)).toEqual({ error: REFUNDED_PLAN_COPY })
+    expect(body).not.toHaveBeenCalled()
+    refund.row = null
   })
 })

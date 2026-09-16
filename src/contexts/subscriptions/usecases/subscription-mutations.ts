@@ -42,6 +42,12 @@ import { announceSeasonSkipCredited } from '@/contexts/season/usecases/season-sk
 import { BREAK_RESUME_COPY, BREAK_START_DATE_COPY, isSeasonBreakError } from '@/contexts/season/domain/season-break-errors';
 import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold';
 import { captureError } from '@/infra/logging/capture-error';
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client';
+
+// Customers have no write access to subscriptions (security fix 2026-09-16):
+// every write below runs with the service role, after withOwnedSubscription
+// checked the owner, and still filters on customer_id.
+const ownerWrites = () => createAdminSupabaseClient();
 
 // ── Module-local helpers ──────────────────────────────────────────────────
 
@@ -101,7 +107,7 @@ export async function pauseSubscription(subscriptionId: string) {
   // CAS guard: only flip Active → Paused. Stops a double-tap from re-pausing
   // an already-Paused row (which would no-op but reset pause_date) or racing
   // against a same-window skip.
-  const { data: pauseRows, error: updateError } = await auth.supabase
+  const { data: pauseRows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       status: SUBSCRIPTION_STATUS.PAUSED,
@@ -110,6 +116,7 @@ export async function pauseSubscription(subscriptionId: string) {
       planned_pause_start: null,
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
     .eq('credited_skip_days', subscription.credited_skip_days)
     .select('id');
@@ -222,7 +229,7 @@ export async function resumeSubscription(subscriptionId: string) {
     ? [...existingPaused, todayDateOnly]
     : existingPaused
 
-  const { data: resumeRows, error: updateError } = await auth.supabase
+  const { data: resumeRows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       status: SUBSCRIPTION_STATUS.ACTIVE,
@@ -230,6 +237,7 @@ export async function resumeSubscription(subscriptionId: string) {
       ...(setResumeCutoff ? { resume_cutoff_date: todayAE, paused_dates: nextPausedDates } : {}),
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('status', SUBSCRIPTION_STATUS.PAUSED)
     .select('id');
 
@@ -421,13 +429,14 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // Note: end_date is recomputed automatically by the
   // trg_subscriptions_recompute_end_date trigger when start_date changes.
   // We only need to write start_date + the once-only marker.
-  const { data: dateRows, error: updateError } = await auth.supabase
+  const { data: dateRows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       start_date: newStartDate,
       start_date_changed_at: new Date().toISOString(),
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('status', SUBSCRIPTION_STATUS.SCHEDULED)
     // CAS the once-per-sub allowance: only a row whose marker is still null can
     // win, so two concurrent submits can't both change the date.
@@ -594,7 +603,7 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
     // Flip Active → Skipped. The CAS on status stops a double tap counting
     // twice; the CAS on the skip count stops this write from overwriting a
     // reconcile that converted skips underneath it (season §7.2).
-    const { data: skipRows, error: updateError } = await auth.supabase
+    const { data: skipRows, error: updateError } = await ownerWrites()
       .from('subscriptions')
       .update({
         status: SUBSCRIPTION_STATUS.SKIPPED,
@@ -603,6 +612,7 @@ export async function skipMeal(subscriptionId: string, seen?: SkipSeen) {
         skipped_dates: nextSkippedDates,
       })
       .eq('id', subscriptionId)
+      .eq('customer_id', auth.user.id)
       .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
       .eq('skipped_meals_count', subscription.skipped_meals_count)
       .select('id');
@@ -733,13 +743,14 @@ export async function skipFutureDate(subscriptionId: string, dateIso: string, se
   if (step.kind === 'normal') {
     // Append + increment. CAS on skipped_meals_count guards concurrent skips.
     const nextSkippedDates = [...existing, dateIso].sort();
-    const { data: rows, error: updateError } = await auth.supabase
+    const { data: rows, error: updateError } = await ownerWrites()
       .from('subscriptions')
       .update({
         skipped_meals_count: subscription.skipped_meals_count + 1,
         skipped_dates: nextSkippedDates,
       })
       .eq('id', subscriptionId)
+      .eq('customer_id', auth.user.id)
       .eq('skipped_meals_count', subscription.skipped_meals_count)
       .eq('credited_skip_days', subscription.credited_skip_days)
       .select('id');
@@ -820,13 +831,14 @@ export async function unskipFutureDate(subscriptionId: string, dateIso: string) 
   const nextSkippedDates = existing.filter((d: string) => d !== dateIso);
   const newCount = Math.max(0, subscription.skipped_meals_count - 1);
 
-  const { data: rows, error: updateError } = await auth.supabase
+  const { data: rows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       skipped_meals_count: newCount,
       skipped_dates: nextSkippedDates,
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('skipped_meals_count', subscription.skipped_meals_count)
     .eq('credited_skip_days', subscription.credited_skip_days)
     .select('id');
@@ -928,7 +940,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
 
   // Commit. CAS on has_paused_before AND on skipped_meals_count guards
   // against concurrent plan-pause / skip-cancel races.
-  const { data: rows, error: updateError } = await auth.supabase
+  const { data: rows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       planned_pause_start: startDateIso,
@@ -937,6 +949,7 @@ export async function planPause(subscriptionId: string, startDateIso: string) {
       skipped_meals_count: newSkippedMealsCount,
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('has_paused_before', false)
     .eq('skipped_meals_count', subscription.skipped_meals_count)
     .eq('credited_skip_days', subscription.credited_skip_days)
@@ -997,13 +1010,14 @@ export async function cancelPlannedPause(subscriptionId: string) {
     return { error: 'Your pause is already active — use Resume to come back.' };
   }
 
-  const { data: rows, error: updateError } = await auth.supabase
+  const { data: rows, error: updateError } = await ownerWrites()
     .from('subscriptions')
     .update({
       planned_pause_start: null,
       has_paused_before: false,
     })
     .eq('id', subscriptionId)
+    .eq('customer_id', auth.user.id)
     .eq('planned_pause_start', subscription.planned_pause_start)
     .select('id');
 

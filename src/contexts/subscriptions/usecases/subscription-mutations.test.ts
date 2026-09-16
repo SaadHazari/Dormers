@@ -50,6 +50,21 @@ vi.mock('@/contexts/season/usecases/season-skip-notices', () => ({
 vi.mock('@/contexts/season/usecases/release-hold', () => ({
   releaseSeasonHold: vi.fn(),
 }))
+// Writes run with the service role (customers have no write access), so the
+// admin client hands back the same per-test fake the user client uses. The
+// plan_refunds lookup in withOwnedSubscription finds no refund.
+const clients = vi.hoisted(() => ({ current: null as null | { from: (t: string) => unknown } }))
+vi.mock('@/infra/supabase/admin-client', () => ({
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => {
+      if (table === 'plan_refunds') {
+        const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: null, error: null }) }
+        return chain
+      }
+      return clients.current!.from(table)
+    },
+  }),
+}))
 
 import { changeStartDate, unskipFutureDate, skipMeal, skipFutureDate, planPause, pauseSubscription, resumeSubscription } from './subscription-mutations'
 import { releaseSeasonHold } from '@/contexts/season/usecases/release-hold'
@@ -104,6 +119,7 @@ function fakeSub(overrides: Partial<Subscription> = {}): Subscription {
 }
 
 function authedUser(supabase: unknown = {}) {
+  clients.current = supabase as { from: (t: string) => unknown }
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ok: true as const, supabase: supabase as any, user: { id: 'user-1' } as any,
@@ -437,7 +453,7 @@ describe('season wind-down skips', () => {
     const update = calls.find(([m]) => m === 'update')?.[1][0]
     expect(update).toMatchObject({ status: 'Skipped', skipped_meals_count: 3, skipped_dates: ['2026-09-09', '2026-09-10', '2026-09-14'] })
     expect((update as { last_skipped_date: string }).last_skipped_date).toEqual(expect.any(String))
-    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['status', 'Active'], ['skipped_meals_count', 2]])
+    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['customer_id', 'user-1'], ['status', 'Active'], ['skipped_meals_count', 2]])
   })
 
   it('a same-day skip whose row moved underneath it is refused, and sends nothing', async () => {
@@ -502,7 +518,7 @@ describe('season wind-down skips', () => {
     loadSeasonMock.mockResolvedValue({ ok: true, context: { season: { phase: 'open', wrapUpDay: null, closeDay: null, bufferDays: 1 }, closureDates: new Set(), creditFils: null, creditReadFailed: false } })
 
     expect(await skipFutureDate('sub-1', '2026-09-16')).toEqual({ success: true })
-    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['skipped_meals_count', 1], ['credited_skip_days', 0]])
+    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['customer_id', 'user-1'], ['skipped_meals_count', 1], ['credited_skip_days', 0]])
   })
 
   it('an ordinary undo on a plan with no season state is guarded on the credited count too', async () => {
@@ -512,7 +528,7 @@ describe('season wind-down skips', () => {
 
     expect(await unskipFutureDate('sub-1', '2026-09-16')).toEqual({ success: true })
     expect(applyUnskipMock).not.toHaveBeenCalled()
-    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['skipped_meals_count', 1], ['credited_skip_days', 0]])
+    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['customer_id', 'user-1'], ['skipped_meals_count', 1], ['credited_skip_days', 0]])
   })
 
   it('a grant-only plan routes its undo through SQL so the grant is released under the row lock', async () => {
@@ -533,7 +549,7 @@ describe('season wind-down skips', () => {
     requireUserMock.mockResolvedValue(authedUser(pause.chain))
     loadOwnedSubscriptionMock.mockResolvedValue({ ok: true, subscription: seasonSub({ skipped_meals_count: 0 }) })
     expect(await pauseSubscription('sub-1')).toEqual({ success: true })
-    expect(pause.calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['status', 'Active'], ['credited_skip_days', 0]])
+    expect(pause.calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['customer_id', 'user-1'], ['status', 'Active'], ['credited_skip_days', 0]])
 
     const plan = recordingChain({ data: [{ id: 'sub-1' }], error: null })
     requireUserMock.mockResolvedValue(authedUser(plan.chain))
@@ -543,7 +559,7 @@ describe('season wind-down skips', () => {
       subscription: seasonSub({ skipped_dates: ['2026-09-16'], credited_skip_days: 1, credited_skip_dates: ['2026-09-16'], skipped_meals_count: 0 }),
     })
     expect(await planPause('sub-1', '2026-09-21')).toEqual({ success: true })
-    expect(plan.calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['has_paused_before', false], ['skipped_meals_count', 0], ['credited_skip_days', 1]])
+    expect(plan.calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['id', 'sub-1'], ['customer_id', 'user-1'], ['has_paused_before', false], ['skipped_meals_count', 0], ['credited_skip_days', 1]])
   })
 
   it('a planned pause that cancels a skip trims a buffer grant, and leaves it alone otherwise', async () => {

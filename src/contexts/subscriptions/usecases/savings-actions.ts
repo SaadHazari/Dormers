@@ -14,6 +14,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/contexts/identity/usecases/require-user';
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client';
 
 export type SetTakeoutBenchmarkResult =
   | { ok: true }
@@ -32,7 +33,7 @@ export async function setTakeoutBenchmark(
     return { error: 'Benchmark must be between AED 15 and AED 50.' };
   }
 
-  const { error } = await auth.supabase
+  const { error } = await createAdminSupabaseClient()
     .from('customers')
     .update({ takeout_benchmark_aed: aed })
     .eq('id', auth.user.id);

@@ -30,6 +30,9 @@ import * as Sentry from '@sentry/nextjs'
 import { requireUser, type RequireUserResult } from '@/contexts/identity/usecases/require-user'
 import { loadOwnedSubscription } from '@/contexts/subscriptions/domain/subscriptions'
 import type { Subscription } from '@/contexts/subscriptions/domain/subscriptions'
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
+
+export const REFUNDED_PLAN_COPY = 'This plan was refunded, so it can no longer be changed.'
 
 export interface OwnedSubscriptionContext {
   /** Narrowed to the successful branch — auth.supabase / auth.user always present. */
@@ -64,6 +67,16 @@ export async function withOwnedSubscription<T extends MutationResult>(
 
   const subResult = await loadOwnedSubscription(auth.supabase, subscriptionId, auth.user.id)
   if (!subResult.ok) return { error: subResult.error }
+
+  // A refunded plan is locked (plan refunds, 2026-09-16). Mutations write with
+  // the service role, so the database guard cannot tell a customer's write
+  // apart; this is where the customer is stopped.
+  const { data: refunded } = await createAdminSupabaseClient()
+    .from('plan_refunds')
+    .select('id')
+    .eq('subscription_id', subscriptionId)
+    .maybeSingle()
+  if (refunded) return { error: REFUNDED_PLAN_COPY }
 
   const result = await body({ auth, subscription: subResult.subscription })
 

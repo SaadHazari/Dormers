@@ -13,6 +13,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireUser } from './require-user';
+import { createAdminSupabaseClient } from '@/infra/supabase/admin-client';
 
 /**
  * Saves account-detail fields that apply IMMEDIATELY (current cycle).
@@ -31,7 +32,7 @@ export async function updateProfile(data: {
   if (!data.name?.trim()) return { error: 'Full name is required.' };
   if (!data.dorm_name?.trim()) return { error: 'Dorm building is required.' };
 
-  const { error } = await auth.supabase
+  const { error } = await createAdminSupabaseClient()
     .from('customers')
     .update({ name: data.name.trim(), dorm_name: data.dorm_name.trim() })
     .eq('id', auth.user.id);

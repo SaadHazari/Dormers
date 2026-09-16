@@ -82,7 +82,8 @@ export async function submitWeeklyReview(
     // Insert weekly_reviews row + capture the new id so we can FK the
     // pending credit to it (Phase 8K Model C). RETURNING id avoids a
     // second SELECT round-trip.
-    const { data: reviewRow, error: insertError } = await supabase
+    // Customers cannot insert reviews directly (security fix 2026-09-16).
+    const { data: reviewRow, error: insertError } = await reviewCreditsAdmin()
         .from('weekly_reviews')
         .insert({
             customer_id:        user.id,
