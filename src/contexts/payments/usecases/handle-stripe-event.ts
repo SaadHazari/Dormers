@@ -744,7 +744,6 @@ async function handleCheckoutCompleted(
           mealsCount: total_meals,
           pricePerMeal: pricePerMealEff,
           amountTotalAed,
-          creditUsedAed: creditUsed != null && creditUsed > 0 ? creditUsed / 100 : undefined,
           discountAed,
           startDateIso: isoDate(startDate),
           sessionId: session.id,

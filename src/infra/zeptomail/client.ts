@@ -308,8 +308,6 @@ export async function sendOrderConfirmationEmail(input: {
   mealsCount: number;
   totalAed: number;
   orderNumber: string;
-  /** Spec N19: "AED {x} credit used" on the receipt. Omitted (never '') when 0, so the template block hides. */
-  creditUsedAed?: number;
 }): Promise<void> {
   const templateKey = process.env.ZEPTOMAIL_TPL_ORDER_CONFIRMATION;
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_ORDER_CONFIRMATION is not set');
@@ -330,7 +328,6 @@ export async function sendOrderConfirmationEmail(input: {
       total_aed: input.totalAed.toFixed(2),
       order_number: input.orderNumber,
       account_email: input.toEmail,
-      ...(input.creditUsedAed && input.creditUsedAed > 0 ? { credit_used_aed: input.creditUsedAed.toFixed(2) } : {}),
     },
   });
 }

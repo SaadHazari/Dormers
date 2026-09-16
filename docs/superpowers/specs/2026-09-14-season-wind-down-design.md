@@ -559,7 +559,7 @@ Sent through `notifyAdmin` (WhatsApp, with email as the fallback). Every message
 | N16 | Reopening notice sent | Past customers without credit | None | `intake_back_open` (approved at Meta, to wire) | `season-reopen` (exists) | Same |
 | N17 | Reopening notice sent | Held and customer-paused plans | "Your {N} meals are ready" full-screen notice | `season_plan_ready` (new) | `season-reopen` with a held block (change) | Same |
 | N18 | 5 days after reopening | Credit holders who have not bought | None | `season_credit_waiting` (new) | `season-credit-waiting` (new) | Once, 10:00 |
-| N19 | Checkout uses credit | The buyer | None | None | Order confirmation shows "AED {x} credit used" (change) | Existing send |
+| N19 | Checkout uses credit | The buyer | Wallet shows the credit spent | None | **Dropped 2026-09-16.** The Zoho invoice already nets the credit into its discount line and the receipt shows the reduced Amount Paid, so the confirmation email stays money free | None |
 
 A customer who qualifies for both N15 and N17 gets N17 only, and its copy carries the credit line.
 
