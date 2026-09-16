@@ -1,10 +1,9 @@
 # The contact book
 
 **Status:** design, approved in outline 2026-09-16.
-**Phases A and B shipped** 2026-09-16 — the spine, the customers mirror,
-`admin_contact_search`, `/admin/contacts`, and the CSV import at
-`/admin/contacts/import`. C (broadcasts retarget + unsubscribe) and D
-(WhatsApp) not built.
+**Phases A, B and C shipped** 2026-09-16 — the spine, the customers mirror,
+`admin_contact_search`, `/admin/contacts`, the CSV import, and broadcasts
+retargeted at contacts with a real unsubscribe. D (WhatsApp) not built.
 **Supersedes nothing.** Extends the broadcast subsystem
 (`supabase/migrations/20260818_broadcasts.sql`,
 `src/app/admin/comms/broadcast/`, `src/app/api/internal/broadcast-send/`).
@@ -247,7 +246,7 @@ and gains contact-shaped audiences alongside the existing plan-shaped ones:
 | `ended_not_renewed` | unchanged |
 | `reopen` | unchanged |
 | `dorm` | unchanged |
-| `waitlist_all` | any `intake_waitlist` row, any cycle (matches the new admin chip) |
+| `waitlist_all` | any `intake_waitlist` row, any cycle, **and no live plan** — the Waitlist chip's rule exactly. Someone who has since resumed is a plan-holder now, and "your spot is waiting" would read as a mistake. |
 | `early_signup` | has an account, never bought, never joined the list |
 | `imported` | `source = 'zoho_import'` |
 | `never_customers` | `customer_id is null` |
@@ -263,11 +262,19 @@ number that will actually be queued, and it must keep doing so.
 Marketing email to a two-year-old list without one-click unsubscribe will cost
 the sending domain. Every email broadcast gets:
 
-- A `List-Unsubscribe` and `List-Unsubscribe-Post` header.
 - A footer link to `/u/<token>`, where the token is an HMAC of the contact id
-  (no database column, no table to keep in sync, and unguessable).
-- `/u/<token>` sets `email_status = 'unsubscribed'` and `unsubscribed_at`,
-  then shows a plain confirmation with an undo.
+  (no database column, no table to keep in sync, and unguessable). Verifying
+  only ever returns something UUID-shaped, so an edited link resolves to
+  nothing rather than to somebody else.
+- `/u/<token>` shows a button; pressing it sets `email_status =
+  'unsubscribed'` and `unsubscribed_at`, then confirms with an undo. The GET
+  writes nothing on purpose — mail clients and link scanners fetch every URL
+  in a message, and a GET that unsubscribed would turn them into an opt-out
+  machine.
+- **Open:** `List-Unsubscribe` / `List-Unsubscribe-Post` headers. ZeptoMail's
+  send API exposes no custom-header field, so this is a ZeptoMail account
+  setting to check rather than code to write. The visible footer link ships
+  either way and is the part that matters most.
 
 **Marketing goes out on a separate ZeptoMail sending identity** —
 `news.dormers.ae` or equivalent — never the domain that carries order

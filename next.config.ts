@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
     // The screen still caps the row count itself (MAX_IMPORT_ROWS).
     serverActions: {
       bodySizeLimit: '8mb',
+      // Required alongside it: Next reads allowedOrigins.length unconditionally
+      // and the build dies with an opaque TypeError if the key is absent.
+      // Empty means same-origin only, which is what we want.
+      allowedOrigins: [],
     },
   },
   // Document-Policy: js-profiling enables the browser's JS profiling API

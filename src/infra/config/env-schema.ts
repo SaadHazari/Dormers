@@ -76,6 +76,13 @@ export const ENV_RULES: EnvRule[] = [
   { key: 'ZEPTOMAIL_FROM_ADDRESS', group: 'zeptomail', prodOnly: true },
   { key: 'ZEPTOMAIL_FROM_NAME', group: 'zeptomail' },
   { key: 'ZEPTOMAIL_REGION', group: 'zeptomail' },
+  // Marketing broadcasts leave from their own identity so a complaint from a
+  // cold imported contact cannot take the transactional domain down with it.
+  // Optional: unset, broadcasts fall back to the transactional from-address.
+  { key: 'ZEPTOMAIL_MARKETING_FROM_ADDRESS', group: 'zeptomail' },
+  { key: 'ZEPTOMAIL_MARKETING_FROM_NAME', group: 'zeptomail' },
+  // Signs unsubscribe links. Falls back to INTERNAL_RETRY_SECRET when unset.
+  { key: 'UNSUBSCRIBE_SECRET', group: 'internal' },
   { key: 'ZEPTOMAIL_TPL_ORDER_CONFIRMATION', group: 'zeptomail-templates', prodOnly: true },
   { key: 'ZEPTOMAIL_TPL_START_DAY', group: 'zeptomail-templates', prodOnly: true },
   { key: 'ZEPTOMAIL_TPL_RENEW_NUDGE', group: 'zeptomail-templates', prodOnly: true },
