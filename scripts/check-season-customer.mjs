@@ -70,6 +70,13 @@ const STATES = [
     absent_after: ['refund'],
   },
   {
+    id: 'paused-break-refund',
+    url: '/dashboard?preview=1&verified=1&season=paused_break_refund',
+    expect: ["If you'd rather not wait, you can ask for a refund for them from your home page (AED 162 back to your card and AED 9 to your wallet)."],
+    tap: '#season-break-notice-dismiss',
+    after: ['You can ask for a refund for these 8 meals instead: AED 162 back to your card and AED 9 to your wallet.', 'Ask for a refund'],
+  },
+  {
     id: 'paused-card-joined',
     url: '/dashboard?preview=1&verified=1&season=paused_break&joined=1',
     expect: [],

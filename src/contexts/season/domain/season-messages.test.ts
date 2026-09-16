@@ -8,7 +8,7 @@ import {
 } from './season-messages'
 
 const ROOT = resolve(__dirname, '../../../..')
-const payload = { plan_name: 'Monthly Premium', wrap_up_day: '2026-10-03', last_dinner: '2026-10-01', held_meals: 9, credit_aed: 20, offer_aed: 15, reason: '  The card has expired.  ' }
+const payload = { plan_name: 'Monthly Premium', wrap_up_day: '2026-10-03', last_dinner: '2026-10-01', held_meals: 9, credit_aed: 20, offer_aed: 15, can_refund: true, reason: '  The card has expired.  ' }
 const ALL_KINDS = Object.keys(SEASON_EMAIL_TEMPLATES) as SeasonEmailKind[]
 
 describe('season messages (spec §12)', () => {
@@ -24,14 +24,14 @@ describe('season messages (spec §12)', () => {
     expect(seasonEmailTemplateFor('season_plan_held', payload)).toEqual({
       name: 'season-plan-held',
       envKey: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD',
-      mergeInfo: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' },
+      mergeInfo: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20', can_refund: 'yes' },
     })
     expect(seasonEmailTemplateFor('season_plan_runs_past', payload).mergeInfo)
-      .toEqual({ wrap_up_day: 'Sat 3 Oct', held_meals: '9', credit_aed: '20' })
+      .toEqual({ wrap_up_day: 'Sat 3 Oct', held_meals: '9', credit_aed: '20', can_refund: 'yes' })
     expect(seasonEmailTemplateFor('season_last_dinners', payload).mergeInfo)
       .toEqual({ last_dinner: 'Thu 1 Oct', wrap_up_day: 'Sat 3 Oct', offer_aed: '15' })
     expect(seasonEmailTemplateFor('season_pause_carries', payload).mergeInfo)
-      .toEqual({ plan_name: 'Monthly Premium', offer_aed: '15' })
+      .toEqual({ plan_name: 'Monthly Premium', offer_aed: '15', can_refund: 'yes' })
     expect(seasonEmailTemplateFor('season_plan_ready', payload).mergeInfo)
       .toEqual({ plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' })
     expect(seasonEmailTemplateFor('season_credit_waiting', payload).mergeInfo).toEqual({ credit_aed: '20' })
@@ -42,10 +42,12 @@ describe('season messages (spec §12)', () => {
 
   it('leaves an amount of zero out entirely, so its block cannot render blank', () => {
     // ZeptoMail Mustache treats '' as true: the key must be absent, not empty.
-    expect(seasonEmailTemplateFor('season_plan_held', { ...payload, credit_aed: 0 }).mergeInfo)
+    expect(seasonEmailTemplateFor('season_plan_held', { ...payload, credit_aed: 0, can_refund: false }).mergeInfo)
       .toEqual({ plan_name: 'Monthly Premium', held_meals: '9' })
-    expect(seasonEmailTemplateFor('season_pause_carries', { ...payload, offer_aed: 0 }).mergeInfo)
+    expect(seasonEmailTemplateFor('season_pause_carries', { ...payload, offer_aed: 0, can_refund: false }).mergeInfo)
       .toEqual({ plan_name: 'Monthly Premium' })
+    // An email never offers a refund the dashboard would hide.
+    expect(seasonEmailTemplateFor('season_plan_held', { ...payload, can_refund: false }).mergeInfo).not.toHaveProperty('can_refund')
     expect(seasonEmailTemplateFor('season_plan_runs_past', { ...payload, credit_aed: undefined }).mergeInfo)
       .not.toHaveProperty('credit_aed')
   })

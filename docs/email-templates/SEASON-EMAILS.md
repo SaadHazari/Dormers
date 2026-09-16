@@ -26,10 +26,10 @@ test fails if a template asks for anything else.
 
 | Moment | Template name | Subject | File | Environment variable | Merge fields |
 |---|---|---|---|---|---|
-| The wrap-up day is set and their meals run past it | `season-plan-runs-past` | The semester wraps up on {{wrap_up_day}} | [season-plan-runs-past.html](season-plan-runs-past.html) | `ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST` | first_name, wrap_up_day, held_meals, credit_aed (optional) |
+| The wrap-up day is set and their meals run past it | `season-plan-runs-past` | The semester wraps up on {{wrap_up_day}} | [season-plan-runs-past.html](season-plan-runs-past.html) | `ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST` | first_name, wrap_up_day, held_meals, credit_aed (optional), can_refund (optional) |
 | Their plan is finishing and no new plan fits before the break | `season-last-dinners` | Your last dinners of the semester | [season-last-dinners.html](season-last-dinners.html) | `ZEPTOMAIL_TPL_SEASON_LAST_DINNERS` | first_name, last_dinner, wrap_up_day, offer_aed (optional) |
-| The break starts and their meals are kept | `season-plan-held` | Your meals are kept for next semester | [season-plan-held.html](season-plan-held.html) | `ZEPTOMAIL_TPL_SEASON_PLAN_HELD` | first_name, plan_name, held_meals, credit_aed (optional) |
-| The break starts and their own pause carries over | `season-pause-carries` | Your plan waits for you | [season-pause-carries.html](season-pause-carries.html) | `ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES` | first_name, plan_name, offer_aed (optional) |
+| The break starts and their meals are kept | `season-plan-held` | Your meals are kept for next semester | [season-plan-held.html](season-plan-held.html) | `ZEPTOMAIL_TPL_SEASON_PLAN_HELD` | first_name, plan_name, held_meals, credit_aed (optional), can_refund (optional) |
+| The break starts and their own pause carries over | `season-pause-carries` | Your plan waits for you | [season-pause-carries.html](season-pause-carries.html) | `ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES` | first_name, plan_name, offer_aed (optional), can_refund (optional) |
 | You reopen and their kept meals are ready | `season-plan-ready` | We are back. Your meals are ready | [season-plan-ready.html](season-plan-ready.html) | `ZEPTOMAIL_TPL_SEASON_PLAN_READY` | first_name, plan_name, held_meals, credit_aed (optional) |
 | Five days after reopening, their credit is unspent | `season-credit-waiting` | AED {{credit_aed}} is waiting in your wallet | [season-credit-waiting.html](season-credit-waiting.html) | `ZEPTOMAIL_TPL_SEASON_CREDIT_WAITING` | first_name, credit_aed |
 | They save their spot for next semester | `season-spot-saved` | Your spot is saved | [season-spot-saved.html](season-spot-saved.html) | `ZEPTOMAIL_TPL_SEASON_SPOT_SAVED` | first_name, credit_aed |
@@ -58,9 +58,14 @@ TEST_TO_EMAIL=you@example.com npm run mail:season-test
 ## The two that already exist
 
 `season-plan-ended` and `season-reopen` are live templates and are unchanged.
-The order confirmation needs one small edit: a line that shows the wallet
-credit used on the order. The app already sends `credit_used_aed` and leaves
-it out when no credit was used, so the block is safe to add:
+
+## One line to add to the order confirmation
+
+This is the **ZeptoMail** `order_confirmation` template, the "your plan is
+confirmed" email, not the Zoho Books invoice or receipt. It needs a line
+showing the wallet credit used on the order. The app already sends
+`credit_used_aed` and leaves it out when no credit was used, so the block is
+safe to add:
 
 ```html
 {{#credit_used_aed}}
@@ -69,6 +74,11 @@ it out when no credit was used, so the block is safe to add:
 </p>
 {{/credit_used_aed}}
 ```
+
+## Zoho Books
+
+The invoice and receipt emails come from Zoho Books, not from here. The
+matching refund email is [ZOHO-REFUND-EMAIL.md](ZOHO-REFUND-EMAIL.md).
 
 ## The design
 

@@ -60,7 +60,7 @@ Customers and the owner hear about each step at the moment it matters, on the ch
 | X1 | A held plan restarts when the customer taps Resume after reopening. No automatic restart. | Students come back on different days. An automatic restart cooks for empty rooms. |
 | X2 | Superseded by D6: a refund waits for the owner's approval. | Owner decision, 2026-09-14. |
 | X3 | A credited skip uses one skip from the plan's allowance. | "3 skips" keeps meaning 3 skips, and a plan's last week cannot all turn into credit. |
-| X4 | A customer-paused plan has no refund button. Support can refund by hand. | The refund reasoning in D2 is about meals Dormers withholds. A customer pause is the customer's choice. |
+| X4 | **Reversed 2026-09-16.** A pause carried into the break can ask for a refund on the same terms as a held plan. | Originally: a pause is the customer's own choice, so those meals are not ours to buy back. During the break that stops being true, because they cannot resume even if they want to. The owner still approves every one. |
 | X5 | Staff plans and welcome meals are held like any plan but earn no credit and no refund. | Neither was paid for in cash. Staff offboarding already has its own refund path. |
 | X6 | Once a skip is credited it stays credited, even if the admin later moves the wrap-up day. | The customer has already been told. The cost shows in the admin digest. |
 | X7 | A customer who refunds a held plan keeps the waitlist credit that came with the hold. | It is Monthly-only and exists to bring them back; taking it away punishes the refund D2 offers. |
@@ -213,8 +213,8 @@ K, and the break simply starts after K.
 |---|---|---|---|
 | none | Break starts, disposition `runs_past` or `starts_after` | `held` | Active or Skipped plan set to Paused (Scheduled stays Scheduled); `subscriptions.season_hold_id` set; waitlist credit minted for paid plans; notice queued |
 | none | Break starts, disposition `customer_paused` | `paused_by_customer` | Notice queued |
-| `held` or `ready` | Customer requests a refund | `refund_requested` | Owner WhatsApp with customer, plan, meals and AED; customer sees "Refund requested" |
-| `refund_requested` | Customer cancels the request | `held` (break) or `ready` (after reopening) | Owner told |
+| `held`, `paused_by_customer` or `ready` | Customer requests a refund | `refund_requested` | Owner WhatsApp with customer, plan, meals and AED; customer sees "Refund requested" |
+| `refund_requested` | Customer cancels the request | Back where it came from: `held` or `paused_by_customer` during the break, `ready` after reopening | Owner told |
 | `refund_requested` | Owner declines | `held` or `ready` | Customer told, with the owner's reason |
 | `refund_requested` | Owner approves | `refund_processing` | Stripe call (§10.3) |
 | `refund_processing` | Stripe accepts | `refunded` | Plan Ended; credit share returned; refund messages |
@@ -223,8 +223,8 @@ K, and the break simply starts after K.
 | `held` or `paused_by_customer` | Admin reopens | `ready` | "Your meals are ready" notice |
 | `ready` | Customer taps Resume (Paused plan) or picks a start date (Scheduled plan) | `released` | Normal plan again; `season_hold_id` cleared |
 
-A refund is possible from `held` and `ready`, only for holds of reason `season` on plans paid through
-Stripe (X4, X5). Once `released`, the plan is an ordinary plan.
+A refund is possible from `held`, `paused_by_customer` and `ready`, on plans paid through Stripe
+(X4 as reversed, X5). Once `released`, the plan is an ordinary plan.
 
 ---
 

@@ -87,9 +87,7 @@ export function heldCardCopy(input: { hold: CustomerHold; alreadyJoined: boolean
       creditLine: input.alreadyJoined ? 'Your spot for next semester is saved.' : null,
       joinLine: input.alreadyJoined ? null : seasonJoinLine(input.creditAed),
       pickDate: false,
-      refundLine: null,
-      refundAction: null,
-      declineLine: null,
+      ...refund,
     }
   }
   return {
@@ -155,9 +153,11 @@ export function breakNoticeCopy(input: { hold: CustomerHold; alreadyJoined: bool
     return { headline: 'Your meals are kept for next semester.', lines, joinLine: null }
   }
   if (hold.state === 'paused_by_customer') {
+    const lines = [`Your ${hold.planName} is still paused, and your meals wait for you. Resume when we're back.`]
+    if (hold.refundOffer) lines.push(`If you'd rather not wait, you can ask for a refund for them from your home page (${refundAmountsPhrase(hold.refundOffer)}).`)
     return {
       headline: 'The kitchen is closed between semesters.',
-      lines: [`Your ${hold.planName} is still paused, and your meals wait for you. Resume when we're back.`],
+      lines,
       joinLine: input.alreadyJoined ? null : seasonJoinLine(input.creditAed),
     }
   }

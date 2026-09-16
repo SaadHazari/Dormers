@@ -64,6 +64,14 @@ Owner decisions D1 to D7 and X1 to X7 are in spec §2. Added during the build:
 - **Every season email carries the brand banner** (owner, 2026-09-16): the
   mark beside the wordmark on its own strip at the top of the card, the way
   the sign-in code email does it.
+- **A pause carried into the break can ask for a refund** (owner, 2026-09-16,
+  reversing X4). During the break that customer cannot resume even if they
+  want to, so the wait is ours. A cancelled or declined request goes back to
+  `paused_by_customer`, not `held`. The notices carry `can_refund` so an email
+  never offers a refund the dashboard would hide.
+- **`intake_back_open` takes `plan_name`** (owner checked Meta, 2026-09-16).
+  The dispatcher sends it, and the reopening route skips the WhatsApp for
+  anyone with no plan to name rather than letting Meta reject it.
 - **Standing invariant breaches repeat every six hours**, not every hour.
 - **A digest speaks only when something changed** since the last one; the
   facts it compares live in `intake_settings.season_digest_state`.

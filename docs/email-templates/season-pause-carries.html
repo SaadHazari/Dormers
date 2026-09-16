@@ -16,6 +16,8 @@
     first_name    required
     plan_name     required   e.g. "Monthly Premium"
     offer_aed     OPTIONAL   e.g. "15". Omit if no credit is on offer.
+    can_refund    OPTIONAL   send "yes" when a refund is really on offer for
+                             this plan; omit it and the refund block disappears.
 -->
 <!doctype html>
 <html lang="en">
@@ -143,6 +145,23 @@
                   </td>
                 </tr>
               </table>
+
+              {{#can_refund}}
+              <table class="sub-container-gray" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="background-color:#f7f7f7; border:1.2px solid #dddddd; border-radius:8px; margin-bottom:26px;">
+                <tr>
+                  <td style="padding:26px;">
+                    <p class="label-gray"
+                      style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8a8a8a;">
+                      Would you rather not wait?
+                    </p>
+                    <p style="margin:0; font-size:15px; line-height:24px;">
+                      You cannot resume while the kitchen is closed, so if waiting does not suit you, ask for a refund for those meals from your home page. We confirm every refund on WhatsApp before it goes through.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              {{/can_refund}}
 
               <table class="sub-container-green" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
                 style="background-color:#f2faf3; border:1.2px solid #2e7d32; border-radius:8px; margin-bottom:42px;">

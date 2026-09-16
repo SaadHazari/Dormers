@@ -76,9 +76,11 @@ or tell the developer. Never call `season_break_tick` by hand from SQL.
 
 ## 4. Refunds (need your approval)
 
-A customer whose paid plan is held can ask for a refund from their home page
-(only plans paid through a live Stripe payment; test-mode payments and staff
-or welcome plans never see the button). Cash back is the held share of what
+A customer whose paid plan is held can ask for a refund from their home page,
+and so can one whose own pause carried into the break, because they cannot
+resume while the kitchen is closed. Only plans paid through a live Stripe
+payment can ask; test-mode payments and staff or welcome plans never see the
+button. Cash back is the held share of what
 they paid, capped at what Stripe still allows; wallet credit used on the
 order comes back as credit; the waitlist credit stays theirs.
 

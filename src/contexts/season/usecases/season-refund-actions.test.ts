@@ -41,7 +41,7 @@ describe('requestSeasonRefund (spec §10.3 step 1)', () => {
 
   it('refuses a plan with no hold, a hold with no offer, and a test-mode order (D7) without touching SQL', async () => {
     expect(await requestSeasonRefund('sub-none')).toEqual({ error: 'This plan is not held for next semester.' })
-    tables({ season_holds: { ...HOLD, reason: 'customer_pause', state: 'paused_by_customer' }, orders: ORDER })
+    tables({ season_holds: { ...HOLD, state: 'released' }, orders: ORDER })
     expect(await requestSeasonRefund('sub-1')).toEqual({ error: 'A refund is not available for this plan.' })
     tables({ season_holds: HOLD, orders: { ...ORDER, stripe_session_id: 'cs_test_1' } })
     expect(await requestSeasonRefund('sub-1')).toEqual({ error: 'A refund is not available for this plan.' })
@@ -57,6 +57,17 @@ describe('requestSeasonRefund (spec §10.3 step 1)', () => {
     m.rpc.mockResolvedValue({ data: null, error: { message: 'SEASON_REFUND_BAD_STATE: hold is refund_requested' } })
     expect(await requestSeasonRefund('sub-1')).toEqual({ error: REFUND_COPY.changed })
     expect(m.notify).not.toHaveBeenCalled()
+  })
+})
+
+describe('a pause carried into the break (owner 2026-09-16, reversing X4)', () => {
+  it('can ask for a refund on the same terms as a held plan', async () => {
+    tables({ season_holds: { ...HOLD, reason: 'customer_pause', state: 'paused_by_customer' }, orders: ORDER, customers: { name: 'Priya Nair', phone: null } })
+    m.rpc.mockResolvedValue({ data: { plan_name: 'Monthly Premium', held_meals: 8, cash_refund_fils: 15600, credit_share_fils: 800 }, error: null })
+
+    expect(await requestSeasonRefund('sub-1')).toEqual({ success: true, message: REFUND_COPY.requested })
+    expect(m.rpc).toHaveBeenCalledWith('season_request_refund', { p_customer_id: 'user-1', p_subscription_id: 'sub-1', p_refundable_cap_fils: 20000 })
+    expect(m.notify).toHaveBeenCalledWith(expect.stringContaining('Refund requested: Priya Nair'), 'season_refund')
   })
 })
 

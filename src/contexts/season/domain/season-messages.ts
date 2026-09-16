@@ -39,6 +39,8 @@ export interface SeasonNoticePayload {
   offer_aed?: number | string
   /** The owner's own words on a declined refund (N13b). */
   reason?: string
+  /** Whether a refund is really on offer, so an email never promises one the dashboard hides. */
+  can_refund?: boolean
 }
 
 export interface SeasonEmailTemplate {
@@ -90,6 +92,11 @@ function amount(key: string, value: number | string | undefined): Record<string,
   return Number(value ?? 0) > 0 ? { [key]: aedText(value) } : {}
 }
 
+/** Same omit-to-hide rule as an amount: the refund block only renders when a refund is really on offer. */
+function refundable(p: SeasonNoticePayload): Record<string, string> {
+  return p.can_refund ? { can_refund: 'yes' } : {}
+}
+
 /** The template and merge fields for one fact. */
 export function seasonEmailTemplateFor(kind: SeasonEmailKind, p: SeasonNoticePayload): SeasonEmailTemplate {
   const template = SEASON_EMAIL_TEMPLATES[kind]
@@ -97,13 +104,13 @@ export function seasonEmailTemplateFor(kind: SeasonEmailKind, p: SeasonNoticePay
   const mergeInfo = ((): Record<string, string> => {
     switch (kind) {
       case 'season_plan_runs_past':
-        return { wrap_up_day: day(p.wrap_up_day), held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
+        return { wrap_up_day: day(p.wrap_up_day), held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed), ...refundable(p) }
       case 'season_last_dinners':
         return { last_dinner: day(p.last_dinner), wrap_up_day: day(p.wrap_up_day), ...amount('offer_aed', p.offer_aed) }
       case 'season_plan_held':
-        return { plan_name: plan, held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
+        return { plan_name: plan, held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed), ...refundable(p) }
       case 'season_pause_carries':
-        return { plan_name: plan, ...amount('offer_aed', p.offer_aed) }
+        return { plan_name: plan, ...amount('offer_aed', p.offer_aed), ...refundable(p) }
       case 'season_plan_ready':
         return { plan_name: plan, held_meals: meals(p.held_meals), ...amount('credit_aed', p.credit_aed) }
       case 'season_credit_waiting':
