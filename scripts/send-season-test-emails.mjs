@@ -27,13 +27,15 @@ const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers'
 if (!token) { console.error('✘ ZEPTOMAIL_API_TOKEN is not set'); process.exit(1) }
 if (!fromAddress) { console.error('✘ ZEPTOMAIL_FROM_ADDRESS is not set'); process.exit(1) }
 
-// The sample numbers a real customer would see. Optional amounts are present
-// here on purpose, so every conditional block renders in the test send.
+// The sample numbers a real customer would see. Every optional key is present
+// on purpose, amounts and can_refund alike, so each conditional block renders
+// in the test send. A real send leaves out whatever does not apply: no credit
+// means no credit line, and no refundable payment means no refund block.
 const SENDS = [
-  { name: 'season-plan-runs-past', env: 'ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST', merge: { wrap_up_day: 'Sat 3 Oct', held_meals: '9', credit_aed: '20' } },
+  { name: 'season-plan-runs-past', env: 'ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST', merge: { wrap_up_day: 'Sat 3 Oct', held_meals: '9', credit_aed: '20', can_refund: 'yes' } },
   { name: 'season-last-dinners', env: 'ZEPTOMAIL_TPL_SEASON_LAST_DINNERS', merge: { last_dinner: 'Thu 1 Oct', wrap_up_day: 'Sat 3 Oct', offer_aed: '15' } },
-  { name: 'season-plan-held', env: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD', merge: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' } },
-  { name: 'season-pause-carries', env: 'ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES', merge: { plan_name: 'Monthly Premium', offer_aed: '15' } },
+  { name: 'season-plan-held', env: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD', merge: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20', can_refund: 'yes' } },
+  { name: 'season-pause-carries', env: 'ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES', merge: { plan_name: 'Monthly Premium', offer_aed: '15', can_refund: 'yes' } },
   { name: 'season-plan-ready', env: 'ZEPTOMAIL_TPL_SEASON_PLAN_READY', merge: { plan_name: 'Monthly Premium', held_meals: '9', credit_aed: '20' } },
   { name: 'season-credit-waiting', env: 'ZEPTOMAIL_TPL_SEASON_CREDIT_WAITING', merge: { credit_aed: '20' } },
   { name: 'season-spot-saved', env: 'ZEPTOMAIL_TPL_SEASON_SPOT_SAVED', merge: { credit_aed: '20' } },
