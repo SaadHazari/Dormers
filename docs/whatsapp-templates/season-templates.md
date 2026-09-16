@@ -25,6 +25,13 @@ the same story on their own, so a customer never misses the fact.
 Meta decides the final category. If it moves a UTILITY template to MARKETING,
 accept it.
 
+**Verified against Meta on 2026-09-16.** All thirty Vault entries point at an
+approved template, and the variables inside each season template match what the
+dispatcher sends. One correction came out of that check: `season_plan_ready`
+has a fixed header, so `first_name` moved into its body (migration
+`season_plan_ready_header`). Variable order does not matter, because these are
+named variables and Meta matches them by name, not position.
+
 Every template below has a **header** with one named variable `first_name`
 (text) and a **body** with the named variables listed. Footer, when used, must
 stay under 60 characters.
@@ -156,12 +163,15 @@ Your spot is saved. AED {{credit_aed}} is in your Credit Wallet for your first M
 When the reopening notice is launched, to every plan held for next semester.
 Button: **Resume my plan**, `https://dormers.ae/dashboard`.
 
-Header: `Hi {{first_name}}`
+**This one is shaped differently from the rest**, and the dispatcher matches it:
+the header is fixed text with no variable, and `first_name` sits in the body.
+
+Header: `Dormers' is back !` (no variable)
 
 Body:
 
 ```
-We are back. Your {{held_meals}} meals of {{plan_name}} are ready. Tap Resume on your home page when you want your dinners to start again. Nothing restarts on its own.
+Hi {{first_name}}, your {{held_meals}} meals of {{plan_name}} plan are ready. Tap Resume on your home page when you want your dinners to start again. Nothing restarts on its own.
 ```
 
 | Variable | Sample |

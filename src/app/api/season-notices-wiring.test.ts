@@ -104,4 +104,14 @@ describe('season messages are wired', () => {
     // No plan to name means no message, rather than a Meta rejection.
     expect(route).toContain('if (planName) {')
   })
+
+  it('season_plan_ready sends no header variable, matching the approved template', () => {
+    // Read from Meta 2026-09-16: its header is fixed text, first_name is in the body.
+    const sql = read('supabase/migrations/20260916_season_plan_ready_header.sql')
+    const branch = sql.slice(sql.indexOf("WHEN 'season_plan_ready'"), sql.indexOf("WHEN 'season_credit_waiting'"))
+    expect(branch).not.toContain("'type', 'header'")
+    expect(branch).toContain("'parameter_name', 'first_name'")
+    expect(branch).toContain("'parameter_name', 'held_meals'")
+    expect(branch).toContain("'parameter_name', 'plan_name'")
+  })
 })
