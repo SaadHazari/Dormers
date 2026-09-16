@@ -10,6 +10,7 @@ type PreviewResult = { ok: boolean; count: number; message?: string }
 
 type LaunchInput = {
     kind: 'custom' | 'season_reopen'
+    channel?: 'email' | 'whatsapp'
     subject: string
     heading: string
     body: string
@@ -38,13 +39,21 @@ type RetryResult = { ok: boolean; rearmed: number; message: string }
  * a bigger audience in the confirm modal. broadcast_audience is marked
  * STABLE precisely so PostgREST accepts GET/HEAD against it.
  */
-export async function previewAudience(audience: string, dormName?: string): Promise<PreviewResult> {
+export async function previewAudience(
+    audience: string,
+    dormName?: string,
+    channel: 'email' | 'whatsapp' = 'email',
+): Promise<PreviewResult> {
     await requireAdmin()
 
     const sb = createAdminSupabaseClient()
+    // Channel is part of the question, not a filter applied afterwards: the
+    // audience function excludes anyone unreachable or opted out on the
+    // channel being sent, so this count is exactly what launching would queue.
     const { count, error } = await sb.rpc('broadcast_audience', {
         p_audience: audience,
         p_dorm: dormName ?? null,
+        p_channel: channel,
     }, { count: 'exact', head: true })
     if (error) return { ok: false, count: 0, message: `Could not resolve the audience: ${error.message}` }
     return { ok: true, count: count ?? 0 }
@@ -100,6 +109,7 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
     const isSeasonReopen = input.kind === 'season_reopen'
     const { data: created, error } = await sb.from('broadcasts').insert({
         kind: input.kind,
+        channel: input.channel ?? 'email',
         subject: isSeasonReopen ? 'Season reopening (ZeptoMail template)' : subject,
         heading: isSeasonReopen ? '' : (input.heading?.trim() ?? ''),
         body: isSeasonReopen ? '' : (input.body?.trim() ?? ''),
@@ -130,7 +140,8 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
     }
 
     await logAdminAction(admin.email, 'launch_broadcast', 'broadcast', created.id, {
-        kind: input.kind, audience: input.audience, recipients: count, held_plans_told: readyQueued,
+        kind: input.kind, channel: input.channel ?? 'email',
+        audience: input.audience, recipients: count, held_plans_told: readyQueued,
     })
     revalidatePath('/admin/comms/broadcast')
     return {

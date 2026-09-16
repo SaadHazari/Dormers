@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CustomerRow } from './page'
-import { getAttention, matchesFilter, sortCustomers, urgencyRank } from './priority'
+import { getAttention, matchesFilter, sortCustomers, urgencyRank, waitlistNote } from './priority'
 
 const TODAY = '2026-08-14'
 
@@ -22,6 +22,8 @@ function row(over: Partial<CustomerRow> = {}): CustomerRow {
         sub_id: 'sub-1',
         sub_start_date: '2026-08-01',
         sub_end_date: '2026-09-01',
+        waitlist_joined_at: null,
+        waitlist_credit_aed: null,
         ...over,
     }
 }
@@ -130,6 +132,60 @@ describe('matchesFilter', () => {
         expect(matchesFilter(row({ sub_status: 'Active' }), 'Paused', TODAY)).toBe(false)
         expect(matchesFilter(row({ sub_status: null }), 'none', TODAY)).toBe(true)
         expect(matchesFilter(row(), 'all', TODAY)).toBe(true)
+    })
+
+    // The pipeline chips exist because everyone who has not bought yet used to
+    // land in one undifferentiated "No plan" bucket: the people holding a pause
+    // credit were invisible next to people who only ever made an account.
+    it('matches the waitlist chip to anyone holding a waitlist row without a live plan', () => {
+        const waiting = row({ sub_status: null, waitlist_joined_at: '2026-09-02T00:00:00Z' })
+        expect(matchesFilter(waiting, 'waitlist', TODAY)).toBe(true)
+    })
+
+    it('counts a past customer back on the waitlist as waitlist, not as early signup', () => {
+        const returning = row({ sub_status: 'Ended', waitlist_joined_at: '2026-09-02T00:00:00Z' })
+        expect(matchesFilter(returning, 'waitlist', TODAY)).toBe(true)
+        expect(matchesFilter(returning, 'early_signup', TODAY)).toBe(false)
+    })
+
+    it('drops a waitlist member off the chip once their plan is live again', () => {
+        for (const status of ['Active', 'Paused', 'Skipped', 'Scheduled']) {
+            const resumed = row({ sub_status: status, waitlist_joined_at: '2026-09-02T00:00:00Z' })
+            expect(matchesFilter(resumed, 'waitlist', TODAY)).toBe(false)
+        }
+    })
+
+    it('matches the early-signup chip only to accounts that never bought anything', () => {
+        expect(matchesFilter(row({ sub_status: null }), 'early_signup', TODAY)).toBe(true)
+        expect(matchesFilter(row({ sub_status: 'Ended' }), 'early_signup', TODAY)).toBe(false)
+        expect(matchesFilter(row({ sub_status: 'Active' }), 'early_signup', TODAY)).toBe(false)
+    })
+
+    it('keeps the two pipeline chips disjoint, so their counts add up', () => {
+        const waiting = row({ sub_status: null, waitlist_joined_at: '2026-09-02T00:00:00Z' })
+        expect(matchesFilter(waiting, 'early_signup', TODAY)).toBe(false)
+        const plain = row({ sub_status: null })
+        expect(matchesFilter(plain, 'waitlist', TODAY)).toBe(false)
+    })
+})
+
+describe('waitlistNote', () => {
+    it('names the credit a waitlist member is holding', () => {
+        expect(waitlistNote(row({ waitlist_joined_at: '2026-09-02T00:00:00Z', waitlist_credit_aed: 60 })))
+            .toBe('Waitlist · AED 60')
+    })
+
+    it('still marks a waitlist member whose credit has not been minted yet', () => {
+        expect(waitlistNote(row({ waitlist_joined_at: '2026-09-02T00:00:00Z' }))).toBe('Waitlist')
+    })
+
+    it('drops a trailing .00 but keeps real fils', () => {
+        expect(waitlistNote(row({ waitlist_joined_at: '2026-09-02T00:00:00Z', waitlist_credit_aed: 60.5 })))
+            .toBe('Waitlist · AED 60.50')
+    })
+
+    it('says nothing about a customer who never joined a waitlist', () => {
+        expect(waitlistNote(row())).toBeNull()
     })
 })
 

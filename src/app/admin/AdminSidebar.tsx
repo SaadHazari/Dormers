@@ -11,7 +11,7 @@ import {
     ScrollText, MessageSquare, Megaphone,
     Search, X, Tag, LogOut, UserCog, KeyRound, Building2, Camera, Carrot,
     CalendarClock,
-    ScanEye,
+    ScanEye, BookUser,
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import { useAdminTheme } from './_components/AdminThemeProvider'
@@ -64,6 +64,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         label: 'Customers',
         items: [
             { label: 'Customers',        href: '/admin/customers',  icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+            { label: 'Contacts',         href: '/admin/contacts',   icon: <BookUser size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
             {
                 label: 'Referrals',
                 href: '/admin/referrals',

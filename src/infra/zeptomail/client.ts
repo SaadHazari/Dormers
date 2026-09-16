@@ -651,8 +651,16 @@ export async function sendBroadcastEmail(input: {
   html: string;
 }): Promise<void> {
   const token = process.env.ZEPTOMAIL_API_TOKEN;
-  const fromAddress = process.env.ZEPTOMAIL_FROM_ADDRESS;
-  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Dormers';
+  // Marketing leaves from its own identity when one is configured, so a spam
+  // complaint from a two-year-old imported contact cannot damage the domain
+  // that carries order confirmations and auth mail. Falls back to the
+  // transactional identity, so nothing breaks before the subdomain is set up —
+  // see docs/superpowers/specs/2026-09-16-contact-book-design.md §5.
+  const fromAddress = process.env.ZEPTOMAIL_MARKETING_FROM_ADDRESS
+    || process.env.ZEPTOMAIL_FROM_ADDRESS;
+  const fromName = process.env.ZEPTOMAIL_MARKETING_FROM_NAME
+    || process.env.ZEPTOMAIL_FROM_NAME
+    || 'Dormers';
   if (!token) throw new Error('ZEPTOMAIL_API_TOKEN is not set');
   if (!fromAddress) throw new Error('ZEPTOMAIL_FROM_ADDRESS is not set');
 

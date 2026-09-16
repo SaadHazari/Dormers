@@ -29,10 +29,18 @@ const SUBJECT_MAX = 200
 const BODY_MAX = 8000
 const POLL_MS = 3000
 
+// Grouped the way an admin thinks about them: the whole book first, then the
+// people in it. 'waitlist_all' and 'early_signup' are the same rules as the
+// chips of those names on /admin/customers, verified against them on live data.
 const AUDIENCES: Array<{ value: string; label: string }> = [
-    { value: 'everyone',          label: 'Everyone with an account' },
+    { value: 'everyone',          label: 'Everyone in the contact book' },
+    { value: 'customers',         label: 'Everyone with an account' },
+    { value: 'never_customers',   label: 'Never had an account' },
+    { value: 'imported',          label: 'Imported from Zoho' },
     { value: 'active_plans',      label: 'Customers on a plan' },
-    { value: 'early_access',      label: 'Early access list' },
+    { value: 'early_access',      label: 'Early access list (this pause)' },
+    { value: 'waitlist_all',      label: 'Waitlist' },
+    { value: 'early_signup',      label: 'Early signups' },
     { value: 'ended_not_renewed', label: 'Ended and not renewed' },
     { value: 'dorm',              label: 'One dorm' },
 ]

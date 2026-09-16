@@ -66,6 +66,13 @@ export function buildBroadcastEmailHtml(input: {
   ctaLabel?: string
   ctaUrl?: string
   reasonLine: string
+  /**
+   * One-click unsubscribe, per recipient. Omitted only for sends that are not
+   * marketing. A cold list without a visible way out costs the sending domain
+   * its reputation, and that domain also carries order confirmations and auth
+   * mail — so this link protects the transactional post, not just good manners.
+   */
+  unsubscribeUrl?: string
 }): string {
   const heading = esc(personalizeBroadcast(input.heading, input.firstName))
   const paragraphs = personalizeBroadcast(input.bodyText, input.firstName)
@@ -261,7 +268,10 @@ ${ctaBox}
                     <p class="footer-text"
                       style="margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#b0b0b0;">
                       Made in Dubai
-                    </p>
+                    </p>${input.unsubscribeUrl ? `
+                    <p class="muted-line" style="margin:10px 0 0 0; font-size:12px; line-height:20px; color:#9a9a9a;">
+                      <a href="${esc(input.unsubscribeUrl)}" style="color:#9a9a9a; text-decoration:underline;">Unsubscribe</a>
+                    </p>` : ''}
                   </td>
                 </tr>
               </table>

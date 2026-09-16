@@ -115,12 +115,53 @@ export function sortCustomers(rows: CustomerRow[], mode: SortMode, today: string
     return sorted
 }
 
-/** Chip keys: 'attention' and 'all' are computed, the rest match sub_status. */
-export type FilterKey = 'attention' | 'all' | 'Active' | 'Scheduled' | 'Paused' | 'Skipped' | 'Ended' | 'none'
+/**
+ * The two ends of the pre-plan pipeline.
+ *
+ * Everyone who has not bought yet used to arrive as one undifferentiated "No
+ * plan" bucket, which hid the people holding a season-pause credit among the
+ * people who only ever made an account. These two predicates split that bucket
+ * and are deliberately disjoint, so the chip counts add up instead of
+ * double-counting the same person.
+ */
+
+/** On the early-access list (any pause cycle) with nothing running right now. */
+function isWaitlisted(c: CustomerRow): boolean {
+    if (!c.waitlist_joined_at) return false
+    return !(c.sub_status && LIVE_STATUSES.has(c.sub_status))
+}
+
+/** Made an account, never bought anything, never joined the list. */
+function isEarlySignup(c: CustomerRow): boolean {
+    return !c.sub_status && !c.waitlist_joined_at
+}
+
+/**
+ * What to show next to a waitlist member's name so the list says it without
+ * needing the chip. The credit can legitimately be missing: the row is written
+ * before the credit is minted, and a retry reads it back afterwards.
+ */
+export function waitlistNote(c: CustomerRow): string | null {
+    if (!c.waitlist_joined_at) return null
+    const aed = c.waitlist_credit_aed
+    if (aed == null) return 'Waitlist'
+    // Whole dirhams read cleaner than "60.00", but real fils must survive.
+    const amount = Number.isInteger(aed) ? String(aed) : aed.toFixed(2)
+    return `Waitlist · AED ${amount}`
+}
+
+/** Chip keys: 'attention', 'all' and the two pipeline chips are computed, the
+ *  rest match sub_status. */
+export type FilterKey =
+    | 'attention' | 'all'
+    | 'Active' | 'Scheduled' | 'Paused' | 'Skipped' | 'Ended' | 'none'
+    | 'waitlist' | 'early_signup'
 
 export function matchesFilter(c: CustomerRow, key: FilterKey, today: string = todayDubai()): boolean {
     if (key === 'all') return true
     if (key === 'attention') return getAttention(c, today) !== null
     if (key === 'none') return !c.sub_status
+    if (key === 'waitlist') return isWaitlisted(c)
+    if (key === 'early_signup') return isEarlySignup(c)
     return c.sub_status === key
 }

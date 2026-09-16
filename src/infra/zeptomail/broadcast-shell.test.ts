@@ -76,3 +76,31 @@ describe('buildBroadcastEmailHtml', () => {
     expect(html).not.toContain('border-collapse')               // the trap stays out
   })
 })
+
+describe('the unsubscribe link', () => {
+    const base = {
+        firstName: 'Saad',
+        heading: 'Hello',
+        bodyText: 'Some news.',
+        reasonLine: 'You are getting this because you have a Dormers account.',
+    }
+
+    it('renders a footer link when one is given', () => {
+        const html = buildBroadcastEmailHtml({ ...base, unsubscribeUrl: 'https://dormers.ae/u/abc.def' })
+        expect(html).toContain('href="https://dormers.ae/u/abc.def"')
+        expect(html).toContain('Unsubscribe')
+    })
+
+    // A send that cannot honour an opt-out must not show one: a dead
+    // unsubscribe link is worse than no link at all.
+    it('renders no link at all when none is given', () => {
+        const html = buildBroadcastEmailHtml(base)
+        expect(html).not.toContain('Unsubscribe')
+        expect(html).not.toContain('/u/')
+    })
+
+    it('escapes the url rather than letting it break out of the attribute', () => {
+        const html = buildBroadcastEmailHtml({ ...base, unsubscribeUrl: 'https://x.test/u/a"><script>bad()</script>' })
+        expect(html).not.toContain('<script>bad()')
+    })
+})

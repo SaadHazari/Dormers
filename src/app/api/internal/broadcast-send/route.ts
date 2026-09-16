@@ -33,6 +33,7 @@ import { timingSafeCompare } from '@/shared/crypto'
 import { getIntakeState } from '@/infra/config/intake'
 import { getWaitlistStatusStrict } from '@/infra/supabase/subscriptions-repo'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
+import { signUnsubscribeToken, unsubscribeSecret } from '@/contexts/contacts/domain/unsubscribe-token'
 
 const BATCH_SIZE = 25
 // Leaves a margin under maxDuration for the batch's setup/teardown queries
@@ -44,10 +45,28 @@ export const maxDuration = 60
 
 type PendingSend = {
   id: string
-  customer_id: string
-  email: string
-  first_name: string
+  /** Null for a contact with no account — an imported or referred person. */
+  customer_id: string | null
+  contact_id: string
+  email: string | null
+  phone_e164: string | null
+  first_name: string | null
   attempts: number
+}
+
+/**
+ * The one-click unsubscribe link for this recipient, or undefined when no
+ * secret is configured. Undefined drops the footer link rather than sending a
+ * link that cannot be honoured — a dead unsubscribe is worse than none.
+ */
+function unsubscribeUrlFor(contactId: string): string | undefined {
+  const secret = unsubscribeSecret()
+  if (!secret) {
+    console.error('broadcast-send: no unsubscribe secret configured; sending without an unsubscribe link')
+    return undefined
+  }
+  const base = (process.env.NEXT_PUBLIC_BASE_URL || 'https://dormers.ae').replace(/\/$/, '')
+  return `${base}/u/${signUnsubscribeToken(contactId, secret)}`
 }
 
 /**
@@ -65,9 +84,17 @@ type PendingSend = {
  * dispatcher's per-recipient catch park the row for retry instead of
  * silently sending a wrong-footer, never-retried email.
  */
+/**
+ * The reopen path only ever runs for the 'reopen' audience, which is
+ * account-holders with an email by construction. Narrowing the parameter here
+ * makes that a type the compiler checks rather than a comment: every read of
+ * customer_id and email below is unconditional.
+ */
+type ReopenSend = PendingSend & { customer_id: string; email: string; first_name: string }
+
 async function sendSeasonReopenTo(
   sb: ReturnType<typeof createAdminSupabaseClient>,
-  row: PendingSend,
+  row: ReopenSend,
 ): Promise<void> {
   const templateKey = process.env.ZEPTOMAIL_TPL_SEASON_REOPEN
   if (!templateKey) throw new Error('ZEPTOMAIL_TPL_SEASON_REOPEN is not set')
@@ -166,7 +193,7 @@ export async function POST(req: Request) {
   const sb = createAdminSupabaseClient()
 
   const { data: broadcast } = await sb.from('broadcasts')
-    .select('id, kind, subject, heading, body, cta_label, cta_url, audience, status')
+    .select('id, kind, subject, heading, body, cta_label, cta_url, audience, status, channel')
     .eq('status', 'sending')
     .order('created_at', { ascending: true })
     .limit(1)
@@ -197,22 +224,36 @@ export async function POST(req: Request) {
     const row = rows[i]
     try {
       if (broadcast.kind === 'season_reopen') {
-        await sendSeasonReopenTo(sb, row)          // Task 7 fills this in
+        // Only ever queued for account-holders; the audience guarantees it.
+        if (!row.customer_id || !row.email) {
+          throw new Error('season_reopen recipient has no customer account or no email')
+        }
+        await sendSeasonReopenTo(sb, { ...row, customer_id: row.customer_id, email: row.email, first_name: row.first_name || 'there' })
       } else {
+        // The audience only ever snapshots contacts reachable on the channel,
+        // so a missing address here means the contact changed after confirm.
+        // Fail the row rather than throwing a confusing error out of the API.
+        if (!row.email) throw new Error('recipient has no email address')
+        const firstName = row.first_name || 'there'
         const html = buildBroadcastEmailHtml({
-          firstName: row.first_name,
+          firstName,
           heading: broadcast.heading,
           bodyText: broadcast.body,
           ctaLabel: broadcast.cta_label ?? undefined,
           ctaUrl: broadcast.cta_url ?? undefined,
           reasonLine: reasonLineFor(broadcast.audience),
+          unsubscribeUrl: unsubscribeUrlFor(row.contact_id),
         })
         await sendBroadcastEmail({
           toEmail: row.email,
-          toName: row.first_name,
-          subject: personalizeBroadcast(broadcast.subject, row.first_name),
+          toName: firstName,
+          subject: personalizeBroadcast(broadcast.subject, firstName),
           html,
         })
+        // What "last bothered" means on the contact card. Never fails a send.
+        await sb.from('contacts')
+          .update({ last_emailed_at: new Date().toISOString() })
+          .eq('id', row.contact_id)
       }
       const { error: stampError } = await sb.from('broadcast_sends')
         .update({ sent_at: new Date().toISOString(), last_error: null })
