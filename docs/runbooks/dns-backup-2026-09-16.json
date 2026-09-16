@@ -1,0 +1,16 @@
+{
+  "zone": "dormers.ae",
+  "zone_id": "67337f28ac37a886586ff3fd7b7ec6da",
+  "captured": "2026-09-16",
+  "reason": "Before removing Mailjet + Mailchimp sending permission",
+  "records": [
+    {"id":"561eef7e21419ae64360673a3f07379d","type":"TXT","name":"dormers.ae","ttl":1,
+     "content":"v=spf1 include:zcsend.net include:spf.mailjet.com include:zohomail.com include:sender.zohobooks.com -all "},
+    {"id":"08e0eee529944e6f6cf67c6386a20369","type":"TXT","name":"mailjet._ab5030e2.dormers.ae","ttl":1,
+     "content":"ab5030e240bc36464d20cf09ff39650d"},
+    {"id":"d6b5ef879f1c1d06936154c187cc1c4d","type":"TXT","name":"mailjet._domainkey.dormers.ae","ttl":1,
+     "content":"k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAubBParewZRKuYvngkuQSemMAQbv1f9wVhfH2kOdlLSwnIHA0hnMCKL09Fhx86aywEPwk8d0abqTmvGMysUbWVgims+i8PWBwEQ4YtQX1NauF6JPf/WCR0DxCkhpYDTx9hYcDCrLjiDK2D2j/Ok2iQeX3aaCTAsYjEFBEKhU99Oh6ULTgrAFdADGwLor32jIM410EvaMQs7 2WpKEu+Y+bD+cBiWre3sfiD8c94DjpvRkJPi9iAZaIDPhqrPap8T/htNlupu1bdk2ZXhaFhM3arqBVXizH0X3jcO2oTXi+GU2THftS83kueJ8DKjjzdjNkTXUougD3S2TLOK7RNJ+I/wIDAQAB"},
+    {"id":"c50c63d963c88bc30590c51b10c6fd6a","type":"CNAME","name":"k2._domainkey.dormers.ae","ttl":3600,"content":"dkim2.mcsv.net"},
+    {"id":"41dfe5d30654ea13a5c9be5ebdf06570","type":"CNAME","name":"k3._domainkey.dormers.ae","ttl":3600,"content":"dkim3.mcsv.net"}
+  ]
+}
