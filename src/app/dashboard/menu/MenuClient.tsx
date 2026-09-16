@@ -27,6 +27,14 @@ import type { SeasonPhase } from '@/contexts/season/domain/season-phase'
 // DISPLAY alias kept for readability — same font as BODY (single typeface).
 const DISPLAY = BODY
 
+// Card radius — one scale across the menu's surfaces, with the biggest curve
+// on the biggest card. Card-local on purpose: --radius-md (20) stays the
+// dashboard's default everywhere else, so this is the menu's own geometry.
+//   CARD_RADIUS    hero, this-week cards, the notice family (rest / paused / …)
+//   PREVIEW_RADIUS next-week strip — the smallest card takes the smallest curve
+const CARD_RADIUS = 24
+const PREVIEW_RADIUS = 18
+
 // ── Data types ────────────────────────────────────────────────────────────────
 interface Customer {
   id: string; cid?: string | null; name?: string | null; email?: string | null
@@ -253,7 +261,7 @@ function SpotlightNotice({ headline, children }: { headline: string; children: R
           linear-gradient(105deg, rgba(245,127,32,0.11) 0%, rgba(245,127,32,0.06) 22%, rgba(245,127,32,0.025) 55%, rgba(245,127,32,0.01) 100%),
           var(--ds-surface-tier1)
         `,
-        borderRadius: 'var(--radius-md)',
+        borderRadius: CARD_RADIUS,
         padding: 'clamp(32px, 3.2vw, 48px) clamp(24px, 2.8vw, 40px)',
         display: 'flex', flexDirection: 'column', gap: 16,
       }}
@@ -319,7 +327,7 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
       <div style={{
         ...TIER1,
         background: '#faf2dd',
-        borderRadius: 'var(--radius-md)', padding: '56px 24px',
+        borderRadius: CARD_RADIUS, padding: '56px 24px',
         textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
       }}>
         <Moon size={28} strokeWidth={1.6} color={S.fgMuted} />
@@ -355,11 +363,12 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
   }
 
   const lastDinner = spotlight.lastDinner
+  const isVeg = meal.tag === 'Veg'
 
   return (
     <div className="today-spotlight" style={{
       ...TIER_POP,
-      borderRadius: 'var(--radius-md)', overflow: 'hidden',
+      borderRadius: CARD_RADIUS, overflow: 'hidden',
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 5fr)',
       minHeight: 320,
@@ -370,9 +379,11 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
         display: 'flex', flexDirection: 'column', gap: 16,
         justifyContent: 'center',
       }}>
-        {/* Dish name — OG eyebrow + cream heading, period accent in OG */}
+        {/* Date · dish · diet and spice — one block, because they are one
+            thought. "Tonight" is the stamp on the photo, so the eyebrow
+            carries the date instead and nothing is said twice. */}
         <div>
-          <Eyebrow color={OG}>Tonight&rsquo;s dish</Eyebrow>
+          <Eyebrow color={TIER_POP_TEXT.muted}>{meal.day} &middot; {meal.date}</Eyebrow>
           <h2 style={{
             margin: '8px 0 0 0',
             fontFamily: DISPLAY,
@@ -382,6 +393,35 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
           }}>
             {meal.dish}<span style={{ color: OG }}>.</span>
           </h2>
+
+          {/* The week cards' meta line, in the dark palette — MealTag's
+              DARK_PALETTE values, where non-veg is brand OG on navy (7.3:1)
+              and veg is the light green tint. Spice reads here now, so the
+              macro shelf below is Calories and Protein only. */}
+          <div style={{
+            marginTop: 12,
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            fontFamily: BODY, fontSize: 13, fontWeight: 600,
+            color: TIER_POP_TEXT.muted,
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontWeight: 700, color: isVeg ? '#86efac' : OG }}>
+              <span aria-hidden style={{
+                width: 8, height: 8, borderRadius: 2, flexShrink: 0,
+                background: isVeg ? 'transparent' : OG,
+                boxShadow: isVeg ? 'inset 0 0 0 1.5px #86efac' : 'none',
+              }} />
+              {isVeg ? 'Veg' : 'Non-veg'}
+            </span>
+            {meal.heat > 0 && (
+              <>
+                <span aria-hidden style={{ color: TIER_POP_TEXT.faint }}>&middot;</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontWeight: 500 }}>
+                  {SPICE_LABELS[meal.heat]}
+                  <HeatBar level={meal.heat} onDark />
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         {meal.sub && (
@@ -416,18 +456,6 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
               {meal.protein.toFixed(0)}<span style={{ fontSize: 11, fontWeight: 500, color: TIER_POP_TEXT.muted }}> g</span>
             </div>
           </div>
-          {meal.heat > 0 && (
-            <>
-              <div style={{ width: 1, background: 'rgba(245,240,232,0.12)' }} />
-              <div style={{ flex: 1, padding: '10px 0', textAlign: 'center', background: 'rgba(245,240,232,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                <div style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: TIER_POP_TEXT.faint }}>Spice</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <HeatBar level={meal.heat} onDark />
-                  <span style={{ fontFamily: BODY, fontSize: 11, fontWeight: 700, color: TIER_POP_TEXT.muted, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span>
-                </div>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Live delivery countdown — urgent state keeps OG orange for the
@@ -467,30 +495,39 @@ function TodaySpotlight({ meal, dorm, spotlight, ctx, planName, renew, onOpenDis
         )}
       </div>
 
-      {/* ── Right: framed dish photo (padded inside the card, no edge bleed) ── */}
+      {/* ── Right: the dish photo, edge to edge — no mat, clipped by the
+            card's own corners, the same construction as the week cards and
+            the mobile hero. The column is ~1.6 wide at its tightest and only
+            gets taller as the left column grows, so framing for 1.6 keeps the
+            bowl's rim clear of the stamp at every height. ── */}
       <div style={{
-        padding: 'clamp(16px, 1.6vw, 20px)',
-        paddingLeft: 0,
-        display: 'flex', alignItems: 'stretch',
+        position: 'relative',
+        minHeight: 240,
+        background: 'linear-gradient(135deg, #3a2418, #1e3a4f)',
       }}>
-        <div style={{
-          position: 'relative',
-          flex: 1,
-          minHeight: 240,
-          borderRadius: 'var(--radius-sm)',
-          overflow: 'hidden',
-          background: 'linear-gradient(135deg, #3a2418, #1e3a4f)',
+        {meal.image && (
+          <Image
+            src={meal.image}
+            alt={meal.dish}
+            fill
+            sizes="(max-width: 900px) 100vw, 520px"
+            style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }}
+          />
+        )}
+
+        {/* Tonight — the frosted stamp the mobile hero already wears, in the
+            week cards' stamp position. */}
+        <span style={{
+          position: 'absolute', top: 16, left: 16,
+          fontFamily: BODY, fontSize: 11, fontWeight: 700,
+          letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.2,
+          color: '#fff', background: 'rgba(9,24,37,0.55)',
+          padding: '5px 10px', borderRadius: 'var(--radius-pill)',
+          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          pointerEvents: 'none',
         }}>
-          {meal.image && (
-            <Image
-              src={meal.image}
-              alt={meal.dish}
-              fill
-              sizes="(max-width: 900px) 100vw, 480px"
-              style={{ objectFit: 'cover', objectPosition: dishObjectPosition(meal.frame, 1.6) }}
-            />
-          )}
-        </div>
+          Tonight
+        </span>
       </div>
     </div>
   )
@@ -552,7 +589,7 @@ function WeekDayCard({ meal, dayLabel, state, variant = 'full', noDeliveryReason
   // Radius is card-local: this-week cards are twice the width of next-week
   // cards, and one shared value read round on the small ones and square on
   // the big ones.
-  const cardRadius     = isPreview ? 18 : 24
+  const cardRadius     = isPreview ? PREVIEW_RADIUS : CARD_RADIUS
   const imageAspect    = isPreview ? '4 / 3' : '16 / 10'
   const boxAspect      = isPreview ? 4 / 3 : 1.6
   const pillInset      = isPreview ? 8 : 12
@@ -1108,16 +1145,12 @@ export default function MenuClient({
         .mobile-menu-peek::-webkit-scrollbar { display: none; }
         .mobile-menu-peek { scrollbar-width: none; }
 
-        /* Today spotlight stacks vertical on narrow viewports.
-           Image (now :last-child) goes BELOW the text and gains side padding so
-           it sits framed inside the card — same treatment as desktop. */
+        /* Today spotlight stacks vertical on narrow viewports. The photo
+           (:last-child) goes BELOW the text and keeps running edge to edge,
+           so it only needs its aspect back. */
         @media (max-width: 768px) {
           .today-spotlight { grid-template-columns: 1fr !important; }
-          .today-spotlight > div:last-child {
-            padding-left: clamp(16px, 1.6vw, 20px) !important;
-            padding-top: 0 !important;
-          }
-          .today-spotlight > div:last-child > div { aspect-ratio: 16 / 10; min-height: 0 !important; }
+          .today-spotlight > div:last-child { aspect-ratio: 16 / 10; min-height: 0 !important; }
         }
         /* This-week (full cards) — 3-col → 2-col → 1-col */
         @media (max-width: 640px) {

@@ -322,6 +322,28 @@ function TodaySpotlight({ meal, dorm, spotlight, notice, restCopy, canResume, re
       <div style={{ padding: 20 }}>
         <HeroTitle>{meal.dish}</HeroTitle>
 
+        {/* Diet and spice in words — the week cards' meta line, dark palette
+            (MealTag's DARK_PALETTE). Spice lives here, so MacroShelf below is
+            Calories and Protein only. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginTop: 8, fontSize: 12.5, fontWeight: 600, color: CREAM_MUTED }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, color: meal.tag === 'Veg' ? '#86efac' : OG }}>
+            <span aria-hidden style={{
+              width: 7, height: 7, borderRadius: 2, flexShrink: 0,
+              background: meal.tag === 'Veg' ? 'transparent' : OG,
+              boxShadow: meal.tag === 'Veg' ? 'inset 0 0 0 1.5px #86efac' : 'none',
+            }} />
+            {meal.tag === 'Veg' ? 'Veg' : 'Non-veg'}
+          </span>
+          {meal.heat > 0 && (
+            <>
+              <span aria-hidden style={{ color: CREAM_FAINT }}>&middot;</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                {SPICE_LABELS[meal.heat]}<HeatBar level={meal.heat} onDark />
+              </span>
+            </>
+          )}
+        </div>
+
         {/* Countdown — above description, urgent keeps orange */}
         <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 12, background: ct.urgent ? 'rgba(245,127,32,0.14)' : 'rgba(245,240,232,0.07)', border: `1px solid ${ct.urgent ? 'rgba(245,127,32,0.35)' : 'rgba(245,240,232,0.14)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -359,7 +381,6 @@ function MacroShelf({ meal }: { meal: WeekMeal }) {
       <div style={cell}><div style={cap}>Calories</div><div style={val}>{meal.cal.toFixed(0)}<span style={{ fontSize: 10, fontWeight: 500, color: CREAM_MUTED }}> kcal</span></div></div>
       {div}
       <div style={cell}><div style={cap}>Protein</div><div style={val}>{meal.protein.toFixed(0)}<span style={{ fontSize: 10, fontWeight: 500, color: CREAM_MUTED }}> g</span></div></div>
-      {meal.heat > 0 && (<>{div}<div style={{ ...cell, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}><div style={cap}>Spice</div><div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><HeatBar level={meal.heat} onDark /><span style={{ fontSize: 10, fontWeight: 700, color: CREAM_MUTED, textTransform: 'uppercase', letterSpacing: '0.10em' }}>{SPICE_LABELS[meal.heat]}</span></div></div></>)}
     </div>
   )
 }
