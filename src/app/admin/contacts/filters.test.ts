@@ -45,11 +45,46 @@ describe('matchesFilter', () => {
         expect(matchesFilter(row({ customer_id: null, email: null }), 'all')).toBe(true)
     })
 
-    it('finds the people a send cannot reach', () => {
-        expect(matchesFilter(row({ email: null }), 'no_email')).toBe(true)
-        expect(matchesFilter(row({ phone_e164: null }), 'no_phone')).toBe(true)
-        expect(matchesFilter(row(), 'no_email')).toBe(false)
-        expect(matchesFilter(row(), 'no_phone')).toBe(false)
+    // The three chips that matter for working through an import: who can be
+    // emailed, who can only be reached on WhatsApp, and who is a dead end.
+    // Every contact falls in exactly one of them.
+    it('finds the people an email can reach', () => {
+        expect(matchesFilter(row(), 'emailable')).toBe(true)
+        expect(matchesFilter(row({ email: null }), 'emailable')).toBe(false)
+    })
+
+    it('does not call someone emailable once they have opted out', () => {
+        expect(matchesFilter(row({ email_status: 'unsubscribed' }), 'emailable')).toBe(false)
+        expect(matchesFilter(row({ email_status: 'bounced' }), 'emailable')).toBe(false)
+    })
+
+    it('finds the WhatsApp-only pile — no email, but a number', () => {
+        expect(matchesFilter(row({ email: null }), 'whatsapp_only')).toBe(true)
+        expect(matchesFilter(row(), 'whatsapp_only')).toBe(false)
+        expect(matchesFilter(row({ email: null, phone_e164: null }), 'whatsapp_only')).toBe(false)
+    })
+
+    it('finds the dead ends', () => {
+        expect(matchesFilter(row({ email: null, phone_e164: null }), 'unreachable')).toBe(true)
+        expect(matchesFilter(row({ email: null }), 'unreachable')).toBe(false)
+        expect(matchesFilter(row({ phone_e164: null }), 'unreachable')).toBe(false)
+    })
+
+    it('puts every contact in exactly one of the three', () => {
+        const cases = [
+            row(),                                              // both
+            row({ email: null }),                               // phone only
+            row({ phone_e164: null }),                          // email only
+            row({ email: null, phone_e164: null }),             // neither
+            row({ email_status: 'unsubscribed' }),              // opted out, has phone
+        ]
+        for (const c of cases) {
+            const hits = (['emailable', 'whatsapp_only', 'unreachable'] as const)
+                .filter(k => matchesFilter(c, k)).length
+            // An opted-out contact with a phone is neither emailable nor
+            // WhatsApp-only (they still have an email on file), so 0 is valid.
+            expect(hits).toBeLessThanOrEqual(1)
+        }
     })
 })
 

@@ -32,8 +32,9 @@ const CHIPS: Array<{ key: FilterKey; label: string }> = [
     { key: 'imported', label: 'Imported' },
     { key: 'waitlist', label: 'Waitlist' },
     { key: 'unsubscribed', label: 'Opted out' },
-    { key: 'no_email', label: 'No email' },
-    { key: 'no_phone', label: 'No phone' },
+    { key: 'emailable', label: 'Emailable' },
+    { key: 'whatsapp_only', label: 'WhatsApp only' },
+    { key: 'unreachable', label: 'Unreachable' },
 ]
 
 const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [

@@ -17,8 +17,9 @@ export type FilterKey =
     | 'imported'
     | 'waitlist'
     | 'unsubscribed'
-    | 'no_email'
-    | 'no_phone'
+    | 'emailable'
+    | 'whatsapp_only'
+    | 'unreachable'
 
 /**
  * Opted out of anything. One chip rather than two because the question an
@@ -38,8 +39,13 @@ export function matchesFilter(c: ContactRow, key: FilterKey): boolean {
         case 'imported': return c.source === 'zoho_import'
         case 'waitlist': return c.on_waitlist
         case 'unsubscribed': return isOptedOut(c)
-        case 'no_email': return !c.email
-        case 'no_phone': return !c.phone_e164
+        // The three reachability chips. Working through an import means
+        // asking one question per contact — can I email them, can I only
+        // WhatsApp them, or are they a dead end — so the chips answer that
+        // rather than making someone infer it from "no email".
+        case 'emailable': return !!c.email && c.email_status === 'subscribed'
+        case 'whatsapp_only': return !c.email && !!c.phone_e164
+        case 'unreachable': return !c.email && !c.phone_e164
     }
 }
 
