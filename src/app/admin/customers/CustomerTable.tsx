@@ -9,7 +9,7 @@ import { AdminBadge } from '../_components/AdminBadge'
 import { CUSTOMER_PAGE_SIZE } from './constants'
 import { loadMoreCustomers } from './actions'
 import {
-    getAttention, matchesFilter, sortCustomers, todayDubai,
+    getAttention, matchesFilter, sortCustomers, todayDubai, waitlistNote,
     type Attention, type AttentionTone, type FilterKey, type SortMode,
 } from './priority'
 
@@ -35,7 +35,12 @@ const TONE_VARIANT: Record<AttentionTone, 'rejected' | 'warning' | 'active'> = {
 }
 
 /** Status chips, in the order they appear. 'attention' and 'all' are pinned;
- *  the rest only render when at least one loaded customer matches. */
+ *  the rest only render when at least one loaded customer matches.
+ *
+ *  'waitlist' and 'early signup' sit after 'No plan' on purpose: they split
+ *  that bucket, so reading left to right goes from the whole group to the two
+ *  halves of it. They overlap 'No plan' and 'Ended' by design — the chips are
+ *  filters, not a partition. */
 const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
     { key: 'Active', label: 'Active' },
     { key: 'Scheduled', label: 'Scheduled' },
@@ -43,6 +48,8 @@ const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
     { key: 'Skipped', label: 'Skipped' },
     { key: 'Ended', label: 'Ended' },
     { key: 'none', label: 'No plan' },
+    { key: 'waitlist', label: 'Waitlist' },
+    { key: 'early_signup', label: 'Early signup' },
 ]
 
 const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [
@@ -220,6 +227,7 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                     <tbody>
                         {shown.map(c => {
                             const attention = getAttention(c, today)
+                            const waiting = waitlistNote(c)
                             return (
                                 <tr
                                     key={c.id}
@@ -239,13 +247,20 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                                     <td className={`px-3 py-2.5 ${t.body}`}>
                                         {c.active_plan?.replace(/-/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) || '—'}
                                     </td>
+                                    {/* The waitlist tag lives with the status badges rather than
+                                        beside the name: for someone with no plan this cell was an
+                                        em dash, and "holding a pause credit" is exactly the state
+                                        a reader is looking for here. */}
                                     <td className="px-3 py-2.5">
-                                        {c.sub_status ? (
+                                        {c.sub_status || waiting ? (
                                             <div className="inline-flex items-center gap-1.5 flex-wrap">
                                                 {attention && !attention.redundantWithStatus && <AttentionPill attention={attention} />}
-                                                <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
-                                                    {c.sub_status}
-                                                </AdminBadge>
+                                                {c.sub_status && (
+                                                    <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
+                                                        {c.sub_status}
+                                                    </AdminBadge>
+                                                )}
+                                                {waiting && <AdminBadge variant="neutral">{waiting}</AdminBadge>}
                                             </div>
                                         ) : (
                                             <span className={t.faint}>—</span>
@@ -270,6 +285,7 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
             <div className="md:hidden flex flex-col gap-2.5">
                 {shown.map(c => {
                     const attention = getAttention(c, today)
+                    const waiting = waitlistNote(c)
                     return (
                         <div
                             key={c.id}
@@ -287,11 +303,14 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                                         {c.dorm_name || 'No dorm'} · {c.email || c.whatsapp_number || c.cid}
                                     </div>
                                 </div>
-                                {c.sub_status && (
-                                    <div className="shrink-0">
-                                        <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
-                                            {c.sub_status}
-                                        </AdminBadge>
+                                {(c.sub_status || waiting) && (
+                                    <div className="shrink-0 flex flex-col items-end gap-1">
+                                        {c.sub_status && (
+                                            <AdminBadge variant={STATUS_VARIANT[c.sub_status] ?? 'neutral'}>
+                                                {c.sub_status}
+                                            </AdminBadge>
+                                        )}
+                                        {waiting && <AdminBadge variant="neutral">{waiting}</AdminBadge>}
                                     </div>
                                 )}
                             </div>

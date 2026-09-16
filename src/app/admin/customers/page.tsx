@@ -23,6 +23,10 @@ export interface CustomerRow {
     sub_id: string | null
     sub_start_date: string | null
     sub_end_date: string | null
+    /** When they last joined the early-access list, across any pause cycle. */
+    waitlist_joined_at: string | null
+    /** The pause credit that join minted, if it has been minted yet. */
+    waitlist_credit_aed: number | null
 }
 
 /**
