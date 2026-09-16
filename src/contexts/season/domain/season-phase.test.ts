@@ -56,13 +56,13 @@ describe('visibleSeasonActions', () => {
 describe('seasonDriftMessage', () => {
   it('flags a plan blocked while the season still says sales are open', () => {
     expect(seasonDriftMessage(true, snap({ phase: 'winding_down' }))).toBe(
-      'The season settings disagree: new plans are blocked, but the season says sales are open. This happens when the old Season page was used. Press Stop sales now once to line them up.',
+      'Two settings disagree: customers cannot buy plans, but this page thinks new orders are open. Press Pause new orders once to fix it.',
     )
   })
 
   it('flags plans on sale while the season says sales are stopped', () => {
     expect(seasonDriftMessage(false, snap({ phase: 'winding_down', salesStopped: true }))).toBe(
-      'The season settings disagree: new plans are on sale, but the season says sales are stopped. This happens when the old Season page was used. Press Resume sales once to line them up.',
+      'Two settings disagree: customers can buy plans, but this page thinks new orders are paused. Press Take new orders again once to fix it.',
     )
   })
 

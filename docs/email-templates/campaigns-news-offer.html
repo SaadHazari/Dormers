@@ -1,0 +1,304 @@
+<!--
+  Dormers: the default Zoho Campaigns marketing email ("news + one offer").
+
+  WHAT THIS IS FOR
+  The reusable shell for promotional email: reopening news, a menu change, an
+  offer. It is pasted into Zoho Campaigns, NOT ZeptoMail. ZeptoMail suspends
+  accounts that send promotions, and that would stop order confirmations too.
+
+  It follows EMAIL-DESIGN.md exactly: white card, 2px orange border, 13px
+  radius, the house-mark lockup (never a banner), tinted sub-containers,
+  buttons inside boxes, the green WhatsApp support box, real dark mode, and no
+  border-collapse. Reference implementation: season-plan-ended.html.
+
+  HOW TO USE IT IN ZOHO CAMPAIGNS
+  1. Create Campaign, choose the HTML editor (or "Code your own").
+  2. Paste this whole file.
+  3. Set the campaign theme's Header and Footer to NONE. This file carries its
+     own unsubscribe link, and a second Zoho footer underneath looks broken.
+  4. Replace every block marked EDIT below. Search the file for "EDIT".
+  5. The picture is OFF by default. To add one, find IMAGE START below.
+  6. Replace [AMOUNT] and [DAY] in the offer box. They are in square brackets
+     on purpose: an unedited paste must never promise a discount you did not
+     decide on. Zoho's preview will show the brackets if you missed one.
+  7. Send a test to yourself. Check it in Gmail on your phone, light and dark.
+
+  MERGE TAGS (Zoho Campaigns syntax, NOT ZeptoMail's {{...}})
+    $[FNAME|there|there]$   first name, or "there" when a contact has none.
+                            About 900 of your contacts have no name on file,
+                            so the fallback is not optional.
+    $[LI:UNSUBSCRIBE]$      the unsubscribe link. Must stay inside an href.
+                            Zoho refuses to send a campaign without it.
+
+  COPY RULES (from EMAIL-DESIGN.md)
+    No emoji. No em or en dashes: write "to" for ranges.
+    Uppercase eyebrow label on each box. <b> for the key number.
+    One offer, one button. A second call to action splits attention.
+
+  BRAND
+    #f57f20 brand orange, the ceiling. Never darker into amber or red.
+    #8c4214 deep orange, small orange text on light grounds ONLY (contrast).
+    #091825 navy for headings.
+-->
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Dormers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100% !important;
+    }
+
+    img {
+      border: 0;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+    }
+
+    /* NO border-collapse reset. The collapsed model discards border-radius
+       and Gmail drops the card's perimeter border. Leave tables separate. */
+    a {
+      text-decoration: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .main-card {
+        border: 2px solid #f57f20 !important;
+        background-color: #1a1a1a !important;
+      }
+
+      .text-content {
+        color: #d9d9d9 !important;
+      }
+
+      .strong-text {
+        color: #fcfcfc !important;
+      }
+
+      .sub-container-orange {
+        background-color: #261a0d !important;
+        border: 1.2px solid #f57f20 !important;
+      }
+
+      .sub-container-green {
+        background-color: #0d1a10 !important;
+        border: 1.2px solid #2e7d32 !important;
+      }
+
+      .label-orange {
+        color: #f57f20 !important;
+      }
+
+      .label-green {
+        color: #5aa860 !important;
+      }
+
+      .divider {
+        border-top: 1px solid #333333 !important;
+      }
+
+      .footer-text {
+        color: #555555 !important;
+      }
+
+      .muted-line,
+      .muted-line a {
+        color: #aaaaaa !important;
+      }
+    }
+
+    @media only screen and (max-width: 620px) {
+      .card-pad {
+        padding: 30px 22px !important;
+      }
+
+      .h1 {
+        font-size: 24px !important;
+        line-height: 1.24 !important;
+      }
+
+      .hero-img {
+        width: 100% !important;
+        height: auto !important;
+      }
+
+      .cta {
+        display: block !important;
+        text-align: center !important;
+      }
+    }
+  </style>
+</head>
+
+<body style="margin:0; padding:0;">
+
+  <!-- EDIT: the preheader. The grey line inbox apps show after the subject.
+       One sentence that adds to the subject rather than repeating it. -->
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    Dinners are back on for the new semester.
+  </div>
+
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="padding:40px 10px;">
+    <tr>
+      <td align="center">
+
+        <table class="main-card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+          style="max-width:600px; background-color:#ffffff; border:2px solid #f57f20; border-radius:13px; overflow:hidden;">
+          <tr>
+            <td class="card-pad text-content"
+              style="padding:42px; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif; color:#5c6670; font-weight:500;">
+
+              <!-- Brand lockup. Live text beside the mark, so it still reads
+                   with images blocked. Do not replace with a banner. -->
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:0 0 26px 0;">
+                <tr>
+                  <td width="48" valign="middle">
+                    <img src="https://dormers.ae/email-mark.png" width="48" height="48" alt="Dormers"
+                      style="display:block; width:48px; height:48px;">
+                  </td>
+                  <td width="13" style="font-size:0; line-height:0;">&nbsp;</td>
+                  <td valign="middle">
+                    <div class="strong-text"
+                      style="font-size:19px; font-weight:800; letter-spacing:3px; color:#091825; line-height:1; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      DORMERS&rsquo;</div>
+                    <div class="label-orange"
+                      style="font-size:9px; font-weight:700; letter-spacing:1.9px; color:#8c4214; margin-top:6px; line-height:1; text-transform:uppercase; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Meals that don&rsquo;t suck</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- EDIT: the headline. Keep the name at the end, it is what
+                   makes a bulk email read like it was written to someone. -->
+              <h1 class="h1 strong-text"
+                style="margin:0 0 16px 0; font-size:26px; line-height:1.22; font-weight:800; color:#091825; letter-spacing:-0.3px;">
+                Dinner is back on, $[FNAME|there|there]$.
+              </h1>
+
+              <!-- EDIT: the news. One or two short paragraphs. Say what
+                   changed and why it matters to them, not to us. -->
+              <p style="margin:0 0 16px 0; font-size:16px; line-height:26px;">
+                The kitchen is open again for the new semester. Same rotation, same dorms, same
+                hours: a hot dinner at your door, so you are not deciding what to eat at 9pm after
+                a long day.
+              </p>
+              <p style="margin:0 0 28px 0; font-size:16px; line-height:26px;">
+                This week&rsquo;s menu is up now.
+              </p>
+
+              <!-- OPTIONAL IMAGE, OFF BY DEFAULT.
+                   It ships commented out so pasting this file as-is can never
+                   send a broken picture. To use one: delete the two comment
+                   lines around the table below, then set src and alt.
+                   Rules: PNG or JPG (never SVG, most inboxes strip it), on a
+                   public https URL, about 1040px wide so phones render it
+                   sharp, and always a real alt text for when images are off.
+              IMAGE START
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="margin-bottom:28px;">
+                <tr>
+                  <td>
+                    <img class="hero-img" src="https://YOUR-IMAGE-URL.png" width="516" alt="Describe the picture"
+                      style="display:block; width:100%; max-width:516px; height:auto; border-radius:8px;">
+                  </td>
+                </tr>
+              </table>
+              IMAGE END -->
+
+              <!-- The offer. The button lives inside the box, so the reason
+                   and the action are one thought. One offer per email. -->
+              <table class="sub-container-orange" role="presentation" width="100%" border="0" cellspacing="0"
+                cellpadding="0"
+                style="background-color:#fffaf5; border:1.2px solid #f57f20; border-radius:8px; margin-bottom:26px;">
+                <tr>
+                  <td style="padding:26px;">
+                    <!-- EDIT: the eyebrow label, short and in caps -->
+                    <p class="label-orange"
+                      style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#8c4214;">
+                      This semester&rsquo;s offer
+                    </p>
+                    <!-- EDIT: the offer. Bold the number. Say when it ends. -->
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      Start a monthly plan by [DAY] and we will take <b>AED [AMOUNT]</b> off your
+                      first month. It applies at checkout, nothing to enter.
+                    </p>
+                    <!-- EDIT: button text and link. Use a full https:// URL. -->
+                    <a class="cta" href="https://dormers.ae/"
+                      style="background-color:#f57f20; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      See this week&rsquo;s menu
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Support box. Always last, always WhatsApp. -->
+              <table class="sub-container-green" role="presentation" width="100%" border="0" cellspacing="0"
+                cellpadding="0"
+                style="background-color:#f2faf3; border:1.2px solid #2e7d32; border-radius:8px; margin-bottom:42px;">
+                <tr>
+                  <td style="padding:26px;">
+                    <p class="label-green"
+                      style="margin:0 0 8px 0; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#2e7d32;">
+                      Questions?
+                    </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px;">
+                      Not sure which plan fits your week? We are a tap away on WhatsApp, usually
+                      replying within an hour.
+                    </p>
+                    <a href="https://wa.me/971504619384"
+                      style="background-color:#2e7d32; color:#ffffff; padding:12px 20px; font-size:14px; font-weight:700; border-radius:6px; display:inline-block; font-family:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      Chat with us
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table class="divider" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
+                style="border-top:1px solid #eeeeee;">
+                <tr>
+                  <!-- EDIT: the sign-off, if the moment calls for a different one -->
+                  <td style="padding-top:26px; font-size:14px; line-height:22px;">
+                    See you at dinner,<br>
+                    <b class="strong-text" style="color:#091825; font-size:16px;">Team Dormers</b>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:42px;">
+                    <!-- The reason line must be true for everyone on the list.
+                         This wording covers form signups, past orders and
+                         past subscribers alike. -->
+                    <p class="muted-line" style="margin:0 0 6px 0; font-size:12px; line-height:20px; color:#9a9a9a;">
+                      You are getting this because you ordered from or signed up with Dormers.
+                    </p>
+                    <p class="muted-line" style="margin:0 0 14px 0; font-size:12px; line-height:20px; color:#9a9a9a;">
+                      Rather not hear from us?
+                      <a href="$[LI:UNSUBSCRIBE]$" style="color:#9a9a9a; text-decoration:underline;">Unsubscribe</a>
+                    </p>
+                    <p class="footer-text"
+                      style="margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#b0b0b0;">
+                      Made in Dubai
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>

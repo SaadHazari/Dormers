@@ -61,16 +61,17 @@ import {
 } from '@/contexts/season/domain/season-projection'
 import { formatAed } from '@/contexts/season/domain/meal-value'
 
-export const END_TODAY_PHRASE = 'END SEASON'
+export const END_TODAY_PHRASE = 'CLOSE TONIGHT'
 
 type ConfirmKind = Exclude<SeasonAction, 'reopen'>
 
+// What each plan's season looks like, in the words the owner uses.
 const DISPOSITION: Record<Disposition, { label: string; tone: 'quiet' | 'held' | 'wait' | 'done'; order: number }> = {
-    runs_past: { label: 'Runs past', tone: 'held', order: 0 },
-    starts_after: { label: 'Starts after', tone: 'held', order: 1 },
-    staff_pending: { label: 'Staff approval pending', tone: 'wait', order: 2 },
-    customer_paused: { label: 'Customer paused', tone: 'quiet', order: 3 },
-    finishes: { label: 'Finishes', tone: 'done', order: 4 },
+    runs_past: { label: 'Goes past the end', tone: 'held', order: 0 },
+    starts_after: { label: 'Starts after the end', tone: 'held', order: 1 },
+    staff_pending: { label: 'Waiting for staff approval', tone: 'wait', order: 2 },
+    customer_paused: { label: 'Paused by customer', tone: 'quiet', order: 3 },
+    finishes: { label: 'Finishes in time', tone: 'done', order: 4 },
 }
 
 export const prettyDay = formatShortDay
@@ -109,67 +110,99 @@ function buildView(data: SeasonPageData, closures: ReadonlySet<string>, wrapUpDa
 }
 
 function exposureText(view: SeasonView): string {
-    const money = `${formatAed(view.exposureFils)}${view.exposureEstimated ? ' est.' : ''}`
+    const money = `${view.exposureEstimated ? 'about ' : ''}${formatAed(view.exposureFils)}`
     return view.exposureUnknownPlans > 0
-        ? `${money} + ${plural(view.exposureUnknownPlans, 'plan', 'plans')} with no price`
+        ? `${money}, plus ${plural(view.exposureUnknownPlans, 'plan', 'plans')} with no price on record`
         : money
 }
 
-const keptOrRefunded = SEASON_REFUNDS_LIVE ? 'kept for next semester or refunded' : 'kept for next semester'
+const keptLine = (meals: number, worth: string) =>
+    `**${plural(meals, 'meal does', 'meals do')} not fit** (worth ${worth}). They are kept for next semester${SEASON_REFUNDS_LIVE ? ', or refunded if the customer asks and you agree' : ''}.`
+
+export interface ConfirmCopy { title: string; lines: string[]; undo: string; cta: string; danger: boolean }
 
 function confirmCopy(
     kind: ConfirmKind,
     c: { wrap: string; buffer: number; snapshot: SeasonSnapshot; view: SeasonView; endTodayView: SeasonView; plans: readonly SeasonPlanRow[] },
-): { title: string; lines: string[]; cta: string; danger: boolean } {
+): ConfirmCopy {
     if (kind === 'schedule' || kind === 'move') {
         const s = c.view.summary
         const d = s.byDisposition
+        const lastCook = closeDayFor(c.wrap, c.buffer)
         return {
-            title: kind === 'schedule' ? 'Schedule the season end?' : 'Move the season end?',
+            title: kind === 'schedule'
+                ? `Make ${prettyDay(c.wrap)} the last dinner day?`
+                : `Change the last dinner day to ${prettyDay(c.wrap)}?`,
             lines: [
-                `Last regular dinner **${prettyDay(c.wrap)}**, last kitchen day **${prettyDay(closeDayFor(c.wrap, c.buffer))}** (${plural(c.buffer, 'make-up day', 'make-up days')}). The break starts that night.`,
-                `The kitchen cooks **${plural(s.kitchenDays, 'more day', 'more days')}**.`,
-                `${plural(d.finishes, 'plan finishes', 'plans finish')}, ${plural(d.runs_past, 'runs', 'run')} past, ${plural(d.starts_after, 'starts', 'start')} after, ${plural(d.customer_paused, 'customer pause waits', 'customer pauses wait')}.`,
-                s.mealsAfterWrapUp > 0
-                    ? `**${plural(s.mealsAfterWrapUp, 'meal', 'meals')}** (${exposureText(c.view)}) ${keptOrRefunded}.`
-                    : 'No meals are left after the wrap-up day.',
-                `New plans must finish by ${prettyDay(c.wrap)}.`,
+                `Normal dinners go out until **${prettyDay(c.wrap)}**.`,
+                c.buffer > 0
+                    ? `After that, the kitchen cooks for ${plural(c.buffer, 'more day', 'more days')}, until **${prettyDay(lastCook)}**, only for meals customers skipped earlier. Then it closes for the semester break.`
+                    : `The kitchen closes for the semester break straight after that day.`,
+                `That is **${plural(s.kitchenDays, 'more cooking day', 'more cooking days')}** from today.`,
+                `Of the plans running now: ${plural(d.finishes, 'finishes', 'finish')} in time, ${plural(d.runs_past, 'goes', 'go')} past the end, ${plural(d.starts_after, 'starts', 'start')} after it, and ${plural(d.customer_paused, 'is', 'are')} paused by the customer.`,
+                s.mealsAfterWrapUp > 0 ? keptLine(s.mealsAfterWrapUp, exposureText(c.view)) : 'Every meal fits before the end. Nothing needs to be kept.',
+                `From now on, people can only buy plans that finish by ${prettyDay(c.wrap)}.`,
+                'Customers whose plans go past the end get a message at 10:00 tomorrow. You get a WhatsApp summary now.',
             ],
-            cta: kind === 'schedule' ? 'Yes, schedule it' : 'Yes, move it',
+            undo: kind === 'schedule'
+                ? 'Yes. Until that day comes, you can pick a different day, or press Cancel the season end under Other options.'
+                : 'Yes. Until that day comes, you can change it again or cancel the season end.',
+            cta: kind === 'schedule' ? 'Yes, set this day' : 'Yes, change it',
             danger: false,
         }
     }
     if (kind === 'clear') {
         return {
-            title: 'Clear the wrap-up day?',
+            title: 'Cancel the season end?',
             lines: c.snapshot.salesStopped
-                ? ['Sales stay stopped.', 'With no wrap-up day the kitchen cooks until the last plan ends.']
-                : ['Every plan goes back on sale at full length straight away.', 'The season end is cancelled.'],
-            cta: 'Yes, clear it',
+                ? [
+                    'The last dinner day is removed.',
+                    'New orders stay paused.',
+                    'The kitchen keeps cooking until every plan that is already paid for has finished.',
+                    'Messages about the season end that have not gone out yet are cancelled.',
+                ]
+                : [
+                    'The last dinner day is removed.',
+                    'People can buy plans of any length again, straight away.',
+                    'The kitchen keeps cooking as normal.',
+                    'Messages about the season end that have not gone out yet are cancelled.',
+                ],
+            undo: 'Yes. You can pick a new last dinner day on the calendar at any time.',
+            cta: 'Yes, cancel the end',
             danger: false,
         }
     }
     if (kind === 'stop_sales') {
         return {
-            title: 'Stop sales now?',
+            title: 'Pause new orders?',
             lines: [
-                'Nobody can buy or renew a plan from now on.',
-                'Plans already paid for keep running.',
+                'From now on, nobody can buy a new plan or renew one.',
+                'Plans people already paid for carry on as normal, and the kitchen keeps cooking for them.',
                 c.snapshot.wrapUpDay
-                    ? `The wrap-up day stays ${prettyDay(c.snapshot.wrapUpDay)}.`
-                    : 'No wrap-up day is set yet, so pick one on the calendar next.',
+                    ? `The last dinner day stays **${prettyDay(c.snapshot.wrapUpDay)}**.`
+                    : 'There is no last dinner day yet, so the kitchen cooks until the last paid plan finishes. You can pick a last dinner day on the calendar next.',
+                'Customers see the waiting list message instead of the plans.',
             ],
-            cta: 'Yes, stop sales',
+            undo: 'Yes. Press Take new orders again at any time.',
+            cta: 'Yes, pause new orders',
             danger: true,
         }
     }
     if (kind === 'resume_sales') {
         return {
-            title: 'Resume sales?',
+            title: 'Take new orders again?',
             lines: c.snapshot.wrapUpDay
-                ? [`Plans that finish by **${prettyDay(c.snapshot.wrapUpDay)}** go back on sale.`]
-                : ['Every plan goes back on sale at full length, and the season end is cancelled.', 'Saved spots holding credit see the reopened notice.'],
-            cta: 'Yes, resume sales',
+                ? [
+                    `People can buy plans again, as long as the plan finishes by **${prettyDay(c.snapshot.wrapUpDay)}**.`,
+                    'The last dinner day does not change.',
+                ]
+                : [
+                    'People can buy plans of any length again, straight away.',
+                    'There is no season end any more, so the kitchen stays open as normal.',
+                    'People on the waiting list who hold credit see that you are open again.',
+                ],
+            undo: 'Yes. Press Pause new orders at any time.',
+            cta: 'Yes, take new orders',
             danger: false,
         }
     }
@@ -181,15 +214,17 @@ function confirmCopy(
         })
         .map((p) => `${p.customerName} (${p.planName})`)
     return {
-        title: 'End the season today?',
+        title: 'Close the kitchen tonight?',
         lines: [
-            '**Tonight is the last kitchen night.** Sales stop now and the break starts at 00:20.',
+            "**Tonight's dinners are the last ones.** New orders stop straight away.",
+            'The semester break starts just after midnight (00:20). From then on nothing is cooked or sold.',
             e.mealsAfterWrapUp > 0
-                ? `**${plural(e.mealsAfterWrapUp, 'meal', 'meals')}** (${exposureText(c.endTodayView)}) ${keptOrRefunded}${heldNames.length ? `: ${heldNames.join(', ')}` : ''}.`
-                : 'No plan has meals after today.',
-            'Skips whose make-up day would fall after today become wallet credit.',
+                ? `${keptLine(e.mealsAfterWrapUp, exposureText(c.endTodayView))}${heldNames.length ? ` Plans affected: ${heldNames.join(', ')}.` : ''}`
+                : 'Every plan has finished by tonight. Nothing needs to be kept.',
+            'Meals customers skipped and were due to get back later turn into wallet credit instead.',
         ],
-        cta: 'End the season today',
+        undo: 'Only until midnight, by pressing Cancel the season end under Other options. Once the break starts, the only way back is Reopen the kitchen.',
+        cta: 'Close the kitchen tonight',
         danger: true,
     }
 }
@@ -197,7 +232,7 @@ function confirmCopy(
 export function SeasonPlanner({ data, members, waiting, customerView }: {
     data: SeasonPageData
     members: WaitlistMember[]
-    /** The saved-spots column. */
+    /** The waiting list column. */
     waiting: ReactNode
     /** The "What customers see" section. */
     customerView: ReactNode
@@ -301,7 +336,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                         className={`self-start inline-flex items-center gap-2 text-[13px] font-bold ${t.accent} hover:underline underline-offset-4`}
                     >
                         <Send size={14} strokeWidth={2.2} aria-hidden />
-                        Just reopened? Send the reopening notice
+                        Just reopened? Tell customers we are open
                     </Link>
                 )}
             </header>
@@ -334,31 +369,31 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                         <>
                             <div>
                                 <div className={`text-[12px] font-bold ${t.muted}`}>
-                                    {!shownWrap ? 'Last meal on the books' : editing && draftChanged ? 'If the season ends here' : 'This season end'}
+                                    {!shownWrap ? 'Last meal anyone has paid for' : editing && draftChanged ? 'If you pick this day' : 'The season end you set'}
                                 </div>
                                 {!shownWrap ? (
                                     <>
                                         <div className={`mt-1 text-[28px] font-black tracking-tight tabular-nums ${t.heading}`}>{lastOnBooks ? prettyDay(lastOnBooks.date) : 'None'}</div>
-                                        <div className={`text-[13px] ${t.muted}`}>{plural(books.calendar.length, 'kitchen day', 'kitchen days')} if nothing ends early</div>
+                                        <div className={`text-[13px] ${t.muted}`}>{plural(books.calendar.length, 'cooking day', 'cooking days')} if nothing ends early</div>
                                     </>
                                 ) : (
                                     <>
                                         <div className={`mt-1 text-[28px] font-black tracking-tight tabular-nums ${t.heading}`}>
-                                            {view.summary.kitchenDays} <span className={`text-[14px] font-bold ${t.muted}`}>kitchen days</span>
+                                            {view.summary.kitchenDays} <span className={`text-[14px] font-bold ${t.muted}`}>cooking days left</span>
                                         </div>
                                         <dl className={`mt-3 flex flex-col gap-2 text-[13px] ${t.body}`}>
-                                            <Fact term="Wrap-up day" value={prettyDay(shownWrap)} />
-                                            <Fact term="Last kitchen day" value={prettyDay(shownClose ?? shownWrap)} />
+                                            <Fact term="Last dinner day" value={prettyDay(shownWrap)} />
+                                            <Fact term="Last cooking day" value={prettyDay(shownClose ?? shownWrap)} />
                                             <Fact
-                                                term="Held for next semester"
+                                                term="Meals that do not fit"
                                                 value={view.summary.mealsAfterWrapUp > 0 ? plural(view.summary.mealsAfterWrapUp, 'meal', 'meals') : 'Nothing'}
                                                 accent={view.summary.mealsAfterWrapUp > 0}
                                             />
-                                            {view.exposureFils > 0 && <Fact term="Worth" value={`${formatAed(view.exposureFils)}${view.exposureEstimated ? ' est.' : ''}`} />}
-                                            {view.exposureUnknownPlans > 0 && <Fact term="No price on record" value={plural(view.exposureUnknownPlans, 'plan', 'plans')} />}
-                                            {kitchenDaysSaved > 0 && <Fact term="Saved vs the books" value={plural(kitchenDaysSaved, 'kitchen day', 'kitchen days')} />}
+                                            {view.exposureFils > 0 && <Fact term="Worth" value={`${view.exposureEstimated ? 'about ' : ''}${formatAed(view.exposureFils)}`} />}
+                                            {view.exposureUnknownPlans > 0 && <Fact term="Plans with no price" value={String(view.exposureUnknownPlans)} />}
+                                            {kitchenDaysSaved > 0 && <Fact term="Cooking days saved" value={String(kitchenDaysSaved)} />}
                                         </dl>
-                                        <div className={`mt-2 text-[12px] ${t.faint}`}>Last meal on the books {lastOnBooks ? prettyDay(lastOnBooks.date) : 'none'}</div>
+                                        <div className={`mt-2 text-[12px] ${t.faint}`}>Without an end, the last paid meal is {lastOnBooks ? prettyDay(lastOnBooks.date) : 'none'}.</div>
                                     </>
                                 )}
                             </div>
@@ -366,7 +401,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                             {editing && (
                                 <div className="flex flex-col gap-4">
                                     <div>
-                                        <div id="season-buffer-label" className={`text-[12px] font-bold ${t.muted}`}>Make-up days after the wrap-up day</div>
+                                        <div id="season-buffer-label" className={`text-[12px] font-bold ${t.muted}`}>Catch-up days</div>
                                         <div role="radiogroup" aria-labelledby="season-buffer-label" className={`mt-2 inline-flex rounded-lg border p-1 ${t.border}`}>
                                             {Array.from({ length: MAX_BUFFER_DAYS + 1 }, (_, n) => (
                                                 <button
@@ -383,18 +418,18 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                                                 </button>
                                             ))}
                                         </div>
-                                        <div className={`mt-2 text-[12px] ${t.faint}`}>They only cook make-up meals from skips, and are never sold.</div>
+                                        <div className={`mt-2 text-[12px] ${t.muted}`}>Extra days after the last dinner day to cook meals customers skipped earlier. Nobody can buy these days.</div>
                                     </div>
                                     {draftError && <p role="alert" className={`text-[12px] font-bold ${t.danger}`}>{draftError}</p>}
                                     {canMove && !draftChanged ? (
-                                        <p className={`text-[12px] ${t.muted}`}>To move the end, tap another day on the calendar.</p>
+                                        <p className={`text-[12px] ${t.muted}`}>To change the last dinner day, tap another day on the calendar.</p>
                                     ) : (
                                         <AdminButton
                                             className="w-full"
                                             onClick={() => openConfirm(canMove ? 'move' : 'schedule')}
                                             disabled={Boolean(draftError) || pending}
                                         >
-                                            {canMove ? 'Save new dates' : 'Schedule'}
+                                            {canMove ? 'Change the last dinner day' : 'Set the last dinner day'}
                                         </AdminButton>
                                     )}
                                     {canMove && draftChanged && (
@@ -403,7 +438,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                                             onClick={() => { setWrapDraft(snapshot.wrapUpDay ?? defaultWrapDraft); setBufferDraft(snapshot.bufferDays) }}
                                             className={`-mt-2 self-center text-[12px] font-bold ${t.muted} hover:underline underline-offset-4`}
                                         >
-                                            Undo changes
+                                            Go back to {snapshot.wrapUpDay ? prettyDay(snapshot.wrapUpDay) : 'the saved day'}
                                         </button>
                                     )}
                                 </div>
@@ -411,24 +446,24 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
 
                             {clearInPanel && (
                                 <div className="flex flex-col gap-2">
-                                    <p className={`text-[13px] ${t.body}`}>The wrap-up day has passed, so the dates can no longer move. To change them, clear the wrap-up day and schedule again.</p>
-                                    <AdminButton variant="ghost" onClick={() => openConfirm('clear')} disabled={pending}>Clear the wrap-up day</AdminButton>
+                                    <p className={`text-[13px] ${t.body}`}>The last dinner day has passed, so it can no longer be changed. To pick a new one, cancel the season end first.</p>
+                                    <AdminButton variant="ghost" onClick={() => openConfirm('clear')} disabled={pending}>Cancel the season end</AdminButton>
                                 </div>
                             )}
 
                             {(actions.includes('stop_sales') || actions.includes('resume_sales')) && (
                                 <div className={`flex flex-col gap-3 border-t pt-4 ${t.border}`}>
                                     <div>
-                                        <div className={`text-[12px] font-bold ${t.muted}`}>Sales</div>
+                                        <div className={`text-[12px] font-bold ${t.muted}`}>New orders</div>
                                         <div className={`mt-1 text-[14px] font-black ${snapshot.salesStopped ? t.warning : t.heading}`}>
-                                            {snapshot.salesStopped ? 'Stopped' : snapshot.wrapUpDay ? `Open, plans ending by ${prettyDay(snapshot.wrapUpDay)}` : 'Open'}
+                                            {snapshot.salesStopped ? 'Paused. Nobody can buy a plan.' : snapshot.wrapUpDay ? `Open, for plans that end by ${prettyDay(snapshot.wrapUpDay)}` : 'Open. People can buy plans.'}
                                         </div>
                                     </div>
                                     {actions.includes('stop_sales') ? (
-                                        <AdminButton variant="ghost" onClick={() => openConfirm('stop_sales')} disabled={pending}>Stop sales now</AdminButton>
+                                        <AdminButton variant="ghost" onClick={() => openConfirm('stop_sales')} disabled={pending}>Pause new orders</AdminButton>
                                     ) : (
                                         <AdminButton variant="ghost" onClick={() => openConfirm('resume_sales')} disabled={pending}>
-                                            {snapshot.wrapUpDay ? 'Resume sales' : 'Resume sales and end the season'}
+                                            Take new orders again
                                         </AdminButton>
                                     )}
                                 </div>
@@ -444,7 +479,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                     {onBreak ? (
                         <BreakLists view={breakView} />
                     ) : (
-                        <Section title="Plans on the books" count={rows.length}>
+                        <Section title="Customers' plans" count={rows.length}>
                             <PlansList rows={rows} view={view} />
                         </Section>
                     )}
@@ -466,6 +501,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                 <ConfirmDialog
                     title={copy.title}
                     lines={copy.lines}
+                    undo={copy.undo}
                     cta={copy.cta}
                     danger={copy.danger}
                     pending={pending}
@@ -476,7 +512,7 @@ export function SeasonPlanner({ data, members, waiting, customerView }: {
                 >
                     {confirm === 'end_today' && (
                         <label className="flex flex-col gap-2" htmlFor="season-end-today-phrase">
-                            <span className={`text-[12px] font-bold ${t.muted}`}>Type {END_TODAY_PHRASE} to confirm</span>
+                            <span className={`text-[12px] font-bold ${t.muted}`}>To make sure, type {END_TODAY_PHRASE}</span>
                             <input
                                 id="season-end-today-phrase"
                                 value={phrase}
@@ -497,28 +533,28 @@ function statusLine(data: SeasonPageData, lastBooked: string | null, kitchenDays
     const s = data.snapshot
     if (s.phase === 'open') {
         return {
-            title: 'Open',
-            text: `Selling normally. The kitchen cooks every plan on the books${lastBooked ? `, the last one on ${prettyDay(lastBooked)}` : ''}. To end the season, tap its last regular dinner on the calendar.`,
+            title: 'Open as normal',
+            text: `People can buy plans and the kitchen cooks every day${lastBooked ? `. The last meal anyone has paid for is on ${prettyDay(lastBooked)}` : ''}. To end the season, tap the day of the last dinner on the calendar.`,
         }
     }
     if (s.phase === 'break') {
         return {
-            title: 'On the break',
-            text: `${s.closeDay ? `The last kitchen day was ${prettyDay(s.closeDay)}. ` : ''}No sales and no cooking until you reopen. Held plans restart only when their customers tap Resume or pick a start date.`,
+            title: 'Closed for the semester break',
+            text: `${s.closeDay ? `The last cooking day was ${prettyDay(s.closeDay)}. ` : ''}Nothing is cooked or sold until you reopen. Kept plans only restart when each customer taps Resume or picks a start date.`,
         }
     }
     if (!s.wrapUpDay) {
         return {
-            title: 'Sales stopped, no wrap-up day',
-            text: `${salesStoppedOn ? `Sales stopped on ${salesStoppedOn}. ` : ''}The kitchen keeps cooking until the last plan ends, and a customer who resumes a pause keeps it running. Pick the wrap-up day on the calendar.`,
+            title: 'New orders paused, no end date yet',
+            text: `${salesStoppedOn ? `New orders were paused on ${salesStoppedOn}. ` : ''}The kitchen keeps cooking until the last paid plan finishes, and a customer who unpauses keeps theirs going. Tap a day on the calendar to set the last dinner day.`,
         }
     }
     const passed = s.wrapUpDay <= data.todayAe
     return {
-        title: `Winding down to ${prettyDay(s.wrapUpDay)}`,
+        title: `Season ends ${prettyDay(s.wrapUpDay)}`,
         text: passed
-            ? `Regular dinners have ended. The last kitchen day is ${prettyDay(s.closeDay ?? s.wrapUpDay)} and the break starts that night.`
-            : `${plural(kitchenDays, 'kitchen day', 'kitchen days')} to go. The last kitchen day is ${prettyDay(s.closeDay ?? s.wrapUpDay)} and the break starts that night. ${s.salesStopped ? 'Sales are stopped.' : 'Sales are open for plans that finish by the wrap-up day.'}`,
+            ? `Normal dinners have ended. The last cooking day is ${prettyDay(s.closeDay ?? s.wrapUpDay)}, and the kitchen closes for the break that night.`
+            : `${plural(kitchenDays, 'cooking day', 'cooking days')} left. ${prettyDay(s.wrapUpDay)} is the last normal dinner${s.closeDay && s.closeDay !== s.wrapUpDay ? `, ${prettyDay(s.closeDay)} is the last cooking day` : ''}, then the kitchen closes for the break. ${s.salesStopped ? 'New orders are paused.' : 'People can still buy plans that finish by then.'}`,
     }
 }
 
@@ -539,7 +575,7 @@ function PlansList({ rows, view }: { rows: SeasonPlanRow[]; view: SeasonView }) 
             rows={rows}
             empty="No live plans."
             columns="minmax(0,1.3fr) minmax(0,1.1fr) 168px 96px 80px 112px"
-            headers={['Customer', 'Plan', 'Season', 'Last dinner', 'Held', 'Meal value']}
+            headers={['Customer', 'Plan', 'At the season end', 'Last dinner', 'Kept', 'Price a meal']}
             cells={(plan) => {
                 const p = view.projections.get(plan.id)
                 const d = p ? DISPOSITION[p.disposition] : null
@@ -561,12 +597,12 @@ function PlansList({ rows, view }: { rows: SeasonPlanRow[]; view: SeasonView }) 
                         {p?.lastDinner ? prettyDay(p.lastDinner) : 'None'}
                     </div>,
                     <div key="h" className={`tabular-nums ${p && p.mealsAfterWrapUp > 0 ? `font-bold ${t.accent}` : t.faint}`}>
-                        <span className={`md:hidden text-[12px] font-normal ${t.muted}`}>Held </span>
+                        <span className={`md:hidden text-[12px] font-normal ${t.muted}`}>Kept </span>
                         {p && p.mealsAfterWrapUp > 0 ? plural(p.mealsAfterWrapUp, 'meal', 'meals') : '0'}
                     </div>,
                     <div key="v" className={`tabular-nums ${plan.mealValue ? t.body : t.faint}`}>
-                        <span className={`md:hidden text-[12px] ${t.muted}`}>Meal </span>
-                        {plan.mealValue ? `${formatAed(plan.mealValue.fils)}${plan.mealValue.exact ? '' : ' est.'}` : 'Unknown'}
+                        <span className={`md:hidden text-[12px] ${t.muted}`}>A meal </span>
+                        {plan.mealValue ? `${plan.mealValue.exact ? '' : 'about '}${formatAed(plan.mealValue.fils)}` : 'Not known'}
                     </div>,
                 ]
             }}
@@ -575,8 +611,8 @@ function PlansList({ rows, view }: { rows: SeasonPlanRow[]; view: SeasonView }) 
 }
 
 const MOVE_COPY: Record<'clear' | 'end_today', { label: string; text: string }> = {
-    clear: { label: 'Clear the wrap-up day', text: 'Cancel the season end. The kitchen goes back to cooking every plan on the books.' },
-    end_today: { label: 'End the season today', text: 'Tonight becomes the last kitchen night. For when the season has to stop now.' },
+    clear: { label: 'Cancel the season end', text: 'Remove the last dinner day. The kitchen goes back to cooking every paid plan to the end.' },
+    end_today: { label: 'Close the kitchen tonight', text: 'For an emergency: tonight becomes the last dinner and the break starts at midnight.' },
 }
 
 function MoreMoves({ moves, onPick, pending }: { moves: Array<'clear' | 'end_today'>; onPick: (k: ConfirmKind) => void; pending: boolean }) {
@@ -585,7 +621,7 @@ function MoreMoves({ moves, onPick, pending }: { moves: Array<'clear' | 'end_tod
         <details className={`group rounded-xl border ${t.border}`}>
             <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 sm:px-6 [&::-webkit-details-marker]:hidden ${t.body}`}>
                 <span>
-                    <span className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.muted}`}>More moves</span>
+                    <span className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.muted}`}>Other options</span>
                     <span className={`ml-3 text-[13px] ${t.muted}`}>{moves.map((m) => MOVE_COPY[m].label).join(' · ')}</span>
                 </span>
                 <ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden />

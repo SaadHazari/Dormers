@@ -73,9 +73,9 @@ export function refundExposure(queue: readonly SeasonHoldRow[]): { cashFils: num
 }
 
 const STATE_LABEL: Record<string, string> = {
-  held: 'Held',
+  held: 'Kept for next semester',
   paused_by_customer: 'Paused by customer',
-  ready: 'Ready',
+  ready: 'Ready to restart',
   released: 'Restarted',
 }
 
@@ -87,11 +87,11 @@ export function holdStateLabel(state: string): string {
 export function reopenConfirmLines(view: BreakBoardView): string[] {
   const n = view.readyOnReopen
   return [
-    'Sales open straight away.',
-    `${n} held ${n === 1 ? 'plan becomes' : 'plans become'} ready. Each customer restarts by tapping Resume, or by picking a start date for a plan that had not started. Nothing restarts on its own.`,
-    'Reopening sends no message to customers yet. Send the reopening broadcast yourself afterwards.',
+    'People can buy plans again straight away.',
+    `**${n} kept ${n === 1 ? 'plan is' : 'plans are'}** ready to restart. Nothing restarts by itself: each customer taps Resume, or picks a start date if their plan had not started yet.`,
+    'No message goes to customers yet. Press Tell customers we are open afterwards.',
     ...(view.refundQueue.length > 0
-      ? [`${view.refundQueue.length} refund ${view.refundQueue.length === 1 ? 'request stays' : 'requests stay'} in the queue after reopening; approve or decline ${view.refundQueue.length === 1 ? 'it' : 'them'} from this page.`]
+      ? [`${view.refundQueue.length} refund ${view.refundQueue.length === 1 ? 'request stays' : 'requests stay'} on this page. You still need to answer ${view.refundQueue.length === 1 ? 'it' : 'them'}.`]
       : []),
   ]
 }

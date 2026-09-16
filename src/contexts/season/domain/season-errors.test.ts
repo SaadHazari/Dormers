@@ -9,7 +9,7 @@ describe('friendlySeasonError', () => {
 
   it('explains a refused date', () => {
     expect(friendlySeasonError('SEASON_INVALID_DATE: wrap-up day 2026-10-04 is a Sunday'))
-      .toBe('That wrap-up day cannot be used. Pick a Monday to Saturday date from tomorrow, within a year, with a buffer of 0 to 3 days.')
+      .toBe('That last dinner day cannot be used. Pick a Monday to Saturday from tomorrow, within a year, with 0 to 3 catch-up days.')
   })
 
   it('explains a missing settings row', () => {

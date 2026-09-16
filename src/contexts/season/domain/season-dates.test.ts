@@ -31,13 +31,13 @@ describe('season-dates', () => {
   it('validates the wrap-up day and buffer', () => {
     const todayAe = '2026-09-14'
     expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 1, todayAe })).toBeNull()
-    expect(validateSeasonEnd({ wrapUpDay: '', bufferDays: 1, todayAe })).toBe('Pick a wrap-up day first.')
+    expect(validateSeasonEnd({ wrapUpDay: '', bufferDays: 1, todayAe })).toBe('Pick the last dinner day first.')
     expect(validateSeasonEnd({ wrapUpDay: '2026-02-30', bufferDays: 1, todayAe })).toBe('That date does not exist. Check the day and month.')
-    expect(validateSeasonEnd({ wrapUpDay: '2026-09-14', bufferDays: 1, todayAe })).toBe('The wrap-up day has to be tomorrow or later.')
-    expect(validateSeasonEnd({ wrapUpDay: '2027-10-01', bufferDays: 1, todayAe })).toBe('Pick a wrap-up day within the next year.')
-    expect(validateSeasonEnd({ wrapUpDay: '2026-10-04', bufferDays: 1, todayAe })).toBe('Pick a delivery day. Sunday is not one.')
-    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 4, todayAe })).toBe('The buffer must be 0 to 3 delivery days.')
-    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 1.5, todayAe })).toBe('The buffer must be 0 to 3 delivery days.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-09-14', bufferDays: 1, todayAe })).toBe('The last dinner day has to be tomorrow or later.')
+    expect(validateSeasonEnd({ wrapUpDay: '2027-10-01', bufferDays: 1, todayAe })).toBe('Pick a last dinner day within the next year.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-04', bufferDays: 1, todayAe })).toBe('Pick a day we deliver. We do not deliver on Sundays.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 4, todayAe })).toBe('Catch-up days must be between 0 and 3.')
+    expect(validateSeasonEnd({ wrapUpDay: '2026-10-03', bufferDays: 1.5, todayAe })).toBe('Catch-up days must be between 0 and 3.')
   })
 
   it('reads today on the Dubai calendar', () => {

@@ -48,8 +48,8 @@ export function Panel({ children, className = '' }: { children: ReactNode; class
 
 const RAIL: Array<{ phase: SeasonPhase; label: string }> = [
     { phase: 'open', label: 'Open' },
-    { phase: 'winding_down', label: 'Winding down' },
-    { phase: 'break', label: 'Break' },
+    { phase: 'winding_down', label: 'Ending soon' },
+    { phase: 'break', label: 'Closed for the break' },
 ]
 
 /** Where the season is: three stops, the current one lit, the past ones filled. */
@@ -83,10 +83,16 @@ export function PhaseRail({ phase }: { phase: SeasonPhase }) {
     )
 }
 
-/** A consequence list and two buttons. Lines may carry **bold** runs. */
-export function ConfirmDialog({ title, lines, cta, danger, pending, error, onCancel, onConfirm, confirmDisabled, children, confirmId }: {
+/**
+ * Every button on the Season page that changes something opens one of these
+ * first: what happens, in plain words, and whether it can be undone. Lines
+ * may carry **bold** runs.
+ */
+export function ConfirmDialog({ title, lines, undo, cta, danger, pending, error, onCancel, onConfirm, confirmDisabled, children, confirmId }: {
     title: string
     lines: string[]
+    /** Answers "Can I undo this?" in one or two sentences. */
+    undo?: string
     cta: string
     danger?: boolean
     pending: boolean
@@ -99,11 +105,13 @@ export function ConfirmDialog({ title, lines, cta, danger, pending, error, onCan
 }) {
     const { t } = useAdminTheme()
     return (
-        <AdminModal label={title} maxW="max-w-[480px]" onBackdrop={() => { if (!pending) onCancel() }}>
+        <AdminModal label={title} maxW="max-w-[520px]" onBackdrop={() => { if (!pending) onCancel() }}>
             <div className="px-6 pt-6">
                 <div className={`text-[20px] font-black tracking-tight ${t.heading}`}>{title}</div>
             </div>
-            <ul className="px-6 pt-4 flex flex-col gap-2">
+            <div className="min-h-0 overflow-y-auto">
+            <div className={`px-6 pt-4 text-[12px] font-bold ${t.muted}`}>What happens</div>
+            <ul className="px-6 pt-2 flex flex-col gap-2">
                 {lines.map((line) => (
                     <li key={line} className={`flex gap-3 text-[13px] leading-relaxed ${t.body}`}>
                         <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#f57f20]" />
@@ -111,13 +119,20 @@ export function ConfirmDialog({ title, lines, cta, danger, pending, error, onCan
                     </li>
                 ))}
             </ul>
+            {undo && (
+                <div className="px-6 pt-4">
+                    <div className={`text-[12px] font-bold ${t.muted}`}>Can I undo this?</div>
+                    <p className={`mt-1 text-[13px] leading-relaxed ${t.body}`}><Bolded text={undo} /></p>
+                </div>
+            )}
             {(children || error) && (
                 <div className="px-6 pt-4 flex flex-col gap-2">
                     {children}
                     {error && <p role="alert" className={`text-[12px] font-bold ${t.danger}`}>{error}</p>}
                 </div>
             )}
-            <div className="flex justify-end gap-2 px-6 py-6">
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 px-6 py-6">
                 <AdminButton variant="ghost" onClick={onCancel} disabled={pending}>Cancel</AdminButton>
                 <AdminButton id={confirmId} variant={danger ? 'danger' : 'primary'} onClick={onConfirm} loading={pending} disabled={confirmDisabled}>
                     {cta}

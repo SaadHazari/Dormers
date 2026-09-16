@@ -87,12 +87,12 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
     const shown = showAll ? members : members.slice(0, 6)
 
     return (
-        <Section title="Saved spots" count={count}>
+        <Section title="Waiting list" count={count}>
             <div className={`rounded-xl p-4 ${t.card}`}>
                 <div className="flex items-baseline justify-between gap-3">
                     <div className={`text-[28px] font-black tracking-tight tabular-nums ${count >= (target ?? Infinity) ? t.success : t.heading}`}>
                         {count}
-                        <span className={`ml-1 text-[14px] font-bold ${t.muted}`}>{target != null ? `of ${target} to reopen` : 'people'}</span>
+                        <span className={`ml-1 text-[14px] font-bold ${t.muted}`}>{target != null ? `of your goal of ${target}` : 'people waiting'}</span>
                     </div>
                     {!editingTarget && (
                         <button
@@ -100,7 +100,7 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
                             onClick={() => { setTargetDraft(target == null ? '' : String(target)); setEditingTarget(true) }}
                             className={`inline-flex items-center gap-1 text-[12px] font-bold ${t.muted} hover:opacity-70`}
                         >
-                            <Pencil size={12} aria-hidden /> {target == null ? 'Set target' : 'Target'}
+                            <Pencil size={12} aria-hidden /> {target == null ? 'Set a goal' : 'Change the goal'}
                         </button>
                     )}
                 </div>
@@ -134,12 +134,13 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
                 {count === 0 ? (
                     <p className={`mt-4 text-[13px] ${t.muted}`}>
                         {settings.paused
-                            ? 'Nobody yet. The list fills as people reach a plan page and tap Save my spot.'
-                            : 'Nobody yet. Sales are open, so there is nothing to save a spot for.'}
+                            ? 'Nobody yet. People join when they open a plan page and tap Save my spot.'
+                            : 'Nobody yet. People can only join while new orders are paused.'}
                     </p>
                 ) : (
                     <>
-                        <ul aria-label="Where they live" className="mt-4 flex flex-col gap-2">
+                        <div className={`mt-4 text-[12px] font-bold ${t.muted}`}>Where they live</div>
+                        <ul aria-label="Where they live" className="mt-2 flex flex-col gap-2">
                             {dormSplit.map(([dorm, n]) => (
                                 <li key={dorm} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
                                     <span className={`truncate text-[12px] font-bold ${dorm === 'No dorm set' ? t.faint : t.body}`}>{dorm}</span>
@@ -162,9 +163,9 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
                                     </div>
                                     <div className="shrink-0 text-right">
                                         {m.creditAed == null
-                                            ? <div className={`text-[12px] font-bold ${t.danger}`}>No credit</div>
+                                            ? <div className={`text-[12px] font-bold ${t.danger}`}>No credit given</div>
                                             : <div className={`text-[12px] font-bold tabular-nums ${t.body}`}>AED {m.creditAed}</div>}
-                                        {m.notifiedAt && <div className={`text-[11px] font-bold ${t.success}`}>Messaged</div>}
+                                        {m.notifiedAt && <div className={`text-[11px] font-bold ${t.success}`}>Told we are open</div>}
                                     </div>
                                 </li>
                             ))}

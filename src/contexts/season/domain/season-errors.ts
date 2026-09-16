@@ -5,7 +5,7 @@
 
 const SEASON_ERROR_COPY: ReadonlyArray<readonly [string, string]> = [
   ['SEASON_BAD_PHASE', 'The season changed while you were looking. Refresh the page and try again.'],
-  ['SEASON_INVALID_DATE', 'That wrap-up day cannot be used. Pick a Monday to Saturday date from tomorrow, within a year, with a buffer of 0 to 3 days.'],
+  ['SEASON_INVALID_DATE', 'That last dinner day cannot be used. Pick a Monday to Saturday from tomorrow, within a year, with 0 to 3 catch-up days.'],
   ['SEASON_NO_SETTINGS', 'The season settings row is missing, so nothing was changed.'],
 ]
 

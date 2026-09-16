@@ -99,7 +99,7 @@ export async function approveSeasonRefund(actorEmail: string, holdId: string): P
       captureError(err, { area: 'season', op: 'approveSeasonRefund.stripe', holdId })
       await markFailed(sb, holdId, `Stripe: ${message}`, null)
       void notifyAdmin(`Season refund FAILED at Stripe for hold ${holdId} (${row.plan_name}, ${formatAed(row.cash_refund_fils)}): ${message}. Retry from the Season page.`, 'season_refund')
-      return { error: `Stripe refused the refund: ${message}. The hold is marked failed; retry when Stripe is back.` }
+      return { error: `Stripe refused the refund: ${message}. It is marked as failed; press Try the refund again when Stripe is working.` }
     }
   }
 

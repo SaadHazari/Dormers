@@ -53,16 +53,16 @@ export function effectiveCloseDay(wrapUpDay: string, closeDay: string | null | u
 /** Returns the admin-facing reason the chosen dates cannot be scheduled, or null. */
 export function validateSeasonEnd(input: { wrapUpDay: string; bufferDays: number; todayAe: string }): string | null {
   const { wrapUpDay, bufferDays, todayAe } = input
-  if (!ISO_DATE.test(wrapUpDay)) return 'Pick a wrap-up day first.'
+  if (!ISO_DATE.test(wrapUpDay)) return 'Pick the last dinner day first.'
   const parsed = new Date(`${wrapUpDay}T00:00:00Z`)
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== wrapUpDay) {
     return 'That date does not exist. Check the day and month.'
   }
-  if (wrapUpDay <= todayAe) return 'The wrap-up day has to be tomorrow or later.'
-  if (wrapUpDay > addDaysIso(todayAe, MAX_SCHEDULE_DAYS_AHEAD)) return 'Pick a wrap-up day within the next year.'
-  if (!isDeliveryDayIso(wrapUpDay, '6DAYS')) return 'Pick a delivery day. Sunday is not one.'
+  if (wrapUpDay <= todayAe) return 'The last dinner day has to be tomorrow or later.'
+  if (wrapUpDay > addDaysIso(todayAe, MAX_SCHEDULE_DAYS_AHEAD)) return 'Pick a last dinner day within the next year.'
+  if (!isDeliveryDayIso(wrapUpDay, '6DAYS')) return 'Pick a day we deliver. We do not deliver on Sundays.'
   if (!Number.isInteger(bufferDays) || bufferDays < 0 || bufferDays > MAX_BUFFER_DAYS) {
-    return `The buffer must be 0 to ${MAX_BUFFER_DAYS} delivery days.`
+    return `Catch-up days must be between 0 and ${MAX_BUFFER_DAYS}.`
   }
   return null
 }

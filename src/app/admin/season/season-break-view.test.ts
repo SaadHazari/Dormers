@@ -60,9 +60,9 @@ describe('breakBoardView', () => {
 
 describe('labels and confirmation', () => {
   it('names every hold state in plain words', () => {
-    expect(holdStateLabel('held')).toBe('Held')
+    expect(holdStateLabel('held')).toBe('Kept for next semester')
     expect(holdStateLabel('paused_by_customer')).toBe('Paused by customer')
-    expect(holdStateLabel('ready')).toBe('Ready')
+    expect(holdStateLabel('ready')).toBe('Ready to restart')
     expect(holdStateLabel('released')).toBe('Restarted')
     expect(holdStateLabel('refund_requested')).toBe('Refund requested')
     expect(holdStateLabel('refund_failed')).toBe('Refund failed')
@@ -71,9 +71,9 @@ describe('labels and confirmation', () => {
   it('says what reopening does, promises no message and no refund', () => {
     const lines = reopenConfirmLines(breakBoardView(data()))
     expect(lines).toEqual([
-      'Sales open straight away.',
-      '3 held plans become ready. Each customer restarts by tapping Resume, or by picking a start date for a plan that had not started. Nothing restarts on its own.',
-      'Reopening sends no message to customers yet. Send the reopening broadcast yourself afterwards.',
+      'People can buy plans again straight away.',
+      '**3 kept plans are** ready to restart. Nothing restarts by itself: each customer taps Resume, or picks a start date if their plan had not started yet.',
+      'No message goes to customers yet. Press Tell customers we are open afterwards.',
     ])
     expect(lines.join(' ')).not.toMatch(/refund|[–—]/i)
   })

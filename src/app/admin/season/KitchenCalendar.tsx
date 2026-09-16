@@ -138,12 +138,12 @@ export function KitchenCalendar({
         const day = formatShortDay(c.date)
         const what =
             c.kind === 'cook' ? plural(c.meals, 'meal', 'meals')
-            : c.kind === 'makeup' ? `make-up day${c.meals ? `, ${plural(c.meals, 'meal', 'meals')}` : ''}`
-            : c.kind === 'held' ? `${plural(c.meals, 'meal', 'meals')} held for next semester`
-            : c.kind === 'closed' ? 'kitchen closed'
-            : c.kind === 'break' ? 'break'
+            : c.kind === 'makeup' ? `catch-up day${c.meals ? `, ${plural(c.meals, 'meal', 'meals')}` : ''}`
+            : c.kind === 'held' ? `${plural(c.meals, 'meal', 'meals')} kept for next semester`
+            : c.kind === 'closed' ? 'kitchen closed (holiday)'
+            : c.kind === 'break' ? 'closed for the break'
             : 'no meals'
-        const pin = c.date === wrapUpDay ? ', wrap-up day' : ''
+        const pin = c.date === wrapUpDay ? ', last dinner day' : ''
         return `${day}: ${what}${pin}`
     }
 
@@ -164,7 +164,12 @@ export function KitchenCalendar({
             )}
 
             <Legend kinds={kinds} isLight={isLight} lastDinners={anyLast} />
-            {onPick && <p className={`mt-2 text-[12px] ${t.muted}`}>Tap a delivery day to make it the wrap-up day.</p>}
+            {onPick && (
+                <p className={`mt-2 inline-flex items-center gap-2 text-[12px] ${t.muted}`}>
+                    <MapPin size={12} strokeWidth={2.4} aria-hidden />
+                    Tap a day to make it the last dinner day. Nothing changes until you press the button beside the calendar.
+                </p>
+            )}
         </div>
     )
 }
@@ -235,11 +240,11 @@ function WeekRow({ row, wrapUpDay, todayAe, cellStyle, label, onPick }: {
 }
 
 const LEGEND: Array<{ kind: CellKind; text: string }> = [
-    { kind: 'cook', text: 'Kitchen cooks' },
-    { kind: 'makeup', text: 'Make-up day' },
-    { kind: 'held', text: 'Held for next semester' },
-    { kind: 'closed', text: 'Closed' },
-    { kind: 'break', text: 'Break' },
+    { kind: 'cook', text: 'Cooking (darker = more meals)' },
+    { kind: 'makeup', text: 'Catch-up day (skipped meals only)' },
+    { kind: 'held', text: 'Paid meals that do not fit, kept for next semester' },
+    { kind: 'closed', text: 'Holiday, kitchen closed' },
+    { kind: 'break', text: 'Closed for the semester break' },
 ]
 
 function Legend({ kinds, isLight, lastDinners }: { kinds: ReadonlySet<CellKind>; isLight: boolean; lastDinners: boolean }) {
@@ -266,7 +271,7 @@ function Legend({ kinds, isLight, lastDinners }: { kinds: ReadonlySet<CellKind>;
             {lastDinners && (
                 <li className="inline-flex items-center gap-2">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-white ring-1 ring-[#091825]/40" />
-                    Someone&apos;s last dinner
+                    A customer&apos;s last dinner
                 </li>
             )}
         </ul>

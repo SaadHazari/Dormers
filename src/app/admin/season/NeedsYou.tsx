@@ -34,15 +34,15 @@ export function NeedsYou({ refunds, drift, cookingDuringBreak, unminted }: {
             <div className="mt-4 flex flex-col gap-6">
                 {cookingDuringBreak.length > 0 && (
                     <Item testId="season-invariant" alert>
-                        <strong>{plural(cookingDuringBreak.length, 'plan is', 'plans are')} Active and would cook during the break:</strong>{' '}
-                        {cookingDuringBreak.map((p) => `${p.customerName} (${p.planName})`).join(', ')}. Pause each one from its customer page.
+                        <strong>{plural(cookingDuringBreak.length, 'plan is', 'plans are')} still switched on, so the kitchen would cook during the break:</strong>{' '}
+                        {cookingDuringBreak.map((p) => `${p.customerName} (${p.planName})`).join(', ')}. Pause each one from the customer&apos;s page.
                     </Item>
                 )}
                 {drift && <Item testId="season-drift" alert>{drift}</Item>}
                 {showRefunds && <RefundQueue queue={refunds} />}
                 {unminted.length > 0 && (
                     <Item>
-                        <strong>{plural(unminted.length, 'saved spot has', 'saved spots have')} no credit:</strong>{' '}
+                        <strong>{plural(unminted.length, 'person', 'people')} joined the waiting list but got no credit:</strong>{' '}
                         {unminted.map((m) => m.name).join(', ')}. Add it by hand on{' '}
                         <Link href="/admin/credits" className={`font-bold underline underline-offset-2 ${t.accent}`}>Credits</Link>.
                     </Item>
