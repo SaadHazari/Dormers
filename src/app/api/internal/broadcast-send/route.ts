@@ -151,7 +151,19 @@ async function sendSeasonReopenTo(
       if (unspentCreditAed > 0) {
         await queueCustomerNotification(row.customer_id, 'intake_reopened', new Date(), { credit_aed: String(unspentCreditAed) })
       } else {
-        await queueCustomerNotification(row.customer_id, 'intake_back_open', new Date(), {})
+        // The approved template names the plan they were on. Their most recent
+        // one is the one they remember; no plan at all means no message, since
+        // the template cannot render without it.
+        const { data: last } = await sb.from('subscriptions')
+          .select('plan_name')
+          .eq('customer_id', row.customer_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const planName = (last as { plan_name?: string | null } | null)?.plan_name
+        if (planName) {
+          await queueCustomerNotification(row.customer_id, 'intake_back_open', new Date(), { plan_name: planName })
+        }
       }
     } catch (err) {
       console.error(`sendSeasonReopenTo: WhatsApp queue failed for ${row.customer_id} (email sent):`, err)

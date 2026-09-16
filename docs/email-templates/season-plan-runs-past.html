@@ -17,6 +17,8 @@
     wrap_up_day   required   e.g. "Sat 3 Oct"
     held_meals    required   e.g. "9"
     credit_aed    OPTIONAL   e.g. "20". Omit for a plan that earns no credit.
+    can_refund    OPTIONAL   send "yes" when a refund is really on offer for
+                             this plan; omit it and the refund block disappears.
 -->
 <!doctype html>
 <html lang="en">
@@ -130,6 +132,7 @@
                 </tr>
               </table>
 
+              {{#can_refund}}
               <table class="sub-container-gray" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
                 style="background-color:#f7f7f7; border:1.2px solid #dddddd; border-radius:8px; margin-bottom:26px;">
                 <tr>
@@ -144,6 +147,7 @@
                   </td>
                 </tr>
               </table>
+              {{/can_refund}}
 
               <table class="sub-container-green" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"
                 style="background-color:#f2faf3; border:1.2px solid #2e7d32; border-radius:8px; margin-bottom:42px;">

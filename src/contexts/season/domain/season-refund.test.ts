@@ -40,9 +40,17 @@ describe('seasonRefundOffer', () => {
     expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, state: 'ready' }, planName: 'Monthly Premium', order })).toEqual({ cashFils: 17550, creditFils: 900 })
   })
 
-  it('never offers when refunds are off, on a customer pause (X4), a staff or welcome plan (X5), an estimate, or a request in flight', () => {
+  it('offers on a pause carried into the break (owner 2026-09-16, reversing X4)', () => {
+    // That customer cannot resume while the kitchen is closed, so the wait is ours.
+    expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, reason: 'customer_pause', state: 'paused_by_customer' }, planName: 'Monthly Premium', order }))
+      .toEqual({ cashFils: 17550, creditFils: 900 })
+    // Still nothing once it is released, refunded, or on a staff plan.
+    expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, reason: 'customer_pause', state: 'released' }, planName: 'Monthly Premium', order })).toBeNull()
+    expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, reason: 'customer_pause', state: 'paused_by_customer' }, planName: 'Staff Monthly', order })).toBeNull()
+  })
+
+  it('never offers when refunds are off, on a staff or welcome plan (X5), an estimate, or a request in flight', () => {
     expect(seasonRefundOffer({ refundsLive: false, hold, planName: 'Monthly Premium', order })).toBeNull()
-    expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, reason: 'customer_pause', state: 'paused_by_customer' }, planName: 'Monthly Premium', order })).toBeNull()
     expect(seasonRefundOffer({ refundsLive: true, hold, planName: 'Staff Monthly', order })).toBeNull()
     expect(seasonRefundOffer({ refundsLive: true, hold, planName: 'Welcome Meal', order })).toBeNull()
     expect(seasonRefundOffer({ refundsLive: true, hold: { ...hold, mealValueFils: null }, planName: 'Monthly Premium', order })).toBeNull()

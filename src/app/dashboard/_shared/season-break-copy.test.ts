@@ -195,4 +195,21 @@ describe('breakNoticeCopy (N8, N9)', () => {
       .toEqual(['The kitchen is open again, and your 9 meals of Monthly Premium are ready.', 'Pick your start date on your plan page to begin.'])
     expect(breakNoticeSeenKey('h-1', 'ready')).not.toBe(breakNoticeSeenKey('h-1'))
   })
+
+  it('a carried pause can be offered a refund too (owner 2026-09-16)', () => {
+    const paused = hold({ reason: 'customer_pause', state: 'paused_by_customer', heldMeals: 8, waitlistCreditFils: null, refundOffer: { cashFils: 16200, creditFils: 900 } })
+    expect(heldCardCopy({ hold: paused, alreadyJoined: true, creditAed: 15 })).toMatchObject({
+      headline: 'Your plan is paused, and the kitchen is closed between semesters.',
+      refundLine: 'You can ask for a refund for these 8 meals instead: AED 162 back to your card and AED 9 to your wallet.',
+      refundAction: 'ask',
+    })
+    expect(breakNoticeCopy({ hold: paused, alreadyJoined: true, creditAed: 15 })?.lines).toEqual([
+      "Your Monthly Premium is still paused, and your meals wait for you. Resume when we're back.",
+      "If you'd rather not wait, you can ask for a refund for them from your home page (AED 162 back to your card and AED 9 to your wallet).",
+    ])
+    // With no refundable money behind it, not a word about refunds.
+    const plain = hold({ reason: 'customer_pause', state: 'paused_by_customer', heldMeals: 8, waitlistCreditFils: null })
+    expect(heldCardCopy({ hold: plain, alreadyJoined: true, creditAed: 15 }).refundLine).toBeNull()
+    expect(breakNoticeCopy({ hold: plain, alreadyJoined: true, creditAed: 15 })?.lines.join(' ')).not.toMatch(/refund/i)
+  })
 })

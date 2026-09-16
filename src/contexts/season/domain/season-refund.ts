@@ -60,9 +60,9 @@ export function capRefund(amounts: RefundAmounts, refundableCapFils: number): Re
 }
 
 /**
- * Whether a hold can ask for a refund right now (spec §6.3): a `season` hold,
- * in `held` or `ready`, on a paid plan whose order carries real money, and
- * only once the owner has turned refunds on.
+ * Whether a hold can ask for a refund right now (spec §6.3): a hold that is
+ * still waiting (`held`, `paused_by_customer` or `ready`) on a paid plan whose
+ * order carries real money, once the owner has turned refunds on.
  */
 export function seasonRefundOffer(input: {
   refundsLive: boolean
@@ -71,8 +71,10 @@ export function seasonRefundOffer(input: {
   order: RefundOrderMoney | null | undefined
 }): RefundAmounts | null {
   if (!input.refundsLive) return null
-  if (input.hold.reason !== 'season') return null
-  if (input.hold.state !== 'held' && input.hold.state !== 'ready') return null
+  // A pause carried into the break is refundable too (owner, 2026-09-16,
+  // reversing X4): during the break that customer cannot resume even if they
+  // want to, so the wait is ours, not theirs.
+  if (input.hold.state !== 'held' && input.hold.state !== 'ready' && input.hold.state !== 'paused_by_customer') return null
   if (input.hold.mealValueFils == null) return null
   if (isUnpaidPlanName(input.planName)) return null
   const amounts = seasonRefundAmounts(input.hold.heldMeals, input.order)

@@ -38,7 +38,9 @@ describe('customerHoldFrom and refunds (spec §10.3)', () => {
     expect(customerHoldFrom({ hold: paid, sub, creditAmountAed: 20, order, refundsLive: false })?.refundOffer).toBeNull()
     expect(customerHoldFrom({ hold: paid, sub, creditAmountAed: 20, order: { ...order, stripeSessionId: 'cs_test_1' }, refundsLive: true })?.refundOffer).toBeNull()
     expect(customerHoldFrom({ hold: { ...paid, meal_value_fils: null }, sub, creditAmountAed: 20, order, refundsLive: true })?.refundOffer).toBeNull()
-    expect(customerHoldFrom({ hold: { ...paid, reason: 'customer_pause', state: 'paused_by_customer' }, sub, creditAmountAed: null, order, refundsLive: true })?.refundOffer).toBeNull()
+    // A pause carried into the break is refundable too (owner 2026-09-16, reversing X4).
+    expect(customerHoldFrom({ hold: { ...paid, reason: 'customer_pause', state: 'paused_by_customer' }, sub, creditAmountAed: null, order, refundsLive: true })?.refundOffer)
+      .toEqual({ cashFils: 17550, creditFils: 900 })
   })
 
   it('shows a request in flight with its stored amounts, and the owner\'s reason after a decline', () => {

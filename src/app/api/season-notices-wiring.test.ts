@@ -78,7 +78,7 @@ describe('season messages are wired', () => {
     const send = read('src/app/api/internal/broadcast-send/route.ts')
     expect(send).toContain("process.env.WHATSAPP_SEASON_REOPEN_ENABLED === 'true'")
     expect(send).toContain("'intake_reopened', new Date(), { credit_aed: String(unspentCreditAed) }")
-    expect(send).toContain("'intake_back_open', new Date(), {}")
+    expect(send).toContain("'intake_back_open', new Date(), { plan_name: planName }")
     const migration = read('supabase/migrations/20260916_season_reopen_notices.sql')
     expect(migration).toContain("and not exists (select 1 from public.season_holds h")
     expect(migration).toContain("WHEN 'intake_reopened' THEN  -- Plan F")
@@ -91,5 +91,24 @@ describe('season messages are wired', () => {
     for (const file of ['src/contexts/payments/usecases/handle-stripe-event.ts', 'src/contexts/payments/usecases/free-checkout.ts', 'src/app/api/internal/post-payment-retry/route.ts']) {
       expect(read(file), file).toContain('creditUsedAed:')
     }
+  })
+
+  it('a pause carried into the break can ask for a refund, and lands back on the pause', () => {
+    const sql = read('supabase/migrations/20260916_season_pause_refund.sql')
+    expect(sql).toContain("IF h.state NOT IN ('held', 'ready', 'paused_by_customer') THEN")
+    expect(sql).toContain("WHEN p_reason = 'customer_pause' THEN 'paused_by_customer'")
+    expect(sql).not.toContain('a customer pause is not refunded (X4)')
+    // The notices only offer a refund the dashboard would also show.
+    expect(sql).toContain("'can_refund', public._season_refund_money_ok(h.subscription_id)")
+    expect(sql).toContain("'can_refund', public._season_refund_money_ok(p.subscription_id)")
+  })
+
+  it('the reopening template for lapsed customers names their plan', () => {
+    expect(read('supabase/migrations/20260916_intake_back_open_plan_name.sql'))
+      .toContain("'parameter_name', 'plan_name', 'text', plan_name_str")
+    const route = read('src/app/api/internal/broadcast-send/route.ts')
+    expect(route).toContain("'intake_back_open', new Date(), { plan_name: planName }")
+    // No plan to name means no message, rather than a Meta rejection.
+    expect(route).toContain('if (planName) {')
   })
 })

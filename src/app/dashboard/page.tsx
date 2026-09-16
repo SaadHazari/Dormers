@@ -104,6 +104,7 @@ export default async function DashboardPage({
         //   &release=1 / &release=0 — word the season copy as if the break were live / not live
         //   ?season=held            — the break: plan held for next semester with AED 20 credit (held card, N8)
         //   ?season=paused_break    — the break: a customer pause carried (card with Save my spot; &joined=1 once saved)
+        //   ?season=paused_break_refund — the break: a carried pause that can ask for a refund (owner, 2026-09-16)
         //   ?season=ready           — reopened: the held plan is ready, tap Resume
         //   ?season=ready_scheduled — reopened: a held plan that had not started, pick a start date
         //   ?season=refund_offered  — the break: a held paid plan that can ask for a refund (spec §10.3)
@@ -246,9 +247,10 @@ export default async function DashboardPage({
 
         // Season break fixtures (Plan C). The card and notices read a hold,
         // never a status: a held plan is Paused (or Scheduled) with season_hold_id.
-        const BREAK_KNOBS = ['held', 'paused_break', 'ready', 'ready_scheduled', 'refund_offered', 'refund_requested', 'refund_declined', 'ready_refund'] as const
+        const BREAK_KNOBS = ['held', 'paused_break', 'paused_break_refund', 'ready', 'ready_scheduled', 'refund_offered', 'refund_requested', 'refund_declined', 'ready_refund'] as const
         const breakKnob = (BREAK_KNOBS as readonly string[]).includes(seasonKnob) ? seasonKnob as (typeof BREAK_KNOBS)[number] : null
-        const refundKnob = breakKnob === 'refund_offered' || breakKnob === 'refund_requested' || breakKnob === 'refund_declined' || breakKnob === 'ready_refund'
+        const isPauseKnob = breakKnob === 'paused_break' || breakKnob === 'paused_break_refund'
+        const refundKnob = breakKnob === 'refund_offered' || breakKnob === 'refund_requested' || breakKnob === 'refund_declined' || breakKnob === 'ready_refund' || breakKnob === 'paused_break_refund'
         const previewRefundOffer = refundKnob && breakKnob !== 'refund_requested' ? { cashFils: 16200, creditFils: 900 } : null
         const previewHoldSub = breakKnob === 'ready_scheduled'
             ? { ...seasonSub, status: 'Scheduled', start_date: dateOnly(nowMs - 20 * day), end_date: dateOnly(nowMs + 8 * day), delivered_meals: 0, skipped_meals_count: 0, skipped_dates: [], season_hold_id: 'preview-hold' }
@@ -260,13 +262,13 @@ export default async function DashboardPage({
             hold: {
                 id: 'preview-hold',
                 subscriptionId: String(previewHoldSub.id),
-                reason: breakKnob === 'paused_break' ? 'customer_pause' : 'season',
-                state: breakKnob === 'paused_break' ? 'paused_by_customer'
+                reason: isPauseKnob ? 'customer_pause' : 'season',
+                state: isPauseKnob ? 'paused_by_customer'
                     : breakKnob === 'refund_requested' ? 'refund_requested'
                     : breakKnob === 'ready' || breakKnob === 'ready_scheduled' || breakKnob === 'ready_refund' ? 'ready'
                     : 'held',
-                heldMeals: breakKnob === 'ready_scheduled' ? 24 : breakKnob === 'paused_break' ? 8 : 9,
-                waitlistCreditFils: breakKnob === 'paused_break' ? null : 2000,
+                heldMeals: breakKnob === 'ready_scheduled' ? 24 : isPauseKnob ? 8 : 9,
+                waitlistCreditFils: isPauseKnob ? null : 2000,
                 planName: String(previewHoldSub.plan_name),
                 planStatus: breakKnob === 'ready_scheduled' ? 'Scheduled' : 'Paused',
                 refundOffer: previewRefundOffer,

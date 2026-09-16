@@ -113,14 +113,18 @@ The kitchen is closed between semesters, so your last {{held_meals}} meals of {{
 ## 5. `season_pause_carries` (N9, UTILITY)
 
 At 10:00 the morning the break starts, to a customer whose own pause is still
-on. Button: **Save my spot**, `https://dormers.ae/dashboard`.
+on. Button: **See my options**, `https://dormers.ae/dashboard`.
+
+A WhatsApp template cannot show one line to some people and not others, and a
+refund needs a card payment behind it, so the refund is worded as something to
+check rather than something promised. The dashboard shows the truth.
 
 Header: `Hi {{first_name}}`
 
 Body:
 
 ```
-Your {{plan_name}} is still paused, and the kitchen is now closed between semesters. Your meals wait for you, so resume when we are back. Save your spot now and AED {{offer_aed}} goes to your wallet.
+Your {{plan_name}} is still paused, and the kitchen is now closed between semesters. Your meals wait for you until we reopen. If you would rather not wait, open your dashboard: if your plan was paid by card you can ask for a refund there. Save your spot now and AED {{offer_aed}} goes to your wallet.
 ```
 
 | Variable | Sample |
@@ -197,7 +201,7 @@ tell the developer the real names; a mismatch is a Meta 400 on every send.
 | Kind | Header | Body variables | Sent to |
 |---|---|---|---|
 | `intake_reopened` | `first_name` | `credit_aed` | Everyone holding unspent waitlist credit from any season |
-| `intake_back_open` | `first_name` | none | Past customers without credit |
+| `intake_back_open` | `first_name` | `plan_name` | Past customers without credit |
 
 Both ride the reopening notice from the Season page: the email goes first, the
 WhatsApp follows from the same per-recipient facts. Vault secrets:
