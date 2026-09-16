@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BellOff, Mail, MessageCircle, Search, Upload } from 'lucide-react'
+import { AlertTriangle, BellOff, Mail, MessageCircle, Search, Trash2, Upload } from 'lucide-react'
 import type { ContactRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
 import { CONTACT_PAGE_SIZE } from './constants'
 import { loadMoreContacts } from './actions'
+import { deleteContacts } from '../customers/delete-actions'
+import { AdminModal } from '../_components/AdminModal'
+import { AdminButton } from '../_components/AdminButton'
 import {
     isOptedOut, matchesFilter, reachabilityGap, sortContacts, sourceLabel,
     type FilterKey, type SortMode,
@@ -53,6 +56,41 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
     const [filter, setFilter] = useState<FilterKey>('all')
     const [sort, setSort] = useState<SortMode>('newest')
     const [visible, setVisible] = useState(WINDOW_STEP)
+
+    // ── Selection, for clearing out imported or test contacts ────────────
+    const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [confirmOpen, setConfirmOpen] = useState(false)
+    const [confirmText, setConfirmText] = useState('')
+    const [deleting, setDeleting] = useState(false)
+    const [note, setNote] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+
+    function toggle(id: string) {
+        setSelected(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            return next
+        })
+    }
+
+    // A contact with an account is refused by the action, so say so here
+    // rather than letting the count in the button turn out to be a lie.
+    const selectedRows = useMemo(() => rows.filter(c => selected.has(c.id)), [rows, selected])
+    const linkedCount = selectedRows.filter(c => c.customer_id !== null).length
+    const freeCount = selectedRows.length - linkedCount
+
+    async function handleDelete() {
+        setDeleting(true)
+        setError(null)
+        const res = await deleteContacts([...selected])
+        setDeleting(false)
+        if (!res.ok) { setError(res.message); return }
+        setConfirmOpen(false)
+        setConfirmText('')
+        setSelected(new Set())
+        setNote(res.message)
+        router.refresh()
+    }
 
     useEffect(() => { setVisible(WINDOW_STEP) }, [filter, sort])
 
@@ -122,6 +160,8 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                 {filter !== 'all' ? ` · showing ${filtered.length} ${activeChipLabel}` : ''}
             </p>
 
+            {note && <p className={`mb-3 text-[12px] font-bold ${t.accent}`}>{note}</p>}
+
             <form onSubmit={handleSearch} className="mb-3">
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${t.input} ${t.inputFocus} transition-colors`}>
                     <Search size={15} strokeWidth={2.2} className={t.faint} />
@@ -185,6 +225,18 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                 <table className="w-full text-[13px]">
                     <thead>
                         <tr className={t.tableHeader}>
+                            <th className="w-9 px-3 py-2.5">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select every contact shown"
+                                    checked={shown.length > 0 && shown.every(c => selected.has(c.id))}
+                                    onChange={e => setSelected(prev => {
+                                        const next = new Set(prev)
+                                        for (const c of shown) { if (e.target.checked) next.add(c.id); else next.delete(c.id) }
+                                        return next
+                                    })}
+                                />
+                            </th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Contact</th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Phone</th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Source</th>
@@ -202,6 +254,14 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                                 // rather than offering a click that goes nowhere.
                                 onClick={c.customer_id ? () => router.push(`/admin/customers/${c.customer_id}`) : undefined}
                             >
+                                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        aria-label={`Select ${c.name || c.email || c.phone_e164}`}
+                                        checked={selected.has(c.id)}
+                                        onChange={() => toggle(c.id)}
+                                    />
+                                </td>
                                 <td className="px-3 py-2.5">
                                     <div className={`font-bold ${t.heading}`}>{c.name || '(no name)'}</div>
                                     <div className={`text-[11px] ${t.faint}`}>{c.email || '—'}</div>
@@ -237,6 +297,15 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                         role={c.customer_id ? 'link' : undefined}
                     >
                         <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2.5 min-w-0">
+                                <input
+                                    type="checkbox"
+                                    aria-label={`Select ${c.name || c.email || c.phone_e164}`}
+                                    checked={selected.has(c.id)}
+                                    onClick={e => e.stopPropagation()}
+                                    onChange={() => toggle(c.id)}
+                                    className="mt-1 shrink-0"
+                                />
                             <div className="min-w-0">
                                 <div className={`text-[14px] font-bold truncate ${t.heading}`}>
                                     {c.name || '(no name)'}
@@ -244,6 +313,7 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                                 <div className={`text-[11px] font-medium ${t.faint} truncate`}>
                                     {c.email || c.phone_e164 || 'No way to reach them'}
                                 </div>
+                            </div>
                             </div>
                             <div className="shrink-0 flex flex-col items-end gap-1">
                                 <AdminBadge variant={c.customer_id ? 'active' : 'neutral'}>
@@ -293,6 +363,88 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                         <p className={`text-[11px] font-bold ${t.danger}`}>{loadError}</p>
                     )}
                 </div>
+            )}
+
+            {selected.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[120] px-4 pb-4 pointer-events-none">
+                    <div className={`pointer-events-auto mx-auto max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                        <span className={`text-[13px] font-bold ${t.heading}`}>{selected.size} selected</span>
+                        <button
+                            type="button"
+                            onClick={() => setSelected(new Set())}
+                            className={`text-[11px] font-bold tracking-[0.06em] uppercase ${t.muted}`}
+                        >
+                            Clear
+                        </button>
+                        <div className="flex-1" />
+                        <button
+                            type="button"
+                            onClick={() => { setError(null); setConfirmText(''); setConfirmOpen(true) }}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger}`}
+                        >
+                            <Trash2 size={13} strokeWidth={2.4} />
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {confirmOpen && (
+                <AdminModal label="Confirm contact deletion" onBackdrop={() => { if (!deleting) setConfirmOpen(false) }}>
+                    <div className={`px-5 py-4 border-b ${t.border}`}>
+                        <div className={`text-[15px] font-black ${t.heading}`}>
+                            {freeCount === 0
+                                ? 'None of these can be deleted here'
+                                : `Delete ${freeCount} contact${freeCount === 1 ? '' : 's'}?`}
+                        </div>
+                    </div>
+                    <div className="px-5 py-4">
+                        {/* Said plainly rather than discovered afterwards: a contact
+                            with an account is refused, and the customers trigger would
+                            just recreate it anyway. */}
+                        {linkedCount > 0 && (
+                            <p className={`text-[12px] font-bold mb-3 ${t.warning}`}>
+                                {linkedCount} of these {linkedCount === 1 ? 'has' : 'have'} an account and will be skipped.
+                                Delete those from Customers, which removes the person and their contact together.
+                            </p>
+                        )}
+                        {freeCount > 0 && (
+                            <>
+                                <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
+                                    This removes them from the contact book for good. Their broadcast history goes
+                                    with them. Type DELETE to confirm.
+                                </p>
+                                <input
+                                    type="text"
+                                    value={confirmText}
+                                    autoFocus
+                                    onChange={e => setConfirmText(e.target.value)}
+                                    placeholder="DELETE"
+                                    aria-label="Type DELETE to confirm"
+                                    className={`w-full mt-3 rounded-lg border px-3 py-2 text-[13px] font-black tracking-[0.12em] uppercase transition-colors ${t.input} ${t.inputFocus}`}
+                                />
+                            </>
+                        )}
+                        {error && (
+                            <p className={`mt-3 text-[12px] font-bold flex items-start gap-1.5 ${t.danger}`}>
+                                <AlertTriangle size={13} strokeWidth={2.4} className="mt-px shrink-0" />
+                                {error}
+                            </p>
+                        )}
+                    </div>
+                    <div className={`flex gap-3 px-5 py-4 border-t ${t.border}`}>
+                        <AdminButton variant="ghost" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</AdminButton>
+                        <AdminButton
+                            variant="danger"
+                            icon={<Trash2 size={14} strokeWidth={2.5} />}
+                            onClick={handleDelete}
+                            loading={deleting}
+                            disabled={freeCount === 0 || confirmText.trim().toUpperCase() !== 'DELETE'}
+                        >
+                            Delete for good
+                        </AdminButton>
+                    </div>
+                </AdminModal>
             )}
 
             {shown.length === 0 && (

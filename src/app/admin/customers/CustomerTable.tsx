@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Clock, Search, Sunrise, User } from 'lucide-react'
+import { AlertTriangle, Clock, Search, Sunrise, Trash2, User } from 'lucide-react'
 import type { CustomerRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
 import { CUSTOMER_PAGE_SIZE } from './constants'
 import { loadMoreCustomers } from './actions'
+import { previewCustomerDeletion } from './delete-actions'
+import { DeleteCustomersModal } from '../_components/DeleteCustomersModal'
+import type { DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 import {
     getAttention, matchesFilter, sortCustomers, todayDubai, waitlistNote,
     type Attention, type AttentionTone, type FilterKey, type SortMode,
@@ -72,6 +75,30 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
     const [loadError, setLoadError] = useState<string | null>(null)
 
     const today = useMemo(() => todayDubai(), [])
+
+    // ── Selection, for deleting test accounts ────────────────────────────
+    const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [pendingRows, setPendingRows] = useState<DeleteImpactRow[] | null>(null)
+    const [previewing, setPreviewing] = useState(false)
+    const [deleteNote, setDeleteNote] = useState<string | null>(null)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
+
+    function toggle(id: string) {
+        setSelected(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id); else next.add(id)
+            return next
+        })
+    }
+
+    async function openDeleteReview() {
+        setPreviewing(true)
+        setDeleteError(null)
+        const res = await previewCustomerDeletion([...selected])
+        setPreviewing(false)
+        if (!res.ok) { setDeleteError(res.message ?? 'Could not work out what this would delete.'); return }
+        setPendingRows(res.rows)
+    }
 
     const attentionCount = useMemo(
         () => rows.filter(c => getAttention(c, today) !== null).length,
@@ -145,6 +172,13 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                 {filter !== 'all' ? ` · showing ${filtered.length} ${activeChipLabel}` : ''}
             </p>
 
+            {deleteNote && (
+                <p className={`mb-3 text-[12px] font-bold ${t.accent}`}>{deleteNote}</p>
+            )}
+            {deleteError && (
+                <p className={`mb-3 text-[12px] font-bold ${t.danger}`}>{deleteError}</p>
+            )}
+
             {/* Search bar */}
             <form onSubmit={handleSearch} className="mb-3">
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${t.input} ${t.inputFocus} transition-colors`}>
@@ -216,6 +250,20 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                 <table className="w-full text-[13px]">
                     <thead>
                         <tr className={t.tableHeader}>
+                            <th className="w-9 px-3 py-2.5">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select every customer shown"
+                                    checked={shown.length > 0 && shown.every(c => selected.has(c.id))}
+                                    onChange={e => setSelected(prev => {
+                                        const next = new Set(prev)
+                                        // Only what is on screen: ticking this must never
+                                        // silently select rows the filter is hiding.
+                                        for (const c of shown) { if (e.target.checked) next.add(c.id); else next.delete(c.id) }
+                                        return next
+                                    })}
+                                />
+                            </th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Customer</th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Dorm</th>
                             <th className="text-left px-3 py-2.5 text-[10px] font-bold tracking-[0.06em] uppercase">Plan</th>
@@ -234,6 +282,14 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                                     className={`${t.tableRow} cursor-pointer transition-colors duration-100`}
                                     onClick={() => router.push(`/admin/customers/${c.id}`)}
                                 >
+                                    <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            aria-label={`Select ${c.name || c.email || c.cid}`}
+                                            checked={selected.has(c.id)}
+                                            onChange={() => toggle(c.id)}
+                                        />
+                                    </td>
                                     <td
                                         className="px-3 py-2.5"
                                         style={attention ? { borderLeft: `3px solid ${toneHex(attention.tone, isLight)}` } : undefined}
@@ -295,6 +351,15 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                             role="link"
                         >
                             <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                    <input
+                                        type="checkbox"
+                                        aria-label={`Select ${c.name || c.email || c.cid}`}
+                                        checked={selected.has(c.id)}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={() => toggle(c.id)}
+                                        className="mt-1 shrink-0"
+                                    />
                                 <div className="min-w-0">
                                     <div className={`text-[14px] font-bold truncate ${t.heading}`}>
                                         {c.name || '(no name)'}
@@ -302,6 +367,7 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                                     <div className={`text-[11px] font-medium ${t.faint} truncate`}>
                                         {c.dorm_name || 'No dorm'} · {c.email || c.whatsapp_number || c.cid}
                                     </div>
+                                </div>
                                 </div>
                                 {(c.sub_status || waiting) && (
                                     <div className="shrink-0 flex flex-col items-end gap-1">
@@ -374,6 +440,53 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                         <p className={`text-[11px] font-semibold ${t.danger}`}>{loadError}</p>
                     )}
                 </div>
+            )}
+
+            {/* Selection bar. Fixed to the bottom so it stays reachable while
+                scrolling a long list, and only exists while something is
+                selected — a delete button that is always on screen is one that
+                eventually gets pressed by accident. */}
+            {selected.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[120] px-4 pb-4 pointer-events-none">
+                    <div className={`pointer-events-auto mx-auto max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                        <span className={`text-[13px] font-bold ${t.heading}`}>
+                            {selected.size} selected
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setSelected(new Set())}
+                            className={`text-[11px] font-bold tracking-[0.06em] uppercase ${t.muted}`}
+                        >
+                            Clear
+                        </button>
+                        <div className="flex-1" />
+                        <button
+                            type="button"
+                            onClick={openDeleteReview}
+                            disabled={previewing}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger} disabled:opacity-50`}
+                        >
+                            <Trash2 size={13} strokeWidth={2.4} />
+                            {previewing ? 'Checking…' : 'Review and delete'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {pendingRows && (
+                <DeleteCustomersModal
+                    rows={pendingRows}
+                    onClose={() => setPendingRows(null)}
+                    onDone={message => {
+                        setPendingRows(null)
+                        setSelected(new Set())
+                        setDeleteNote(message)
+                        // The deleted rows are gone from the database but still
+                        // in this component's state, so re-fetch rather than
+                        // leaving ghosts in the list.
+                        router.refresh()
+                    }}
+                />
             )}
 
             {filtered.length === 0 && (

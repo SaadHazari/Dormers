@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 import {
     ArrowLeft, User, Mail, Phone, MapPin,
     UtensilsCrossed, Calendar, Coins, Bell, Star,
@@ -16,6 +18,9 @@ import { ReviewsTab } from './ReviewsTab'
 import { SendMessageButton } from './SendMessageModal'
 import type { CustomerReviews, AdminEmailLogEntry } from '@/infra/supabase/reviews-repo'
 import { skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { previewCustomerDeletion } from '../delete-actions'
+import { DeleteCustomersModal } from '../../_components/DeleteCustomersModal'
+import type { DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 
 interface Props {
     customer: Record<string, unknown>
@@ -281,6 +286,61 @@ export function CustomerDetail({
                         </div>
                     ))}
                 </div>
+            )}
+
+            <DangerZone customerId={String(customer.id)} name={(customer.name as string) || String(customer.email ?? '')} />
+        </div>
+    )
+}
+
+/**
+ * The single-customer delete, kept at the very bottom and behind its own
+ * button so it is never adjacent to anything routine. The confirmation is the
+ * same modal the list uses, so the blast radius is described identically
+ * whether one person is going or twenty.
+ */
+function DangerZone({ customerId, name }: { customerId: string; name: string }) {
+    const { t } = useAdminTheme()
+    const router = useRouter()
+    const [rows, setRows] = useState<DeleteImpactRow[] | null>(null)
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    async function open() {
+        setBusy(true)
+        setError(null)
+        const res = await previewCustomerDeletion([customerId])
+        setBusy(false)
+        if (!res.ok) { setError(res.message ?? 'Could not work out what this would delete.'); return }
+        setRows(res.rows)
+    }
+
+    return (
+        <div className={`mt-8 rounded-xl border px-4 py-3.5 ${t.border}`}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                    <div className={`text-[12px] font-black uppercase tracking-[0.08em] ${t.muted}`}>Danger zone</div>
+                    <div className={`text-[12px] font-medium mt-0.5 ${t.faint}`}>
+                        Deletes {name || 'this customer'}, everything of theirs, and their login. Cannot be undone.
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={open}
+                    disabled={busy}
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger} disabled:opacity-50`}
+                >
+                    <Trash2 size={13} strokeWidth={2.4} />
+                    {busy ? 'Checking…' : 'Delete this customer'}
+                </button>
+            </div>
+            {error && <p className={`mt-2 text-[12px] font-bold ${t.danger}`}>{error}</p>}
+            {rows && (
+                <DeleteCustomersModal
+                    rows={rows}
+                    onClose={() => setRows(null)}
+                    onDone={() => { setRows(null); router.push('/admin/customers') }}
+                />
             )}
         </div>
     )
