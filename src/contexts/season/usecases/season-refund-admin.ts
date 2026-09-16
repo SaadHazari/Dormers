@@ -98,7 +98,7 @@ export async function approveSeasonRefund(actorEmail: string, holdId: string): P
       const message = err instanceof Error ? err.message : String(err)
       captureError(err, { area: 'season', op: 'approveSeasonRefund.stripe', holdId })
       await markFailed(sb, holdId, `Stripe: ${message}`, null)
-      void notifyAdmin(`Season refund FAILED at Stripe for hold ${holdId} (${row.plan_name}, ${formatAed(row.cash_refund_fils)}): ${message}. Retry from the Season page.`, 'season_refund')
+      void notifyAdmin(`Season refund FAILED at Stripe for hold ${holdId} (${row.plan_name}, ${formatAed(row.cash_refund_fils)}): ${message}. Press Try the refund again on the Season page.`, 'season_refund')
       return { error: `Stripe refused the refund: ${message}. It is marked as failed; press Try the refund again when Stripe is working.` }
     }
   }
@@ -106,7 +106,7 @@ export async function approveSeasonRefund(actorEmail: string, holdId: string): P
   const { error: finishErr } = await sb.rpc('season_finish_refund', { p_hold_id: holdId, p_stripe_refund_id: refundId ?? '' })
   if (finishErr) {
     await markFailed(sb, holdId, `Recording failed after Stripe accepted ${refundId ?? 'no refund'}: ${finishErr.message}`, refundId)
-    void notifyAdmin(`Season refund for hold ${holdId} went through at Stripe (${refundId ?? 'credit only'}) but recording it failed: ${finishErr.message}. Retry from the Season page; Stripe will not be charged twice.`, 'season_refund')
+    void notifyAdmin(`Season refund for hold ${holdId} went through at Stripe (${refundId ?? 'credit only'}) but recording it failed: ${finishErr.message}. Press Try the refund again on the Season page; nobody is paid twice.`, 'season_refund')
     return { error: `Stripe accepted the refund (${refundId ?? 'credit only'}) but recording it failed: ${finishErr.message}. Retry; Stripe will not pay twice.` }
   }
 

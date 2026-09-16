@@ -80,7 +80,7 @@ describe('approveSeasonRefund (spec §10.3 steps 2 to 4)', () => {
 
     const result = await approveSeasonRefund('saad@dormers.ae', 'h-1')
 
-    expect(result).toEqual({ error: 'Stripe refused the refund: charge_already_refunded. The hold is marked failed; retry when Stripe is back.' })
+    expect(result).toEqual({ error: 'Stripe refused the refund: charge_already_refunded. It is marked as failed; press Try the refund again when Stripe is working.' })
     expect(m.rpc).toHaveBeenCalledWith('season_fail_refund', { p_hold_id: 'h-1', p_error: 'Stripe: charge_already_refunded', p_stripe_refund_id: null })
     expect(m.rpc).not.toHaveBeenCalledWith('season_finish_refund', expect.anything())
     expect(m.notify).toHaveBeenCalledWith(expect.stringContaining('FAILED at Stripe'), 'season_refund')

@@ -13,7 +13,7 @@ import {
 import type { IntakeSettingsRow, WaitlistMember } from './page'
 import type { SeasonPageData } from './season-data'
 import { SeasonPlanner } from './SeasonPlanner'
-import { Section } from './season-ui'
+import { ConfirmDialog, Section } from './season-ui'
 import { formatShortDay } from '@/contexts/season/domain/season-dates'
 import { OG, OG_DEEP, BODY } from '@/app/dashboard/_shared/tokens'
 
@@ -71,7 +71,7 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
         const raw = targetDraft.trim()
         const next = raw === '' ? null : Number(raw)
         if (next !== null && !Number.isInteger(next)) {
-            setTargetError('Enter a whole number, or leave it empty for no target.')
+            setTargetError('Enter a whole number, or leave the box empty for no goal.')
             return
         }
         startTarget(async () => {
@@ -94,15 +94,13 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
                         {count}
                         <span className={`ml-1 text-[14px] font-bold ${t.muted}`}>{target != null ? `of your goal of ${target}` : 'people waiting'}</span>
                     </div>
-                    {!editingTarget && (
-                        <button
-                            type="button"
-                            onClick={() => { setTargetDraft(target == null ? '' : String(target)); setEditingTarget(true) }}
-                            className={`inline-flex items-center gap-1 text-[12px] font-bold ${t.muted} hover:opacity-70`}
-                        >
-                            <Pencil size={12} aria-hidden /> {target == null ? 'Set a goal' : 'Change the goal'}
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => { setTargetDraft(target == null ? '' : String(target)); setTargetError(null); setEditingTarget(true) }}
+                        className={`inline-flex items-center gap-1 text-[12px] font-bold ${t.muted} hover:opacity-70`}
+                    >
+                        <Pencil size={12} aria-hidden /> {target == null ? 'Set a goal' : 'Change the goal'}
+                    </button>
                 </div>
                 {pct != null && (
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(128,128,128,0.2)]">
@@ -110,26 +108,37 @@ function SavedSpots({ members, settings }: { members: WaitlistMember[]; settings
                     </div>
                 )}
                 {editingTarget && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <input
-                            type="number"
-                            min={1}
-                            max={1000}
-                            step={1}
-                            value={targetDraft}
-                            placeholder="No target"
-                            aria-label="Reopen target"
-                            autoFocus
-                            onChange={(e) => setTargetDraft(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') saveTarget(); if (e.key === 'Escape') setEditingTarget(false) }}
-                            className={`w-24 rounded-lg border px-3 py-2 text-[13px] font-bold tabular-nums ${t.input} ${t.inputFocus}`}
-                        />
-                        <AdminButton onClick={saveTarget} loading={targetPending}>Save</AdminButton>
-                        <AdminButton variant="ghost" onClick={() => setEditingTarget(false)} disabled={targetPending}>Cancel</AdminButton>
-                        <p className={`w-full text-[12px] ${t.faint}`}>A marker only. Reaching it does not reopen sales.</p>
-                    </div>
+                    <ConfirmDialog
+                        title={target == null ? 'Set a goal for reopening' : 'Change the goal for reopening'}
+                        lines={[
+                            'Write how many people you want on the waiting list before you reopen the kitchen.',
+                            'The bar above fills up as people join, so you can see how close you are.',
+                            '**It is only a note for you.** Reaching it does not reopen anything or send any message.',
+                        ]}
+                        undo="Yes. Change it or empty the box to remove it, any time."
+                        cta="Save the goal"
+                        pending={targetPending}
+                        error={targetError}
+                        onCancel={() => { setEditingTarget(false); setTargetError(null) }}
+                        onConfirm={saveTarget}
+                    >
+                        <label className="flex flex-col gap-2">
+                            <span className={`text-[12px] font-bold ${t.muted}`}>People on the waiting list</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={1000}
+                                step={1}
+                                value={targetDraft}
+                                placeholder="No goal"
+                                autoFocus
+                                onChange={(e) => setTargetDraft(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveTarget() }}
+                                className={`w-32 rounded-lg border px-3 py-2 text-[13px] font-bold tabular-nums ${t.input} ${t.inputFocus}`}
+                            />
+                        </label>
+                    </ConfirmDialog>
                 )}
-                {targetError && <p role="alert" className={`mt-2 text-[12px] font-bold ${t.danger}`}>{targetError}</p>}
 
                 {count === 0 ? (
                     <p className={`mt-4 text-[13px] ${t.muted}`}>
@@ -198,6 +207,7 @@ function CustomerView({ settings }: { settings: IntakeSettingsRow }) {
     const [pending, startSave] = useTransition()
     const [error, setError] = useState<string | null>(null)
     const [saved, setSaved] = useState(false)
+    const [confirming, setConfirming] = useState(false)
 
     const copyDirty = headline !== settings.headline || body !== settings.body
     const creditsDirty =
@@ -228,6 +238,7 @@ function CustomerView({ settings }: { settings: IntakeSettingsRow }) {
                 if ('error' in r) { setError(r.error); return }
             }
             setSaved(true)
+            setConfirming(false)
             router.refresh()
         })
     }
@@ -246,15 +257,15 @@ function CustomerView({ settings }: { settings: IntakeSettingsRow }) {
             <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.muted}`}>What customers see</span>
+                        <span className={`text-[11px] font-black uppercase tracking-[0.12em] ${t.muted}`}>Message customers see while orders are paused</span>
                         {settings.paused && (
                             <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${t.accentBg} ${t.accent}`}>
-                                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#f57f20]" /> Live now
+                                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#f57f20]" /> Showing now
                             </span>
                         )}
                     </div>
                     <div className={`mt-1 truncate text-[13px] ${t.body}`}>
-                        &ldquo;{settings.headline}&rdquo; <span className={t.muted}>· AED {low === high ? low : `${low} to ${high}`} credit for saving a spot</span>
+                        &ldquo;{settings.headline}&rdquo; <span className={t.muted}>· AED {low === high ? low : `${low} to ${high}`} credit for joining the waiting list</span>
                     </div>
                 </div>
                 <span className={`hidden sm:inline text-[12px] font-bold ${t.muted} group-open:hidden`}>Edit</span>
@@ -282,7 +293,7 @@ function CustomerView({ settings }: { settings: IntakeSettingsRow }) {
                         />
                     </Field>
                     <fieldset>
-                        <legend className={`text-[12px] font-bold ${t.muted}`}>Credit for saving a spot (AED)</legend>
+                        <legend className={`text-[12px] font-bold ${t.muted}`}>Credit for joining the waiting list (AED)</legend>
                         <div className="mt-2 grid grid-cols-3 gap-2">
                             <CreditField label="Non-veg" value={nonveg} onChange={(v) => { setNonveg(v); touch() }} />
                             <CreditField label="Veg" value={veg} onChange={(v) => { setVeg(v); touch() }} />
@@ -291,17 +302,35 @@ function CustomerView({ settings }: { settings: IntakeSettingsRow }) {
                     </fieldset>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <AdminButton onClick={save} loading={pending} disabled={!dirty}>Save changes</AdminButton>
+                        <AdminButton onClick={() => { touch(); setConfirming(true) }} disabled={!dirty || pending}>Update the message</AdminButton>
                         {dirty && !pending && (
-                            <button type="button" onClick={reset} className={`text-[12px] font-bold ${t.muted} hover:underline underline-offset-4`}>Discard</button>
+                            <button type="button" onClick={reset} className={`text-[12px] font-bold ${t.muted} hover:underline underline-offset-4`}>Undo my edits</button>
                         )}
-                        {saved && !dirty && <span role="status" className={`text-[12px] font-bold ${t.success}`}>Saved. Customers see it now.</span>}
-                        {error && <span role="alert" className={`text-[12px] font-bold ${t.danger}`}>{error}</span>}
+                        {saved && !dirty && <span role="status" className={`text-[12px] font-bold ${t.success}`}>{settings.paused ? 'Updated. Customers see it now.' : 'Updated.'}</span>}
+                        {error && !confirming && <span role="alert" className={`text-[12px] font-bold ${t.danger}`}>{error}</span>}
                     </div>
+                    {confirming && (
+                        <ConfirmDialog
+                            title="Update what customers see?"
+                            lines={[
+                                ...(copyDirty ? [`The card now reads **${headline.trim() || '(empty headline)'}**, with the message you wrote below it.`] : []),
+                                ...(creditsDirty ? [`People who join the waiting list from now on get **AED ${nonveg}** (non-veg), **AED ${veg}** (veg) or **AED ${religious}** (religious). People already on the list keep what they got.`] : []),
+                                settings.paused
+                                    ? 'New orders are paused, so customers see this **straight away**.'
+                                    : 'New orders are open, so **nobody sees this right now**. It shows the next time you pause new orders.',
+                            ]}
+                            undo="Yes. Change it again whenever you like."
+                            cta="Yes, update it"
+                            pending={pending}
+                            error={error}
+                            onCancel={() => setConfirming(false)}
+                            onConfirm={save}
+                        />
+                    )}
                 </div>
 
                 <div className="min-w-0">
-                    <div className={`mb-2 text-[12px] font-bold ${t.muted}`}>Preview</div>
+                    <div className={`mb-2 text-[12px] font-bold ${t.muted}`}>How it looks to customers</div>
                     <PreviewCard headline={headline} body={body} creditAed={Number.isFinite(previewCredit) ? previewCredit : 0} />
                 </div>
             </div>

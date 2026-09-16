@@ -35,9 +35,9 @@ export async function afterScheduleChange(what: 'scheduled' | 'moved'): Promise<
     const kitchenDays = new Set(rows.flatMap((r) => r.cook_dates ?? [])).size
     const q = (queued ?? {}) as { queued?: number }
     void notifyAdmin(
-      `Season end ${what}: wrap-up day ${formatShortDay(st.wrap_up_day)}, buffer ${st.buffer_delivery_days ?? 0}, close day ${formatShortDay(st.close_day ?? st.wrap_up_day)}. ` +
-      `${count('finishes')} plans finish, ${count('runs_past')} run past with ${held} meals to hold, ${count('starts_after')} start after, ${count('customer_paused')} customer pauses. ` +
-      `${kitchenDays} kitchen days left. Customer messages go out at 10:00${(q.queued ?? 0) > 0 ? ` (${q.queued} queued)` : ''}.`,
+      `Season end ${what === 'scheduled' ? 'set' : 'changed'}: last dinner day ${formatShortDay(st.wrap_up_day)}, ${st.buffer_delivery_days ?? 0} catch-up days, last cooking day ${formatShortDay(st.close_day ?? st.wrap_up_day)}. ` +
+      `${count('finishes')} plans finish in time, ${count('runs_past')} go past the end (${held} meals kept for next semester), ${count('starts_after')} start after it, ${count('customer_paused')} paused by the customer. ` +
+      `${kitchenDays} cooking days left. Customer messages go out at 10:00${(q.queued ?? 0) > 0 ? ` (${q.queued} waiting)` : ''}.`,
       'season_schedule',
     )
   } catch (err) {
@@ -50,7 +50,7 @@ export async function afterScheduleCleared(): Promise<void> {
     const sb = createAdminSupabaseClient()
     const { data } = await sb.rpc('season_drop_notices', { p_kind: 'season_plan_runs_past', p_reason: 'schedule_cleared', p_subject_id: null })
     void notifyAdmin(
-      `Season end cleared: the kitchen keeps cooking until the last plan ends, and no wrap-up notice will go out${Number(data ?? 0) > 0 ? ` (${data} queued notices dropped)` : ''}.`,
+      `Season end cancelled: the kitchen keeps cooking until the last paid plan finishes, and no season-end message will go out${Number(data ?? 0) > 0 ? ` (${data} waiting messages cancelled)` : ''}.`,
       'season_schedule',
     )
   } catch (err) {

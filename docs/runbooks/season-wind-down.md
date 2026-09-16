@@ -33,11 +33,13 @@ credit worth what the customer paid for it.
 1. Read the kitchen calendar: orange days cook, dashed days are meals that
    would be held, navy is closed or the break. Every plan's real last dinner
    comes from its meals left, not its end date.
-2. Tap the wrap-up day on the calendar, pick the make-up days (the buffer),
-   read the panel beside it (kitchen days, meals held and what they are worth)
-   and press Schedule. "Stop sales now" sits in the same panel and can come
-   earlier. "End the season today" is under **More moves** at the foot of the
-   page, offered when W is today or later.
+2. Tap the last dinner day (W) on the calendar, pick the catch-up days (the
+   buffer), read the panel beside it (cooking days left, meals that do not fit
+   and what they are worth) and press **Set the last dinner day**. **Pause new
+   orders** sits in the same panel and can come earlier. **Close the kitchen
+   tonight** is under **Other options** at the foot of the page, offered when W
+   is today or later. Every button opens a dialog saying what happens and
+   whether it can be undone.
 3. What happens next, on its own:
    - Sales are judged against W: a new plan must finish by it.
    - Skips whose make-up meal would land after W turn into credit; skips that
@@ -51,10 +53,10 @@ credit worth what the customer paid for it.
      closures). Two days before K: the final roster. On K at 20:30: tonight's
      meals.
    - Renewal reminders become "your last dinners" when no plan can follow.
-4. Moving W: tap another day, then "Save new dates". Clearing W: "Clear the
-   wrap-up day" under More moves (the kitchen then keeps cooking until the
-   last plan ends). Once W has passed, only Clear is offered, in the panel;
-   ending today would reopen the kitchen.
+4. Moving W: tap another day, then **Change the last dinner day**. Clearing W:
+   **Cancel the season end** under Other options (the kitchen then keeps
+   cooking until the last plan ends). Once W has passed, only Cancel the season
+   end is offered, in the panel; closing tonight would reopen the kitchen.
 
 ## 3. The break
 
@@ -71,7 +73,7 @@ Starts at 00:20 Dubai the night after K (retries at 00:50 and 01:20). It:
   message at 10:00.
 
 **On the break** the same page shows the calendar gone dark, a Reopen panel
-beside it (saved spots against the target, held plans, the kitchen-halt
+beside it (the waiting list against your goal, kept plans, the kitchen-off
 check), and held plans, refunded plans and customer pauses below. Anything
 waiting for you (refund requests, a plan still set to cook) sits in the
 amber **Needs you** list at the top.
@@ -92,18 +94,18 @@ order comes back as credit; the waitlist credit stays theirs.
 
 1. You get a WhatsApp with customer, plan, meals and amounts, and a reminder
    after 24 hours.
-2. On the Season page, **Approve** (Stripe refund, plan ends, credit share
-   back, customer told by the refund message) or **Decline** with a reason
+2. On the Season page, **Give the refund** (Stripe refund, plan ends, credit share
+   back, customer told by the refund message) or **Say no** with a reason
    the customer reads on their card and by email.
-3. If Stripe refuses, the row shows the error and **Retry**; a retry never
+3. If Stripe refuses, the row shows the error and **Try the refund again**; a retry never
    pays twice (the refund is keyed to the hold). A refund stuck "processing"
    for 30 minutes pings you.
 
 ## 5. Reopening
 
-1. **Reopen** on the break board. Sales open, W and K clear, every hold
+1. **Reopen the kitchen** on the Season page. Sales open, W and K clear, every hold
    becomes `ready`. Nothing restarts on its own.
-2. **Send the reopening notice** (the link on the Season page opens the
+2. **Tell customers we are open** (the link on the Season page opens the
    composer with the reopen preset). It reaches everyone holding waitlist
    credit from any season, everyone who saved a spot, and past customers
    without a plan; every held plan hears "your meals are ready" instead. If
@@ -127,10 +129,10 @@ order comes back as credit; the waitlist credit stays theirs.
 | Paid held plan without credit | The break did not mint a credit | Add it from the customer page; tell the developer |
 | Skipped-meal credit still pending | The credit tick did not release it | Scheduled Jobs, "season credit" job |
 | Season messages could not be sent yet | An email template is missing in ZeptoMail | Create it, see docs/email-templates/SEASON-EMAILS.md. Messages retry every six hours, so creating it releases them |
-| Refund requested / reminder | A customer is waiting | Season page: Approve or Decline |
-| Refund FAILED at Stripe / recording failed | Stripe or the database refused | Retry from the Season page; check Stripe |
-| Refund processing over 30 minutes | A refund is stuck | Check Stripe, then Retry |
-| Reopened / reminder | Holds ready; notice not yet sent | Send the reopening notice |
+| Refund requested / reminder | A customer is waiting | Season page: Give the refund or Say no |
+| Refund FAILED at Stripe / recording failed | Stripe or the database refused | Try the refund again on the Season page; check Stripe |
+| Refund processing over 30 minutes | A refund is stuck | Check Stripe, then Try the refund again |
+| Reopened / reminder | Holds ready; notice not yet sent | Tell customers we are open |
 | A week since reopening | What is still waiting | Nudge by hand if you like |
 
 Standing breaches repeat every six hours, not every hour.

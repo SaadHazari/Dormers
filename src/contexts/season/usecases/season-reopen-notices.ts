@@ -13,9 +13,9 @@ import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import type { SeasonReopenSummary } from '../domain/season-reopen'
 
 export function reopenedOwnerMessage(summary: SeasonReopenSummary): string {
-  const plans = summary.readyHolds === 1 ? '1 held plan is ready' : `${summary.readyHolds} held plans are ready`
-  const pauses = summary.readyCustomerPauses === 1 ? '1 customer pause can resume' : `${summary.readyCustomerPauses} customer pauses can resume`
-  return `Reopened. ${plans} and ${pauses}. Nothing restarts on its own. Send the reopening notice from the Season page: it tells credit holders and past customers, and every held plan that its meals are ready. You get a reminder in two hours if it has not gone out.`
+  const plans = summary.readyHolds === 1 ? '1 kept plan is ready to restart' : `${summary.readyHolds} kept plans are ready to restart`
+  const pauses = summary.readyCustomerPauses === 1 ? '1 customer-paused plan can resume' : `${summary.readyCustomerPauses} customer-paused plans can resume`
+  return `Kitchen reopened. ${plans} and ${pauses}. Nothing restarts by itself. Press Tell customers we are open on the Season page: it tells people with credit, past customers, and everyone with kept meals. You get a reminder in two hours if it has not gone out.`
 }
 
 export async function announceSeasonReopened(summary: SeasonReopenSummary): Promise<void> {

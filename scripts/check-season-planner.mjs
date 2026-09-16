@@ -13,23 +13,23 @@ const SHOT_DIR = process.env.SHOT_DIR ?? null
 
 // End the season today shows wherever allowedSeasonActions offers it: the break is live (plan C).
 const EXPECT = {
-  open: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today'], absent: ['Resume sales', 'Clear the wrap-up day'] },
-  stopped: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
-  // "Save new dates" appears once a different day is tapped (pickDay below).
-  scheduled: { title: 'Winding down to Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Stop sales now', 'Clear the wrap-up day', 'End the season today'], absent: ['Resume sales'] },
-  stopped_scheduled: { title: 'Winding down to Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Resume sales', 'Clear the wrap-up day', 'End the season today'], absent: ['Stop sales now'] },
+  open: { title: 'Open as normal', controls: ['Set the last dinner day', 'Pause new orders', 'Close the kitchen tonight'], absent: ['Take new orders again', 'Cancel the season end'] },
+  stopped: { title: 'New orders paused, no end date yet', controls: ['Set the last dinner day', 'Take new orders again', 'Close the kitchen tonight'], absent: ['Pause new orders', 'Cancel the season end'] },
+  // "Change the last dinner day" appears once a different day is tapped (pickDay below).
+  scheduled: { title: 'Season ends Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Pause new orders', 'Cancel the season end', 'Close the kitchen tonight'], absent: ['Take new orders again'] },
+  stopped_scheduled: { title: 'Season ends Wed 30 Sep', pickDay: 'Tue 29 Sep', controls: ['Take new orders again', 'Cancel the season end', 'Close the kitchen tonight'], absent: ['Pause new orders'] },
   // Wrap-up day already behind today: only Clear survives allowedSeasonActions;
   // ending today would move the wrap-up day back and reopen the kitchen.
-  passed: { title: 'Winding down to Sat 12 Sep', controls: ['Clear the wrap-up day'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Resume sales and end the season', 'End the season today'] },
+  passed: { title: 'Season ends Sat 12 Sep', controls: ['Cancel the season end'], absent: ['Set the last dinner day', 'Change the last dinner day', 'Pause new orders', 'Take new orders again', 'Take new orders again', 'Close the kitchen tonight'] },
   // Same snapshot as `stopped`; only intake_settings.paused disagrees, which
   // is what should light up the season-drift banner.
-  drift: { title: 'Sales stopped, no wrap-up day', controls: ['Schedule', 'Resume sales and end the season', 'End the season today'], absent: ['Stop sales now', 'Clear the wrap-up day'] },
+  drift: { title: 'New orders paused, no end date yet', controls: ['Set the last dinner day', 'Take new orders again', 'Close the kitchen tonight'], absent: ['Pause new orders', 'Cancel the season end'] },
   // The break board (plan C): only Reopen, and the kitchen-halt invariant.
-  break: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'Kitchen halt holding' },
-  break_alert: { title: 'On the break', controls: ['Reopen'], absent: ['Schedule', 'Save new dates', 'Stop sales now', 'Resume sales', 'Clear the wrap-up day', 'End the season today'], invariant: 'would cook during the break' },
+  break: { title: 'Closed for the semester break', controls: ['Reopen the kitchen'], absent: ['Set the last dinner day', 'Change the last dinner day', 'Pause new orders', 'Take new orders again', 'Cancel the season end', 'Close the kitchen tonight'], invariant: 'no plan is set to cook' },
+  break_alert: { title: 'Closed for the semester break', controls: ['Reopen the kitchen'], absent: ['Set the last dinner day', 'Change the last dinner day', 'Pause new orders', 'Take new orders again', 'Cancel the season end', 'Close the kitchen tonight'], invariant: 'would cook during the break' },
   // Plan D (spec §10.3): the refund queue on the break board, and after reopening above the planner.
-  break_refund: { title: 'On the break', controls: ['Reopen', 'Approve', 'Decline', 'Retry'], absent: ['Schedule', 'End the season today'], invariant: 'Kitchen halt holding', texts: ['2 refund requests waiting for you', 'Refund requested', 'Refund failed', 'charge has already been refunded', 're_3Q2fixture'] },
-  open_refund: { title: 'Open', controls: ['Schedule', 'Stop sales now', 'End the season today', 'Approve', 'Decline', 'Retry'], absent: ['Resume sales', 'Clear the wrap-up day'], texts: ['2 refund requests waiting for you'] },
+  break_refund: { title: 'Closed for the semester break', controls: ['Reopen the kitchen', 'Give the refund', 'Say no', 'Try the refund again'], absent: ['Set the last dinner day', 'Close the kitchen tonight'], invariant: 'no plan is set to cook', texts: ['2 refund requests waiting for you', 'Refund requested', 'Refund failed', 'charge has already been refunded', 're_3Q2fixture'] },
+  open_refund: { title: 'Open as normal', controls: ['Set the last dinner day', 'Pause new orders', 'Close the kitchen tonight', 'Give the refund', 'Say no', 'Try the refund again'], absent: ['Take new orders again', 'Cancel the season end'], texts: ['2 refund requests waiting for you'] },
 }
 const WIDTHS = [1280, 390]
 
@@ -91,7 +91,7 @@ try {
           // Plan D: the board words refunds only where a hold offers or carries one.
           if (!expect.texts && /refund request/i.test(body)) failures.push(`${label}: the break board shows a refund queue with nothing in it`)
         } else {
-          if (!bodyLower.includes('last meal on the books')) failures.push(`${label}: missing "Last meal on the books"`)
+          if (!bodyLower.includes('last dinner day') && !bodyLower.includes('last meal anyone has paid for')) failures.push(`${label}: missing the season end panel`)
           if (!bodyLower.includes('kitchen calendar')) failures.push(`${label}: missing the kitchen calendar`)
         }
         for (const text of expect.texts ?? []) {
@@ -105,9 +105,18 @@ try {
         }
         // The calendar is the date control: tapping a day drafts the new end.
         if (expect.pickDay) {
-          if (await page.getByRole('button', { name: 'Save new dates', exact: true }).count() > 0) failures.push(`${label}: "Save new dates" shows before anything changed`)
+          if (await page.getByRole('button', { name: 'Change the last dinner day', exact: true }).count() > 0) failures.push(`${label}: "Change the last dinner day" shows before anything changed`)
           await page.locator(`button[aria-label^="${expect.pickDay}:"]`).click()
-          if (await page.getByRole('button', { name: 'Save new dates', exact: true }).count() === 0) failures.push(`${label}: tapping ${expect.pickDay} did not offer "Save new dates"`)
+          const change = page.getByRole('button', { name: 'Change the last dinner day', exact: true })
+          if (await change.count() === 0) failures.push(`${label}: tapping ${expect.pickDay} did not offer "Change the last dinner day"`)
+          else {
+            // Every change opens a dialog that says what happens and whether it can be undone.
+            await change.click()
+            const dialog = page.getByRole('dialog')
+            const text = (await dialog.innerText().catch(() => '')).toLowerCase()
+            if (!text.includes('what happens') || !text.includes('can i undo this?')) failures.push(`${label}: the change dialog does not explain itself`)
+            await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+          }
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
         if (overflow > 1) failures.push(`${label}: page scrolls sideways by ${overflow}px`)

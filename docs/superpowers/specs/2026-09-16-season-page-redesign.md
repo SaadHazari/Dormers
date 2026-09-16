@@ -94,3 +94,28 @@ On the break, the right panel becomes **Ready to reopen?**: saved spots against 
 | Mobile | The grid is 7 columns of about 40px at 390px. Rows stack; nothing scrolls sideways |
 
 Button labels the runbook names are kept verbatim: Schedule, Save new dates, Stop sales now, Resume sales, Clear the wrap-up day, End the season today, Reopen, Approve, Decline, Retry, Send the reopening notice.
+
+## 4. Plain words (Saad, 2026-09-16)
+
+Keeping the runbook's button names was the wrong call: the names were the confusion. Every label now says what it does, and every button that changes something opens a dialog with **What happens** and **Can I undo this?**
+
+| Was | Now |
+|---|---|
+| Winding down / Break | Ending soon / Closed for the break |
+| Wrap-up day | Last dinner day |
+| Close day, last kitchen day | Last cooking day |
+| Buffer, make-up days | Catch-up days |
+| Sales | New orders |
+| Held | Kept for next semester |
+| Saved spots, waitlist | Waiting list |
+| Reopen target | Goal |
+| Schedule / Save new dates | Set the last dinner day / Change the last dinner day |
+| Stop sales now / Resume sales | Pause new orders / Take new orders again |
+| Clear the wrap-up day | Cancel the season end |
+| End the season today (type END SEASON) | Close the kitchen tonight (type CLOSE TONIGHT) |
+| Reopen | Reopen the kitchen |
+| Approve / Decline / Retry | Give the refund / Say no / Try the refund again |
+| Send the reopening notice | Tell customers we are open |
+| More moves | Other options |
+
+The goal and the customer message also save through a dialog. The owner WhatsApp messages sent after scheduling, cancelling, reopening and a failed refund use the same words. The daily digest and the other alerts written in SQL still use the old words; they change with the next season migration.

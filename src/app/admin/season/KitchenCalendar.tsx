@@ -165,8 +165,8 @@ export function KitchenCalendar({
 
             <Legend kinds={kinds} isLight={isLight} lastDinners={anyLast} />
             {onPick && (
-                <p className={`mt-2 inline-flex items-center gap-2 text-[12px] ${t.muted}`}>
-                    <MapPin size={12} strokeWidth={2.4} aria-hidden />
+                <p className={`mt-2 flex items-start gap-2 text-[12px] ${t.muted}`}>
+                    <MapPin size={12} strokeWidth={2.4} aria-hidden className="mt-0.5 shrink-0" />
                     Tap a day to make it the last dinner day. Nothing changes until you press the button beside the calendar.
                 </p>
             )}

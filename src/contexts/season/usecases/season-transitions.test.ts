@@ -35,8 +35,8 @@ afterEach(() => vi.useRealTimers())
 
 describe('season transitions', () => {
   it('refuses a bad wrap-up day before touching the database', async () => {
-    expect(await scheduleSeasonEnd(ADMIN, '2026-10-04', 1)).toEqual({ error: 'Pick a delivery day. Sunday is not one.' })
-    expect(await moveSeasonEnd(ADMIN, '2026-09-14', 1)).toEqual({ error: 'The wrap-up day has to be tomorrow or later.' })
+    expect(await scheduleSeasonEnd(ADMIN, '2026-10-04', 1)).toEqual({ error: 'Pick a day we deliver. We do not deliver on Sundays.' })
+    expect(await moveSeasonEnd(ADMIN, '2026-09-14', 1)).toEqual({ error: 'The last dinner day has to be tomorrow or later.' })
     expect(rpcMock).not.toHaveBeenCalled()
     expect(invalidateMock).not.toHaveBeenCalled()
   })
