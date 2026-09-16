@@ -24,7 +24,7 @@ function tables(rows: Record<string, unknown>) {
 
 beforeEach(() => {
   for (const fn of Object.values(m)) fn.mockReset()
-  tables({ season_holds: HOLD, orders: ORDER, customers: { name: 'Omar Farouk', phone: '+971501234567' } })
+  tables({ season_holds: HOLD, orders: ORDER, customers: { name: 'Omar Farouk', whatsapp_number: '+971501234567' } })
   m.refundable.mockResolvedValue(20000)
 })
 
@@ -62,7 +62,7 @@ describe('requestSeasonRefund (spec §10.3 step 1)', () => {
 
 describe('a pause carried into the break (owner 2026-09-16, reversing X4)', () => {
   it('can ask for a refund on the same terms as a held plan', async () => {
-    tables({ season_holds: { ...HOLD, reason: 'customer_pause', state: 'paused_by_customer' }, orders: ORDER, customers: { name: 'Priya Nair', phone: null } })
+    tables({ season_holds: { ...HOLD, reason: 'customer_pause', state: 'paused_by_customer' }, orders: ORDER, customers: { name: 'Priya Nair', whatsapp_number: null } })
     m.rpc.mockResolvedValue({ data: { plan_name: 'Monthly Premium', held_meals: 8, cash_refund_fils: 15600, credit_share_fils: 800 }, error: null })
 
     expect(await requestSeasonRefund('sub-1')).toEqual({ success: true, message: REFUND_COPY.requested })

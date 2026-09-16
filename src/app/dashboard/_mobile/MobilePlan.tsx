@@ -20,6 +20,7 @@ import { taperedMaxStart } from '@/contexts/subscriptions/domain/season-taper'
 import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon'
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { skipCapFor, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules'
+import { PlanRefundBlock, type PlanRefundView } from '../_shared/PlanRefundBlock'
 import {
   MobileColumn, HERO, CARD, MobileSheet, CompactMetricStrip, PlanGlyph, SectionTitle,
   eyebrow, eyebrowSm, solidNavyBtn, OG, OG_DEEP, S, BODY, cleanPlanName,
@@ -80,9 +81,11 @@ interface Props {
   /** creditOutlook's one sentence ("AED 20 off your next Monthly plan").
    *  Shown under the row label so the amount is visible before the tap. */
   creditSentence?: string | null
+  /** The owner's refund switch for this customer (null when off). */
+  planRefund?: PlanRefundView | null
 }
 
-export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, hasCredit = false, creditSentence = null }: Props) {
+export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsPaused, endedPlans, outOfZone, profileGated, onRenew, onConfirmCancelPause, intake = INTAKE_NOT_PAUSED, hasCredit = false, creditSentence = null, planRefund = null }: Props) {
   // Season taper — null while intake is paused so the gate and the banner
   // never share a screen (SeasonEndingBanner enforces the same rule itself;
   // this keeps the reschedule sheets on the identical condition).
@@ -99,7 +102,7 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
       <SeasonEndingBanner intake={intake} />
 
       {activeSubscription
-        ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} lastDeliveryDay={taperLastDay} />
+        ? <ActiveHero sub={activeSubscription} hasQueuedSub={!!queuedSub} outOfZone={outOfZone} onRenew={onRenew} onConfirmCancelPause={onConfirmCancelPause} lastDeliveryDay={taperLastDay} planRefund={planRefund} />
         : <EmptyState onRenew={onRenew} profileGated={profileGated} outOfZone={outOfZone} intake={intake} />}
 
       {queuedSub && <QueuedCard sub={queuedSub} primaryIsPaused={primaryIsPaused} lastDeliveryDay={taperLastDay} />}
@@ -176,11 +179,12 @@ export function MobilePlan({ customer, activeSubscription, queuedSub, primaryIsP
 }
 
 // ── Active plan dark hero + metric strip ─────────────────────────────────────
-function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPause, lastDeliveryDay = null }: {
+function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPause, lastDeliveryDay = null, planRefund = null }: {
   sub: Subscription; hasQueuedSub: boolean; outOfZone: boolean; onRenew: () => void; onConfirmCancelPause: () => void
   /** Season taper — handed to the reschedule sheet so a Scheduled plan
    *  can't be moved past the last delivery day. */
   lastDeliveryDay?: string | null
+  planRefund?: PlanRefundView | null
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
   const [showCancelPause, setShowCancelPause] = useState(false)
@@ -274,6 +278,8 @@ function ActiveHero({ sub, hasQueuedSub, outOfZone, onRenew, onConfirmCancelPaus
             <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 600, color: CREAM_FAINT, lineHeight: 1.4 }}>You can only change the start date once.</div>
           </div>
         ) : null}
+
+        <PlanRefundBlock subscriptionId={sub.id} refund={planRefund} />
       </section>
 
       {/* Behavioural metric strip — hidden for scheduled (no activity yet) */}

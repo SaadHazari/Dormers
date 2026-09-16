@@ -12,6 +12,7 @@ import type { CreditByPlan } from '../_shared/types'
 import { firstNameFrom } from '../_shared/intake-join-outcome'
 import { buildPlanPreview } from '../_shared/preview-plan'
 import PlanLoading from './loading'
+import { getPlanRefundView } from '@/contexts/subscriptions/usecases/plan-refund'
 
 // Skip the Router Cache so the redeemable-credit prop reflects the latest
 // state after checkout completes (credit rows flip from approved → applied
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic'
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string; explore?: string; credit?: string; state?: string; pref?: string; week?: string; zone?: string; unverified?: string; loading?: string; error?: string }>
+  searchParams: Promise<{ preview?: string; explore?: string; credit?: string; state?: string; pref?: string; week?: string; zone?: string; unverified?: string; refund?: string; loading?: string; error?: string }>
 }) {
   const params = await searchParams
   const isPreview = process.env.NODE_ENV === 'development' && params.preview === '1'
@@ -42,6 +43,7 @@ export default async function PlanPage({
           creditByPlan={fx.creditByPlan}
           creditRows={fx.creditRows}
           intake={fx.intake}
+          planRefund={fx.planRefund}
         />
       </Suspense>
     )
@@ -84,6 +86,9 @@ export default async function PlanPage({
     // plan-restricted" wording, and that rule must have one home.
     getApprovedCreditRows(user.id),
   ])
+  // The owner's refund switch: null unless it is on for this customer, or the
+  // plan was just refunded with tonight's dinner still to come.
+  const planRefund = activeSubscription ? await getPlanRefundView(user.id, activeSubscription) : null
   // Re-key from the kebab plan_id (credit-eligibility's domain) to the
   // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
   // off of, so CheckoutPanel/MobileCheckout can index straight off `selected`.
@@ -117,6 +122,7 @@ export default async function PlanPage({
         creditRows={creditRows}
         priceOverrides={priceOverrides}
         intake={intake}
+        planRefund={planRefund}
       />
     </Suspense>
   )

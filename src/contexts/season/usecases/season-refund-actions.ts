@@ -60,10 +60,10 @@ async function loadHoldFacts(sb: ReturnType<typeof createAdminSupabaseClient>, h
 }
 
 async function customerLabel(sb: ReturnType<typeof createAdminSupabaseClient>, customerId: string): Promise<string> {
-  const { data } = await sb.from('customers').select('name, phone').eq('id', customerId).maybeSingle()
-  const row = (data ?? {}) as { name?: string | null; phone?: string | null }
+  const { data } = await sb.from('customers').select('name, whatsapp_number').eq('id', customerId).maybeSingle()
+  const row = (data ?? {}) as { name?: string | null; whatsapp_number?: string | null }
   const name = (row.name ?? '').trim() || 'A customer'
-  return row.phone ? `${name} (${row.phone})` : name
+  return row.whatsapp_number ? `${name} (${row.whatsapp_number})` : name
 }
 
 export async function requestSeasonRefund(subscriptionId: string): Promise<SeasonRefundActionResult> {

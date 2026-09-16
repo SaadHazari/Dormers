@@ -71,13 +71,13 @@ describe('the backfill counts credit and reports Stripe failures safely', () => 
   })
 })
 
-describe('the refund webhook and season refunds (spec §10.3)', () => {
-  it('reads refund_reason and, for a season refund, skips the credit restore and the "still Active" alert but still tells the customer', () => {
+describe('the refund webhook, season refunds (spec §10.3) and plan refunds', () => {
+  it('reads refund_reason and, for a season or plan refund, skips the credit restore and the "still Active" alert but still tells the customer', () => {
     const src = read('src/contexts/payments/usecases/handle-stripe-event.ts')
     expect(src).toContain(".select('id, customer_id, invoice_status, refund_reason')")
-    expect(src).toContain("const seasonRefund = orderRow.refund_reason === 'season_hold'")
-    expect(src).toMatch(/if \(isFullRefund && seasonRefund\) \{[\s\S]*?\} else if \(isFullRefund\) \{[\s\S]*?\.from\('credits'\)/)
-    expect(src).toContain('if (isFullRefund && !seasonRefund) {')
+    expect(src).toContain("const settledRefund = orderRow.refund_reason === 'season_hold' || orderRow.refund_reason === 'plan_refund'")
+    expect(src).toMatch(/if \(isFullRefund && settledRefund\) \{[\s\S]*?\} else if \(isFullRefund\) \{[\s\S]*?\.from\('credits'\)/)
+    expect(src).toContain('if (isFullRefund && !settledRefund) {')
     expect(src).toMatch(/invoice_status: isFullRefund \? 'Refunded' : 'Partially Refunded'/)
     expect(src).toContain("'refund_processed'")
   })

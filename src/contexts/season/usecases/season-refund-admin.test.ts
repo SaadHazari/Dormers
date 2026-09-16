@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   refundEmail: vi.fn(),
   seasonEmail: vi.fn(),
   capture: vi.fn(),
+  creditNote: vi.fn(),
 }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/infra/supabase/admin-client', () => ({ createAdminSupabaseClient: () => ({ rpc: m.rpc, from: m.from }) }))
@@ -20,6 +21,7 @@ vi.mock('@/contexts/admin/usecases/audit', () => ({ logAdminAction: m.audit }))
 vi.mock('@/contexts/notifications/usecases/queue', () => ({ queueCustomerNotification: m.queue }))
 vi.mock('@/infra/zeptomail/client', () => ({ sendRefundProcessedEmail: m.refundEmail, sendSeasonTemplateEmail: m.seasonEmail }))
 vi.mock('@/infra/logging/capture-error', () => ({ captureError: m.capture }))
+vi.mock('@/contexts/payments/usecases/refund-credit-note', () => ({ sendRefundCreditNote: m.creditNote }))
 
 import { approveSeasonRefund, declineSeasonRefund } from './season-refund-admin'
 
@@ -54,6 +56,9 @@ describe('approveSeasonRefund (spec §10.3 steps 2 to 4)', () => {
     expect(m.refund).toHaveBeenCalledWith('pi_1', 17550, 'refund:season:h-1')
     expect(m.rpc).toHaveBeenNthCalledWith(2, 'season_finish_refund', { p_hold_id: 'h-1', p_stripe_refund_id: 're_1' })
     expect(m.audit).toHaveBeenCalledWith('saad@dormers.ae', 'season_refund_approved', 'season_hold', 'h-1', expect.objectContaining({ stripe_refund_id: 're_1', cash_refund_fils: 17550 }))
+    expect(m.creditNote).toHaveBeenCalledWith({
+      kind: 'season_refund', refundId: 'h-1', orderId: 'o-1', customerId: 'c-1', refundedMeals: 9, cashFils: 17550, stripeRefundId: 're_1',
+    })
     // The Stripe webhook tells the customer; nothing is sent from here for a cash refund.
     expect(m.queue).not.toHaveBeenCalled()
     expect(m.refundEmail).not.toHaveBeenCalled()

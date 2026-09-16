@@ -25,6 +25,7 @@
     "check:reload-flash": "node scripts/check-reload-flash.mjs",
     "check:season-planner": "node scripts/check-season-planner.mjs",
     "check:season-customer": "node scripts/check-season-customer.mjs",
+    "check:plan-refund": "node scripts/check-plan-refund.mjs",
     "season:lockstep-sql": "tsx scripts/season-projection-lockstep.ts",
     "check:season-data": "tsx --env-file=.env.local --conditions=react-server scripts/check-season-data.ts"
   },

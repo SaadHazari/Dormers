@@ -23,6 +23,7 @@ import { captureError } from '@/infra/logging/capture-error'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { queueCustomerNotification } from '@/contexts/notifications/usecases/queue'
 import { sendRefundProcessedEmail, sendSeasonTemplateEmail } from '@/infra/zeptomail/client'
+import { sendRefundCreditNote } from '@/contexts/payments/usecases/refund-credit-note'
 import { formatAed } from '../domain/meal-value'
 import { friendlyRefundError, seasonRefundIdempotencyKey } from '../domain/season-refund'
 import { seasonEmailTemplateFor } from '../domain/season-messages'
@@ -110,7 +111,20 @@ export async function approveSeasonRefund(actorEmail: string, holdId: string): P
     return { error: `Stripe accepted the refund (${refundId ?? 'credit only'}) but recording it failed: ${finishErr.message}. Retry; Stripe will not pay twice.` }
   }
 
-  if (row.cash_refund_fils === 0) await tellCustomerCreditOnly(sb, row)
+  if (row.cash_refund_fils === 0) {
+    await tellCustomerCreditOnly(sb, row)
+  } else {
+    // The Zoho credit note with the PDF; a failure reports itself and never undoes the refund.
+    await sendRefundCreditNote({
+      kind: 'season_refund',
+      refundId: row.hold_id,
+      orderId: row.order_id,
+      customerId: row.customer_id,
+      refundedMeals: row.held_meals,
+      cashFils: row.cash_refund_fils,
+      stripeRefundId: refundId,
+    })
+  }
 
   await logAdminAction(actorEmail, 'season_refund_approved', 'season_hold', holdId, {
     subscription_id: row.subscription_id,

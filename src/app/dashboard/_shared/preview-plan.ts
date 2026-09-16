@@ -1,5 +1,6 @@
 import type { CreditByPlan, Customer, Subscription, IntakeGateState } from './types'
 import type { CreditRow } from './credit-outlook'
+import type { PlanRefundView } from './PlanRefundBlock'
 
 /**
  * DEV-ONLY fixtures shared by /dashboard/plan and /dashboard/explore-plans.
@@ -17,6 +18,10 @@ import type { CreditRow } from './credit-outlook'
  *   &zone=0           out-of-zone customer
  *   &unverified=1     WhatsApp not verified (profile gate)
  *   &canceled=1       arrive with ?checkout_canceled=true copy (explore)
+ *   &refund=1         the owner's refund switch is on (before the 2 PM cutoff)
+ *   &refund=tonight   switch on, after 2 PM (tonight's dinner still goes out)
+ *   &refund=credit    switch on, credit-only refund
+ *   &refund=last      refunded after 2 PM; tonight is the last dinner
  */
 export interface PlanPreviewParams {
   state?: string
@@ -26,6 +31,7 @@ export interface PlanPreviewParams {
   week?: string
   zone?: string
   unverified?: string
+  refund?: string
 }
 
 export interface PlanPreviewFixture {
@@ -36,6 +42,7 @@ export interface PlanPreviewFixture {
   creditRows: CreditRow[]
   intake: IntakeGateState
   mode: 'plan' | 'explore'
+  planRefund: PlanRefundView | null
 }
 
 export function buildPlanPreview(params: PlanPreviewParams): PlanPreviewFixture {
@@ -98,5 +105,10 @@ export function buildPlanPreview(params: PlanPreviewParams): PlanPreviewFixture 
     creditRows,
     intake,
     mode: params.explore === '1' ? 'explore' : 'plan',
+    planRefund: params.refund === '1' ? { offer: { refundedMeals: 16, tonightKept: false, cashFils: 35200, creditFils: 1600 }, lastDinnerTonight: false }
+      : params.refund === 'tonight' ? { offer: { refundedMeals: 15, tonightKept: true, cashFils: 33000, creditFils: 1500 }, lastDinnerTonight: false }
+      : params.refund === 'credit' ? { offer: { refundedMeals: 16, tonightKept: false, cashFils: 0, creditFils: 35200 }, lastDinnerTonight: false }
+      : params.refund === 'last' ? { offer: null, lastDinnerTonight: true }
+      : null,
   }
 }

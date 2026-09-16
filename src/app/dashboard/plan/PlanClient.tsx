@@ -37,6 +37,7 @@ import { prettySeasonDate } from '@/contexts/subscriptions/domain/season-horizon
 import { resolvePlan, type PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { skipCapFor, skipsUsedFor, hasNotStartedYet, isHeldPastStartDate } from '@/contexts/subscriptions/domain/subscription-rules'
 import { MobilePlan } from '../_mobile/MobilePlan'
+import { PlanRefundBlock, type PlanRefundView } from '../_shared/PlanRefundBlock'
 import { MobileExplore } from '../_mobile/MobileExplore'
 
 // DB stores the raw `meal_preference_type` value; this map yields the friendly
@@ -92,6 +93,8 @@ interface Props {
    *  plan can be bought. Takes precedence over the profile-completion gate
    *  — never render both. Defaults to "not paused" in preview mode. */
   intake?: IntakeGateState
+  /** The owner's refund switch for this customer (null when off). */
+  planRefund?: PlanRefundView | null
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -243,7 +246,7 @@ function ChangeStartDateModal({
 }
 
 // ── Active plan callout ───────────────────────────────────────────────────────
-function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null, intake = INTAKE_NOT_PAUSED }: {
+function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRenewClick, onCancelPlannedPause, hasQueuedSub = false, outOfZone = false, purchaseGated = false, gateBanner = null, intake = INTAKE_NOT_PAUSED, planRefund = null }: {
   sub: Subscription | null
   /** Threaded to NoPlanView so /plan greets a returning customer exactly
    *  like the home page ("Welcome back, Saad · Renew Monthly Premium")
@@ -270,6 +273,7 @@ function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRene
   /** Seasonal intake pause — mounts IntakePausedGate over the empty-state
    *  hero, taking precedence over the profile gate. */
   intake?: IntakeGateState
+  planRefund?: PlanRefundView | null
 }) {
   const [showChangeStart, setShowChangeStart] = useState(false)
 
@@ -558,6 +562,8 @@ function ActivePlanCallout({ sub, customer = null, allSubscriptions = [], onRene
           </div>
         </>
       )}
+
+      <PlanRefundBlock subscriptionId={sub.id} refund={planRefund} />
     </div>
   )
 }
@@ -1480,7 +1486,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditRows = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditRows = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED, planRefund = null }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // One sentence, same helper the sidebar chip and MobileCreditChip use, so
@@ -1712,6 +1718,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
               // instruction. IntakePausedGate carries its own message.
               gateBanner={intake.paused ? null : (profileGated ? <ProfileBanner missing={missingFields} deprioritized={outOfZone} /> : null)}
               intake={intake}
+              planRefund={planRefund}
             />
           </div>
         )}
@@ -2236,6 +2243,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           intake={intake}
           hasCredit={Object.values(creditByPlan).some(v => (v?.balanceFils ?? 0) > 0)}
           creditSentence={creditChip?.sentence ?? null}
+          planRefund={planRefund}
         />
       )}
     </div>

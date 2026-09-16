@@ -95,7 +95,8 @@ order comes back as credit; the waitlist credit stays theirs.
 1. You get a WhatsApp with customer, plan, meals and amounts, and a reminder
    after 24 hours.
 2. On the Season page, **Give the refund** (Stripe refund, plan ends, credit share
-   back, customer told by the refund message) or **Say no** with a reason
+   back, customer told by the refund message, Zoho credit note PDF emailed; see
+   `plan-refunds.md` §3) or **Say no** with a reason
    the customer reads on their card and by email.
 3. If Stripe refuses, the row shows the error and **Try the refund again**; a retry never
    pays twice (the refund is keyed to the hold). A refund stuck "processing"

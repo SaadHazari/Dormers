@@ -14,6 +14,7 @@ import { DayBadge } from '../../_components/DayBadge'
 import { AdminCard } from '../../_components/AdminCard'
 import { CustomerTimeline } from './CustomerTimeline'
 import { InterventionPanel } from './InterventionPanel'
+import { RefundPanel, type RefundPanelData } from './RefundPanel'
 import { ReviewsTab } from './ReviewsTab'
 import { SendMessageButton } from './SendMessageModal'
 import type { CustomerReviews, AdminEmailLogEntry } from '@/infra/supabase/reviews-repo'
@@ -34,6 +35,7 @@ interface Props {
     creditPending: number
     reviews: CustomerReviews
     adminEmails: AdminEmailLogEntry[]
+    refund: RefundPanelData
 }
 
 type Tab = 'overview' | 'timeline' | 'subscriptions' | 'credits' | 'notifications' | 'reviews'
@@ -54,7 +56,7 @@ const SUB_STATUS_VARIANT: Record<string, 'active' | 'pending' | 'ended' | 'warni
 export function CustomerDetail({
     customer, subscriptions, orders, credits, notifications,
     referralsAsInviter, referralsAsInvitee,
-    creditBalance, creditPending, reviews, adminEmails,
+    creditBalance, creditPending, reviews, adminEmails, refund,
 }: Props) {
     const { t } = useAdminTheme()
     const [tab, setTab] = useState<Tab>('overview')
@@ -190,6 +192,14 @@ export function CustomerDetail({
                             <div className={`text-sm font-semibold ${t.faint}`}>No active plan</div>
                         )}
                     </AdminCard>
+
+                    <div className="lg:col-span-3">
+                        <RefundPanel
+                            customerId={customer.id as string}
+                            firstName={((customer.name as string) || 'This customer').trim().split(/\s+/)[0]}
+                            data={refund}
+                        />
+                    </div>
 
                     {/* Intervention panel */}
                     <div className="lg:col-span-3">
