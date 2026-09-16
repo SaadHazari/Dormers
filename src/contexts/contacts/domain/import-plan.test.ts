@@ -43,6 +43,46 @@ describe('normalisePhoneE164', () => {
             expect(normalisePhoneE164(bad)).toBeNull()
         }
     })
+
+    // ── The 2026-09-16 import ────────────────────────────────────────────────
+    // Zoho Books keeps the national part of a number in `mobile` with no
+    // country code. The old normaliser saw "595077281", guessed nothing, stuck
+    // a "+" on the front and produced "+595077281" — a plausible-looking number
+    // that belongs to nobody. 686 contacts were corrupted that way.
+    it('refuses a bare national number that is not a real UAE mobile', () => {
+        expect(normalisePhoneE164('595077281')).toBeNull()      // Saudi, no code
+        expect(normalisePhoneE164('8074780567')).toBeNull()     // Indian, no code
+        expect(normalisePhoneE164('9958622195')).toBeNull()
+    })
+
+    it('never invents a country code by prefixing a bare "+"', () => {
+        for (const bare of ['595077281', '502374500x', '8074780567']) {
+            const out = normalisePhoneE164(bare)
+            // Either refused, or a real UAE number — never "+<the same digits>".
+            if (out) expect(out.startsWith('+971')).toBe(true)
+        }
+    })
+
+    it('accepts a bare UAE mobile, which is the one national format we can place', () => {
+        expect(normalisePhoneE164('502374500')).toBe('+971502374500')
+    })
+
+    it('keeps full international numbers from every country in the data', () => {
+        expect(normalisePhoneE164('+966595077281')).toBe('+966595077281')   // Saudi
+        expect(normalisePhoneE164('+918074780567')).toBe('+918074780567')   // India
+        expect(normalisePhoneE164('+2347026000049')).toBe('+2347026000049') // Nigeria
+        expect(normalisePhoneE164('+33652308483')).toBe('+33652308483')     // France
+        expect(normalisePhoneE164('+13024383427')).toBe('+13024383427')     // US
+    })
+
+    it('refuses numbers with a digit too many for their country', () => {
+        expect(normalisePhoneE164('+23470260000049')).toBeNull()   // Nigeria, extra 0
+        expect(normalisePhoneE164('+971919639692000')).toBeNull()  // a form typo
+    })
+
+    it("strips the apostrophe Excel and Mailchimp put in front of numbers", () => {
+        expect(normalisePhoneE164("'+971557205599")).toBe('+971557205599')
+    })
 })
 
 describe('normaliseName', () => {

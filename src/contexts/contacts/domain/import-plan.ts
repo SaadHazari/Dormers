@@ -7,7 +7,7 @@
  * React — so the rules can be tested against the shapes real exports contain.
  */
 
-import { normalisePhone } from '@/shared/phone'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max'
 
 /** One address, one @, a dot in the domain, and no room for a second address. */
 const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;.]+$/
@@ -19,18 +19,33 @@ export function normaliseEmail(raw: string | null | undefined): string | null {
 }
 
 /**
- * E.164 or nothing. `normalisePhone` in shared/ is deliberately lenient — it
- * serves an OTP field where a half-typed number should still round-trip — so
- * this wraps it with the strictness an import needs: a junk cell must become
- * `invalid`, not a contact nobody can ring.
+ * E.164, or nothing.
+ *
+ * Validated per country with libphonenumber's full metadata, because the 2026-09-16
+ * import proved hand-rolled rules wrong: Zoho Books keeps the national part of a
+ * number in `mobile` with no country code, and the old normaliser turned
+ * "595077281" (a Saudi number) into "+595077281" by prefixing a bare "+". That
+ * passed a shape check and corrupted 686 contacts.
+ *
+ * Two rules now:
+ *   - A number that says its country (leading "+" or "00") is parsed as such and
+ *     must be valid FOR that country — a Nigerian number with an extra digit is
+ *     refused, not stored.
+ *   - A number that does not is assumed UAE, because that is who these forms
+ *     were for, and is kept only if it is a valid UAE number. A Saudi or Indian
+ *     number with its code missing is therefore refused rather than guessed at.
+ *     We never invent a country code.
  */
 export function normalisePhoneE164(raw: string | null | undefined): string | null {
-    const v = (raw ?? '').trim()
+    // Excel and Mailchimp prefix numbers with an apostrophe to stop them being
+    // read as maths; it is not part of the number.
+    const v = (raw ?? '').replace(/^[\s'"]+/, '').trim()
     if (!v) return null
-    // `00971…` is the other international prefix a UAE export uses.
-    const stripped = v.replace(/^00/, '+')
-    const e164 = normalisePhone(stripped)
-    return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null
+
+    const international = /^(\+|00)/.test(v)
+    const input = v.replace(/^00/, '+')
+    const parsed = parsePhoneNumberFromString(input, international ? undefined : 'AE')
+    return parsed && parsed.isValid() ? parsed.number : null
 }
 
 export function normaliseName(raw: string | null | undefined): string | null {
@@ -45,44 +60,10 @@ export function normaliseName(raw: string | null | undefined): string | null {
     return v
 }
 
-// ---------------------------------------------------------------------------
-// Column mapping
-// ---------------------------------------------------------------------------
-
-export interface ColumnMapping {
-    name: number | null
-    email: number | null
-    phone: number | null
-}
-
-// Ordered best-guess first. A 'mobile' column beats a 'phone' one because an
-// export that has both keeps the landline in 'phone'.
-const HEADER_HINTS: Record<keyof ColumnMapping, string[]> = {
-    email: ['email address', 'emailid', 'email id', 'e-mail', 'email', 'mail'],
-    phone: ['whatsapp', 'mobile phone', 'mobile', 'cell', 'phone number', 'phone', 'contact number'],
-    name: ['display name', 'full name', 'contact name', 'customer name', 'name', 'first name'],
-}
-
-/**
- * Guess which column is which, so a clean export needs no mapping at all.
- * Returns null for a field rather than picking a column it does not recognise:
- * a wrong guess that looks confident is worse than an obvious blank.
- */
-export function guessColumnMapping(headers: string[]): ColumnMapping {
-    const lower = headers.map(h => h.trim().toLowerCase())
-    const pick = (field: keyof ColumnMapping): number | null => {
-        for (const hint of HEADER_HINTS[field]) {
-            const exact = lower.indexOf(hint)
-            if (exact !== -1) return exact
-        }
-        for (const hint of HEADER_HINTS[field]) {
-            const partial = lower.findIndex(h => h.includes(hint))
-            if (partial !== -1) return partial
-        }
-        return null
-    }
-    return { name: pick('name'), email: pick('email'), phone: pick('phone') }
-}
+// Column mapping lives in ./column-mapping so the import screen can use it in
+// the browser without pulling in libphonenumber's full metadata (~145KB), which
+// only the server-side planner needs.
+export { guessColumnMapping, type ColumnMapping } from './column-mapping'
 
 // ---------------------------------------------------------------------------
 // The plan

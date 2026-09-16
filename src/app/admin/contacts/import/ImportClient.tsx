@@ -6,10 +6,8 @@ import { AlertTriangle, CheckCircle2, FileUp, Upload, Users } from 'lucide-react
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
 import { AdminBadge } from '../../_components/AdminBadge'
 import { parseCsv } from '@/contexts/contacts/domain/csv'
-import {
-    guessColumnMapping,
-    type Bucket, type ColumnMapping, type PlannedRow, type RawRow,
-} from '@/contexts/contacts/domain/import-plan'
+import { guessColumnMapping, type ColumnMapping } from '@/contexts/contacts/domain/column-mapping'
+import type { Bucket, PlannedRow, RawRow } from '@/contexts/contacts/domain/import-plan'
 import { commitImport, previewImport, type ImportSource, type PreviewResult } from './actions'
 import { MAX_IMPORT_ROWS } from './constants'
 import type { ImportBatch } from './page'
