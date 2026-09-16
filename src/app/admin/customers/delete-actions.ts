@@ -98,7 +98,7 @@ export async function deleteCustomers(ids: string[], waitlistAck: boolean): Prom
     const failed: DeleteResult['failed'] = []
 
     for (const row of plan.deletable) {
-        const { error: delError } = await sb.rpc('admin_delete_customer', { p_customer_id: row.customer_id })
+        const { data: snapshot, error: delError } = await sb.rpc('admin_delete_customer', { p_customer_id: row.customer_id })
         if (delError) {
             captureError(delError, { area: 'admin', op: 'deleteCustomers', customerId: row.customer_id })
             failed.push({ id: row.customer_id, name: row.name, reason: delError.message })
@@ -108,6 +108,11 @@ export async function deleteCustomers(ids: string[], waitlistAck: boolean): Prom
         deletedIds.push(row.customer_id)
         // Logged per person, not per batch: the snapshot of who they were is
         // the only record left once the row is gone.
+        // The whole record, not a description of it. A summary told us who was
+        // lost on 2026-09-16 and nothing about how to put them back; the
+        // snapshot holds the customer row, their contact, subscriptions,
+        // orders, credits, waitlist spot and login address, so restoring is a
+        // deliberate read of this row rather than an impossibility.
         await logAdminAction(admin.email, 'delete_customer', 'customer', row.customer_id, {
             name: row.name,
             email: row.email,
@@ -117,6 +122,7 @@ export async function deleteCustomers(ids: string[], waitlistAck: boolean): Prom
             was_on_waitlist: row.on_waitlist,
             waitlist_credit_aed: row.waitlist_credit_aed,
             delivered_meals: row.delivered_meals,
+            snapshot,
         })
     }
 

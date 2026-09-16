@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, BellOff, Mail, MessageCircle, Search, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, BellOff, Mail, MessageCircle, Search, Trash2, Undo2, Upload } from 'lucide-react'
 import type { ContactRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
@@ -11,6 +11,7 @@ import { CONTACT_PAGE_SIZE } from './constants'
 import { MAX_DELETE_BATCH } from '../customers/constants'
 import { loadMoreContacts } from './actions'
 import { deleteContacts } from '../customers/delete-actions'
+import { excludeFromWhatsApp, includeInWhatsApp } from './marketing-actions'
 import { isStaleActionError, STALE_ACTION_MESSAGE } from '../_components/stale-action'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
@@ -44,7 +45,7 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [
     { key: 'name', label: 'Name' },
 ]
 
-const WINDOW_STEP = 30
+const WINDOW_STEP = 100
 
 export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
     const { t } = useAdminTheme()
@@ -65,6 +66,7 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [confirmText, setConfirmText] = useState('')
     const [deleting, setDeleting] = useState(false)
+    const [marking, setMarking] = useState(false)
     const [note, setNote] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
@@ -81,6 +83,33 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
     const selectedRows = useMemo(() => rows.filter(c => selected.has(c.id)), [rows, selected])
     const linkedCount = selectedRows.filter(c => c.customer_id !== null).length
     const freeCount = selectedRows.length - linkedCount
+
+    // Excluding is the everyday action here and it is reversible, so it acts
+    // straight from the bar with no confirmation. Deleting keeps its modal.
+    async function markWhatsApp(mode: 'exclude' | 'include') {
+        setMarking(true)
+        setError(null)
+        try {
+            const ids = [...selected]
+            const res = mode === 'exclude' ? await excludeFromWhatsApp(ids) : await includeInWhatsApp(ids)
+            if (!res.ok) { setNote(null); setError(res.message); return }
+            const touched = new Set(res.ids)
+            const next = mode === 'exclude' ? 'opted_out' : 'unknown'
+            setRows(prev => prev.map(r => (touched.has(r.id) ? { ...r, whatsapp_status: next } : r)))
+            setSelected(new Set())
+            setNote(res.message)
+        } catch (err) {
+            if (isStaleActionError(err)) {
+                setError(STALE_ACTION_MESSAGE)
+                setTimeout(() => window.location.reload(), 900)
+                return
+            }
+            console.error('markWhatsApp failed', err)
+            setError('Could not reach the server. Nothing changed.')
+        } finally {
+            setMarking(false)
+        }
+    }
 
     async function handleDelete() {
         setDeleting(true)
@@ -386,7 +415,13 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
 
             {selected.size > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[120] px-4 pb-4 pointer-events-none">
-                    <div className={`pointer-events-auto mx-auto max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                    <div className={`pointer-events-auto mx-auto max-w-2xl rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                    {/* Said here, beside the buttons, not at the top of a list
+                        a thousand rows long. */}
+                    {error && !confirmOpen && (
+                        <p className={`mb-2 text-[12px] font-bold ${t.danger}`}>{error}</p>
+                    )}
+                    <div className="flex items-center gap-3 flex-wrap">
                         <span className={`text-[13px] font-bold ${t.heading}`}>
                             {selected.size} selected
                             {selected.size > MAX_DELETE_BATCH && (
@@ -403,6 +438,26 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                             Clear
                         </button>
                         <div className="flex-1" />
+                        {/* The everyday action first, and visually calmest: it is reversible. */}
+                        <button
+                            type="button"
+                            onClick={() => markWhatsApp('exclude')}
+                            disabled={marking}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.accentBg} ${t.accent} disabled:opacity-50`}
+                        >
+                            <BellOff size={13} strokeWidth={2.4} />
+                            {marking ? 'Saving…' : "Don't message"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => markWhatsApp('include')}
+                            disabled={marking}
+                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold ${t.muted} disabled:opacity-50`}
+                            title="Undo — put these back in the marketing loop"
+                        >
+                            <Undo2 size={13} strokeWidth={2.4} />
+                            Put back
+                        </button>
                         <button
                             type="button"
                             onClick={() => { setError(null); setConfirmText(''); setConfirmOpen(true) }}
@@ -412,6 +467,7 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                             <Trash2 size={13} strokeWidth={2.4} />
                             Delete
                         </button>
+                    </div>
                     </div>
                 </div>
             )}
