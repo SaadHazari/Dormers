@@ -21,6 +21,7 @@ import { getDormLocations } from '@/infra/supabase/dorm-locations'
 import { deliveryDormNames, dormAliasMap } from '@/shared/dorm-registry'
 import { notifyAdmin } from '@/infra/admin-alerts/notify'
 import { captureError } from '@/infra/logging/capture-error'
+import { isOptOutMessage } from '@/contexts/contacts/domain/whatsapp-marketing'
 import { fetchWithTimeout } from '@/infra/http/fetch-with-timeout'
 
 export const runtime = 'nodejs'
@@ -212,8 +213,40 @@ async function processAsync(payload: MetaWebhookPayload): Promise<void> {
     const senderPhone = message.from // digits-only, no +
     const msgType = message.type
 
-    // WAI-07: Allowlist check — silently ignore non-allowlisted senders
     const sb = createAdminSupabaseClient()
+
+    // Opt-out runs BEFORE the rider allowlist, because the people who need it
+    // are exactly the people not on it: the contact book. Someone who replies
+    // STOP to a marketing message has said so, and the reply must be honoured
+    // whoever they are. Only a message that IS the opt-out counts — a rider
+    // saying "stopped at the gate" is not unsubscribing from anything.
+    if (msgType === 'text' && isOptOutMessage(message.text?.body)) {
+      const phoneE164 = `+${senderPhone.replace(/\D/g, '')}`
+      const { data: stopped, error: stopErr } = await sb
+        .from('contacts')
+        .update({ whatsapp_status: 'opted_out', updated_at: new Date().toISOString() })
+        .eq('phone_e164', phoneE164)
+        .neq('whatsapp_status', 'opted_out')
+        .select('id')
+
+      if (stopErr) {
+        captureError(stopErr, { area: 'contacts', op: 'whatsappOptOut' })
+      } else if ((stopped ?? []).length > 0) {
+        // A shared handset can carry more than one contact. All of them stop:
+        // whoever is holding the phone asked us to, and guessing which person
+        // meant it would be guessing with somebody's consent.
+        try {
+          await replyToRider(senderPhone, 'Done — you will not get any more news or offers from us. Anything about an order still comes through.')
+        } catch (err) {
+          console.error('[whatsapp-inbound] opt-out confirmation failed (non-fatal):', err)
+        }
+      }
+      // Fall through: a rider on the allowlist who genuinely typed "stop"
+      // should not also have it read as a dorm name.
+      return
+    }
+
+    // WAI-07: Allowlist check — silently ignore non-allowlisted senders
     const { data: allowRow } = await sb
       .from('whatsapp_rider_allowlist')
       .select('id')

@@ -28,6 +28,8 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { CircuitOpenError } from '@/infra/http/circuit-breaker'
 import { sendBroadcastEmail, sendTemplate } from '@/infra/zeptomail/client'
+import { sendMarketingTemplate } from '@/infra/meta-whatsapp/client'
+import { buildBodyParameters } from '@/contexts/contacts/domain/whatsapp-marketing'
 import { buildBroadcastEmailHtml, buildSeasonReopenMergeInfo, personalizeBroadcast, reasonLineFor } from '@/infra/zeptomail/broadcast-shell'
 import { timingSafeCompare } from '@/shared/crypto'
 import { getIntakeState } from '@/infra/config/intake'
@@ -36,6 +38,11 @@ import { queueCustomerNotification } from '@/contexts/notifications/usecases/que
 import { signUnsubscribeToken, unsubscribeSecret } from '@/contexts/contacts/domain/unsubscribe-token'
 
 const BATCH_SIZE = 25
+// WhatsApp goes slower on purpose. The same number carries OTP, and emptying a
+// queue into Meta as fast as it will accept it is what turns a marketing send
+// into a rate-limit event on the acquisition path. A smaller batch also means
+// Cancel lands sooner, which matters more when each message costs money.
+const WHATSAPP_BATCH_SIZE = 10
 // Leaves a margin under maxDuration for the batch's setup/teardown queries
 // (the broadcast lookup, the claim RPC, the final remaining-count read).
 const BATCH_TIME_BUDGET_MS = 40_000
@@ -181,7 +188,7 @@ export async function POST(req: Request) {
   const sb = createAdminSupabaseClient()
 
   const { data: broadcast } = await sb.from('broadcasts')
-    .select('id, kind, subject, heading, body, cta_label, cta_url, audience, status, channel')
+    .select('id, kind, subject, heading, body, cta_label, cta_url, audience, status, channel, template_name, template_language, template_variables')
     .eq('status', 'sending')
     .order('created_at', { ascending: true })
     .limit(1)
@@ -190,9 +197,28 @@ export async function POST(req: Request) {
 
   // Atomically claim a disjoint batch of rows — `for update skip locked`
   // inside the RPC means an overlapping tick can never claim the same row.
+  const isWhatsApp = broadcast.channel === 'whatsapp'
+
+  // Read once per tick, not per recipient: the shape is the same for everyone
+  // in this broadcast, and a template lookup per row would be 25 needless
+  // round-trips.
+  let template: { variables: string[]; named_params: boolean } | null = null
+  if (isWhatsApp) {
+    const { data } = await sb.from('whatsapp_templates')
+      .select('variables, named_params')
+      .eq('name', broadcast.template_name)
+      .eq('language', broadcast.template_language)
+      .maybeSingle()
+    template = (data as { variables: string[]; named_params: boolean } | null) ?? null
+    if (!template) {
+      console.error(`broadcast ${broadcast.id}: template ${broadcast.template_name}/${broadcast.template_language} is not in the registry`)
+      return NextResponse.json({ ok: false, skipped: 'unknown_template' })
+    }
+  }
+
   const { data: claimed } = await sb.rpc('broadcast_claim_batch', {
     p_broadcast_id: broadcast.id,
-    p_limit: BATCH_SIZE,
+    p_limit: isWhatsApp ? WHATSAPP_BATCH_SIZE : BATCH_SIZE,
   })
   const rows = (claimed ?? []) as PendingSend[]
 
@@ -211,7 +237,25 @@ export async function POST(req: Request) {
 
     const row = rows[i]
     try {
-      if (broadcast.kind === 'season_reopen') {
+      if (isWhatsApp) {
+        if (!row.phone_e164) throw new Error('recipient has no phone number')
+        const firstName = row.first_name || 'there'
+        // Each configured value may itself carry {{first_name}}, so one
+        // template serves a whole audience by name.
+        const values = Object.fromEntries(
+          Object.entries((broadcast.template_variables ?? {}) as Record<string, string>)
+            .map(([k, v]) => [k, personalizeBroadcast(String(v ?? ''), firstName)]),
+        )
+        await sendMarketingTemplate({
+          phoneE164: row.phone_e164,
+          templateName: broadcast.template_name as string,
+          language: broadcast.template_language as string,
+          bodyParameters: buildBodyParameters(template!.variables, template!.named_params, values),
+        })
+        await sb.from('contacts')
+          .update({ last_whatsapped_at: new Date().toISOString() })
+          .eq('id', row.contact_id)
+      } else if (broadcast.kind === 'season_reopen') {
         // Only ever queued for account-holders; the audience guarantees it.
         if (!row.customer_id || !row.email) {
           throw new Error('season_reopen recipient has no customer account or no email')

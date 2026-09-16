@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertTriangle, Ban, RefreshCw, Send } from 'lucide-react'
+import { AlertTriangle, Ban, Mail, MessageCircle, RefreshCw, Send } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
 import { AdminModal } from '../../_components/AdminModal'
 import { AdminButton } from '../../_components/AdminButton'
@@ -11,8 +11,9 @@ import { buildBroadcastEmailHtml, reasonLineFor } from '@/infra/zeptomail/broadc
 import {
     previewAudience, launchBroadcast, getBroadcastProgress,
     cancelBroadcast, retryBroadcastFailures,
+    syncWhatsAppTemplates, whatsappPreflight, type PreflightResult,
 } from './actions'
-import type { BroadcastRow } from './page'
+import type { BroadcastRow, WhatsAppTemplateRow } from './page'
 import type { AdminTokens } from '@/ui-system/tokens/admin-theme'
 
 interface Props {
@@ -20,6 +21,8 @@ interface Props {
     dorms: string[]
     /** broadcast id to recipients parked after 3 failed attempts, from the server. */
     parked: Record<string, number>
+    /** Every template Meta knows about; only approved ones can be launched. */
+    templates: WhatsAppTemplateRow[]
 }
 
 type Mode = 'custom' | 'season_reopen'
@@ -50,7 +53,7 @@ const AUDIENCE_LABELS: Record<string, string> = {
     reopen: 'Reopening list',
 }
 
-export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
+export function BroadcastClient({ broadcasts, dorms, parked, templates }: Props) {
     const { t } = useAdminTheme()
     const router = useRouter()
     const preset = useSearchParams().get('preset')
@@ -65,6 +68,20 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
     const [customAudience, setCustomAudience] = useState('everyone')
     const [dormName, setDormName] = useState(dorms[0] ?? '')
 
+    // ── Channel ──────────────────────────────────────────────────────────
+    const [channel, setChannel] = useState<'email' | 'whatsapp'>('email')
+    const [templateKey, setTemplateKey] = useState('')
+    const [templateValues, setTemplateValues] = useState<Record<string, string>>({})
+    // Contacts who never explicitly opted in to WhatsApp marketing. Off by
+    // default and only ever turned on by a person, in the confirm step.
+    const [includeUnknown, setIncludeUnknown] = useState(false)
+    const [syncing, setSyncing] = useState(false)
+    const [syncNote, setSyncNote] = useState<string | null>(null)
+    const [preflight, setPreflight] = useState<PreflightResult | null>(null)
+
+    const approvedTemplates = useMemo(() => templates.filter(t => t.approved_at), [templates])
+    const template = approvedTemplates.find(t => `${t.name}|${t.language}` === templateKey) ?? null
+
     const audience = mode === 'season_reopen' ? 'reopen' : customAudience
 
     // ── Live recipient count ─────────────────────────────────────────────
@@ -76,7 +93,7 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
         let stale = false
         setCountLoading(true)
         setCountError(null)
-        previewAudience(audience, audience === 'dorm' ? dormName : undefined).then(res => {
+        previewAudience(audience, audience === 'dorm' ? dormName : undefined, channel, includeUnknown).then(res => {
             if (stale) return
             setCountLoading(false)
             if (!res.ok) { setCount(null); setCountError(res.message ?? 'Could not resolve the audience.'); return }
@@ -88,7 +105,7 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
             setCountError('Could not count the audience. Change the audience or reload.')
         })
         return () => { stale = true }
-    }, [audience, dormName])
+    }, [audience, dormName, channel, includeUnknown])
 
     // ── Live preview ─────────────────────────────────────────────────────
     const previewHtml = useMemo(() => buildBroadcastEmailHtml({
@@ -109,13 +126,29 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
 
     const readyToSend = mode === 'season_reopen'
         ? (count ?? 0) > 0 && !countLoading
-        : Boolean(subject.trim() && heading.trim() && body.trim()) && (count ?? 0) > 0 && !countLoading
+        : channel === 'whatsapp'
+            ? Boolean(template) && (count ?? 0) > 0 && !countLoading
+            : Boolean(subject.trim() && heading.trim() && body.trim()) && (count ?? 0) > 0 && !countLoading
 
     function openConfirm() {
         setLaunchError(null)
         setNotice(null)
         setConfirmText('')
         setConfirmOpen(true)
+        // The number's health is read now, not at page load: a rating that
+        // dropped while the composer was open is the one to decide against.
+        if (channel === 'whatsapp') {
+            setPreflight(null)
+            whatsappPreflight(count ?? 0).then(setPreflight).catch(() => setPreflight(null))
+        }
+    }
+
+    async function handleSyncTemplates() {
+        setSyncing(true)
+        const res = await syncWhatsAppTemplates()
+        setSyncing(false)
+        setSyncNote(res.message)
+        if (res.ok) router.refresh()
     }
 
     function handleLaunch() {
@@ -123,6 +156,7 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
         startLaunch(async () => {
             const res = await launchBroadcast({
                 kind: mode,
+                channel,
                 subject,
                 heading,
                 body,
@@ -130,6 +164,10 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
                 ctaUrl: ctaUrl.trim() || undefined,
                 audience,
                 dormName: audience === 'dorm' ? dormName : undefined,
+                templateName: template?.name,
+                templateLanguage: template?.language,
+                templateVariables: templateValues,
+                includeUnknownConsent: includeUnknown,
             })
             if (!res.ok || !res.id) { setLaunchError(res.message); return }
             setConfirmOpen(false)
@@ -223,8 +261,37 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
                 One email to a whole audience. Every recipient is logged, and a send in flight can be stopped.
             </p>
 
+            {/* Channel. Email and WhatsApp are different enough that the
+                composer changes shape: WhatsApp cannot send free text at all,
+                only an approved template with its variables filled in. */}
+            <div className="flex gap-1.5 mb-3">
+                {([
+                    ['email', 'Email', <Mail key="m" size={12} strokeWidth={2.4} />],
+                    ['whatsapp', 'WhatsApp', <MessageCircle key="w" size={12} strokeWidth={2.4} />],
+                ] as const).map(([key, label, icon]) => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                            setChannel(key)
+                            // Leaving the reopening notice on WhatsApp would
+                            // silently send the wrong thing: it is a ZeptoMail
+                            // template and has no WhatsApp equivalent.
+                            if (key === 'whatsapp') setMode('custom')
+                            setIncludeUnknown(false)
+                            setNotice(null); setLaunchError(null)
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.06em] uppercase transition-colors border ${
+                            channel === key ? `${t.accentBg} ${t.accent}` : `${t.card} ${t.muted}`
+                        }`}
+                    >
+                        {icon}{label}
+                    </button>
+                ))}
+            </div>
+
             {/* Mode toggle */}
-            <div className="flex gap-1.5 mb-5">
+            <div className={`flex gap-1.5 mb-5 ${channel === 'whatsapp' ? 'hidden' : ''}`}>
                 {([
                     ['custom', 'Custom email'],
                     ['season_reopen', 'Season reopening notice'],
@@ -245,7 +312,71 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
             <div className="grid lg:grid-cols-2 gap-5 items-start">
                 {/* ── Composer column ───────────────────────────────────── */}
                 <div className="flex flex-col gap-5 min-w-0">
-                    {mode === 'custom' && (
+                    {channel === 'whatsapp' && (
+                        <div className={`rounded-xl border p-5 ${t.card}`}>
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>The message</div>
+                                <button
+                                    type="button"
+                                    onClick={handleSyncTemplates}
+                                    disabled={syncing}
+                                    className={`text-[10px] font-bold tracking-[0.06em] uppercase ${t.accent} disabled:opacity-40`}
+                                >
+                                    {syncing ? 'Syncing…' : 'Sync from Meta'}
+                                </button>
+                            </div>
+                            {syncNote && <p className={`mt-2 text-[11px] font-medium ${t.muted}`}>{syncNote}</p>}
+
+                            <p className={`mt-3 text-[12px] font-medium leading-relaxed ${t.muted}`}>
+                                WhatsApp only carries templates Meta has approved. Pick one and fill its
+                                blanks — <code className={t.heading}>{'{{first_name}}'}</code> in any value becomes
+                                the person&apos;s name.
+                            </p>
+
+                            <Field label="Template" t={t}>
+                                <select
+                                    value={templateKey}
+                                    onChange={e => { setTemplateKey(e.target.value); setTemplateValues({}) }}
+                                    className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
+                                >
+                                    <option value="">— pick an approved template —</option>
+                                    {approvedTemplates.map(tpl => (
+                                        <option key={`${tpl.name}|${tpl.language}`} value={`${tpl.name}|${tpl.language}`}>
+                                            {tpl.name} ({tpl.language}) · {tpl.category}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+
+                            {approvedTemplates.length === 0 && (
+                                <p className={`mt-2 text-[12px] font-bold ${t.danger}`}>
+                                    No approved templates yet. Create a Marketing template in Meta Business
+                                    Manager, wait for approval, then press Sync from Meta.
+                                </p>
+                            )}
+
+                            {template && (
+                                <>
+                                    <div className={`mt-4 rounded-lg border px-3 py-2.5 text-[13px] font-medium leading-relaxed ${t.border} ${t.body}`}>
+                                        {template.body_preview}
+                                    </div>
+                                    {template.variables.map(name => (
+                                        <Field key={name} label={`Value for ${template.named_params ? name : `{{${name}}}`}`} t={t}>
+                                            <input
+                                                type="text"
+                                                value={templateValues[name] ?? ''}
+                                                onChange={e => setTemplateValues(v => ({ ...v, [name]: e.target.value }))}
+                                                placeholder={name === 'first_name' || name === '1' ? '{{first_name}}' : 'What goes here'}
+                                                className={`w-full rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${t.input} ${t.inputFocus}`}
+                                            />
+                                        </Field>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {channel === 'email' && mode === 'custom' && (
                         <div className={`rounded-xl border p-5 ${t.card}`}>
                             <div className={`text-[11px] font-black uppercase tracking-[0.1em] ${t.muted}`}>The email</div>
 
@@ -444,9 +575,39 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
                 {/* ── Preview column ────────────────────────────────────── */}
                 <div className="lg:sticky lg:top-5 self-start min-w-0">
                     <div className={`text-[10px] font-black tracking-[0.12em] uppercase mb-2 ${t.faint}`}>
-                        {mode === 'custom' ? 'Live preview. What lands in the inbox' : 'What this sends'}
+                        {channel === 'whatsapp'
+                            ? 'What this sends'
+                            : mode === 'custom' ? 'Live preview. What lands in the inbox' : 'What this sends'}
                     </div>
-                    {mode === 'custom' ? (
+                    {channel === 'whatsapp' ? (
+                        <div className={`rounded-xl border p-5 ${t.card}`}>
+                            {template ? (
+                                <>
+                                    {/* The nearest thing to a live preview WhatsApp allows: the
+                                        approved body with the values filled in, for one made-up
+                                        recipient. Meta renders the real thing from the template. */}
+                                    <div className={`rounded-xl px-3.5 py-3 text-[13px] font-medium leading-relaxed ${t.accentBg} ${t.heading}`}>
+                                        {template.variables.reduce(
+                                            (text, name) => text.replace(
+                                                new RegExp(`\\{\\{\\s*${name}\\s*\\}\\}`, 'g'),
+                                                (templateValues[name] ?? `{{${name}}}`).replace(/\{\{\s*first_name\s*\}\}/g, 'Ahmed'),
+                                            ),
+                                            template.body_preview,
+                                        )}
+                                    </div>
+                                    <p className={`text-[12px] font-medium leading-relaxed mt-3 ${t.muted}`}>
+                                        {template.category} template, approved by Meta. The wording itself cannot be
+                                        edited here — changing it means submitting a new template and waiting for
+                                        approval.
+                                    </p>
+                                </>
+                            ) : (
+                                <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
+                                    Pick an approved template to see what this sends.
+                                </p>
+                            )}
+                        </div>
+                    ) : mode === 'custom' ? (
                         // No background of our own: the email carries a dark-mode block, so
                         // the frame's own canvas is what makes the preview match what a
                         // recipient on this colour scheme actually sees.
@@ -573,9 +734,64 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
                     </div>
                     <div className="px-5 py-4">
                         <p className={`text-[13px] font-medium leading-relaxed ${t.body}`}>
-                            This emails <b className={t.heading}>{count ?? 0}</b> {count === 1 ? 'person' : 'people'} and cannot be
-                            recalled once sent. Type SEND to confirm.
+                            {channel === 'whatsapp'
+                                ? <>This WhatsApps <b className={t.heading}>{count ?? 0}</b> {count === 1 ? 'person' : 'people'} from the
+                                    same number the signup code comes from, and cannot be recalled once sent.</>
+                                : <>This emails <b className={t.heading}>{count ?? 0}</b> {count === 1 ? 'person' : 'people'} and cannot be
+                                    recalled once sent.</>}
+                            {' '}Type SEND to confirm.
                         </p>
+
+                        {channel === 'whatsapp' && (
+                            <div className={`mt-3 rounded-lg border px-3 py-2.5 ${t.border}`}>
+                                {preflight === null ? (
+                                    <p className={`text-[12px] font-medium ${t.faint}`}>Checking the number…</p>
+                                ) : (
+                                    <>
+                                        <div className={`flex items-center justify-between gap-2 text-[12px] font-bold ${t.body}`}>
+                                            <span>Number health</span>
+                                            <AdminBadge variant={preflight.verdict === 'ok' ? 'active' : preflight.verdict === 'warn' ? 'warning' : 'rejected'}>
+                                                {preflight.qualityRating ?? 'unknown'}
+                                            </AdminBadge>
+                                        </div>
+                                        <div className={`mt-1.5 text-[12px] font-medium ${t.muted}`}>
+                                            {preflight.sentLast24h} sent in the last 24h · {preflight.remaining} left today
+                                        </div>
+                                        {/* The first thing in this admin panel where pressing a
+                                            button spends money per recipient. It should say so. */}
+                                        <div className={`mt-1 text-[12px] font-bold ${t.heading}`}>
+                                            About AED {preflight.estimatedCostAed.toFixed(2)} at AED {preflight.ratePerMessageAed} each
+                                        </div>
+                                        {preflight.verdict === 'block' && (
+                                            <p className={`mt-2 text-[12px] font-bold ${t.danger}`}>
+                                                The rating is RED. Sending now risks the number the signup flow depends on.
+                                            </p>
+                                        )}
+                                        {preflight.verdict === 'warn' && (
+                                            <p className={`mt-2 text-[12px] font-bold ${t.warning}`}>
+                                                Not a clean green. Consider a smaller group first.
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+
+                                <label className="flex items-start gap-2 mt-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeUnknown}
+                                        onChange={e => setIncludeUnknown(e.target.checked)}
+                                        className="mt-0.5"
+                                    />
+                                    <span className={`text-[12px] font-medium leading-snug ${t.body}`}>
+                                        Also message people who never opted in to WhatsApp marketing.
+                                        <span className={`block ${t.faint}`}>
+                                            They gave us their number for orders and codes, not for news.
+                                            Anyone who replied STOP is never included. This choice is recorded.
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+                        )}
                         <input
                             type="text"
                             value={confirmText}
@@ -595,7 +811,10 @@ export function BroadcastClient({ broadcasts, dorms, parked }: Props) {
                             icon={<Send size={14} strokeWidth={2.5} />}
                             onClick={handleLaunch}
                             loading={launching}
-                            disabled={confirmText.trim() !== 'SEND'}
+                            disabled={
+                                confirmText.trim() !== 'SEND'
+                                || (channel === 'whatsapp' && (preflight === null || preflight.verdict === 'block'))
+                            }
                         >
                             Send Now
                         </AdminButton>

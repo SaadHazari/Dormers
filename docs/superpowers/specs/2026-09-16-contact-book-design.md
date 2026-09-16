@@ -1,9 +1,11 @@
 # The contact book
 
 **Status:** design, approved in outline 2026-09-16.
-**Phases A, B and C shipped** 2026-09-16 — the spine, the customers mirror,
-`admin_contact_search`, `/admin/contacts`, the CSV import, and broadcasts
-retargeted at contacts with a real unsubscribe. D (WhatsApp) not built.
+**All four phases shipped** 2026-09-16 — the spine, the customers mirror,
+`admin_contact_search`, `/admin/contacts`, the CSV import, broadcasts
+retargeted at contacts with a real unsubscribe, and the WhatsApp channel with
+its five guardrails. Committed locally, **not deployed** (deploy is
+`git push origin main:Production`).
 **Supersedes nothing.** Extends the broadcast subsystem
 (`supabase/migrations/20260818_broadcasts.sql`,
 `src/app/admin/comms/broadcast/`, `src/app/api/internal/broadcast-send/`).
@@ -294,6 +296,14 @@ that new signups depend on. The design's job is to make that outcome hard to
 reach by accident.
 
 ### Templates
+
+Synced from Meta on 2026-09-16: **37 templates, 37 approved, 11 of them
+MARKETING**, all named-parameter. The number reported `GREEN`. So the channel
+was usable the day it shipped rather than waiting on an approval — but note
+Meta returned no `messaging_limit_tier` field at all, which `tierLimit()`
+reads as the smallest tier (1,000 unique recipients / 24h). That is the
+intended fallback, not a bug, and it is why the composer may refuse an
+audience larger than 1,000 until Meta starts reporting a tier.
 
 ```sql
 create table public.whatsapp_templates (

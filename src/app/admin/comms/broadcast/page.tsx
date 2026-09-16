@@ -15,6 +15,19 @@ export interface BroadcastRow {
     created_by: string
     created_at: string
     finished_at: string | null
+    channel: string
+}
+
+export interface WhatsAppTemplateRow {
+    name: string
+    language: string
+    category: string
+    status: string
+    approved_at: string | null
+    variables: string[]
+    named_params: boolean
+    body_preview: string
+    synced_at: string
 }
 
 /** How many recipients each listed broadcast has parked (3 failed attempts, never sent). */
@@ -23,14 +36,17 @@ const PARKED_SCAN_LIMIT = 5000
 export default async function BroadcastPage() {
     const sb = createAdminSupabaseClient()
 
-    const [broadcastsRes, dormsRes] = await Promise.all([
+    const [broadcastsRes, dormsRes, templatesRes] = await Promise.all([
         sb.from('broadcasts')
-            .select('id, kind, subject, audience, dorm_name, status, recipient_count, created_by, created_at, finished_at')
+            .select('id, kind, subject, audience, dorm_name, status, recipient_count, created_by, created_at, finished_at, channel')
             .order('created_at', { ascending: false })
             .limit(20),
         sb.from('customers')
             .select('dorm_name')
             .not('dorm_name', 'is', null),
+        sb.from('whatsapp_templates')
+            .select('name, language, category, status, approved_at, variables, named_params, body_preview, synced_at')
+            .order('name'),
     ])
 
     const broadcasts = (broadcastsRes.data ?? []) as BroadcastRow[]
@@ -58,5 +74,7 @@ export default async function BroadcastPage() {
             .filter(Boolean)
     )].sort((a, b) => a.localeCompare(b))
 
-    return <BroadcastClient broadcasts={broadcasts} dorms={dorms} parked={parked} />
+    const templates = (templatesRes.data ?? []) as WhatsAppTemplateRow[]
+
+    return <BroadcastClient broadcasts={broadcasts} dorms={dorms} parked={parked} templates={templates} />
 }

@@ -5,12 +5,22 @@ import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { getIntakeState } from '@/infra/config/intake'
+import { captureError } from '@/infra/logging/capture-error'
+import { getNumberHealth, listMessageTemplates } from '@/infra/meta-whatsapp/client'
+import {
+    estimateCostAed, qualityVerdict, readTemplate, remainingAllowance,
+    type MetaTemplate,
+} from '@/contexts/contacts/domain/whatsapp-marketing'
 
 type PreviewResult = { ok: boolean; count: number; message?: string }
 
 type LaunchInput = {
     kind: 'custom' | 'season_reopen'
     channel?: 'email' | 'whatsapp'
+    templateName?: string
+    templateLanguage?: string
+    templateVariables?: Record<string, string>
+    includeUnknownConsent?: boolean
     subject: string
     heading: string
     body: string
@@ -43,6 +53,7 @@ export async function previewAudience(
     audience: string,
     dormName?: string,
     channel: 'email' | 'whatsapp' = 'email',
+    includeUnknown = false,
 ): Promise<PreviewResult> {
     await requireAdmin()
 
@@ -54,6 +65,8 @@ export async function previewAudience(
         p_audience: audience,
         p_dorm: dormName ?? null,
         p_channel: channel,
+        // Only ever true because a person ticked the box in the confirm step.
+        p_include_unknown: includeUnknown,
     }, { count: 'exact', head: true })
     if (error) return { ok: false, count: 0, message: `Could not resolve the audience: ${error.message}` }
     return { ok: true, count: count ?? 0 }
@@ -70,7 +83,56 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
     const admin = await requireAdmin()
 
     const subject = input.subject.trim()
-    if (input.kind === 'custom') {
+    const channel = input.channel ?? 'email'
+
+    // A WhatsApp broadcast carries no subject, heading or body: Meta only
+    // accepts an approved template with its variables filled in. Validated
+    // against the registry rather than the request, so a template that Meta
+    // has paused or rejected since it was picked cannot be launched.
+    if (channel === 'whatsapp') {
+        if (input.kind !== 'custom') return { ok: false, message: 'Only a custom broadcast can go out on WhatsApp.' }
+        if (!input.templateName || !input.templateLanguage) {
+            return { ok: false, message: 'Pick an approved WhatsApp template.' }
+        }
+        const sbCheck = createAdminSupabaseClient()
+        const { data: tpl } = await sbCheck.from('whatsapp_templates')
+            .select('approved_at, status')
+            .eq('name', input.templateName)
+            .eq('language', input.templateLanguage)
+            .maybeSingle()
+        if (!tpl?.approved_at) {
+            return { ok: false, message: `That template is ${(tpl?.status ?? 'not in the registry').toLowerCase()}. Sync templates and pick an approved one.` }
+        }
+
+        // Guardrail 3: never send into a red number. Read at launch, not at
+        // page load, so a rating that dropped while the composer was open
+        // still stops the send.
+        const health = await getNumberHealth().catch(err => {
+            captureError(err as Error, { area: 'admin', op: 'launchBroadcast.numberHealth' })
+            return null
+        })
+        if (health && qualityVerdict(health.qualityRating) === 'block') {
+            return { ok: false, message: 'The WhatsApp number\'s quality rating is RED. Sending now risks the number the signup flow depends on. Nothing was queued.' }
+        }
+
+        // Guardrail 4: never exceed what Meta will accept in a rolling 24h.
+        const { data: sent24 } = await sbCheck.rpc('whatsapp_sent_last_24h')
+        const { count: audienceSize } = await sbCheck.rpc('broadcast_audience', {
+            p_audience: input.audience,
+            p_dorm: input.dormName ?? null,
+            p_channel: 'whatsapp',
+            p_include_unknown: input.includeUnknownConsent ?? false,
+        }, { count: 'exact', head: true })
+        const remaining = remainingAllowance(health?.tier, Number(sent24 ?? 0))
+        if ((audienceSize ?? 0) > remaining) {
+            return {
+                ok: false,
+                message: `That audience is ${audienceSize} people but this number can only reach ${remaining} more in the next 24 hours. Send to a smaller group, or wait.`,
+            }
+        }
+    }
+
+    if (channel === 'email' && input.kind === 'custom') {
         if (!subject) return { ok: false, message: 'Subject is required.' }
         if (subject.length > 200) return { ok: false, message: 'Subject is too long (max 200 characters).' }
         if (!input.heading.trim()) return { ok: false, message: 'Heading is required.' }
@@ -107,10 +169,17 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
     // vice versa) would also violate the cta_pairs DB constraint with a raw
     // error instead of a clean one.
     const isSeasonReopen = input.kind === 'season_reopen'
+    const isWhatsApp = channel === 'whatsapp'
     const { data: created, error } = await sb.from('broadcasts').insert({
         kind: input.kind,
-        channel: input.channel ?? 'email',
-        subject: isSeasonReopen ? 'Season reopening (ZeptoMail template)' : subject,
+        channel,
+        template_name: isWhatsApp ? input.templateName : null,
+        template_language: isWhatsApp ? input.templateLanguage : null,
+        template_variables: isWhatsApp ? (input.templateVariables ?? {}) : {},
+        included_unknown_consent: isWhatsApp ? (input.includeUnknownConsent ?? false) : false,
+        subject: isSeasonReopen
+            ? 'Season reopening (ZeptoMail template)'
+            : isWhatsApp ? `WhatsApp: ${input.templateName}` : subject,
         heading: isSeasonReopen ? '' : (input.heading?.trim() ?? ''),
         body: isSeasonReopen ? '' : (input.body?.trim() ?? ''),
         cta_label: isSeasonReopen ? null : (input.ctaLabel?.trim() || null),
@@ -140,8 +209,12 @@ export async function launchBroadcast(input: LaunchInput): Promise<LaunchResult>
     }
 
     await logAdminAction(admin.email, 'launch_broadcast', 'broadcast', created.id, {
-        kind: input.kind, channel: input.channel ?? 'email',
+        kind: input.kind, channel,
         audience: input.audience, recipients: count, held_plans_told: readyQueued,
+        // Recorded because including contacts who never opted in is a
+        // deliberate choice someone made, and it should be attributable.
+        template: isWhatsApp ? `${input.templateName}/${input.templateLanguage}` : undefined,
+        included_unknown_consent: isWhatsApp ? (input.includeUnknownConsent ?? false) : undefined,
     })
     revalidatePath('/admin/comms/broadcast')
     return {
@@ -269,4 +342,127 @@ export async function retryBroadcastFailures(id: string): Promise<RetryResult> {
     await logAdminAction(admin.email, 'retry_broadcast_failures', 'broadcast', id, { rearmed: parked })
     revalidatePath('/admin/comms/broadcast')
     return { ok: true, rearmed: parked, message: `${parked} recipient${parked === 1 ? '' : 's'} re-queued.` }
+}
+
+// ── WhatsApp channel ───────────────────────────────────────────────────────
+
+export interface TemplateSyncResult {
+    ok: boolean
+    message: string
+    approved?: number
+    total?: number
+}
+
+/**
+ * Pull the template list from Meta into whatsapp_templates.
+ *
+ * Read from Meta rather than typed in by an admin, because "approved" has to
+ * mean Meta approved it — and a template can be paused or rejected long after
+ * it first went live. approved_at is set only while the status says APPROVED
+ * and cleared the moment it does not, which is what stops the composer from
+ * offering a template that would 132000 on the first send.
+ */
+export async function syncWhatsAppTemplates(): Promise<TemplateSyncResult> {
+    const admin = await requireAdmin()
+
+    let raw: unknown[]
+    try {
+        raw = await listMessageTemplates()
+    } catch (err) {
+        captureError(err as Error, { area: 'admin', op: 'syncWhatsAppTemplates' })
+        return { ok: false, message: `Could not read the templates from Meta: ${(err as Error).message}` }
+    }
+
+    const rows = raw.map(t => readTemplate(t as MetaTemplate)).map(t => ({
+        name: t.name,
+        language: t.language,
+        category: t.category,
+        status: t.status,
+        approved_at: t.approved ? new Date().toISOString() : null,
+        variables: t.variables,
+        named_params: t.namedParams,
+        body_preview: t.bodyPreview,
+        synced_at: new Date().toISOString(),
+    }))
+    if (rows.length === 0) return { ok: false, message: 'Meta returned no templates for this business account.' }
+
+    const sb = createAdminSupabaseClient()
+    const { error } = await sb.from('whatsapp_templates').upsert(rows, { onConflict: 'name,language' })
+    if (error) return { ok: false, message: `Could not save the templates: ${error.message}` }
+
+    const approved = rows.filter(r => r.approved_at).length
+    await logAdminAction(admin.email, 'sync_whatsapp_templates', 'whatsapp_templates', undefined, {
+        total: rows.length, approved,
+    })
+    revalidatePath('/admin/comms/broadcast')
+    return {
+        ok: true,
+        approved,
+        total: rows.length,
+        message: `${rows.length} template${rows.length === 1 ? '' : 's'} from Meta, ${approved} approved and ready to send.`,
+    }
+}
+
+export interface PreflightResult {
+    ok: boolean
+    message?: string
+    qualityRating?: string
+    verdict: 'ok' | 'warn' | 'block'
+    tier?: string
+    sentLast24h: number
+    remaining: number
+    displayNumber?: string
+    estimatedCostAed: number
+    ratePerMessageAed: number
+}
+
+/**
+ * What an admin needs to see before pressing send on WhatsApp: the number's
+ * health, what it has already sent today, how many more it can reach, and
+ * what this send will cost.
+ *
+ * Read at confirm time rather than page load, so a rating that dropped while
+ * the composer was open is the rating the decision is made against.
+ */
+export async function whatsappPreflight(recipients: number): Promise<PreflightResult> {
+    await requireAdmin()
+
+    // UAE marketing conversation rate. An env var rather than a constant
+    // because Meta reprices, and a stale number on a confirm screen is worse
+    // than an obviously configurable one.
+    const rate = Number(process.env.WHATSAPP_MARKETING_RATE_AED ?? '0.12')
+
+    const sb = createAdminSupabaseClient()
+    const { data: sent24 } = await sb.rpc('whatsapp_sent_last_24h')
+    const sentLast24h = Number(sent24 ?? 0)
+
+    let health: Awaited<ReturnType<typeof getNumberHealth>> | null = null
+    try {
+        health = await getNumberHealth()
+    } catch (err) {
+        captureError(err as Error, { area: 'admin', op: 'whatsappPreflight' })
+        // Meta being unreadable is not permission to send blind: fall through
+        // as 'warn' with the smallest tier assumed.
+        return {
+            ok: false,
+            verdict: 'warn',
+            message: 'Could not read the number\'s health from Meta. Treating it as unverified.',
+            sentLast24h,
+            remaining: remainingAllowance(undefined, sentLast24h),
+            estimatedCostAed: estimateCostAed(recipients, rate),
+            ratePerMessageAed: rate,
+        }
+    }
+
+    return {
+        ok: true,
+        qualityRating: health.qualityRating,
+        verdict: qualityVerdict(health.qualityRating),
+        tier: health.tier,
+        displayNumber: health.displayNumber,
+        sentLast24h,
+        remaining: remainingAllowance(health.tier, sentLast24h),
+        estimatedCostAed: estimateCostAed(recipients, rate),
+        ratePerMessageAed: rate,
+    }
 }

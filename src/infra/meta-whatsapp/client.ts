@@ -196,3 +196,112 @@ export async function sendStaffInviteWhatsApp(
         return { welcomeSent: false, welcomeError: err instanceof Error ? err.message : 'send failed' }
     }
 }
+
+// ── Marketing broadcasts ───────────────────────────────────────────────────
+//
+// These three are what the contact book's WhatsApp channel needs, and they are
+// the only calls here that READ from Meta rather than send.
+//
+// They deliberately do NOT go through the OTP circuit breaker. That breaker
+// exists to shed load on the acquisition hot path; a marketing preflight
+// failing should report a problem to an admin staring at a screen, not trip a
+// breaker that then fails the next customer's OTP.
+
+const READ_TIMEOUT_MS = 10_000
+
+async function graphGet(path: string, params: Record<string, string> = {}): Promise<unknown> {
+    const token = env('WHATSAPP_ACCESS_TOKEN')
+    const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${path}`)
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+
+    const res = await fetchWithTimeout(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+    }, { timeoutMs: READ_TIMEOUT_MS })
+
+    const body = await res.text()
+    if (!res.ok) throw new Error(`WhatsApp read failed (${res.status}): ${body}`)
+    return JSON.parse(body) as unknown
+}
+
+/**
+ * Every message template on the business account, whatever its status.
+ *
+ * Read from Meta rather than typed in by hand: the registry is only useful if
+ * "approved" means Meta approved it, and a template can be paused or rejected
+ * after it was first approved. Pages through the whole list — a business with
+ * more than one page of templates is normal.
+ */
+export async function listMessageTemplates(): Promise<unknown[]> {
+    const wabaId = env('WHATSAPP_BUSINESS_ACCOUNT_ID')
+    const out: unknown[] = []
+    let after: string | undefined
+
+    for (let page = 0; page < 20; page++) {
+        const params: Record<string, string> = {
+            fields: 'name,language,status,category,components',
+            limit: '100',
+        }
+        if (after) params.after = after
+        const body = await graphGet(`${wabaId}/message_templates`, params) as {
+            data?: unknown[]
+            paging?: { cursors?: { after?: string }; next?: string }
+        }
+        out.push(...(body.data ?? []))
+        after = body.paging?.next ? body.paging?.cursors?.after : undefined
+        if (!after) break
+    }
+    return out
+}
+
+/**
+ * The sending number's health: quality rating and messaging tier.
+ *
+ * Both are what the launch preflight reads. Meta returns UNKNOWN for a number
+ * with little recent history, which the domain treats as "warn", not "block".
+ */
+export async function getNumberHealth(): Promise<{ qualityRating?: string; tier?: string; displayNumber?: string }> {
+    const phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID')
+    const body = await graphGet(phoneNumberId, {
+        fields: 'display_phone_number,quality_rating,messaging_limit_tier',
+    }) as { display_phone_number?: string; quality_rating?: string; messaging_limit_tier?: string }
+
+    return {
+        qualityRating: body.quality_rating,
+        tier: body.messaging_limit_tier,
+        displayNumber: body.display_phone_number,
+    }
+}
+
+/**
+ * One marketing template message.
+ *
+ * `bodyParameters` comes from buildBodyParameters(), which already knows
+ * whether this template takes named or positional parameters — Meta rejects
+ * the wrong kind outright, and that is the most common way one of these 132000s
+ * at runtime.
+ *
+ * Not retried, like every other send here: a WhatsApp send is not idempotent.
+ * It costs money and it delivers a message.
+ */
+export async function sendMarketingTemplate(input: {
+    phoneE164: string
+    templateName: string
+    language: string
+    bodyParameters: Array<{ type: 'text'; text: string; parameter_name?: string }>
+}): Promise<void> {
+    const to = input.phoneE164.replace(/\D/g, '').replace(/^00/, '')
+    const components = input.bodyParameters.length > 0
+        ? [{ type: 'body', parameters: input.bodyParameters }]
+        : []
+
+    await graphPost({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+            name: input.templateName,
+            language: { code: input.language },
+            ...(components.length > 0 ? { components } : {}),
+        },
+    })
+}
