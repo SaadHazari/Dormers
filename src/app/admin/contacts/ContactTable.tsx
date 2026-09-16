@@ -8,6 +8,7 @@ import type { ContactRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
 import { CONTACT_PAGE_SIZE } from './constants'
+import { MAX_DELETE_BATCH } from '../customers/constants'
 import { loadMoreContacts } from './actions'
 import { deleteContacts } from '../customers/delete-actions'
 import { AdminModal } from '../_components/AdminModal'
@@ -83,14 +84,21 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
     async function handleDelete() {
         setDeleting(true)
         setError(null)
-        const res = await deleteContacts([...selected])
-        setDeleting(false)
-        if (!res.ok) { setError(res.message); return }
-        setConfirmOpen(false)
-        setConfirmText('')
-        setSelected(new Set())
-        setNote(res.message)
-        router.refresh()
+        try {
+            const res = await deleteContacts([...selected])
+            if (!res.ok) { setError(res.message); return }
+            setConfirmOpen(false)
+            setConfirmText('')
+            setSelected(new Set())
+            setNote(res.message)
+            router.refresh()
+        } catch (err) {
+            // A thrown action used to leave the button spinning with nothing said.
+            console.error('deleteContacts failed', err)
+            setError('Could not reach the server. Check your connection and try again.')
+        } finally {
+            setDeleting(false)
+        }
     }
 
     useEffect(() => { setVisible(WINDOW_STEP) }, [filter, sort])
@@ -369,7 +377,14 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
             {selected.size > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[120] px-4 pb-4 pointer-events-none">
                     <div className={`pointer-events-auto mx-auto max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 ${t.overlay}`}>
-                        <span className={`text-[13px] font-bold ${t.heading}`}>{selected.size} selected</span>
+                        <span className={`text-[13px] font-bold ${t.heading}`}>
+                            {selected.size} selected
+                            {selected.size > MAX_DELETE_BATCH && (
+                                <span className={`ml-2 font-medium ${t.warning}`}>
+                                    — more than {MAX_DELETE_BATCH} at once; untick some
+                                </span>
+                            )}
+                        </span>
                         <button
                             type="button"
                             onClick={() => setSelected(new Set())}
@@ -381,7 +396,8 @@ export function ContactTable({ contacts, initialQuery, totalCount }: Props) {
                         <button
                             type="button"
                             onClick={() => { setError(null); setConfirmText(''); setConfirmOpen(true) }}
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger}`}
+                            disabled={selected.size > MAX_DELETE_BATCH}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger} disabled:opacity-50`}
                         >
                             <Trash2 size={13} strokeWidth={2.4} />
                             Delete

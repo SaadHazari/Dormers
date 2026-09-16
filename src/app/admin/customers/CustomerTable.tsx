@@ -6,7 +6,7 @@ import { AlertTriangle, Clock, Search, Sunrise, Trash2, User } from 'lucide-reac
 import type { CustomerRow } from './page'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminBadge } from '../_components/AdminBadge'
-import { CUSTOMER_PAGE_SIZE } from './constants'
+import { CUSTOMER_PAGE_SIZE, MAX_DELETE_BATCH } from './constants'
 import { loadMoreCustomers } from './actions'
 import { previewCustomerDeletion } from './delete-actions'
 import { DeleteCustomersModal } from '../_components/DeleteCustomersModal'
@@ -94,10 +94,18 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
     async function openDeleteReview() {
         setPreviewing(true)
         setDeleteError(null)
-        const res = await previewCustomerDeletion([...selected])
-        setPreviewing(false)
-        if (!res.ok) { setDeleteError(res.message ?? 'Could not work out what this would delete.'); return }
-        setPendingRows(res.rows)
+        try {
+            const res = await previewCustomerDeletion([...selected])
+            if (!res.ok) { setDeleteError(res.message ?? 'Could not work out what this would delete.'); return }
+            setPendingRows(res.rows)
+        } catch (err) {
+            // Without this the button sat on "Checking…" for ever and the page
+            // looked like it had ignored the click.
+            console.error('previewCustomerDeletion failed', err)
+            setDeleteError('Could not reach the server. Check your connection and try again.')
+        } finally {
+            setPreviewing(false)
+        }
     }
 
     const attentionCount = useMemo(
@@ -174,9 +182,6 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
 
             {deleteNote && (
                 <p className={`mb-3 text-[12px] font-bold ${t.accent}`}>{deleteNote}</p>
-            )}
-            {deleteError && (
-                <p className={`mb-3 text-[12px] font-bold ${t.danger}`}>{deleteError}</p>
             )}
 
             {/* Search bar */}
@@ -448,7 +453,21 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                 eventually gets pressed by accident. */}
             {selected.size > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 lg:left-[220px] z-[120] px-4 pb-4 pointer-events-none">
-                    <div className={`pointer-events-auto mx-auto max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                    <div className={`pointer-events-auto mx-auto max-w-2xl rounded-2xl border px-4 py-3 ${t.overlay}`}>
+                    {/* Anything that goes wrong is said HERE, beside the button
+                        that was pressed. It used to render at the top of the
+                        page, which on a long list is off-screen — the refusal
+                        was invisible and the click looked ignored. */}
+                    {deleteError && (
+                        <p className={`mb-2 text-[12px] font-bold ${t.danger}`}>{deleteError}</p>
+                    )}
+                    {selected.size > MAX_DELETE_BATCH && (
+                        <p className={`mb-2 text-[12px] font-bold ${t.warning}`}>
+                            {selected.size} selected — that is more than {MAX_DELETE_BATCH} at once.
+                            Untick some so the list stays reviewable.
+                        </p>
+                    )}
+                    <div className="flex items-center gap-3">
                         <span className={`text-[13px] font-bold ${t.heading}`}>
                             {selected.size} selected
                         </span>
@@ -463,12 +482,13 @@ export function CustomerTable({ customers, initialQuery, totalCount }: Props) {
                         <button
                             type="button"
                             onClick={openDeleteReview}
-                            disabled={previewing}
+                            disabled={previewing || selected.size > MAX_DELETE_BATCH}
                             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold ${t.dangerBg} ${t.danger} disabled:opacity-50`}
                         >
                             <Trash2 size={13} strokeWidth={2.4} />
                             {previewing ? 'Checking…' : 'Review and delete'}
                         </button>
+                    </div>
                     </div>
                 </div>
             )}

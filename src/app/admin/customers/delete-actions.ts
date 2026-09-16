@@ -6,6 +6,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { captureError } from '@/infra/logging/capture-error'
 import { planDeletion, type DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
+import { MAX_DELETE_BATCH } from './constants'
 
 /**
  * Deleting people from the admin panel.
@@ -18,10 +19,6 @@ import { planDeletion, type DeleteImpactRow } from '@/contexts/admin/domain/dele
  * person was.
  */
 
-/** One batch should be reviewable on one screen. Beyond this it stops being
- *  a decision and starts being a formality. */
-const MAX_BATCH = 50
-
 export interface DeletePreview {
     ok: boolean
     message?: string
@@ -32,8 +29,8 @@ export async function previewCustomerDeletion(ids: string[]): Promise<DeletePrev
     await requireAdmin()
 
     if (!Array.isArray(ids) || ids.length === 0) return { ok: false, message: 'Nobody selected.', rows: [] }
-    if (ids.length > MAX_BATCH) {
-        return { ok: false, message: `Select ${MAX_BATCH} or fewer at a time so the list stays reviewable.`, rows: [] }
+    if (ids.length > MAX_DELETE_BATCH) {
+        return { ok: false, message: `Select ${MAX_DELETE_BATCH} or fewer at a time so the list stays reviewable.`, rows: [] }
     }
 
     const sb = createAdminSupabaseClient()
@@ -68,8 +65,8 @@ export async function deleteCustomers(ids: string[], waitlistAck: boolean): Prom
     const admin = await requireAdmin()
 
     if (!Array.isArray(ids) || ids.length === 0) return { ok: false, message: 'Nobody selected.', deleted: 0, failed: [] }
-    if (ids.length > MAX_BATCH) {
-        return { ok: false, message: `Select ${MAX_BATCH} or fewer at a time.`, deleted: 0, failed: [] }
+    if (ids.length > MAX_DELETE_BATCH) {
+        return { ok: false, message: `Select ${MAX_DELETE_BATCH} or fewer at a time.`, deleted: 0, failed: [] }
     }
 
     const sb = createAdminSupabaseClient()
@@ -153,8 +150,8 @@ export async function deleteContacts(ids: string[]): Promise<ContactDeleteResult
     const admin = await requireAdmin()
 
     if (!Array.isArray(ids) || ids.length === 0) return { ok: false, message: 'Nobody selected.', deleted: 0, skipped: 0 }
-    if (ids.length > MAX_BATCH) {
-        return { ok: false, message: `Select ${MAX_BATCH} or fewer at a time.`, deleted: 0, skipped: 0 }
+    if (ids.length > MAX_DELETE_BATCH) {
+        return { ok: false, message: `Select ${MAX_DELETE_BATCH} or fewer at a time.`, deleted: 0, skipped: 0 }
     }
 
     const sb = createAdminSupabaseClient()
