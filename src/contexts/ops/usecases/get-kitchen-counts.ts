@@ -61,15 +61,17 @@ export async function getKitchenCounts(
   // active subscription, not the entire (ever-growing) customers table.
   const customerIds = [...new Set(subs.map((s) => s.customer_id))]
   const customersRes = customerIds.length
-    ? await sb.from('customers').select('id, meal_preference_type, veg_days').in('id', customerIds)
-    : { data: [] as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null }>, error: null }
+    ? await sb.from('customers').select('id, meal_preference_type, veg_days, is_demo').in('id', customerIds)
+    : { data: [] as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null; is_demo: boolean | null }>, error: null }
   if (customersRes.error) {
     captureError(customersRes.error, { area: 'kitchen', op: 'getKitchenCounts', todayIso })
     return { ...none, unavailable: true, closedForBreak: false }
   }
 
   const customerMap = new Map<string, { meal_preference_type: string | null; veg_days: string[] | null }>()
-  for (const c of (customersRes.data ?? []) as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null }>) {
+  for (const c of (customersRes.data ?? []) as Array<{ id: string; meal_preference_type: string | null; veg_days: string[] | null; is_demo: boolean | null }>) {
+    // Investor demo accounts never reach the kitchen.
+    if (c.is_demo) continue
     customerMap.set(c.id, c)
   }
 

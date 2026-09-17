@@ -1,7 +1,7 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus, getApprovedCreditRows } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
-import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { getIntakeState, creditAedFor, intakeForCustomer } from '@/infra/config/intake'
 import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
 import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { createClient } from '@/utils/supabase/server'
@@ -66,7 +66,7 @@ export default async function PlanPage({
   // profile-completion gate in PlanClient. Resolved first (cached 30s, so
   // this is not a new round trip) so its cycleStartedAt can scope the
   // waitlist-join lookup below to the CURRENT pause.
-  const intakeState = await getIntakeState()
+  const seasonState = await getIntakeState()
   const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus, creditRows] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
@@ -78,7 +78,7 @@ export default async function PlanPage({
     // Single source of truth for "has this customer joined the waitlist" —
     // shared with the Now-tray entries and the plan-ending banner so the
     // fact can't drift between surfaces. This page only needs `.joined`.
-    getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+    getWaitlistStatus(supabase, user.id, seasonState.cycleStartedAt),
     // Raw approved rows for the credit row's amount line. cache()-wrapped and
     // already awaited by dashboard/layout.tsx for the sidebar chip in this
     // same request, so this adds no round trip. Deliberately NOT derived from
@@ -86,6 +86,8 @@ export default async function PlanPage({
     // plan-restricted" wording, and that rule must have one home.
     getApprovedCreditRows(user.id),
   ])
+  // An investor demo account sees an open semester (see intakeForCustomer).
+  const intakeState = intakeForCustomer(seasonState, customer)
   // The owner's refund switch: null unless it is on for this customer, or the
   // plan was just refunded with tonight's dinner still to come.
   const planRefund = activeSubscription ? await getPlanRefundView(user.id, activeSubscription) : null

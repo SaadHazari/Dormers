@@ -35,6 +35,8 @@ vi.mock('@/infra/supabase/subscriptions-repo', () => ({
 }))
 vi.mock('@/infra/config/intake', () => ({
   getIntakeState: vi.fn(),
+  intakeForCustomer: (state: unknown) => state,
+  isDemoCustomer: async () => false,
 }))
 vi.mock('@sentry/nextjs', () => ({ metrics: { count: vi.fn() } }))
 vi.mock('@/shared/events/event-bus', () => ({ eventBus: { emit: vi.fn(), on: vi.fn() } }))

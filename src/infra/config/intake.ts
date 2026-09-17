@@ -134,6 +134,45 @@ export async function getIntakeState(opts?: { fresh?: boolean }): Promise<Intake
 }
 
 /**
+ * The season as a given customer should see it.
+ *
+ * An investor demo account (customers.is_demo) lives in an open semester
+ * whatever the real season says, so its dashboard shows a working plan
+ * instead of the break screens. The database rules skip it the same way
+ * (supabase/migrations/20260917_demo_account.sql). Checkout refuses demo
+ * accounts separately, so an "open" view here never lets one buy.
+ */
+export function intakeForCustomer(
+  state: IntakeState,
+  customer: { is_demo?: boolean | null } | null | undefined,
+): IntakeState {
+  if (!customer?.is_demo) return state
+  return {
+    ...state,
+    paused: false,
+    pauseScheduledFor: null,
+    phase: 'open',
+    wrapUpDay: null,
+    closeDay: null,
+    salesStopped: false,
+  }
+}
+
+/** True when this customer is an investor demo account. Service-role read; false on any error. */
+export async function isDemoCustomer(customerId: string): Promise<boolean> {
+  try {
+    const { data } = await createAdminSupabaseClient()
+      .from('customers')
+      .select('is_demo')
+      .eq('id', customerId)
+      .maybeSingle()
+    return data?.is_demo === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * The waitlist credit this customer is owed, by meal preference.
  * Religious Preference takes the non-veg figure (owner decision) because
  * the plan includes non-veg days and is priced closer to non-veg than veg.

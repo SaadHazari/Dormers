@@ -70,6 +70,7 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/infra/config/intake', () => ({
   getIntakeState: getIntakeStateMock,
   creditAedFor: () => 20,
+  isDemoCustomer: async () => false,
 }))
 vi.mock('@/infra/stripe/client', () => ({
   stripeClient: () => ({}),

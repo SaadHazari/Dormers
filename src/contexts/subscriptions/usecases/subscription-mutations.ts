@@ -22,7 +22,7 @@
 import { revalidatePath } from 'next/cache';
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans';
 import { journeyFits, seasonEndsMessage } from '@/contexts/subscriptions/domain/season-horizon';
-import { getIntakeState } from '@/infra/config/intake';
+import { getIntakeState, intakeForCustomer, isDemoCustomer } from '@/infra/config/intake';
 import { LIVE_SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status';
 import { canPause, canPlanPause, canResume, canSkip, skipCapFor, skipsUsedFor } from '@/contexts/subscriptions/domain/subscription-rules';
 import { ae9amUtcOnDate, nextEligibleDeliveryDay } from '@/shared/time/dubai-day';
@@ -164,7 +164,7 @@ export async function resumeSubscription(subscriptionId: string) {
   // ── Season break (spec §7.5, G9) ─────────────────────────────────────────
   // Read fresh: a plan must never restart into a closed kitchen because of a
   // 30-second-old cache. trg_subscriptions_season_guard refuses it too.
-  const seasonNow = await getIntakeState({ fresh: true });
+  const seasonNow = intakeForCustomer(await getIntakeState({ fresh: true }), { is_demo: await isDemoCustomer(auth.user.id) });
   if (seasonNow.phase === 'break') {
     return { error: BREAK_RESUME_COPY, seasonBreak: true as const };
   }
@@ -352,7 +352,7 @@ export async function changeStartDate(subscriptionId: string, newStartDate: stri
   // getIntakeState fails open (pauseScheduledFor is null on a settings-read
   // blip), so a settings outage lets the reschedule through rather than
   // freezing a legitimate date change.
-  const intakeForChange = await getIntakeState({ fresh: true });
+  const intakeForChange = intakeForCustomer(await getIntakeState({ fresh: true }), { is_demo: await isDemoCustomer(auth.user.id) });
   // ── Season break (spec §7.6) ────────────────────────────────────────────
   if (intakeForChange.phase === 'break') {
     return { error: BREAK_START_DATE_COPY };

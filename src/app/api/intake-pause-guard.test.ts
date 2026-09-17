@@ -6,11 +6,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { getIntakeStateMock } = vi.hoisted(() => ({ getIntakeStateMock: vi.fn() }))
+const { getIntakeStateMock, isDemoMock } = vi.hoisted(() => ({ getIntakeStateMock: vi.fn(), isDemoMock: vi.fn() }))
 vi.mock('server-only', () => ({}))
 vi.mock('@/infra/config/intake', () => ({
   getIntakeState: getIntakeStateMock,
   creditAedFor: () => 20,
+  isDemoCustomer: isDemoMock,
 }))
 vi.mock('@/infra/stripe/client', () => ({
   stripeClient: () => ({}),
@@ -24,7 +25,10 @@ vi.mock('@/infra/admin-alerts/notify', () => ({ notifyAdmin: vi.fn() }))
 
 import { POST } from './checkout/route'
 
-beforeEach(() => getIntakeStateMock.mockReset())
+beforeEach(() => {
+  getIntakeStateMock.mockReset()
+  isDemoMock.mockReset().mockResolvedValue(false)
+})
 
 function req(body: Record<string, unknown>) {
   return new Request('http://localhost/api/checkout', {
@@ -58,5 +62,15 @@ describe('POST /api/checkout intake guard', () => {
     getIntakeStateMock.mockResolvedValue({ paused: true, headline: 'We are between semesters.', body: 'Back soon enough.' })
     await POST(req({ amount: 8000, plan: 'Staff Monthly' }))
     expect(getIntakeStateMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses an investor demo account even with intake open — production takes real cards', async () => {
+    isDemoMock.mockResolvedValue(true)
+    getIntakeStateMock.mockResolvedValue({ paused: false, headline: '', body: '' })
+    const res = await POST(req({ amount: 30000, plan: 'Monthly Premium' }))
+    expect(res.status).toBe(409)
+    const json = await res.json()
+    expect(json.error).toBe('INTAKE_PAUSED')
+    expect(json.message).toMatch(/demo account/)
   })
 })

@@ -218,11 +218,13 @@ export const getCrossDormRecent = cache(async (limit = 8): Promise<CrossDormRece
       .from('customers')
       .select('id, name, dorm_name, hall_wall')
       .in('id', customerIds)
+      // Investor demo accounts never appear in other students' feed.
+      .eq('is_demo', false)
 
     type CRow = { id: string; name: string | null; dorm_name: string | null; hall_wall: boolean | null }
     const cMap = new Map<string, CRow>((customers ?? []).map((c) => [c.id as string, c as CRow]))
 
-    return deduped.slice(0, limit).map(s => {
+    return deduped.slice(0, limit).filter(s => cMap.has(s.customer_id)).map(s => {
       const c = cMap.get(s.customer_id)
       const first = ((c?.name ?? '').split(' ')[0]) || 'Someone'
       const dorm  = (c?.dorm_name ?? '').trim() || 'a dorm'

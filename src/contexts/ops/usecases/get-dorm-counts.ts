@@ -45,11 +45,13 @@ export async function getDormCounts(
   // active subscription, not the entire (ever-growing) customers table.
   const customerIds = [...new Set(subs.map((s) => s.customer_id))]
   const customersRes = customerIds.length
-    ? await sb.from('customers').select('id, dorm_name').in('id', customerIds)
-    : { data: [] as Array<{ id: string; dorm_name: string | null }> }
+    ? await sb.from('customers').select('id, dorm_name, is_demo').in('id', customerIds)
+    : { data: [] as Array<{ id: string; dorm_name: string | null; is_demo: boolean | null }> }
 
   const customerMap = new Map<string, string | null>()
-  for (const c of (customersRes.data ?? []) as Array<{ id: string; dorm_name: string | null }>) {
+  for (const c of (customersRes.data ?? []) as Array<{ id: string; dorm_name: string | null; is_demo: boolean | null }>) {
+    // Investor demo accounts have no delivery stop.
+    if (c.is_demo) continue
     customerMap.set(c.id, c.dorm_name)
   }
 

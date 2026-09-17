@@ -1,6 +1,6 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getQueuedSubscription, getAllSubscriptions, getCompanyClosureDates } from '@/infra/supabase/subscriptions-repo'
-import { getIntakeState } from '@/infra/config/intake'
+import { getIntakeState, intakeForCustomer } from '@/infra/config/intake'
 import { missingProfileFields } from '@/contexts/subscriptions/domain/profile-completion'
 import { SUBSCRIPTION_STATUS } from '@/contexts/subscriptions/domain/subscription-status'
 import { redirect } from 'next/navigation'
@@ -101,7 +101,7 @@ export default async function MenuPage({
   // (for the Now tray) and no longer needed here — LastWeekSection and
   // MonthlyWrapTrigger used to live on this page but moved into the tray.
   // See project_now_tray_architecture memory.
-  const [customer, activeSubscription, queuedSub, allSubscriptions, menuDishes, closureDates, intake] = await Promise.all([
+  const [customer, activeSubscription, queuedSub, allSubscriptions, menuDishes, closureDates, seasonState] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getQueuedSubscription(user.id),
@@ -110,6 +110,8 @@ export default async function MenuPage({
     getCompanyClosureDates(),
     getIntakeState(),
   ])
+  // An investor demo account sees an open semester (see intakeForCustomer).
+  const intake = intakeForCustomer(seasonState, customer)
 
   // A returning customer's week is read against the plan that ended, so the
   // days after its last dinner stay locked instead of turning back into

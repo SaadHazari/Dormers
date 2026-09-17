@@ -6,7 +6,7 @@ import { getReferralData, type ReferralData } from '@/infra/supabase/referrals-r
 import { resolvePlan } from '@/contexts/subscriptions/domain/plans'
 import { promotePendingPreferencesIfStale } from '@/contexts/subscriptions/usecases/preferences-promotion'
 import { isAdminEmail } from '@/contexts/admin/usecases/require-admin'
-import { getIntakeState } from '@/infra/config/intake'
+import { getIntakeState, intakeForCustomer } from '@/infra/config/intake'
 import DashboardShell from './DashboardShell'
 import { BugReportTrigger } from './_shared/BugReportTrigger'
 import { IdleRefreshToast } from './_shared/IdleRefreshToast'
@@ -109,7 +109,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     referralData = referrals
     weeklyReviewState = reviewState
     monthlyWindow = monthlyWin
-    intakePaused = intakeState.paused
+    intakePaused = intakeForCustomer(intakeState, customer).paused
     creditRows = fetchedCreditRows
     if (queuedSub) {
       queuedPlanSummary = {

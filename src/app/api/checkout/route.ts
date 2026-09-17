@@ -12,7 +12,7 @@ import { synthesizePerSessionCoupon } from '@/contexts/dorm-wars/domain/coupon-s
 import { getRedeemableCredit } from '@/infra/supabase/subscriptions-repo';
 import { getActiveLifetimeTierPercent } from '@/infra/supabase/dorm-wars-repo';
 import { notifyAdmin } from '@/infra/admin-alerts/notify';
-import { getIntakeState } from '@/infra/config/intake';
+import { getIntakeState, isDemoCustomer } from '@/infra/config/intake';
 
 // Release It! L2: cap this route's wall-clock so a slow Stripe/Supabase chain
 // fails fast inside our control instead of dying at the opaque platform limit
@@ -37,6 +37,19 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+    }
+
+    // ── Investor demo account ──────────────────────────────────────────────
+    // Production takes real cards, and a credit-covered plan would skip
+    // Stripe and provision (and invoice) a real order. A demo account sees
+    // the season as open, so this is the one place its purchase is refused.
+    // Reuses the INTAKE_PAUSED code: both clients render its message as a
+    // soft notice rather than a failure.
+    if (await isDemoCustomer(user.id)) {
+      return NextResponse.json({
+        error: 'INTAKE_PAUSED',
+        message: 'This is a demo account, so payments are switched off. Everything else works like a real plan.',
+      }, { status: 409 });
     }
 
     const body = await req.json();

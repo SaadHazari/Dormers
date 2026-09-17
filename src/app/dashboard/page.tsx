@@ -8,7 +8,7 @@ import { Suspense } from 'react'
 import type { Viewport } from 'next'
 import { getMonthlyReviewWindow } from '@/utils/supabase/monthly-review-queries'
 import { getMenuDishes } from '@/infra/supabase/menu-catalog'
-import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { getIntakeState, creditAedFor, intakeForCustomer } from '@/infra/config/intake'
 import type { IntakeGateState } from './_shared/types'
 import { firstNameFrom } from './_shared/intake-join-outcome'
 import type { MonthlyReviewWindow } from '@/contexts/subscriptions/domain/monthly-review'
@@ -385,7 +385,7 @@ export default async function DashboardPage({
     // Resolved first (cached 30s, so this is not a new round trip) so its
     // cycleStartedAt can scope the waitlist-join lookup below to the CURRENT
     // pause — see getWaitlistStatus.
-    const intakeState = await getIntakeState()
+    const seasonState = await getIntakeState()
     const [customer, activeSubscription, allSubscriptions, queuedSubscription, monthlyWindow, mostRecentOrder, menuDishes, waitlistStatus, closureDates, creditRows] = await Promise.all([
         getCustomer(user.id),
         getActiveSubscription(user.id),
@@ -394,12 +394,14 @@ export default async function DashboardPage({
         getMonthlyReviewWindow(user.id),
         getMostRecentOrder(user.id),
         getMenuDishes(),
-        getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+        getWaitlistStatus(supabase, user.id, seasonState.cycleStartedAt),
         getCompanyClosureDates(),
         // Mobile home credit chip — cache() folds this into the layout's
         // getApprovedCreditRows call, so it costs no extra query.
         getApprovedCreditRows(user.id),
     ])
+    // An investor demo account sees an open semester (see intakeForCustomer).
+    const intakeState = intakeForCustomer(seasonState, customer)
 
     // Phase 7: the trial-gift banner shim is gone. Referee welcome meals are
     // now real subscriptions (planKind='gift'), so they surface through

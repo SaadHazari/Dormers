@@ -14,7 +14,7 @@ vi.mock('@/infra/supabase/admin-client', () => ({
   }),
 }))
 
-import { getIntakeState, creditAedFor, __resetIntakeCache } from './intake'
+import { getIntakeState, creditAedFor, intakeForCustomer, __resetIntakeCache } from './intake'
 
 const ROW = {
   paused: true,
@@ -160,5 +160,28 @@ describe('creditAedFor', () => {
   it('falls back to the non-veg amount for an unknown or missing preference', () => {
     expect(creditAedFor(state, null)).toBe(20)
     expect(creditAedFor(state, 'Something Else')).toBe(20)
+  })
+})
+
+describe('intakeForCustomer', () => {
+  const BREAK = {
+    paused: true, headline: 'h', body: 'b', creditNonvegAed: 20, creditVegAed: 15, creditReligiousAed: 20,
+    cycleStartedAt: '2026-09-02T00:00:00Z', cycleEndedAt: null, pauseScheduledFor: '2026-09-16',
+    phase: 'break' as const, wrapUpDay: '2026-09-16', bufferDays: 0, closeDay: '2026-09-16', salesStopped: true,
+  }
+
+  it('leaves a real customer on the real season', () => {
+    expect(intakeForCustomer(BREAK, { is_demo: false })).toBe(BREAK)
+    expect(intakeForCustomer(BREAK, null)).toBe(BREAK)
+    expect(intakeForCustomer(BREAK, {})).toBe(BREAK)
+  })
+
+  it('shows a demo account an open semester', () => {
+    const seen = intakeForCustomer(BREAK, { is_demo: true })
+    expect(seen).toMatchObject({
+      paused: false, phase: 'open', pauseScheduledFor: null, wrapUpDay: null, closeDay: null, salesStopped: false,
+    })
+    // The cycle stamps key once-per-cycle dismissals; they stay as they are.
+    expect(seen.cycleStartedAt).toBe(BREAK.cycleStartedAt)
   })
 })

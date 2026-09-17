@@ -1,7 +1,7 @@
 import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
-import { getIntakeState, creditAedFor } from '@/infra/config/intake'
+import { getIntakeState, creditAedFor, intakeForCustomer } from '@/infra/config/intake'
 import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
 import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { createClient } from '@/utils/supabase/server'
@@ -73,7 +73,7 @@ export default async function ExplorePlansPage({
   // profile-completion gate in PlanClient. Resolved first (cached 30s, so
   // this is not a new round trip) so its cycleStartedAt can scope the
   // waitlist-join lookup below to the CURRENT pause.
-  const intakeState = await getIntakeState()
+  const seasonState = await getIntakeState()
   const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
@@ -85,8 +85,10 @@ export default async function ExplorePlansPage({
     // Single source of truth for "has this customer joined the waitlist" —
     // shared with the Now-tray entries and the plan-ending banner so the
     // fact can't drift between surfaces. This page only needs `.joined`.
-    getWaitlistStatus(supabase, user.id, intakeState.cycleStartedAt),
+    getWaitlistStatus(supabase, user.id, seasonState.cycleStartedAt),
   ])
+  // An investor demo account sees an open semester (see intakeForCustomer).
+  const intakeState = intakeForCustomer(seasonState, customer)
   // Re-key from the kebab plan_id (credit-eligibility's domain) to the
   // display PlanId ('Trial' | 'Weekly Flex' | …) the client components key
   // off of, so CheckoutPanel/MobileCheckout can index straight off `selected`.
