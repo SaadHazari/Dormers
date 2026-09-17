@@ -2145,7 +2145,9 @@ function CycleColumn({
               width: 10, height: 10, borderRadius: '50%',
               backgroundColor: CREAM,
               border: '2px solid rgba(255,255,255,0.95)',
-              zIndex: 3,
+              // Under the milestone dots (z 2/3): when the count lands on a
+              // milestone the earned dot covers the head instead of wearing it.
+              zIndex: 1,
               animation: 'hub-head-pulse 1.8s ease-in-out infinite',
             }} />
           )}
@@ -2319,7 +2321,9 @@ function LifetimeColumn({
               width: 10, height: 10, borderRadius: '50%',
               backgroundColor: CREAM,
               border: '2px solid rgba(255,255,255,0.95)',
-              zIndex: 3,
+              // Under the milestone dots (z 2/3): when the count lands on a
+              // milestone the earned dot covers the head instead of wearing it.
+              zIndex: 1,
               animation: 'hub-head-pulse 1.8s ease-in-out infinite',
             }} />
           )}
