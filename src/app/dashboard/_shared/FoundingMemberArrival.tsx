@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Bookmark } from 'lucide-react'
@@ -71,6 +72,16 @@ interface FoundingMemberArrivalProps {
  * Money copy is NOT authored here. Every figure and every closing line comes
  * from intake-join-outcome.ts, the module that exists because this exact class
  * of screen once promised money that was never minted.
+ *
+ * Rendered through a portal onto <body>, never in place. The join surfaces
+ * mount this wherever they live, and one of them (IntakePausedFrost, the
+ * desktop no-plan hero and the plan grid) lives inside a box with a
+ * backdrop-filter. A backdrop-filter makes its element the containing block
+ * for fixed descendants, so `position: fixed; inset: 0` measured that box
+ * instead of the viewport and the arrival came up as a short navy band
+ * across the frosted card (Chrome and Safari alike, 2026-09-19). The portal
+ * makes the viewport the only possible containing block, whatever a future
+ * caller wraps it in.
  */
 export function FoundingMemberArrival({ firstName, creditAed, message, onClose }: FoundingMemberArrivalProps) {
   const prefersReducedMotion = useReducedMotion()
@@ -93,7 +104,11 @@ export function FoundingMemberArrival({ firstName, creditAed, message, onClose }
 
   const rise = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10 }
 
-  return (
+  // Only ever mounted after a tap, so the document exists; the guard keeps a
+  // stray server render from throwing rather than doing any real work.
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div
       ref={rootRef}
       tabIndex={-1}
@@ -371,6 +386,7 @@ export function FoundingMemberArrival({ firstName, creditAed, message, onClose }
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   )
 }
