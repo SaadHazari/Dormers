@@ -4,7 +4,7 @@ import { useState, useTransition, type ReactElement } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CalendarClock, Check, ChevronDown } from 'lucide-react'
 import { OG, OG_DEEP, NV, BODY, S, TIER1 } from './tokens'
-import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { joinWaitlist } from './join-waitlist'
 import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
 import { planEndingHeadline, saveSpotButtonLabel } from './plan-ending-copy'
 import { FoundingMemberArrival } from './FoundingMemberArrival'
@@ -86,7 +86,7 @@ export function PlanEndingPausedBanner({ daysRemaining, creditAed, alreadyJoined
   const handleJoin = () => {
     setJoinError(null)
     startTransition(async () => {
-      const result = await joinIntakeWaitlist()
+      const result = await joinWaitlist()
       const outcome = deriveJoinOutcome(result)
       if (outcome.joined) {
         setJoined(true)

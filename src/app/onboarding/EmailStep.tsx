@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { CtaButton, FieldInput } from './primitives'
 import { createAccount, resendEmailOtp, verifyEmailOtp } from './actions'
+import { reportSignupInArea } from '@/shared/google-ads'
 import { OtpInput } from '@/components/auth/OtpInput'
 import { DRAFT_KEY, type FormState } from './data'
 import { useIsLight } from '@/ui-system/hooks/useIsLight'
@@ -123,6 +124,7 @@ export function EmailStep({ form, set }: {
                 return
             }
             if ('error' in res) { setError(prettifyError(res.error)); return }
+            if (res.inDeliveryArea && !staffClaimedRef.current) reportSignupInArea()
             setVerified(true)
             setTimeout(() => router.replace(staffClaimedRef.current ? '/staff/plan' : '/dashboard'), 500)
         })

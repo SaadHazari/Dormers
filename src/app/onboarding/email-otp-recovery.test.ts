@@ -17,10 +17,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { verifyOtpMock, signInWithPasswordMock, revalidatePathMock } = vi.hoisted(() => ({
+const { verifyOtpMock, signInWithPasswordMock, revalidatePathMock, customerRow } = vi.hoisted(() => ({
     verifyOtpMock: vi.fn(),
     signInWithPasswordMock: vi.fn(),
     revalidatePathMock: vi.fn(),
+    customerRow: { current: null as { out_of_zone: boolean | null } | null },
 }))
 
 vi.mock('@/utils/supabase/server', () => ({
@@ -32,7 +33,13 @@ vi.mock('@/utils/supabase/server', () => ({
     }),
 }))
 vi.mock('@/infra/supabase/admin-client', () => ({
-    createAdminSupabaseClient: () => ({}),
+    createAdminSupabaseClient: () => ({
+        from: () => ({
+            select: () => ({
+                eq: () => ({ maybeSingle: async () => ({ data: customerRow.current }) }),
+            }),
+        }),
+    }),
 }))
 vi.mock('@/infra/supabase/dorm-locations', () => ({
     getDormLocations: vi.fn(async () => []),
@@ -50,16 +57,18 @@ beforeEach(() => {
     verifyOtpMock.mockReset()
     signInWithPasswordMock.mockReset()
     revalidatePathMock.mockReset()
+    customerRow.current = null
 })
 
 describe('verifyEmailOtp scanner-consumed-token recovery', () => {
     it('signs in with the password when the code fails but the account is already confirmed', async () => {
         verifyOtpMock.mockResolvedValue({ error: OTP_CONSUMED })
-        signInWithPasswordMock.mockResolvedValue({ error: null })
+        signInWithPasswordMock.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+        customerRow.current = { out_of_zone: false }
 
         const res = await verifyEmailOtp('nr745@live.mdx.ac.uk', '123456', 'Str0ng-Passw0rd!')
 
-        expect(res).toEqual({ ok: true })
+        expect(res).toEqual({ ok: true, inDeliveryArea: true })
         expect(signInWithPasswordMock).toHaveBeenCalledWith({
             email: 'nr745@live.mdx.ac.uk',
             password: 'Str0ng-Passw0rd!',
@@ -87,11 +96,35 @@ describe('verifyEmailOtp scanner-consumed-token recovery', () => {
     })
 
     it('leaves the happy path untouched — code verifies, no sign-in fallback fired', async () => {
-        verifyOtpMock.mockResolvedValue({ error: null })
+        verifyOtpMock.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+        customerRow.current = { out_of_zone: false }
 
         const res = await verifyEmailOtp('someone@gmail.com', '654321', 'Str0ng-Passw0rd!')
 
-        expect(res).toEqual({ ok: true })
+        expect(res).toEqual({ ok: true, inDeliveryArea: true })
         expect(signInWithPasswordMock).not.toHaveBeenCalled()
+    })
+})
+
+// The Google Ads "Sign-up in area" conversion fires only on inDeliveryArea,
+// so an out-of-zone dorm (or a missing profile row) must never read as in-area.
+describe('verifyEmailOtp delivery-area flag', () => {
+    beforeEach(() => {
+        verifyOtpMock.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    })
+
+    it('is false for a customer who picked a dorm we do not deliver to', async () => {
+        customerRow.current = { out_of_zone: true }
+        expect(await verifyEmailOtp('a@b.co', '654321')).toEqual({ ok: true, inDeliveryArea: false })
+    })
+
+    it('is false when the profile row is missing', async () => {
+        customerRow.current = null
+        expect(await verifyEmailOtp('a@b.co', '654321')).toEqual({ ok: true, inDeliveryArea: false })
+    })
+
+    it('is false when the flag was never set', async () => {
+        customerRow.current = { out_of_zone: null }
+        expect(await verifyEmailOtp('a@b.co', '654321')).toEqual({ ok: true, inDeliveryArea: false })
     })
 })

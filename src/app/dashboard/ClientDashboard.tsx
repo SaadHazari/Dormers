@@ -31,6 +31,7 @@ interface RecentOrder {
   plan: string | null
   meals_count: number | null
   price_per_meal: number | null
+  amount_paid_fils?: number | null
   created_at: string
 }
 
@@ -145,6 +146,25 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
     const t = setTimeout(() => router.refresh(), 2000)
     return () => clearTimeout(t)
   }, [checkoutSuccess, newSubLanded, router])
+
+  // The webhook writes the plan, then the order, then the money paid. Keep
+  // refreshing a little after the plan lands (up to ~20s) so the takeover
+  // shows the real total and Google Ads is told the amount actually paid.
+  const thisCheckoutOrder =
+    checkoutSuccess && mostRecentOrder != null &&
+    (!handoffAt || new Date(mostRecentOrder.created_at).getTime() >= handoffAt - 1000)
+      ? mostRecentOrder
+      : null
+  const orderSettled = thisCheckoutOrder?.amount_paid_fils != null
+  const [orderPollsLeft, setOrderPollsLeft] = useState(10)
+  useEffect(() => {
+    if (!checkoutSuccess || !newSubLanded || orderSettled || orderPollsLeft <= 0) return
+    const t = setTimeout(() => {
+      setOrderPollsLeft((n) => n - 1)
+      router.refresh()
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [checkoutSuccess, newSubLanded, orderSettled, orderPollsLeft, router])
 
   // Webhook-delay fallback: after WEBHOOK_FALLBACK_MS the spinner copy swaps
   // to a reassurance + WhatsApp escape hatch. Resets when the wait ends.
@@ -365,6 +385,18 @@ export default function ClientDashboard({ customer, activeSubscription, allSubsc
           mealsCount={Number(justLandedSub.total_meals ?? 0)}
           totalAed={orderTotal}
           onDismiss={dismiss}
+          adsPurchase={
+            // Wait for the money column; if it never arrives within the
+            // polling window, report the plan total rather than lose the sale.
+            newOrder && (orderSettled || orderPollsLeft <= 0)
+              ? {
+                  orderId: newOrder.id,
+                  amountAed: newOrder.amount_paid_fils != null
+                    ? newOrder.amount_paid_fils / 100
+                    : orderTotal,
+                }
+              : null
+          }
         />
       )
     }

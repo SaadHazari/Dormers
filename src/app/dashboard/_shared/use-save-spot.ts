@@ -8,7 +8,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { joinWaitlist } from './join-waitlist'
 import { deriveJoinOutcome, type JoinOutcome } from './intake-join-outcome'
 
 export function useSaveSpot(): { outcome: JoinOutcome | null; joining: boolean; join: () => void } {
@@ -17,7 +17,7 @@ export function useSaveSpot(): { outcome: JoinOutcome | null; joining: boolean; 
   const [joining, startJoin] = useTransition()
   const join = () => {
     startJoin(async () => {
-      const next = deriveJoinOutcome(await joinIntakeWaitlist())
+      const next = deriveJoinOutcome(await joinWaitlist())
       setOutcome(next)
       if (next.joined) router.refresh()
     })

@@ -286,7 +286,22 @@ export async function createAccount(
 // The Supabase email template must expose `{{ .Token }}` for this to work —
 // see the README/onboarding docs for the template snippet.
 
-export type VerifyEmailOtpResult = { ok: true } | { error: string }
+/**
+ * `inDeliveryArea` feeds the Google Ads sign-up conversion: only customers
+ * whose dorm we deliver to count, read from the same out_of_zone flag that
+ * checkout uses to refuse a sale.
+ */
+export type VerifyEmailOtpResult = { ok: true; inDeliveryArea: boolean } | { error: string }
+
+async function isInDeliveryArea(userId: string | undefined): Promise<boolean> {
+    if (!userId) return false
+    const { data } = await createAdminSupabaseClient()
+        .from('customers')
+        .select('out_of_zone')
+        .eq('id', userId)
+        .maybeSingle()
+    return (data as { out_of_zone?: boolean | null } | null)?.out_of_zone === false
+}
 
 export async function verifyEmailOtp(
     email: string,
@@ -301,7 +316,7 @@ export async function verifyEmailOtp(
     }
 
     const supabase = await createClient()
-    const { error } = await supabase.auth.verifyOtp({
+    const { data: verified, error } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token,
         type: 'email',
@@ -320,13 +335,13 @@ export async function verifyEmailOtp(
         // signInWithPassword refuses ("Email not confirmed"), falling
         // through to the original OTP error below.
         if (password) {
-            const { error: signInError } = await supabase.auth.signInWithPassword({
+            const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
                 email: email.trim(),
                 password,
             })
             if (!signInError) {
                 revalidatePath('/', 'layout')
-                return { ok: true }
+                return { ok: true, inDeliveryArea: await isInDeliveryArea(signedIn?.user?.id) }
             }
         }
         // Common cases: expired (24h default), wrong code, too many attempts.
@@ -338,7 +353,7 @@ export async function verifyEmailOtp(
     // dashboard layouts re-render with the authed user; the client will then
     // redirect after this resolves.
     revalidatePath('/', 'layout')
-    return { ok: true }
+    return { ok: true, inDeliveryArea: await isInDeliveryArea(verified?.user?.id) }
 }
 
 export type ResendEmailOtpResult = { ok: true } | { error: string }

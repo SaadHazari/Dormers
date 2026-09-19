@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Gift, Check } from 'lucide-react'
 import { OG, OG_DEEP, BODY, S } from './tokens'
-import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { joinWaitlist } from './join-waitlist'
 import { deriveJoinOutcome, intakeCreditDisplay, intakeNextSteps, REOPEN_MESSAGE_PROMISE } from './intake-join-outcome'
 import { FoundingMemberArrival } from './FoundingMemberArrival'
 
@@ -75,7 +75,7 @@ export function IntakePausedGate({ headline, body, firstName = '', creditAed, al
   const handleJoin = () => {
     setJoinError(null)
     startTransition(async () => {
-      const result = await joinIntakeWaitlist()
+      const result = await joinWaitlist()
       const outcome = deriveJoinOutcome(result)
       if (outcome.joined) {
         setJoined(true)

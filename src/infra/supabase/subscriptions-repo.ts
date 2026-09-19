@@ -106,7 +106,7 @@ export const getMostRecentOrder = cache(async (userId: string) => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('orders')
-    .select('id, plan, meals_count, price_per_meal, created_at')
+    .select('id, plan, meals_count, price_per_meal, amount_paid_fils, created_at')
     .eq('customer_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)

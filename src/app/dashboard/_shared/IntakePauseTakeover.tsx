@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ShieldCheck, Check } from 'lucide-react'
 import { OG, BODY, TIER_POP_TEXT } from './tokens'
-import { joinIntakeWaitlist } from '@/contexts/subscriptions/usecases/join-intake-waitlist'
+import { joinWaitlist } from './join-waitlist'
 import { deriveJoinOutcome, creditMechanicsLine, type JoinOutcome } from './intake-join-outcome'
 import { pauseTakeoverCta, pausingTakeoverCopy } from './pause-takeover-actions'
 import { FoundingMemberArrival } from './FoundingMemberArrival'
@@ -85,7 +85,7 @@ export function IntakePauseTakeover({ variant, creditAed, onDismiss, onLater, al
     // created is the exact regression intake-join-outcome.ts exists to stop.
     const handleJoin = () => {
         startJoin(async () => {
-            const result = await joinIntakeWaitlist()
+            const result = await joinWaitlist()
             const nextOutcome = deriveJoinOutcome(result)
             setOutcome(nextOutcome)
             // The Credit Wallet is server-rendered in dashboard/layout.tsx, so a

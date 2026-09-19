@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { BODY, OG, TIER_POP_TEXT } from './tokens'
+import { reportPurchase } from '@/shared/google-ads'
 
 interface Props {
     firstName: string
@@ -11,6 +12,8 @@ interface Props {
     mealsCount: number
     totalAed: number
     onDismiss: () => void
+    /** The order to report to Google Ads; null until this checkout's order row lands. */
+    adsPurchase?: { orderId: string; amountAed: number } | null
 }
 
 /**
@@ -35,8 +38,17 @@ export function CheckoutSuccessTakeover({
     mealsCount,
     totalAed,
     onDismiss,
+    adsPurchase = null,
 }: Props) {
     const [dismissing, setDismissing] = useState(false)
+
+    // Keyed on the order id alone: the amount can be refined by a later poll,
+    // but Google keeps the first report per transaction_id anyway.
+    const adsOrderId = adsPurchase?.orderId ?? null
+    useEffect(() => {
+        if (adsPurchase) reportPurchase(adsPurchase.orderId, adsPurchase.amountAed)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adsOrderId])
     const deliveryPretty = new Date(firstDeliveryDateIso + 'T00:00:00Z').toLocaleDateString(
         'en-AE',
         { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' },

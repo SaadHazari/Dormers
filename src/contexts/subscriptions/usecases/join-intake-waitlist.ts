@@ -20,6 +20,9 @@ export interface JoinWaitlistResult {
   alreadyJoined: boolean
   creditAed: number
   message: string
+  /** True only for a first-time join from a customer whose dorm we deliver
+   *  to (out_of_zone === false) — the Google Ads waitlist conversion. */
+  inAreaFirstJoin?: boolean
 }
 
 type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>
@@ -234,9 +237,10 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
 
   const { data: customer } = await sb
     .from('customers')
-    .select('meal_preference_type')
+    .select('meal_preference_type, out_of_zone')
     .eq('id', user.id)
     .maybeSingle()
+  const inArea = (customer as { out_of_zone?: boolean | null } | null)?.out_of_zone === false
 
   const creditAed = creditAedFor(
     intake,
@@ -323,6 +327,7 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
       alreadyJoined: false,
       creditAed: 0,
       message: SPOT_SAVED_NO_CREDIT_YET_MESSAGE,
+      inAreaFirstJoin: inArea,
     }
   }
 
@@ -332,5 +337,6 @@ export async function joinIntakeWaitlist(): Promise<JoinWaitlistResult> {
     alreadyJoined: false,
     creditAed: minted.amountAed,
     message: `Your spot is saved. AED ${minted.amountAed} is waiting in your account.`,
+    inAreaFirstJoin: inArea,
   }
 }

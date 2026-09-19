@@ -273,3 +273,29 @@ describe('saving a spot while the season winds down (spec §7.7, §2.2)', () => 
     expect(insertWaitlistMock).not.toHaveBeenCalled()
   })
 })
+
+// Feeds the Google Ads "waitlist join in area" conversion: only a first join
+// from a customer we deliver to may count.
+describe('joinIntakeWaitlist inAreaFirstJoin', () => {
+  it('is true for a first join from an in-area customer', async () => {
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg', out_of_zone: false }, error: null })
+    expect((await joinIntakeWaitlist()).inAreaFirstJoin).toBe(true)
+  })
+
+  it('is false for an out-of-zone customer', async () => {
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg', out_of_zone: true }, error: null })
+    expect((await joinIntakeWaitlist()).inAreaFirstJoin).toBe(false)
+  })
+
+  it('is false when the zone flag was never set', async () => {
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg' }, error: null })
+    expect((await joinIntakeWaitlist()).inAreaFirstJoin).toBe(false)
+  })
+
+  it('is not set on a repeat join', async () => {
+    customerMock.mockResolvedValue({ data: { meal_preference_type: 'Non Veg', out_of_zone: false }, error: null })
+    insertWaitlistMock.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } })
+    existingCreditMock.mockResolvedValue({ data: { id: 'credit-1', amount_aed: '20' }, error: null })
+    expect((await joinIntakeWaitlist()).inAreaFirstJoin).toBeFalsy()
+  })
+})
