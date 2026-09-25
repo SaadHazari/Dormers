@@ -12,7 +12,7 @@ import { MAX_DELETE_BATCH } from '../customers/constants'
 import { loadMoreContacts } from './actions'
 import { deleteContacts } from '../customers/delete-actions'
 import { excludeFromWhatsApp, includeInWhatsApp } from './marketing-actions'
-import { isStaleActionError, STALE_ACTION_MESSAGE } from '../_components/stale-action'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '@/ui-system/observability/stale-action'
 import { AdminModal } from '../_components/AdminModal'
 import { AdminButton } from '../_components/AdminButton'
 import {

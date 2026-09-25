@@ -4,7 +4,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { validateEnv, resolveEnvContext, ENV_RULES } from './env-schema'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { validateEnv, resolveEnvContext, ENV_RULES, PLATFORM_ENV_KEYS } from './env-schema'
 
 // A minimal env that satisfies every "required everywhere" core rule.
 const coreEnv: Record<string, string> = {
@@ -96,5 +98,58 @@ describe('validateEnv', () => {
     const invalidKeys = result.invalid.map((r) => r.key)
     expect(invalidKeys).toContain('NEXT_PUBLIC_BASE_URL')
     expect(invalidKeys).toContain('STRIPE_SECRET_KEY')
+  })
+})
+
+// Every env key the app reads, found by reading the source. Comment lines are
+// skipped so prose like `process.env.NEXT_PUBLIC_FOO` does not count.
+function envKeysReadBySource(): Map<string, string> {
+  const SRC = join(__dirname, '..', '..')
+  const READS = [
+    /process\.env\.([A-Z][A-Z0-9_]+)/g,
+    /process\.env\[['"]([A-Z][A-Z0-9_]+)['"]\]/g,
+    /\benv\(['"]([A-Z][A-Z0-9_]+)['"]\)/g,        // meta-whatsapp's throwing helper
+    /\benvKey: ?['"]([A-Z][A-Z0-9_]+)['"]/g,        // season mail template keys
+  ]
+  const found = new Map<string, string>()
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) { walk(path); continue }
+      if (!/\.(ts|tsx)$/.test(entry.name) || /\.(test|spec)\.tsx?$/.test(entry.name)) continue
+      const code = readFileSync(path, 'utf8')
+        .split('\n')
+        .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+        .join('\n')
+      for (const re of READS) {
+        for (const m of code.matchAll(re)) if (!found.has(m[1])) found.set(m[1], path.slice(SRC.length + 1))
+      }
+    }
+  }
+  walk(SRC)
+  return found
+}
+
+describe('ENV_RULES covers the code', () => {
+  // WHATSAPP_BUSINESS_ACCOUNT_ID was read by the broadcast page but missing
+  // here, so boot validation never warned that prod lacked it. The page threw
+  // on first use instead (Sentry JAVASCRIPT-NEXTJS-1H). A new env read must
+  // come with a rule, so `validateEnv` can say when a deploy is missing it.
+  it('declares every env key the source reads', () => {
+    const declared = new Set<string>([...ENV_RULES.map((r) => r.key), ...PLATFORM_ENV_KEYS])
+    const undeclared = [...envKeysReadBySource()]
+      .filter(([key]) => !declared.has(key))
+      .map(([key, file]) => `${key} (read in ${file})`)
+    expect(undeclared, 'add these to ENV_RULES in env-schema.ts').toEqual([])
+  })
+
+  it('finds the reads it is meant to find', () => {
+    // Guards the scanner itself: if a regex breaks, the test above would pass
+    // by finding nothing.
+    const keys = envKeysReadBySource()
+    expect(keys.has('WHATSAPP_BUSINESS_ACCOUNT_ID')).toBe(true)
+    expect(keys.has('SUPABASE_SERVICE_ROLE_KEY')).toBe(true)
+    expect(keys.has('ZEPTOMAIL_TPL_SEASON_PLAN_HELD')).toBe(true)
+    expect(keys.has('NEXT_PUBLIC_FOO')).toBe(false)
   })
 })

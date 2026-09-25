@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { useEffect, useState } from 'react'
+import { isNetworkDropError } from '@/ui-system/observability/client-noise'
 
 export default function GlobalError({
   error,
@@ -20,6 +21,11 @@ export default function GlobalError({
     /Server Action .* was not found on the server|Failed to find Server Action/i.test(
       error?.message ?? '',
     )
+
+  // The phone lost signal mid-request (JAVASCRIPT-NEXTJS-1F: "Load failed" on
+  // an iPhone). Nothing broke on our side, so say what actually happened.
+  // Sentry's ignoreErrors drops the report; the screen still offers Refresh.
+  const isNetworkDrop = isNetworkDropError(error)
 
   useEffect(() => {
     if (isStaleServerAction) {
@@ -83,7 +89,7 @@ export default function GlobalError({
               lineHeight: 1.2, margin: '0 0 12px',
             }}
           >
-            Something went wrong.
+            {isNetworkDrop ? 'Your connection dropped.' : 'Something went wrong.'}
           </h1>
           <p
             style={{
@@ -91,7 +97,9 @@ export default function GlobalError({
               lineHeight: 1.55, margin: '0 0 22px',
             }}
           >
-            Your meals and plan are safe. Try refreshing, or reach out if it keeps happening.
+            {isNetworkDrop
+              ? 'Your meals and plan are safe. Check your signal, then tap Refresh.'
+              : 'Your meals and plan are safe. Try refreshing, or reach out if it keeps happening.'}
           </p>
           {error.digest && (
             <p

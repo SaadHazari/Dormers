@@ -10,7 +10,7 @@ import { CUSTOMER_PAGE_SIZE, MAX_DELETE_BATCH } from './constants'
 import { loadMoreCustomers } from './actions'
 import { previewCustomerDeletion } from './delete-actions'
 import { DeleteCustomersModal } from '../_components/DeleteCustomersModal'
-import { isStaleActionError, STALE_ACTION_MESSAGE } from '../_components/stale-action'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '@/ui-system/observability/stale-action'
 import type { DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 import {
     getAttention, matchesFilter, sortCustomers, todayDubai, waitlistNote,

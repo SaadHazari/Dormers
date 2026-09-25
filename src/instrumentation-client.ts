@@ -10,6 +10,7 @@
  */
 
 import * as Sentry from '@sentry/nextjs'
+import { isForeignScriptEvent, NETWORK_DROP_MESSAGE } from '@/ui-system/observability/client-noise'
 
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
   const isDev = process.env.NODE_ENV === 'development'
@@ -23,7 +24,11 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // Drop error events in development — HMR / Turbopack produces transient
     // ReferenceErrors that aren't real bugs. Dev errors show in the console;
     // Sentry's value is production monitoring. Traces + profiles stay on.
-    beforeSend: isDev ? () => null : undefined,
+    //
+    // In production, drop errors thrown entirely inside someone else's
+    // script — an extension or bot that injected code into our page. See
+    // client-noise.ts and Sentry JAVASCRIPT-NEXTJS-1K.
+    beforeSend: isDev ? () => null : (event) => (isForeignScriptEvent(event) ? null : event),
 
     // Browser-injected script noise — not our code. iOS browsers built on
     // the Firefox-for-iOS codebase (Firefox, Brave on iOS) inject user
@@ -57,6 +62,14 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       // contains the words (e.g. "Database connection closed while writing…").
       // See Sentry JAVASCRIPT-NEXTJS-15.
       /^(Error: )?Connection closed\.?$/,
+      // The visitor's connection dropped mid-request ("Load failed" on
+      // Safari). The page shows a Refresh screen; there is nothing for us to
+      // fix. See client-noise.ts and Sentry JAVASCRIPT-NEXTJS-1F.
+      NETWORK_DROP_MESSAGE,
+      // A tab left open across a deploy calls a server action the new build
+      // no longer has. StaleActionReloader reloads the page on every route,
+      // so this heals itself. See Sentry JAVASCRIPT-NEXTJS-1G.
+      'UnrecognizedActionError',
     ],
 
     // Trace sampling: 100% in dev so every nav is visible; 10% in prod for cost.

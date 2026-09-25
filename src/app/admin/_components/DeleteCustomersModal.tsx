@@ -8,7 +8,7 @@ import { AdminButton } from './AdminButton'
 import { AdminBadge } from './AdminBadge'
 import { describeImpact, planDeletion, type DeleteImpactRow } from '@/contexts/admin/domain/deletion-plan'
 import { deleteCustomers } from '../customers/delete-actions'
-import { isStaleActionError, STALE_ACTION_MESSAGE } from './stale-action'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '@/ui-system/observability/stale-action'
 
 /**
  * The screen between selecting people and destroying them.

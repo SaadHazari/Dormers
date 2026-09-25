@@ -7,7 +7,6 @@ import { CommandPaletteProvider, useCommandPalette, type PaletteCommand } from '
 import { CommandPalette } from './_components/CommandPalette'
 import { KeyboardShortcuts } from './_components/KeyboardShortcuts'
 import AdminSidebar from './AdminSidebar'
-import { StaleActionReloader } from './_components/StaleActionReloader'
 
 interface Props {
     pendingReferrals: number
@@ -79,7 +78,6 @@ function ShellInner({ pendingReferrals, pendingLayer4, children }: Props) {
                 transition: 'background-color 200ms ease',
             }}
         >
-            <StaleActionReloader />
             <AdminSidebar
                 pendingReferrals={pendingReferrals}
                 pendingLayer4={pendingLayer4}

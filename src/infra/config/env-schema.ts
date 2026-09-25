@@ -65,6 +65,16 @@ export const ENV_RULES: EnvRule[] = [
   { key: 'WHATSAPP_PHONE_NUMBER_ID', group: 'whatsapp', prodOnly: true },
   { key: 'WHATSAPP_APP_SECRET', group: 'whatsapp', prodOnly: true, description: 'inbound webhook HMAC' },
   { key: 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', group: 'whatsapp', prodOnly: true },
+  { key: 'WHATSAPP_OTP_TEMPLATE_NAME', group: 'whatsapp', prodOnly: true, description: 'login codes' },
+  // Missing from this list once, so nothing warned when prod lacked it and the
+  // broadcast page threw on first use (Sentry JAVASCRIPT-NEXTJS-1H).
+  { key: 'WHATSAPP_BUSINESS_ACCOUNT_ID', group: 'whatsapp', prodOnly: true, description: 'broadcast template sync' },
+  { key: 'WHATSAPP_OPS_LINK_TEMPLATE_NAME', group: 'whatsapp', description: "defaults to 'ops_access_link'" },
+  { key: 'WHATSAPP_OPS_LINK_TEMPLATE_LANG', group: 'whatsapp', description: "defaults to 'en'" },
+  { key: 'WHATSAPP_MARKETING_RATE_AED', group: 'whatsapp', description: 'broadcast cost estimate; defaults to 0.12' },
+  { key: 'WHATSAPP_SEASON_TEMPLATES_ENABLED', group: 'whatsapp', description: "'true' once Meta approves" },
+  { key: 'WHATSAPP_SEASON_ENDED_ENABLED', group: 'whatsapp', description: "'true' once Meta approves" },
+  { key: 'WHATSAPP_SEASON_REOPEN_ENABLED', group: 'whatsapp', description: "'true' once Meta approves" },
   { key: 'WHATSAPP_STAFF_INVITE_TEMPLATE_NAME', group: 'whatsapp', description: 'staff feature' },
   { key: 'WHATSAPP_STAFF_INVITE_CODE_TEMPLATE_NAME', group: 'whatsapp', description: 'staff feature' },
 
@@ -89,6 +99,17 @@ export const ENV_RULES: EnvRule[] = [
   { key: 'ZEPTOMAIL_TPL_SUBSCRIPTION_ENDED', group: 'zeptomail-templates', prodOnly: true },
   { key: 'ZEPTOMAIL_TPL_REFUND_PROCESSED', group: 'zeptomail-templates', prodOnly: true },
   { key: 'ZEPTOMAIL_TPL_STAFF_INVITE', group: 'zeptomail-templates', prodOnly: true },
+  // Season wind-down mail. Each send throws when its key is unset.
+  { key: 'ZEPTOMAIL_TPL_SEASON_PLAN_ENDED', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_REOPEN', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_PLAN_RUNS_PAST', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_LAST_DINNERS', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_PLAN_HELD', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_PAUSE_CARRIES', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_PLAN_READY', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_CREDIT_WAITING', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_SPOT_SAVED', group: 'zeptomail-templates', prodOnly: true },
+  { key: 'ZEPTOMAIL_TPL_SEASON_REFUND_DECLINED', group: 'zeptomail-templates', prodOnly: true },
 
   // ── Zoho (invoicing) ───────────────────────────────────────────────────
   { key: 'ZOHO_CLIENT_ID', group: 'zoho', prodOnly: true },
@@ -107,7 +128,14 @@ export const ENV_RULES: EnvRule[] = [
   // ── Observability (optional but recommended) ───────────────────────────
   { key: 'SENTRY_DSN', group: 'observability' },
   { key: 'NEXT_PUBLIC_SENTRY_DSN', group: 'observability', public: true },
+  { key: 'LOG_LEVEL', group: 'observability', description: 'pino level; defaults per environment' },
 ]
+
+/**
+ * Set by the platform, never by us in Netlify's env settings, so they are not
+ * rules. env-schema.test.ts lets code read these without a rule.
+ */
+export const PLATFORM_ENV_KEYS = ['NODE_ENV', 'NEXT_RUNTIME', 'CONTEXT', 'NEXT_PUBLIC_VERCEL_ENV'] as const
 
 export interface EnvIssue {
   rule: EnvRule

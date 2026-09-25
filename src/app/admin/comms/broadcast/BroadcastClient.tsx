@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Mail, MessageCircle } from 'lucide-react'
 import { useAdminTheme } from '../../_components/AdminThemeProvider'
-import { isStaleActionError, STALE_ACTION_MESSAGE } from '../../_components/stale-action'
+import { isStaleActionError, STALE_ACTION_MESSAGE } from '@/ui-system/observability/stale-action'
 import {
     countAudiences, launchBroadcast, syncWhatsAppTemplates, whatsappPreflight,
     type AudienceCount,

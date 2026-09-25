@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Montserrat, Poppins, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { WebVitalsReporter } from "@/ui-system/observability/web-vitals";
+import { StaleActionReloader } from "@/ui-system/observability/StaleActionReloader";
 import { StyledJsxRegistry } from "@/ui-system/styles/styled-jsx-registry";
 import {
   MARKETING_PATHS,
@@ -149,6 +150,7 @@ export default function RootLayout({
       </Script>
       {/* --- END OF GOOGLE ADS CODE --- */}
         <WebVitalsReporter />
+        <StaleActionReloader />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
