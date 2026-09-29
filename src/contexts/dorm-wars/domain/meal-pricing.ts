@@ -51,7 +51,7 @@ function resolvePlanId(name: string | null | undefined): PlanId | null {
 // Uses Monthly Premium NonVeg — the most common combo — so Tier 4 lapsed
 // customers without history still get a reasonable payout.
 const FALLBACK_CONTEXT: MealPriceContext = {
-  pricePerMeal:     22,                 // Monthly Premium NonVeg
+  pricePerMeal:     23,                 // Monthly Premium NonVeg
   mealsPerWeek:     6,                  // 6DAYS × 1 meal/day
   totalMealsInPlan: 24,                 // 4 weeks × 6 days
   planId:           'Monthly Premium',

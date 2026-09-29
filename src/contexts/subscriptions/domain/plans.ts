@@ -115,7 +115,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       sentence: 'A one-time trial is a single delivery, so there’s nothing to pause.',
     },
     maxSkips: 0,
-    minPriceFils: 20 * 1 * 100, // 2,000 fils — AED 20
+    minPriceFils: 25 * 1 * 100, // 2,500 fils — AED 25
   },
   // Welcome Meal — the one free meal a referee gets after claiming via
   // /r/{cid}. Not sellable through checkout (the route resolves by plan

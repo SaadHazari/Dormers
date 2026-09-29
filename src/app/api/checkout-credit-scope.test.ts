@@ -106,14 +106,14 @@ describe('checkout credit fetch is plan-scoped', () => {
     // The amount must now be the EXACT price for the submitted preference,
     // not merely inside the plan's band — checkout stopped accepting a range
     // once it turned out a POST could order NonVeg and pay the Veg floor.
-    // Weekly Flex 6DAYS NonVeg = AED 23/meal × 6 meals = 13800 fils, and
+    // Weekly Flex 6DAYS NonVeg = AED 24/meal × 6 meals = 14400 fils, and
     // `preference` has to be sent because the route prices what was ordered.
     //
     // `plan` must be the label resolvePlan matches against ('Weekly Flex'),
     // not the kebab id — the kebab id is what planDef.id resolves TO, which
     // is what we assert got passed through as the third argument below.
     const expected = exactPriceFils('Weekly Flex', 'NonVeg', 0, '6DAYS')
-    expect(expected).toBe(13_800)
+    expect(expected).toBe(14_400)
     await POST(req({ amount: expected, plan: 'Weekly Flex', preference: 'Non Veg' }))
     const planArg = spy.mock.calls.at(-1)?.[2]
     expect(planArg).toBe('weekly-flex')

@@ -9,8 +9,10 @@ import {
 // total cycle cost differs (because mealsForPlan(plan, weekType) varies).
 // 5DAYS customers index 1..4; 6DAYS index 1..5; index 0 = pure NonVeg path,
 // index 6 = pure Veg path (both reached via the non-Religious branch below).
-const MIXED_MONTHLY_PER_MEAL = [22, 22, 21, 20, 19, 18, 17]
-const MIXED_WEEKLY_PER_MEAL  = [23, 21.67, 21.67, 21, 21, 20, 19]
+// 2026-09-29: whole table raised AED 1 (owner call) — Monthly Max follows
+// automatically (it is the monthly price − 0.5); the Trial stays flat at 25.
+const MIXED_MONTHLY_PER_MEAL = [23, 23, 22, 21, 20, 19, 18]
+const MIXED_WEEKLY_PER_MEAL  = [24, 22.67, 22.67, 22, 22, 21, 20]
 
 export type Pref = 'NonVeg' | 'Veg' | 'Religious'
 export type PlanId = 'Trial' | 'Weekly Flex' | 'Monthly Premium' | 'Monthly Max'
@@ -213,20 +215,21 @@ export function pricePerMeal(
   if (pref === 'Religious') {
     const W = weekType === '5DAYS' ? 5 : 6
     const safeIdx = Math.max(0, Math.min(W - 1, Math.floor(vegDayCount)))
-    if (plan === 'Monthly Premium') return MIXED_MONTHLY_PER_MEAL[safeIdx] ?? 22
-    if (plan === 'Weekly Flex')     return MIXED_WEEKLY_PER_MEAL[safeIdx]  ?? 23
+    if (plan === 'Monthly Premium') return MIXED_MONTHLY_PER_MEAL[safeIdx] ?? 23
+    if (plan === 'Weekly Flex')     return MIXED_WEEKLY_PER_MEAL[safeIdx]  ?? 24
     if (plan === 'Trial')            return 25
-    if (plan === 'Monthly Max')      return Math.max(0, (MIXED_MONTHLY_PER_MEAL[safeIdx] ?? 22) - 0.5)
+    if (plan === 'Monthly Max')      return Math.max(0, (MIXED_MONTHLY_PER_MEAL[safeIdx] ?? 23) - 0.5)
   }
   if (pref === 'Veg') {
     if (plan === 'Monthly Premium') return 18
     if (plan === 'Weekly Flex')     return 19
-    if (plan === 'Trial')            return 20
+    if (plan === 'Trial')            return 25
     if (plan === 'Monthly Max')      return 17.5
   }
-  if (plan === 'Monthly Premium') return 22
-  if (plan === 'Weekly Flex')     return 23
-  if (plan === 'Trial')            return 25
+  // NonVeg. 2026-09-29: folded in the admin overrides (MP 23, WF 24, Trial 26).
+  if (plan === 'Monthly Premium') return 23
+  if (plan === 'Weekly Flex')     return 24
+  if (plan === 'Trial')            return 26
   if (plan === 'Monthly Max')      return 21.5
   return 0
 }
