@@ -95,6 +95,9 @@ interface Props {
   intake?: IntakeGateState
   /** The owner's refund switch for this customer (null when off). */
   planRefund?: PlanRefundView | null
+  /** Owner switch (/admin/pricing) — hides plan prices on the mobile shelf.
+   *  Desktop is unaffected. */
+  mobilePricesHidden?: boolean
 }
 
 // ── Reusable bits ─────────────────────────────────────────────────────────────
@@ -1486,7 +1489,7 @@ function PostCutoffOverlay({ onDismiss }: { onDismiss: () => void }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditRows = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED, planRefund = null }: Props) {
+export default function PlanClient({ customer, activeSubscription, allSubscriptions, userEmail, mode = 'plan', creditByPlan = {}, creditRows = [], priceOverrides = [], intake = INTAKE_NOT_PAUSED, planRefund = null, mobilePricesHidden = false }: Props) {
   const isExplore = mode === 'explore'
   const outOfZone = !!customer?.out_of_zone
   // One sentence, same helper the sidebar chip and MobileCreditChip use, so
@@ -2225,6 +2228,7 @@ export default function PlanClient({ customer, activeSubscription, allSubscripti
           missingFields={missingFields}
           creditByPlan={creditByPlan}
           priceOverrides={priceOverrides}
+          pricesHidden={mobilePricesHidden}
           intake={intake}
           cancelBanner={cancelBanner}
           onDismissCancelBanner={() => setCancelBanner(false)}

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Eye, EyeOff } from 'lucide-react'
 import { useAdminTheme } from '../_components/AdminThemeProvider'
 import { AdminButton } from '../_components/AdminButton'
 import { AdminBadge } from '../_components/AdminBadge'
-import { createPricingRow, endPricingRow } from './actions'
+import { createPricingRow, endPricingRow, setMobileDashboardPrices } from './actions'
 
 export interface PricingRow {
     id: string
@@ -40,6 +40,9 @@ interface Props {
     rows: PricingRow[]
     effective: EffectiveRow[]
     religious: ReligiousPlanRow[]
+    /** mobile_dashboard_prices feature flag — false hides plan prices on the
+     *  mobile customer dashboard. */
+    mobilePricesVisible: boolean
 }
 
 // Today in Asia/Dubai — effective_to is EXCLUSIVE: a row ending today is
@@ -55,12 +58,24 @@ function rowStatus(r: PricingRow): 'active' | 'scheduled' | 'expired' {
     return 'active'
 }
 
-export function PricingClient({ rows, effective, religious }: Props) {
+export function PricingClient({ rows, effective, religious, mobilePricesVisible }: Props) {
     const { t } = useAdminTheme()
     const [showForm, setShowForm] = useState(false)
     const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
     const [isEnding, startEnding] = useTransition()
     const [endingId, setEndingId] = useState<string | null>(null)
+    const [isToggling, startToggling] = useTransition()
+
+    const handleTogglePrices = () => {
+        const next = !mobilePricesVisible
+        const warning = next
+            ? 'Show plan prices on the mobile dashboard?'
+            : 'Hide plan prices on the mobile dashboard? Customers on phones cannot buy a plan while prices are hidden.'
+        if (!window.confirm(warning)) return
+        startToggling(async () => {
+            setResult(await setMobileDashboardPrices(next))
+        })
+    }
 
     const handleEnd = (row: PricingRow) => {
         if (!window.confirm(`End this override now? ${row.plan_id} ${row.preference} reverts to its code-default price immediately.`)) return
@@ -82,6 +97,28 @@ export function PricingClient({ rows, effective, religious }: Props) {
                 These are the prices customers see and pay right now — code defaults overlaid with your DB overrides.
                 {overriddenCount > 0 ? ` ${overriddenCount} price${overriddenCount === 1 ? '' : 's'} currently overridden.` : ' No overrides active — all prices are code defaults.'}
             </p>
+
+            {/* Owner switch — mobile dashboard price visibility */}
+            <div className={`${t.card} rounded-xl p-4 mb-5 flex flex-wrap items-center justify-between gap-3`}>
+                <div className="min-w-0">
+                    <h2 className={`text-[10px] font-black tracking-[0.14em] uppercase mb-1 ${t.muted}`}>
+                        Mobile Dashboard Prices
+                    </h2>
+                    <p className={`text-[13px] font-medium ${t.body}`}>
+                        {mobilePricesVisible
+                            ? 'Visible — customers on phones see plan prices on Explore plans.'
+                            : 'Hidden — plan cards on phones show no prices and cannot be bought.'}
+                    </p>
+                </div>
+                <AdminButton
+                    variant={mobilePricesVisible ? 'ghost' : 'primary'}
+                    icon={mobilePricesVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                    loading={isToggling}
+                    onClick={handleTogglePrices}
+                >
+                    {mobilePricesVisible ? 'Hide Price' : 'Show Price'}
+                </AdminButton>
+            </div>
 
             {/* Effective prices — Veg / Non-Veg */}
             <div className={`${t.card} rounded-xl p-4 mb-5`}>

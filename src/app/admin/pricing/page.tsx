@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
+import { isFeatureEnabled } from '@/infra/config/feature-flags'
 import { pricePerMeal, PLAN_ID_BY_KEBAB } from '@/contexts/subscriptions/domain/pricing'
 import { PricingClient, type EffectiveRow, type ReligiousPlanRow, type PricingRow } from './PricingClient'
 
@@ -12,12 +13,13 @@ const PLAN_ORDER = ['monthly-max', 'monthly-premium', 'weekly-flex', 'trial'] as
 export default async function PricingPage() {
     const sb = createAdminSupabaseClient()
 
-    const [{ data }, overrides] = await Promise.all([
+    const [{ data }, overrides, mobilePricesVisible] = await Promise.all([
         sb.from('plan_pricing')
             .select('*')
             .order('plan_id')
             .order('effective_from', { ascending: false }),
         fetchActivePriceOverrides(),
+        isFeatureEnabled('mobile_dashboard_prices'),
     ])
 
     const rows = (data ?? []) as PricingRow[]
@@ -52,5 +54,5 @@ export default async function PricingPage() {
         }
     })
 
-    return <PricingClient rows={rows} effective={effective} religious={religious} />
+    return <PricingClient rows={rows} effective={effective} religious={religious} mobilePricesVisible={mobilePricesVisible} />
 }

@@ -5,6 +5,7 @@ import { requireAdmin } from '@/contexts/admin/usecases/require-admin'
 import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 import { logAdminAction } from '@/contexts/admin/usecases/audit'
 import { captureError } from '@/infra/logging/capture-error'
+import { invalidateFeatureFlag } from '@/infra/config/feature-flags'
 
 type Result = { ok: boolean; message: string }
 
@@ -94,4 +95,33 @@ export async function endPricingRow(id: string): Promise<Result> {
 
     revalidatePath('/admin/pricing')
     return { ok: true, message: `Override ended: ${row.plan_id} ${row.preference} reverts to its previous price.` }
+}
+
+/**
+ * Owner switch — show or hide plan prices on the MOBILE customer dashboard
+ * (Explore plans). Upserts the feature_flags row, so it works whether or not
+ * the mirror migration has been applied yet.
+ */
+export async function setMobileDashboardPrices(visible: boolean): Promise<Result> {
+    const admin = await requireAdmin()
+    const sb = createAdminSupabaseClient()
+
+    const { error } = await sb.from('feature_flags').upsert({
+        key: 'mobile_dashboard_prices',
+        enabled: visible,
+        description: 'Plan prices on the mobile customer dashboard (Explore plans) — toggle in /admin/pricing',
+        updated_at: new Date().toISOString(),
+    })
+
+    if (error) {
+        captureError(error, { area: 'admin', op: 'setMobileDashboardPrices' })
+        return { ok: false, message: error.message }
+    }
+
+    invalidateFeatureFlag('mobile_dashboard_prices')
+    await logAdminAction(admin.email, visible ? 'show_mobile_prices' : 'hide_mobile_prices', 'feature_flags', 'mobile_dashboard_prices', { visible })
+
+    revalidatePath('/admin/pricing')
+    revalidatePath('/dashboard/explore-plans')
+    return { ok: true, message: visible ? 'Prices are now visible on mobile.' : 'Prices are now hidden on mobile.' }
 }

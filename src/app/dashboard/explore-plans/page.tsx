@@ -2,6 +2,7 @@ import { getUserFromHeaders } from '@/utils/supabase/auth'
 import { getCustomer, getActiveSubscription, getAllSubscriptions, getCreditSplitByPlan, getWaitlistStatus } from '@/infra/supabase/subscriptions-repo'
 import { fetchActivePriceOverrides } from '@/infra/supabase/pricing-repo'
 import { getIntakeState, creditAedFor, intakeForCustomer } from '@/infra/config/intake'
+import { isFeatureEnabled } from '@/infra/config/feature-flags'
 import { PLANS, PLAN_KEBAB } from '@/contexts/subscriptions/domain/pricing'
 import type { PlanId as KebabPlanId } from '@/contexts/subscriptions/domain/plans'
 import { createClient } from '@/utils/supabase/server'
@@ -74,7 +75,7 @@ export default async function ExplorePlansPage({
   // this is not a new round trip) so its cycleStartedAt can scope the
   // waitlist-join lookup below to the CURRENT pause.
   const seasonState = await getIntakeState()
-  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus] = await Promise.all([
+  const [customer, activeSubscription, allSubscriptions, creditSplitByKebab, priceOverrides, waitlistStatus, mobilePricesVisible] = await Promise.all([
     getCustomer(user.id),
     getActiveSubscription(user.id),
     getAllSubscriptions(user.id),
@@ -86,6 +87,8 @@ export default async function ExplorePlansPage({
     // shared with the Now-tray entries and the plan-ending banner so the
     // fact can't drift between surfaces. This page only needs `.joined`.
     getWaitlistStatus(supabase, user.id, seasonState.cycleStartedAt),
+    // Owner switch in /admin/pricing — hides the mobile shelf's prices.
+    isFeatureEnabled('mobile_dashboard_prices'),
   ])
   // An investor demo account sees an open semester (see intakeForCustomer).
   const intakeState = intakeForCustomer(seasonState, customer)
@@ -120,6 +123,7 @@ export default async function ExplorePlansPage({
       creditByPlan={creditByPlan}
       priceOverrides={priceOverrides}
       intake={intake}
+      mobilePricesHidden={!mobilePricesVisible}
     />
   )
 }

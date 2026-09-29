@@ -48,6 +48,9 @@ interface Props {
   /** Active admin price overrides (plan_pricing rows) — threaded into the
    *  cards + checkout sheet so mobile shows the DB-backed price. */
   priceOverrides?: PriceOverride[]
+  /** Owner switch (/admin/pricing) — the cards show no numbers and cannot be
+   *  picked, so the checkout sheet (which prints the total) never opens. */
+  pricesHidden?: boolean
   /** Seasonal intake pause — mounts IntakePausedGate over the plan stack,
    *  taking precedence over the profile gate. Never render both. */
   intake?: IntakeGateState
@@ -59,7 +62,7 @@ interface Props {
   onDismissCancelBanner?: () => void
 }
 
-export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditByPlan, priceOverrides = [], intake = INTAKE_NOT_PAUSED, cancelBanner = false, onDismissCancelBanner }: Props) {
+export function MobileExplore({ customer, userEmail, activeSubscription, pref, prefLabel, weekType, vegDayCount, setVegDayCount, selected, setSelected, outOfZone, profileGated, missingFields, creditByPlan, priceOverrides = [], pricesHidden = false, intake = INTAKE_NOT_PAUSED, cancelBanner = false, onDismissCancelBanner }: Props) {
   const paused = activeSubscription?.status === SUBSCRIPTION_STATUS.PAUSED
   // The checkout sheet shares `selected` with the desktop plan cards. Gate it to
   // compact so picking a plan on DESKTOP never opens this hidden sheet (which
@@ -143,7 +146,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
 
       {/* Context — what these prices are scoped to (one wrapping line). */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 12, color: S.fgMuted }}>
-        <span>Prices for</span>
+        <span>{pricesHidden ? 'Plans for' : 'Prices for'}</span>
         <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(245,127,32,0.10)', color: S.fg, fontSize: 11.5, fontWeight: 700 }}>{prefLabel}</span>
         <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(58,111,140,0.10)', color: '#3a6f8c', fontSize: 11.5, fontWeight: 700 }}>{weekType === '5DAYS' ? 'Mon–Fri' : 'Mon–Sat'}</span>
         <Link href="/dashboard/profile" style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 4px', margin: '-6px -4px', color: S.fgSub, fontSize: 12, fontWeight: 700, textDecoration: 'underline', textDecorationColor: 'var(--ds-fg-tint)', textUnderlineOffset: 3 }}>Change</Link>
@@ -192,8 +195,9 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
               vegDayCount={vegDayCount}
               weekType={weekType}
               selected={selected === plan.id}
-              onSelect={() => { if (intake.paused || profileGated || paused || outOfZone || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
+              onSelect={() => { if (pricesHidden || intake.paused || profileGated || paused || outOfZone || doneForTermByPlan[plan.id]) return; setSelected(prev => prev === plan.id ? null : plan.id) }}
               priceOverrides={priceOverrides}
+              pricesHidden={pricesHidden}
               doneForTerm={!!doneForTermByPlan[plan.id]}
               seasonClosed={intake.paused}
               alreadyJoined={intake.alreadyJoined}
@@ -205,7 +209,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
       </div>
 
       {/* Price honesty — the shelf shows this term's numbers, and says so. */}
-      {intake.paused && (
+      {intake.paused && !pricesHidden && (
         <p style={{ margin: '-2px 0 0', textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: S.fgMuted, lineHeight: 1.5 }}>
           This term’s prices — next term’s are confirmed when plans reopen.
         </p>
@@ -216,7 +220,7 @@ export function MobileExplore({ customer, userEmail, activeSubscription, pref, p
       </div>
 
       <MobileCheckout
-        selected={compact ? selected : null}
+        selected={compact && !pricesHidden ? selected : null}
         onClose={() => setSelected(() => null)}
         pref={pref}
         vegDayCount={vegDayCount ?? 3}
@@ -261,8 +265,10 @@ function VegCountPicker({ count, setCount, weekType }: { count: number | null; s
 }
 
 // ── Plan card (compact, mobile-native) ───────────────────────────────────────
-function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, doneForTerm = false, seasonClosed = false, alreadyJoined = false, lockedReason = null, creditAed = 0 }: {
+function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, priceOverrides, pricesHidden = false, doneForTerm = false, seasonClosed = false, alreadyJoined = false, lockedReason = null, creditAed = 0 }: {
   plan: PlanDef; pref: Pref; vegDayCount: number | null; weekType: WeekType; selected: boolean; onSelect: () => void; priceOverrides?: PriceOverride[]
+  /** Owner switch — no numbers anywhere on the card, and it cannot be picked. */
+  pricesHidden?: boolean
   /** Season taper — no start left in the window lets this plan finish
    *  before the last delivery day. Same dim + disabled treatment the
    *  "pick veg days first" state uses; mirrors the desktop card. */
@@ -287,7 +293,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   // One resting grammar for both "cannot buy" reasons — which line explains
   // the dim differs below.
   const closed = doneForTerm || seasonClosed || !!lockedReason
-  const unavailable = priceUnknown || closed
+  const unavailable = priceUnknown || closed || pricesHidden
   const safeCount = vegDayCount ?? 3
   const price = pricePerMeal(plan.id, pref, safeCount, weekType, priceOverrides)
   const total = totalPrice(plan.id, pref, safeCount, weekType, priceOverrides)
@@ -314,16 +320,16 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
   let saveAmount: number | null = null
   if (plan.id === 'Monthly Premium') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 4 - total; if (d > 0) saveAmount = d }
   else if (plan.id === 'Monthly Max') { const d = totalPrice('Weekly Flex', pref, safeCount, weekType, priceOverrides) * 8 - total; if (d > 0) saveAmount = d }
-  const showSave = saveAmount !== null && !priceUnknown
+  const showSave = saveAmount !== null && !priceUnknown && !pricesHidden
   const saveLabel = saveAmount !== null ? (saveAmount % 1 === 0 ? `${saveAmount}` : saveAmount.toFixed(2)) : ''
 
   const cta: CSSProperties = {
     marginTop: 2, width: '100%', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 6,
     padding: '13px', borderRadius: 12, fontFamily: BODY, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-    background: selected ? OG : closed ? 'transparent' : featured ? 'var(--ds-og-wash-strong)' : 'var(--ds-skeleton-base)',
-    color: selected ? '#fff' : closed ? S.fgFaint : featured ? OG : S.fg,
+    background: selected ? OG : closed || pricesHidden ? 'transparent' : featured ? 'var(--ds-og-wash-strong)' : 'var(--ds-skeleton-base)',
+    color: selected ? '#fff' : closed || pricesHidden ? S.fgFaint : featured ? OG : S.fg,
     // Dashed = the mobile "not available to press" affordance (empty-state pill).
-    border: selected ? '1px solid transparent' : closed ? '1px dashed var(--ds-border-strong)' : featured ? '1px solid rgba(245,127,32,0.40)' : `1px solid ${S.border2}`,
+    border: selected ? '1px solid transparent' : closed || pricesHidden ? '1px dashed var(--ds-border-strong)' : featured ? '1px solid rgba(245,127,32,0.40)' : `1px solid ${S.border2}`,
   }
 
   return (
@@ -357,16 +363,16 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
       {/* Price */}
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-          <span style={{ fontSize: 32, fontWeight: 800, color: priceUnknown ? S.fgFaint : S.fg, letterSpacing: '-0.03em', lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{priceUnknown ? '—' : price}</span>
+          <span style={{ fontSize: 32, fontWeight: 800, color: priceUnknown || pricesHidden ? S.fgFaint : S.fg, letterSpacing: '-0.03em', lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{priceUnknown || pricesHidden ? '—' : price}</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: S.fgMuted }}>AED / meal</span>
         </div>
         <div style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, color: priceUnknown ? OG : (selected || showFeatured ? OG : S.fgMuted), letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          {priceUnknown ? 'Set veg days first' : `${total} AED${plan.period}`}
+          {pricesHidden ? 'Prices coming soon' : priceUnknown ? 'Set veg days first' : `${total} AED${plan.period}`}
         </div>
         <div style={{ marginTop: 3, fontSize: 11, color: S.fgFaint }}>{dynamicDuration}</div>
         {/* Credit line — the exact amount checkout will apply to THIS plan,
             capped at its price. Success tone, mirrors the desktop card. */}
-        {!doneForTerm && !priceUnknown && creditAed > 0 && (() => {
+        {!doneForTerm && !priceUnknown && !pricesHidden && creditAed > 0 && (() => {
           const appliedAed = Math.min(creditAed, total)
           return (
             <span style={{
@@ -418,7 +424,7 @@ function PlanCard({ plan, pref, vegDayCount, weekType, selected, onSelect, price
         </div>
       )}
 
-      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : lockedReason === 'paused' ? 'Resume to choose' : lockedReason === 'out-of-zone' ? 'Outside delivery zone' : 'Choose plan'}</span>
+      <span style={cta}>{selected ? <><Check size={13} strokeWidth={3} /> Selected</> : pricesHidden && !closed ? 'Coming soon' : priceUnknown ? 'Pick veg days' : doneForTerm ? 'Unavailable' : seasonClosed ? 'Reopens next term' : lockedReason === 'paused' ? 'Resume to choose' : lockedReason === 'out-of-zone' ? 'Outside delivery zone' : 'Choose plan'}</span>
     </button>
   )
 }

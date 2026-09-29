@@ -13,7 +13,7 @@ vi.mock('@/infra/supabase/admin-client', () => ({
   }),
 }))
 
-import { isFeatureEnabled, __resetFeatureFlagCache } from './feature-flags'
+import { isFeatureEnabled, invalidateFeatureFlag, __resetFeatureFlagCache } from './feature-flags'
 
 beforeEach(() => {
   __resetFeatureFlagCache()
@@ -46,5 +46,17 @@ describe('isFeatureEnabled', () => {
     expect(await isFeatureEnabled('chat')).toBe(false)
     expect(await isFeatureEnabled('chat')).toBe(false)
     expect(maybeSingleMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('invalidateFeatureFlag', () => {
+  it('drops the cached value so the next read sees an admin flip at once', async () => {
+    maybeSingleMock.mockResolvedValueOnce({ data: { enabled: true }, error: null })
+    expect(await isFeatureEnabled('mobile_dashboard_prices')).toBe(true)
+    maybeSingleMock.mockResolvedValueOnce({ data: { enabled: false }, error: null })
+    expect(await isFeatureEnabled('mobile_dashboard_prices')).toBe(true) // still cached
+    invalidateFeatureFlag('mobile_dashboard_prices')
+    maybeSingleMock.mockResolvedValueOnce({ data: { enabled: false }, error: null })
+    expect(await isFeatureEnabled('mobile_dashboard_prices')).toBe(false)
   })
 })

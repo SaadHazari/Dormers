@@ -16,7 +16,7 @@ import { createAdminSupabaseClient } from '@/infra/supabase/admin-client'
 const CACHE_TTL_MS = 30_000
 const cache = new Map<string, { enabled: boolean; at: number }>()
 
-export type FeatureFlagKey = 'chat' | 'staff_program' | 'referral_claims'
+export type FeatureFlagKey = 'chat' | 'staff_program' | 'referral_claims' | 'mobile_dashboard_prices'
 
 export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {
   const cached = cache.get(key)
@@ -37,6 +37,13 @@ export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {
   } catch {
     return true // fail open — never let a flag-read failure disable a feature
   }
+}
+
+/** Drop one flag from this instance's cache — admin writes call this so the
+ *  operator's own next read is never stale. Other instances converge within
+ *  CACHE_TTL_MS. */
+export function invalidateFeatureFlag(key: FeatureFlagKey): void {
+  cache.delete(key)
 }
 
 /** Test seam — clear the in-memory cache between tests. */
